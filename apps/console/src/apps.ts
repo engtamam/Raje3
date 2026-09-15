@@ -231,6 +231,20 @@ export const APP_ROWS: AppRow[] = [
     icon: 'users', tone: 'danger',
     // NO featuresAction — see «التقييم»'s own note above; operations owns this row too.
   },
+  // «خدمات متنقلة» — a shop whose service travels TO the customer (mobile car wash, home visit).
+  // STANDALONE (owner's own decision, 2026-09-15) — never needs «المساعد الذكي عبر واتساب» first;
+  // a request can be typed in by the shop's own staff from day one (see MobileRequests.tsx's own
+  // «إضافة طلب» button) and over WhatsApp too, once that app is added later.
+  {
+    id: 'mobile-requests',
+    key: 'feature.mobile_requests',
+    name: 'خدمات متنقلة',
+    what: 'خدمتك تروح لعنده هو — يطلب موعداً، تراجعه وتقرر، ثم تسجّله زيارة حقيقية بعد ما تتم فعلاً.',
+    section: 'mobile-requests',
+    onCustomer: '',
+    icon: 'truck', tone: 'warning',
+    // NO featuresAction — see «التقييم»'s own note above; operations owns this row too.
+  },
 ];
 
 /** The key that locks a nav section, or null when the section belongs to the base. */

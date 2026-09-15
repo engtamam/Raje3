@@ -122,10 +122,10 @@ export const SECTIONS: Section[] = [
   // direct-grant door, so an operator who cannot use it does not see a tab that would 403.
   { service: 'operations', id: 'coupons', path: '/coupons', label: 'تحالف استراتيجي', icon: Handshake,
    requires: ['operations.grant_coupon_direct'], accent: NAV_ACCENTS[10] },
-  // «خدمات متنقلة» — operational, not app-gated (see MobileRequestsRoute.tsx's own note). Gated
-  // on the review queue's own list action, real per ci/check_ui_actions.py (an action id the
-  // catalogue actually declares, never the bare capability string) — every role seeded
-  // operations.mobile_requests_manage (owner/manager/supervisor, roles.seed.json) holds it.
+  // «خدمات متنقلة» — a real sold app now (Phase 4, feature.mobile_requests); the row itself still
+  // gates on the review queue's own list action (real per ci/check_ui_actions.py — an action id
+  // the catalogue actually declares, never the bare capability string), and MobileRequestsRoute's
+  // own AppGate is what draws the locked upgrade card for a shop that has not bought it yet.
   { service: 'operations', id: 'mobile-requests', path: '/mobile-requests', label: 'خدمات متنقلة',
    icon: Truck, requires: ['operations.mobile_requests_list'], accent: NAV_ACCENTS[11] },
   // OPEN WHATEVER APPS THE SHOP HAS BOUGHT, and this comment used to say the opposite — it repeated a sentence

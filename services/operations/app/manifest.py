@@ -412,6 +412,7 @@ def build_manifest(
             {"path": "/api/v1/staff/salla/disconnect", "tier": "user", "method": "POST"},
             # ── mobile/on-the-go service requests — see api/v1/mobile_requests.py's own note.
             {"path": "/api/v1/staff/mobile-requests", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/mobile-requests", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/mobile-requests/{}/risk", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/mobile-requests/{}/assign", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/mobile-requests/{}/accept", "tier": "user", "method": "POST"},

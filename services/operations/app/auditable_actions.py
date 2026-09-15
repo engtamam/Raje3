@@ -853,6 +853,14 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "an owner later asks why real orders stopped granting alliances automatically",
     },
     {
+        "action": "mobile_request.created_manually",
+        "source": "internal",
+        "critical": False,
+        "resource": "mobile_request",
+        "why": "the request did not arrive over WhatsApp — who at the shop typed it in by hand, "
+               "and when, matters exactly as much as who reviewed it afterward",
+    },
+    {
         "action": "mobile_request.assigned",
         "source": "internal",
         "critical": False,

@@ -302,18 +302,6 @@ def build_container(settings: Settings) -> Container:
                             visits=VisitStore(container.datastore),
                             index_name=settings.SEARCH_INDEX_NAME)
 
-    # Mobile/on-the-go service requests — see core/mobile_requests.py's own module docstring.
-    # `operations=container.operations` (already built above) is how `complete()` reaches
-    # `record_visit()` directly, no network hop; `seams=container.seams` (just built, right
-    # above) is what makes «تم» run the SAME after-work every other visit-creation route runs —
-    # reminders' own rating-request/visit-confirmation scheduling, insights, search — rather than
-    # relying solely on the 5-minute reseam sweep to eventually notice.
-    from app.core.mobile_requests import MobileRequestService
-
-    container.mobile_requests = MobileRequestService(
-        store=container.datastore, operations=container.operations,
-        seams=container.seams, working_hours=container.bookings_desk,
-        default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
     # Seats and branches, reported to billing after every change. Null in a local run; the
     # production values file sets the http driver.
     from app.core.seats import build_gauges
@@ -323,6 +311,20 @@ def build_container(settings: Settings) -> Container:
 
     container.connections = build_connections(settings)
     container.billing_plans = build_plans(settings)
+
+    # Mobile/on-the-go service requests — see core/mobile_requests.py's own module docstring.
+    # `operations=container.operations` (already built above) is how `complete()` reaches
+    # `record_visit()` directly, no network hop; `seams=container.seams` (already built) is what
+    # makes «تم» run the SAME after-work every other visit-creation route runs; `plans=container.
+    # billing_plans` (just built, right above) is `is_subscribed()`'s own peer — needed only by
+    # the WhatsApp bot's creation door, see that method's own docstring for why.
+    from app.core.mobile_requests import MobileRequestService
+
+    container.mobile_requests = MobileRequestService(
+        store=container.datastore, operations=container.operations,
+        seams=container.seams, working_hours=container.bookings_desk,
+        plans=container.billing_plans, default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
+
     # Shop-to-shop coupons (base-services v0.23.0) — needs `billing_plans` above, so it is built
     # right after it. See core/coupons.py's own module docstring for the full design.
     from app.core.coupons import CouponService

@@ -189,6 +189,39 @@ RATING_FEATURES: tuple[dict[str, Any], ...] = (
      },
 )
 
+MOBILE_REQUESTS_FEATURES: tuple[dict[str, Any], ...] = (
+    # Standalone by the owner's own decision (2026-09-15): a shop with no other app at all can buy
+    # this and take requests, entered by hand or over WhatsApp once that app is added later —
+    # never a prerequisite either way (see deploy/seed/plans.json's own `plan.standalone` note
+    # beside this row). Same "what does this get me" bar every other FEATURES tuple here holds.
+    {"id": "mobile_requests.reaches_customers_who_never_visit", "title": "يوصلك لعملاء ما كانوا يجونك",
+     "detail": "خدمتك تروح لعنده هو، بدل ما ينتظر يفضّى ويجيك — تكسب عميلاً ما كان ليصير عميلك",
+     "icon": "map-pin", "tone": "violet", "shared_with": [], "owned_by": "",
+     # core/mobile_requests.py's own `maps_link` — a real clickable pin, no مكتب حجوزات منفصل.
+     },
+    {"id": "mobile_requests.you_decide_every_request", "title": "أنت من يقرر كل طلب",
+     "detail": "ما فيه قبول تلقائي — تراجع كل طلب بنفسك وتقرر تقبله أو ترفضه قبل أي التزام",
+     "icon": "check-circle", "tone": "success", "shared_with": [], "owned_by": "",
+     # PENDING حتى مراجعة بشرية — core/mobile_requests.py's own module docstring.
+     },
+    {"id": "mobile_requests.real_working_hours_only", "title": "لا وقت وهمي، فقط أوقات دوامك الحقيقية",
+     "detail": "العميل يختار موعده من أوقات دوامك الفعلية — لا كلام حر يحتاج تخمين",
+     "icon": "clock", "tone": "amber", "shared_with": [], "owned_by": "",
+     # `validate_requested_time()` — نفس جدول ساعات العمل المستخدم بالحجوزات.
+     },
+    {"id": "mobile_requests.assign_who_you_want", "title": "توزّع الطلبات بيدك، بلا نظام يفرض عليك",
+     "detail": "اختياري بالكامل — تسنِد كل طلب لمن تراه مناسباً، وتشوف حمل كل موظف قبل ما تقرر",
+     "icon": "users", "tone": "blue", "shared_with": [], "owned_by": "",
+     # `assign()` — never auto-routed, owner's own words: "طلبات تترص وانتهينا".
+     },
+    {"id": "mobile_requests.completed_visit_counts_like_any_other", "title": "الزيارة المكتملة تُحسب زي أي زيارة",
+     "detail": "لما تعلّم الموعد «تم»، تنسجل زيارة حقيقية — نقاطك وتقاريرك تشتغل عليها تلقائياً",
+     "icon": "check-circle", "tone": "success", "shared_with": ["feature.loyalty", "feature.insights.engine"],
+     "owned_by": "",
+     # `complete()` calls `record_visit()` مباشرة — نفس مسار أي زيارة أخرى.
+     },
+)
+
 COUPONS_FEATURES: tuple[dict[str, Any], ...] = (
     # An earlier pass here listed the automatic-redemption mechanism, the privacy design, and the
     # per-attempt audit trail as "features". Cut (owner's own correction, 2026-09-14): those are
@@ -278,6 +311,15 @@ APPS: tuple[dict[str, Any], ...] = (
      "what": "امنح محلاً آخر مسجّلاً عندنا خصماً حقيقياً على اشتراكه معنا — يُطبَّق تلقائياً عند "
              "تجديده القادم، ويقوّي علاقتك التجارية مع من تتعامل معهم.",
      "features": list(COUPONS_FEATURES)},
+    # MOBILE/ON-THE-GO SERVICE REQUESTS — see core/mobile_requests.py's own module docstring for
+    # the full design. STANDALONE (owner's own decision, 2026-09-15) — a shop with no other app at
+    # all may buy this: requests can be added by the shop's own staff manually (POST /staff/
+    # mobile-requests) from day one, and over WhatsApp too once that app is added later; neither
+    # is ever required first.
+    {"key": "feature.mobile_requests", "name": "خدمات متنقلة", "screen": "mobile-requests",
+     "what": "خدمتك تروح لعنده هو — يطلب موعداً، تراجعه وتقرر، ثم تسجّله زيارة حقيقية بعد ما تتم "
+             "فعلاً.",
+     "features": list(MOBILE_REQUESTS_FEATURES)},
 )
 
 # BOTH ROWS ABOVE WERE MISSING FOR THE SAME REASON, FOUND THE SAME DAY: a plan's

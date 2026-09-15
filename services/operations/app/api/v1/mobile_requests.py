@@ -80,6 +80,44 @@ async def list_mobile_requests(request: Request, status_filter: str = "",
     return {"requests": [r.public() for r in rows]}
 
 
+class ManualCreateIn(BaseModel):
+    """The shop's OWN door to create a request by hand — a customer called in, or the shop wants
+    this standalone (owner's own decision, 2026-09-15: never requiring the WhatsApp bot app
+    first). Same fields the bot's own `/internal/operations/mobile-requests` door takes, plus the
+    one thing only a manager creating it by hand can usefully do at the same moment: assign it."""
+    phone: str = Field(min_length=3, max_length=32)
+    customer_name: str = Field(default="", max_length=128)
+    service_ids: list[str] = Field(min_length=1, max_length=20)
+    requested_time: int = Field(gt=0)
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    operator_id: str = Field(default="", max_length=200)
+
+
+@router.post("", dependencies=[Depends(rate_limit)])
+async def create_mobile_request(request: Request, body: ManualCreateIn,
+                                principal: Principal = Depends(_MANAGE)) -> Any:
+    """Manager-only, same tier as accept/reject — a request the SHOP itself typed in still goes
+    through the identical review queue afterward (still PENDING, still needs its own accept), so
+    a manually-added request is never quietly treated as pre-approved just because a human at the
+    shop, not a customer over WhatsApp, is the one who typed it."""
+    tenant = _tenant(principal)
+    svc = request.app.state.container.mobile_requests
+    try:
+        row = await svc.create(
+            tenant=tenant, phone=body.phone, customer_name=body.customer_name,
+            service_ids=body.service_ids, requested_time=body.requested_time,
+            lat=body.lat, lng=body.lng)
+        if body.operator_id:
+            row = await svc.assign(tenant, row.id, operator_id=body.operator_id)
+    except MobileRequestError as exc:
+        _refuse(exc)
+    await request.app.state.auditor.record(
+        "mobile_request.created_manually", actor=principal.subject, tenant=tenant,
+        resource=f"mobile_request:{row.id}", ip=request.client.host if request.client else "")
+    return row.public()
+
+
 @router.get("/{request_id}/risk", dependencies=[Depends(rate_limit)])
 async def mobile_request_risk(request: Request, request_id: str,
                               principal: Principal = Depends(_MANAGE)) -> Any:

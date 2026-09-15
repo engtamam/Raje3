@@ -650,6 +650,13 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "status_filter", "in": "query", "type": "string", "required": False}],
     },
     {
+        "id": "operations.mobile_request_create", "label": "إضافة طلب خدمة متنقلة يدوياً",
+        "method": "POST", "path": "/api/v1/staff/mobile-requests",
+        "capability": "operations.mobile_requests_manage", "group": "خدمات متنقلة",
+        "help": "عميل اتصل أو حضر — يدخل المدير بياناته بنفسه، بدل انتظار طلب عبر واتساب. يدخل"
+               " قائمة المراجعة العادية، بلا قبول تلقائي.",
+    },
+    {
         "id": "operations.mobile_request_risk", "label": "خطر عدم حضور الطلب", "method": "GET",
         "path": "/api/v1/staff/mobile-requests/{request_id}/risk",
         "capability": "operations.mobile_requests_manage", "group": "خدمات متنقلة",

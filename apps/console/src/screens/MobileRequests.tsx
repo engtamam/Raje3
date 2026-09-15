@@ -16,11 +16,20 @@
  * an accepted request whose own real moment has passed and still carries no «تم»/«لم يتم» —
  * `NEEDS_DECISION_GRACE_MINUTES` below is only a small buffer so a request due two minutes ago is
  * not nagged before the shop even had a chance to act.
+ *
+ * «إضافة طلب» (Phase 4, 2026-09-15) IS WHAT MAKES THIS APP STANDALONE — the owner's own decision:
+ * a shop with no WhatsApp bot at all can still take a request (a customer called in, or is
+ * standing at the counter asking about a mobile visit) by having staff type it in through the
+ * same modal, no different in shape from what the bot itself would have sent — same real service
+ * catalogue, same real working-hours-validated time, same pasted-Google-Maps-link location
+ * (`../googleMapsLink.ts`, already built for a branch's own address — reused here verbatim, not
+ * a second parser), and the SAME review queue afterward: a manually-typed request still starts
+ * PENDING, never pre-approved just because a human at the shop typed it.
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
   Truck, MapPin, Clock, AlertTriangle, CheckCircle2, XCircle, Search, CalendarCheck2,
-  MessageCircle, Copy, Check,
+  MessageCircle, Copy, Check, Plus,
 } from 'lucide-react';
 import { PageHeader } from '../rj-ui/PageHeader';
 import { KpiCard } from '../rj-ui/KpiCard';
@@ -28,10 +37,13 @@ import { Segmented } from '../rj-ui/Segmented';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { EmptyState } from '../rj-ui/EmptyState';
-import { Input, Select } from '../rj-ui/Field';
+import { Modal } from '../rj-ui/Modal';
+import { Field, Input, Select } from '../rj-ui/Field';
+import { FilterMenu } from '../rj-ui/FilterMenu';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { useOperatorI18n, tf } from '../operator-i18n';
+import { parseGoogleMapsLink, isShortGoogleMapsLink } from '../googleMapsLink';
 import './mobile-requests-i18n';
 
 interface MobileServiceRequest {
@@ -123,6 +135,7 @@ export function MobileRequestsScreen({ session, catalog }: { session: Session; c
   const { t, locale } = useOperatorI18n();
 
   const listAction = action(catalog, 'operations.mobile_requests_list');
+  const createAction = action(catalog, 'operations.mobile_request_create');
   const acceptAction = action(catalog, 'operations.mobile_request_accept');
   const rejectAction = action(catalog, 'operations.mobile_request_reject');
   const completeAction = action(catalog, 'operations.mobile_request_complete');
@@ -140,6 +153,7 @@ export function MobileRequestsScreen({ session, catalog }: { session: Session; c
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  const [addOpen, setAddOpen] = useState(false);
 
   // TICKS THE "منذ كذا"/"تحتاج قرار" READ FORWARD without a refetch — a card that was fine when
   // the list loaded must still flip into the needs-decision bucket while the owner is looking at
@@ -292,9 +306,23 @@ export function MobileRequestsScreen({ session, catalog }: { session: Session; c
     } finally { setBusyId(null); }
   }
 
+  async function onCreate(payload: {
+    phone: string; customer_name: string; service_ids: string[]; requested_time: number;
+    lat: number; lng: number; operator_id: string;
+  }) {
+    if (!createAction) throw new Error('no create action');
+    await call(session, createAction, payload);
+    load();
+  }
+
   return (
     <div className="flex flex-col gap-4 p-4">
-      <PageHeader icon={Truck} title={t('mobileRequests.title')} />
+      <PageHeader icon={Truck} title={t('mobileRequests.title')}
+                 action={createAction ? (
+                   <Button size="sm" onClick={() => setAddOpen(true)} data-testid="mobile-request-add-open">
+                     <Plus size={15} /> {t('mobileRequests.add.open')}
+                   </Button>
+                 ) : undefined} />
       <p className="-mt-2 text-sm text-text-secondary">{t('mobileRequests.subtitle')}</p>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -366,7 +394,138 @@ export function MobileRequestsScreen({ session, catalog }: { session: Session; c
           ))}
         </div>
       )}
+
+      {addOpen ? (
+        <AddRequestModal
+          onClose={() => setAddOpen(false)}
+          services={Array.from(services.entries()).map(([id, name]) => ({ id, name }))}
+          operators={operators} assignedCounts={assignedCounts}
+          t={t} onSubmit={onCreate}
+        />
+      ) : null}
     </div>
+  );
+}
+
+// A REAL RIYADH-LOCAL INSTANT, REGARDLESS OF THE BROWSER'S OWN TIMEZONE — the fixed +03:00
+// offset services/operations/app/core/riyadh.py already uses (Saudi Arabia observes no DST, so a
+// literal offset is the whole truth, never an approximation). `day`/`time` are the raw
+// <input type="date">/<input type="time"> values (YYYY-MM-DD / HH:MM).
+function riyadhEpoch(day: string, time: string): number | null {
+  if (!day || !time) return null;
+  const ms = new Date(`${day}T${time}:00+03:00`).getTime();
+  return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
+}
+
+function AddRequestModal({
+  onClose, services, operators, assignedCounts, t, onSubmit,
+}: {
+  onClose: () => void;
+  services: ServiceRow[]; operators: StaffMember[]; assignedCounts: Map<string, number>;
+  t: (k: string) => string;
+  onSubmit: (payload: {
+    phone: string; customer_name: string; service_ids: string[]; requested_time: number;
+    lat: number; lng: number; operator_id: string;
+  }) => Promise<void>;
+}) {
+  const [phone, setPhone] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [serviceIds, setServiceIds] = useState<string[]>([]);
+  const [day, setDay] = useState('');
+  const [time, setTime] = useState('');
+  const [mapsLink, setMapsLink] = useState('');
+  const [operatorId, setOperatorId] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const location = mapsLink.trim() ? parseGoogleMapsLink(mapsLink) : null;
+  const mapsError = mapsLink.trim() && !location
+    ? (isShortGoogleMapsLink(mapsLink) ? t('mobileRequests.add.mapsLinkShort') : t('mobileRequests.add.mapsLinkInvalid'))
+    : '';
+  const requestedTime = riyadhEpoch(day, time);
+
+  const canSubmit = !!phone.trim() && serviceIds.length > 0 && !!requestedTime && !!location && !submitting;
+
+  async function submit() {
+    if (!canSubmit || !location || !requestedTime) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await onSubmit({
+        phone: phone.trim(), customer_name: customerName.trim(), service_ids: serviceIds,
+        requested_time: requestedTime, lat: location.lat, lng: location.lng,
+        operator_id: operatorId,
+      });
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('mobileRequests.add.error'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={t('mobileRequests.add.title')}
+          footer={(
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={onClose}>{t('mobileRequests.add.cancel')}</Button>
+              <Button onClick={submit} disabled={!canSubmit} data-testid="mobile-request-add-submit">
+                {submitting ? t('mobileRequests.add.submitting') : t('mobileRequests.add.submit')}
+              </Button>
+            </div>
+          )}>
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label={t('mobileRequests.add.phoneLabel')} required htmlFor="mreq-add-phone">
+            <Input id="mreq-add-phone" type="tel" dir="ltr" value={phone}
+                  onChange={(e) => setPhone(e.target.value)} placeholder="05xxxxxxxx" />
+          </Field>
+          <Field label={t('mobileRequests.add.nameLabel')} htmlFor="mreq-add-name">
+            <Input id="mreq-add-name" value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)} />
+          </Field>
+        </div>
+
+        <Field label={t('mobileRequests.add.servicesLabel')} required>
+          <FilterMenu label={t('mobileRequests.add.servicesLabel')}
+                     options={services.map((s) => ({ value: s.id, label: s.name }))}
+                     selected={serviceIds} onChange={setServiceIds} />
+        </Field>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label={t('mobileRequests.add.dayLabel')} required htmlFor="mreq-add-day">
+            <Input id="mreq-add-day" type="date" dir="ltr" value={day}
+                  onChange={(e) => setDay(e.target.value)} />
+          </Field>
+          <Field label={t('mobileRequests.add.timeLabel')} required htmlFor="mreq-add-time">
+            <Input id="mreq-add-time" type="time" dir="ltr" value={time}
+                  onChange={(e) => setTime(e.target.value)} />
+          </Field>
+        </div>
+
+        <Field label={t('mobileRequests.add.mapsLinkLabel')} required htmlFor="mreq-add-maps"
+              error={mapsError || undefined} hint={!mapsError ? t('mobileRequests.add.mapsLinkHint') : undefined}>
+          <Input id="mreq-add-maps" dir="ltr" value={mapsLink}
+                onChange={(e) => setMapsLink(e.target.value)}
+                placeholder="https://maps.google.com/..." />
+        </Field>
+
+        {operators.length > 0 ? (
+          <Field label={t('mobileRequests.add.assignLabel')} htmlFor="mreq-add-assign">
+            <Select id="mreq-add-assign" value={operatorId} onChange={(e) => setOperatorId(e.target.value)}>
+              <option value="">{t('mobileRequests.card.assignUnassigned')}</option>
+              {operators.map((op) => (
+                <option key={op.id} value={op.id}>
+                  {op.name}{assignedCounts.has(op.id) ? ` (${assignedCounts.get(op.id)})` : ''}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : null}
+
+        {error ? <p className="text-sm font-semibold text-danger" role="alert">{error}</p> : null}
+      </div>
+    </Modal>
   );
 }
 

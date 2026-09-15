@@ -57,9 +57,42 @@ def env_guard():
     get_settings.cache_clear()
 
 
+class _FakePlans:
+    """Same shape as test_till_coupons.py's own — SUBSCRIBED BY DEFAULT here, unlike that file:
+    this suite's own tests are about the review queue, not the entitlement gate, so every
+    pre-existing test must see the bot's door behave exactly as it did before that gate existed.
+    The handful of tests actually ABOUT the gate override `plan_for_key`/`subs` explicitly — see
+    the «entitlement» section below."""
+    driver = "fake"
+
+    def __init__(self) -> None:
+        self.plan_for_key: dict[str, str] = {"feature.mobile_requests": "plan_mobile_requests"}
+        self.subs: dict[str, list[dict]] = {
+            TENANT: [{"plan": "plan_mobile_requests", "status": "active"}]}
+
+    async def plan_id_for_key(self, key: str) -> str:
+        return self.plan_for_key.get(key, "")
+
+    async def subscriptions(self, tenant: str):
+        return self.subs.get(tenant)
+
+
+def _wire_fake_billing(client: TestClient) -> _FakePlans:
+    from app.core.mobile_requests import MobileRequestService
+
+    fake = _FakePlans()
+    old = client.app.state.container.mobile_requests
+    client.app.state.container.mobile_requests = MobileRequestService(
+        store=old._s, operations=old._ops, seams=old._seams, working_hours=old._working_hours,
+        plans=fake, default_cc="966")
+    return fake
+
+
 @pytest.fixture
 def client(env_guard) -> TestClient:
-    return _make_app()
+    c = _make_app()
+    _wire_fake_billing(c)
+    return c
 
 
 def _seed_service(client: TestClient, service_id: str = "svc_wash") -> str:
@@ -124,7 +157,89 @@ def test_internal_create_reports_a_refusal_as_200_not_a_crash(client):
     assert r.status_code == 422   # Pydantic's own min_length=1 on service_ids
 
 
-# ── the shop's own review queue ─────────────────────────────────────────────────────────────
+# ── the WhatsApp door's own entitlement gate — never asked at the staff console routes ─────────
+def test_internal_create_refuses_a_shop_that_never_bought_the_app(client):
+    _seed_service(client)
+    fake = client.app.state.container.mobile_requests._plans
+    fake.subs[TENANT] = []   # a real read, genuinely holds nothing
+    r = client.post("/internal/operations/mobile-requests",
+                    headers={"X-Internal-Token": INTERNAL_TOKEN},
+                    json={"tenant": TENANT, "phone": PHONE, "service_ids": ["svc_wash"],
+                         "requested_time": 1_800_000_000, "lat": 24.7, "lng": 46.6})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["created"] is False
+    assert "خدمات متنقلة" in body["reason"]
+
+
+def test_internal_create_falls_through_when_billing_is_unreachable(client):
+    """`subscriptions()` returning None (genuinely unreachable) must not refuse — the SAME
+    core/licence.py doctrine coupons' own till-door check already follows."""
+    _seed_service(client)
+    fake = client.app.state.container.mobile_requests._plans
+    fake.subs = {}   # .get() falls back to None below, not []
+    r = client.post("/internal/operations/mobile-requests",
+                    headers={"X-Internal-Token": INTERNAL_TOKEN},
+                    json={"tenant": TENANT, "phone": PHONE, "service_ids": ["svc_wash"],
+                         "requested_time": 1_800_000_000, "lat": 24.7, "lng": 46.6})
+    assert r.status_code == 200
+    assert r.json()["created"] is True
+
+
+# ── the shop's own MANUAL creation door — never needs the WhatsApp bot app first ────────────
+def test_manual_create_requires_the_manage_capability(client):
+    _seed_service(client)
+    r = client.post("/api/v1/staff/mobile-requests",
+                    headers=_auth("operations.mobile_requests_execute"),
+                    json={"phone": PHONE, "service_ids": ["svc_wash"],
+                         "requested_time": 1_800_000_000, "lat": 24.7, "lng": 46.6})
+    assert r.status_code == 403
+
+
+def test_manual_create_makes_a_real_pending_request(client):
+    sid = _seed_service(client)
+    r = client.post("/api/v1/staff/mobile-requests",
+                    headers=_auth("operations.mobile_requests_manage"),
+                    json={"phone": PHONE, "customer_name": "أحمد", "service_ids": [sid],
+                         "requested_time": 1_800_000_000, "lat": 24.7, "lng": 46.6})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "pending"   # STILL reviewed like any other — never pre-approved
+    assert body["assigned_to"] == ""
+
+
+def test_manual_create_can_assign_it_the_same_moment(client):
+    sid = _seed_service(client)
+    r = client.post("/api/v1/staff/mobile-requests",
+                    headers=_auth("operations.mobile_requests_manage"),
+                    json={"phone": PHONE, "service_ids": [sid], "requested_time": 1_800_000_000,
+                         "lat": 24.7, "lng": 46.6, "operator_id": "op_1"})
+    assert r.status_code == 200
+    assert r.json()["assigned_to"] == "op_1"
+
+
+def test_manual_create_reports_a_real_refusal(client):
+    """`phone` clears Pydantic's own min_length but is not a real number — the engine's own
+    MobileRequestError, not a 500."""
+    _seed_service(client)
+    r = client.post("/api/v1/staff/mobile-requests",
+                    headers=_auth("operations.mobile_requests_manage"),
+                    json={"phone": "abc", "service_ids": ["svc_wash"],
+                         "requested_time": 1_800_000_000, "lat": 24.7, "lng": 46.6})
+    assert r.status_code == 400
+
+
+def test_manual_created_request_reaches_the_pending_list(client):
+    sid = _seed_service(client)
+    client.post("/api/v1/staff/mobile-requests",
+               headers=_auth("operations.mobile_requests_manage"),
+               json={"phone": PHONE, "service_ids": [sid], "requested_time": 1_800_000_000,
+                    "lat": 24.7, "lng": 46.6})
+    r = client.get("/api/v1/staff/mobile-requests?status_filter=pending",
+                   headers=_auth("operations.mobile_requests_manage"))
+    assert len(r.json()["requests"]) == 1
+
+
 def test_list_requires_the_capability(client):
     r = client.get("/api/v1/staff/mobile-requests", headers=_auth("operations.record"))
     assert r.status_code == 403

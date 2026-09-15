@@ -1280,6 +1280,17 @@ async def internal_create_mobile_request(request: Request, body: MobileServiceRe
     token — there is nothing left for this route itself to re-verify.
     """
     c = request.app.state.container
+
+    # THE ENTITLEMENT CHECK — asked ONLY here, never at the staff console routes (see
+    # MobileRequestService.is_subscribed's own docstring for why this is the one door that needs
+    # it: this shared internal token proves only "this really is the bot", never which apps the
+    # tenant it names actually bought). A DEFINITE no refuses; billing unreachable falls through —
+    # same core/licence.py doctrine core/coupons.py's own till-door check already follows.
+    subscribed = await c.mobile_requests.is_subscribed(body.tenant)
+    if subscribed is False:
+        return {"created": False,
+               "reason": "اشتراك هذا المحل لا يشمل تطبيق «خدمات متنقلة» — أضفه من «الباقات» ليعمل هذا المسار."}
+
     try:
         row = await c.mobile_requests.create(
             tenant=body.tenant, phone=body.phone, customer_name=body.customer_name,

@@ -38,6 +38,8 @@ let rejectCalls: Record<string, unknown>[] = [];
 let completeCalls: Record<string, unknown>[] = [];
 let noShowCalls: Record<string, unknown>[] = [];
 let assignCalls: Record<string, unknown>[] = [];
+let createCalls: Record<string, unknown>[] = [];
+let createShouldFail = false;
 let rows = [PENDING, ACCEPTED_RECENT, ACCEPTED_OVERDUE, COMPLETED];
 
 vi.mock('../catalog', async (importOriginal) => {
@@ -62,6 +64,11 @@ vi.mock('../catalog', async (importOriginal) => {
       if (a.id === 'operations.mobile_request_complete') { completeCalls.push(params ?? {}); return { ...ACCEPTED_RECENT, status: 'completed' }; }
       if (a.id === 'operations.mobile_request_no_show') { noShowCalls.push(params ?? {}); return { ...ACCEPTED_RECENT, status: 'no_show' }; }
       if (a.id === 'operations.mobile_request_assign') { assignCalls.push(params ?? {}); return { ...PENDING, assigned_to: params?.operator_id }; }
+      if (a.id === 'operations.mobile_request_create') {
+        if (createShouldFail) throw new Error('اختر خدمة واحدة على الأقل.');
+        createCalls.push(params ?? {});
+        return { ...PENDING, id: 'mreq_new' };
+      }
       return {};
     },
   };
@@ -76,6 +83,7 @@ function render(ui: ReactElement) {
 afterEach(() => {
   cleanup();
   acceptCalls = []; rejectCalls = []; completeCalls = []; noShowCalls = []; assignCalls = [];
+  createCalls = []; createShouldFail = false;
   rows = [PENDING, ACCEPTED_RECENT, ACCEPTED_OVERDUE, COMPLETED];
   vi.restoreAllMocks();
 });
@@ -204,5 +212,101 @@ describe('«خدمات متنقلة»', () => {
     render(<MobileRequestsScreen session={SESSION} catalog={catalog} />);
     await waitFor(() => expect(screen.getAllByText('عبدالله الشمري').length).toBeGreaterThan(0));
     expect(screen.queryByTestId('mobile-request-assign-mreq_4')).toBeNull();
+  });
+
+  describe('«إضافة طلب» — standalone, no WhatsApp bot required', () => {
+    async function openModal() {
+      render(<MobileRequestsScreen session={SESSION} catalog={catalog} />);
+      fireEvent.click(await screen.findByTestId('mobile-request-add-open'));
+      await screen.findByTestId('mobile-request-add-submit');
+    }
+
+    it('the submit button stays disabled until every required field is real', async () => {
+      await openModal();
+      const submit = screen.getByTestId('mobile-request-add-submit') as HTMLButtonElement;
+      expect(submit.disabled).toBe(true);
+
+      fireEvent.change(screen.getByLabelText(/^رقم الجوال/), { target: { value: '0501112222' } });
+      fireEvent.click(screen.getByRole('button', { name: 'الخدمات' }));
+      fireEvent.click(screen.getByRole('option', { name: 'غسيل خارجي' }));
+      fireEvent.change(screen.getByLabelText(/التاريخ/), { target: { value: '2026-09-20' } });
+      fireEvent.change(screen.getByLabelText(/الوقت/), { target: { value: '12:00' } });
+      expect(submit.disabled).toBe(true);   // still no real location
+
+      fireEvent.change(screen.getByLabelText(/رابط الموقع/),
+        { target: { value: 'https://maps.google.com/?q=24.7136,46.6753' } });
+      await waitFor(() => expect(submit.disabled).toBe(false));
+    });
+
+    it('a shortened maps link is refused with its own real message, not a generic one', async () => {
+      await openModal();
+      fireEvent.change(screen.getByLabelText(/رابط الموقع/),
+        { target: { value: 'https://maps.app.goo.gl/xyz' } });
+      await waitFor(() => expect(
+        screen.getAllByText('الصق الرابط الكامل من خرائط جوجل، لا الرابط المختصر').length,
+      ).toBeGreaterThan(0));
+    });
+
+    it('submitting a complete form calls the real create action with a real Riyadh-local time', async () => {
+      await openModal();
+      fireEvent.change(screen.getByLabelText(/^رقم الجوال/), { target: { value: '0501112222' } });
+      fireEvent.change(screen.getByLabelText('اسم العميل'), { target: { value: 'سلمى' } });
+      fireEvent.click(screen.getByRole('button', { name: 'الخدمات' }));
+      fireEvent.click(screen.getByRole('option', { name: 'غسيل خارجي' }));
+      fireEvent.change(screen.getByLabelText(/التاريخ/), { target: { value: '2026-09-20' } });
+      fireEvent.change(screen.getByLabelText(/الوقت/), { target: { value: '12:00' } });
+      fireEvent.change(screen.getByLabelText(/رابط الموقع/),
+        { target: { value: 'https://maps.google.com/?q=24.7136,46.6753' } });
+
+      const submit = await screen.findByTestId('mobile-request-add-submit');
+      await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
+      fireEvent.click(submit);
+
+      await waitFor(() => expect(createCalls.length).toBe(1));
+      const call = createCalls[0];
+      expect(call.phone).toBe('0501112222');
+      expect(call.customer_name).toBe('سلمى');
+      expect(call.service_ids).toEqual(['svc_wash']);
+      expect(call.lat).toBe(24.7136);
+      expect(call.lng).toBe(46.6753);
+      // 2026-09-20T12:00:00+03:00
+      expect(call.requested_time).toBe(1789894800);
+    });
+
+    it('picking who it goes to in the same modal sends operator_id along', async () => {
+      await openModal();
+      fireEvent.change(screen.getByLabelText(/^رقم الجوال/), { target: { value: '0501112222' } });
+      fireEvent.click(screen.getByRole('button', { name: 'الخدمات' }));
+      fireEvent.click(screen.getByRole('option', { name: 'غسيل خارجي' }));
+      fireEvent.change(screen.getByLabelText(/التاريخ/), { target: { value: '2026-09-20' } });
+      fireEvent.change(screen.getByLabelText(/الوقت/), { target: { value: '12:00' } });
+      fireEvent.change(screen.getByLabelText(/رابط الموقع/),
+        { target: { value: 'https://maps.google.com/?q=24.7136,46.6753' } });
+      fireEvent.change(await screen.findByLabelText('إسناد (اختياري)'), { target: { value: 'op_1' } });
+
+      const submit = screen.getByTestId('mobile-request-add-submit') as HTMLButtonElement;
+      await waitFor(() => expect(submit.disabled).toBe(false));
+      fireEvent.click(submit);
+      await waitFor(() => expect(createCalls[0]?.operator_id).toBe('op_1'));
+    });
+
+    it('a real refusal from the backend is shown, and the modal stays open', async () => {
+      createShouldFail = true;
+      await openModal();
+      fireEvent.change(screen.getByLabelText(/^رقم الجوال/), { target: { value: '0501112222' } });
+      fireEvent.click(screen.getByRole('button', { name: 'الخدمات' }));
+      fireEvent.click(screen.getByRole('option', { name: 'غسيل خارجي' }));
+      fireEvent.change(screen.getByLabelText(/التاريخ/), { target: { value: '2026-09-20' } });
+      fireEvent.change(screen.getByLabelText(/الوقت/), { target: { value: '12:00' } });
+      fireEvent.change(screen.getByLabelText(/رابط الموقع/),
+        { target: { value: 'https://maps.google.com/?q=24.7136,46.6753' } });
+
+      const submit = screen.getByTestId('mobile-request-add-submit') as HTMLButtonElement;
+      await waitFor(() => expect(submit.disabled).toBe(false));
+      fireEvent.click(submit);
+
+      await screen.findByText('اختر خدمة واحدة على الأقل.');
+      expect(screen.getByTestId('mobile-request-add-submit')).toBeTruthy();   // still open
+    });
   });
 });

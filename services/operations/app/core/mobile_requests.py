@@ -1,6 +1,15 @@
 """Mobile/on-the-go service requests — a shop whose SERVICE travels to the customer (a mobile car
-wash, a home visit, a mobile detailer) rather than the customer coming in, collected entirely
-through the WhatsApp bot and reviewed by the shop itself before anything is promised.
+wash, a home visit, a mobile detailer) rather than the customer coming in, reviewed by the shop
+itself before anything is promised. SOLD STANDALONE (owner's own decision, 2026-09-15) — a request
+can arrive over the WhatsApp bot's own door OR be typed in by the shop's own staff by hand
+(api/v1/mobile_requests.py's own `POST` route), and neither is ever a prerequisite for the other.
+
+`MOBILE_REQUESTS_KEY`/`is_subscribed()` below are this app's own entitlement check — asked ONLY at
+the ONE non-human door (the WhatsApp bot's `/internal/operations/mobile-requests`, api/internal.py),
+the same "a credential proves only that a caller IS the bot, never which apps the shop it claims to
+speak for actually bought" reasoning `core/coupons.py::granter_is_subscribed`'s own docstring gives
+for the till's door — never at the staff console routes below, whose capability IS the entitlement
+check there (same posture every other bundled app's console screen already takes).
 
 DELIBERATELY NOT `bookings`'s own engine. `bookings` auto-confirms on creation and REQUIRES a
 named staff member (services/bookings/app/core/operations.py's own `create()` refuses without
@@ -45,6 +54,7 @@ from app.core.riyadh import RIYADH
 from app.core.signup import canonical_phone
 
 MOBILE_REQUESTS = "mobile_service_requests"
+MOBILE_REQUESTS_KEY = "feature.mobile_requests"
 
 PENDING = "pending"
 ACCEPTED = "accepted"
@@ -161,11 +171,14 @@ class MobileRequestService:
     visit-creation ROUTE already shares — see this module's own `complete()`)."""
 
     def __init__(self, *, store: Any, operations: Any, default_cc: str, seams: Any = None,
-                working_hours: Any = None,
+                working_hours: Any = None, plans: Any = None,
                 risk_window: int = 20, risk_threshold_percent: int = 40) -> None:
         self._s = store
         self._ops = operations
         self._cc = default_cc
+        # `container.billing_plans` — see `is_subscribed()`'s own docstring for what this is asked
+        # for and why only there. None-safe like every other optional peer here.
+        self._plans = plans
         # `BookingsDesk` (or any peer with the same `async working_hours(tenant) -> dict | None`
         # shape) — see `validate_requested_time()`'s own fail-open note. None-safe: a service
         # built without one (every pre-existing test constructor) simply never checks the working-
@@ -355,3 +368,26 @@ class MobileRequestService:
                 and (no_shows * 100) >= self._risk_threshold_percent * considered)
         return NoShowRisk(considered=considered, no_shows=no_shows, risky=risky,
                           threshold_percent=self._risk_threshold_percent)
+
+    # ── entitlement — asked ONLY at the WhatsApp bot's own door, see module docstring ──────────
+    async def is_subscribed(self, tenant: str) -> bool | None:
+        """Does THIS tenant hold `feature.mobile_requests` — asked by the bot's own creation door
+        only (api/internal.py), same reasoning `core/coupons.py::granter_is_subscribed` documents
+        at length: a shared internal-service credential proves only "this really is the bot",
+        never which apps the tenant it names actually bought — so a request arriving over
+        WhatsApp for a shop that let this app lapse must be refused there, not silently accepted.
+
+        THREE ANSWERS, same as `granter_is_subscribed`: `True`/`False` on a real read, `None` when
+        billing could not be asked at all — the caller's own job to treat those differently (a
+        definite `False` refuses; `None` falls through, same `core/licence.py` doctrine every
+        other billing read in this service already follows)."""
+        if self._plans is None:
+            return None
+        plan_id = await self._plans.plan_id_for_key(MOBILE_REQUESTS_KEY)
+        if not plan_id:
+            return False
+        subs = await self._plans.subscriptions(tenant)
+        if subs is None:
+            return None
+        return any(str(s.get("plan") or "") == plan_id
+                  and str(s.get("status") or "") in ("active", "trialing") for s in subs)
