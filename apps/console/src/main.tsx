@@ -13,6 +13,7 @@ import { Points } from './screens/PointsRoute';
 import { Rating } from './screens/RatingRoute';
 import { Coupons } from './screens/CouponsRoute';
 import { Team } from './screens/TeamRoute';
+import { MobileRequests } from './screens/MobileRequestsRoute';
 import { Bookings } from './screens/BookingsRoute';
 import { ShopScreen } from './screens/Shop';
 import { Store } from './screens/StoreRoute';
@@ -64,6 +65,7 @@ const shopRouter = createBrowserRouter([
       { path: 'points', element: <Points /> },
       { path: 'rating', element: <Rating /> },
       { path: 'coupons', element: <Coupons /> },
+      { path: 'mobile-requests', element: <MobileRequests /> },
       { path: 'team', element: <Team /> },
       // «محلّي»'s OWN route (nav.ts::SHOP_PATH's own note explains why it is no longer also the
       // index route) — the page «اليوم» and «محلّي» became. Bookmarks, links in messages and the

@@ -22,7 +22,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   CalendarClock, ClipboardPlus, Gift, Handshake, LifeBuoy, MessageSquare, Star, Store, TrendingUp,
-  Users, Wrench,
+  Truck, Users, Wrench,
 } from 'lucide-react';
 import { NAV_ACCENTS } from '@base-ui/theme';
 import type { Catalog } from './catalog';
@@ -122,6 +122,12 @@ export const SECTIONS: Section[] = [
   // direct-grant door, so an operator who cannot use it does not see a tab that would 403.
   { service: 'operations', id: 'coupons', path: '/coupons', label: 'تحالف استراتيجي', icon: Handshake,
    requires: ['operations.grant_coupon_direct'], accent: NAV_ACCENTS[10] },
+  // «خدمات متنقلة» — operational, not app-gated (see MobileRequestsRoute.tsx's own note). Gated
+  // on the review queue's own list action, real per ci/check_ui_actions.py (an action id the
+  // catalogue actually declares, never the bare capability string) — every role seeded
+  // operations.mobile_requests_manage (owner/manager/supervisor, roles.seed.json) holds it.
+  { service: 'operations', id: 'mobile-requests', path: '/mobile-requests', label: 'خدمات متنقلة',
+   icon: Truck, requires: ['operations.mobile_requests_list'], accent: NAV_ACCENTS[11] },
   // OPEN WHATEVER APPS THE SHOP HAS BOUGHT, and this comment used to say the opposite — it repeated a sentence
   // the spec has since corrected. The indicators are FREE (16.1): they are the demand engine, not
   // a feature to withhold. What `feature.insights.engine` locks is three of the twenty — the

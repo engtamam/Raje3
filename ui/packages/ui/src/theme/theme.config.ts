@@ -290,7 +290,8 @@ export const NAV_ACCENTS = [
   '#099268', // 7 — teal
   '#495057', // 8 — slate
   '#C2255C', // 9 — rose
-  '#7048E8', // 10 — violet (كوبونات)
+  '#7048E8', // 10 — violet (تحالف استراتيجي)
+  '#D9480F', // 11 — burnt orange (خدمات متنقلة)
 ] as const;
 
 export const themeConfig = {
