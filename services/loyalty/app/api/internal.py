@@ -47,6 +47,29 @@ async def require_internal_token(
         )
 
 
+async def require_push_signature(
+    request: Request,
+    x_job_signature: str | None = Header(default=None, alias="X-Job-Signature"),
+    x_job_signature_timestamp: str | None = Header(default=None,
+                                                   alias="X-Job-Signature-Timestamp"),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """A door driven ONLY by job-service's own push dispatch (base-services v0.24.0) — see
+    app/core/push_verify.py's own docstring for the scheme. `require_internal_token` alone would
+    accept ANY caller that knows the shared fleet secret; this additionally proves the body is
+    exactly what job-service sent, at the moment it sent it, never a replay."""
+    import time as _time
+
+    from app.core.push_verify import verify as verify_push
+
+    body = await request.body()
+    secret = settings.PUSH_SIGNING_SECRET or settings.INTERNAL_SERVICE_TOKEN
+    ok = verify_push(secret, x_job_signature_timestamp or "", body, x_job_signature or "",
+                     now=_time.time(), max_skew_seconds=settings.PUSH_SIGNATURE_MAX_SKEW_SECONDS)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="UNAUTHORIZED")
+
+
 @router.get("/health", dependencies=[Depends(require_internal_token)])
 async def internal_health(settings: Settings = Depends(get_settings)) -> dict[str, str]:
     return {"status": "ok", "service": settings.SERVICE_NAME}
@@ -199,9 +222,12 @@ async def _tenants_with_balances(c, limit: int = 2000) -> list[str]:
     return list(dict.fromkeys(t for t in tenants if t))
 
 
-@router.post("/loyalty/recover", dependencies=[Depends(require_internal_token)])
+@router.post("/loyalty/recover",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def recover(request: Request, body: TickIn | None = None) -> dict:
-    """Award points for visits the event never brought (the at-most-once safety net).
+    """Award points for visits the event never brought (the at-most-once safety net). Driven by
+    job-service push-dispatch (migrated 2026-09-16, following whatsapp-assistant's own tick —
+    see deploy/hooks/job-schedule.sh's own header).
 
     THE BUS IS THE FAST PATH AND WAS THE ONLY PATH. A pod restarting through one delivery never
     hears about that visit again, and a customer's points simply never arrive — permanently, with a
@@ -243,9 +269,11 @@ async def recover(request: Request, body: TickIn | None = None) -> dict:
             "unreadable": unreadable}
 
 
-@router.post("/loyalty/replay-free-visits", dependencies=[Depends(require_internal_token)])
+@router.post("/loyalty/replay-free-visits",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def replay_free_visits(request: Request, body: TickIn | None = None) -> dict:
-    """Record the visits that free rewards owed and never got (ز-9).
+    """Record the visits that free rewards owed and never got (ز-9). Driven by job-service
+    push-dispatch (migrated 2026-09-16, same as recover above).
 
     A `service` reward is two things at once: points spent, and a visit recorded so the reminder
     cycle restarts from today. The second one ran inside a try/except that wrote telemetry and
@@ -288,14 +316,20 @@ async def replay_free_visits(request: Request, body: TickIn | None = None) -> di
     return {"ok": True, "owed": len(owed), "recorded": recorded, "failed": failed}
 
 
-@router.post("/loyalty/tick", dependencies=[Depends(require_internal_token)])
+@router.post("/loyalty/tick",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def tick(request: Request, body: TickIn | None = None) -> dict:
     """Expire what is due, and warn what is about to expire (spec §9.7).
 
-    WITHOUT ITS CRON THIS SERVICE IS INERT AND LOOKS PERFECTLY HEALTHY. Balances accumulate, every
-    probe passes, and nothing ever expires — which is the shape of playbook trap §4.1, and the
-    reason this endpoint is declared in the manifest alongside its schedule rather than merely
-    existing.
+    DRIVEN BY job-service's PUSH DISPATCH, NOT A K8S CronJob (migrated 2026-09-16, following
+    whatsapp-assistant's own tick — see deploy/hooks/job-schedule.sh's own header) —
+    `require_push_signature` on top of the usual internal token means this only ever fires on a
+    genuine, unreplayed push job-service itself sent.
+
+    WITHOUT A LIVE SCHEDULE + REGISTERED PUSH TARGET THIS SERVICE IS INERT AND LOOKS PERFECTLY
+    HEALTHY. Balances accumulate, every probe passes, and nothing ever expires — which is the
+    shape of playbook trap §4.1, and the reason this endpoint is declared in the manifest
+    alongside its schedule rather than merely existing.
 
     EXPIRY IS COMMITTED FIRST, THE WARNINGS ARE SENT AFTER. A send failure must never leave a
     balance half-expired; and a warning that fails is retried tomorrow, because `mark_warned` is

@@ -62,8 +62,25 @@ class _Recovery:
         return {"read": 0, "awarded": 0, "configured": True}
 
 
+def _push_headers(body: bytes) -> dict[str, str]:
+    """A genuine job-service push signature over `body`, verifiable against
+    INTERNAL_SERVICE_TOKEN — needed on top of X-Internal-Token since 2026-09-16's push-dispatch
+    migration."""
+    import hashlib
+    import hmac
+    import time
+
+    from app.core.push_verify import SIGNATURE_HEADER, TIMESTAMP_HEADER
+
+    ts = int(time.time())
+    signed = f"{ts}.".encode("utf-8") + body
+    sig = hmac.new(("t" * 40).encode("utf-8"), signed, hashlib.sha256).hexdigest()
+    return {SIGNATURE_HEADER: sig, TIMESTAMP_HEADER: str(ts)}
+
+
 def _recover(client) -> dict:
-    r = client.post("/internal/loyalty/recover", headers={"X-Internal-Token": "t" * 40}, json={})
+    r = client.post("/internal/loyalty/recover",
+                    headers={"X-Internal-Token": "t" * 40, **_push_headers(b"{}")}, json={})
     assert r.status_code == 200, r.text
     return r.json()
 

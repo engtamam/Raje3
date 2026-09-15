@@ -129,7 +129,7 @@ env:
   PUSH_DISPATCH_ENABLED: "true"
   # A queue's webhook host must be declared here BEFORE a target can be registered against it
   # (SSRF guard, checked at register time) — one entry per service as its cron is migrated.
-  EGRESS_ALLOWED_HOSTS: "whatsapp-assistant,insights,reminders,campaigns,affiliate-service"
+  EGRESS_ALLOWED_HOSTS: "whatsapp-assistant,insights,reminders,campaigns,affiliate-service,loyalty"
 
 # ── The jobs that make this service actually run ────────────────────────────────────────────
 # The chart's cronJobs list is empty by default — Wave 1 taught us that the hard way with an

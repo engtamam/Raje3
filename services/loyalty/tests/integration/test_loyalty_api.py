@@ -70,6 +70,23 @@ def operator() -> dict:
 INTERNAL = {"X-Internal-Token": "t" * 40}
 
 
+def push_headers(body: bytes) -> dict[str, str]:
+    """A genuine job-service push signature over `body`, verifiable against
+    INTERNAL_SERVICE_TOKEN (the default `require_push_signature` falls back to) — needed on top
+    of X-Internal-Token for /internal/loyalty/tick, recover and replay-free-visits since
+    2026-09-16's push-dispatch migration."""
+    import hashlib
+    import hmac
+    import time
+
+    from app.core.push_verify import SIGNATURE_HEADER, TIMESTAMP_HEADER
+
+    ts = int(time.time())
+    signed = f"{ts}.".encode("utf-8") + body
+    sig = hmac.new(("t" * 40).encode("utf-8"), signed, hashlib.sha256).hexdigest()
+    return {SIGNATURE_HEADER: sig, TIMESTAMP_HEADER: str(ts)}
+
+
 def _reward(client, owner, name="قهوة", cost=50, type="item", **kw) -> str:
     r = client.post("/api/v1/loyalty/rewards",
                     json={"name": name, "cost": cost, "type": type, **kw}, headers=owner)
@@ -390,9 +407,16 @@ def test_the_till_needs_the_internal_token(client):
 
 
 def test_the_tick_runs_and_reports_what_it_did(client):
-    r = client.post("/internal/loyalty/tick", json={"tenant": TENANT}, headers=INTERNAL)
+    body = f'{{"tenant": "{TENANT}"}}'.encode()
+    r = client.post("/internal/loyalty/tick", data=body,
+                    headers={**INTERNAL, **push_headers(body), "Content-Type": "application/json"})
     assert r.status_code == 200, r.text
     assert set(r.json()) >= {"expired", "warned_sent", "seen", "more"}
+
+
+def test_the_tick_refuses_without_a_push_signature_even_with_a_valid_internal_token(client):
+    r = client.post("/internal/loyalty/tick", json={"tenant": TENANT}, headers=INTERNAL)
+    assert r.status_code == 401
 
 
 def test_reconcile_repairs_through_the_route(client, owner, operator):

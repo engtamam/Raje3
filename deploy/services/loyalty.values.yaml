@@ -145,39 +145,43 @@ env:
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 
-# THE HEARTBEAT. Without it this service is inert and looks perfectly healthy: balances
-# accumulate, every probe passes, nothing ever expires, and no customer is ever warned — until an
-# owner discovers an obligation years old that he believed had a twelve-month life.
+# THE HEARTBEAT — job-service PUSH DISPATCH, NOT K8S CronJobs (migrated 2026-09-16, following
+# whatsapp-assistant's own tick — see deploy/hooks/job-schedule.sh's own header for the full
+# migration plan). Without a live schedule + registered push target this service is inert and
+# looks perfectly healthy: balances accumulate, every probe passes, nothing ever expires, and no
+# customer is ever warned — until an owner discovers an obligation years old that he believed had
+# a twelve-month life.
 #
-# DAILY, not every fifteen minutes. Expiry is measured in days and the warning window is two
-# weeks wide, so a sweep that runs at 03:10 rather than 03:00 is invisible to everyone — while
-# ninety-six passes a day over every balance in the product is not.
-cronJobs:
-  - name: tick
-    schedule: "10 3 * * *"
-    path: /internal/loyalty/tick
-  # THE PATH FROM A VISIT TO POINTS THAT DOES NOT DEPEND ON AN EVENT ARRIVING.
-  #
-  # The bus is at-most-once: a pod restarting through one delivery never hears about that visit
-  # again, and the customer's points simply never arrive — permanently, with a balance that looks
-  # correct. `Earner.catch_up` was written for this and had no caller; this is the caller.
-  #
-  # EVERY QUARTER HOUR, NOT NIGHTLY. A missed point is discovered by the customer at the counter,
-  # and «tomorrow» is long after he has been told he has fewer points than he counted on.
-  - name: recover
-    schedule: "*/15 * * * *"
-    path: /internal/loyalty/recover
-  # AND THE OTHER HALF OF A FREE REWARD (ز-9). A `service` reward is points spent AND a visit
-  # recorded; the visit ran in a try/except that wrote telemetry, and nothing replayed it. So a
-  # free wash left the shop with no visit behind it, and the reminder engine invited the customer
-  # back for the service he had just received — a shop that does not know him, which is the exact
-  # opposite of what he is paying for.
-  #
-  # HOURLY, NOT EVERY QUARTER. Unlike a missing point, nobody is standing at a counter waiting for
-  # this one: the harm arrives with the next reminder, days later.
-  - name: replay-free-visits
-    schedule: "25 * * * *"
-    path: /internal/loyalty/replay-free-visits
+# PROVISIONED ONCE, OUTSIDE THIS CHART (an admin action, not a deploy value):
+#   deploy/hooks/job-schedule.sh create loyalty-tick "10 3 * * *" loyalty-tick loyalty.tick
+#   deploy/hooks/job-dispatch-target.sh register loyalty-tick \
+#       http://loyalty:8000/internal/loyalty/tick
+#   deploy/hooks/job-schedule.sh create loyalty-recover "*/15 * * * *" loyalty-recover \
+#       loyalty.recover
+#   deploy/hooks/job-dispatch-target.sh register loyalty-recover \
+#       http://loyalty:8000/internal/loyalty/recover
+#   deploy/hooks/job-schedule.sh create loyalty-replay-free-visits "25 * * * *" \
+#       loyalty-replay-free-visits loyalty.replay_free_visits
+#   deploy/hooks/job-dispatch-target.sh register loyalty-replay-free-visits \
+#       http://loyalty:8000/internal/loyalty/replay-free-visits
+#
+# tick RUNS DAILY, not every fifteen minutes. Expiry is measured in days and the warning window
+# is two weeks wide, so a pass that runs at 03:10 rather than 03:00 is invisible to everyone —
+# while ninety-six passes a day over every balance in the product is not.
+#
+# recover IS THE PATH FROM A VISIT TO POINTS THAT DOES NOT DEPEND ON AN EVENT ARRIVING. The bus is
+# at-most-once: a pod restarting through one delivery never hears about that visit again, and the
+# customer's points simply never arrive — permanently, with a balance that looks correct.
+# `Earner.catch_up` was written for this and had no caller until this. Every quarter hour, not
+# nightly: a missed point is discovered by the customer at the counter, and «tomorrow» is long
+# after he has been told he has fewer points than he counted on.
+#
+# replay-free-visits IS THE OTHER HALF OF A FREE REWARD (ز-9). A `service` reward is points spent
+# AND a visit recorded; the visit ran in a try/except that wrote telemetry, and nothing replayed
+# it. So a free wash left the shop with no visit behind it, and the reminder engine invited the
+# customer back for the service he had just received. Hourly, not every quarter: unlike a missing
+# point, nobody is standing at a counter waiting for this one. Every push is verified
+# (app/core/push_verify.py) — none of the three routes trust the shared internal token alone.
 
 # No ingress: reached service-to-service on the internal tier only.
 ingress:
