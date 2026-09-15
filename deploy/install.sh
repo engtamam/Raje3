@@ -56,6 +56,40 @@ fi
 echo -e "${C_B}راجِع — install${C_N}"
 [ -f "$ROOT/VERSION" ] && sed 's/^/  /' "$ROOT/VERSION"
 
+# ── 0a · هذا السكربت نفسه، قبل أي شي ─────────────────────────────────────────────────────────
+#
+# نفس الثغرة اللي أُغلقت لقالب المنصة في «1.5» أدناه، لكن هنا لمستودعنا نحن. تثبيت من الصفر يوم
+# 2026-09-16 صفّر العنقود، ثم استعمل نسخة deploy/ قديمة بمئات الالتزامات (لا فيها خطوة مزامنة قاعدة
+# معرفة assistant-service، ولا إصلاح "الحساب موجود أصلاً = نجاح") — لأن /opt/raje3 كان checkout قديم
+# ونفّذ بلا أي تحديث أولاً. لا شي هنا كان يجبر مطابقته مع origin قبل التركيب.
+#
+# RE-EXEC AFTER UPDATING, NOT JUST PULLING — bash يقرأ سكربت شغّال حالياً سطر سطر من نفس الملف، لذا
+# الكتابة فوقه أثناء تنفيذه (git pull) بلا إعادة تشغيل تعطي سلوك غير معرّف من هذه النقطة فصاعداً.
+# `exec bash "$0" "$@"` يعيد التشغيل من الصفر بالنسخة المحدَّثة فعلياً، بنفس البيئة (env يبقى محفوظاً
+# عبر exec)، مع RAJE3_SELF_UPDATED=1 يمنع حلقة تحديث لا تنتهي.
+if [ -z "${RAJE3_SELF_UPDATED:-}" ] && [ -d "$ROOT/.git" ] && command -v git >/dev/null 2>&1; then
+  if [ -n "$(git -C "$ROOT" status --porcelain 2>/dev/null)" ]; then
+    warn "تعديلات غير محفوظة في $ROOT — تُركت كما هي، لا مزامنة تلقائية فوقها"
+  else
+    BRANCH="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)"
+    if git -C "$ROOT" fetch --quiet origin "$BRANCH" 2>/dev/null; then
+      LOCAL="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)"
+      REMOTE="$(git -C "$ROOT" rev-parse "origin/$BRANCH" 2>/dev/null)"
+      if [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+        echo -e "${C_D}  $ROOT خلف origin/$BRANCH — يُزامَن قبل المتابعة${C_N}"
+        if git -C "$ROOT" merge --ff-only --quiet "origin/$BRANCH" 2>/dev/null; then
+          ok "مستودعنا زُومن مع origin/$BRANCH — إعادة تشغيل بالنسخة المحدَّثة"
+          RAJE3_SELF_UPDATED=1 exec bash "$0" "$@"
+        else
+          warn "تعذّر التقديم السريع (fast-forward) لـ $ROOT — يُستخدم المحلي كما هو"
+        fi
+      fi
+    else
+      warn "تعذّر جلب origin لمستودعنا — يُستخدم المحلي كما هو (شبكة أو صلاحية؟)"
+    fi
+  fi
+fi
+
 # ── 0 · the questions, all of them, now ───────────────────────────────────────────────────────
 mkdir -p "$(dirname "$CONF")"; chmod 700 "$(dirname "$CONF")"
 # shellcheck disable=SC1090
