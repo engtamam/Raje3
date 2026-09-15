@@ -130,6 +130,7 @@ env:
   AUTHZ_TENANT_ASSIGNABLE_CAPS: >-
     operations.record,operations.read,operations.manage,operations.manage_services,search.read,
     operations.grant_coupon,operations.grant_coupon_direct,operations.mobile_requests_manage,
+    operations.mobile_requests_execute,
     reminders.read,reminders.manage,
     campaigns.read,campaigns.manage,
     loyalty.read,loyalty.redeem,loyalty.manage,

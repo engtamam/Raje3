@@ -201,6 +201,115 @@ def test_reviewing_an_unknown_request_is_refused_not_a_crash(svc):
         run(s.accept(TENANT, "mreq_does_not_exist", actor="owner1"))
 
 
+# ── assignment — optional, manual, never auto-routed ────────────────────────────────────────
+def test_a_request_can_be_assigned_before_or_after_acceptance(svc):
+    s, store, _ops = svc
+    sid = run(_seed_service(store))
+    req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
+    assigned = run(s.assign(TENANT, req.id, operator_id="op_1"))
+    assert assigned.assigned_to == "op_1"
+    run(s.accept(TENANT, req.id, actor="owner1"))
+    reassigned = run(s.assign(TENANT, req.id, operator_id="op_2"))
+    assert reassigned.assigned_to == "op_2"
+
+
+def test_assignment_can_be_cleared(svc):
+    s, store, _ops = svc
+    sid = run(_seed_service(store))
+    req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
+    run(s.assign(TENANT, req.id, operator_id="op_1"))
+    cleared = run(s.assign(TENANT, req.id, operator_id=""))
+    assert cleared.assigned_to == ""
+
+
+def test_assigning_an_unknown_request_is_refused_not_a_crash(svc):
+    s, _store, _ops = svc
+    with pytest.raises(MobileRequestError):
+        run(s.assign(TENANT, "mreq_does_not_exist", operator_id="op_1"))
+
+
+def test_assigning_a_closed_request_is_refused(svc):
+    s, store, _ops = svc
+    sid = run(_seed_service(store))
+    req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
+    run(s.reject(TENANT, req.id, actor="owner1"))
+    with pytest.raises(MobileRequestError):
+        run(s.assign(TENANT, req.id, operator_id="op_1"))
+
+
+def test_listing_scoped_to_one_operator_only_shows_their_own(svc):
+    s, store, _ops = svc
+    sid = run(_seed_service(store))
+    mine = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                        requested_time=REQUESTED_TIME, lat=1, lng=1))
+    other = run(s.create(tenant=TENANT, phone="0509999999", customer_name="سارة",
+                         service_ids=[sid], requested_time=REQUESTED_TIME, lat=1, lng=1))
+    run(s.assign(TENANT, mine.id, operator_id="op_1"))
+    run(s.assign(TENANT, other.id, operator_id="op_2"))
+    rows = run(s.list(TENANT, assigned_to="op_1"))
+    assert [r.id for r in rows] == [mine.id]
+
+
+def test_completing_a_request_assigned_to_someone_else_is_refused(svc):
+    s, store, _ops = svc
+    sid = run(_seed_service(store))
+    req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
+    run(s.assign(TENANT, req.id, operator_id="op_1"))
+    run(s.accept(TENANT, req.id, actor="owner1"))
+    with pytest.raises(MobileRequestError):
+        run(s.complete(TENANT, req.id, expected_assignee="op_2"))
+
+
+def test_completing_ones_own_assigned_request_succeeds(svc):
+    s, store, _ops = svc
+    sid = run(_seed_service(store))
+    req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
+    run(s.assign(TENANT, req.id, operator_id="op_1"))
+    run(s.accept(TENANT, req.id, actor="owner1"))
+    out = run(s.complete(TENANT, req.id, expected_assignee="op_1"))
+    assert out.status == COMPLETED
+
+
+def test_a_manager_can_complete_regardless_of_assignment(svc):
+    """`expected_assignee` empty (a manager's own route call never sets it) — no ownership
+    check at all, same as before assignment existed."""
+    s, store, _ops = svc
+    sid = run(_seed_service(store))
+    req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
+    run(s.assign(TENANT, req.id, operator_id="op_1"))
+    run(s.accept(TENANT, req.id, actor="owner1"))
+    out = run(s.complete(TENANT, req.id, expected_assignee=""))
+    assert out.status == COMPLETED
+
+
+def test_no_show_assigned_to_someone_else_is_refused(svc):
+    s, store, _ops = svc
+    sid = run(_seed_service(store))
+    req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
+    run(s.assign(TENANT, req.id, operator_id="op_1"))
+    run(s.accept(TENANT, req.id, actor="owner1"))
+    with pytest.raises(MobileRequestError):
+        run(s.no_show(TENANT, req.id, expected_assignee="op_2"))
+
+
+def test_no_show_on_ones_own_assigned_request_succeeds(svc):
+    s, store, _ops = svc
+    sid = run(_seed_service(store))
+    req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
+    run(s.assign(TENANT, req.id, operator_id="op_1"))
+    run(s.accept(TENANT, req.id, actor="owner1"))
+    out = run(s.no_show(TENANT, req.id, expected_assignee="op_1"))
+    assert out.status == NO_SHOW
+
+
 # ── completion — the bridge to a real visit ─────────────────────────────────────────────────
 def test_completing_an_accepted_request_creates_a_real_visit(svc):
     s, store, _ops = svc

@@ -18,7 +18,7 @@ const PENDING = {
   id: 'mreq_1', tenant: 't1', phone: '+966501112222', customer_name: 'نورة العنزي',
   service_ids: ['svc_wash'], requested_time: NOW + 3600, lat: 24.7, lng: 46.6,
   status: 'pending', created: NOW - 600, decided_at: 0, decided_by: '', reject_reason: '',
-  visit_id: '', note: '', maps_url: 'https://www.google.com/maps?q=24.7,46.6',
+  visit_id: '', note: '', maps_url: 'https://www.google.com/maps?q=24.7,46.6', assigned_to: '',
 };
 const ACCEPTED_RECENT = {
   ...PENDING, id: 'mreq_2', customer_name: 'خالد المطيري', status: 'accepted',
@@ -37,6 +37,7 @@ let acceptCalls: Record<string, unknown>[] = [];
 let rejectCalls: Record<string, unknown>[] = [];
 let completeCalls: Record<string, unknown>[] = [];
 let noShowCalls: Record<string, unknown>[] = [];
+let assignCalls: Record<string, unknown>[] = [];
 let rows = [PENDING, ACCEPTED_RECENT, ACCEPTED_OVERDUE, COMPLETED];
 
 vi.mock('../catalog', async (importOriginal) => {
@@ -49,6 +50,9 @@ vi.mock('../catalog', async (importOriginal) => {
       if (a.id === 'operations.manage_services' || a.id === 'operations.list_services') {
         return { services: [{ id: 'svc_wash', name: 'غسيل خارجي' }] };
       }
+      if (a.id === 'operations.list_operators') {
+        return { operators: [{ id: 'op_1', name: 'سالم', active: true }, { id: 'op_2', name: 'فهد', active: true }] };
+      }
       if (a.id === 'operations.mobile_request_risk') {
         const id = String(params?.request_id ?? '');
         return { considered: 5, no_shows: id === 'mreq_1' ? 3 : 0, risky: id === 'mreq_1', threshold_percent: 40 };
@@ -57,6 +61,7 @@ vi.mock('../catalog', async (importOriginal) => {
       if (a.id === 'operations.mobile_request_reject') { rejectCalls.push(params ?? {}); return { ...PENDING, status: 'rejected' }; }
       if (a.id === 'operations.mobile_request_complete') { completeCalls.push(params ?? {}); return { ...ACCEPTED_RECENT, status: 'completed' }; }
       if (a.id === 'operations.mobile_request_no_show') { noShowCalls.push(params ?? {}); return { ...ACCEPTED_RECENT, status: 'no_show' }; }
+      if (a.id === 'operations.mobile_request_assign') { assignCalls.push(params ?? {}); return { ...PENDING, assigned_to: params?.operator_id }; }
       return {};
     },
   };
@@ -70,7 +75,7 @@ function render(ui: ReactElement) {
 
 afterEach(() => {
   cleanup();
-  acceptCalls = []; rejectCalls = []; completeCalls = []; noShowCalls = [];
+  acceptCalls = []; rejectCalls = []; completeCalls = []; noShowCalls = []; assignCalls = [];
   rows = [PENDING, ACCEPTED_RECENT, ACCEPTED_OVERDUE, COMPLETED];
   vi.restoreAllMocks();
 });
@@ -165,5 +170,39 @@ describe('«خدمات متنقلة»', () => {
     const copyBtn = (await screen.findAllByTitle('نسخ رقم الجوال'))[0];
     fireEvent.click(copyBtn);
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('+966501112222'));
+  });
+
+  it('a pending request offers a real operator list to assign, with each one’s current load', async () => {
+    render(<MobileRequestsScreen session={SESSION} catalog={catalog} />);
+    const select = await screen.findByTestId('mobile-request-assign-mreq_1') as HTMLSelectElement;
+    const options = Array.from(select.options).map((o) => o.textContent);
+    expect(options).toContain('بلا إسناد');
+    expect(options).toContain('سالم');
+    expect(options).toContain('فهد');
+  });
+
+  it('picking an operator calls the real assign action with its id', async () => {
+    render(<MobileRequestsScreen session={SESSION} catalog={catalog} />);
+    const select = await screen.findByTestId('mobile-request-assign-mreq_1') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'op_1' } });
+    await waitFor(() => expect(assignCalls).toEqual([{ request_id: 'mreq_1', operator_id: 'op_1' }]));
+  });
+
+  it('an operator already carrying two open requests shows a live count beside their name', async () => {
+    rows = [
+      { ...PENDING, id: 'mreq_5', assigned_to: 'op_1' },
+      { ...ACCEPTED_RECENT, id: 'mreq_6', assigned_to: 'op_1' },
+      PENDING,
+    ];
+    render(<MobileRequestsScreen session={SESSION} catalog={catalog} />);
+    const select = await screen.findByTestId('mobile-request-assign-mreq_1') as HTMLSelectElement;
+    const salemOption = Array.from(select.options).find((o) => o.value === 'op_1');
+    expect(salemOption?.textContent).toBe('سالم (2)');
+  });
+
+  it('a completed request never shows the assign control', async () => {
+    render(<MobileRequestsScreen session={SESSION} catalog={catalog} />);
+    await waitFor(() => expect(screen.getAllByText('عبدالله الشمري').length).toBeGreaterThan(0));
+    expect(screen.queryByTestId('mobile-request-assign-mreq_4')).toBeNull();
   });
 });

@@ -92,10 +92,13 @@ def build_manifest(
                          # door, deliberately two capabilities (see staff.py's own comment on
                          # `_GRANT_COUPON`/`_GRANT_COUPON_DIRECT`).
                          "operations.grant_coupon", "operations.grant_coupon_direct",
-                         # MOBILE/ON-THE-GO SERVICE REQUESTS — one capability for the whole review
-                         # queue (see api/v1/mobile_requests.py's own module docstring on why it
-                         # is not split the way coupons' two doors are).
-                         "operations.mobile_requests_manage"],
+                         # MOBILE/ON-THE-GO SERVICE REQUESTS — _manage is the review queue itself
+                         # (owner/manager/supervisor: accept/reject/assign/complete/no-show on
+                         # anything). _execute is the field operator's own SCOPED half added
+                         # 2026-09-15 (assignment) — list only what THEY were assigned, and only
+                         # مark تم/لم يتم on it, never accept/reject/assign (see api/v1/
+                         # mobile_requests.py's own dual-capability route docstring).
+                         "operations.mobile_requests_manage", "operations.mobile_requests_execute"],
         "endpoints": [
             # `/api/v1/admin/ping` USED TO BE DECLARED HERE and this service has never served it.
             # It came from the generated scaffold, survived every review, and the gate that catches
@@ -410,6 +413,7 @@ def build_manifest(
             # ── mobile/on-the-go service requests — see api/v1/mobile_requests.py's own note.
             {"path": "/api/v1/staff/mobile-requests", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/mobile-requests/{}/risk", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/mobile-requests/{}/assign", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/mobile-requests/{}/accept", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/mobile-requests/{}/reject", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/mobile-requests/{}/complete", "tier": "user", "method": "POST"},

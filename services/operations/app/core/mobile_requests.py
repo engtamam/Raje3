@@ -127,6 +127,11 @@ class MobileServiceRequest:
     # end once `record_visit()` has run.
     visit_id: str = ""
     note: str = ""
+    # OPTIONAL, MANUAL, NEVER AUTO-ROUTED (owner's own words, 2026-09-15: still "لا لا خلاص
+    # طلبات تترص وانتهينا" for the queue itself — this only lets a manager NAME who is going,
+    # never an engine deciding for them). The operator id `assign()` set it to, or "" (unassigned
+    # — visible to every manager, to no plain operator). See `assign()`'s own docstring.
+    assigned_to: str = ""
 
     @property
     def maps_url(self) -> str:
@@ -217,17 +222,42 @@ class MobileRequestService:
             return None
         return MobileServiceRequest(**{k: v for k, v in raw.items() if k != "tenant_key"})
 
-    async def list(self, tenant: str, *, status: str = "", limit: int = 200,
-                  ) -> list[MobileServiceRequest]:
+    async def list(self, tenant: str, *, status: str = "", assigned_to: str = "",
+                  limit: int = 200) -> list[MobileServiceRequest]:
+        """`assigned_to`, WHEN GIVEN, IS THE SCOPING BOUNDARY a plain operator's own queue is
+        built from — see api/v1/mobile_requests.py's own dual-capability route: a manager calls
+        this with it empty (sees everything), an operator-tier caller always has it forced to
+        their own id, server-side, never trusted from a query param a client could omit."""
         where: dict[str, Any] = {"tenant": tenant}
         if status:
             where["status"] = status
+        if assigned_to:
+            where["assigned_to"] = assigned_to
         rows, _ = await self._s.find(MOBILE_REQUESTS, where, limit=limit,
                                      sort=("created", "desc"))
         return [MobileServiceRequest(**{k: v for k, v in r.items() if k != "tenant_key"})
                for r in rows]
 
     # ── the shop's own review ──────────────────────────────────────────────────────────────────
+    async def assign(self, tenant: str, request_id: str, *, operator_id: str) -> MobileServiceRequest:
+        """Names who is actually going — purely informational for the requests engine itself
+        (there is no capacity/scheduling concept here, module docstring), but it is what lets a
+        manager's own console show each operator's current load and split the day's requests by
+        hand, and what scopes a plain operator's OWN queue (`list(assigned_to=...)` above) and
+        their own «تم»/«لم يتم» (`complete()`/`no_show()`'s own `expected_assignee`).
+
+        Never gated on status — a manager may assign before OR after accepting, and may
+        reassign/clear (`operator_id=""`) right up to the terminal states, same "still open, still
+        editable" posture as `note`."""
+        row = await self.get(tenant, request_id)
+        if row is None:
+            raise MobileRequestError("الطلب غير موجود.")
+        if row.status in TERMINAL:
+            raise MobileRequestError("هذا الطلب مغلق، لا يمكن تعديل إسناده.")
+        row.assigned_to = operator_id
+        await self._save(tenant, row)
+        return row
+
     async def accept(self, tenant: str, request_id: str, *, actor: str) -> MobileServiceRequest:
         row = await self._require_pending(tenant, request_id)
         row.status = ACCEPTED
@@ -255,14 +285,21 @@ class MobileRequestService:
         return row
 
     # ── after the appointment — the only two ways this ends ───────────────────────────────────
-    async def complete(self, tenant: str, request_id: str, *, occurred_at: int = 0
-                       ) -> MobileServiceRequest:
+    async def complete(self, tenant: str, request_id: str, *, occurred_at: int = 0,
+                       expected_assignee: str = "") -> MobileServiceRequest:
         """The visit actually happened — record it exactly like any other visit, so loyalty
         points, insights and reminders all pick it up automatically. `record_visit()` is called
         DIRECTLY (same service, no network hop), the same core function every other visit-
         creation path in this file already shares — never a second definition of what a visit
-        is."""
+        is.
+
+        `expected_assignee`, WHEN GIVEN, IS THE OWNERSHIP CHECK a plain operator's own «تم» is
+        held to — set by the route ONLY for an execute-tier caller (never a manager, who may
+        always act regardless of who a request is assigned to); refused, never silently
+        no-op'd, if this request belongs to someone else or nobody yet."""
         row = await self._require_accepted(tenant, request_id)
+        if expected_assignee and row.assigned_to != expected_assignee:
+            raise MobileRequestError("هذا الطلب مسنَد لموظف آخر.")
         recorded = await self._ops.record_visit(
             tenant=tenant, phone=row.phone, service_ids=row.service_ids,
             name=row.customer_name, occurred_at=occurred_at or _now(),
@@ -277,8 +314,12 @@ class MobileRequestService:
         await self._save(tenant, row)
         return row
 
-    async def no_show(self, tenant: str, request_id: str) -> MobileServiceRequest:
+    async def no_show(self, tenant: str, request_id: str, *,
+                      expected_assignee: str = "") -> MobileServiceRequest:
+        """Same ownership check as `complete()` above, for the same reason."""
         row = await self._require_accepted(tenant, request_id)
+        if expected_assignee and row.assigned_to != expected_assignee:
+            raise MobileRequestError("هذا الطلب مسنَد لموظف آخر.")
         row.status = NO_SHOW
         await self._save(tenant, row)
         return row

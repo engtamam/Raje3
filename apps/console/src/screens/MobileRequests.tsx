@@ -28,7 +28,7 @@ import { Segmented } from '../rj-ui/Segmented';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { EmptyState } from '../rj-ui/EmptyState';
-import { Input } from '../rj-ui/Field';
+import { Input, Select } from '../rj-ui/Field';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { useOperatorI18n, tf } from '../operator-i18n';
@@ -51,7 +51,10 @@ interface MobileServiceRequest {
   visit_id: string;
   note: string;
   maps_url: string;
+  assigned_to: string;
 }
+
+interface StaffMember { id: string; name: string; active?: boolean }
 
 interface NoShowRisk {
   considered: number;
@@ -125,10 +128,13 @@ export function MobileRequestsScreen({ session, catalog }: { session: Session; c
   const completeAction = action(catalog, 'operations.mobile_request_complete');
   const noShowAction = action(catalog, 'operations.mobile_request_no_show');
   const riskAction = action(catalog, 'operations.mobile_request_risk');
+  const assignAction = action(catalog, 'operations.mobile_request_assign');
   const servicesAction = action(catalog, 'operations.manage_services') ?? action(catalog, 'operations.list_services');
+  const operatorsAction = action(catalog, 'operations.list_operators');
 
   const [rows, setRows] = useState<MobileServiceRequest[] | 'loading' | 'failed'>('loading');
   const [services, setServices] = useState<Map<string, string>>(new Map());
+  const [operators, setOperators] = useState<StaffMember[]>([]);
   const [risks, setRisks] = useState<Map<string, NoShowRisk>>(new Map());
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
@@ -161,6 +167,17 @@ export function MobileRequestsScreen({ session, catalog }: { session: Session; c
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, catalog]);
 
+  // OPERATORS, ONLY FOR WHOEVER CAN ASSIGN — absent entirely for a plain field operator's own
+  // scoped view (operatorsAction/assignAction are both null for them, so this simply never
+  // fires; see RequestCard's own `canAssign` gate below).
+  useEffect(() => {
+    if (!operatorsAction || !assignAction) return;
+    call<{ operators: StaffMember[] }>(session, operatorsAction)
+      .then((x) => setOperators(x.operators.filter((o) => o.active !== false)))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, catalog]);
+
   // RISK, ONLY FOR REQUESTS STILL PENDING A DECISION — the owner's own instruction: a heads-up at
   // accept time, never an enforced deposit. Fetched once per id the moment it shows up here, not
   // re-fetched on every tick.
@@ -186,6 +203,21 @@ export function MobileRequestsScreen({ session, catalog }: { session: Session; c
   }, [rows, riskAction]);
 
   const list = Array.isArray(rows) ? rows : [];
+
+  // HOW MANY OPEN REQUESTS EACH OPERATOR CURRENTLY CARRIES — pending + accepted only (a closed
+  // request is no longer "load" on anyone), computed here from the same list already on screen
+  // rather than a second read, so the count the manager sees while choosing who to assign next
+  // is never stale relative to the cards themselves.
+  const assignedCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of list) {
+      if (!r.assigned_to) continue;
+      if (r.status !== 'pending' && r.status !== 'accepted') continue;
+      m.set(r.assigned_to, (m.get(r.assigned_to) ?? 0) + 1);
+    }
+    return m;
+  }, [list]);
+
   const needsDecisionRows = useMemo(
     () => list.filter((r) => isNeedsDecision(r, now)),
     [list, now],
@@ -247,6 +279,15 @@ export function MobileRequestsScreen({ session, catalog }: { session: Session; c
     setBusyId(r.id);
     try {
       await call(session, noShowAction, { request_id: r.id });
+      load();
+    } finally { setBusyId(null); }
+  }
+
+  async function onAssign(r: MobileServiceRequest, operatorId: string) {
+    if (!assignAction || busyId) return;
+    setBusyId(r.id);
+    try {
+      await call(session, assignAction, { request_id: r.id, operator_id: operatorId });
       load();
     } finally { setBusyId(null); }
   }
@@ -317,8 +358,10 @@ export function MobileRequestsScreen({ session, catalog }: { session: Session; c
               risk={risks.get(r.id)} busy={busyId === r.id}
               canAccept={!!acceptAction} canReject={!!rejectAction}
               canComplete={!!completeAction} canNoShow={!!noShowAction}
+              canAssign={!!assignAction} operators={operators} assignedCounts={assignedCounts}
               onAccept={() => onAccept(r)} onReject={() => onReject(r)}
               onComplete={() => onComplete(r)} onNoShow={() => onNoShow(r)}
+              onAssign={(operatorId) => onAssign(r, operatorId)}
             />
           ))}
         </div>
@@ -349,12 +392,15 @@ function statusBadge(r: MobileServiceRequest, needsDecision: boolean, t: (k: str
 function RequestCard({
   r, now, t, locale, serviceNames, risk, busy,
   canAccept, canReject, canComplete, canNoShow,
-  onAccept, onReject, onComplete, onNoShow,
+  canAssign, operators, assignedCounts,
+  onAccept, onReject, onComplete, onNoShow, onAssign,
 }: {
   r: MobileServiceRequest; now: number; t: (k: string) => string; locale: string;
   serviceNames: string[]; risk: NoShowRisk | undefined; busy: boolean;
   canAccept: boolean; canReject: boolean; canComplete: boolean; canNoShow: boolean;
+  canAssign: boolean; operators: StaffMember[]; assignedCounts: Map<string, number>;
   onAccept: () => void; onReject: () => void; onComplete: () => void; onNoShow: () => void;
+  onAssign: (operatorId: string) => void;
 }) {
   const needsDecision = isNeedsDecision(r, now);
   const initial = (r.customer_name || r.phone).trim().charAt(0) || '؟';
@@ -414,6 +460,23 @@ function RequestCard({
             <span className="text-text-tertiary">{tf(t, 'mobileRequests.card.rejectReason', { reason: r.reject_reason })}</span>
           ) : null}
         </div>
+
+        {canAssign && (r.status === 'pending' || r.status === 'accepted') ? (
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-xs font-semibold text-text-secondary">{t('mobileRequests.card.assignLabel')}</span>
+            <Select value={r.assigned_to} disabled={busy} className="!w-auto py-1 text-xs"
+                   aria-label={t('mobileRequests.card.assignLabel')}
+                   data-testid={`mobile-request-assign-${r.id}`}
+                   onChange={(e) => onAssign(e.target.value)}>
+              <option value="">{t('mobileRequests.card.assignUnassigned')}</option>
+              {operators.map((op) => (
+                <option key={op.id} value={op.id}>
+                  {op.name}{assignedCounts.has(op.id) ? ` (${assignedCounts.get(op.id)})` : ''}
+                </option>
+              ))}
+            </Select>
+          </div>
+        ) : null}
       </div>
 
       <div className="flex min-w-40 flex-col items-stretch gap-1.5">

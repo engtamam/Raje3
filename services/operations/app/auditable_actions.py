@@ -853,6 +853,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "an owner later asks why real orders stopped granting alliances automatically",
     },
     {
+        "action": "mobile_request.assigned",
+        "source": "internal",
+        "critical": False,
+        "resource": "mobile_request",
+        "why": "who a request was handed to, by whom, and when — the same trail «من نفّذ هذا "
+               "الطلب» needs later, and the record a manager checks after a customer names the "
+               "wrong employee",
+    },
+    {
         "action": "mobile_request.accepted",
         "source": "internal",
         "critical": False,

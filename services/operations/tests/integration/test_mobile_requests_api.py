@@ -39,9 +39,9 @@ def _make_app() -> TestClient:
     return TestClient(create_app(), raise_server_exceptions=False)
 
 
-def _auth(*caps: str, tenant: str = TENANT) -> dict:
+def _auth(*caps: str, tenant: str = TENANT, sub: str = "owner1") -> dict:
     now = dt.datetime.now(dt.timezone.utc)
-    tok = jwt.encode({"sub": "owner1", "iss": ISS, "aud": AUD, "caps": list(caps),
+    tok = jwt.encode({"sub": sub, "iss": ISS, "aud": AUD, "caps": list(caps),
                       "tenant": tenant, "exp": now + dt.timedelta(minutes=5), "iat": now},
                      TOKEN_SECRET, algorithm="HS256")
     return {"Authorization": f"Bearer {tok}"}
@@ -237,3 +237,84 @@ def test_a_request_is_invisible_to_a_different_tenant(client):
     r = client.get("/api/v1/staff/mobile-requests",
                    headers=_auth("operations.mobile_requests_manage", tenant="tnt_someone_else"))
     assert r.json()["requests"] == []
+
+
+# ── assignment — a manager names who is going, an operator sees only their own ─────────────
+def test_assign_requires_the_manage_capability_not_just_execute(client):
+    request_id = _create_request(client)
+    r = client.post(f"/api/v1/staff/mobile-requests/{request_id}/assign",
+                    headers=_auth("operations.mobile_requests_execute"), json={"operator_id": "op_1"})
+    assert r.status_code == 403
+
+
+def test_assign_names_a_real_operator(client):
+    request_id = _create_request(client)
+    r = client.post(f"/api/v1/staff/mobile-requests/{request_id}/assign",
+                    headers=_auth("operations.mobile_requests_manage"), json={"operator_id": "op_1"})
+    assert r.status_code == 200
+    assert r.json()["assigned_to"] == "op_1"
+
+
+def test_an_execute_only_caller_sees_only_their_own_assigned_requests(client):
+    """The core of the scoping: an operator's own `list()` call is FORCED to their id server-side
+    — never trusted from a query param, so there is no way to ask for someone else's queue."""
+    mine = _create_request(client)
+    other = _create_request(client, phone="0509999999")
+    client.post(f"/api/v1/staff/mobile-requests/{mine}/assign",
+               headers=_auth("operations.mobile_requests_manage"), json={"operator_id": "op_1"})
+    client.post(f"/api/v1/staff/mobile-requests/{other}/assign",
+               headers=_auth("operations.mobile_requests_manage"), json={"operator_id": "op_2"})
+
+    r = client.get("/api/v1/staff/mobile-requests",
+                   headers=_auth("operations.mobile_requests_execute", sub="op_1"))
+    assert r.status_code == 200
+    ids = [row["id"] for row in r.json()["requests"]]
+    assert ids == [mine]
+
+
+def test_an_execute_only_caller_cannot_complete_a_request_assigned_to_someone_else(client):
+    request_id = _create_request(client)
+    client.post(f"/api/v1/staff/mobile-requests/{request_id}/assign",
+               headers=_auth("operations.mobile_requests_manage"), json={"operator_id": "op_2"})
+    client.post(f"/api/v1/staff/mobile-requests/{request_id}/accept",
+               headers=_auth("operations.mobile_requests_manage"))
+
+    r = client.post(f"/api/v1/staff/mobile-requests/{request_id}/complete",
+                    headers=_auth("operations.mobile_requests_execute", sub="op_1"))
+    assert r.status_code == 400
+
+
+def test_an_execute_only_caller_can_complete_their_own_assigned_request(client):
+    request_id = _create_request(client)
+    client.post(f"/api/v1/staff/mobile-requests/{request_id}/assign",
+               headers=_auth("operations.mobile_requests_manage"), json={"operator_id": "op_1"})
+    client.post(f"/api/v1/staff/mobile-requests/{request_id}/accept",
+               headers=_auth("operations.mobile_requests_manage"))
+
+    r = client.post(f"/api/v1/staff/mobile-requests/{request_id}/complete",
+                    headers=_auth("operations.mobile_requests_execute", sub="op_1"))
+    assert r.status_code == 200
+    assert r.json()["status"] == "completed"
+
+
+def test_a_manager_can_complete_any_request_regardless_of_who_it_is_assigned_to(client):
+    request_id = _create_request(client)
+    client.post(f"/api/v1/staff/mobile-requests/{request_id}/assign",
+               headers=_auth("operations.mobile_requests_manage"), json={"operator_id": "op_1"})
+    client.post(f"/api/v1/staff/mobile-requests/{request_id}/accept",
+               headers=_auth("operations.mobile_requests_manage"))
+
+    r = client.post(f"/api/v1/staff/mobile-requests/{request_id}/complete",
+                    headers=_auth("operations.mobile_requests_manage"))
+    assert r.status_code == 200
+
+
+def test_an_execute_only_caller_cannot_accept_or_reject_or_assign(client):
+    request_id = _create_request(client)
+    exec_auth = _auth("operations.mobile_requests_execute", sub="op_1")
+    assert client.post(f"/api/v1/staff/mobile-requests/{request_id}/accept",
+                       headers=exec_auth).status_code == 403
+    assert client.post(f"/api/v1/staff/mobile-requests/{request_id}/reject",
+                       headers=exec_auth, json={}).status_code == 403
+    assert client.post(f"/api/v1/staff/mobile-requests/{request_id}/assign",
+                       headers=exec_auth, json={"operator_id": "op_1"}).status_code == 403

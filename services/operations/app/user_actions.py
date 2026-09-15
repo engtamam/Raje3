@@ -643,9 +643,10 @@ USER_ACTIONS: list[dict[str, Any]] = [
     },
     {
         "id": "operations.mobile_requests_list", "label": "طلبات الخدمة المتنقلة", "method": "GET",
-        "path": "/api/v1/staff/mobile-requests", "capability": "operations.mobile_requests_manage",
+        "path": "/api/v1/staff/mobile-requests", "capability": "operations.mobile_requests_execute",
         "group": "خدمات متنقلة",
-        "help": "قائمة الطلبات — معلّقة، مقبولة، أو الكل حسب الفلتر.",
+        "help": "قائمة الطلبات — معلّقة، مقبولة، أو الكل حسب الفلتر. الموظف الميداني يرى طلباته"
+               " المُسنَدة فقط؛ المدير يرى الكل — نفس المسار، نطاق مختلف بحسب صلاحيته.",
         "params": [{"name": "status_filter", "in": "query", "type": "string", "required": False}],
     },
     {
@@ -669,14 +670,21 @@ USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "operations.mobile_request_complete", "label": "الموعد تم", "method": "POST",
         "path": "/api/v1/staff/mobile-requests/{request_id}/complete",
-        "capability": "operations.mobile_requests_manage", "group": "خدمات متنقلة",
-        "help": "يسجّل زيارة حقيقية فوراً — نقاط الولاء وكل شيء آخر يُحسب تلقائياً.",
+        "capability": "operations.mobile_requests_execute", "group": "خدمات متنقلة",
+        "help": "يسجّل زيارة حقيقية فوراً — نقاط الولاء وكل شيء آخر يُحسب تلقائياً. الموظف"
+               " المُسنَد له الطلب فقط يقدر يسويها لطلبه؛ المدير يقدر على أي طلب.",
     },
     {
         "id": "operations.mobile_request_no_show", "label": "الموعد لم يتم", "method": "POST",
         "path": "/api/v1/staff/mobile-requests/{request_id}/no-show",
+        "capability": "operations.mobile_requests_execute", "group": "خدمات متنقلة",
+        "help": "لا زيارة تُسجَّل — يُحسب فقط في سجل عدم الحضور. نفس نطاق «الموعد تم».",
+    },
+    {
+        "id": "operations.mobile_request_assign", "label": "إسناد طلب لموظف", "method": "POST",
+        "path": "/api/v1/staff/mobile-requests/{request_id}/assign",
         "capability": "operations.mobile_requests_manage", "group": "خدمات متنقلة",
-        "help": "لا زيارة تُسجَّل — يُحسب فقط في سجل عدم الحضور.",
+        "help": "اختياري بالكامل — تسمية من سينفّذ الطلب، ليعرف تحميل كل موظف ويقدر يوزّع بنفسه.",
     },
 ]
 
