@@ -390,123 +390,106 @@ env:
 # clock. But RETENTION is not a schedule over the record — it is the record's own expiry, and the
 # only service that can carry it out is the one holding the phone number in the clear.
 #
-# NIGHTLY AND OFF-HOUR. It reads every customer row, so it runs when no operator has a customer
-# standing in front of them. Daily rather than hourly: the horizon it enforces is measured in
-# years, and twelve hours of latency on a five-year line is not a compliance difference — while an
-# hourly whole-collection read is a real cost every hour of every day.
-cronJobs:
-  - name: retention
-    schedule: "17 1 * * *"
-    path: /internal/operations/retention/sweep
-  # Every 5 minutes — a pending hosted-checkout top-up has no signed webhook, so this poll is the
-  # only path that ever credits the wallet. A fail-open miss just waits for the next run; there is
-  # no cost to running it often, and every minute it is NOT run is a minute a paid top-up sits
-  # uncredited for no reason the customer can see.
-  - name: wallet-topups-reconcile
-    # OFFSET FROM :00 — this shared the exact 5-minute mark with four other services' own
-    # cron jobs, found live diagnosing a real slowdown on a 2-vCPU node. See compliance-
-    # service.values.yaml's dsar-sweep for the full note — each of the five now has its own minute.
-    schedule: "3-59/5 * * * *"
-    path: /internal/operations/wallet-topups/reconcile
-
-  # THE SEAT AND BRANCH COUNTS, RECONCILED NIGHTLY — the other half of a deliberate fail-open.
-  #
-  # `allows_one_more` answers «allowed» when billing cannot be reached, because an outage must not
-  # stop a shop hiring somebody. Its comment justified that with «the next report corrects the
-  # count anyway» — and the only report ran on the write path, during the same outage, swallowing
-  # its own errors. So a five-seat shop that hired during a hiccup kept the extra seats for ever,
-  # unbilled. A reason given for a decision has to be a mechanism.
-  - name: gauges
-    schedule: "41 2 * * *"
-    path: /internal/operations/gauges/reconcile
-  # THE PARTNER STATEMENTS, on the second of the month — not the first.
-  #
-  # A statement is computed on money that ARRIVED, and a payment landing at 23:58 on the last day
-  # of the month is still settling somewhere while a first-of-the-month run reads the ledger. One
-  # day of margin costs a partner nothing and keeps us from issuing a number we correct later.
-  #
-  # 03:40 rather than a round hour: every scheduler in this fleet on :00 wakes the same minute.
-  - name: partner-statements
-    schedule: "40 3 2 * *"
-    path: /internal/operations/partners/statements/run
-  # META'S VERDICT, READ HOURLY — the caller that never existed.
-  #
-  # notification-service holds a correct per-tenant sweep and its docstring says the scheduler
-  # drives it. Nothing did. So a template Meta approved within the hour stayed `pending` with us
-  # for ever, and the send path — which rightly prefers an approved template — refused every
-  # message with «ما زالت قيد مراجعة واتساب». Nothing was logged as broken: the engine was waiting
-  # on a fact nobody went to read.
-  #
-  # HOURLY, AND AT :23. Meta's review runs up to 24 hours, so hourly is as fine-grained as the
-  # answer ever gets; and an off-minute keeps this off the same wake-up as every other job here.
-  # IS THE CONNECTION STILL THERE — the question no event answers.
-  #
-  # Access ends outside our product: an owner removes our app from his Business Manager, or Meta
-  # disables the number. The row stays `connected`, the screen keeps saying مربوط, and every
-  # message is attempted against credentials that no longer exist. Meta's webhook would announce
-  # it, but the bus is at-most-once — a pod restarting through that one delivery never hears it
-  # again — so the state is READ on a clock instead of waited for.
-  #
-  # HOURLY AT :53, off every other job's minute — :47 is already the library publish, and two jobs
-  # in this service waking together turn one pod's hour into a spike for no reason. An hour of latency on a disconnection costs the
-  # shop the reminders of that hour; asking Meta about every live number more often costs the
-  # whole fleet a Graph call for a fact that changes perhaps once a year per shop.
-  # THE AFTER-WORK OF A VISIT WHOSE POD WENT AWAY (ز-7). Indexing and the visit event run after
-  # the response so the operator never waits on our fan-out — which also means they run in a
-  # window an eviction can land in, leaving a visit saved with no reminder scheduled, nothing
-  # counted, and the customer unfindable by the keypad. `seams.py` said a sweep would repair it;
-  # this is that sweep.
-  #
-  # EVERY TEN MINUTES, AT :06 — a lost reminder is worth repairing today, not tomorrow, and the
-  # work list is normally empty: the read is a scan of visits filtered to `seamed_at == 0`, which
-  # on a healthy fleet returns nothing at all. Off every other minute in this file.
-  - name: visit-reseam
-    schedule: "6/10 * * * *"
-    path: /internal/operations/visits/reseam
-  - name: whatsapp-health
-    schedule: "53 * * * *"
-    path: /internal/operations/whatsapp/health
-  - name: template-approvals
-    schedule: "23 * * * *"
-    path: /internal/operations/templates/sync-approvals
-  # THE LIBRARY GOES UP — the step that used to be a script somebody ran by hand for every new
-  # shop, and that until then left the establishment connected, green, and unable to send a single
-  # message because no template had ever been offered to Meta for review.
-  #
-  # THE CONNECT PATH ALREADY PUBLISHES for a shop finishing Embedded Signup. This pass covers the
-  # shops connected before that code existed, a publish interrupted by a restart, and Meta's cap of
-  # 100 submissions per account per hour — a library plus the owner's own templates does not fit in
-  # one pass, and the remainder has to be handed over on a later tick.
-  #
-  # AT :47, twenty-four minutes after the approvals read: submitting and then asking for a verdict
-  # in the same minute asks Meta about templates it has not looked at yet.
-  - name: template-publish
-    schedule: "47 * * * *"
-    path: /internal/operations/templates/publish
-  # SALLA TOKEN REFRESH — the scan (wide, rare) and the run (narrow, frequent), same split as
-  # campaigns' own tick/jobs-run pair. See app/api/internal.py's own module note for the full
-  # reasoning: an access token dead in two weeks with no scheduled renewal is a silent outage.
-  #
-  # DAILY, AT :14 — the scan reads every Salla connection this fleet holds; a five-day refresh
-  # margin means missing a day costs nothing, so once a day is plenty.
-  - name: salla-refresh-scan
-    schedule: "14 4 * * *"
-    path: /internal/operations/salla/refresh-scan
-  # EVERY FEW MINUTES, AT AN OFFSET — a claim is an indexed read of only what job-service says is
-  # actually due, never a scan of this service's own datastore, so a tight cadence costs nothing
-  # extra the way it would running the scan above that often.
-  - name: salla-jobs-run
-    schedule: "2-59/5 * * * *"
-    path: /internal/operations/salla/jobs/run
-  # THE 2-DAYS-AHEAD RENEWAL HEADS-UP — same scan/run split as Salla's own pair above. See
-  # app/core/renewal_heads_up.py's own docstring: a daily, read-only billing scan (no invoicing)
-  # enqueues one durable job per row; the run claims and actually calls whatsapp-assistant.
-  - name: renewal-heads-up-scan
-    schedule: "26 4 * * *"
-    path: /internal/operations/subscriptions/renewal-heads-up/scan
-  - name: renewal-heads-up-jobs-run
-    schedule: "4-59/5 * * * *"
-    path: /internal/operations/subscriptions/renewal-heads-up/jobs/run
+# THE HEARTBEAT — job-service PUSH DISPATCH, NOT K8S CronJobs (migrated 2026-09-16, last of our
+# ~25 per-service cron entries, following whatsapp-assistant, insights, reminders, campaigns,
+# affiliate-service and loyalty — see deploy/hooks/job-schedule.sh's own header for the full
+# migration plan). Every one of the twelve routes below is verified (app/core/push_verify.py) —
+# none trust the shared internal token alone any more.
+#
+# PROVISIONED ONCE, OUTSIDE THIS CHART (an admin action, not a deploy value) — one
+# job-schedule.sh/job-dispatch-target.sh pair per route, same shape throughout:
+#   deploy/hooks/job-schedule.sh create retention-sweep "17 1 * * *" retention-sweep \
+#       operations.retention_sweep
+#   deploy/hooks/job-dispatch-target.sh register retention-sweep \
+#       http://operations:8000/internal/operations/retention/sweep
+#   deploy/hooks/job-schedule.sh create wallet-topups-reconcile "3-59/5 * * * *" \
+#       wallet-topups-reconcile operations.wallet_topups_reconcile
+#   deploy/hooks/job-dispatch-target.sh register wallet-topups-reconcile \
+#       http://operations:8000/internal/operations/wallet-topups/reconcile
+#   deploy/hooks/job-schedule.sh create gauges-reconcile "41 2 * * *" gauges-reconcile \
+#       operations.gauges_reconcile
+#   deploy/hooks/job-dispatch-target.sh register gauges-reconcile \
+#       http://operations:8000/internal/operations/gauges/reconcile
+#   deploy/hooks/job-schedule.sh create partner-statements "40 3 2 * *" partner-statements \
+#       operations.partner_statements
+#   deploy/hooks/job-dispatch-target.sh register partner-statements \
+#       http://operations:8000/internal/operations/partners/statements/run
+#   deploy/hooks/job-schedule.sh create visit-reseam "6/10 * * * *" visit-reseam \
+#       operations.visit_reseam
+#   deploy/hooks/job-dispatch-target.sh register visit-reseam \
+#       http://operations:8000/internal/operations/visits/reseam
+#   deploy/hooks/job-schedule.sh create whatsapp-health "53 * * * *" whatsapp-health \
+#       operations.whatsapp_health
+#   deploy/hooks/job-dispatch-target.sh register whatsapp-health \
+#       http://operations:8000/internal/operations/whatsapp/health
+#   deploy/hooks/job-schedule.sh create template-approvals "23 * * * *" template-approvals \
+#       operations.template_approvals
+#   deploy/hooks/job-dispatch-target.sh register template-approvals \
+#       http://operations:8000/internal/operations/templates/sync-approvals
+#   deploy/hooks/job-schedule.sh create template-publish "47 * * * *" template-publish \
+#       operations.template_publish
+#   deploy/hooks/job-dispatch-target.sh register template-publish \
+#       http://operations:8000/internal/operations/templates/publish
+#   deploy/hooks/job-schedule.sh create salla-refresh-scan "14 4 * * *" salla-refresh-scan \
+#       operations.salla_refresh_scan
+#   deploy/hooks/job-dispatch-target.sh register salla-refresh-scan \
+#       http://operations:8000/internal/operations/salla/refresh-scan
+#   deploy/hooks/job-schedule.sh create salla-jobs-run "2-59/5 * * * *" salla-jobs-run \
+#       operations.salla_jobs_run
+#   deploy/hooks/job-dispatch-target.sh register salla-jobs-run \
+#       http://operations:8000/internal/operations/salla/jobs/run
+#   deploy/hooks/job-schedule.sh create renewal-heads-up-scan "26 4 * * *" \
+#       renewal-heads-up-scan operations.renewal_heads_up_scan
+#   deploy/hooks/job-dispatch-target.sh register renewal-heads-up-scan \
+#       http://operations:8000/internal/operations/subscriptions/renewal-heads-up/scan
+#   deploy/hooks/job-schedule.sh create renewal-heads-up-jobs-run "4-59/5 * * * *" \
+#       renewal-heads-up-jobs-run operations.renewal_heads_up_jobs_run
+#   deploy/hooks/job-dispatch-target.sh register renewal-heads-up-jobs-run \
+#       http://operations:8000/internal/operations/subscriptions/renewal-heads-up/jobs/run
+#
+# retention RUNS NIGHTLY AND OFF-HOUR. It reads every customer row, so it runs when no operator
+# has a customer standing in front of them. Daily rather than hourly: the horizon it enforces is
+# measured in years, and twelve hours of latency on a five-year line is not a compliance
+# difference — while an hourly whole-collection read is a real cost every hour of every day.
+#
+# wallet-topups-reconcile RUNS EVERY 5 MINUTES — a pending hosted-checkout top-up has no signed
+# webhook, so this poll is the only path that ever credits the wallet. A fail-open miss just waits
+# for the next run; there is no cost to running it often, and every minute it is NOT run is a
+# minute a paid top-up sits uncredited for no reason the customer can see.
+#
+# gauges IS THE SEAT AND BRANCH COUNTS, RECONCILED NIGHTLY — the other half of a deliberate
+# fail-open. `allows_one_more` answers «allowed» when billing cannot be reached, because an outage
+# must not stop a shop hiring somebody; this nightly pass is the mechanism that actually corrects
+# the count afterward, never left to a write-path comment alone.
+#
+# partner-statements RUNS ON THE SECOND OF THE MONTH, not the first — a statement is computed on
+# money that ARRIVED, and a payment landing at 23:58 on the last day of the month is still
+# settling somewhere while a first-of-the-month run reads the ledger. One day of margin costs a
+# partner nothing.
+#
+# template-approvals READS META'S VERDICT HOURLY — the caller that never existed until this: a
+# template Meta approved within the hour used to stay `pending` with us for ever, and the send
+# path refused every message with «ما زالت قيد مراجعة واتساب». template-publish PUTS THE LIBRARY UP
+# for every shop connected before that code existed, a publish interrupted by a restart, or Meta's
+# cap of 100 submissions per account per hour — always 24 minutes after the approvals read, so it
+# never asks Meta about templates it has not looked at yet.
+#
+# whatsapp-health ASKS "IS THE CONNECTION STILL THERE" HOURLY — the question no event answers:
+# access ends outside our product (an owner removes the app from Business Manager, or Meta
+# disables the number), and Meta's own webhook would announce it, but the bus is at-most-once, so
+# the state is read on a clock instead of waited for.
+#
+# visit-reseam IS THE AFTER-WORK OF A VISIT WHOSE POD WENT AWAY (ز-7) — indexing and the visit
+# event run after the response so the operator never waits on our fan-out, which also means they
+# run in a window an eviction can land in. Every ten minutes: a lost reminder is worth repairing
+# today, not tomorrow, and the work list is normally empty on a healthy fleet.
+#
+# salla-refresh-scan/salla-jobs-run are the Salla token refresh pair — the scan (wide, rare, daily)
+# and the run (narrow, frequent, every few minutes), same split as campaigns' own tick/jobs-run.
+# renewal-heads-up-scan/renewal-heads-up-jobs-run are the SAME split for the 2-days-ahead
+# subscription renewal notice (app/core/renewal_heads_up.py's own docstring) — a daily, read-only
+# billing scan enqueues one durable job per row; the run claims and actually calls
+# whatsapp-assistant.
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door

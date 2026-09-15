@@ -105,7 +105,19 @@ def client(env_guard) -> TestClient:
 
 
 def _internal_headers() -> dict:
-    return {"X-Internal-Token": INTERNAL_TOKEN}
+    """`push_headers(b"")` matches every real call site below: none of the salla routes take a
+    body, so the raw request bytes a real POST-with-no-body sends are always empty."""
+    import hashlib
+    import hmac
+    import time
+
+    from app.core.push_verify import SIGNATURE_HEADER, TIMESTAMP_HEADER
+
+    ts = int(time.time())
+    sig = hmac.new(INTERNAL_TOKEN.encode("utf-8"), f"{ts}.".encode("utf-8"),
+                   hashlib.sha256).hexdigest()
+    return {"X-Internal-Token": INTERNAL_TOKEN, SIGNATURE_HEADER: sig,
+           TIMESTAMP_HEADER: str(ts)}
 
 
 def _connect(client: TestClient, *, tenant: str, expires_in: int, merchant_id: str = "42") -> None:
@@ -151,6 +163,12 @@ def test_scan_is_idempotent_for_the_same_connection_state(client):
 def test_scan_requires_the_internal_token(client):
     r = client.post("/internal/operations/salla/refresh-scan")
     assert r.status_code in (401, 403)
+
+
+def test_scan_refuses_without_a_push_signature_even_with_a_valid_internal_token(client):
+    r = client.post("/internal/operations/salla/refresh-scan",
+                    headers={"X-Internal-Token": INTERNAL_TOKEN})
+    assert r.status_code == 401
 
 
 def test_scan_reports_unavailable_when_job_service_is_not_configured(env_guard):
@@ -253,6 +271,12 @@ def test_run_acks_as_skipped_when_the_connection_no_longer_exists(client):
 def test_run_requires_the_internal_token(client):
     r = client.post("/internal/operations/salla/jobs/run")
     assert r.status_code in (401, 403)
+
+
+def test_run_refuses_without_a_push_signature_even_with_a_valid_internal_token(client):
+    r = client.post("/internal/operations/salla/jobs/run",
+                    headers={"X-Internal-Token": INTERNAL_TOKEN})
+    assert r.status_code == 401
 
 
 def test_run_is_a_harmless_noop_when_job_service_is_not_configured(env_guard):

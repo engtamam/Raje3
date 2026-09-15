@@ -58,3 +58,22 @@ def client() -> TestClient:
     from app.main import app
 
     return TestClient(app)
+
+
+def push_headers(body: bytes, *, ts: int | None = None) -> dict[str, str]:
+    """A genuine job-service push signature over `body` (the exact bytes a test will send),
+    verifiable against INTERNAL_SERVICE_TOKEN — the default secret `require_push_signature` falls
+    back to when no dedicated PUSH_SIGNING_SECRET is configured, exactly as it is not in this test
+    environment. Needed on top of the ordinary X-Internal-Token header for any route gated by
+    `require_push_signature` (every cron-driven route, migrated 2026-09-16 — see
+    deploy/hooks/job-schedule.sh's own header)."""
+    import hashlib
+    import hmac
+    import time
+
+    from app.core.push_verify import SIGNATURE_HEADER, TIMESTAMP_HEADER
+
+    t = ts if ts is not None else int(time.time())
+    signed = f"{t}.".encode("utf-8") + body
+    sig = hmac.new(INTERNAL_TOKEN.encode("utf-8"), signed, hashlib.sha256).hexdigest()
+    return {SIGNATURE_HEADER: sig, TIMESTAMP_HEADER: str(t)}

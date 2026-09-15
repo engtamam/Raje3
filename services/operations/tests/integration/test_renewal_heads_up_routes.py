@@ -2,13 +2,13 @@
 app/core/renewal_heads_up.py."""
 from __future__ import annotations
 
-from tests.conftest import INTERNAL_TOKEN
+from tests.conftest import INTERNAL_TOKEN, push_headers
 
 TENANT = "renewsoon_ops_shop"
 
 
 def _headers():
-    return {"X-Internal-Token": INTERNAL_TOKEN}
+    return {"X-Internal-Token": INTERNAL_TOKEN, **push_headers(b"")}
 
 
 class _FakeReader:
@@ -107,3 +107,15 @@ def test_scan_requires_the_internal_token(client):
 def test_jobs_run_requires_the_internal_token(client):
     r = client.post("/internal/operations/subscriptions/renewal-heads-up/jobs/run")
     assert r.status_code in (401, 403)
+
+
+def test_scan_refuses_without_a_push_signature_even_with_a_valid_internal_token(client):
+    r = client.post("/internal/operations/subscriptions/renewal-heads-up/scan",
+                    headers={"X-Internal-Token": INTERNAL_TOKEN})
+    assert r.status_code == 401
+
+
+def test_jobs_run_refuses_without_a_push_signature_even_with_a_valid_internal_token(client):
+    r = client.post("/internal/operations/subscriptions/renewal-heads-up/jobs/run",
+                    headers={"X-Internal-Token": INTERNAL_TOKEN})
+    assert r.status_code == 401

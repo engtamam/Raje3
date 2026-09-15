@@ -63,6 +63,29 @@ async def require_internal_token(
         )
 
 
+async def require_push_signature(
+    request: Request,
+    x_job_signature: str | None = Header(default=None, alias="X-Job-Signature"),
+    x_job_signature_timestamp: str | None = Header(default=None,
+                                                   alias="X-Job-Signature-Timestamp"),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """A door driven ONLY by job-service's own push dispatch (base-services v0.24.0) — see
+    app/core/push_verify.py's own docstring for the scheme. `require_internal_token` alone would
+    accept ANY caller that knows the shared fleet secret; this additionally proves the body is
+    exactly what job-service sent, at the moment it sent it, never a replay."""
+    import time as _time
+
+    from app.core.push_verify import verify as verify_push
+
+    body = await request.body()
+    secret = settings.PUSH_SIGNING_SECRET or settings.INTERNAL_SERVICE_TOKEN
+    ok = verify_push(secret, x_job_signature_timestamp or "", body, x_job_signature or "",
+                     now=_time.time(), max_skew_seconds=settings.PUSH_SIGNATURE_MAX_SKEW_SECONDS)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="UNAUTHORIZED")
+
+
 @router.get("/health", dependencies=[Depends(require_internal_token)])
 async def internal_health(settings: Settings = Depends(get_settings)) -> dict[str, str]:
     return {"status": "ok", "service": settings.SERVICE_NAME}
@@ -2254,7 +2277,8 @@ async def privacy_request(request: Request, body: PrivacyRequestIn) -> dict:
     return {"ok": True, "id": req.id, "at": req.at}
 
 
-@router.post("/operations/whatsapp/health", dependencies=[Depends(require_internal_token)])
+@router.post("/operations/whatsapp/health",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def whatsapp_health(request: Request) -> dict:
     """Hourly: ask Meta about every live number and stop the ones whose access is gone.
 
@@ -2279,7 +2303,8 @@ async def whatsapp_health(request: Request) -> dict:
     return out
 
 
-@router.post("/operations/gauges/reconcile", dependencies=[Depends(require_internal_token)])
+@router.post("/operations/gauges/reconcile",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def gauges_reconcile(request: Request) -> dict:
     """Report every establishment's true seat and branch count to billing. Driven by a CronJob.
 
@@ -2310,7 +2335,8 @@ async def gauges_reconcile(request: Request) -> dict:
     return await S.reconcile(datastore=c.datastore, gauges=c.gauges, tenants=sorted(tenants))
 
 
-@router.post("/operations/visits/reseam", dependencies=[Depends(require_internal_token)])
+@router.post("/operations/visits/reseam",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def visits_reseam(request: Request) -> dict:
     """Finish the after-work for visits whose process went away before it ran (ز-7).
 
@@ -2375,7 +2401,8 @@ SWEEP_APPROVALS = "template-approvals"
 SWEEP_PUBLISH = "template-publish"
 
 
-@router.post("/operations/retention/sweep", dependencies=[Depends(require_internal_token)])
+@router.post("/operations/retention/sweep",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def retention_sweep(request: Request) -> dict:
     """The nightly retention pass (§14.5). Driven by a CronJob, never by a person.
 
@@ -2421,7 +2448,8 @@ async def retention_sweep(request: Request) -> dict:
     return out.to_dict()
 
 
-@router.post("/operations/wallet-topups/reconcile", dependencies=[Depends(require_internal_token)])
+@router.post("/operations/wallet-topups/reconcile",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def wallet_topups_reconcile(request: Request) -> dict:
     """The wallet top-up poll (see app/core/wallet_topup_reconcile.py's own header). Driven by a
     CronJob every few minutes, never by a person — TuwaiqPay sends no signed webhook, so this poll
@@ -2469,7 +2497,8 @@ async def wallet_topups_reconcile(request: Request) -> dict:
 _SALLA_REFRESH_MARGIN_SECONDS = 5 * 24 * 3600
 
 
-@router.post("/operations/salla/refresh-scan", dependencies=[Depends(require_internal_token)])
+@router.post("/operations/salla/refresh-scan",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def salla_refresh_scan(request: Request) -> dict:
     """Find every Salla connection whose access token goes stale soon, and enqueue ONE refresh
     job per connection — driven by a CronJob once a day. `unique_key` is scoped to the
@@ -2495,7 +2524,8 @@ async def salla_refresh_scan(request: Request) -> dict:
     return {"scanned": len(rows), "enqueued": enqueued, "unavailable": unavailable}
 
 
-@router.post("/operations/salla/jobs/run", dependencies=[Depends(require_internal_token)])
+@router.post("/operations/salla/jobs/run",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def salla_jobs_run(request: Request) -> dict:
     """job-service's own claim loop, from this service's side — a CronJob drives THIS every few
     minutes, much tighter than the scan above, because a claim is an indexed read of only what is
@@ -2547,7 +2577,7 @@ async def salla_jobs_run(request: Request) -> dict:
 
 
 @router.post("/operations/subscriptions/renewal-heads-up/scan",
-             dependencies=[Depends(require_internal_token)])
+             dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def renewal_heads_up_scan(request: Request) -> dict:
     """Find every subscription renewing within the configured window, across every tenant, and
     enqueue ONE durable job per row — driven by a daily CronJob. See
@@ -2562,7 +2592,7 @@ async def renewal_heads_up_scan(request: Request) -> dict:
 
 
 @router.post("/operations/subscriptions/renewal-heads-up/jobs/run",
-             dependencies=[Depends(require_internal_token)])
+             dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def renewal_heads_up_jobs_run(request: Request) -> dict:
     """job-service's own claim loop for the queue the scan above fills — a CronJob drives THIS
     every few minutes, much tighter than the daily scan. Same shape as `salla_jobs_run`."""
@@ -2573,7 +2603,7 @@ async def renewal_heads_up_jobs_run(request: Request) -> dict:
 
 
 @router.post("/operations/templates/sync-approvals",
-             dependencies=[Depends(require_internal_token)])
+             dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def sync_template_approvals(request: Request) -> dict:
     """Ask Meta — through notification-service — what became of every connected shop's templates.
 
@@ -2627,7 +2657,7 @@ async def sync_template_approvals(request: Request) -> dict:
 
 
 @router.post("/operations/templates/publish",
-             dependencies=[Depends(require_internal_token)])
+             dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def publish_template_libraries(request: Request) -> dict:
     """Make sure every connected shop's library is registered and moving through Meta's queue.
 
@@ -2694,7 +2724,7 @@ class StatementRunIn(BaseModel):
 
 
 @router.post("/operations/partners/statements/run",
-             dependencies=[Depends(require_internal_token)])
+             dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def run_partner_statements(request: Request,
                                  body: StatementRunIn | None = None) -> dict:
     """Issue last month's commission statements — the call the engine never had.

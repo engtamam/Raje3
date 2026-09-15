@@ -1,7 +1,7 @@
 """The three endpoint tiers respond correctly."""
 from __future__ import annotations
 
-from tests.conftest import INTERNAL_TOKEN
+from tests.conftest import INTERNAL_TOKEN, push_headers
 
 
 def test_healthz(client):
@@ -48,7 +48,13 @@ def test_the_retention_sweep_runs_and_takes_no_tenant(client):
     on an empty store, that is nothing, and it must say so rather than fail.
     """
     r = client.post("/internal/operations/retention/sweep",
-                    headers={"X-Internal-Token": INTERNAL_TOKEN})
+                    headers={"X-Internal-Token": INTERNAL_TOKEN, **push_headers(b"")})
     assert r.status_code == 200, r.text
     assert r.json()["customers"] == 0
     assert client.post("/internal/operations/retention/sweep").status_code == 401
+
+
+def test_the_retention_sweep_refuses_without_a_push_signature_even_with_a_valid_token(client):
+    r = client.post("/internal/operations/retention/sweep",
+                    headers={"X-Internal-Token": INTERNAL_TOKEN})
+    assert r.status_code == 401
