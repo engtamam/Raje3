@@ -22,6 +22,14 @@
 #    ./deploy/hooks/job-schedule.sh list
 #    ./deploy/hooks/job-schedule.sh delete <schedule_id>
 #
+#  `create` IS IDEMPOTENT BY NAME, NOT BY THE SERVER — job-service's own `POST /api/v1/jobs/
+#  schedules` always mints a brand-new schedule id, unconditionally (checked against v0.24.1's own
+#  Scheduler.create); calling this twice with the SAME name at the server would silently double
+#  every fire, forever, with no error anywhere. So this checks `list` first and skips (never
+#  errors) when a schedule already answers to that exact name — the same "additive, never a second
+#  copy" discipline deploy/seed/seed-roles.sh already holds for role seeding, which is what makes
+#  it safe to run this from bring-up.sh on every install/reinstall, not just the first one ever.
+#
 #  Run by a human operator with real cluster access (this file follows the existing deploy/hooks
 #  kubectl-exec pattern) — never by an automated agent without that access.
 # ==================================================================================================
@@ -105,19 +113,39 @@ PY
     kubectl -n "$NS" exec -i "$JOB_POD" -- python - "$TOKEN" "$NAME" "$CRON" "$QUEUE" "$TYPE" "$TENANT" "$PAYLOAD" <<'PY'
 import json, sys, urllib.error, urllib.request
 token, name, cron, queue, type_, tenant, payload_json = sys.argv[1:8]
+headers = {"Authorization": "Bearer " + token}
+
+
+def _get(path):
+    req = urllib.request.Request(f"http://127.0.0.1:8000{path}", headers=headers)
+    with urllib.request.urlopen(req, timeout=15) as resp:      # nosec B310 - loopback, in-pod
+        return json.loads(resp.read() or b"{}")
+
+
+# IDEMPOTENT BY NAME — see this script's own header for why the server itself is not. A schedule
+# already answering to this exact name is left untouched (never re-created, never edited) rather
+# than risking a second copy that would double every fire.
+try:
+    existing = _get("/api/v1/jobs/schedules")
+except urllib.error.HTTPError as exc:
+    sys.exit(f"job-service refused the schedule list ({exc.code}): "
+             f"{exc.read().decode(errors='replace')[:300]}")
+if any(s.get("name") == name for s in (existing.get("schedules") or [])):
+    print(json.dumps({"skipped": "already exists", "name": name}, ensure_ascii=False))
+    sys.exit(0)
+
 body = json.dumps({"name": name, "cron": cron, "queue": queue, "type": type_,
                    "tenant": tenant, "payload": json.loads(payload_json)}).encode()
 req = urllib.request.Request("http://127.0.0.1:8000/api/v1/jobs/schedules", data=body,
                              method="POST",
-                             headers={"Authorization": "Bearer " + token,
-                                      "Content-Type": "application/json"})
+                             headers={**headers, "Content-Type": "application/json"})
 try:
     with urllib.request.urlopen(req, timeout=15) as resp:
         print(json.dumps(json.loads(resp.read()), ensure_ascii=False, indent=2))
 except urllib.error.HTTPError as exc:
     sys.exit(f"job-service refused ({exc.code}): {exc.read().decode(errors='replace')[:300]}")
 PY
-    ok "schedule created"
+    ok "schedule created (or already existed)"
     ;;
   delete)
     SCHEDULE_ID="${2:?usage: delete <schedule_id>}"

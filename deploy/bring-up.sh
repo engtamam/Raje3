@@ -749,6 +749,11 @@ soft "billing service-account for operations" bash "$HERE/hooks/provision-billin
 # to job-service push-dispatch). Scoped to EXACTLY `platform.jobs`, same "mint here because this is
 # the first point a platform-owner account exists" reasoning as the billing service-account above.
 soft "job-service automation account" bash "$HERE/hooks/provision-job-service-automation.sh"
+# EVERY MIGRATED SERVICE'S HEARTBEAT (2026-09-16) — without this, a fresh install ships with all
+# seven services' own cron entries removed and nothing having replaced them: every probe green,
+# nothing ever fires (playbook trap §4.1). Idempotent (see the script's own header) — safe on every
+# re-run, including a WIPE=1 reinstall that starts job-service's own schedule store empty again.
+soft "cron -> job-service migrations" bash "$HERE/hooks/provision-cron-migrations.sh"
 soft "plans" bash "$HERE/seed/seed-plans.sh"
 soft "legal" bash "$HERE/seed/seed-legal.sh"
 # OUR OWN PLATFORM-WIDE in-app/email/sms TEMPLATES (rating-app-feature.md phase 8) — without this,
