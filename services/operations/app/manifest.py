@@ -155,6 +155,9 @@ def build_manifest(
             # notification-service's subscription-renewal WhatsApp Flow (platform v0.19.12's
             # LoyaltyEngine(name="subscription_renewal")): balance/rewards/redeem over one due invoice.
             {"path": "/internal/whatsapp/renewal-provider", "tier": "internal", "method": "POST"},
+            # the owner's own early "جدد الآن" tap on the 2-day-ahead WhatsApp heads-up — forces
+            # this ONE subscription's cycle now; the automatic sweep itself is untouched.
+            {"path": "/internal/operations/subscriptions/renew-now", "tier": "internal", "method": "POST"},
             # bookings' booking->visit gateway (§4): the ONE way an attended booking becomes a
             # real Visit — record_visit() itself, resolved by customer_id instead of phone.
             {"path": "/internal/operations/visits/from-customer", "tier": "internal", "method": "POST"},

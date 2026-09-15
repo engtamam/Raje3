@@ -358,6 +358,16 @@ def build_container(settings: Settings) -> Container:
     container.renewal_trigger = build_renewal_trigger(
         settings, store=container.datastore, owner_phone=container.owner_phone,
         sender=container.sender)
+    # THE 2-DAYS-AHEAD HEADS-UP — owner's own instruction (2026-09-15): the automatic cycle stays
+    # untouched, exactly on schedule, but a proactive WhatsApp notice should still go out early
+    # enough for the owner to pay ahead of time himself if he chooses. Reuses the SAME Flow as
+    # renewal_trigger.py, seeded differently — see app/core/upcoming_renewal_trigger.py's own
+    # docstring. Driven per-row by a peer (job-service, or a direct internal call) — never a sweep
+    # this service runs itself.
+    from app.core.upcoming_renewal_trigger import build as build_upcoming_renewal_trigger
+
+    container.upcoming_renewal_trigger = build_upcoming_renewal_trigger(
+        store=container.datastore, owner_phone=container.owner_phone, sender=container.sender)
     # THE LOW-AI-WALLET-BALANCE OWNER NOTICE — event-driven, no sweep (owner decision,
     # 2026-09-10). See app/core/wallet_low_balance_trigger.py's own docstring.
     from app.core.wallet_low_balance_trigger import build as build_wallet_low_balance_trigger

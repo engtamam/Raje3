@@ -56,6 +56,9 @@ def build_manifest(settings: Settings, ports: list[dict[str, str]] | None = None
             # replies, matching reminders' /internal split between the event fast-path and the
             # cron-driven tick.
             {"path": "/internal/whatsapp_assistant/tick", "tier": "internal", "method": "POST"},
+            # the 2-days-ahead renewal heads-up, fired per subscription by whatever finds them
+            # renewing soon — see app/core/upcoming_renewal_trigger.py's own docstring.
+            {"path": "/internal/whatsapp/upcoming-renewal/trigger", "tier": "internal", "method": "POST"},
             # Privacy and backup — real routes in app/api/internal.py, previously implemented but
             # left off this list, which is the exact silent gap docs/adding-a-new-app.md §3b warns
             # about: the route works, and nothing that reads the manifest can see it.

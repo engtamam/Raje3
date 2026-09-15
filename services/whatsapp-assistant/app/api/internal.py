@@ -204,6 +204,27 @@ async def _tick_one_tenant(c: Any, settings: Settings, tenant: str, *, now: int,
             "retention_truncated": retention.truncated}
 
 
+class UpcomingRenewalTriggerIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    subscription_id: str = Field(min_length=1, max_length=128)
+    period_end: int = Field(gt=0)
+
+
+@router.post("/whatsapp/upcoming-renewal/trigger", dependencies=[Depends(require_internal_token)])
+async def upcoming_renewal_trigger(request: Request, body: UpcomingRenewalTriggerIn) -> dict:
+    """Fire the 2-days-ahead renewal heads-up for ONE subscription — called per row by whatever
+    finds subscriptions renewing soon (see app/core/upcoming_renewal_trigger.py's own docstring
+    for why this is a proactive notice, never the automatic billing cycle itself, which stays
+    completely untouched). `tenant` is always taken from the body, never assumed."""
+    import time as _time
+
+    c = request.app.state.container
+    sent = await c.upcoming_renewal_trigger.handle(
+        tenant=body.tenant, subscription_id=body.subscription_id, period_end=body.period_end,
+        now=int(_time.time()))
+    return {"sent": sent}
+
+
 @router.post("/whatsapp_assistant/tick", dependencies=[Depends(require_internal_token)])
 async def tick(request: Request, settings: Settings = Depends(get_settings)) -> dict:
     """The scheduled sweep: compose debounced replies whose window elapsed, close sessions past

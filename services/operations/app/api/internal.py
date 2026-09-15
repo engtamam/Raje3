@@ -2819,3 +2819,30 @@ async def whatsapp_renewal_provider(request: Request, body: RenewalProviderIn) -
     except RenewalUnavailable as exc:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
     raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"unknown op {body.op!r}")
+
+
+class RenewNowIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    sub_id: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/operations/subscriptions/renew-now", dependencies=[Depends(require_internal_token)])
+async def subscription_renew_now(request: Request, body: RenewNowIn) -> dict:
+    """The owner's OWN early "جدد الآن" tap on the pre-renewal WhatsApp heads-up (2 days ahead of
+    the real date) — services/whatsapp-assistant's `early_renewal_consumer.py` calls this the
+    instant that button is tapped. `tenant` is ALWAYS taken from the request body, never assumed
+    from anywhere else — see `RenewalProvider.renew_now`'s own docstring for why the invoice
+    billing actually creates is checked against it before any pay-link is handed back.
+
+    NEVER THE AUTOMATIC SWEEP. `cycle_due_sweep` (billing-service, driven by its own daily cron)
+    is completely untouched by this route — it still only invoices a subscription exactly on its
+    real due date. This is the one, explicit, owner-initiated exception, same "شحن يدوي، لا سحب
+    تلقائي" reasoning the owner gave when this was designed.
+    """
+    from app.adapters.renewal_provider import RenewalUnavailable
+
+    p = request.app.state.container.renewal_provider
+    try:
+        return await p.renew_now(tenant=body.tenant, sub_id=body.sub_id)
+    except RenewalUnavailable as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc

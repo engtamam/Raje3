@@ -195,6 +195,154 @@ def test_null_provider_refuses_every_op():
                     idempotency_key="k"))
 
 
+# ── renew_now — the owner's own early "جدد الآن" tap ────────────────────────────────────────────
+def test_renew_now_forces_the_cycle_then_creates_a_real_pay_link():
+    p = _provider()
+    calls: list[str] = []
+
+    def _urlopen(req, timeout=0):
+        calls.append(req.full_url)
+        if "oauth/token" in req.full_url:
+            return _Resp({"access_token": "bearer_1", "expires_in": 3600})
+        if "/subscriptions/sub_1/run" in req.full_url:
+            assert req.headers.get("Authorization") == "Bearer bearer_1"
+            return _Resp({"id": "inv_1", "tenant": "t1", "status": "open"})
+        assert "/invoices/inv_1/pay-link" in req.full_url
+        return _Resp({"pay_url": "https://pay.raje3.sa/x"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        out = run(p.renew_now(tenant="t1", sub_id="sub_1"))
+    assert out == {"ok": True, "ref": "https://pay.raje3.sa/x"}
+    assert any("/subscriptions/sub_1/run" in c for c in calls)
+
+
+def test_renew_now_never_acts_on_another_tenants_subscription():
+    """A stale or tampered request claiming `tenant="t1"` must never be answered with — or act
+    on — the invoice run_cycle actually created for a DIFFERENT tenant, even if `sub_id` alone
+    happened to resolve to one. No pay-link is ever minted past this check."""
+    p = _provider()
+    calls: list[str] = []
+
+    def _urlopen(req, timeout=0):
+        calls.append(req.full_url)
+        if "oauth/token" in req.full_url:
+            return _Resp({"access_token": "bearer_1", "expires_in": 3600})
+        if "/subscriptions/sub_1/run" in req.full_url:
+            return _Resp({"id": "inv_1", "tenant": "tnt_OTHER", "status": "open"})
+        raise AssertionError("pay-link must never be requested on a tenant mismatch")
+
+    with patch("urllib.request.urlopen", _urlopen):
+        out = run(p.renew_now(tenant="t1", sub_id="sub_1"))
+    assert out["ok"] is False
+    assert "محل آخر" in out["reason"]
+    assert not any("pay-link" in c for c in calls)
+
+
+def test_renew_now_on_an_unknown_subscription_is_a_named_refusal():
+    import urllib.error
+
+    p = _provider()
+
+    def _urlopen(req, timeout=0):
+        if "oauth/token" in req.full_url:
+            return _Resp({"access_token": "bearer_1", "expires_in": 3600})
+        raise urllib.error.HTTPError("u", 404, "not found", {}, None)
+
+    with patch("urllib.request.urlopen", _urlopen):
+        out = run(p.renew_now(tenant="t1", sub_id="sub_missing"))
+    assert out == {"ok": False, "reason": "الاشتراك غير موجود."}
+
+
+def test_renew_now_already_in_progress_is_a_named_refusal():
+    import urllib.error
+
+    p = _provider()
+
+    def _urlopen(req, timeout=0):
+        if "oauth/token" in req.full_url:
+            return _Resp({"access_token": "bearer_1", "expires_in": 3600})
+        raise urllib.error.HTTPError("u", 409, "conflict", {}, None)
+
+    with patch("urllib.request.urlopen", _urlopen):
+        out = run(p.renew_now(tenant="t1", sub_id="sub_1"))
+    assert out == {"ok": False, "reason": "هذا الاشتراك قيد التجديد بالفعل."}
+
+
+def test_renew_now_unreachable_billing_is_a_named_refusal_never_a_raise():
+    """Unlike balance/rewards/redeem (called from a Flow that shows its own retry snackbar on a
+    raise), renew_now is called from a plain WhatsApp button tap with no such screen — so an
+    unreachable peer must come back as an ordinary {"ok": False} the consumer can just relay."""
+    import urllib.error
+
+    p = _provider()
+
+    def _urlopen(req, timeout=0):
+        if "oauth/token" in req.full_url:
+            return _Resp({"access_token": "bearer_1", "expires_in": 3600})
+        raise urllib.error.URLError("down")
+
+    with patch("urllib.request.urlopen", _urlopen):
+        out = run(p.renew_now(tenant="t1", sub_id="sub_1"))
+    assert out == {"ok": False, "reason": "تعذّر الوصول لنظام الفوترة الآن."}
+
+
+def test_null_provider_renew_now_refuses_without_raising():
+    p = NullRenewalProvider()
+    out = run(p.renew_now(tenant="t1", sub_id="sub_1"))
+    assert out["ok"] is False
+
+
+# ── the early Flow form "{tenant}:sub:{sub_id}" — the SAME Flow, seeded 2 days ahead of any
+# invoice, so balance/rewards can never invent an amount and redeem is the one moment that
+# actually forces the cycle ──────────────────────────────────────────────────────────────────────
+def test_balance_on_the_early_form_never_invents_an_amount():
+    p = _provider()
+    with patch("urllib.request.urlopen") as m:
+        out = run(p.balance(tenant="_platform", customer="t1:sub:sub_1"))
+    assert out == {"label": "اشتراكك يتجدد قريباً — اضغط للتجديد الآن"}
+    m.assert_not_called()
+
+
+def test_rewards_on_the_early_form_offers_exactly_one_option_echoing_customer():
+    p = _provider()
+    with patch("urllib.request.urlopen") as m:
+        out = run(p.rewards(tenant="_platform", customer="t1:sub:sub_1"))
+    assert len(out) == 1
+    assert out[0]["id"] == "t1:sub:sub_1"
+    m.assert_not_called()
+
+
+def test_redeem_on_the_early_form_forces_the_cycle_via_renew_now():
+    p = _provider()
+    calls: list[str] = []
+
+    def _urlopen(req, timeout=0):
+        calls.append(req.full_url)
+        if "oauth/token" in req.full_url:
+            return _Resp({"access_token": "bearer_1", "expires_in": 3600})
+        if "/subscriptions/sub_1/run" in req.full_url:
+            return _Resp({"id": "inv_early_1", "tenant": "t1", "status": "open"})
+        assert "/invoices/inv_early_1/pay-link" in req.full_url
+        return _Resp({"pay_url": "https://pay.raje3.sa/early"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        out = run(p.redeem(tenant="_platform", customer="t1:sub:sub_1", reward="t1:sub:sub_1",
+                          idempotency_key="k"))
+    assert out == {"ok": True, "ref": "https://pay.raje3.sa/early"}
+    assert any("/subscriptions/sub_1/run" in c for c in calls)
+
+
+def test_early_form_never_collides_with_a_bare_two_part_customer():
+    """A tenant/invoice id is never literally the marker `sub` — but if a caller ever DID send a
+    genuinely 2-part customer whose invoice id happened to read "sub", it must still resolve
+    through the ordinary path (3-part split requires exactly 3 parts): this only guards that
+    `_split_early_customer` never fires on an ordinary 2-part composite."""
+    p = _provider()
+    with patch("urllib.request.urlopen", return_value=_Resp(_INVOICE)):
+        out = run(p.balance(tenant="_platform", customer="t1:inv_1"))
+    assert out == {"label": "المستحق: 150.00 SAR"}
+
+
 def test_build_falls_back_to_null_when_unconfigured():
     class _S:
         BILLING_SERVICE_URL = ""
