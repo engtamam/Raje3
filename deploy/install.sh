@@ -56,40 +56,6 @@ fi
 echo -e "${C_B}راجِع — install${C_N}"
 [ -f "$ROOT/VERSION" ] && sed 's/^/  /' "$ROOT/VERSION"
 
-# ── 0a · هذا السكربت نفسه، قبل أي شي ─────────────────────────────────────────────────────────
-#
-# نفس الثغرة اللي أُغلقت لقالب المنصة في «1.5» أدناه، لكن هنا لمستودعنا نحن. تثبيت من الصفر يوم
-# 2026-09-16 صفّر العنقود، ثم استعمل نسخة deploy/ قديمة بمئات الالتزامات (لا فيها خطوة مزامنة قاعدة
-# معرفة assistant-service، ولا إصلاح "الحساب موجود أصلاً = نجاح") — لأن /opt/raje3 كان checkout قديم
-# ونفّذ بلا أي تحديث أولاً. لا شي هنا كان يجبر مطابقته مع origin قبل التركيب.
-#
-# RE-EXEC AFTER UPDATING, NOT JUST PULLING — bash يقرأ سكربت شغّال حالياً سطر سطر من نفس الملف، لذا
-# الكتابة فوقه أثناء تنفيذه (git pull) بلا إعادة تشغيل تعطي سلوك غير معرّف من هذه النقطة فصاعداً.
-# `exec bash "$0" "$@"` يعيد التشغيل من الصفر بالنسخة المحدَّثة فعلياً، بنفس البيئة (env يبقى محفوظاً
-# عبر exec)، مع RAJE3_SELF_UPDATED=1 يمنع حلقة تحديث لا تنتهي.
-if [ -z "${RAJE3_SELF_UPDATED:-}" ] && [ -d "$ROOT/.git" ] && command -v git >/dev/null 2>&1; then
-  if [ -n "$(git -C "$ROOT" status --porcelain 2>/dev/null)" ]; then
-    warn "تعديلات غير محفوظة في $ROOT — تُركت كما هي، لا مزامنة تلقائية فوقها"
-  else
-    BRANCH="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)"
-    if git -C "$ROOT" fetch --quiet origin "$BRANCH" 2>/dev/null; then
-      LOCAL="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)"
-      REMOTE="$(git -C "$ROOT" rev-parse "origin/$BRANCH" 2>/dev/null)"
-      if [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
-        echo -e "${C_D}  $ROOT خلف origin/$BRANCH — يُزامَن قبل المتابعة${C_N}"
-        if git -C "$ROOT" merge --ff-only --quiet "origin/$BRANCH" 2>/dev/null; then
-          ok "مستودعنا زُومن مع origin/$BRANCH — إعادة تشغيل بالنسخة المحدَّثة"
-          RAJE3_SELF_UPDATED=1 exec bash "$0" "$@"
-        else
-          warn "تعذّر التقديم السريع (fast-forward) لـ $ROOT — يُستخدم المحلي كما هو"
-        fi
-      fi
-    else
-      warn "تعذّر جلب origin لمستودعنا — يُستخدم المحلي كما هو (شبكة أو صلاحية؟)"
-    fi
-  fi
-fi
-
 # ── 0 · the questions, all of them, now ───────────────────────────────────────────────────────
 mkdir -p "$(dirname "$CONF")"; chmod 700 "$(dirname "$CONF")"
 # shellcheck disable=SC1090
@@ -190,6 +156,59 @@ if [ "${ASSUME_YES:-0}" != "1" ] && _tty; then
 fi
 
 export DOMAIN ACME_EMAIL ADMIN_PHONE ADMIN_PASSWORD GHCR_USER GHCR_TOKEN OSS_BUCKET OSS_ENDPOINT
+
+# ── 0b · هذا المستودع نفسه، قبل أي خطوة تقرأ منه ─────────────────────────────────────────────
+#
+# نفس الثغرة اللي أُغلقت لقالب المنصة في «1.5» أدناه، لكن هنا لمستودعنا نحن. تثبيت من الصفر يوم
+# 2026-09-16 صفّر العنقود، ثم استعمل نسخة deploy/ عمرها مئات الالتزامات (لا فيها خطوة مزامنة قاعدة
+# معرفة assistant-service، ولا إصلاح "الحساب موجود أصلاً = نجاح" في seed-admin.sh) — لأن /opt/raje3
+# ليس حتى git checkout (نسخة منشورة بلا .git، نفس افتراض هذا الملف عن platform/ أدناه)، ونفّذ بلا
+# أي تحديث أولاً. محاولة أولى هنا اعتمدت على `git -C "$ROOT"` ولم تفعل شيئاً بصمت لهذا بالضبط —
+# الإصلاح الحقيقي يطابق تقنية «1.5» حرفياً: عيّنة HTTPS بنفس GHCR_TOKEN، لا افتراض عن حالة $ROOT.
+#
+# فقط deploy/ و ci/ (سكربتات التركيب، وبوابة صحة قاعدة معرفة المساعد التي يستدعيها
+# sync-shop-kb.sh) — لا platform/ (تملكها «1.5» وحدها) ولا apps/services/dist (أدوات شحن، لا شأن
+# لها بالتركيب على السيرفر).
+#
+# RE-EXEC AFTER SYNCING, NOT JUST OVERWRITING FILES UNDER A RUNNING SCRIPT — bash يقرأ سكربت شغّال
+# حالياً سطر سطر من نفس الملف، فالكتابة فوق install.sh نفسه بلا إعادة تشغيل تعطي سلوك غير معرّف من
+# هذه النقطة فصاعداً. RAJE3_SELF_UPDATED=1 يمنع حلقة تحديث لا تنتهي؛ كل الأجوبة أعلاه محفوظة في
+# البيئة (export توّها) فلا تُعاد الأسئلة على إعادة التشغيل.
+if [ -z "${RAJE3_SELF_UPDATED:-}" ]; then
+  RAJE3_REPO_URL="${RAJE3_REPO_URL:-https://github.com/engtamam/Raje3.git}"
+  RAJE3_REF="${RAJE3_REF:-main}"
+  if [ -z "${GHCR_TOKEN:-}" ]; then
+    warn "بلا رمز ghcr — تعذّرت مزامنة مستودعنا مع $RAJE3_REF، يُستخدم المحلي كما هو"
+  else
+    SELF_CLONE_DIR="$(mktemp -d)"
+    if git clone --quiet --depth 1 --branch "$RAJE3_REF" \
+        "https://x-access-token:${GHCR_TOKEN}@${RAJE3_REPO_URL#https://}" "$SELF_CLONE_DIR" 2>/dev/null; then
+      CHANGED=0
+      for d in deploy ci; do
+        if [ -d "$SELF_CLONE_DIR/$d" ] && ! diff -rq "$SELF_CLONE_DIR/$d" "$ROOT/$d" >/dev/null 2>&1; then
+          CHANGED=1
+        fi
+      done
+      if [ "$CHANGED" = "1" ]; then
+        echo -e "${C_D}  $ROOT/{deploy,ci} خلف $RAJE3_REF — يُزامَن قبل المتابعة${C_N}"
+        for d in deploy ci; do
+          [ -d "$SELF_CLONE_DIR/$d" ] || continue
+          rm -rf "$ROOT/$d"
+          cp -r "$SELF_CLONE_DIR/$d" "$ROOT/$d"
+        done
+        rm -rf "$SELF_CLONE_DIR"
+        ok "مستودعنا زُومن مع $RAJE3_REF — إعادة تشغيل بالنسخة المحدَّثة"
+        RAJE3_SELF_UPDATED=1 exec bash "$0" "$@"
+      else
+        rm -rf "$SELF_CLONE_DIR"
+        ok "deploy/ و ci/ مطابقان أصلاً لـ $RAJE3_REF"
+      fi
+    else
+      rm -rf "$SELF_CLONE_DIR"
+      warn "تعذّر جلب $RAJE3_REF من مستودعنا — يُستخدم المحلي كما هو (شبكة أو صلاحية GHCR_TOKEN؟)"
+    fi
+  fi
+fi
 
 # ── 1 · the registry credential, before k3s starts ────────────────────────────────────────────
 # ONLY THE FILE HERE — the cluster-side secret is minted by bring-up.sh, in the first second a
