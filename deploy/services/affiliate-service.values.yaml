@@ -129,37 +129,37 @@ ingress:
 # peer-service calls.
 # secretRefs: BACKUP_KEK, PII_SALT, INTERNAL_SERVICE_TOKEN
 
-# THE BACKSTOP for the event-driven fast path (app/main.py's own subscriber to billing's
-# payment.succeeded/invoice.paid — a HINT only, per app/ports/event_bus.py's own contract: "at-
-# most-once, best effort... never the only way a fact can be learned"). Hourly, not nightly: the
-# fast path usually beats this by a lot, but a marketer waiting on his own commission dashboard
-# should not have to wait a whole day for the one case the event was missed.
-cronJobs:
-  - name: commissions-sweep
-    schedule: "17 * * * *"
-    path: /internal/commissions/sweep
-  # §6's resumable search engine (app/core/lead_sourcing.py) — a full grid search is HOURS
-  # (places_scraper_v2.py's own cost estimate), so this advances LEADS_TICK_UNITS (point,
-  # keyword) pairs per call rather than running one search start to finish. Every minute, not
-  # hourly: a manager watching his own search progress should see it move, not sit at 0% for the
-  # better part of an hour. A quiet no-op (never an error) when nothing is queued.
-  - name: leads-tick
-    schedule: "* * * * *"
-    path: /internal/leads/tick
-    # RESTORED (platform v0.18.2) — real support now: a RANDOM 0..jitterSeconds sleep before the
-    # call, not a fixed offset (the earlier fixed 0/15/30/45 scheme across the fleet's every-
-    # minute jobs never actually worked — the chart silently rejected the field entirely, see
-    # this file's own git history). 30s inside a 60s tick spreads this one across half the
-    # window; the other every-minute jobs (job-service's scheduler-tick, notification-service's
-    # notify-drain) carry their own independent random jitter, so the same-instant stampede that
-    # caused the real crash-loop incident this exists for is broken up statistically rather than
-    # by a hand-picked anchor.
-    jitterSeconds: 30
-  # §13's auto-escalation — no response within
-  # AFFILIATE_TICKET_ESCALATION_HOURS (default 24), or an escalation for a suspended marketer's
-  # own open tickets, moved to his manager automatically. Every 15 minutes, not hourly: a 24h
-  # SLA measured in whole-hour increments is still honest at this granularity, and a suspended
-  # marketer's tickets should not sit for up to an hour before moving.
-  - name: tickets-escalation-sweep
-    schedule: "*/15 * * * *"
-    path: /internal/tickets/escalation-sweep
+# THE HEARTBEAT — job-service PUSH DISPATCH, NOT K8S CronJobs (migrated 2026-09-16, following
+# whatsapp-assistant's own tick — see deploy/hooks/job-schedule.sh's own header for the full
+# migration plan).
+#
+# PROVISIONED ONCE, OUTSIDE THIS CHART (an admin action, not a deploy value):
+#   deploy/hooks/job-schedule.sh create commissions-sweep "17 * * * *" commissions-sweep \
+#       affiliate.commissions_sweep
+#   deploy/hooks/job-dispatch-target.sh register commissions-sweep \
+#       http://affiliate-service:8000/internal/commissions/sweep
+#   deploy/hooks/job-schedule.sh create leads-tick "* * * * *" leads-tick affiliate.leads_tick
+#   deploy/hooks/job-dispatch-target.sh register leads-tick \
+#       http://affiliate-service:8000/internal/leads/tick
+#   deploy/hooks/job-schedule.sh create tickets-escalation-sweep "*/15 * * * *" \
+#       tickets-escalation-sweep affiliate.tickets_escalation_sweep
+#   deploy/hooks/job-dispatch-target.sh register tickets-escalation-sweep \
+#       http://affiliate-service:8000/internal/tickets/escalation-sweep
+#
+# commissions-sweep IS THE BACKSTOP for the event-driven fast path (app/main.py's own subscriber
+# to billing's payment.succeeded/invoice.paid — a HINT only, per app/ports/event_bus.py's own
+# contract: "at-most-once, best effort... never the only way a fact can be learned"). Hourly, not
+# nightly: the fast path usually beats this by a lot, but a marketer waiting on his own commission
+# dashboard should not have to wait a whole day for the one case the event was missed.
+#
+# leads-tick IS §6's resumable search engine (app/core/lead_sourcing.py) — a full grid search is
+# HOURS (places_scraper_v2.py's own cost estimate), so this advances LEADS_TICK_UNITS (point,
+# keyword) pairs per call rather than running one search start to finish. Every minute, not
+# hourly: a manager watching his own search progress should see it move, not sit at 0% for the
+# better part of an hour. A quiet no-op (never an error) when nothing is queued.
+#
+# tickets-escalation-sweep IS §13's auto-escalation — no response within
+# AFFILIATE_TICKET_ESCALATION_HOURS (default 24), or an escalation for a suspended marketer's own
+# open tickets, moved to his manager automatically. Every 15 minutes, not hourly: a 24h SLA
+# measured in whole-hour increments is still honest at this granularity. Every push is verified
+# (app/core/push_verify.py) — none of the three routes trust the shared internal token alone.

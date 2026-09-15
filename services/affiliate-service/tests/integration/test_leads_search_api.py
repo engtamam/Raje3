@@ -9,6 +9,8 @@ import os
 
 import jwt
 import pytest
+
+from tests.conftest import push_headers
 from fastapi.testclient import TestClient
 
 SECRET = "h" * 40
@@ -150,8 +152,14 @@ def test_tick_refuses_without_the_internal_token(client):
     assert r.status_code == 401
 
 
-def test_tick_is_a_quiet_no_op_when_nothing_is_pending(client):
+def test_tick_refuses_without_a_push_signature_even_with_a_valid_internal_token(client):
     r = client.post("/internal/leads/tick", headers={"X-Internal-Token": INTERNAL_TOKEN})
+    assert r.status_code == 401
+
+
+def test_tick_is_a_quiet_no_op_when_nothing_is_pending(client):
+    r = client.post("/internal/leads/tick",
+                    headers={"X-Internal-Token": INTERNAL_TOKEN, **push_headers(b"")})
     assert r.status_code == 200, r.text
     # Either genuinely nothing pending, or (since this client is shared module-wide across the
     # tests above) an earlier test's queued job — either is a clean 200, never a 500.

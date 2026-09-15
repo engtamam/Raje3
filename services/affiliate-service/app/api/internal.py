@@ -47,6 +47,29 @@ async def require_internal_token(
         )
 
 
+async def require_push_signature(
+    request: Request,
+    x_job_signature: str | None = Header(default=None, alias="X-Job-Signature"),
+    x_job_signature_timestamp: str | None = Header(default=None,
+                                                   alias="X-Job-Signature-Timestamp"),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """A door driven ONLY by job-service's own push dispatch (base-services v0.24.0) — see
+    app/core/push_verify.py's own docstring for the scheme. `require_internal_token` alone would
+    accept ANY caller that knows the shared fleet secret; this additionally proves the body is
+    exactly what job-service sent, at the moment it sent it, never a replay."""
+    import time as _time
+
+    from app.core.push_verify import verify as verify_push
+
+    body = await request.body()
+    secret = settings.PUSH_SIGNING_SECRET or settings.INTERNAL_SERVICE_TOKEN
+    ok = verify_push(secret, x_job_signature_timestamp or "", body, x_job_signature or "",
+                     now=_time.time(), max_skew_seconds=settings.PUSH_SIGNATURE_MAX_SKEW_SECONDS)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="UNAUTHORIZED")
+
+
 @router.get("/health", dependencies=[Depends(require_internal_token)])
 async def internal_health(settings: Settings = Depends(get_settings)) -> dict[str, str]:
     return {"status": "ok", "service": settings.SERVICE_NAME}
@@ -166,12 +189,14 @@ async def commissions_for_tenant(request: Request, body: CommissionsForTenantIn)
     return {"commissions": [r.to_dict() for r in rows], "count": len(rows)}
 
 
-@router.post("/commissions/sweep", dependencies=[Depends(require_internal_token)])
+@router.post("/commissions/sweep",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def sweep_commissions(request: Request, settings: Settings = Depends(get_settings)) -> dict:
     """The DURABLE backstop for the event-driven fast path (app/main.py's own subscriber) — meant
-    to run on a schedule (see the deploy values' cronJobs), so a missed event costs latency, not
-    a lost commission. Bounded (Settings.AFFILIATE_SWEEP_MAX) and reports `truncated` loudly
-    rather than silently sweeping only part of a referral history past that cap."""
+    to run on a schedule (job-service push-dispatch, migrated 2026-09-16 — see
+    deploy/hooks/job-schedule.sh's own header), so a missed event costs latency, not a lost
+    commission. Bounded (Settings.AFFILIATE_SWEEP_MAX) and reports `truncated` loudly rather than
+    silently sweeping only part of a referral history past that cap."""
     c = request.app.state.container
     referrals = await c.referrals.all_referred(limit=settings.AFFILIATE_SWEEP_MAX)
     synced = 0
@@ -206,12 +231,13 @@ def _lead_sourcing(request: Request, settings: Settings) -> LeadSourcingService 
                                sectors=c.sectors)
 
 
-@router.post("/leads/tick", dependencies=[Depends(require_internal_token)])
+@router.post("/leads/tick",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def tick_leads(request: Request, settings: Settings = Depends(get_settings)) -> dict:
     """The resumable engine behind §6's search jobs (core/lead_sourcing.py's own module
     docstring) — advances up to Settings.LEADS_TICK_UNITS (point, keyword) units across the
-    OLDEST non-terminal job, then returns. Meant for a k3s CronJob (see the deploy values'
-    cronJobs, same shape as commissions-sweep) rather than a person; a full search is hours, so
+    OLDEST non-terminal job, then returns. Driven by job-service push-dispatch (migrated
+    2026-09-16, same shape as commissions-sweep) rather than a person; a full search is hours, so
     this is what turns that into many small, safely-interruptible calls."""
     svc = _lead_sourcing(request, settings)
     if svc is None:
@@ -236,11 +262,12 @@ async def tick_leads(request: Request, settings: Settings = Depends(get_settings
     return {"ticked": True, "job_id": job_id, "units": units}
 
 
-@router.post("/tickets/escalation-sweep", dependencies=[Depends(require_internal_token)])
+@router.post("/tickets/escalation-sweep",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def sweep_ticket_escalations(request: Request) -> dict:
     """§13's auto-escalation (core/escalation.py's own module docstring) — a no-response timeout
-    or a suspended marketer moves a shop's ticket to his manager automatically. Meant for a k3s
-    CronJob (see the deploy values' cronJobs), same bounded shape as commissions/sweep."""
+    or a suspended marketer moves a shop's ticket to his manager automatically. Driven by
+    job-service push-dispatch (migrated 2026-09-16), same bounded shape as commissions/sweep."""
     out = await request.app.state.container.escalation.sweep()
     if out.get("swept") and out.get("tickets_escalated"):
         await request.app.state.auditor.record(
