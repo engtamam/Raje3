@@ -196,6 +196,14 @@ def test_null_provider_refuses_every_op():
 
 
 # ── renew_now — the owner's own early "جدد الآن" tap ────────────────────────────────────────────
+def _owns(*sub_ids: str):
+    """A canned `/internal/billing/subscriptions?tenant=` response listing exactly these ids —
+    the real read `renew_now` makes FIRST, before ever forcing a cycle."""
+    return _Resp({"subscriptions": [{"id": s, "plan_id": "p", "status": "active",
+                                    "current_period_end": 0, "limits_snapshot": {}}
+                                   for s in sub_ids]})
+
+
 def test_renew_now_forces_the_cycle_then_creates_a_real_pay_link():
     p = _provider()
     calls: list[str] = []
@@ -204,6 +212,8 @@ def test_renew_now_forces_the_cycle_then_creates_a_real_pay_link():
         calls.append(req.full_url)
         if "oauth/token" in req.full_url:
             return _Resp({"access_token": "bearer_1", "expires_in": 3600})
+        if "/internal/billing/subscriptions" in req.full_url:
+            return _owns("sub_1")
         if "/subscriptions/sub_1/run" in req.full_url:
             assert req.headers.get("Authorization") == "Bearer bearer_1"
             return _Resp({"id": "inv_1", "tenant": "t1", "status": "open"})
@@ -214,12 +224,13 @@ def test_renew_now_forces_the_cycle_then_creates_a_real_pay_link():
         out = run(p.renew_now(tenant="t1", sub_id="sub_1"))
     assert out == {"ok": True, "ref": "https://pay.raje3.sa/x"}
     assert any("/subscriptions/sub_1/run" in c for c in calls)
+    assert any("/internal/billing/subscriptions" in c for c in calls)
 
 
-def test_renew_now_never_acts_on_another_tenants_subscription():
-    """A stale or tampered request claiming `tenant="t1"` must never be answered with — or act
-    on — the invoice run_cycle actually created for a DIFFERENT tenant, even if `sub_id` alone
-    happened to resolve to one. No pay-link is ever minted past this check."""
+def test_renew_now_never_even_forces_the_cycle_for_a_subscription_this_tenant_does_not_own():
+    """THE REAL FIX: ownership is checked BEFORE run_cycle — a plain read, no side effect — never
+    only after a charge has already been attempted. `t1` claiming a sub_id the read shows is not
+    among its own subscriptions must never even reach `/subscriptions/.../run` at all."""
     p = _provider()
     calls: list[str] = []
 
@@ -227,6 +238,31 @@ def test_renew_now_never_acts_on_another_tenants_subscription():
         calls.append(req.full_url)
         if "oauth/token" in req.full_url:
             return _Resp({"access_token": "bearer_1", "expires_in": 3600})
+        if "/internal/billing/subscriptions" in req.full_url:
+            return _owns("sub_belongs_to_t1")     # t1's own subs — not the one being requested
+        raise AssertionError("run_cycle must never be called for an unowned subscription")
+
+    with patch("urllib.request.urlopen", _urlopen):
+        out = run(p.renew_now(tenant="t1", sub_id="sub_of_other_tenant"))
+    assert out["ok"] is False
+    assert "محل آخر" in out["reason"]
+    assert not any("/run" in c for c in calls)
+
+
+def test_renew_now_still_refuses_if_billing_disagrees_with_the_ownership_check_too():
+    """DEFENSE IN DEPTH. Even if the ownership pre-check somehow passed (a stale read, a race
+    against the same subscription being reassigned) the invoice `run_cycle` actually creates is
+    STILL checked against the caller's claimed tenant, and no pay-link is ever minted past that
+    second check either."""
+    p = _provider()
+    calls: list[str] = []
+
+    def _urlopen(req, timeout=0):
+        calls.append(req.full_url)
+        if "oauth/token" in req.full_url:
+            return _Resp({"access_token": "bearer_1", "expires_in": 3600})
+        if "/internal/billing/subscriptions" in req.full_url:
+            return _owns("sub_1")
         if "/subscriptions/sub_1/run" in req.full_url:
             return _Resp({"id": "inv_1", "tenant": "tnt_OTHER", "status": "open"})
         raise AssertionError("pay-link must never be requested on a tenant mismatch")
@@ -239,6 +275,9 @@ def test_renew_now_never_acts_on_another_tenants_subscription():
 
 
 def test_renew_now_on_an_unknown_subscription_is_a_named_refusal():
+    """Owned by `t1` per the ownership read, but billing's own `run` route itself no longer
+    finds it (deleted between the read and the call, a genuinely rare race) — still a named,
+    honest refusal, never a raise."""
     import urllib.error
 
     p = _provider()
@@ -246,6 +285,8 @@ def test_renew_now_on_an_unknown_subscription_is_a_named_refusal():
     def _urlopen(req, timeout=0):
         if "oauth/token" in req.full_url:
             return _Resp({"access_token": "bearer_1", "expires_in": 3600})
+        if "/internal/billing/subscriptions" in req.full_url:
+            return _owns("sub_missing")
         raise urllib.error.HTTPError("u", 404, "not found", {}, None)
 
     with patch("urllib.request.urlopen", _urlopen):
@@ -261,6 +302,8 @@ def test_renew_now_already_in_progress_is_a_named_refusal():
     def _urlopen(req, timeout=0):
         if "oauth/token" in req.full_url:
             return _Resp({"access_token": "bearer_1", "expires_in": 3600})
+        if "/internal/billing/subscriptions" in req.full_url:
+            return _owns("sub_1")
         raise urllib.error.HTTPError("u", 409, "conflict", {}, None)
 
     with patch("urllib.request.urlopen", _urlopen):
@@ -271,7 +314,9 @@ def test_renew_now_already_in_progress_is_a_named_refusal():
 def test_renew_now_unreachable_billing_is_a_named_refusal_never_a_raise():
     """Unlike balance/rewards/redeem (called from a Flow that shows its own retry snackbar on a
     raise), renew_now is called from a plain WhatsApp button tap with no such screen — so an
-    unreachable peer must come back as an ordinary {"ok": False} the consumer can just relay."""
+    unreachable peer must come back as an ordinary {"ok": False} the consumer can just relay.
+    Unreachable on the OWNERSHIP READ itself (before run_cycle is ever attempted) must refuse the
+    exact same honest way."""
     import urllib.error
 
     p = _provider()
@@ -320,6 +365,8 @@ def test_redeem_on_the_early_form_forces_the_cycle_via_renew_now():
         calls.append(req.full_url)
         if "oauth/token" in req.full_url:
             return _Resp({"access_token": "bearer_1", "expires_in": 3600})
+        if "/internal/billing/subscriptions" in req.full_url:
+            return _owns("sub_1")
         if "/subscriptions/sub_1/run" in req.full_url:
             return _Resp({"id": "inv_early_1", "tenant": "t1", "status": "open"})
         assert "/invoices/inv_early_1/pay-link" in req.full_url

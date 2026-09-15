@@ -113,6 +113,28 @@ class RenewalProvider:
         except (urllib.error.URLError, OSError) as exc:
             raise RenewalUnavailable(f"billing unreachable: {exc}") from exc
 
+    def _tenant_subscriptions_sync(self, tenant: str) -> list[dict[str, Any]]:
+        """Every subscription this tenant actually holds — the SAME internal, read-only, no-side-
+        effect route `apps()` already reads (`GET /internal/billing/subscriptions?tenant=`,
+        billing-service, no code touched). Used by `renew_now` as an OWNERSHIP CHECK BEFORE ever
+        forcing a cycle — never after: `run_cycle` charges a card the moment it runs, so checking
+        the resulting invoice's own tenant (as this class still also does, defense in depth) is
+        too late to PREVENT an unwanted early charge on a subscription this caller never owned —
+        only to avoid handing back its pay-link. This read has no side effect at all, so it costs
+        nothing to make first."""
+        q = urllib.parse.urlencode({"tenant": tenant})
+        req = urllib.request.Request(
+            f"{self._billing}/internal/billing/subscriptions?{q}",
+            headers={"X-Internal-Token": self._internal_token})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:    # nosec B310
+                data = json.loads(resp.read() or b"{}")
+        except urllib.error.HTTPError as exc:
+            raise RenewalUnavailable(f"billing returned {exc.code}") from exc
+        except (urllib.error.URLError, OSError) as exc:
+            raise RenewalUnavailable(f"billing unreachable: {exc}") from exc
+        return list(data.get("subscriptions") or [])
+
     def _run_cycle_sync(self, sub_id: str) -> dict[str, Any]:
         """Force ONE subscription's billing cycle to fire right now — the exact same
         `run_cycle` the daily sweep calls, with no due-date guard of its own (the guard lives in
@@ -243,9 +265,20 @@ class RenewalProvider:
         """Force this ONE subscription's cycle early, at the OWNER'S OWN explicit request, and
         hand back a real pay-link for the invoice it just created — never the automatic sweep,
         which is untouched and still only fires on its own schedule (see `_run_cycle_sync`'s own
-        docstring). `tenant` is the caller's claim; the invoice `run_cycle` actually creates is
-        checked against it below so a stale or tampered request can never be answered with, or
-        act on, a different shop's subscription."""
+        docstring).
+
+        OWNERSHIP IS CHECKED BEFORE THE CYCLE EVER RUNS, not only after: `run_cycle` attempts a
+        real charge the moment it runs, so confirming `sub_id` is actually one of `tenant`'s own
+        subscriptions FIRST (a plain read, no side effect) is what actually prevents an unwanted
+        early charge on a different shop's subscription — checking the resulting invoice's own
+        tenant afterward (still done below too) only prevents HANDING BACK its pay-link once the
+        charge already happened, which is too late to matter."""
+        try:
+            held = await run_in_threadpool(self._tenant_subscriptions_sync, tenant)
+        except RenewalUnavailable:
+            return {"ok": False, "reason": "تعذّر الوصول لنظام الفوترة الآن."}
+        if not any(str(s.get("id") or "") == sub_id for s in held):
+            return {"ok": False, "reason": "لا يمكن تجديد اشتراك محل آخر."}
         try:
             inv = await run_in_threadpool(self._run_cycle_sync, sub_id)
         except RenewalUnavailable:
