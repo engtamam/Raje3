@@ -130,6 +130,53 @@ def test_completing_an_accepted_request_creates_a_real_visit(svc):
     assert out.visit_id, "a completed request must carry the real visit id it created"
 
 
+class _FakeSeams:
+    """Records what it was asked to seam — the test's substitute for reminders' own scheduling,
+    proving only that `complete()` HANDS IT the right visit, not what reminders then does with it
+    (that is reminders' own, already-tested, owner-configured-delay concern)."""
+
+    def __init__(self) -> None:
+        self.calls: list = []
+
+    async def after_visit(self, result) -> None:
+        self.calls.append(result)
+
+
+def test_completing_runs_the_same_seams_every_other_visit_route_runs(svc):
+    """The real gap this closes: record_visit() alone never told reminders/insights/search a
+    thing happened — only seams.after_visit() does (core/seams.py::_emit_visit publishes
+    `visit.recorded`, which is what reminders' own configured-delay rating-request scheduling
+    reads from). Without this call, a mobile-service «تم» silently waited on the 5-minute reseam
+    sweep (api/internal.py::_RESEAM_AFTER) to ever notice — correct eventually, never on the
+    owner's own configured clock."""
+    store = MemoryDataStore()
+    ops = Operations(store=store, pii_salt="s" * 32)
+    seams = _FakeSeams()
+    s = MobileRequestService(store=store, operations=ops, default_cc=CC, seams=seams)
+    sid = run(_seed_service(store))
+    req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                       requested_time_text="غداً", lat=1, lng=1))
+    run(s.accept(TENANT, req.id, actor="owner1"))
+    out = run(s.complete(TENANT, req.id))
+
+    assert len(seams.calls) == 1
+    assert seams.calls[0].visit.id == out.visit_id
+
+
+def test_a_request_completed_with_no_seams_peer_wired_still_completes(svc):
+    """None-safe, same posture as every other optional peer in this codebase — a deployment or
+    test that never wires `seams` (every pre-existing constructor call, including this file's own
+    `svc` fixture) must keep working exactly as it always did."""
+    s, store, _ops = svc
+    sid = run(_seed_service(store))
+    req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                       requested_time_text="غداً", lat=1, lng=1))
+    run(s.accept(TENANT, req.id, actor="owner1"))
+    out = run(s.complete(TENANT, req.id))
+    assert out.status == COMPLETED
+    assert out.visit_id
+
+
 def test_completing_twice_does_not_double_record_the_visit(svc):
     """`record_visit()`'s own idempotency_key (mreq:{id}) is what protects this — a real,
     reused guarantee, not a second one built here."""

@@ -116,13 +116,25 @@ class NoShowRisk:
 class MobileRequestService:
     """Everything a mobile-service request needs, other than `record_visit()` itself (injected as
     `operations`, the same `core/operations.py::Operations` instance every other visit-creation
-    path already shares)."""
+    path already shares) and `seams` (injected as `container.seams`, the same instance every other
+    visit-creation ROUTE already shares — see this module's own `complete()`)."""
 
-    def __init__(self, *, store: Any, operations: Any, default_cc: str,
+    def __init__(self, *, store: Any, operations: Any, default_cc: str, seams: Any = None,
                 risk_window: int = 20, risk_threshold_percent: int = 40) -> None:
         self._s = store
         self._ops = operations
         self._cc = default_cc
+        # THE RIGHT WAY TO WIRE INTO "loyalty points, insights and reminders all pick it up
+        # automatically" — NOT an immediate send. `seams.after_visit()` only publishes the
+        # `visit.recorded` FACT (core/seams.py::_emit_visit) — reminders-service is what actually
+        # schedules the rating-request/visit-confirmation message, at whatever delay the shop
+        # owner configured for it (an hour, a day, whatever — that knob lives entirely in
+        # reminders, not here). Calling this promptly, same as api/v1/field.py's own
+        # `record_visit` route does, is what makes that owner-configured delay start counting from
+        # the real completion moment instead of from whenever the 5-minute reseam sweep
+        # (api/internal.py::_RESEAM_AFTER) next happens to run — a fully correct fallback, just a
+        # slower one, so `seams` stays optional here rather than required.
+        self._seams = seams
         # SAME SHAPE AS bookings' OWN `no_show_risk()` (services/bookings/app/core/operations.py)
         # — a small window of the customer's own RECENT closed requests, never the whole history:
         # someone who no-showed twice three years ago and has been reliable since must not still
@@ -209,6 +221,11 @@ class MobileRequestService:
             tenant=tenant, phone=row.phone, service_ids=row.service_ids,
             name=row.customer_name, occurred_at=occurred_at or _now(),
             idempotency_key=f"mreq:{row.id}", note=row.note)
+        # SAME "not already seamed" GUARD api/v1/field.py's OWN route uses — a duplicate-key retry
+        # (idempotency_key above) returns the SAME already-recorded visit, and re-running its seams
+        # a second time would re-publish `visit.recorded` and re-schedule its own rating request.
+        if not recorded.visit.seamed_at and self._seams is not None:
+            await self._seams.after_visit(recorded)
         row.status = COMPLETED
         row.visit_id = recorded.visit.id
         await self._save(tenant, row)

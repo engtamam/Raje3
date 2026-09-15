@@ -242,15 +242,6 @@ def build_container(settings: Settings) -> Container:
     ).with_offer_chooser(http_chooser(reminders_url=settings.REMINDERS_SERVICE_URL,
                                       token=settings.INTERNAL_SERVICE_TOKEN))
 
-    # Mobile/on-the-go service requests — see core/mobile_requests.py's own module docstring.
-    # `operations=container.operations` (already built above) is how `complete()` reaches
-    # `record_visit()` directly, no network hop.
-    from app.core.mobile_requests import MobileRequestService
-
-    container.mobile_requests = MobileRequestService(
-        store=container.datastore, operations=container.operations,
-        default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
-
     # THE COUNTER'S DESK AT `loyalty` — what a till may ask about a customer's points, asked on
     # its behalf so its own credential never has to carry a capability over the ledger.
     from app.adapters.loyalty_desk import build_loyalty_desk
@@ -310,6 +301,18 @@ def build_container(settings: Settings) -> Container:
                             telemetry=container.telemetry,
                             visits=VisitStore(container.datastore),
                             index_name=settings.SEARCH_INDEX_NAME)
+
+    # Mobile/on-the-go service requests — see core/mobile_requests.py's own module docstring.
+    # `operations=container.operations` (already built above) is how `complete()` reaches
+    # `record_visit()` directly, no network hop; `seams=container.seams` (just built, right
+    # above) is what makes «تم» run the SAME after-work every other visit-creation route runs —
+    # reminders' own rating-request/visit-confirmation scheduling, insights, search — rather than
+    # relying solely on the 5-minute reseam sweep to eventually notice.
+    from app.core.mobile_requests import MobileRequestService
+
+    container.mobile_requests = MobileRequestService(
+        store=container.datastore, operations=container.operations,
+        seams=container.seams, default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
     # Seats and branches, reported to billing after every change. Null in a local run; the
     # production values file sets the http driver.
     from app.core.seats import build_gauges
