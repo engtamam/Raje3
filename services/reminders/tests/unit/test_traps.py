@@ -74,22 +74,28 @@ def test_preferences_are_erased_after_the_schedules_not_before():
     assert order[0] < order[1]
 
 
-# ── TRAP 4: a cron whose path no route serves ───────────────────────────────────────────────────
-def test_the_cron_path_in_the_values_file_is_a_route_this_service_serves():
+# ── TRAP 4: the heartbeat's own path is a route no route serves ─────────────────────────────────
+def test_the_heartbeats_own_path_in_the_values_file_is_a_route_this_service_serves():
     """ticket-service shipped NOTIFICATION_SEND_PATH=/internal/notifications/send against a peer
-    serving /internal/notify. Every notification went to a silent 404 for weeks."""
+    serving /internal/notify. Every notification went to a silent 404 for weeks.
+
+    THE HEARTBEAT ITSELF MOVED (2026-09-16): tick/receipts-pull are no longer a `cronJobs:` block
+    in this file — they are a job-service schedule + push-dispatch target, provisioned by
+    deploy/hooks/job-schedule.sh/job-dispatch-target.sh, whose exact commands are documented right
+    above `env:` as a comment (never removed as "just prose" — this test still reads the paths out
+    of it, the same invariant as before, just against the new heartbeat's own documentation)."""
     import pathlib
     import re
     from app.config import Settings
     from app.manifest import build_manifest
     values = pathlib.Path(__file__).resolve().parents[4] / "deploy/services/reminders.values.yaml"
     text = values.read_text(encoding="utf-8")
-    cron_paths = re.findall(r"^\s+path:\s*(\S+)", text, re.M)
-    assert cron_paths, "the tick cron is the heartbeat; without it the service is inert"
+    heartbeat_paths = re.findall(r"http://reminders:8000(/internal/\S+)", text)
+    assert heartbeat_paths, "the tick/receipts-pull heartbeat commands must still be documented"
     served = {e["path"] for e in build_manifest(Settings(INTERNAL_SERVICE_TOKEN="x" * 40))
               ["endpoints"]}
-    for path in cron_paths:
-        assert path in served, f"cron drives {path}, which no route serves"
+    for path in heartbeat_paths:
+        assert path in served, f"the heartbeat drives {path}, which no route serves"
 
 
 def test_every_peer_path_setting_matches_the_peer_that_serves_it():

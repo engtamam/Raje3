@@ -60,6 +60,27 @@ async def require_internal_token(
         )
 
 
+async def require_push_signature(
+    request: Request,
+    x_job_signature: str | None = Header(default=None, alias="X-Job-Signature"),
+    x_job_signature_timestamp: str | None = Header(default=None,
+                                                   alias="X-Job-Signature-Timestamp"),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """A door driven ONLY by job-service's own push dispatch (base-services v0.24.0) — see
+    app/core/push_verify.py's own docstring for the scheme. `require_internal_token` alone would
+    accept ANY caller that knows the shared fleet secret; this additionally proves the body is
+    exactly what job-service sent, at the moment it sent it, never a replay."""
+    from app.core.push_verify import verify as verify_push
+
+    body = await request.body()
+    secret = settings.PUSH_SIGNING_SECRET or settings.INTERNAL_SERVICE_TOKEN
+    ok = verify_push(secret, x_job_signature_timestamp or "", body, x_job_signature or "",
+                     now=time.time(), max_skew_seconds=settings.PUSH_SIGNATURE_MAX_SKEW_SECONDS)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="UNAUTHORIZED")
+
+
 @router.get("/health", dependencies=[Depends(require_internal_token)])
 async def internal_health(settings: Settings = Depends(get_settings)) -> dict[str, str]:
     return {"status": "ok", "service": settings.SERVICE_NAME}
@@ -112,14 +133,18 @@ class TickIn(BaseModel):
     tenant: str = Field(default="", max_length=128)
 
 
-@router.post("/reminders/tick", dependencies=[Depends(require_internal_token)])
+@router.post("/reminders/tick",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def tick(request: Request, body: TickIn | None = None) -> dict:
-    """The heartbeat. A CronJob in the values file drives this.
+    """The heartbeat. DRIVEN BY job-service's PUSH DISPATCH, NOT A K8S CronJob (migrated
+    2026-09-16, following whatsapp-assistant's own tick — see deploy/hooks/job-schedule.sh's own
+    header for the full migration plan) — `require_push_signature` on top of the usual internal
+    token means this only ever fires on a genuine, unreplayed push job-service itself sent.
 
-    WITHOUT THE CRON THIS SERVICE IS INERT AND LOOKS HEALTHY: visits arrive, schedules are created,
-    every probe is green, and not one message is ever sent. That is why the cron is declared in the
-    values file and why a guard checks that this path exists — the failure has no symptom until an
-    owner asks why nobody is coming back.
+    WITHOUT A LIVE SCHEDULE + REGISTERED PUSH TARGET THIS SERVICE IS INERT AND LOOKS HEALTHY:
+    visits arrive, schedules are created, every probe is green, and not one message is ever sent.
+    That is why a guard checks that this path exists — the failure has no symptom until an owner
+    asks why nobody is coming back.
 
     Runs the catch-up read FIRST, then the send pass. In that order because the bus is
     at-most-once: a visit the event missed should be scheduled and sent in the same tick, not in
@@ -404,13 +429,14 @@ async def redemption(request: Request, body: RedemptionIn) -> dict:
 _sched_key = key_of
 
 
-@router.post("/reminders/receipts/pull", dependencies=[Depends(require_internal_token)])
+@router.post("/reminders/receipts/pull",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def pull_receipts(request: Request) -> dict:
     """Walk the notification peer's delivery receipts forward and write them onto the send log.
 
-    A CRON DRIVES THIS, and without the cron the whole path is inert while looking healthy — the
-    same shape as the tick above, and the reason that one is declared in the values file with a
-    guard checking the path exists.
+    DRIVEN BY job-service's PUSH DISPATCH, NOT A K8S CronJob (migrated 2026-09-16, same as the
+    tick above) — without a live schedule + registered push target the whole path is inert while
+    looking healthy.
 
     NOT A WEBHOOK. Meta's status callback lands on notification-service, which owns the number and
     the verify token; this service reads what that peer persisted. One door for Meta, one reader

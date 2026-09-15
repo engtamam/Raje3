@@ -319,33 +319,26 @@ env:
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 
-# THE HEARTBEAT. Without this the service is inert and looks healthy: visits arrive, schedules are
-# created, every probe is green, and not one message is ever sent. There is no symptom until an
-# owner asks why nobody is coming back.
+# THE HEARTBEAT — job-service PUSH DISPATCH, NOT K8S CronJobs (migrated 2026-09-16, following
+# whatsapp-assistant's own tick — see deploy/hooks/job-schedule.sh's own header for the full
+# migration plan). Without a live schedule + registered push target this service is inert and
+# looks healthy: visits arrive, schedules are created, every probe is green, and not one message
+# is ever sent. There is no symptom until an owner asks why nobody is coming back.
+#
+# PROVISIONED ONCE, OUTSIDE THIS CHART (an admin action, not a deploy value):
+#   deploy/hooks/job-schedule.sh create reminders-tick "4-59/5 * * * *" reminders-tick reminders.tick
+#   deploy/hooks/job-dispatch-target.sh register reminders-tick \
+#       http://reminders:8000/internal/reminders/tick
+#   deploy/hooks/job-schedule.sh create reminders-receipts "3,13,23,33,43,53 * * * *" \
+#       reminders-receipts reminders.receipts_pull
+#   deploy/hooks/job-dispatch-target.sh register reminders-receipts \
+#       http://reminders:8000/internal/reminders/receipts/pull
 #
 # Every five minutes, not every minute: a reminder is scheduled days in advance, so five minutes of
-# latency is invisible to a customer — and the dev node has already been brought down once by
-# every-minute crons across the fleet.
-cronJobs:
-  - name: tick
-    # OFFSET FROM :00 — this shared the exact 5-minute mark with four other services' own
-    # cron jobs, found live diagnosing a real slowdown on a 2-vCPU node. See compliance-
-    # service.values.yaml's dsar-sweep for the full note — each of the five now has its own minute.
-    schedule: "4-59/5 * * * *"
-    path: /internal/reminders/tick
-
-  # DID THEY ARRIVE. WhatsApp's status callbacks land on notification-service, which persists each
-  # receipt against the delivery it belongs to; this walks that log forward and writes the fact onto
-  # our own send row. Without this job the whole path is inert and every probe stays green — the
-  # send log would keep saying «sent» and nothing more, which is «we handed it to Meta» and not
-  # «it reached anybody». That is the state this service shipped in.
-  #
-  # Every ten minutes, and offset from the tick's five so the two passes do not contend for the same
-  # peer at the same second. A receipt is not urgent: nobody is waiting on it, and it feeds a score
-  # that decays over days.
-  - name: receipts
-    schedule: "3,13,23,33,43,53 * * * *"
-    path: /internal/reminders/receipts/pull
+# latency is invisible to a customer. The receipts pull runs every ten minutes, offset from the
+# tick's five so the two passes do not contend for the same peer at the same second — a receipt is
+# not urgent: nobody is waiting on it, and it feeds a score that decays over days. Every push is
+# verified (app/core/push_verify.py) — neither route trusts the shared internal token alone.
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door

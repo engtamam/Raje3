@@ -30,6 +30,24 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+def push_headers(body: bytes, *, ts: int | None = None) -> dict[str, str]:
+    """A genuine job-service push signature over `body` (the exact bytes a test will send),
+    verifiable against INTERNAL_SERVICE_TOKEN — the default secret `require_push_signature` falls
+    back to when no dedicated PUSH_SIGNING_SECRET is configured, exactly as it is not in this test
+    environment. Needed on top of the ordinary X-Internal-Token header for any route gated by
+    `require_push_signature` (tick, receipts/pull — migrated 2026-09-16)."""
+    import hashlib
+    import hmac
+    import time
+
+    from app.core.push_verify import SIGNATURE_HEADER, TIMESTAMP_HEADER
+
+    t = ts if ts is not None else int(time.time())
+    signed = f"{t}.".encode("utf-8") + body
+    sig = hmac.new(INTERNAL_TOKEN.encode("utf-8"), signed, hashlib.sha256).hexdigest()
+    return {SIGNATURE_HEADER: sig, TIMESTAMP_HEADER: str(t)}
+
+
 def pytest_pyfunc_call(pyfuncitem):
     """Run a coroutine test on a real loop, with no plugin to install.
 
