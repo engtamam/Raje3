@@ -91,8 +91,12 @@ export interface AppShellProps {
   /** Content rendered in the main column INSTEAD of the router <Outlet/> — for a channel without routes. */
   children?: ReactNode;
   /** `mark` is the brand glyph shown beside the name; it DEFAULTS to the platform's BrandMark, so a
-   *  consuming product supplies its own (e.g. its logo) without forking the shell. */
-  brand: { name: string; tagline?: string; mark?: ReactNode };
+   *  consuming product supplies its own (e.g. its logo) without forking the shell.
+   *  `markOnly` — راجِع's own rebrand (2026-09-16): the mark IS the wordmark now (a compact render
+   *  of the name itself, not a separate icon), so showing `name` beside it a second time would
+   *  repeat the same word twice. Set when `mark` already reads as the full name; the separate
+   *  name/tagline block (desktop expanded rail AND the mobile header) is then skipped entirely. */
+  brand: { name: string; tagline?: string; mark?: ReactNode; markOnly?: boolean };
   /** The signed-in user, or null (footer collapses to controls only). */
   user: AppShellUser | null;
   labels: AppShellLabels;
@@ -324,7 +328,7 @@ export function AppShell({
 
         {/* brand */}
         <div className={cn('flex items-center border-b border-border-subtle px-3 py-3.5', collapsed ? 'justify-center' : 'justify-start')}>
-          {collapsed ? (
+          {collapsed || brand.markOnly ? (
             brand.mark ?? <BrandMark size={26} className="shrink-0" />
           ) : (
             <div className="flex min-w-0 items-center gap-2.5 ps-2">
@@ -555,7 +559,7 @@ export function AppShell({
           </button>
           <div className="flex items-center gap-2">
             {brand.mark ?? <BrandMark size={22} className="shrink-0" />}
-            <span className="text-sm font-semibold">{brand.name}</span>
+            {!brand.markOnly && <span className="text-sm font-semibold">{brand.name}</span>}
           </div>
         </div>
         {/* max-w-5xl READ AS A MOBILE LAYOUT STRETCHED THIN across a desktop window — every screen

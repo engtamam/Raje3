@@ -29,7 +29,7 @@
  */
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Mark, Wordmark } from '../brand/Mark';
+import { Wordmark } from '../brand/Mark';
 import { Button } from '../rj-ui/Button';
 import { Sparkles } from 'lucide-react';
 import { translate, tf } from '../operator-i18n';
@@ -81,8 +81,7 @@ export function WelcomeTrial({ trialEnd, onDone }: { trialEnd: number; onDone: (
         style={CARD}
       >
         <div className="flex items-center gap-3 text-[#f4efe2]">
-          <Mark size={36} />
-          <Wordmark className="text-base" />
+          <Wordmark className="text-xl" />
         </div>
 
         <div

@@ -8,10 +8,10 @@
  * photographed one and asked what was broken. Nothing was broken; the screen simply had no way to
  * say "I am working".
  *
- * SO THIS SAYS IT, WITH THE MARK. The journey in our logo — leave, turn, come back — is already a
- * loop, so it does not need a spinner drawn around it: it turns, slowly, and stops when the data
- * arrives. It takes `--accent` like everything else, which means on a shop's own screen it is the
- * shop's colour and not ours.
+ * SO THIS SAYS IT, WITH A SPINNER — a plain turning ring, not the drawn logo the product used to
+ * have (retired 2026-09-16: the mark is now the wordmark itself, and a word does not read as
+ * "loading" when it spins). It takes `--accent` like everything else, which means on a shop's own
+ * screen it is the shop's colour and not ours.
  *
  * IT DOES NOT APPEAR IMMEDIATELY. A fast connection answers in eighty milliseconds, and a spinner
  * that flashes for eighty milliseconds is worse than no spinner: the flicker reads as instability
@@ -23,7 +23,6 @@
  * sentence carries the meaning on its own.
  */
 import { useEffect, useState } from 'react';
-import { Mark } from './brand/Mark';
 import { useOperatorI18n } from './operator-i18n';
 import './waiting-i18n';
 
@@ -44,13 +43,21 @@ export function Waiting({ what = '', delayMs = APPEAR_AFTER_MS }: { what?: strin
   return (
     <div
       className="flex min-h-48 flex-col items-center justify-center gap-3 py-10"
-      // ANNOUNCED, NOT ONLY DRAWN. A screen reader user gets nothing from a turning logo, and
+      // ANNOUNCED, NOT ONLY DRAWN. A screen reader user gets nothing from a turning ring, and
       // `polite` means it is read when there is a gap rather than cutting across something else.
       role="status"
       aria-live="polite"
     >
-      <span className="raje-waiting">
-        <Mark size={40} />
+      <span className="raje-waiting" aria-hidden="true">
+        <svg width={40} height={40} viewBox="0 0 40 40" fill="none" style={{ color: 'var(--accent)' }}>
+          <circle cx="20" cy="20" r="16" stroke="currentColor" strokeOpacity="0.2" strokeWidth="4" />
+          <path
+            d="M20 4a16 16 0 0 1 16 16"
+            stroke="currentColor"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+        </svg>
       </span>
       {/* WHAT WE ARE FETCHING, when the caller knows. «جاري التحميل» is what every product says
           and tells him nothing; «نجمع عملاءك» tells him which screen he is waiting on. */}

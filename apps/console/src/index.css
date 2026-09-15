@@ -48,18 +48,18 @@ button { user-select: none; -webkit-user-select: none; touch-action: manipulatio
   .touch-only { display: block; }
 }
 
-/* THE WAIT, IN OUR OWN MARK — see Waiting.tsx for why a page-sized grey rectangle had to go.
+/* THE WAIT — see Waiting.tsx for why a page-sized grey rectangle had to go, and why this is now a
+ * plain ring rather than the retired drawn mark (2026-09-16: the mark is the wordmark, and a word
+ * does not read as "loading" when it spins).
  *
- * THREE SECONDS PER TURN, not one. The mark is a journey that leaves and comes back; spun at
- * spinner speed it becomes a spinner, and the one thing it has to say — that this is راجِع and it
- * is working — is lost in the blur. Slow enough to read, fast enough to be alive.
- *
- * `linear`, because an eased rotation looks like it is struggling. */
+ * `linear`, because an eased rotation looks like it is struggling. Just under a second per turn —
+ * spinner speed, not the old mark's slow "journey" pace, because there is no word to keep legible
+ * any more. */
 @keyframes raje-turn { to { transform: rotate(360deg); } }
-.raje-waiting { display: inline-flex; animation: raje-turn 3s linear infinite; }
+.raje-waiting { display: inline-flex; animation: raje-turn 0.9s linear infinite; }
 
 /* MOVEMENT IS A SYMPTOM FOR SOME PEOPLE, not decoration. They have said so in their system
- * settings, and the sentence beside the mark already carries the whole meaning — so here it
+ * settings, and the sentence beside the spinner already carries the whole meaning — so here it
  * breathes in place instead of turning, and nothing is lost. */
 @media (prefers-reduced-motion: reduce) {
   @keyframes raje-breathe { 50% { opacity: .45; } }

@@ -20,7 +20,7 @@ import { AppShell } from '@base-ui/shell';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { DENIED, isReady, type Loading } from './loading';
-import { Mark, NAME_AR } from './brand/Mark';
+import { NAME_AR, Wordmark } from './brand/Mark';
 import { Door } from './screens/Door';
 import { LegalGate } from './screens/LegalGate';
 import { WelcomeTrial } from './screens/WelcomeTrial';
@@ -61,17 +61,10 @@ function ConsoleShell({
   const { t } = useOperatorI18n();
   return (
     <AppShell
-      // OUR OWN MARK, AND IT IS THE ONE LINE THIS WAITED FOR.
-      //
-      // The shell drew its own BrandMark unconditionally — امتثالك's notary seal, a ring holding a
-      // checkmark, meaning "sealed · verified". Right for a compliance product and wrong for ours:
-      // راجِع is a journey that closes. We escalated rather than forking the shell, and
-      // `brand.mark?: ReactNode` arrived in v0.16.4, defaulted to BrandMark so no consumer changed.
-      //
-      // The wait was not caution: an extra property is a COMPILE ERROR in TypeScript, never a
-      // silently ignored one, so writing this line before the version that supports it would have
-      // broken the build rather than sat quietly. One tag, one line.
-      brand={{ name: NAME_AR, mark: <Mark size={26} className="shrink-0" /> }}
+      // OUR OWN MARK IS THE NAME ITSELF (2026-09-16 rebrand) — no separate icon, drawn or
+      // otherwise. `markOnly` tells the shell not to also print `brand.name` beside it (this IS
+      // the name, compact); see ui/'s own AppShell.tsx for why that flag exists at all.
+      brand={{ name: NAME_AR, mark: <Wordmark compact className="shrink-0" />, markOnly: true }}
       // DERIVED, NOT WRITTEN — see nav.ts. An operator's list has one entry and a manager's is
       // missing what the owner keeps, with no role check anywhere in this file.
       // A SECTION WHOSE SERVICE IS DOWN IS NAMED, NOT DELETED (م · النمط 3). The row stays where

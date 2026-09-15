@@ -29,7 +29,7 @@
  * placement changed.
  */
 import type { ReactNode } from 'react';
-import { Mark, Wordmark } from '../brand/Mark';
+import { Wordmark } from '../brand/Mark';
 import { legalUrl } from '../legal/url';
 import { useOperatorI18n } from '../operator-i18n';
 import './door-layout-i18n';
@@ -78,8 +78,7 @@ export function DoorLayout({ children, title, subtitle }: {
               puts that door. It is a plain <a> to '/' and not a router link: the landing page is
               served outside this bundle. */}
           <a href="/" className="flex items-center gap-3 text-[#f4efe2]" aria-label={t('doorLayout.backHome')}>
-            <Mark size={40} />
-            <Wordmark className="text-lg" />
+            <Wordmark className="text-2xl" />
           </a>
 
           <div className="max-w-md">
@@ -104,8 +103,7 @@ export function DoorLayout({ children, title, subtitle }: {
                 screen — so it carries the whole burden of saying both what this is and how to
                 leave. A dead logo on a page with no other exit is a page people abandon. */}
             <a href="/" className="mb-8 flex items-center gap-2 lg:hidden" aria-label={t('doorLayout.backHome')}>
-              <Mark size={32} />
-              <Wordmark className="text-base" />
+              <Wordmark className="text-lg" />
             </a>
             {children}
           </div>

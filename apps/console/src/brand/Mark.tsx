@@ -1,96 +1,52 @@
 /**
- * راجِع — the mark.
+ * راجِع — the wordmark, and the ONLY mark (2026-09-16).
  *
- * COPIED FROM platform/ui's BrandMark AND REPLACED, which is the one case our alias rule allows:
- * we consume the kit by reference and fork only a component we must change. Theirs is a notary
- * seal — a ring holding a checkmark, saying "sealed · verified". That is a compliance product's
- * mark, and it is not ours.
- *
- * WHAT OURS HAS TO SAY: a customer went away and came back. That is the entire product, and it is
- * also the word — راجِع, the one who returns.
- *
- * SO THE MARK IS A JOURNEY THAT CLOSES. A dot at the centre is the shop. An arc leaves it, opens,
- * and an arrowhead turns back toward it. Not a refresh glyph, which means "do it again"; this one
- * has a destination and returns TO it.
- *
- * FOUR PLACES IT MUST SURVIVE, and they pull against each other:
- *
- *   24px in the collapsed sidebar rail   → no detail finer than the stroke itself
- *   a WhatsApp profile, cropped round    → the whole mark sits inside a circle with margin
- *   monochrome, on an invoice            → it carries no colour information at all
- *   a favicon                            → the same, at 16px
- *
- * Which is why there is no gradient, no second colour, and nothing inside the arc. It takes
- * `--accent` from the theme like every other token, so an establishment's own colour overrides it
- * on the customer page without touching this file — and on that page the mark is not rendered at
- * all (spec 8.6.1): the customer sees his shop, not a product his shop bought.
- */
-export function Mark({ size = 26, className }: { size?: number; className?: string }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 32 32"
-      fill="none"
-      className={className}
-      aria-hidden="true"
-      focusable="false"
-      style={{ color: 'var(--accent)' }}
-    >
-      {/* THE JOURNEY. An arc that opens at the top-right — the customer leaving — drawn thick
-          enough to hold at 16px, and stopping short so the gap reads as absence rather than as a
-          broken circle. */}
-      <path
-        d="M16 5.2a10.8 10.8 0 1 1-7.9 3.4"
-        stroke="currentColor"
-        strokeWidth="2.6"
-        strokeLinecap="round"
-        fill="none"
-      />
-      {/* THE RETURN. The arrowhead points back INTO the ring rather than along it — the difference
-          between "going round again" and "coming back". */}
-      <path
-        d="M6.6 4.9 8.1 9.2 12.4 8.1"
-        stroke="currentColor"
-        strokeWidth="2.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      {/* THE SHOP. Filled, because it is the one thing that does not move. */}
-      <circle cx="16" cy="16" r="3.4" fill="currentColor" />
-    </svg>
-  );
-}
-
-/**
- * The wordmark.
- *
- * USED EVERYWHERE THE NAME APPEARS, and that is the point of it existing at all. It was written and
- * then left unused while three screens spelled `NAME_AR` into a `<span>` of their own — which is
- * three places to fix on the day the name is set in a drawn logotype, and three chances to miss
- * one. The component is not styling; it is the single place the product says its own name.
+ * THE DRAWN ICON IS GONE, ON PURPOSE. The product had a graphic "journey that closes" mark — an
+ * arc leaving a dot and an arrowhead turning back into it — and the owner's own instruction was
+ * direct: the design was not working, and the name itself, set in type, is the better logo. So
+ * there is no separate glyph any more, anywhere: the sidebar, the sign-in screens, the welcome
+ * dialog and the browser tab (public/favicon.svg) all show the same thing — راجِع, spelled out,
+ * with its kasra.
  *
  * THE KASRA IS LOAD-BEARING, NOT DECORATION. راجَع and راجِع are different words: the first is
  * "he reviewed / went over the accounts", the second is the one about bringing someone back. A
  * product whose whole premise is the returning customer cannot be ambiguous about which word its
  * own name is, and Arabic readers resolve an unvowelled راجع by context — of which a logo has
- * none. So the vowel is written, here and everywhere the name appears.
+ * none. So the vowel is written, here and everywhere the name appears — INCLUDING the tightest
+ * spots (a 26px collapsed sidebar rail, a 16px favicon): the owner's own call, once shown the
+ * alternative (an initial letter alone) and asked which he preferred.
  */
 export const NAME_AR = 'راجِع';
 export const NAME_EN = 'Raje3';
 
-export function Wordmark({ locale = 'ar', className }: { locale?: 'ar' | 'en'; className?: string }) {
+export function Wordmark({
+  locale = 'ar',
+  compact = false,
+  className,
+}: {
+  locale?: 'ar' | 'en';
+  /** For the tightest slots — the collapsed sidebar rail, a mobile header icon — where the full
+   *  word still has to read as itself rather than truncate or overflow its box. Fixed, small type
+   *  rather than inheriting the surrounding context's font-size, which is exactly what those slots
+   *  do not control (a 26px square gives an ambient `font-size` no say at all). */
+  compact?: boolean;
+  className?: string;
+}) {
   return (
     <span
       className={className}
       style={{
-        fontWeight: 700,
-        // ARABIC KEEPS ITS NATURAL SPACING. Negative tracking is a Latin habit: it tightens
-        // letters that stand apart, and in a connected script it pulls joined letterforms into
-        // each other — «راجِع» loses the seat its kasra sits on before anyone can say why the
-        // logo looks wrong.
-        letterSpacing: locale === 'en' ? '-0.01em' : 0,
+        fontFamily: 'var(--font-display, "Cairo", "Tajawal", system-ui, sans-serif)',
+        fontWeight: 800,
+        color: 'var(--accent)',
+        display: 'inline-block',
+        lineHeight: 1,
+        ...(compact ? { fontSize: '13px', letterSpacing: 0 } : {}),
+        // ARABIC KEEPS ITS NATURAL SPACING outside the compact slots. Negative tracking is a Latin
+        // habit: it tightens letters that stand apart, and in a connected script it pulls joined
+        // letterforms into each other — «راجِع» loses the seat its kasra sits on before anyone can
+        // say why the logo looks wrong.
+        ...(!compact ? { letterSpacing: locale === 'en' ? '-0.01em' : 0 } : {}),
       }}
     >
       {locale === 'ar' ? NAME_AR : NAME_EN}
