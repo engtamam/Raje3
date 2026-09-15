@@ -189,6 +189,40 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             "just a natural, inviting suggestion naming the service."),
         "parameters": {"type": "object", "properties": {}},
     },
+    "check_growth_opportunities": {
+        "name": "check_growth_opportunities",
+        "description": (
+            "Read-only, and it is a COMPLETE, pre-analyzed report — not a hint you need to reason "
+            "over yourself. Call it once, with the real service_ids the customer is already "
+            "discussing or has just booked, and it comes back having already: checked which real "
+            "packages fit (contain everything selected, or are missing only one piece this "
+            "customer's own recent visits already cover); confirmed each one GENUINELY saves money "
+            "over booking separately (a package that would cost the same or more is never included "
+            "at all — you will never see one that isn't a real deal); compared the real loyalty "
+            "points each path earns, and how much closer the package gets this customer to their "
+            "next reward; found any OTHER service genuinely bought together with these by real "
+            "customers (a statistical fact, separate from packages); and checked this customer's "
+            "own timing for a service that's due soon or one he's clearly stopped booking. "
+            "\n\n"
+            "WHAT TO DO WITH IT: every line is a plain fact with a real number — never a script to "
+            "read aloud, never a claim you should invent beyond what it says. Use your own "
+            "judgement for whether THIS turn is a natural moment to mention any of it, which single "
+            "point (never all of them at once) is worth raising, and how to phrase it warmly — "
+            "same restraint as every other growth suggestion: once, gently, never twice if declined "
+            "or ignored. An empty or short report means there is genuinely nothing worth raising "
+            "right now — say nothing about it, don't apologise for finding nothing."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "service_ids": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": ("Real ids from the shop's own catalogue the customer is "
+                                    "currently discussing or booking — never invented."),
+                },
+            },
+            "required": ["service_ids"],
+        },
+    },
     "check_mobile_visit_hours": {
         "name": "check_mobile_visit_hours",
         "description": (

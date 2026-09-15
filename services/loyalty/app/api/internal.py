@@ -567,6 +567,40 @@ async def portal_balance(request: Request, tenant: str, subject_ref: str) -> dic
     }
 
 
+class EarnPreviewIn(BaseModel):
+    tenant: str
+    # Real catalogue service ids — never invented by the caller. Empty is a legitimate case (a
+    # caller only asking about package_ids).
+    service_ids: list[str] = Field(default_factory=list)
+    package_ids: list[str] = Field(default_factory=list)
+
+
+@router.post("/loyalty/earn-preview", dependencies=[Depends(require_internal_token)])
+async def earn_preview(request: Request, body: EarnPreviewIn) -> dict:
+    """A HYPOTHETICAL, never a spend — "if this visit happened today, how many points would it
+    earn". Built for whatsapp-assistant's own growth-opportunities tool (core/growth.py there): the
+    one real number that decides whether upgrading a customer from a few loose services to a
+    package is worth MORE than the points he would have earned booking them separately, using the
+    exact same `EarnTree` the real `/loyalty/earn` route resolves points from — never a second,
+    approximate copy of that rule computed from `points_per_riyal` alone (a package's own points
+    value, `EarnTree.packages`, is deliberately NOT derived from its price — see that field's own
+    docstring — so guessing from price would be wrong on any tenant that customised it).
+
+    `points_for_services` is `service_ids` priced as ONE ordinary multi-service visit (already the
+    correct rule for "if he booked these one by one on the same visit" — it does not multiply
+    per booking, which would overcount against a package that is also one single visit).
+    `points_by_package` is each package's own explicit points value, 0 for an id that carries none
+    (`EarnTree.points_for_package`'s own "should not happen in practice" default).
+    """
+    c = request.app.state.container
+    tree = await c.earn_settings.load(body.tenant)
+    points_for_services, _source = tree.points_for(body.service_ids) if body.service_ids else (0, "default")
+    return {
+        "points_for_services": points_for_services,
+        "points_by_package": {pid: tree.points_for_package(pid) for pid in body.package_ids},
+    }
+
+
 @router.get("/loyalty/history", dependencies=[Depends(require_internal_token)])
 async def loyalty_history(request: Request, tenant: str, subject_ref: str, limit: int = 100
                           ) -> dict:

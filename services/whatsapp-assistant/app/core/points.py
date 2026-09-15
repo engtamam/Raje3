@@ -35,13 +35,22 @@ class NullPointsSummary:
     async def offers(self, *, tenant: str, subject_ref: str) -> list[dict[str, Any]]:
         return []
 
+    async def points_and_gap(self, *, tenant: str, subject_ref: str) -> dict[str, int]:
+        return {"points": 0, "to_next_reward": 0}
+
+    async def earn_preview(self, *, tenant: str, service_ids: list[str],
+                           package_ids: list[str]) -> dict[str, Any]:
+        return {"points_for_services": 0, "points_by_package": {}}
+
 
 class HttpPointsSummary:
     driver = "http"
 
-    def __init__(self, *, url: str, balance_path: str, token: str, timeout: int = 8) -> None:
+    def __init__(self, *, url: str, balance_path: str, earn_preview_path: str = "",
+                token: str, timeout: int = 8) -> None:
         self._base = url.rstrip("/")
         self._balance_path = balance_path
+        self._earn_preview_path = earn_preview_path
         self._token = token
         self._timeout = timeout
 
@@ -97,10 +106,48 @@ class HttpPointsSummary:
                 "expires_at": expires_at}
                for r in rewards if not r.get("needs_approval")]
 
+    async def points_and_gap(self, *, tenant: str, subject_ref: str) -> dict[str, int]:
+        """`points` — the real current balance. `to_next_reward` — how many MORE points until the
+        cheapest reward this customer cannot yet afford, 0 when there is none (he can already
+        afford everything, or the shop runs no programme) — loyalty's own `to_next_reward()`
+        (core/notify.py there), never re-derived here from a reward list this service does not
+        hold in full (`offers()` above only ever returns the AFFORDABLE ones)."""
+        bal = await self._balance(tenant, subject_ref)
+        return {"points": int(bal.get("points") or 0),
+               "to_next_reward": int(bal.get("to_next_reward") or 0)}
+
+    async def earn_preview(self, *, tenant: str, service_ids: list[str],
+                           package_ids: list[str]) -> dict[str, Any]:
+        """A HYPOTHETICAL points comparison — see loyalty's own `/internal/loyalty/earn-preview`
+        docstring for why this is the one real number the growth tool needs and cannot safely
+        approximate from price (a package's own points value is an explicit owner override, never
+        derived from `points_per_riyal × price_minor`)."""
+        if not self._earn_preview_path:
+            return {"points_for_services": 0, "points_by_package": {}}
+        return await asyncio.to_thread(self._earn_preview_sync, tenant, service_ids, package_ids)
+
+    def _earn_preview_sync(self, tenant: str, service_ids: list[str],
+                           package_ids: list[str]) -> dict[str, Any]:
+        body = json.dumps({"tenant": tenant, "service_ids": service_ids,
+                           "package_ids": package_ids}).encode()
+        req = urllib.request.Request(
+            f"{self._base}{self._earn_preview_path}", data=body, method="POST",
+            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
+                if not 200 <= resp.status < 300:
+                    return {"points_for_services": 0, "points_by_package": {}}
+                return json.loads(resp.read() or b"{}")
+        except (urllib.error.URLError, OSError, ValueError):
+            # Same degrade as every other read here — a peer outage means the growth tool's
+            # points comparison is simply absent this turn, never a guessed number.
+            return {"points_for_services": 0, "points_by_package": {}}
+
 
 def build(settings: Any) -> Any:
     if not settings.LOYALTY_SERVICE_URL:
         return NullPointsSummary()
     return HttpPointsSummary(
         url=settings.LOYALTY_SERVICE_URL, balance_path=settings.LOYALTY_BALANCE_PATH,
+        earn_preview_path=settings.LOYALTY_EARN_PREVIEW_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)

@@ -243,6 +243,66 @@ def test_a_negative_package_points_value_is_refused_through_the_route(client, ow
     assert r.status_code == 422
 
 
+# ── the hypothetical read whatsapp-assistant's own growth tool builds on ───────────────────────
+def test_earn_preview_is_a_real_read_never_a_spend(client, owner):
+    client.put("/api/v1/loyalty/settings/general", json={"points": 5}, headers=owner)
+    r = client.post("/internal/loyalty/earn-preview",
+                    json={"tenant": TENANT, "service_ids": ["oil", "wax"]},
+                    headers=INTERNAL)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["points_for_services"] > 0
+    # A HYPOTHETICAL — the balance route must read exactly zero afterward, proving nothing spent.
+    bal = client.get("/internal/loyalty/portal/balance",
+                     params={"tenant": TENANT, "subject_ref": "ref_preview"},
+                     headers=INTERNAL).json()
+    assert bal["points"] == 0
+
+
+def test_earn_preview_uses_the_packages_own_explicit_value_never_derived_from_price(client, owner):
+    """The whole reason this route exists rather than a `points_per_riyal × price` guess —
+    EarnTree.packages carries no such relationship on purpose (see that field's own docstring)."""
+    client.put("/api/v1/loyalty/settings/package/pkg_deluxe", json={"points": 500}, headers=owner)
+    r = client.post("/internal/loyalty/earn-preview",
+                    json={"tenant": TENANT, "package_ids": ["pkg_deluxe", "pkg_unset"]},
+                    headers=INTERNAL)
+    assert r.status_code == 200, r.text
+    assert r.json()["points_by_package"] == {"pkg_deluxe": 500, "pkg_unset": 0}
+
+
+def test_earn_preview_needs_the_internal_token(client):
+    r = client.post("/internal/loyalty/earn-preview",
+                    json={"tenant": TENANT, "service_ids": ["oil"]})
+    assert r.status_code in (401, 403)
+
+
+def test_earn_preview_with_no_ids_at_all_answers_zeros_not_a_crash(client):
+    r = client.post("/internal/loyalty/earn-preview", json={"tenant": TENANT}, headers=INTERNAL)
+    assert r.status_code == 200
+    assert r.json() == {"points_for_services": 0, "points_by_package": {}}
+
+
+def test_earn_preview_is_isolated_per_tenant_never_reads_another_shops_earn_settings(client):
+    """The SAME package id can exist at two different shops with two different owner-set point
+    values — `tenant` is a plain body field here (this internal tier has no verified token to
+    check it against, same as every other route in this file), and reading the wrong shop's
+    `EarnTree` would hand whatsapp-assistant a real-looking number that belongs to somebody else's
+    establishment entirely."""
+    client.put("/api/v1/loyalty/settings/package/pkg_shared",
+              json={"points": 111}, headers=_auth("loyalty.manage", tenant="tnt_earn_preview_a"))
+    client.put("/api/v1/loyalty/settings/package/pkg_shared",
+              json={"points": 222}, headers=_auth("loyalty.manage", tenant="tnt_earn_preview_b"))
+
+    a = client.post("/internal/loyalty/earn-preview",
+                    json={"tenant": "tnt_earn_preview_a", "package_ids": ["pkg_shared"]},
+                    headers=INTERNAL).json()
+    b = client.post("/internal/loyalty/earn-preview",
+                    json={"tenant": "tnt_earn_preview_b", "package_ids": ["pkg_shared"]},
+                    headers=INTERNAL).json()
+    assert a["points_by_package"]["pkg_shared"] == 111
+    assert b["points_by_package"]["pkg_shared"] == 222
+
+
 def test_invoice_mode_is_allowed_by_default_no_till_needed(client, owner):
     """The default (null) peer answers `services_priced=True` — permissive, same posture every
     other Null* peer takes with nothing real wired. Retired 2026-09-08: this used to be refused

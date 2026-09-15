@@ -373,6 +373,22 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
             return "لا يوجد شيء هنا الآن."
         return "، ".join(matches)
 
+    if tool == "check_growth_opportunities":
+        # ONE ORCHESTRATING READ, NEVER FIVE THE MODEL CHAINS ITSELF — see core/growth.py's own
+        # module docstring for the full reasoning (owner's own instruction, 2026-09-16). Lazily
+        # imported: growth.py imports the due/lapsed ratio constants FROM this module, so importing
+        # it back at this module's own top level would be circular; a function-local import here,
+        # at call time, is safe because by then this module has already finished loading.
+        from app.core import growth as G
+        raw_ids = args.get("service_ids") or []
+        selected = [str(sid) for sid in raw_ids if str(sid).strip()][:20]
+        report = await G.build_report(
+            tenant=tenant, subject_ref=subject_ref, selected_service_ids=selected,
+            package_catalog=package_catalog, service_catalog=service_catalog,
+            rhythm_provider=rhythm_provider, related_services=related_services,
+            points_summary=points_summary, now=now)
+        return report or "لا توجد فرصة حقيقية لرفع الفاتورة تُذكر الآن."
+
     if tool == "suggest_related_service":
         service_id = str(args.get("service_id") or "")
         if not service_id:

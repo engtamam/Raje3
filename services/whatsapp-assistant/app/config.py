@@ -362,6 +362,9 @@ class Settings(BaseSettings):
     # service no longer redeems anything directly — a reward rides on a real booking instead).
     LOYALTY_SERVICE_URL: str = ""
     LOYALTY_BALANCE_PATH: str = "/internal/loyalty/portal/balance"
+    # The hypothetical points-comparison read `check_growth_opportunities` (core/growth.py) builds
+    # on — never a spend, see that route's own docstring on loyalty's side.
+    LOYALTY_EARN_PREVIEW_PATH: str = "/internal/loyalty/earn-preview"
 
     # insights — cross-sell suggestions during an AI-led booking conversation, reusing the SAME
     # association engine (services/insights/app/core/associations.py) staff already see via
@@ -486,7 +489,8 @@ class Settings(BaseSettings):
         "check_availability,propose_booking,get_customer_points_summary,suggest_redeemable_offer,"
         "suggest_related_service,list_my_bookings,propose_cancel_booking,"
         "propose_reschedule_booking,suggest_services_carousel,list_packages,"
-        "list_due_services,list_lapsed_services,check_mobile_visit_hours,request_mobile_visit")
+        "list_due_services,list_lapsed_services,check_mobile_visit_hours,request_mobile_visit,"
+        "check_growth_opportunities")
 
     # The three booking-management tool names — named once here so the kill-switch below and
     # core/tools.py's own dispatch never risk drifting apart on the literal strings.
@@ -545,6 +549,13 @@ class Settings(BaseSettings):
         # entirely instead, same posture as every other peer-backed tool above.
         if not self.OPERATIONS_SERVICE_URL:
             declared = declared - {"request_mobile_visit", "check_mobile_visit_hours"}
+        # SAME BASELINE REASONING: with no OPERATIONS_SERVICE_URL, both service_catalog and
+        # package_catalog degrade to Null (empty) — the tool's own `service_ids` argument would
+        # name services this deployment cannot even look up. The other four peers it optionally
+        # also reads (points, rhythm, associations) each degrade on their own already; this is only
+        # the one baseline every real use of the tool needs.
+        if not self.OPERATIONS_SERVICE_URL:
+            declared = declared - {"check_growth_opportunities"}
         return declared
 
     def assert_llm_config_ok(self) -> None:

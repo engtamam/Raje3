@@ -90,6 +90,7 @@ def build_manifest(
             # A credit for a reason that is NOT a visit — a campaign's own gift (2026-09-13).
             {"path": "/internal/loyalty/award", "tier": "internal", "method": "POST"},
             {"path": "/internal/loyalty/portal/balance", "tier": "internal", "method": "GET"},
+            {"path": "/internal/loyalty/earn-preview", "tier": "internal", "method": "POST"},
             # The integrated till redeems here (spec §9.8) — the SAME core path as the field.
             {"path": "/internal/loyalty/redeem", "tier": "internal", "method": "POST"},
             # The repair for a materialised total that drifted from its own ledger.
