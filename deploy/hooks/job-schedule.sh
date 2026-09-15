@@ -6,21 +6,23 @@
 #  v0.24.0) needs exactly one admin action first: register a `schedule` (POST /api/v1/jobs/schedules),
 #  gated by the `platform.jobs` capability — a real Principal, not the fleet's shared internal token.
 #
-#  NEVER THE PLATFORM OWNER'S OWN LOGIN (the owner's own instruction, 2026-09-15: every action here
-#  must be attributable to automation, not to a person). So this mints its OWN short-lived,
-#  self-signed token instead of logging in as anybody — the SAME technique seed-roles.sh already
-#  uses to seed roles (see that script's own long comment on the kid header / RS256 self-signing):
-#  sign a JWT with identity-service's own TOKEN_PRIVATE_KEY (a fact the cluster already holds, not a
-#  human's password), `sub: "raje3-automation"`, carrying ONLY `platform.jobs` — nothing else — and
-#  good for five minutes. job-service's audit trail then names "raje3-automation" as the actor,
-#  never the owner, for this and every future call of this script.
+#  NEVER THE PLATFORM OWNER'S OWN LOGIN (the owner's own instruction, 2026-09-15/16: every action
+#  here must be attributable to automation, not to a person, through a REAL, PERSISTENT, rotatable
+#  service account — the industry-standard pattern, not a one-off self-signed token). This mints a
+#  bearer via the ordinary OAuth2 client-credentials grant, using JOB_CLIENT_ID/JOB_CLIENT_SECRET
+#  from `job-service-automation-secrets` (provisioned once, at install time, by
+#  deploy/hooks/provision-job-service-automation.sh — see that script's own header for why this
+#  replaced an earlier self-signed-JWT draft). The SAME pattern operations' own
+#  `renewal_provider.py` already uses to mint its `platform.billing` bearer — this is that pattern's
+#  second occurrence, not a new one. job-service's own audit log then names the service account
+#  ("job-service-automation") as the actor for every call this script makes, never the owner.
 #
 #  USAGE
 #    ./deploy/hooks/job-schedule.sh create <name> <cron> <queue> <type> [tenant=global] [payload_json]
 #    ./deploy/hooks/job-schedule.sh list
 #    ./deploy/hooks/job-schedule.sh delete <schedule_id>
 #
-#  Run by a human operator with real cluster access (this file follows seed-roles.sh's own
+#  Run by a human operator with real cluster access (this file follows the existing deploy/hooks
 #  kubectl-exec pattern) — never by an automated agent without that access.
 # ==================================================================================================
 set -Eeuo pipefail
@@ -45,32 +47,34 @@ JOB_POD=$(kubectl -n "$NS" get pods --no-headers 2>/dev/null \
          | awk '/^job-service-/ && $3=="Running" {print $1; exit}')
 [ -n "$JOB_POD" ] || { red "job-service is not running"; exit 1; }
 
-KEY=$(kubectl -n "$NS" get secret identity-service-secrets \
-      -o jsonpath='{.data.TOKEN_PRIVATE_KEY}' 2>/dev/null | base64 -d)
-[ -n "$KEY" ] || { red "no signing key in identity-service-secrets"; exit 1; }
-printf '%s\n' "$KEY" > "$HERE/.job-schedule-key.pem"
-chmod 600 "$HERE/.job-schedule-key.pem"
+CLIENT_ID=$(kubectl -n "$NS" get secret job-service-automation-secrets \
+           -o jsonpath='{.data.JOB_CLIENT_ID}' 2>/dev/null | base64 -d)
+CLIENT_SECRET=$(kubectl -n "$NS" get secret job-service-automation-secrets \
+                -o jsonpath='{.data.JOB_CLIENT_SECRET}' 2>/dev/null | base64 -d)
+if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ]; then
+  red "no job-service automation credential — run deploy/hooks/provision-job-service-automation.sh first"
+  exit 1
+fi
 
-# SAME MINTING TECHNIQUE AS seed-roles.sh — see that script's own header for why the `kid` header
-# is not optional (PyJWKClient raises without one). `sub` names the actor for job-service's OWN
-# audit log; it is never the human operator's identity.
-TOKEN=$(python3 -c '
-import base64, hashlib, json, jwt, sys, time
-now = int(time.time())
-private_pem = open(sys.argv[1]).read()
-from jwt.algorithms import RSAAlgorithm
-key_obj = RSAAlgorithm(RSAAlgorithm.SHA256).prepare_key(private_pem)
-jwk = json.loads(RSAAlgorithm.to_jwk(key_obj))
-canonical = json.dumps({"e": jwk["e"], "kty": jwk["kty"], "n": jwk["n"]},
-                       separators=(",", ":"), sort_keys=True).encode("ascii")
-kid = base64.urlsafe_b64encode(hashlib.sha256(canonical).digest()).rstrip(b"=").decode("ascii")
-print(jwt.encode({"sub": "raje3-automation", "tenant": "global",
-                  "caps": ["platform.jobs"],
-                  "iss": "raje3", "aud": "raje3", "iat": now,
-                  "exp": now + 300},
-                 private_pem, algorithm="RS256", headers={"kid": kid}), end="")' \
-  "$HERE/.job-schedule-key.pem")
-rm -f "$HERE/.job-schedule-key.pem"
+# THE ORDINARY client_credentials GRANT, FROM THE IDENTITY POD ITSELF (loopback, no ingress
+# needed) — the credential never leaves the cluster, and this bearer is good for whatever
+# `expires_in` identity-service issues (short-lived by its own default), not five minutes chosen
+# by this script.
+TOKEN=$(kubectl -n "$NS" exec -i "$IDENTITY_POD" -- python - "$CLIENT_ID" "$CLIENT_SECRET" <<'PY'
+import json, sys, urllib.error, urllib.request
+client_id, client_secret = sys.argv[1:3]
+body = json.dumps({"grant_type": "client_credentials", "client_id": client_id,
+                   "client_secret": client_secret}).encode()
+req = urllib.request.Request("http://127.0.0.1:8000/api/v1/oauth/token", data=body,
+                             method="POST", headers={"Content-Type": "application/json"})
+try:
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        print(json.loads(resp.read()).get("access_token", ""), end="")
+except urllib.error.HTTPError as exc:
+    sys.exit(f"identity refused the client-credentials grant ({exc.code}): "
+             f"{exc.read().decode(errors='replace')[:200]}")
+PY
+)
 case "$TOKEN" in
   ey*) : ;;
   *) red "minting failed; got a ${#TOKEN}-character value that is not a JWT"; exit 1 ;;

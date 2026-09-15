@@ -744,6 +744,11 @@ soft "admin account" bash "$HERE/seed/seed-admin.sh"
 # actually exists to log in as. See the script's own header for why this could not run any earlier
 # and why it is safe to re-run.
 soft "billing service-account for operations" bash "$HERE/hooks/provision-billing-service-account.sh"
+# THE DEDICATED, PERSISTENT ACCOUNT job-service SCHEDULE/DISPATCH ADMIN ACTIONS RUN AS — never the
+# platform owner's own login (2026-09-16 decision, once our own services' CronJobs start migrating
+# to job-service push-dispatch). Scoped to EXACTLY `platform.jobs`, same "mint here because this is
+# the first point a platform-owner account exists" reasoning as the billing service-account above.
+soft "job-service automation account" bash "$HERE/hooks/provision-job-service-automation.sh"
 soft "plans" bash "$HERE/seed/seed-plans.sh"
 soft "legal" bash "$HERE/seed/seed-legal.sh"
 # OUR OWN PLATFORM-WIDE in-app/email/sms TEMPLATES (rating-app-feature.md phase 8) — without this,
