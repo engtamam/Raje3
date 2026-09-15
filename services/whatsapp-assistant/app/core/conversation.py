@@ -534,7 +534,8 @@ class ConversationEngine:
                 base_entitlement: Any = None, catalog_provider: Any = None,
                 rhythm_provider: Any = None,
                 max_carousel_cards: int = 5, runtime_config: Any = None,
-                max_reply_tokens: int = 500, mobile_requests: Any = None) -> None:
+                max_reply_tokens: int = 500, mobile_requests: Any = None,
+                active_offers: Any = None) -> None:
         self._store = store
         self._llm = llm
         self._booking = booking_provider
@@ -553,6 +554,10 @@ class ConversationEngine:
         # NullRhythmProvider for the "nothing configured" default (both new tools then always
         # answer "nothing due/lapsed" rather than failing the turn).
         self._rhythm_provider = rhythm_provider
+        # None-safe the same way — see core/active_offers.py's own NullActiveOffers for the
+        # "nothing configured" default (check_active_offers then always answers "no live offer"
+        # rather than failing the turn).
+        self._active_offers = active_offers
         self._max_carousel_cards = max_carousel_cards
         # THE SAME DEPLOY-TIME-DEFAULT-PLUS-LIVE-OVERRIDE SHAPE AS max_carousel_cards ABOVE
         # (app/runtime_policy.py's own MAX_REPLY_TOKENS, read live via `_runtime_int` at the one
@@ -1459,6 +1464,7 @@ class ConversationEngine:
                     catalog_provider=self._catalog_provider,
                     rhythm_provider=self._rhythm_provider,
                     mobile_requests=self._mobile_requests,
+                    active_offers=self._active_offers,
                     max_carousel_cards=max_carousel_cards)
             except T.ToolValidationError as exc:
                 conv.raw_window.append({"role": "assistant",

@@ -274,6 +274,9 @@ class Settings(BaseSettings):
     RHYTHM_PROVIDER_DRIVER: str = "null"
     REMINDERS_SERVICE_URL: str = ""
     REMINDERS_RHYTHM_PATH: str = "/internal/reminders/rhythm-for-subject"
+    # `check_active_offers` (core/tools.py) — the SAME read reminders already answers for a
+    # customer's own public offers page (core/active_offers.py's own module docstring).
+    REMINDERS_PORTAL_OFFERS_PATH: str = "/internal/reminders/portal/offers"
     # Real booking assignment (core/booking_assignment.py, Phase 4) — the branch's own active
     # people, and which services a customer's picked one may perform. Neither invents an
     # assignment on its own; see booking_assignment.py's own module docstring for the full policy.
@@ -496,7 +499,7 @@ class Settings(BaseSettings):
         "suggest_related_service,list_my_bookings,propose_cancel_booking,"
         "propose_reschedule_booking,suggest_services_carousel,list_packages,"
         "list_due_services,list_lapsed_services,check_mobile_visit_hours,request_mobile_visit,"
-        "check_growth_opportunities")
+        "check_growth_opportunities,check_active_offers")
 
     # The three booking-management tool names — named once here so the kill-switch below and
     # core/tools.py's own dispatch never risk drifting apart on the literal strings.
@@ -562,6 +565,11 @@ class Settings(BaseSettings):
         # the one baseline every real use of the tool needs.
         if not self.OPERATIONS_SERVICE_URL:
             declared = declared - {"check_growth_opportunities"}
+        # `check_active_offers` reads reminders' own send-log (core/active_offers.py) — with no
+        # REMINDERS_SERVICE_URL it degrades to Null (always empty), so the tool would only ever
+        # answer "nothing" rather than genuinely check.
+        if not self.REMINDERS_SERVICE_URL:
+            declared = declared - {"check_active_offers"}
         return declared
 
     def assert_llm_config_ok(self) -> None:

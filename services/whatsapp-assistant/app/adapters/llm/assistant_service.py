@@ -189,6 +189,22 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             "just a natural, inviting suggestion naming the service."),
         "parameters": {"type": "object", "properties": {}},
     },
+    "check_active_offers": {
+        "name": "check_active_offers",
+        "description": (
+            "Read-only. Call this whenever the customer asks about a marketing offer/discount "
+            "he received — 'what's the offer', 'until when', 'what does it cover', or any "
+            "variant of asking for details about a promotion — and whenever a marketing footer "
+            "prompted him to ask ('message us for the times/details'). No need to know WHICH "
+            "campaign he means: this returns every offer he is genuinely still holding right "
+            "now (real, unexpired, unspent), with its real expiry date, what it covers, and its "
+            "value. Usually zero or one — offers are time-boxed by design.\n\n"
+            "WHAT TO DO WITH IT: state the real facts it returns, in your own natural words — "
+            "never invent an expiry date, a scope, or a value beyond what it says. An empty "
+            "answer means he genuinely holds nothing right now — say so plainly, never pretend "
+            "an offer exists to be polite."),
+        "parameters": {"type": "object", "properties": {}},
+    },
     "check_growth_opportunities": {
         "name": "check_growth_opportunities",
         "description": (

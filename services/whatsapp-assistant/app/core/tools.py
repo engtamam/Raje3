@@ -152,6 +152,7 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
                               catalog_provider: Any = None,
                               rhythm_provider: Any = None,
                               mobile_requests: Any = None,
+                              active_offers: Any = None,
                               max_carousel_cards: int = 5,
                               ) -> (RenderedProposal | RenderedCarousel | RenderedSingleCard
                                    | MobileLocationRequest | str):
@@ -372,6 +373,32 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
         if not matches:
             return "لا يوجد شيء هنا الآن."
         return "، ".join(matches)
+
+    if tool == "check_active_offers":
+        # READ-ONLY, same posture as list_due_services/check_growth_opportunities — plain facts
+        # back to the model, never a sentence for the customer. Reuses reminders' own send-log
+        # read (core/active_offers.py's own module docstring) — no guessing which campaign the
+        # customer means: `for_subject` already answers "every offer this customer is still
+        # genuinely holding", expired or already-spent ones silently absent.
+        if active_offers is None:
+            return "لا توجد عروض حالية لهذا العميل."
+        offers = await active_offers.for_subject(tenant=tenant, subject_ref=subject_ref)
+        if not offers:
+            return "لا يوجد عرض حالي ساري لهذا العميل الآن."
+        import datetime as _dt
+
+        from app.core.riyadh import RIYADH
+        lines = ["عروضه الحالية الحقيقية:"]
+        for o in offers:
+            until = _dt.datetime.fromtimestamp(o.expires_at, RIYADH).strftime("%Y-%m-%d")
+            line = f"- {o.text} — ساري حتى {until}"
+            if o.value:
+                line += f" (القيمة: {o.value})"
+            if o.scoped:
+                names = "، ".join(o.services) if o.services else "خدمات محددة"
+                line += f" — يشمل: {names}"
+            lines.append(line)
+        return "\n".join(lines)
 
     if tool == "check_growth_opportunities":
         # ONE ORCHESTRATING READ, NEVER FIVE THE MODEL CHAINS ITSELF — see core/growth.py's own
