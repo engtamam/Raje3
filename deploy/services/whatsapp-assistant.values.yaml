@@ -331,18 +331,23 @@ env:
   BOOKING_MAX_LEAD_DAYS: "30"
   BOOKING_SLOT_GRANULARITY_MINUTES: "15"
 
-# THE HEARTBEAT. Without this CronJob the whole /whatsapp_assistant/tick sweep is unreachable and
-# this service is inert in the exact way reminders' own values file warns about: conversations
-# arrive, replies compose, every probe stays green, and a debounced reply or a timed-out session
-# simply never gets swept — a customer who typed three quick messages never gets the ONE reply
-# they are owed, forever, with no symptom anywhere but a shop asking why the bot went quiet.
+# THE HEARTBEAT — job-service PUSH DISPATCH, NOT A K8S CronJob (migrated 2026-09-15, the first of
+# our services moved off its own cron — see deploy/hooks/job-schedule.sh's own header for the full
+# reasoning and migration plan). Without a live schedule + registered push target the whole
+# /whatsapp_assistant/tick sweep is unreachable and this service is inert in the exact way
+# reminders' own values file warns about: conversations arrive, replies compose, every probe stays
+# green, and a debounced reply or a timed-out session simply never gets swept.
+#
+# PROVISIONED ONCE, OUTSIDE THIS CHART (an admin action, not a deploy value — see the two scripts
+# below), and it survives every redeploy of this service on its own:
+#   deploy/hooks/job-schedule.sh create whatsapp-tick "* * * * *" whatsapp-tick whatsapp.tick
+#   deploy/hooks/job-dispatch-target.sh register whatsapp-tick \
+#       http://whatsapp-assistant:8000/internal/whatsapp_assistant/tick
 #
 # Every minute, not every five: CONVERSATION_DEBOUNCE_SECONDS is 180s and
 # CONVERSATION_SESSION_TIMEOUT_SECONDS is 2400s — both short enough that reminders' five-minute
 # cadence would be visibly late to a customer mid-conversation, unlike a reminder scheduled days
 # out. The tick call itself discovers every tenant with a conversation row (no body needed, no
-# per-tenant templating possible — see app/api/internal.py's tick docstring).
-cronJobs:
-  - name: tick
-    schedule: "* * * * *"
-    path: /internal/whatsapp_assistant/tick
+# per-tenant templating possible — see app/api/internal.py's tick docstring); every push is
+# verified (app/core/push_verify.py) so this route no longer trusts the shared internal token
+# alone.

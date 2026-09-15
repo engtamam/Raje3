@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import time
 
-from tests.conftest import INTERNAL_TOKEN
+from tests.conftest import INTERNAL_TOKEN, push_headers
 
 
 def _container(client):
@@ -29,7 +29,7 @@ async def test_a_due_scheduled_pricing_change_lands_on_the_next_tick(client):
     assert before == 3.75   # not yet applied — the schedule alone never changes the effective value
 
     resp = client.post("/internal/whatsapp_assistant/tick", json={},
-                       headers={"X-Internal-Token": INTERNAL_TOKEN})
+                       headers={"X-Internal-Token": INTERNAL_TOKEN, **push_headers(b"{}")})
     assert resp.status_code == 200, resp.text
 
     after = await c.runtime_config.get(
@@ -50,7 +50,7 @@ async def test_a_not_yet_due_scheduled_change_never_lands_early(client):
                    effective_at=now + 10 * 86_400, actor="test:operator", now=now)
 
     client.post("/internal/whatsapp_assistant/tick", json={},
-               headers={"X-Internal-Token": INTERNAL_TOKEN})
+               headers={"X-Internal-Token": INTERNAL_TOKEN, **push_headers(b"{}")})
 
     value = await c.runtime_config.get(tenant="", key="PRICING_AI_UNIT_UNITS_PER_HALALA", default=1000)
     assert value == 1000   # ten days out — this tick must not touch it

@@ -1,36 +1,60 @@
-"""X-Internal-Token enforcement (constant-time compare) and malformed-payload handling on this
-service's own internal HTTP surface.
+"""X-Internal-Token enforcement (constant-time compare), the job-service push signature
+(require_push_signature) and malformed-payload handling on this service's own internal HTTP
+surface.
 """
-from tests.conftest import INTERNAL_TOKEN
+from tests.conftest import INTERNAL_TOKEN, push_headers
 
 
 def test_tick_without_internal_token_is_refused(client):
-    resp = client.post("/internal/whatsapp_assistant/tick", json={"tenant": "t1"})
+    resp = client.post("/internal/whatsapp_assistant/tick", json={"tenant": "t1"},
+                       headers=push_headers(b'{"tenant":"t1"}'))
     assert resp.status_code == 401
 
 
 def test_tick_with_wrong_internal_token_is_refused(client):
     resp = client.post("/internal/whatsapp_assistant/tick", json={"tenant": "t1"},
-                       headers={"X-Internal-Token": "wrong" * 10})
+                       headers={"X-Internal-Token": "wrong" * 10,
+                               **push_headers(b'{"tenant":"t1"}')})
+    assert resp.status_code == 401
+
+
+def test_tick_with_no_push_signature_is_refused_even_with_a_valid_internal_token(client):
+    """The whole reason `require_push_signature` exists alongside `require_internal_token`: the
+    shared fleet secret alone is not enough once this route is driven ONLY by job-service's push
+    (migrated 2026-09-15) — a caller that knows the token but not the signature must still be
+    refused."""
+    resp = client.post("/internal/whatsapp_assistant/tick", json={},
+                       headers={"X-Internal-Token": INTERNAL_TOKEN})
+    assert resp.status_code == 401
+
+
+def test_tick_with_a_replayed_old_signature_is_refused(client):
+    import time
+
+    old_headers = push_headers(b"{}", ts=int(time.time()) - 600)
+    resp = client.post("/internal/whatsapp_assistant/tick", json={},
+                       headers={"X-Internal-Token": INTERNAL_TOKEN, **old_headers})
     assert resp.status_code == 401
 
 
 def test_tick_with_malformed_json_body_does_not_crash(client):
-    resp = client.post("/internal/whatsapp_assistant/tick", data=b"{not json",
+    body = b"{not json"
+    resp = client.post("/internal/whatsapp_assistant/tick", data=body,
                        headers={"X-Internal-Token": INTERNAL_TOKEN,
-                               "Content-Type": "application/json"})
+                               "Content-Type": "application/json", **push_headers(body)})
     # Never a 500 — a malformed body is handled and answered, not a stack trace.
     assert resp.status_code != 500
 
 
 def test_tick_with_no_tenant_sweeps_every_tenant_instead_of_erroring(client):
-    """A CronJob posts NO body at all (one fixed TARGET_URL, no per-tenant templating — see
-    platform/deploy/chart/templates/cronjob.yaml) — the exact shape this hits. Refusing an empty
-    `tenant` used to mean the heartbeat failed on every single scheduled invocation while every
-    probe stayed green (the same defect class reminders' own /reminders/tick already carries the
-    fix for). An empty body now means "every tenant with a conversation row", not an error."""
+    """job-service's push wraps the payload as `{"job": {...}}`, never a bare `{"tenant": ...}` —
+    this route needs no field off it (a tick sweeps every tenant with a due conversation row
+    regardless of which job fired it), so refusing an empty `tenant` used to mean the heartbeat
+    failed on every single scheduled invocation while every probe stayed green (the same defect
+    class reminders' own /reminders/tick already carries the fix for). An empty body now means
+    "every tenant with a conversation row", not an error."""
     resp = client.post("/internal/whatsapp_assistant/tick", json={},
-                       headers={"X-Internal-Token": INTERNAL_TOKEN})
+                       headers={"X-Internal-Token": INTERNAL_TOKEN, **push_headers(b"{}")})
     assert resp.status_code == 200
     body = resp.json()
     assert "error" not in body
@@ -82,7 +106,7 @@ async def test_one_tenants_broken_compose_reply_does_not_wedge_the_whole_tick(cl
         resp = client.post(
             "/internal/whatsapp_assistant/tick",
             json={},
-            headers={"X-Internal-Token": INTERNAL_TOKEN},
+            headers={"X-Internal-Token": INTERNAL_TOKEN, **push_headers(b"{}")},
         )
     finally:
         internal_module._active_tenants = real_active_tenants

@@ -50,6 +50,29 @@ async def require_internal_token(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="UNAUTHORIZED")
 
 
+async def require_push_signature(
+    request: Request,
+    x_job_signature: str | None = Header(default=None, alias="X-Job-Signature"),
+    x_job_signature_timestamp: str | None = Header(default=None,
+                                                   alias="X-Job-Signature-Timestamp"),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """A door driven ONLY by job-service's own push dispatch (base-services v0.24.0) — see
+    app/core/push_verify.py's own docstring for the scheme. `require_internal_token` alone would
+    accept ANY caller that knows the shared fleet secret; this additionally proves the body is
+    exactly what job-service sent, at the moment it sent it, never a replay."""
+    import time as _time
+
+    from app.core.push_verify import verify as verify_push
+
+    body = await request.body()
+    secret = settings.PUSH_SIGNING_SECRET or settings.INTERNAL_SERVICE_TOKEN
+    ok = verify_push(secret, x_job_signature_timestamp or "", body, x_job_signature or "",
+                     now=_time.time(), max_skew_seconds=settings.PUSH_SIGNATURE_MAX_SKEW_SECONDS)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="UNAUTHORIZED")
+
+
 @router.get("/health", dependencies=[Depends(require_internal_token)])
 async def internal_health(settings: Settings = Depends(get_settings)) -> dict[str, str]:
     return {"status": "ok", "service": settings.SERVICE_NAME}
@@ -225,7 +248,8 @@ async def upcoming_renewal_trigger(request: Request, body: UpcomingRenewalTrigge
     return {"sent": sent}
 
 
-@router.post("/whatsapp_assistant/tick", dependencies=[Depends(require_internal_token)])
+@router.post("/whatsapp_assistant/tick",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def tick(request: Request, settings: Settings = Depends(get_settings)) -> dict:
     """The scheduled sweep: compose debounced replies whose window elapsed, close sessions past
     their silence timeout. Imitates services/reminders' /internal split between the event
@@ -233,11 +257,15 @@ async def tick(request: Request, settings: Settings = Depends(get_settings)) -> 
     silently miss an event; this cannot silently miss a due conversation, because it scans this
     service's OWN datastore rather than depending on the bus a second time.
 
-    EMPTY BODY (NO `tenant`) MEANS EVERY TENANT WITH A CONVERSATION ROW — the platform's CronJob
-    template posts an EMPTY body (no way to template one per tenant, one fixed TARGET_URL), so a
-    tick that REQUIRED `tenant` would fail on every single scheduled invocation while every probe
-    stayed green: the exact defect reminders' own /reminders/tick already carries this same fix
-    for. `tenant` in the body is what an operator uses to unstick one shop by hand.
+    DRIVEN BY job-service's PUSH DISPATCH, NOT A K8S CronJob (migrated 2026-09-15 — see
+    `deploy/hooks/job-schedule.sh`'s own header for the reasoning and the migration plan for our
+    other services' own cron entries) — `require_push_signature` on top of the usual internal
+    token means this only ever fires on a genuine, unreplayed push job-service itself sent.
+
+    THE BODY CARRIES `{"job": {...}}` (job-service's own wrapper) rather than a bare `{"tenant":
+    ...}` — this route needs no field off it at all (a tick sweeps every tenant with a due
+    conversation row regardless of which job fired it), so `tenant` below simply stays empty on
+    every real push, exactly as it already did under the old CronJob's empty POST body.
 
     Per-tenant, bounded (CONVERSATION_TICK_BATCH_SIZE) — the same reasoning as reminders'
     TICK_BATCH_SIZE: an unbounded sweep is how one busy tenant starves every other one.

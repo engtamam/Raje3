@@ -58,6 +58,12 @@ class Settings(BaseSettings):
 
     # ── Internal service-to-service auth (REQUIRED) ─────────────────────────
     INTERNAL_SERVICE_TOKEN: str = Field(min_length=32)
+    # job-service push-dispatch verification (app/core/push_verify.py) — empty means "verify
+    # against INTERNAL_SERVICE_TOKEN instead", the SAME fallback job-service's own dispatcher uses
+    # when ITS OWN PUSH_SIGNING_SECRET is unset, so the two sides agree by default with nothing
+    # extra to configure.
+    PUSH_SIGNING_SECRET: str = ""
+    PUSH_SIGNATURE_MAX_SKEW_SECONDS: int = 300
     PII_SALT: str = ""
     # Seals any operator-managed per-tenant credential this service holds through SecretStore
     # (app/core/secret_store.py — same class services/reminders and services/loyalty import
