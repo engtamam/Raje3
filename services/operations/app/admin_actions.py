@@ -341,6 +341,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/platform/coupons/settings",
         "capability": "platform.operations",
         "group": "كوبونات (محل لمحل)",
+        "help": "السقف العام لكل محل، والنسبة الأساسية، وشرائح النسب حسب عدد المرات الممنوحة.",
     },
     {
         "id": "operations.coupon_settings_set",
@@ -350,6 +351,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "capability": "platform.operations",
         "confirm": True,
         "group": "كوبونات (محل لمحل)",
+        "help": "رفع أو خفض السقف هنا يُطبَّق فورًا على سقف كل محل الخاص — تأكد قبل الحفظ.",
     },
     {
         "id": "operations.coupon_tenant_lookup",
@@ -369,6 +371,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "capability": "platform.operations",
         "params": [{"name": "tenant_id", "in": "path", "type": "string", "required": True}],
         "group": "كوبونات (محل لمحل)",
+        "help": "لا يوجد سقف خاص = يتبع هذا المحل السقف العام. دوّر على معرّفه بـ«دوّر على محل برقم جواله» أولاً.",
     },
     {
         "id": "operations.coupon_override_set",
@@ -379,5 +382,6 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "tenant_id", "in": "path", "type": "string", "required": True}],
         "confirm": True,
         "group": "كوبونات (محل لمحل)",
+        "help": "يستثني هذا المحل بالذات عن السقف العام — لا يمس أي محل آخر.",
     },
 ]
