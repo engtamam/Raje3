@@ -344,6 +344,21 @@ test_one() {
 ship_many() {
   local svcs=("$@") ours=() rc=0 svc
 
+  # BACKUP-SERVICE GOES LAST, ALWAYS, WHEN IT'S IN THE LIST. It needs real OSS credentials this
+  # box does not have yet (AWS today, Alibaba once we're actually on it) — `verify_running`'s own
+  # readiness poll has no way to know that and spends its full 10-minute timeout finding out,
+  # every single ship, with every OTHER named service queued up behind it in this same sequential
+  # loop. Reordering (not skipping — a real credential landing here should still be verified)
+  # means that ten minutes costs itself, not everything after it.
+  local reordered=() svc2
+  for svc2 in "${svcs[@]}"; do
+    [ "$svc2" = "backup-service" ] || reordered+=("$svc2")
+  done
+  for svc2 in "${svcs[@]}"; do
+    [ "$svc2" = "backup-service" ] && reordered+=("$svc2")
+  done
+  svcs=("${reordered[@]}")
+
   for svc in "${svcs[@]}"; do
     case "$(kind_of "$svc")" in
       unknown) red "$svc: not ours, not the platform's, and not the console"; return 1 ;;
