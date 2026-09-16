@@ -10,7 +10,7 @@
  * and the active metric's own name sits right above it, so nobody reads "الأكثر زيارات" as
  * "الأفضل تقييماً".
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Star, Users, MessageSquareText, Download, ChevronLeft, ExternalLink,
@@ -21,6 +21,7 @@ import { Segmented } from '../rj-ui/Segmented';
 import { TabBar } from '../rj-ui/TabBar';
 import { Button } from '../rj-ui/Button';
 import { Badge } from '../rj-ui/Badge';
+import { Card } from '../rj-ui/Card';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Table, type TableColumn } from '../rj-ui/Table';
@@ -37,10 +38,24 @@ interface StaffRow {
   average_rating: number; no_show_rate?: number;
 }
 
+interface RatingIssueStep { id: string; text: string; severity: 'normal' | 'critical' }
+
+/** One row of `operations.list_operator_step_stats` — [[task-service-procedure-checklists]]
+ *  phase 5, `OperatorStepStat.public()` resolved to real text server-side, same shape the
+ *  procedure-steps workspace tab already reads. */
+interface TrainingStat {
+  step_id: string; step_text: string; step_severity: 'normal' | 'critical';
+  times_flagged: number; times_flagged_critical: number;
+}
+
 interface RatingRow {
   id: string; customer_id: string; customer_name: string; customer_phone: string;
   operator_id: string; operator_name: string; rating: number; feedback_text: string;
   rated_at: number; rating_handled_at: number; rating_handled_note: string;
+  /** WHICH PROCEDURE STEPS THE CUSTOMER FLAGGED — negative selection, so empty means "nothing
+   *  was wrong" ([[task-service-procedure-checklists]] phase 4). Resolved to real text/severity
+   *  server-side (operations' own `/field/ratings` route), never just raw ids. */
+  rating_issue_steps?: RatingIssueStep[];
 }
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
@@ -220,6 +235,7 @@ export function RatingScreen({ session, catalog, branch }: { session: Session; c
 
       {tab === 'overview' ? (
         <OverviewTab
+          session={session} catalog={catalog}
           staff={staff} rangeReady={Boolean(range)} metric={metric} setMetric={setMetric}
           exportAvailable={Boolean(exportAction)} exporting={exporting} exportError={exportError}
           onExport={() => void exportReport()}
@@ -231,7 +247,43 @@ export function RatingScreen({ session, catalog, branch }: { session: Session; c
   );
 }
 
-function OverviewTab({ staff, rangeReady, metric, setMetric, exportAvailable, exporting, exportError, onExport }: {
+/** The training section inside the quadrant's own selected-operator detail card
+ *  ([[task-service-procedure-checklists]] phase 5) — top 4 most-repeated flagged steps, critical
+ *  ones first. `undefined` (still loading) renders nothing rather than a skeleton: this sits
+ *  inside a card that already has real numbers on screen, and a flashing placeholder under them
+ *  reads as slower than simply appearing a moment later does. */
+function TrainingDetail({ stats }: { stats: TrainingStat[] | null | undefined }) {
+  const { t } = useOperatorI18n();
+  if (stats === undefined || stats === null) return null;
+  if (stats.length === 0) {
+    return (
+      <div className="mt-1 border-t border-border-subtle pt-2">
+        <p className="text-[11px] text-success">{t('rating.training.clean')}</p>
+      </div>
+    );
+  }
+  const top = [...stats]
+    .sort((a, b) => (b.times_flagged_critical - a.times_flagged_critical) || (b.times_flagged - a.times_flagged))
+    .slice(0, 4);
+  return (
+    <div className="mt-1 flex flex-col gap-1.5 border-t border-border-subtle pt-2">
+      <p className="text-[11px] font-bold text-text-secondary">{t('rating.training.title')}</p>
+      {top.map((s) => (
+        <div key={s.step_id} className="flex items-center gap-1.5 text-[11.5px]">
+          <span aria-hidden className={
+            s.step_severity === 'critical' ? 'size-2 shrink-0 rounded-full bg-danger'
+                                            : 'size-2 shrink-0 rounded-full bg-text-muted/50'
+          } />
+          <span className="min-w-0 flex-1 truncate text-text-secondary">{s.step_text}</span>
+          <span className="shrink-0 tabular-nums font-bold text-text-primary">{s.times_flagged}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function OverviewTab({ session, catalog, staff, rangeReady, metric, setMetric, exportAvailable, exporting, exportError, onExport }: {
+  session: Session; catalog: Catalog;
   staff: StaffRow[] | null | undefined;
   /** `false` only for an incomplete/reversed custom date pick — a distinct sentence from "still
    *  loading" and from "read failed", asking him to fix the dates rather than to wait or retry. */
@@ -241,6 +293,19 @@ function OverviewTab({ staff, rangeReady, metric, setMetric, exportAvailable, ex
   onExport: () => void;
 }) {
   const { t } = useOperatorI18n();
+  // «أين يحتاج تدريباً» ([[task-service-procedure-checklists]] phase 5) — fetched lazily, only for
+  // whichever operator is actually selected on the quadrant right now, cached per operator so
+  // re-selecting someone already looked at costs nothing. Lives HERE (the parent) rather than
+  // inside `StaffQuadrant` itself so that component stays presentational and reusable.
+  const statsAction = action(catalog, 'operations.list_operator_step_stats');
+  const [stepStats, setStepStats] = useState<Record<string, TrainingStat[] | null | undefined>>({});
+  const onSelectOperator = (operatorId: string) => {
+    if (!statsAction || stepStats[operatorId] !== undefined) return;
+    setStepStats((cur) => ({ ...cur, [operatorId]: undefined }));
+    call<{ step_stats: TrainingStat[] }>(session, statsAction, { id: operatorId })
+      .then((x) => setStepStats((cur) => ({ ...cur, [operatorId]: x.step_stats ?? [] })))
+      .catch(() => setStepStats((cur) => ({ ...cur, [operatorId]: null })));
+  };
 
   if (!rangeReady) {
     return <EmptyState icon={<Star size={20} aria-hidden />} title={t('rating.customRangeInvalid')} description={t('rating.customRangeInvalidDesc')} />;
@@ -362,7 +427,7 @@ function OverviewTab({ staff, rangeReady, metric, setMetric, exportAvailable, ex
         </div>
 
         {rest.length > 0 ? (
-          <div className="flex flex-col gap-1 rounded-card border border-border-subtle bg-surface-1 p-2">
+          <Card className="flex flex-col gap-1 p-2">
             {rest.map((s, i) => (
               <div key={s.operator_id} className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm">
                 <span className="w-5 text-center font-bold text-text-muted tabular-nums">{i + 4}</span>
@@ -371,7 +436,7 @@ function OverviewTab({ staff, rangeReady, metric, setMetric, exportAvailable, ex
                 <span className="text-text-secondary tabular-nums">{tf(t, METRICS[metric].unitKey, { n: metric === 'avg' ? s.average_rating.toFixed(1) : METRICS[metric].value(s) })}</span>
               </div>
             ))}
-          </div>
+          </Card>
         ) : null}
       </section>
 
@@ -380,7 +445,11 @@ function OverviewTab({ staff, rangeReady, metric, setMetric, exportAvailable, ex
           <h2 className="text-lg font-bold">{t('rating.quadrant.title')}</h2>
           <p className="text-xs text-text-secondary">{t('rating.quadrant.note')}</p>
         </div>
-        <StaffQuadrant rows={quadrantRows} />
+        <StaffQuadrant
+          rows={quadrantRows}
+          onSelect={onSelectOperator}
+          extra={(row) => <TrainingDetail stats={stepStats[row.operator_id]} />}
+        />
         <StaffQuadrantLegend />
       </section>
 
@@ -408,6 +477,7 @@ function RatingsListTab({ session, catalog, branch, tab, period }: {
   const { t } = useOperatorI18n();
   const [stars, setStars] = useState('');
   const [handled, setHandled] = useState('false');
+  const [stepId, setStepId] = useState('');
   const [rows, setRows] = useState<RatingRow[] | null | undefined>(undefined);
   const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -420,12 +490,31 @@ function RatingsListTab({ session, catalog, branch, tab, period }: {
     const query: Record<string, string> = { ...scopeQuery(branch) };
     if (stars) query.stars = stars;
     if (handled) query.handled = handled;
+    if (stepId) query.step_id = stepId;
     call<{ ratings: RatingRow[] }>(session, listAction, query)
       .then((x) => setRows(x.ratings ?? []))
       .catch(() => setRows(null));
   };
 
-  useEffect(load, [session, catalog, branch, stars, handled]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(load, [session, catalog, branch, stars, handled, stepId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // «أكثر مشكلة تتكرر» — computed from the page already loaded, not a second call. Only shown
+  // while nothing is filtered to one step yet — once he has picked one, the list itself IS the
+  // answer and a summary above it would just repeat the filter he already applied.
+  const topIssues = useMemo(() => {
+    if (stepId || !rows) return [];
+    const counts = new Map<string, { text: string; severity: RatingIssueStep['severity']; n: number }>();
+    for (const r of rows) {
+      for (const s of r.rating_issue_steps ?? []) {
+        const cur = counts.get(s.id);
+        if (cur) cur.n += 1;
+        else counts.set(s.id, { text: s.text, severity: s.severity, n: 1 });
+      }
+    }
+    return Array.from(counts, ([id, v]) => ({ id, ...v }))
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 5);
+  }, [rows, stepId]);
 
   if (!listAction) return null;
 
@@ -480,6 +569,36 @@ function RatingsListTab({ session, catalog, branch, tab, period }: {
         ))}
       </div>
 
+      {stepId ? (
+        <button
+          type="button" onClick={() => setStepId('')}
+          className="flex w-fit items-center gap-1.5 rounded-full bg-danger-soft px-3 py-1 text-xs font-medium text-danger-on-soft"
+        >
+          {tf(t, 'rating.stepFilter.active', {
+            text: rows?.flatMap((r) => r.rating_issue_steps ?? []).find((s) => s.id === stepId)?.text ?? '',
+          })}
+          <span aria-hidden>✕</span>
+        </button>
+      ) : topIssues.length > 0 ? (
+        <div className="flex flex-col gap-1.5 rounded-card border border-border-subtle bg-surface-1 p-3">
+          <p className="text-xs font-bold text-text-secondary">{t('rating.topIssues.title')}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {topIssues.map((issue) => (
+              <button
+                key={issue.id} type="button" onClick={() => setStepId(issue.id)}
+                className={'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ' +
+                  (issue.severity === 'critical'
+                    ? 'bg-danger-soft text-danger-on-soft hover:opacity-90'
+                    : 'bg-surface-2 text-text-secondary hover:bg-surface-3')}
+              >
+                {issue.text}
+                <span className="tabular-nums font-bold">{issue.n}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {rows === undefined ? (
         <Skeleton height={200} />
       ) : rows === null ? (
@@ -523,6 +642,16 @@ function RatingsListTab({ session, catalog, branch, tab, period }: {
                 </div>
 
                 {r.feedback_text ? <p className="text-sm text-text-secondary">{r.feedback_text}</p> : null}
+
+                {r.rating_issue_steps && r.rating_issue_steps.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {r.rating_issue_steps.map((s) => (
+                      <Badge key={s.id} tone={s.severity === 'critical' ? 'danger' : 'neutral'}>
+                        {s.text}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
 
                 <div className="flex items-center justify-between gap-2">
                   {isHandled ? (

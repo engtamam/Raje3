@@ -38,7 +38,8 @@ from app.api.authz import require_any_capability, require_capability
 from app.api.ratelimit import rate_limit
 from app.api.scope import branch_scope
 from app.api import scope as SCOPE
-from app.core.models import ASSIGNMENT_MODES, Branch, Operator, Package, Service
+from app.core.models import (ASSIGNMENT_MODES, PROCEDURE_STEP_SEVERITIES, Branch, Operator,
+                             OperatorStepStat, Package, ProcedureStep, Service)
 from app.core import branches as B
 from app.core import operator_ticket as OT
 from app.core import ai_notes as AN
@@ -51,7 +52,8 @@ from app.core import vehicles as V
 from app.core import whatsapp_visit_flag as WVF
 from app.core import whatsapp_auto_register as WAR
 from app.core.signup import SignupRefused
-from app.core.stores import BranchStore, OperatorStore, PackageStore, ServiceStore, new_id
+from app.core.stores import (BranchStore, OperatorStepStatStore, OperatorStore, PackageStore,
+                             ProcedureStepStore, ServiceStore, new_id)
 from app.api.subscribed import no_subscription_needed, subscribed_write
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
@@ -1516,6 +1518,11 @@ class ServicePatch(BaseModel):
     # "leave it", same convention as every field on this model; validated against
     # `ASSIGNMENT_MODES` here rather than trusted, since this is the one route that can set it.
     assignment_mode: str | None = Field(default=None, max_length=16)
+    # THE PROTOCOL, ORDERED — see Service.procedure_step_ids's own docstring (models.py). `None`
+    # means "leave it"; an explicit `[]` is a real value (clears the protocol back to none), same
+    # "None vs empty list" convention `eligible_staff_ids` above already uses. ORDER IS LIST
+    # ORDER — the console sends the ids in the sequence the owner dragged them into.
+    procedure_step_ids: list[str] | None = Field(default=None, max_length=100)
 
 
 @router.patch("/services/{service_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
@@ -1557,8 +1564,235 @@ async def update_service(request: Request, service_id: str, body: ServicePatch,
         real = {o.id for o in await operators.list(tenant)}
         s.eligible_staff_ids = [oid for oid in body.eligible_staff_ids if oid in real]
 
+    # EVERY STEP ID IS CHECKED against this tenant's own live catalogue, same discipline as
+    # `eligible_staff_ids` immediately above — a stale or foreign id (another tenant's step,
+    # or one since retired) is DROPPED, never stored, so the checklist a field operator sees can
+    # never silently point at text that no longer resolves. ORDER IS PRESERVED (a list
+    # comprehension over the CALLER'S order, not the store's), which is the whole point of this
+    # being a list rather than a set.
+    if body.procedure_step_ids is not None:
+        steps = ProcedureStepStore(request.app.state.container.datastore)
+        real_steps = {st.id for st in await steps.list(tenant, active_only=True)}
+        s.procedure_step_ids = [sid for sid in body.procedure_step_ids if sid in real_steps]
+
     await store.save(s)
     return s.public()
+
+
+# ── الإجراءات والبروتوكول ([[task-service-procedure-checklists]], phase 1) ───────────────────────
+# THE SHARED CATALOGUE — see `ProcedureStep`'s own docstring (models.py) for why this is a real,
+# tenant-scoped collection rather than free text repeated on each service, and why a step is
+# retired (`active=false`) rather than ever deleted.
+
+class ProcedureStepIn(BaseModel):
+    text: str = Field(min_length=1, max_length=300)
+    severity: str = Field(default="normal", max_length=16)
+    training_note: str = Field(default="", max_length=500)
+
+
+@router.get("/procedure-steps", dependencies=[Depends(rate_limit)])
+async def list_procedure_steps(request: Request, include_retired: bool = False,
+                               principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
+    """The owner's own protocol catalogue — same shape as `list_services` above (owner's edit
+    list includes what he retired, so a stopped step can be brought back)."""
+    rows = await ProcedureStepStore(request.app.state.container.datastore).list(
+        _tenant(principal), active_only=not include_retired)
+    return {"procedure_steps": [s.public() for s in rows]}
+
+
+@router.post("/procedure-steps", status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def create_procedure_step(request: Request, body: ProcedureStepIn,
+                                principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
+    if body.severity not in PROCEDURE_STEP_SEVERITIES:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            f"severity must be one of {sorted(PROCEDURE_STEP_SEVERITIES)}")
+    tenant = _tenant(principal)
+    await request.app.state.auditor.record(
+        "procedure_step.created", actor=principal.subject, tenant=tenant, resource="procedure_step",
+        ip=request.client.host if request.client else "")
+    s = ProcedureStep(id=new_id("step"), tenant=tenant, text=body.text.strip(),
+                      severity=body.severity, training_note=body.training_note.strip(),
+                      created=int(time.time()), created_by=principal.subject)
+    await ProcedureStepStore(request.app.state.container.datastore).save(s)
+    return s.public()
+
+
+class ProcedureStepPatch(BaseModel):
+    text: str | None = Field(default=None, min_length=1, max_length=300)
+    severity: str | None = Field(default=None, max_length=16)
+    training_note: str | None = Field(default=None, max_length=500)
+    active: bool | None = None
+
+
+@router.patch("/procedure-steps/{step_id}",
+              dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def update_procedure_step(request: Request, step_id: str, body: ProcedureStepPatch,
+                                principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
+    """Edit a shared step — text/severity/training note change EVERYWHERE it is used, by design
+    (see `Service.procedure_step_ids`'s own docstring: the whole reason this is a shared catalogue
+    rather than per-service text).
+
+    RETIRE rather than delete — `active: false`. A `Service.procedure_step_ids` entry pointing at
+    a retired step is left in place (never silently pruned here): the SERVICE screen filters it out
+    of what the field operator sees, while an OLD `Visit.rating_issue_step_ids`/`OperatorStepStat`
+    row still resolves it back to real text — the exact same "never orphan a historical reference"
+    reasoning `update_service`'s own docstring gives for services.
+    """
+    tenant = _tenant(principal)
+    store = ProcedureStepStore(request.app.state.container.datastore)
+    s = await store.get(tenant, step_id)
+    if s is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+
+    if body.severity is not None and body.severity not in PROCEDURE_STEP_SEVERITIES:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            f"severity must be one of {sorted(PROCEDURE_STEP_SEVERITIES)}")
+
+    await request.app.state.auditor.record(
+        "procedure_step.updated", actor=principal.subject, tenant=tenant,
+        resource=f"procedure_step:{step_id}", ip=request.client.host if request.client else "")
+
+    for fld in ("text", "severity", "training_note", "active"):
+        val = getattr(body, fld)
+        if val is not None:
+            setattr(s, fld, val.strip() if isinstance(val, str) else val)
+    s.updated_at = int(time.time())
+
+    await store.save(s)
+    return s.public()
+
+
+class ProcedureChecklistExportIn(BaseModel):
+    # ONE OR MORE SERVICES, ONE COMBINED CHECKLIST — the owner's own instruction (2026-09-16,
+    # after the single-service version already shipped): select several services at once (e.g. a
+    # customer booked غسيل خارجي AND تلميع together) and get back ONE document, not one per
+    # service, with a step shared by more than one of them printed exactly ONCE.
+    service_ids: list[str] = Field(min_length=1, max_length=20)
+    file_format: str = Field(default="pdf", pattern="^(docx|pdf)$")
+
+
+@router.post("/procedure-checklist/export", dependencies=[Depends(rate_limit)])
+async def export_procedure_checklist(request: Request, body: ProcedureChecklistExportIn,
+                                     principal: Principal = Depends(_MANAGE_SERVICES)) -> Any:
+    """The same ordered protocol `ServiceDrawer` shows, as a branded document instead of a screen —
+    hand this to a customer, or print it as a wall reference. Same capability the whole tab already
+    sits behind; no separate gate needed.
+
+    DEDUPED, FIRST OCCURRENCE WINS. A step referenced by more than one of the selected services
+    (the exact "مستخدمة بـN خدمات" case the console's own shared-usage badge exists for) is printed
+    once, at the position of the FIRST service (in the caller's own selection order) that carries
+    it — never once per service, which would have a technician re-do (or re-read) the identical
+    instruction for every service that happens to share it. Each such step carries a small "مشتركة
+    مع: …" caption naming every OTHER selected service it also belongs to, so the merge is legible
+    rather than silently lossy.
+
+    RETIRED STEPS ARE SILENTLY SKIPPED, never printed — same convention `ServiceDrawer`'s own
+    console-side rendering already follows for a `procedure_step_ids` entry whose step id no longer
+    resolves to an active one (see `update_procedure_step`'s own docstring: never pruned from the
+    list here, only filtered where it is shown).
+
+    AN UNKNOWN SERVICE ID IS SILENTLY DROPPED FROM THE MERGE, never a 404 — the caller is a
+    multi-select the console itself populated from the live catalogue, so a stale id (a service
+    deleted between the picker rendering and the export click) is a timing gap, not a caller
+    error; a 404 for the whole document would lose the N-1 services that are still perfectly real.
+    Only when NONE of the given ids resolve is the request actually refused.
+    """
+    import asyncio
+    import datetime as _dt
+    import tempfile
+    from pathlib import Path
+
+    from fastapi import HTTPException
+    from fastapi.responses import FileResponse
+
+    from app.core.branches import MAIN as MAIN_BRANCH_ID
+    from app.core.pdf_convert import PdfConversionUnavailable, convert_to_pdf
+    from app.core.procedure_checklist_render import build_procedure_checklist_docx
+    from app.core.stores import BranchStore
+    from app.core.tenant_branding import fetch_branding
+
+    tenant = _tenant(principal)
+    ds = request.app.state.container.datastore
+    found = await asyncio.gather(*(ServiceStore(ds).get(tenant, sid) for sid in body.service_ids))
+    services = [s for s in found if s is not None]
+    if not services:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+
+    all_step_ids = {sid for svc in services for sid in svc.procedure_step_ids}
+    resolved = await ProcedureStepStore(ds).get_many(tenant, list(all_step_ids))
+
+    # first_service: which selected service each step id resolves to FIRST, for the "مشتركة مع"
+    # caption; `steps` keeps the FIRST-OCCURRENCE order across the whole selection.
+    steps: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    also_in: dict[str, list[str]] = {}
+    for svc in services:
+        for sid in svc.procedure_step_ids:
+            step = resolved.get(sid)
+            if step is None or not step.active:
+                continue
+            if sid not in seen:
+                seen.add(sid)
+                steps.append({"id": step.id, "text": step.text, "severity": step.severity})
+                also_in[sid] = []
+            elif svc.name not in also_in[sid]:
+                also_in[sid].append(svc.name)
+    for step in steps:
+        step["also_in"] = also_in.get(step["id"], [])
+
+    branch = await BranchStore(ds).get(tenant, MAIN_BRANCH_ID)
+    shop_name = (branch.name or "").strip() if branch else ""
+    branding = await fetch_branding(request.app.state.container_settings, tenant)
+
+    await request.app.state.auditor.record(
+        "procedure_checklist.exported", actor=principal.subject, tenant=tenant,
+        resource="service:" + ",".join(s.id for s in services),
+        ip=request.client.host if request.client else "",
+        metadata={"format": body.file_format, "step_count": len(steps),
+                  "service_count": len(services)})
+
+    now = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=3)))
+    tmp_dir = Path(tempfile.mkdtemp(prefix="procedure_checklist_"))
+    docx_path = tmp_dir / f"procedure_checklist_{tenant}.docx"
+    build_procedure_checklist_docx(
+        shop_name=shop_name, service_names=[s.name for s in services],
+        steps=steps, out_path=docx_path, logo_png=branding.logo_png,
+        accent_color=branding.accent, generated_at_label=now.strftime("%Y-%m-%d %H:%M"))
+
+    if body.file_format == "docx":
+        return FileResponse(docx_path, media_type=
+                           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                           filename=docx_path.name)
+    try:
+        pdf_path = convert_to_pdf(docx_path)
+    except PdfConversionUnavailable as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    return FileResponse(pdf_path, media_type="application/pdf", filename=pdf_path.name)
+
+
+@router.get("/operators/{operator_id}/step-stats", dependencies=[Depends(rate_limit)])
+async def list_operator_step_stats(request: Request, operator_id: str,
+                                   principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
+    """One operator's own training record — see `OperatorStepStat`'s own docstring (models.py):
+    an incrementally-maintained count, never computed by scanning this tenant's visit history on
+    every profile view.
+
+    RESOLVED AGAINST THE STEP CATALOGUE HERE, so «فريقي» never has to make its own second call —
+    a stat row for a step since retired still resolves (steps are never deleted, only retired;
+    see `update_procedure_step`'s own note), so an old training entry does not silently vanish
+    the day the owner tidies the catalogue.
+    """
+    tenant = _tenant(principal)
+    stats = await OperatorStepStatStore(request.app.state.container.datastore).for_operator(
+        tenant, operator_id)
+    steps = await ProcedureStepStore(request.app.state.container.datastore).get_many(
+        tenant, [st.step_id for st in stats])
+    return {"step_stats": [
+        {**st.public(), "step_text": steps[st.step_id].text if st.step_id in steps else "",
+         "step_severity": steps[st.step_id].severity if st.step_id in steps else ""}
+        for st in stats
+    ]}
 
 
 class CatalogueImageIn(BaseModel):

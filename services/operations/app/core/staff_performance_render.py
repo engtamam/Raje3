@@ -159,15 +159,30 @@ def fixed_widths(table, widths_in: list[float]) -> None:
     tblPr.addnext(grid)
 
 
-def _horizontal_rule(doc: Document) -> None:
+_DEFAULT_RULE_COLOR = "C0C0C0"
+_HEX6 = re.compile(r"^[0-9A-Fa-f]{6}$")
+
+
+def rule_color(accent_color: str) -> str:
+    """The shop's own accent (`core/tenant_branding.py`) when it is a real 6-digit hex colour,
+    the neutral default otherwise — shared with `procedure_checklist_render.py` so both branded
+    documents pick the same colour the same way. An operator-typed value from `AccountPanes.tsx`'s
+    own colour picker is trusted for DISPLAY only (written into a border/font colour attribute,
+    never interpreted as anything executable) — validated for SHAPE so a non-hex value cannot
+    corrupt the document's own XML colour attribute."""
+    v = accent_color.strip().lstrip("#")
+    return v.upper() if _HEX6.match(v) else _DEFAULT_RULE_COLOR
+
+
+def _horizontal_rule(doc: Document, color: str = _DEFAULT_RULE_COLOR) -> None:
     p = doc.add_paragraph()
     pPr = p._p.get_or_add_pPr()
     bdr = OxmlElement("w:pBdr")
     bot = OxmlElement("w:bottom")
     bot.set(qn("w:val"), "single")
-    bot.set(qn("w:sz"), "6")
+    bot.set(qn("w:sz"), "10" if color != _DEFAULT_RULE_COLOR else "6")
     bot.set(qn("w:space"), "1")
-    bot.set(qn("w:color"), "C0C0C0")
+    bot.set(qn("w:color"), color)
     bdr.append(bot)
     pPr.append(bdr)
 
@@ -182,26 +197,32 @@ MAX_ROWS = 500
 
 
 def build_staff_performance_docx(*, tenant: str, rows: list[dict[str, Any]],
-                                 out_path: str | Path, logo_path: str | Path | None = None,
+                                 out_path: str | Path, logo_png: bytes | None = None,
+                                 accent_color: str = "", shop_name: str = "",
                                  generated_at_label: str = "") -> Path:
     """Build the branded .docx. `rows` is `Operations.staff_performance`'s own merged shape
     (operator_id, operator_name, visits, ratings, average_rating, no_show_rate) — already sorted
     by average_rating descending by the caller, so this never re-sorts.
 
-    `logo_path` is optional — same "degrades to a text-only header" behaviour
-    `report_render.build_docx` already documents; `brand/logo/` holds no real image file yet.
+    `logo_png`/`accent_color`/`shop_name` come from `core/tenant_branding.py` (owner's own
+    instruction, 2026-09-16: a shop's own saved logo/colour must appear on every document that
+    leaves the building, «حتى بتقرير الفريق») — all optional, degrading to a text-only «راجِع»
+    header exactly as before when a shop has none set.
     """
     doc = Document()
+    color = rule_color(accent_color)
 
     sec = doc.sections[0]
     sec.page_width, sec.page_height = Inches(8.27), Inches(11.69)
     sec.left_margin = sec.right_margin = Inches(1.0)
     sec.top_margin = sec.bottom_margin = Inches(0.8)
 
+    brand = shop_name.strip() if shop_name and shop_name.strip() else "راجِع"
     header_p = sec.header.paragraphs[0]
-    if logo_path and Path(logo_path).is_file():
-        header_p.add_run().add_picture(str(logo_path), height=Inches(0.4))
-    hr = header_p.add_run("  راجِع" if logo_path and Path(logo_path).is_file() else "راجِع")
+    if logo_png:
+        from io import BytesIO
+        header_p.add_run().add_picture(BytesIO(logo_png), height=Inches(0.4))
+    hr = header_p.add_run(f"  {brand}" if logo_png else brand)
     hr.bold = True
     hr.font.size = Pt(11)
     hr.font.name = _FONT
@@ -222,7 +243,7 @@ def build_staff_performance_docx(*, tenant: str, rows: list[dict[str, Any]],
     arabic_run(subtitle_p, "معرّف المنشأة (UUID): ", size=11, bold=True)
     arabic_run(subtitle_p, ltr(tenant), size=11)
 
-    _horizontal_rule(doc)
+    _horizontal_rule(doc, color)
 
     if not rows:
         p = doc.add_paragraph()
@@ -239,7 +260,7 @@ def build_staff_performance_docx(*, tenant: str, rows: list[dict[str, Any]],
         arabic_run(warn_p, f"⚠ هذا التقرير يعرض أعلى {MAX_ROWS} موظفاً فقط من أصل "
                           f"{ltr(str(len(rows)))} — رتّب حسب الفرع لتضييق النطاق.", size=10,
                   bold=True)
-        _horizontal_rule(doc)
+        _horizontal_rule(doc, color)
 
     table = doc.add_table(rows=1, cols=5)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER

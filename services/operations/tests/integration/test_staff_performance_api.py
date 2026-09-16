@@ -156,3 +156,29 @@ def test_export_pdf_without_a_converter_installed_refuses_plainly_not_a_500(clie
     # The global error handler strips HTTPException.detail (CWE-209 hardening, same convention
     # every other service in this product follows) — the status code IS the whole signal here.
     assert r.status_code == 503
+
+
+def test_the_shops_own_branding_is_fetched_and_the_export_still_succeeds(monkeypatch):
+    """Owner's own instruction (2026-09-16): the shop's own saved logo/colour must appear on
+    «تقرير أداء الموظفين» too, not only the procedure checklist — same `core/tenant_branding.py`
+    fetch, wired into this export route as well."""
+    client = _make_app(TENANT_SERVICE_URL="http://tenant-service:8000")
+    _seed_operator(client, ident="op_a", name="سارة")
+
+    class _Registry:
+        def __init__(self) -> None:
+            self.calls: list[tuple] = []
+
+        def call(self, url, *, method, body=None, internal=False):
+            self.calls.append((url, method, body, internal))
+            return 200, {"branding": {"logo_url": "", "accent": "#B08A3E"}}
+
+    registry = _Registry()
+    from app.core import signup as signup_module
+    monkeypatch.setattr(signup_module, "Http", lambda **kw: registry)
+
+    r = client.post("/api/v1/field/staff/performance/export",
+                    json={"since": 0, "until": 2000, "file_format": "docx"},
+                    headers=_auth("operations.manage"))
+    assert r.status_code == 200, r.text
+    assert any(c[0].endswith("/internal/tenants/tnt_perf") and c[1] == "GET" for c in registry.calls)

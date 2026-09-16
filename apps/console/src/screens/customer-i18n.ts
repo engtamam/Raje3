@@ -59,6 +59,8 @@ registerOperatorStrings({
     'customer.offers.expired': 'انتهى',
 
     'customer.visits.title': 'زياراته',
+    'customer.repeatedIssues.title': 'نمط متكرر عند هذا العميل',
+    'customer.repeatedIssues.count': '{n}×',
     'customer.visits.empty': 'لا زيارات مسجّلة بعد.',
     'customer.visits.fallback': 'زيارة',
     'customer.visits.meter': 'العدّاد: {n}',
@@ -167,6 +169,8 @@ registerOperatorStrings({
     'customer.offers.expired': 'Expired',
 
     'customer.visits.title': 'Their visits',
+    'customer.repeatedIssues.title': 'A repeated pattern with this customer',
+    'customer.repeatedIssues.count': '{n}x',
     'customer.visits.empty': 'No visits recorded yet.',
     'customer.visits.fallback': 'Visit',
     'customer.visits.meter': 'Odometer: {n}',
@@ -275,6 +279,8 @@ registerOperatorStrings({
     'customer.offers.expired': 'ختم ہو گئی',
 
     'customer.visits.title': 'اس کی وزٹس',
+    'customer.repeatedIssues.title': 'اس گاہک کے ساتھ بار بار ہونے والا مسئلہ',
+    'customer.repeatedIssues.count': '{n}x',
     'customer.visits.empty': 'ابھی کوئی وزٹ ریکارڈ نہیں ہوئی۔',
     'customer.visits.fallback': 'وزٹ',
     'customer.visits.meter': 'میٹر: {n}',
@@ -383,6 +389,8 @@ registerOperatorStrings({
     'customer.offers.expired': 'Ya ƙare',
 
     'customer.visits.title': 'Ziyararsa',
+    'customer.repeatedIssues.title': 'Matsala mai maimaituwa da wannan kasuwar',
+    'customer.repeatedIssues.count': '{n}x',
     'customer.visits.empty': 'Babu ziyarar da aka rubuta tukuna.',
     'customer.visits.fallback': 'Ziyara',
     'customer.visits.meter': 'Ma\'auni: {n}',
@@ -491,6 +499,8 @@ registerOperatorStrings({
     'customer.offers.expired': 'Expired na',
 
     'customer.visits.title': 'Mga bisita niya',
+    'customer.repeatedIssues.title': 'Paulit-ulit na isyu sa customer na ito',
+    'customer.repeatedIssues.count': '{n}x',
     'customer.visits.empty': 'Wala pang narekord na bisita.',
     'customer.visits.fallback': 'Bisita',
     'customer.visits.meter': 'Metro: {n}',
@@ -599,6 +609,8 @@ registerOperatorStrings({
     'customer.offers.expired': 'মেয়াদোত্তীর্ণ',
 
     'customer.visits.title': 'তার ভিজিট',
+    'customer.repeatedIssues.title': 'এই গ্রাহকের সাথে বারবার হওয়া সমস্যা',
+    'customer.repeatedIssues.count': '{n}x',
     'customer.visits.empty': 'এখনো কোনো ভিজিট নথিভুক্ত হয়নি।',
     'customer.visits.fallback': 'ভিজিট',
     'customer.visits.meter': 'মিটার: {n}',

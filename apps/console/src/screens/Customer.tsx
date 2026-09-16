@@ -22,6 +22,7 @@ import { CustomerBookingHistory } from '../CustomerBookingHistory';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Badge } from '../rj-ui/Badge';
+import { Card } from '../rj-ui/Card';
 import { Segmented } from '../rj-ui/Segmented';
 import { Drawer } from '../rj-ui/Drawer';
 import { Hint } from '../Hint';
@@ -35,8 +36,15 @@ import { partitionOffers, remaining, type Offer } from '../offers';
 import type { Session } from '../session';
 import { western } from '../digits';
 import { AssistantHint } from '../AssistantHint';
-import { useOperatorI18n, tf } from '../operator-i18n';
+import { useOperatorI18n, tf, translate } from '../operator-i18n';
 import './customer-i18n';
+
+interface RatingIssueStep { id: string; text: string; severity: 'normal' | 'critical' }
+/** One step this customer has flagged MORE THAN ONCE, across different visits — the whole point
+ *  of surfacing it at all ([[task-service-procedure-checklists]] phase 5, owner's own
+ *  instruction: "شكيت من نفس الشي أكثر من مرة"). A single complaint is just a complaint; this
+ *  never appears for one. Resolved and counted server-side (`Operations.customer_record`). */
+interface RepeatedIssue extends RatingIssueStep { count: number }
 
 interface Record {
   customer: { id: string; phone: string; name?: string; subject_ref?: string; visits?: number };
@@ -47,9 +55,11 @@ interface Record {
    *  `meter` and `note` are typed by the operator on the field screen and were read by nothing
    *  at all (أ-9): both doors accept them, the visit row stores them, and no screen in the
    *  product showed them back. Daily effort on a screen whose whole budget is five seconds. */
-  visits: { id: string; services?: string; occurred_at?: number; meter?: number; note?: string }[];
+  visits: { id: string; services?: string; occurred_at?: number; meter?: number; note?: string;
+           rating_issue_steps?: RatingIssueStep[] }[];
   /** His vehicles, when this shop works on cars. The record has always carried them. */
   assets?: { id: string; plate?: string; make?: string; model?: string }[];
+  repeated_issues?: RepeatedIssue[];
 }
 
 interface Balance { balance: number; rewards?: { id: string; name: string; cost: number }[] }
@@ -62,13 +72,9 @@ interface Send { at?: number; template_type?: string; outcome?: string; reason?:
  * the first thing on the page for every customer who came in today — which is exactly the customer
  * an owner is most likely to be looking at.
  */
-const AGO_DEFAULT_T = (k: string) => ({
-  'customer.ago.never': '—', 'customer.ago.today': 'اليوم', 'customer.ago.yesterday': 'أمس',
-  'customer.ago.twoDaysAgo': 'قبل يومين', 'customer.ago.fewDaysAgo': 'قبل {n} أيام',
-  'customer.ago.manyDaysAgo': 'قبل {n} يوماً',
-}[k] ?? k);
-
-export function ago(days: number, seen: boolean, t: (key: string) => string = AGO_DEFAULT_T): string {
+export function ago(
+  days: number, seen: boolean, t: (key: string) => string = (k) => translate('ar', k),
+): string {
   if (!seen) return t('customer.ago.never');
   if (days <= 0) return t('customer.ago.today');
   if (days === 1) return t('customer.ago.yesterday');
@@ -289,9 +295,9 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
           // EQUAL HEIGHT AND ONE LINE EACH. Three cards that size themselves to their own text
           // read as three unrelated boxes; the label sits under the value at a fixed height so the
           // row scans as one row.
-          <div
+          <Card
             key={x.k}
-            className="flex h-20 flex-col items-center justify-center gap-0.5 rounded-card bg-surface-1 px-2 shadow-sm"
+            className="flex h-20 flex-col items-center justify-center gap-0.5 px-2"
           >
             <div className="truncate text-lg font-semibold tabular-nums">{x.v}</div>
             <div className="flex items-center gap-0.5 text-xs text-text-secondary">
@@ -300,7 +306,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                 <AssistantHint session={session} anchor="customers.statFrequency" />
               ) : null}
             </div>
-          </div>
+          </Card>
         ))}
       </section>
 
@@ -311,7 +317,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
       ) : null}
 
       {(record.assets ?? []).length > 0 ? (
-        <section className="rounded-card bg-surface-1 p-4 shadow-sm">
+        <Card className="p-4">
           <h2 className="mb-2 text-sm text-text-secondary">{t('customer.vehicles')}</h2>
           <ul className="flex flex-wrap gap-2">
             {(record.assets ?? []).map((a) => (
@@ -321,7 +327,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
               </li>
             ))}
           </ul>
-        </section>
+        </Card>
       ) : null}
 
       {/* TABS, LIKE EVERY OTHER SECTION. The page answers three different errands — who he is,
@@ -354,7 +360,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
       {record?.customer?.id ? (
         <CustomerBookingHistory session={session} customerId={record.customer.id} />
       ) : null}
-      <section className="rounded-card bg-surface-1 p-4 shadow-sm">
+      <Card className="p-4">
         <h2 className="mb-3 text-sm text-text-secondary">{t('customer.offers.title')}</h2>
         {isLoading(offers) ? (
           <Skeleton height={90} />
@@ -380,7 +386,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                 </p>
                 <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                   <Badge tone="success">{t('customer.offers.active')}</Badge>
-                  <span className="text-text-secondary">{remaining(o.expires_at)}</span>
+                  <span className="text-text-secondary">{remaining(o.expires_at, undefined, t)}</span>
                   <span className="text-text-secondary">{tf(t, 'customer.offers.receivedAt', { date: when(o.sent_at) })}</span>
                   {/* THE SAME STRING HE IS HOLDING. The owner is often the one who answers when a
                       customer calls to ask about an offer, and «الرمز اللي عندك؟» only works if
@@ -409,9 +415,30 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
             ))}
           </ul>
         )}
-      </section>
+      </Card>
 
-      <section className="rounded-card bg-surface-1 p-4 shadow-sm">
+      {record.repeated_issues && record.repeated_issues.length > 0 ? (
+        <Card className="border-danger/30 bg-danger-soft p-4">
+          <h2 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-danger-on-soft">
+            {t('customer.repeatedIssues.title')}
+          </h2>
+          <ul className="flex flex-col gap-1.5">
+            {record.repeated_issues.map((issue) => (
+              <li key={issue.id} className="flex items-center gap-2 text-sm">
+                <span aria-hidden className={issue.severity === 'critical'
+                  ? 'size-2 shrink-0 rounded-full bg-danger'
+                  : 'size-2 shrink-0 rounded-full bg-text-muted/50'} />
+                <span className="min-w-0 flex-1 text-text-primary">{issue.text}</span>
+                <span className="shrink-0 tabular-nums font-bold text-danger-on-soft">
+                  {tf(t, 'customer.repeatedIssues.count', { n: issue.count })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
+
+      <Card className="p-4">
         <h2 className="mb-3 text-sm text-text-secondary">{t('customer.visits.title')}</h2>
         {record.visits.length === 0 ? (
           <p className="text-sm text-text-secondary">{t('customer.visits.empty')}</p>
@@ -432,18 +459,27 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                   {v.note ? (
                     <span className="block truncate text-sm text-text-secondary">{v.note}</span>
                   ) : null}
+                  {v.rating_issue_steps && v.rating_issue_steps.length > 0 ? (
+                    <span className="mt-1 flex flex-wrap gap-1">
+                      {v.rating_issue_steps.map((s) => (
+                        <Badge key={s.id} tone={s.severity === 'critical' ? 'danger' : 'neutral'}>
+                          {s.text}
+                        </Badge>
+                      ))}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="shrink-0 text-sm text-text-secondary">{when(v.occurred_at ?? 0)}</span>
               </li>
             ))}
           </ul>
         )}
-      </section>
+      </Card>
         </>
       ) : null}
 
       {tab === 'points' ? (
-        <section className="rounded-card bg-surface-1 p-4 shadow-sm">
+        <Card className="p-4">
           {/* HIS BALANCE, AND WHERE IT WENT. «أين ذهبت نقاطي؟» is asked at the counter, by the
               person whose points they are, and an owner who cannot answer it in front of him has
               a loyalty programme that costs trust instead of earning it. */}
@@ -496,12 +532,12 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
               )}
             </>
           )}
-        </section>
+        </Card>
       ) : null}
 
 
       {tab === 'manage' ? (
-        <section className="flex flex-col gap-4 rounded-card bg-surface-1 p-4 shadow-sm">
+        <Card className="flex flex-col gap-4 p-4">
           {/* HIS NAME, WHICH ARRIVES LATE BY DESIGN (§4.3). It is hard to ask a stranger his name
               while taking his key, and after five visits the operator simply knows it — so the
               field never blocks a save and most customers are created without one. Until this
@@ -780,7 +816,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
               )}
             </div>
           ) : null}
-        </section>
+        </Card>
       ) : null}
 
       {/* ── his rhythm, and the one number an owner sometimes knows better ───────────────
@@ -793,7 +829,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
           words. Silently resuming adaptation would walk his number back toward the observed
           rhythm over the next few visits, and he would conclude the setting does not work. */}
       {tab === 'overview' && cycles.length ? (
-        <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+        <Card className="flex flex-col gap-2 p-4">
           <div className="flex items-center gap-2">
             <h2 className="text-sm text-text-secondary">{t('customer.cycles.title')}</h2>
             <Hint>
@@ -842,11 +878,11 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
             </div>
           ))}
           {pinMsg ? <p className="text-xs text-text-secondary">{pinMsg}</p> : null}
-        </section>
+        </Card>
       ) : null}
 
       {tab === 'messages' ? (
-        <section className="rounded-card bg-surface-1 p-4 shadow-sm">
+        <Card className="p-4">
           {/* WHAT WENT TO HIM, AND WHAT DID NOT — WITH ITS REASON. «لماذا لم تصل رسالة عميلي؟» is
               the only question this engine generates, and every correct refusal (quiet hours, the
               ceiling, consent, an unapproved template) reads as a fault until it is named. */}
@@ -880,7 +916,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
               ))}
             </ul>
           )}
-        </section>
+        </Card>
       ) : null}
 
     </div>

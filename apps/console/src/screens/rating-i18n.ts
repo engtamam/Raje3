@@ -55,6 +55,10 @@ registerOperatorStrings({
     'rating.emptyList.desc': 'جرّب فلتراً آخر.',
     'rating.emptyList.readErrorTitle': 'تعذّرت قراءة التقييمات',
     'rating.emptyList.readErrorDesc': 'حاول بعد قليل.',
+    'rating.topIssues.title': 'أكثر مشكلة تتكرر',
+    'rating.stepFilter.active': 'مُفلتر على: {text}',
+    'rating.training.title': 'أين يحتاج تدريباً',
+    'rating.training.clean': 'ما فيه مشاكل متكررة — سجل نظيف.',
   },
   en: {
     'rating.title': 'Rating',
@@ -110,6 +114,10 @@ registerOperatorStrings({
     'rating.emptyList.desc': 'Try a different filter.',
     'rating.emptyList.readErrorTitle': "Couldn't read the ratings",
     'rating.emptyList.readErrorDesc': 'Try again shortly.',
+    'rating.topIssues.title': 'Most repeated issue',
+    'rating.stepFilter.active': 'Filtered on: {text}',
+    'rating.training.title': 'Where he needs training',
+    'rating.training.clean': 'No repeated issues — clean record.',
   },
   // MACHINE-ASSISTED, NOT NATIVE-REVIEWED.
   ur: {
@@ -166,6 +174,10 @@ registerOperatorStrings({
     'rating.emptyList.desc': 'کوئی اور فلٹر آزمائیں۔',
     'rating.emptyList.readErrorTitle': 'تقییمات پڑھی نہیں جا سکیں',
     'rating.emptyList.readErrorDesc': 'تھوڑی دیر بعد کوشش کریں۔',
+    'rating.topIssues.title': 'سب سے زیادہ دہرایا جانے والا مسئلہ',
+    'rating.stepFilter.active': 'فلٹر شدہ: {text}',
+    'rating.training.title': 'اسے کہاں تربیت کی ضرورت ہے',
+    'rating.training.clean': 'کوئی بار بار ہونے والا مسئلہ نہیں — صاف ریکارڈ۔',
   },
   // MACHINE-ASSISTED, NOT NATIVE-REVIEWED.
   ha: {
@@ -222,6 +234,10 @@ registerOperatorStrings({
     'rating.emptyList.desc': 'Gwada wata tacewa.',
     'rating.emptyList.readErrorTitle': 'An kasa karanta kimantawa',
     'rating.emptyList.readErrorDesc': 'A sake gwadawa.',
+    'rating.topIssues.title': 'Matsalar da ta fi maimaituwa',
+    'rating.stepFilter.active': 'An tace zuwa: {text}',
+    'rating.training.title': 'Inda yake bukatar horo',
+    'rating.training.clean': 'Babu matsalar da ke maimaituwa — tsafta.',
   },
   // MACHINE-ASSISTED, NOT NATIVE-REVIEWED.
   fil: {
@@ -278,6 +294,10 @@ registerOperatorStrings({
     'rating.emptyList.desc': 'Subukan ang ibang filter.',
     'rating.emptyList.readErrorTitle': 'Hindi mabasa ang mga rating',
     'rating.emptyList.readErrorDesc': 'Subukan muli mamaya.',
+    'rating.topIssues.title': 'Pinakaparating na isyu',
+    'rating.stepFilter.active': 'Naka-filter sa: {text}',
+    'rating.training.title': 'Saan siya kailangan ng training',
+    'rating.training.clean': 'Walang paulit-ulit na isyu — malinis na record.',
   },
   // MACHINE-ASSISTED, NOT NATIVE-REVIEWED.
   bn: {
@@ -334,5 +354,9 @@ registerOperatorStrings({
     'rating.emptyList.desc': 'অন্য একটি ফিল্টার চেষ্টা করুন।',
     'rating.emptyList.readErrorTitle': 'রেটিং পড়া যায়নি',
     'rating.emptyList.readErrorDesc': 'একটু পরে আবার চেষ্টা করুন।',
+    'rating.topIssues.title': 'সবচেয়ে বেশি পুনরাবৃত্ত সমস্যা',
+    'rating.stepFilter.active': 'ফিল্টার করা হয়েছে: {text}',
+    'rating.training.title': 'কোথায় প্রশিক্ষণ দরকার',
+    'rating.training.clean': 'কোনো পুনরাবৃত্ত সমস্যা নেই — পরিষ্কার রেকর্ড।',
   },
 });

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
 from starlette.concurrency import run_in_threadpool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.api.auth import Principal
 from app.api.authz import require_capability
@@ -31,7 +31,8 @@ from app.core import operator_ticket as OT
 from app.core import plate as P
 from app.core import vehicles as V
 from app.core.operations import OperationError, Operations
-from app.core.stores import ServiceStore
+from app.core.quantities import check_quantities
+from app.core.stores import ProcedureStepStore, ServiceStore
 from app.api.subscribed import (no_subscription_needed, subscribed_write,
                                 subscribed_write_or_customer_creating_app,
                                 subscribed_write_or_visit)
@@ -64,6 +65,16 @@ def _tenant(p: Principal) -> str:
 class VisitIn(BaseModel):
     phone: str = Field(min_length=3, max_length=32)
     service_ids: list[str] = Field(min_length=1, max_length=20)
+    # HOW MANY OF EACH — the till's own contract (`TillLineIn.qty`, till.py) extended to the field
+    # screen, so a "2× غسيل خارجي" recorded by hand prices and counts exactly like the same thing
+    # coming off an integrated till. `service_ids` stays the tenant's real, UNIQUE ids either way
+    # (never repeated to express a count — repeating a 20-item-capped list to mean "20 of the same
+    # service" runs out at 20 units); a missing entry here means one, same as `record_visit`'s own
+    # default. Keyed by service id, never trusted beyond `service_ids` itself —
+    # `Operations.record_visit` already drops any key not present there.
+    quantities: dict[str, int] = Field(default_factory=dict)
+
+    _check_quantities = field_validator("quantities")(check_quantities)
     # SET ONLY WHEN THIS VISIT IS SELLING A PACKAGE — see Visit.package_id's own docstring. The
     # console sends the package's OWN component service_ids inside `service_ids` above regardless
     # (so the visit still shows what was actually done); this is purely the attribution loyalty
@@ -203,7 +214,7 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
             plate=body.plate, operator_id=operator_id, branch_id=body.branch_id,
             meter=body.meter, note=body.note, custom_service=body.custom_service,
             idempotency_key=body.idempotency_key, occurred_at=body.occurred_at,
-            package_id=package_id)
+            package_id=package_id, quantities=body.quantities)
     except OperationError as exc:
         # RETURNED, NOT RAISED — the third time this file says it, and the one place it was not
         # done. The plate refusal above and the offer refusal below both return; this raised, and
@@ -287,7 +298,7 @@ async def recent_customers(request: Request, limit: int = 10, branch_id: str = "
 
 @router.get("/ratings", dependencies=[Depends(rate_limit)])
 async def ratings(request: Request, stars: int = 0, handled: str = "", branch_id: str = "",
-                  limit: int = 50, after: str = "",
+                  step_id: str = "", limit: int = 50, after: str = "",
                   principal: Principal = Depends(_READ)) -> dict:
     """The console's «التقييمات» tab (rating-app-feature.md phase 5) — every visit a customer
     actually rated, one filterable list.
@@ -296,6 +307,13 @@ async def ratings(request: Request, stars: int = 0, handled: str = "", branch_id
     rather than a real bool/optional-int, matching this file's own convention of never asking
     FastAPI to coerce a query param that a browser can send as an empty string. See
     VisitStore.ratings' own docstring for `handled=true`'s one known pagination limitation.
+
+    `step_id` — «أكثر مشكلة تتكرر» ([[task-service-procedure-checklists]] phase 4): show only the
+    ratings that flagged this ONE procedure step. APPLIED AFTER THE PAGE IS FETCHED, same known,
+    accepted limitation `handled=true` already documents right above — a step is rare enough on
+    any given rating that filtering the already-small owner-facing page in Python, rather than
+    teaching `VisitStore.ratings` a new store-level filter for one console screen, is the honest
+    trade here too.
     """
     if stars not in (0, 1, 2, 3, 4, 5):
         return {"error": "BAD_REQUEST", "message": "التقييم يجب أن يكون بين 1 و5، أو صفر لكل التقييمات."}
@@ -311,6 +329,8 @@ async def ratings(request: Request, stars: int = 0, handled: str = "", branch_id
     scope = await branch_scope(request.app.state.container.datastore, principal)
     kept = SCOPE.visible([v.public() for v in rows], SCOPE.narrow(scope, branch_id),
                          field="branch_id")
+    if step_id:
+        kept = [r for r in kept if step_id in (r.get("rating_issue_step_ids") or [])]
     # WHO LEFT IT AND WHO SERVED THEM — the console's own dedicated التقييم screen shows the
     # customer's name and phone (a real way to reach out, not just a `customer_id`) and the
     # operator's name beside every card, so this is filled in for the whole page at once rather
@@ -321,11 +341,22 @@ async def ratings(request: Request, stars: int = 0, handled: str = "", branch_id
     operator_ids = {r["operator_id"] for r in kept if r.get("operator_id")}
     customers = await svc.customers_by_ids(tenant, customer_ids)
     operator_names = await svc.operator_names(tenant, operator_ids)
+    # WHICH STEPS WERE FLAGGED, RESOLVED TO REAL TEXT — same one-batch-for-the-whole-page shape as
+    # customer_name/operator_name right above, never a lookup per row. Retired steps still resolve
+    # (ProcedureStepStore never deletes — see that store's own docstring), so an old rating never
+    # silently loses the step it once named.
+    step_ids = {sid for r in kept for sid in (r.get("rating_issue_step_ids") or [])}
+    steps = await ProcedureStepStore(request.app.state.container.datastore).get_many(tenant, list(step_ids))
     for r in kept:
         customer = customers.get(r.get("customer_id", ""))
         r["customer_name"] = customer.name if customer else ""
         r["customer_phone"] = customer.phone if customer else ""
         r["operator_name"] = operator_names.get(r.get("operator_id", ""), "")
+        r["rating_issue_steps"] = [
+            {"id": s.id, "text": s.text, "severity": s.severity}
+            for sid in (r.get("rating_issue_step_ids") or [])
+            if (s := steps.get(sid)) is not None
+        ]
     return {"ratings": kept, "next_cursor": cursor}
 
 
@@ -450,24 +481,34 @@ async def staff_performance_export(request: Request, body: StaffPerformanceExpor
     from fastapi import HTTPException
     from fastapi.responses import FileResponse
 
+    from app.core.branches import MAIN as MAIN_BRANCH_ID
     from app.core.pdf_convert import PdfConversionUnavailable, convert_to_pdf
     from app.core.staff_performance_render import build_staff_performance_docx
+    from app.core.stores import BranchStore
+    from app.core.tenant_branding import fetch_branding
 
     error, staff = await _staff_performance_rows(
         request, principal, since=body.since, until=body.until, branch_id=body.branch_id)
     if error:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, error)
 
+    tenant = _tenant(principal)
     await request.app.state.auditor.record(
-        "staff_performance.exported", actor=principal.subject, tenant=_tenant(principal),
+        "staff_performance.exported", actor=principal.subject, tenant=tenant,
         resource="staff_performance", ip=request.client.host if request.client else "",
         metadata={"format": body.file_format, "row_count": len(staff)})
 
+    ds = request.app.state.container.datastore
+    branch = await BranchStore(ds).get(tenant, MAIN_BRANCH_ID)
+    shop_name = (branch.name or "").strip() if branch else ""
+    branding = await fetch_branding(request.app.state.container_settings, tenant)
+
     now = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=3)))
     tmp_dir = Path(tempfile.mkdtemp(prefix="staff_performance_"))
-    docx_path = tmp_dir / f"staff_performance_{_tenant(principal)}.docx"
+    docx_path = tmp_dir / f"staff_performance_{tenant}.docx"
     build_staff_performance_docx(
-        tenant=_tenant(principal), rows=staff, out_path=docx_path,
+        tenant=tenant, rows=staff, out_path=docx_path, shop_name=shop_name,
+        logo_png=branding.logo_png, accent_color=branding.accent,
         generated_at_label=now.strftime("%Y-%m-%d %H:%M"))
 
     if body.file_format == "docx":
