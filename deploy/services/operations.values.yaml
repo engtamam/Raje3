@@ -153,6 +153,12 @@ env:
   # (nobody looks up twenty different numbers a minute) and blunt against "try every combination".
   RATELIMIT_ROUTES: >-
     [{"prefix":"/api/v1/field/customers/by-phone","class":"phone-search","limit":20,"window_s":60,"cost":1}]
+  # THE GATEWAY MIDDLEWARE'S OWN DEFAULT (1 MiB) IS SMALLER THAN A SINGLE SERVICE PHOTO. A service
+  # photo travels as JSON {content_type, data_base64} — base64 inflates the real bytes by 4/3 — and
+  # catalogue_image.py's own MAX_BYTES already allows up to 5 MiB decoded (~6.99 MiB base64), so the
+  # 1 MiB default rejected every real photo with a bare 413 before this app ever saw the request.
+  # Same fix, same reasoning, as affiliate-service's own BODY_LIMIT_BYTES override for its receipts.
+  BODY_LIMIT_BYTES: "7500000"
   # Same fix as insights.values.yaml — default pool_max=5 was the real load-test ceiling (pure
   # queueing on pool.acquire(), zero CPU), and operations is fanned into by insights' aggregation
   # on محلّي's dashboard. Within the fleet's interim shared-Postgres budget.
