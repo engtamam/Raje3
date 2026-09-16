@@ -1,0 +1,386 @@
+<title>فخ الزحمة</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!--
+  «فخ الزحمة» — نسخة معمَّمة عن «زحمة الويكند» (ad-weekend-rush.html)، بزاوية أعمق بطلب صريح من
+  المالك: مو مجرد "الزحمة تتعب موظفينك"، بل «الزحمة نفسها فخ ذهني — تشعرك إنك رابح وانت فعليًا
+  تخسر عملاء بصمت». الأمثلة (سيارات/غسيل) حُذفت كليًا — أيقونات أشخاص عامة، ولغة تصلح لأي نشاط
+  فيه ساعة ذروة وساعة فراغ (صالون، عيادة، ورشة، مطعم..)، بلا تسمية أي قطاع بعينه — نفس قاعدة
+  صفحة الهبوط بالضبط («لا اسم تجاري يوجّه النسخة»).
+
+  شاشة سادسة جديدة («البصيرة») لا وجود لها بالنسخة الأولى — هي القيمة الاستشارية المطلوبة صراحة:
+  تشرح للمشاهد آلية الخطأ الاستراتيجي نفسه («المشكلة مو الكمية، هي التوزيع») قبل ما تعرض الحل،
+  بدل ما تقفز من المشكلة للحل مباشرة. المقطع أطول من الأول عمداً — الطول هنا يخدم العمق المطلوب،
+  لا حشو.
+-->
+
+<style>
+  :root {
+    --bg: #0A1128;
+    --ink: #F5F7FA;
+    --muted: #8B93AC;
+    --yellow: #F5C324;
+    --green: #25D366;
+    --red: #E5484D;
+
+    --stage-w: min(100vw, calc(100dvh * 9 / 16));
+    --u: var(--stage-w);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "SF Arabic", "Segoe UI", Tahoma, "Arial", system-ui, sans-serif;
+    display: grid;
+    place-items: center;
+    min-height: 100dvh;
+    direction: rtl;
+    overflow: hidden;
+  }
+
+  .stage {
+    position: relative;
+    width: var(--stage-w);
+    height: calc(var(--stage-w) * 16 / 9);
+    max-height: 100dvh;
+    min-width: min(100vw, calc(100dvh * 9 / 16));
+    background: var(--bg);
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+  }
+  #bgfx { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; display: block }
+  .screens-layer { position: relative; z-index: 1; width: 100%; height: 100%; display: grid; place-items: center }
+
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    gap: 2.4vh;
+    padding: 0 8%;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .35s ease;
+  }
+  .screen.on { opacity: 1; }
+
+  /* ── شاشة 1: الصدمة ───────────────────────────────────────────────────────────────── */
+  .headline { font-size: calc(var(--u) * .1); font-weight: 800; line-height: 1.5; text-wrap: balance; }
+  .headline .w { display: inline-block; opacity: 0; transform: scale(.7); transition: opacity .35s ease, transform .35s cubic-bezier(.2, .8, .3, 1); }
+  .headline .w.in { opacity: 1; transform: scale(1); }
+  .headline .accent { color: var(--yellow); }
+
+  /* ── شاشة 2: فخ الذروة — طابور أشخاص عام + بطارية طاقة ───────────────────────────── */
+  .bottleneck { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--u) * .06); align-items: center; width: 100%; }
+  .queue { display: flex; flex-direction: column; gap: calc(var(--u) * .03); align-items: flex-end; }
+  .person { display: flex; align-items: center; gap: calc(var(--u) * .02); opacity: 0; transform: translateX(24px); transition: opacity .4s ease, transform .4s cubic-bezier(.2, .8, .3, 1); }
+  .person.in { opacity: 1; transform: none; }
+  .person svg { width: calc(var(--u) * .09); height: auto; }
+  .person.dim { opacity: .4; }
+  .person.dim.in { opacity: .4; }
+  .batt-wrap { display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * .02); }
+  .batt-svg { width: calc(var(--u) * .16); }
+  .batt-fill { transition: height 3.6s cubic-bezier(.4, 0, .2, 1), fill 3.6s ease; }
+  .batt-label { font-size: calc(var(--u) * .034); color: var(--muted); font-weight: 600; }
+  .caption {
+    position: absolute; bottom: 9%; inset-inline: 8%;
+    font-size: calc(var(--u) * .05); font-weight: 700; color: var(--yellow);
+    opacity: 0; transition: opacity .4s ease .3s;
+  }
+  .screen.on .caption.in { opacity: 1; }
+
+  /* ── شاشة 3: الفراغ — ساعة تتوقف ──────────────────────────────────────────────────── */
+  .clock-wrap { display: grid; place-items: center; gap: calc(var(--u) * .04); }
+  .clock-svg { width: calc(var(--u) * .32); }
+  .hand { transform-origin: 100px 100px; transition: transform 2.4s cubic-bezier(.3, .7, .2, 1); }
+  .hand-min { transition-duration: 1.8s; }
+  .empty-line { font-size: calc(var(--u) * .086); font-weight: 800; line-height: 1.5; text-wrap: balance; opacity: 0; transform: translateY(10px); transition: opacity .5s ease, transform .5s ease; }
+  .empty-line.in { opacity: 1; transform: none; }
+  .empty-line .accent { color: var(--yellow); }
+  .empty-line .neg { color: var(--muted); }
+
+  /* ── شاشة 4: البصيرة — القيمة الاستشارية ──────────────────────────────────────────── */
+  .insight { display: grid; gap: calc(var(--u) * .045); max-width: 92%; }
+  .insight .big {
+    font-size: calc(var(--u) * .076); font-weight: 800; line-height: 1.55; text-wrap: balance;
+    opacity: 0; transform: translateY(12px); transition: opacity .45s ease, transform .45s ease;
+  }
+  .insight .big.in { opacity: 1; transform: none; }
+  .insight .big .accent { color: var(--yellow); }
+  .split { display: flex; gap: calc(var(--u) * .03); justify-content: center; margin-top: calc(var(--u) * .01); }
+  .split-item {
+    flex: 1; max-width: calc(var(--u) * .38); background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.1); border-radius: calc(var(--u) * .03);
+    padding: calc(var(--u) * .035); text-align: start;
+    opacity: 0; transform: translateY(14px); transition: opacity .4s ease, transform .4s ease;
+  }
+  .split-item.in { opacity: 1; transform: none; }
+  .split-item b { display: block; font-size: calc(var(--u) * .042); font-weight: 800; margin-bottom: .3em; }
+  .split-item.bad b { color: var(--red); }
+  .split-item.waste b { color: #a9c8ff; }
+  .split-item span { font-size: calc(var(--u) * .03); color: var(--muted); line-height: 1.6; display: block; }
+
+  /* ── شاشة 5: الحل ──────────────────────────────────────────────────────────────────── */
+  .solve { display: grid; grid-template-columns: .8fr 1fr; gap: calc(var(--u) * .05); align-items: center; width: 100%; }
+  .solve-text { font-size: calc(var(--u) * .06); font-weight: 800; line-height: 1.55; text-align: start; }
+  .solve-text .accent { color: var(--yellow); }
+  .phone {
+    width: calc(var(--u) * .42); aspect-ratio: 9/18; border-radius: calc(var(--u) * .06);
+    border: 3px solid #fff; background: #0d1730; position: relative; overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0,0,0,.4); margin-inline-start: auto;
+  }
+  .wa-bubble {
+    position: absolute; inset-inline: 8%; bottom: 10%;
+    background: var(--green); color: #06210f; border-radius: calc(var(--u) * .025);
+    border-end-end-radius: calc(var(--u) * .006); padding: calc(var(--u) * .03);
+    font-size: calc(var(--u) * .028); font-weight: 700; line-height: 1.6; text-align: start;
+    transform: translateX(120%); opacity: 0;
+    transition: transform .5s cubic-bezier(.2, .8, .3, 1), opacity .5s ease;
+  }
+  .wa-bubble.in { transform: none; opacity: 1; }
+
+  /* ── شاشة 6: الخاتمة ───────────────────────────────────────────────────────────────── */
+  .close-line { font-size: calc(var(--u) * .07); font-weight: 800; line-height: 1.5; }
+  .close-line .accent { color: var(--yellow); }
+  .mark { display: grid; gap: calc(var(--u) * .03); place-items: center; margin-top: calc(var(--u) * .05); }
+  .wordmark { font-size: calc(var(--u) * .19); font-weight: 900; color: var(--yellow); line-height: 1.45; padding-bottom: .08em; }
+  .cta-btn {
+    font-size: calc(var(--u) * .04); font-weight: 800; color: var(--bg);
+    background: var(--yellow); border-radius: 999px; padding: .8em 1.8em;
+    opacity: 0; transform: translateY(10px); transition: opacity .4s ease .3s, transform .4s ease .3s;
+  }
+  .screen.on .cta-btn.in { opacity: 1; transform: none; }
+
+  .controls { position: absolute; z-index: 2; inset-inline: 0; bottom: 3.5vh; display: flex; justify-content: center; gap: 10px; transition: opacity .3s ease; }
+  .controls.hide { opacity: 0; pointer-events: none; }
+  button.ctl { font: inherit; font-size: .95rem; font-weight: 600; color: var(--bg); background: var(--yellow); border: 0; border-radius: 999px; padding: .7em 1.6em; cursor: pointer; }
+  button.ctl:active { transform: scale(.97); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .screen, .headline .w, .person, .caption, .empty-line, .insight .big, .split-item, .wa-bubble, .cta-btn { transition: none; }
+  }
+</style>
+
+<div class="stage" id="stage">
+<canvas id="bgfx" aria-hidden="true"></canvas>
+<div class="screens-layer">
+
+  <!-- 1 · الصدمة -->
+  <div class="screen" data-screen="1">
+    <p class="headline" id="h1">
+      <span class="w">زحمتك..</span> <span class="w accent">مكسب؟</span>
+      <span class="w">ولا</span> <span class="w accent">فخ</span> <span class="w">ما تحس فيه؟</span>
+    </p>
+  </div>
+
+  <!-- 2 · فخ الذروة -->
+  <div class="screen" data-screen="2">
+    <div class="bottleneck">
+      <div class="batt-wrap">
+        <svg class="batt-svg" viewBox="0 0 60 100" fill="none">
+          <rect x="20" y="2" width="20" height="8" rx="2" fill="#8B93AC"/>
+          <rect x="4" y="10" width="52" height="86" rx="8" stroke="#8B93AC" stroke-width="4"/>
+          <rect class="batt-fill" id="battFill" x="8" y="60" width="44" height="32" rx="4" fill="#25D366"/>
+        </svg>
+        <span class="batt-label">طاقة فريقك</span>
+      </div>
+      <div class="queue" id="queue">
+        <div class="person" data-p="0"><svg viewBox="0 0 40 60" fill="none"><circle cx="20" cy="14" r="12" fill="#F5C324"/><path d="M4 58c0-12 7-20 16-20s16 8 16 20" fill="#F5C324"/></svg></div>
+        <div class="person" data-p="1"><svg viewBox="0 0 40 60" fill="none"><circle cx="20" cy="14" r="12" fill="#8B93AC"/><path d="M4 58c0-12 7-20 16-20s16 8 16 20" fill="#8B93AC"/></svg></div>
+        <div class="person" data-p="2"><svg viewBox="0 0 40 60" fill="none"><circle cx="20" cy="14" r="12" fill="#8B93AC"/><path d="M4 58c0-12 7-20 16-20s16 8 16 20" fill="#8B93AC"/></svg></div>
+        <div class="person dim" data-p="3"><svg viewBox="0 0 40 60" fill="none"><circle cx="20" cy="14" r="12" fill="#8B93AC"/><path d="M4 58c0-12 7-20 16-20s16 8 16 20" fill="#8B93AC"/></svg></div>
+      </div>
+    </div>
+    <p class="caption" id="cap2">فريقك يستقبل أكثر مما يقدر.. فيسرّع، والعناية تنقص. ما يشتكي، بس ما يرجع.</p>
+  </div>
+
+  <!-- 3 · الفراغ -->
+  <div class="screen" data-screen="3">
+    <div class="clock-wrap">
+      <svg class="clock-svg" viewBox="0 0 200 200" fill="none">
+        <circle cx="100" cy="100" r="92" stroke="#8B93AC" stroke-width="5"/>
+        <circle cx="100" cy="100" r="5" fill="#F5F7FA"/>
+        <line class="hand hand-hour" id="handHour" x1="100" y1="100" x2="100" y2="55" stroke="#F5F7FA" stroke-width="7" stroke-linecap="round" transform="rotate(0 100 100)"/>
+        <line class="hand hand-min" id="handMin" x1="100" y1="100" x2="100" y2="35" stroke="#F5C324" stroke-width="5" stroke-linecap="round" transform="rotate(0 100 100)"/>
+      </svg>
+      <p class="empty-line" id="l3">
+        <span class="neg">وباقي الوقت؟</span> نفس التكاليف تمشي..
+        <span class="accent">وما أحد يستفيد منها.</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- 4 · البصيرة — القيمة الاستشارية -->
+  <div class="screen" data-screen="4">
+    <div class="insight">
+      <p class="big" id="insightBig">المشكلة الحقيقية مو <span class="accent">قلة الطلب</span> ولا <span class="accent">كثرته</span>.. هي إنه <span class="accent">ما يتوزّع صح</span>.</p>
+      <div class="split">
+        <div class="split-item bad" id="splitBad"><b>وقت الزحمة</b><span>تخسر عملاء بصمت — ما يشتكون، بس ما يرجعون.</span></div>
+        <div class="split-item waste" id="splitWaste"><b>وقت الفراغ</b><span>تخسر فلوساً بصمت — نفس التكلفة، بلا عائد.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 · الحل -->
+  <div class="screen" data-screen="5">
+    <div class="solve">
+      <p class="solve-text">الحل؟<br><span class="accent">توجيه</span> الطلب القابل للتأجيل.. لوقته الصح.</p>
+      <div class="phone">
+        <div class="wa-bubble" id="waBubble">عرض خاص لو تجينا بوقت أهدأ — نفس الجودة، خدمة أسرع! ✨</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6 · الخاتمة -->
+  <div class="screen" data-screen="6">
+    <p class="close-line">راجِع يوزّع طلبك.. <span class="accent">قبل ما يخسّرك عميل.</span></p>
+    <div class="mark">
+      <p class="wordmark">راجِع</p>
+      <span class="cta-btn" id="ctaBtn">اكتشف كيف</span>
+    </div>
+  </div>
+
+</div>
+  <div class="controls" id="controls">
+    <button class="ctl" id="play" type="button">شغّل الإعلان</button>
+  </div>
+</div>
+
+<script>
+  // «الصوت هو الساعة، لا الفيديو» — أعيد اشتقاقها بعد التعديل الأخير على النصوص (manifest.json
+  // الحقيقي: 2525 / 2346 / 3507 / 6796 / 2060 / 3093ms)، متتابعة بلا أي فجوة.
+  // كل الست مقاطع بنفس المتحدث الجديد الآن (manifest حقيقي: 3161 / 8933 / 4548 / 10314 / 4446 / 4137ms).
+  const T = [
+    { at:     0, do: () => show(1) },
+    { at:   150, do: () => wordsIn('h1', 300) },
+    { at:  3161, do: () => { show(2); peopleIn(); battDrain(); } },
+    { at:  3661, do: () => document.getElementById('cap2').classList.add('in') },
+    { at: 12094, do: () => { show(3); clockRun(); } },
+    { at: 12394, do: () => document.getElementById('l3').classList.add('in') },
+    { at: 16642, do: () => {
+        show(4);
+        document.getElementById('insightBig').classList.add('in');
+        setTimeout(() => document.getElementById('splitBad').classList.add('in'), 700);
+        setTimeout(() => document.getElementById('splitWaste').classList.add('in'), 1000);
+      } },
+    { at: 26956, do: () => { show(5); setTimeout(() => document.getElementById('waBubble').classList.add('in'), 300); } },
+    { at: 31402, do: () => { show(6); document.getElementById('ctaBtn').classList.add('in'); } },
+    { at: 35539, do: () => end() },
+  ];
+  window.__duration = T[T.length - 1].at + 1000;
+
+  const stage = document.getElementById('stage');
+  const controls = document.getElementById('controls');
+  const play = document.getElementById('play');
+  const screen = (n) => stage.querySelector(`[data-screen="${n}"]`);
+  const screens = [...stage.querySelectorAll('.screen')];
+  let timers = [];
+
+  function show(n) {
+    screens.forEach((s) => s.classList.remove('on'));
+    if (n) screen(n).classList.add('on');
+  }
+
+  function wordsIn(id, stepMs) {
+    const words = document.querySelectorAll(`#${id} .w`);
+    words.forEach((w, i) => timers.push(setTimeout(() => w.classList.add('in'), i * stepMs)));
+  }
+
+  function peopleIn() {
+    document.querySelectorAll('.person').forEach((c, i) => {
+      timers.push(setTimeout(() => c.classList.add('in'), i * 400));
+    });
+  }
+
+  function battDrain() {
+    const fill = document.getElementById('battFill');
+    timers.push(setTimeout(() => {
+      fill.setAttribute('y', '20'); fill.setAttribute('height', '72'); fill.setAttribute('fill', '#E5484D');
+    }, 100));
+  }
+
+  function clockRun() {
+    document.getElementById('handHour').style.transform = 'rotate(300deg)';
+    document.getElementById('handMin').style.transform = 'rotate(0deg)';
+  }
+
+  function reset() {
+    timers.forEach(clearTimeout);
+    timers = [];
+    show(null);
+    document.querySelectorAll('.w, .person, .caption, .empty-line, .insight .big, .split-item, .wa-bubble, .cta-btn')
+      .forEach((el) => el.classList.remove('in'));
+    const fill = document.getElementById('battFill');
+    fill.setAttribute('y', '60'); fill.setAttribute('height', '32'); fill.setAttribute('fill', '#25D366');
+    document.getElementById('handHour').style.transform = 'rotate(0deg)';
+    document.getElementById('handMin').style.transform = 'rotate(0deg)';
+  }
+
+  function end() {
+    controls.classList.remove('hide');
+    play.textContent = 'شغّله مرة ثانية';
+  }
+
+  function run() {
+    reset();
+    controls.classList.add('hide');
+    T.forEach((step) => timers.push(setTimeout(step.do, step.at)));
+  }
+
+  play.addEventListener('click', run);
+
+  // ── الخلفية الذكية — نفس آلية ad-weekend-rush.html بالضبط ───────────────────────────────
+  (function () {
+    const cv = document.getElementById('bgfx');
+    if (!cv || !cv.getContext) return;
+    const ctx = cv.getContext('2d');
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+    let W = 0, H = 0;
+
+    function resize() {
+      const r = stage.getBoundingClientRect();
+      W = r.width; H = r.height;
+      cv.width = W * DPR; cv.height = H * DPR;
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#0A1128';
+      ctx.fillRect(0, 0, W, H);
+
+      const breathe = reduceMotion ? .5 : (Math.sin(t * 0.00035) + 1) / 2;
+      const g1 = ctx.createRadialGradient(W * .5, 0, 0, W * .5, 0, W * 1.1);
+      g1.addColorStop(0, `rgba(255,255,255,${.05 + breathe * .03})`);
+      g1.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H);
+      const g2 = ctx.createRadialGradient(W * .5, H, 0, W * .5, H, W * .9);
+      g2.addColorStop(0, `rgba(245,195,36,${.045 + (1 - breathe) * .03})`);
+      g2.addColorStop(1, 'rgba(245,195,36,0)');
+      ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
+
+      const step = Math.max(46, W / 11);
+      const speed = reduceMotion ? 0 : 3.2;
+      const drift = reduceMotion ? 0 : ((t / 1000) * speed) % step;
+      ctx.strokeStyle = 'rgba(245,247,250,0.045)';
+      ctx.lineWidth = 1;
+      ctx.save();
+      ctx.translate(-step + drift, -step + drift);
+      ctx.beginPath();
+      for (let x = -step; x < W + step * 2; x += step) { ctx.moveTo(x, -step); ctx.lineTo(x, H + step); }
+      for (let y = -step; y < H + step * 2; y += step) { ctx.moveTo(-step, y); ctx.lineTo(W + step, y); }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function loop(t) { frame(t); if (!reduceMotion) requestAnimationFrame(loop); }
+    if (reduceMotion) frame(0); else requestAnimationFrame(loop);
+  })();
+</script>

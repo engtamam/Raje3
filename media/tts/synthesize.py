@@ -22,10 +22,16 @@ Usage (from this project's root, using the conda env pynini forced onto Windows)
         C:/Users/TEMOA/miniconda3/envs/raje3-tts/python.exe media/tts/synthesize.py shop-dashboard
     TTS_PROVIDER=hamsa HAMSA_API_KEY=... [HAMSA_DIALECT=ksa] [HAMSA_SPEAKER=Hiba] \
         C:/Users/TEMOA/miniconda3/envs/raje3-tts/python.exe media/tts/synthesize.py shop-dashboard
+
+THE KEY DOES NOT HAVE TO BE TYPED EVERY TIME. Copy `media/tts/.env.example` to `media/tts/.env`
+(git-ignored, never committed) and fill in the real key — the loader below reads it before any
+provider is picked, so a real run is just:
+    C:/Users/TEMOA/miniconda3/envs/raje3-tts/python.exe media/tts/synthesize.py shop-dashboard
 """
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 import wave
@@ -34,6 +40,25 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))  # so `from providers import get_provider` resolves regardless of cwd
 ROOT = HERE.parent.parent
+
+
+def _load_dotenv(path: Path) -> None:
+    """A plain KEY=VALUE reader — no new dependency for something this small. Only fills in a
+    name that isn't ALREADY in the environment, so `TTS_PROVIDER=x python …` inline still wins
+    over whatever `.env` says, same precedence every dotenv-style loader uses."""
+    if not path.exists():
+        return
+    for line in path.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, _, value = line.partition('=')
+        key = key.strip()
+        if key and key not in os.environ:
+            os.environ[key] = value.strip()
+
+
+_load_dotenv(HERE / '.env')
 
 
 def wav_duration_seconds(path: Path) -> float:

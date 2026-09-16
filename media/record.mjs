@@ -130,6 +130,37 @@ async function main() {
   // انتظار الخطوط قبل الإطار الأول: التقاطٌ قبلها يعطي أول ثانيةٍ بخطٍّ احتياطي.
   await page.evaluate(() => document.fonts.ready);
 
+  // ── وسم "محتوى مصمَّم رقمياً" — يُحقَن هنا، لا بكل ملف إعلان على حدة ─────────────────────
+  // هذا هو المكان الوحيد الصحيح له: كل إعلان يمرّ من هنا (record.mjs هو المسجِّل الحصري لكل
+  // ملفات ads/*.html — الشروحات تمر بـrecord-tour.mjs، وهي تسجيل حقيقي للتطبيق الحي، لا محتوى
+  // مصمَّم، فلا تأخذ الوسم أبداً). حقنه هنا يعني: أي ملف إعلان جديد يُبنى مستقبلاً يحمله تلقائياً،
+  // بلا ما يتذكّر مصمّمه إضافته، وبلا اعتماد على تصميم ذاك الملف بالذات (لا كلاس ولا متغيّر لونه
+  // يلمسه — عنصر مستقل مضاف مباشرة إلى DOM #stage بأنماطه المضمَّنة كاملة).
+  // ثابت طول مدة الفيديو (لا يظهر/يختفي) — نفس منطق منصّات النشر (Meta/TikTok/YouTube، انظر
+  // البحث المرجعي 2026-09-14): وسم دائم مرئي، لا لحظة عابرة يفوتها المشاهد.
+  await page.evaluate(() => {
+    const stage = document.querySelector('#stage');
+    if (!stage) return;
+    const badge = document.createElement('div');
+    Object.assign(badge.style, {
+      position: 'absolute', zIndex: '99999',
+      top: '3%', insetInlineEnd: '4%',
+      background: 'rgba(0,0,0,.55)', color: '#fff',
+      font: '600 1.6vw/1.15 -apple-system, "Segoe UI", Tahoma, "SF Arabic", sans-serif',
+      padding: '.5em .9em', borderRadius: '.9em',
+      letterSpacing: '.01em', whiteSpace: 'nowrap', textAlign: 'center',
+      pointerEvents: 'none', direction: 'rtl',
+      backdropFilter: 'blur(3px)',
+    });
+    const main = document.createElement('div');
+    main.textContent = 'AI · محتوى مصمَّم رقمياً';
+    const sub = document.createElement('div');
+    sub.textContent = 'ذكاء اصطناعي';
+    Object.assign(sub.style, { fontSize: '.55em', fontWeight: '500', opacity: '.85', marginTop: '.2em' });
+    badge.append(main, sub);
+    stage.appendChild(badge);
+  });
+
   // الضغطة التي تبدأ الإعلان — ثم لا شيء يتحرّك إلا بأمرنا.
   await page.evaluate(() => document.querySelector('#play')?.click());
 
