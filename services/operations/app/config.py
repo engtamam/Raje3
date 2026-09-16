@@ -221,6 +221,15 @@ class Settings(BaseSettings):
     WHATSAPP_ASSISTANT_SERVICE_URL: str = ""  # e.g. http://whatsapp-assistant:8000
     WHATSAPP_UPCOMING_RENEWAL_TRIGGER_PATH: str = "/internal/whatsapp/upcoming-renewal/trigger"
 
+    # ── the programmatic link (`feature.api`) — CLOSED by product decision, 2026-09-16 ────────
+    # The owner's own call: rather than sell it (a new price/plan row) or bundle it free into every
+    # app (a marketing decision nobody had made yet), the till/POS door stays shut for everyone,
+    # unconditionally, until a real decision reopens it. `core/licence.py::build_api_licence`
+    # refuses every machine write while this is false — it never asks billing at all, so no plan
+    # can accidentally grant what nobody has priced. Flip to true (and price it in
+    # deploy/seed/plans.json) to reopen the door with no code change beyond that.
+    API_LINK_ENABLED: bool = False
+
     # ── our own subscribe path (§6.2.1) ───────────────────────────────────────
     # The one product rule billing must never learn: no PAID subscription before WhatsApp is
     # connected. The trial is exempt — it is for trying, and most of the product works without a

@@ -24,6 +24,16 @@ none of them caused and none of them can fix.
 So: a definite «لم تشترِ» refuses, and «تعذّر السؤال» lets the sale through. The leak that closes
 is a shop that never bought the link; the failure that stays impossible is a shop losing its day's
 visits because our billing was slow.
+
+────────────────────────────────────────────────────────────────────────────────────────────────
+CLOSED BY PRODUCT DECISION, 2026-09-16 — `settings.API_LINK_ENABLED` (default `False`)
+
+The owner's own call, after `ci/check_entitlements.py` surfaced that `feature.api` was gated in
+code and sold on no plan: rather than price it or fold it free into every app, the door stays shut
+for every tenant, unconditionally, until a real decision reopens it. `ClosedApiLicence` is what
+`build_api_licence` returns while the flag is off — it never asks billing at all, so no plan can
+ever accidentally grant what nobody has priced. Flip the flag (and price the key in
+`deploy/seed/plans.json`) to bring `HttpApiLicence` back with no other code change.
 """
 from __future__ import annotations
 
@@ -41,7 +51,16 @@ KEY = "feature.api"
 # deliberately: the reader is a point-of-sale integration's log, not an owner's screen. The Arabic
 # sentence for the OWNER lives in the app store, where he can act on it.
 NOT_INCLUDED = ("this establishment's subscription does not include the programmatic link "
-                "(feature.api) — add it from «الباقات» and this call works immediately")
+                "(feature.api) — it is not offered at this time")
+
+
+class ClosedApiLicence:
+    """The link is shut for everyone, by product decision — not a billing question at all."""
+
+    driver = "closed"
+
+    async def allowed(self, tenant: str) -> bool | None:
+        return False
 
 
 class NullApiLicence:
@@ -129,6 +148,8 @@ async def refuses_machine_write(licence: Any, tenant: str, subject: str) -> bool
 
 
 def build_api_licence(settings: Any) -> Any:
+    if not getattr(settings, "API_LINK_ENABLED", False):
+        return ClosedApiLicence()
     url = getattr(settings, "BILLING_SERVICE_URL", "") or ""
     path = getattr(settings, "BILLING_CHECK_PATH", "") or ""
     if not url or not path:

@@ -86,6 +86,21 @@ DISPLAY_ONLY = (
 SOLD_UNBUILT: dict[str, str] = {}
 
 
+# GATED, AND THE PRODUCT DECIDED NOT TO SELL IT. The mirror image of `SOLD_UNBUILT` above: a
+# warning every run, with the decision written next to it, rather than a silent pass.
+#
+# `feature.api` — closed by the owner's own call, 2026-09-16 (`services/operations/app/core/
+# licence.py`'s own docstring has the full reasoning): rather than price it or bundle it free into
+# every app, the till/POS door refuses every tenant unconditionally
+# (`settings.API_LINK_ENABLED`, default `False`) and never asks billing at all. Remove this line
+# the day a plan actually sells the key again.
+GATED_UNSOLD: dict[str, str] = {
+    "feature.api": "closed by product decision — the door refuses everyone, "
+                  "settings.API_LINK_ENABLED defaults False (services/operations/app/core/"
+                  "licence.py)",
+}
+
+
 def gated() -> dict[str, list[str]]:
     """key -> the SERVICE files that check it, so a failure names where to look."""
     where: dict[str, list[str]] = {}
@@ -117,6 +132,7 @@ def worded() -> set[str]:
     # own KEYS (what this function reads) are unchanged; only its VALUES moved from literal
     # Arabic sentences to translation keys resolved through plans-i18n.ts. A key present here is
     # still exactly "the pricing page has a sentence for it somewhere", which is all this asks.
+    #
     text = (ROOT / "apps" / "console" / "src" / "screens" / "Plans.tsx").read_text(encoding="utf-8")
     block = text.split("LIMIT_KEYS", 1)[-1].split("};", 1)[0]
     # COUNTERS TOO, and the same reasoning exactly. A limit with no sentence is not rendered —
@@ -158,11 +174,16 @@ def main() -> int:
                         f"sentence for it — a key with no wording is not rendered at all, so it is "
                         f"charged for and invisible on the page where somebody decides to buy")
 
+    warnings: list[str] = []
     for key in sorted(set(g) - s):
+        decided = GATED_UNSOLD.get(key)
+        if decided:
+            warnings.append(f"{key}: gated and not sold — {decided}")
+            continue
         problems.append(f"{key} is checked in {g[key][0]} and NO plan grants it — the feature is "
                         f"dead for every customer, including the ones paying the most, and nothing "
                         f"anywhere reports it")
-    warnings: list[str] = []
+
     for key in sorted(s - set(g)):
         decided = SOLD_UNBUILT.get(key)
         if decided:
@@ -188,6 +209,11 @@ def main() -> int:
         problems.append(f"{key} is listed as sold-and-unbuilt and no plan sells it — delete the "
                         f"line, or the next reader trusts a note about nothing")
 
+    for key in sorted(set(GATED_UNSOLD) - (set(g) - s)):
+        problems.append(f"{key} is listed as gated-and-unsold but is either sold now or no "
+                        f"longer gated — delete the line, or the next reader trusts a note about "
+                        f"nothing")
+
     for w in warnings:
         print(f"{C_Y}  ! {w}{C_N}")
     for p in problems:
@@ -195,10 +221,12 @@ def main() -> int:
     if problems:
         print(f"\n{C_R}  ✗ {len(problems)} feature key(s) sold and enforced differently{C_N}")
         return 1
-    print(f"{C_G}  ✔ all {len(s) - len(warnings)} feature keys and {len(counters)} sold limits "
-          f"are both sold and enforced{C_N}")
+    sold_unbuilt_count = len(set(SOLD_UNBUILT) & s)
+    print(f"{C_G}  ✔ all {len(s) - sold_unbuilt_count} feature keys and {len(counters)} sold "
+          f"limits are both sold and enforced{C_N}")
     if warnings:
-        print(f"{C_Y}    {len(warnings)} key(s) sold and not built — see above{C_N}")
+        print(f"{C_Y}    {len(warnings)} key(s) sold-and-not-built or gated-and-unsold by "
+              f"decision — see above{C_N}")
     return 0
 
 
