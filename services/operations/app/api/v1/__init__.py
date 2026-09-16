@@ -28,6 +28,7 @@ from app.api.v1.mobile_requests import router as mobile_requests_router
 from app.api.v1.platform import router as platform_router
 from app.api.v1.salla import router as salla_router
 from app.api.v1.staff import router as staff_router
+from app.api.v1.tiktok import router as tiktok_router
 
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 
@@ -104,6 +105,7 @@ router.include_router(connect_router)
 router.include_router(signup_router)
 # The shop's own till, on a machine credential — see the module for the hole this closes.
 router.include_router(till_router)
+router.include_router(tiktok_router)
 # Salla — two routes need a token (install/status), two cannot (Salla's own callback/webhook);
 # see the module for why they share a file anyway.
 router.include_router(salla_router)
