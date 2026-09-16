@@ -435,6 +435,31 @@ async def earn(request: Request, body: EarnIn) -> dict:
         branch_id=body.branch_id, package_id=body.package_id)
 
 
+class ReverseEarnIn(BaseModel):
+    tenant: str
+    visit_id: str
+    subject_ref: str
+    actor: str = ""
+    branch_id: str = ""
+
+
+@router.post("/loyalty/reverse-earn", dependencies=[Depends(require_internal_token)])
+async def reverse_earn(request: Request, body: ReverseEarnIn) -> dict:
+    """Take back what a visit's own `earn` granted — TikTok's own CANCELLED-order path
+    (services/operations/app/api/v1/tiktok.py), the owner's own 2026-09-16 call to allow a real
+    debt rather than clamp the take-back at zero.
+
+    NEVER LICENCE-GATED, UNLIKE `/loyalty/earn` ABOVE — this SHRINKS a balance, the same "reads
+    and redemption go around the licence" asymmetry `core/licence.py`'s own module docstring
+    draws: a lapsed subscription must not strand a shop mid-reversal any more than it may strand
+    a customer's own balance read.
+    """
+    c = request.app.state.container
+    return await c.earner.reverse_earn(
+        body.tenant, visit_id=body.visit_id, subject_ref=body.subject_ref,
+        actor=body.actor, branch_id=body.branch_id)
+
+
 class RatingBonusIn(BaseModel):
     tenant: str
     visit_id: str

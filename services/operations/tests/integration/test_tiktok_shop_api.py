@@ -314,6 +314,26 @@ def test_a_paid_order_status_change_records_a_real_visit(client):
     assert cust is not None and cust.name == "أحمد"
 
 
+def test_a_webhook_driven_paid_order_rings_the_seams_too(client):
+    """The seams fix applies through the webhook path too — it shares `_record_tiktok_order`
+    with the manual `/orders` door, and this confirms that sharing actually holds."""
+    _connect(client, tenant=TENANT, shop_id="shop_paid_seam")
+    _seed_catchall(client, TENANT)
+    tt_client = client.app.state.container.tiktok_shop.client
+    tt_client.get_order_detail = lambda **kw: _fake_order(order_id="o2b")
+    seen = []
+
+    async def after_visit(result):
+        seen.append(result)
+
+    client.app.state.container.seams.after_visit = after_visit
+
+    body = _order_body(shop_id="shop_paid_seam", order_id="o2b", notification_id="notif-2b",
+                       status_value="AWAITING_SHIPMENT")
+    _post_webhook(client, body)
+    assert len(seen) == 1
+
+
 def test_a_masked_phone_on_the_fetched_order_lands_on_the_anonymous_placeholder(client):
     _connect(client, tenant=TENANT, shop_id="shop_masked")
     _seed_catchall(client, TENANT)
@@ -353,3 +373,102 @@ def test_an_order_event_for_an_unconnected_shop_never_calls_the_api(client):
     r = _post_webhook(client, body)
     assert r.status_code == 200
     assert calls == []
+
+
+# ── CANCELLED — the points reversal path (owner's own 2026-09-16 call to allow debt) ───────────
+class _FakeLoyaltyDesk:
+    configured = True
+
+    def __init__(self) -> None:
+        self.reverse_calls: list[dict] = []
+
+    async def reverse_earn(self, *, tenant, subject_ref, visit_id, actor="", branch_id=""):
+        self.reverse_calls.append({"tenant": tenant, "subject_ref": subject_ref,
+                                   "visit_id": visit_id, "actor": actor})
+        return {"reversed": 200, "balance": -50, "entry_id": "led_x"}
+
+
+def _wire_fake_loyalty(client: TestClient) -> _FakeLoyaltyDesk:
+    fake = _FakeLoyaltyDesk()
+    client.app.state.container.loyalty_desk = fake
+    return fake
+
+
+def _no_op_seams(client: TestClient) -> None:
+    async def after_visit(result):
+        return None
+    client.app.state.container.seams.after_visit = after_visit
+
+
+def test_a_cancelled_order_reverses_the_points_it_earned(client):
+    _connect(client, tenant=TENANT, shop_id="shop_cancel1")
+    _seed_catchall(client, TENANT)
+    _no_op_seams(client)
+    tt_client = client.app.state.container.tiktok_shop.client
+    fake_loyalty = _wire_fake_loyalty(client)
+
+    # First: a real, paid order arrives and is recorded (the visit that will be cancelled).
+    tt_client.get_order_detail = lambda **kw: _fake_order(order_id="o-cancel-1",
+                                                          status="AWAITING_SHIPMENT")
+    _post_webhook(client, _order_body(shop_id="shop_cancel1", order_id="o-cancel-1",
+                                      notification_id="notif-cancel-a"))
+
+    import asyncio
+    ops = client.app.state.container.operations
+    cust = asyncio.run(ops.customer_by_phone(TENANT, "0501234567"))
+    assert cust is not None
+
+    # Then: the SAME order is cancelled.
+    tt_client.get_order_detail = lambda **kw: _fake_order(order_id="o-cancel-1",
+                                                          status="CANCELLED")
+    r = _post_webhook(client, _order_body(shop_id="shop_cancel1", order_id="o-cancel-1",
+                                          notification_id="notif-cancel-b"))
+    assert r.status_code == 200
+
+    assert len(fake_loyalty.reverse_calls) == 1
+    assert fake_loyalty.reverse_calls[0]["subject_ref"] == cust.subject_ref
+
+
+def test_a_cancelled_order_that_was_never_recorded_reverses_nothing(client):
+    """A CANCELLED event for an order we never saw paid (arrived UNPAID then cancelled, or the
+    original webhook was lost) must find nothing to reverse — never invented."""
+    _connect(client, tenant=TENANT, shop_id="shop_cancel2")
+    _seed_catchall(client, TENANT)
+    fake_loyalty = _wire_fake_loyalty(client)
+    tt_client = client.app.state.container.tiktok_shop.client
+    tt_client.get_order_detail = lambda **kw: _fake_order(order_id="o-cancel-2",
+                                                          status="CANCELLED")
+
+    r = _post_webhook(client, _order_body(shop_id="shop_cancel2", order_id="o-cancel-2",
+                                          notification_id="notif-cancel-c"))
+    assert r.status_code == 200
+    assert fake_loyalty.reverse_calls == []
+
+
+def test_an_anonymous_orders_cancellation_never_reverses_anything(client):
+    """The anonymous placeholder has no real subject_ref of its own to spend or reverse points
+    against — same "never for the shared row" rule the seams fix already established."""
+    _connect(client, tenant=TENANT, shop_id="shop_cancel3")
+    _seed_catchall(client, TENANT)
+    _no_op_seams(client)
+    fake_loyalty = _wire_fake_loyalty(client)
+    tt_client = client.app.state.container.tiktok_shop.client
+
+    tt_client.get_order_detail = lambda **kw: _fake_order(
+        order_id="o-cancel-3", status="AWAITING_SHIPMENT", phone="1**-***-**23")
+    _post_webhook(client, _order_body(shop_id="shop_cancel3", order_id="o-cancel-3",
+                                      notification_id="notif-cancel-d"))
+
+    tt_client.get_order_detail = lambda **kw: _fake_order(
+        order_id="o-cancel-3", status="CANCELLED", phone="1**-***-**23")
+    _post_webhook(client, _order_body(shop_id="shop_cancel3", order_id="o-cancel-3",
+                                      notification_id="notif-cancel-e"))
+    assert fake_loyalty.reverse_calls == []
+
+
+def test_a_cancelled_order_for_an_unconnected_shop_never_reverses_anything(client):
+    fake_loyalty = _wire_fake_loyalty(client)
+    r = _post_webhook(client, _order_body(shop_id="shop_cancel_never_connected",
+                                          order_id="o-cancel-4", notification_id="notif-cancel-f"))
+    assert r.status_code == 200
+    assert fake_loyalty.reverse_calls == []

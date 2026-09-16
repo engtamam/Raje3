@@ -171,6 +171,21 @@ async def _record_tiktok_order(request: Request, tenant: str, *, actor: str, ord
             ip=request.client.host if request.client else "",
             metadata={"anonymous": not real_phone, "order_id": order_id[:64]})
 
+    # THE SEAMS — A REAL GAP, FOUND 2026-09-16, FIXED HERE: this route recorded a real visit and
+    # never once ran what turns that visit into earned points, a restarted reminder cycle, or a
+    # refreshed search-index row. Every OTHER visit-recording door in this service calls this
+    # (`api/internal.py`'s own `if not recorded.visit.seamed_at: await c.seams.after_visit(...)`
+    # — copied here verbatim, same idempotency guard against a retried webhook re-seaming an
+    # already-seamed visit).
+    #
+    # NEVER FOR THE ANONYMOUS PLACEHOLDER — `Customer.anonymous`'s own docstring already commits
+    # to this (a masked/missing-phone order piles onto ONE shared tenant-wide row; scheduling a
+    # reminder or a rating request "to" that row, or earning points nobody can ever spend because
+    # no real person holds that customer id, would be nonsense at best and a leak at worst — a
+    # shared placeholder's own subject_ref must never receive a message meant for one buyer).
+    if not visit.duplicate and not visit.customer.anonymous and not visit.visit.seamed_at:
+        await request.app.state.container.seams.after_visit(visit)
+
     return {"accepted": True, "visit_id": visit.visit.id, "duplicate": visit.duplicate,
            "anonymous": not real_phone, "lines": len(lines)}
 
@@ -311,6 +326,48 @@ def _price_to_minor(raw: str) -> int:
         return 0
 
 
+async def _reverse_cancelled_order(request: Request, tenant: str, order_id: str) -> None:
+    """A previously-recorded order just moved to `CANCELLED` — take back what it earned, exactly
+    (never a guessed amount), and allow the balance to go negative if the customer already spent
+    it (the owner's own 2026-09-16 call, `core/earn.py::reverse_earn`'s own docstring has the
+    full reasoning: the alternative lets a buy-earn-spend-cancel cycle profit for free).
+
+    LOOKS UP THE VISIT BY THE SAME IDEMPOTENCY KEY `_record_tiktok_order` MINTED IT UNDER
+    (`tiktok:{tenant}:{order_id}`) — never a second, parallel index of order-to-visit, the same
+    "one key, one lookup" discipline the rest of this file already follows. A CANCELLED event for
+    an order we never actually recorded (arrived UNPAID before cancelling, or the webhook for the
+    original paid state was lost) finds nothing here and reverses nothing — never invented.
+    """
+    c = request.app.state.container
+    from app.core.stores import CustomerStore, VisitStore
+
+    visit = await VisitStore(c.datastore).by_idempotency_key(
+        tenant, f"tiktok:{tenant}:{order_id.strip()}")
+    if visit is None or not visit.customer_id:
+        return
+    customer = await CustomerStore(c.datastore).get(tenant, visit.customer_id)
+    # THE ANONYMOUS PLACEHOLDER HAS A REAL `subject_ref` OF ITS OWN (Customer.anonymous's own
+    # docstring — it needs one to be a valid Customer row at all) — a presence check alone would
+    # NOT catch it, and reversing against the tenant's ONE shared row would move every masked-
+    # phone order's combined balance by whatever this one cancelled order happened to earn.
+    if customer is None or customer.anonymous or not customer.subject_ref:
+        return
+    subject_ref = customer.subject_ref
+    desk = getattr(c, "loyalty_desk", None)
+    if desk is None or not desk.configured:
+        return
+    out = await desk.reverse_earn(
+        tenant=tenant, subject_ref=subject_ref, visit_id=visit.id,
+        actor=f"tiktok:{order_id[:64]}", branch_id=visit.branch_id)
+    if out and out.get("reversed"):
+        await request.app.state.auditor.record(
+            "tiktok.order_cancelled_points_reversed", actor=f"tiktok:{order_id[:64]}",
+            tenant=tenant, resource=f"visit:{visit.id}",
+            ip=request.client.host if request.client else "",
+            metadata={"reversed_points": out.get("reversed"),
+                     "balance_after": out.get("balance")})
+
+
 async def _fetch_and_record_order(request: Request, tenant: str, order_id: str) -> None:
     """After a verified `ORDER_STATUS_CHANGE`, fetch the FULL order (the webhook payload itself
     carries only `order_id`/`order_status`) and turn it into a visit through the exact same door
@@ -331,11 +388,16 @@ async def _fetch_and_record_order(request: Request, tenant: str, order_id: str) 
         return
     if not order:
         return
-    # NOT A VERIFIED COMPLETE ENUM — see [[task-tiktok-app-phases]] memory's own honest note.
-    # Only the negative case is confirmed live (`"UNPAID"`, both the webhook sample and the order
-    # sample use it); every OTHER status records a visit until this is reviewed against the full
-    # state machine.
-    if str(order.get("status") or "").upper() == "UNPAID":
+    # THE FULL STATE MACHINE, CONFIRMED LIVE 2026-09-16 (`order-api-overview`'s own "Order Status
+    # Transitions" section) — superseding the earlier "only UNPAID is confirmed" note:
+    # UNPAID -> ON_HOLD -> AWAITING_SHIPMENT -> (PARTIALLY_SHIPPING |) AWAITING_COLLECTION ->
+    # IN_TRANSIT -> DELIVERED -> COMPLETED, with CANCELLED reachable from several of the earlier
+    # states (buyer within the 1-hour remorse window, seller, TikTok's own SYSTEM, or an OPERATOR).
+    status = str(order.get("status") or "").upper()
+    if status == "UNPAID":
+        return
+    if status == "CANCELLED":
+        await _reverse_cancelled_order(request, tenant, order_id)
         return
     addr = order.get("recipient_address") or {}
     lines = [TikTokOrderLineIn(

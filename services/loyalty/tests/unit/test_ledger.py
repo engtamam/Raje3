@@ -151,3 +151,54 @@ def test_one_tenant_never_sees_another():
     run(led.post(tenant="b", subject_ref=S, delta=99, reason="earn", source="v1"))
     assert run(led.balance("a", S)).points == 10
     assert run(led.balance("b", S)).points == 99
+
+
+# ── allow_negative (owner's own call, 2026-09-16) ───────────────────────────────────────────────
+def test_allow_negative_lets_a_movement_go_below_zero():
+    led = fresh()
+    run(led.post(tenant=T, subject_ref=S, delta=10, reason="earn", source="v1"))
+    run(led.post(tenant=T, subject_ref=S, delta=-10, reason="redeem", source="r1"))
+    entry = run(led.post(tenant=T, subject_ref=S, delta=-10, reason="reversal", source="v1",
+                        allow_negative=True))
+    assert entry is not None
+    assert entry.balance_after == -10
+    assert run(led.balance(T, S)).points == -10
+
+
+def test_without_allow_negative_the_same_overdraw_still_refuses():
+    """The default never changed — every OTHER caller (redeem, adjust, a future reason) still
+    refuses an overdraw exactly as before."""
+    led = fresh()
+    with pytest.raises(Overdraft):
+        run(led.post(tenant=T, subject_ref=S, delta=-5, reason="redeem", source="r1"))
+
+
+def test_a_negative_balance_still_sums_correctly_with_the_ledger():
+    led = fresh()
+    run(led.post(tenant=T, subject_ref=S, delta=10, reason="earn", source="v1"))
+    run(led.post(tenant=T, subject_ref=S, delta=-10, reason="redeem", source="r1"))
+    run(led.post(tenant=T, subject_ref=S, delta=-10, reason="reversal", source="v1",
+               allow_negative=True))
+    rows = run(led.store.scan_all(ENTRIES, 1000))
+    assert sum(r["delta"] for r in rows) == run(led.balance(T, S)).points == -10
+
+
+# ── entry_for ────────────────────────────────────────────────────────────────────────────────
+def test_entry_for_finds_the_real_posted_entry():
+    led = fresh()
+    run(led.post(tenant=T, subject_ref=S, delta=30, reason="earn", source="v1"))
+    entry = run(led.entry_for(T, "v1", "earn"))
+    assert entry is not None
+    assert entry.delta == 30
+    assert entry.source == "v1"
+
+
+def test_entry_for_answers_none_when_nothing_was_posted():
+    led = fresh()
+    assert run(led.entry_for(T, "v-never-happened", "earn")) is None
+
+
+def test_entry_for_never_crosses_tenants():
+    led = fresh()
+    run(led.post(tenant="a", subject_ref=S, delta=30, reason="earn", source="v1"))
+    assert run(led.entry_for("b", "v1", "earn")) is None

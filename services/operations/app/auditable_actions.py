@@ -855,6 +855,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "the fact an owner reconciling a slow week needs to find without reading every row",
     },
     {
+        "action": "tiktok.order_cancelled_points_reversed",
+        "source": "internal",
+        "critical": False,
+        "resource": "visit",
+        "why": "a TikTok order that had already earned points was cancelled, and the points were "
+               "taken back — possibly pushing the customer's balance negative if he already spent "
+               "them. An owner disputing a balance with a customer needs this row to explain a "
+               "number that otherwise looks like it came from nowhere",
+    },
+    {
         # FOUND UNDECLARED 2026-09-07 by ci/check_audit_actions.py, itself found unwired into any
         # workflow the same day (see .github/workflows/guards.yml's own commit) — every call to
         # this, scheduled sweep or the "فحص الآن" button in AdminFinance's GatewayPanel alike, had

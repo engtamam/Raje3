@@ -147,6 +147,69 @@ def test_an_unknown_branch_is_refused_by_name(client, tiktok_headers):
     assert body["reason"] == "UNKNOWN_BRANCH"
 
 
+def _watch_seams(client) -> list:
+    """Same recorder `test_free_visit_earns_nothing.py` uses — what the seams DO (earning,
+    reminders, search) belongs to those consumers; what is at stake here is only whether a real
+    TikTok order rings them at all."""
+    seen: list = []
+
+    async def after_visit(result):
+        seen.append(result)
+
+    client.app.state.container.seams.after_visit = after_visit
+    return seen
+
+
+def test_a_real_phone_order_runs_the_seams(client, tiktok_headers):
+    """FOUND 2026-09-16: this route recorded a real visit and never once rang the seams — no
+    points earned, no reminder cycle restarted, no search-index row refreshed for a single real,
+    paid TikTok order. Every other visit-recording door in this service already does this."""
+    _seed_catchall(client, tiktok_headers["tenant"])
+    seen = _watch_seams(client)
+
+    r = client.post(PATH, json={
+        "order_id": "tt-order-seam-1", "phone": "0501234567", "branch_id": "brn-main",
+        "lines": [{"name": "غسيل خارجي", "qty": 1, "amount_minor": 3000}],
+    }, headers=tiktok_headers["headers"])
+
+    assert r.status_code == 200, r.text
+    assert len(seen) == 1
+    assert seen[0].visit.id == r.json()["visit_id"]
+
+
+def test_an_anonymous_order_never_rings_the_seams(client, tiktok_headers):
+    """The tenant's ONE shared anonymous placeholder must never receive a reminder or a rating
+    request meant for a single buyer, and earning points nobody can ever spend is nonsense — see
+    Customer.anonymous's own docstring."""
+    _seed_catchall(client, tiktok_headers["tenant"])
+    seen = _watch_seams(client)
+
+    r = client.post(PATH, json={
+        "order_id": "tt-order-seam-2", "branch_id": "brn-main",
+        "lines": [{"name": "غسيل خارجي", "qty": 1, "amount_minor": 3000}],
+    }, headers=tiktok_headers["headers"])
+
+    assert r.status_code == 200, r.text
+    assert r.json()["anonymous"] is True
+    assert seen == []
+
+
+def test_a_repeated_order_id_rings_the_seams_only_once(client, tiktok_headers):
+    _seed_catchall(client, tiktok_headers["tenant"])
+    seen = _watch_seams(client)
+    payload = {
+        "order_id": "tt-order-seam-3", "phone": "0501119999", "branch_id": "brn-main",
+        "lines": [{"name": "غسيل داخلي", "qty": 1, "amount_minor": 2000}],
+    }
+
+    first = client.post(PATH, json=payload, headers=tiktok_headers["headers"])
+    again = client.post(PATH, json=payload, headers=tiktok_headers["headers"])
+
+    assert first.status_code == 200 and again.status_code == 200
+    assert again.json()["duplicate"] is True
+    assert len(seen) == 1
+
+
 def test_no_capability_is_refused(client):
     now = dt.datetime.now(dt.timezone.utc)
     tok = jwt.encode({"sub": "nope", "iss": ISS, "aud": AUD, "caps": [],
