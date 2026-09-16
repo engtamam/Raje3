@@ -237,7 +237,7 @@ export async function call<T>(
     // `reason` is the key OUR services use (`_refuse`); `message`/`detail` cover the platform's
     // own shapes. Reading only the last two dropped every sentence we wrote ourselves — the owner
     // switching to invoice earning saw an uncaught 400 and no explanation.
-    const r = body as { reason?: string; message?: string; detail?: string } | null;
+    const r = body as { reason?: string; message?: string; detail?: string; error?: string } | null;
     const said = r?.reason ?? r?.message ?? r?.detail;
     const err = new Error(said || `${a.method} ${a.path} → ${res.status}`);
     // THE STATUS TRAVELS WITH THE MESSAGE. A screen cannot tell «هذا التطبيق غير مفعَّل لديك» from
@@ -245,6 +245,11 @@ export async function call<T>(
     // which is to say, as nothing at all, with a red line in the console. 402 is a decision we
     // made and sold; it deserves a card that says so.
     (err as Error & { status?: number }).status = res.status;
+    // A MACHINE-READABLE HANDLE, SEPARATE FROM THE SENTENCE ABOVE. `error` is the gateway's own
+    // enum token (e.g. "PAYLOAD_TOO_LARGE") — never a sentence a person should read raw, but
+    // exactly what support needs quoted back when the sentence alone isn't enough (`sentenceFor`
+    // appends it for the statuses it doesn't have a friendly line for yet).
+    (err as Error & { code?: string }).code = r?.error || `HTTP_${res.status}`;
     throw err;
   }
   return body as T;

@@ -35,12 +35,36 @@ const AR_DEFAULT: Record<string, string> = {
   'api.serviceDown': 'الخدمة لا تستجيب الآن. حاول بعد قليل.',
   'api.noConnection': 'لا يوجد اتصال — تحقّق من الشبكة وحاول مرة أخرى.',
   'api.searchUnavailable': 'تعذّر البحث الآن — حاول بعد لحظات',
+  'api.fileTooLarge': 'حجم الملف كبير جداً — اختر صورة أصغر وحاول مرة أخرى. (كود: {code})',
 };
 
 export class ApiError extends Error {
   constructor(readonly status: number, readonly body: unknown, message: string) {
     super(message);
   }
+}
+
+/** `{code}` substituted after translation, same reasoning as `operator-i18n.tsx`'s own `tf` — kept
+ *  as a local copy rather than imported so this file's no-circular-import posture (see the
+ *  AR_DEFAULT comment above) still holds. */
+function interpolate(s: string, vars: Record<string, string>): string {
+  return s.replace(/\{(\w+)\}/g, (m, name) => (name in vars ? vars[name] : m));
+}
+
+/** A THROWER'S OWN TECHNICAL HANDLE, WHEN IT HAS ONE — `catalog.call`'s thrown `Error` carries
+ *  `.status`/`.code` the same shape `ApiError` does (see catalog.ts's own comment), so this reads
+ *  either without caring which file threw it. Structural, not `instanceof`, on purpose: a second
+ *  thrower shaped the same way should not need a third `if` added here to be understood. */
+function statusAndCode(e: unknown): { status: number; code: string } | null {
+  if (e instanceof ApiError) {
+    const body = e.body as { error?: string } | null;
+    return { status: e.status, code: body?.error || `HTTP_${e.status}` };
+  }
+  const withStatus = e as { status?: unknown; code?: unknown };
+  if (typeof withStatus?.status === 'number') {
+    return { status: withStatus.status, code: typeof withStatus.code === 'string' ? withStatus.code : `HTTP_${withStatus.status}` };
+  }
+  return null;
 }
 
 /** The sentence an operator reads. NEVER a status code and never an English exception: he cannot
@@ -71,9 +95,23 @@ export function sentenceFor(
     // and `detail` are the platform's. Whichever arrives, it was written for this person.
     const said = body?.message || body?.detail || body?.reason;
     if (said) return String(said);
+    if (e.status === 413) return interpolate(t('api.fileTooLarge'), { code: statusAndCode(e)?.code ?? 'HTTP_413' });
     if (e.status === 401 || e.status === 403) return t('api.sessionExpired');
     if (e.status >= 500) return t('api.serviceDown');
     return fallback;
+  }
+  // A SECOND THROWER SHAPED THE SAME WAY — `catalog.call`'s plain `Error` carries the identical
+  // `.status`/`.code` pair (see catalog.ts's own comment) without being an `ApiError` instance. A
+  // GENUINE ARABIC SENTENCE ALREADY ON `.message` (the service's own refusal text) still wins —
+  // this only reaches the technical branches below when the message is the raw log line instead.
+  {
+    const sc = statusAndCode(e);
+    if (sc && e instanceof Error && !/[؀-ۿ]/.test(e.message)) {
+      if (sc.status === 413) return interpolate(t('api.fileTooLarge'), { code: sc.code });
+      if (sc.status === 401 || sc.status === 403) return t('api.sessionExpired');
+      if (sc.status >= 500) return t('api.serviceDown');
+      return fallback;
+    }
   }
   // A network failure is the NORMAL case in a workshop, not an exception — and it is the one
   // message that must not alarm.

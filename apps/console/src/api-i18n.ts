@@ -8,12 +8,17 @@ registerOperatorStrings({
     'api.serviceDown': 'الخدمة لا تستجيب الآن. حاول بعد قليل.',
     'api.noConnection': 'لا يوجد اتصال — تحقّق من الشبكة وحاول مرة أخرى.',
     'api.searchUnavailable': 'تعذّر البحث الآن — حاول بعد لحظات',
+    // {code} IS THE SERVER'S OWN TECHNICAL TOKEN (e.g. "PAYLOAD_TOO_LARGE") — never shown alone,
+    // always after a sentence the person can act on, so support can trace it without the person
+    // ever needing to read or repeat it themselves.
+    'api.fileTooLarge': 'حجم الملف كبير جداً — اختر صورة أصغر وحاول مرة أخرى. (كود: {code})',
   },
   en: {
     'api.sessionExpired': 'Your session expired — reopen this screen.',
     'api.serviceDown': 'The service is not responding right now. Try again shortly.',
     'api.noConnection': 'No connection — check the network and try again.',
     'api.searchUnavailable': 'Search is unavailable right now — try again in a moment.',
+    'api.fileTooLarge': 'The file is too large — pick a smaller photo and try again. (code: {code})',
   },
   // MACHINE-ASSISTED, NOT NATIVE-REVIEWED — same flag other cross-cutting i18n files in this
   // repo carry for these same four locales.
@@ -22,23 +27,27 @@ registerOperatorStrings({
     'api.serviceDown': 'سروس ابھی جواب نہیں دے رہی۔ تھوڑی دیر بعد کوشش کریں۔',
     'api.noConnection': 'کوئی کنکشن نہیں — نیٹ ورک چیک کریں اور دوبارہ کوشش کریں۔',
     'api.searchUnavailable': 'تلاش ابھی دستیاب نہیں — تھوڑی دیر بعد کوشش کریں۔',
+    'api.fileTooLarge': 'فائل بہت بڑی ہے — چھوٹی تصویر منتخب کریں اور دوبارہ کوشش کریں۔ (کوڈ: {code})',
   },
   ha: {
     'api.sessionExpired': 'Zaman ya ƙare — sake buɗe wannan allon.',
     'api.serviceDown': 'Sabis ɗin ba ya amsawa yanzu. A sake gwadawa ba da daɗewa ba.',
     'api.noConnection': 'Babu haɗi — duba intanet ɗin ka sake gwadawa.',
     'api.searchUnavailable': 'Bincike ba ya samuwa yanzu — a sake gwadawa bayan ɗan lokaci.',
+    'api.fileTooLarge': 'Fayil ɗin yana da girma sosai — zaɓi ƙaramar hoto sannan a sake gwadawa. (lambar: {code})',
   },
   fil: {
     'api.sessionExpired': 'Nag-expire ang session mo — buksan muli ang screen na ito.',
     'api.serviceDown': 'Hindi tumutugon ang serbisyo ngayon. Subukan ulit sandali.',
     'api.noConnection': 'Walang koneksyon — tingnan ang network at subukan ulit.',
     'api.searchUnavailable': 'Hindi available ang paghahanap ngayon — subukan ulit sandali.',
+    'api.fileTooLarge': 'Masyadong malaki ang file — pumili ng mas maliit na larawan at subukan ulit. (code: {code})',
   },
   bn: {
     'api.sessionExpired': 'সেশন শেষ হয়ে গেছে — এই স্ক্রিনটি আবার খুলুন।',
     'api.serviceDown': 'পরিষেবা এখন সাড়া দিচ্ছে না। কিছুক্ষণ পর আবার চেষ্টা করুন।',
     'api.noConnection': 'সংযোগ নেই — নেটওয়ার্ক পরীক্ষা করে আবার চেষ্টা করুন।',
     'api.searchUnavailable': 'অনুসন্ধান এখন উপলব্ধ নয় — কিছুক্ষণ পর আবার চেষ্টা করুন।',
+    'api.fileTooLarge': 'ফাইলটি অনেক বড় — একটি ছোট ছবি বেছে নিন এবং আবার চেষ্টা করুন। (কোড: {code})',
   },
 });

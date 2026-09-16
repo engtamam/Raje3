@@ -35,6 +35,7 @@ import { FilterMenu } from '../rj-ui/FilterMenu';
 import { hasFailed, isLoading, isReady } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, downloadUrl, type Catalog } from '../catalog';
+import { sentenceFor } from '../api';
 import { halalas, riyals } from '../money';
 import type { Session } from '../session';
 import { useOperatorI18n, tf } from '../operator-i18n';
@@ -339,7 +340,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       await call(session, earnAction, { service_id: serviceId, points });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('services.error.pointsSaveFailed'));
+      setError(sentenceFor(e, t('services.error.pointsSaveFailed'), t));
     } finally {
       setSaving(false);
     }
@@ -398,7 +399,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       setNaming(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('services.error.groupCreateFailed'));
+      setError(sentenceFor(e, t('services.error.groupCreateFailed'), t));
     } finally {
       setSaving(false);
     }
@@ -422,7 +423,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       setNaming(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('services.error.moveToGroupFailed'));
+      setError(sentenceFor(e, t('services.error.moveToGroupFailed'), t));
     } finally {
       setSaving(false);
     }
@@ -525,7 +526,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       setAdding(false);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('services.error.addFailed'));
+      setError(sentenceFor(e, t('services.error.addFailed'), t));
     } finally {
       setSaving(false);
     }
@@ -540,7 +541,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       await call(session, a, { id, ...patch });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('services.error.editSaveFailed'));
+      setError(sentenceFor(e, t('services.error.editSaveFailed'), t));
     } finally {
       setSaving(false);
     }
@@ -574,7 +575,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       setImages((m) => { const n = { ...m }; delete n[id]; return n; });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('services.error.editSaveFailed'));
+      setError(sentenceFor(e, t('services.error.editSaveFailed'), t));
     } finally {
       setSaving(false);
     }
@@ -649,7 +650,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       await call(session, a, { name, service_id: serviceId });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('services.error.leaveGroupFailed'));
+      setError(sentenceFor(e, t('services.error.leaveGroupFailed'), t));
     } finally {
       setSaving(false);
     }
@@ -671,7 +672,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       await call(session, a, { name });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('services.error.deleteGroupFailed'));
+      setError(sentenceFor(e, t('services.error.deleteGroupFailed'), t));
     } finally {
       setSaving(false);
     }
@@ -716,7 +717,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       applyReasons(out?.reasons);
     } catch (e) {
       setVisitOn(!on);
-      setError(e instanceof Error ? e.message : t('services.error.visitSettingFailed'));
+      setError(sentenceFor(e, t('services.error.visitSettingFailed'), t));
     } finally {
       setSaving(false);
     }
@@ -730,7 +731,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       await call(session, a, { ...patch });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('services.error.generalSettingFailed'));
+      setError(sentenceFor(e, t('services.error.generalSettingFailed'), t));
     } finally {
       setSaving(false);
     }
@@ -748,7 +749,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       await call(session, a, { points: n });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('services.error.generalSettingFailed'));
+      setError(sentenceFor(e, t('services.error.generalSettingFailed'), t));
     } finally {
       setSaving(false);
     }
@@ -763,7 +764,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       await call(session, a, { service_id: id, ...patch });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('services.error.saveFailed'));
+      setError(sentenceFor(e, t('services.error.saveFailed'), t));
     } finally {
       setSaving(false);
     }
