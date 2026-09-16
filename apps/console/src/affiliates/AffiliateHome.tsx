@@ -199,6 +199,9 @@ function TopTemplateCard({ data }: { data: Home }) {
 }
 
 function TeamCard({ team }: { team: NonNullable<Home['team']> }) {
+  // Absent, not zero, when AFFILIATE_TEAM_FINANCIALS_VISIBLE is off — team revenue moved to the
+  // admin panel; a manager's own screen keeps the roster count and the wafa queue, not the money.
+  const showMoney = team.team_confirmed_halalas != null;
   return (
     <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-center justify-between">
@@ -214,10 +217,12 @@ function TeamCard({ team }: { team: NonNullable<Home['team']> }) {
           <span className="block text-xs text-text-secondary">عدد الفريق</span>
           <span className="tabular-nums font-medium">{team.member_count}</span>
         </div>
-        <div className="flex-1 rounded-md bg-surface-0 p-2.5">
-          <span className="block text-xs text-text-secondary">إيراد مؤكَّد</span>
-          <span className="tabular-nums font-medium">{riyalsLabel(team.team_confirmed_halalas)}</span>
-        </div>
+        {showMoney ? (
+          <div className="flex-1 rounded-md bg-surface-0 p-2.5">
+            <span className="block text-xs text-text-secondary">إيراد مؤكَّد</span>
+            <span className="tabular-nums font-medium">{riyalsLabel(team.team_confirmed_halalas!)}</span>
+          </div>
+        ) : null}
       </div>
     </Card>
   );

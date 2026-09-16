@@ -159,14 +159,16 @@ def test_the_config_view_never_carries_a_credential(client, operator_auth):
 
 
 def test_only_the_declared_withdrawal_threshold_is_offered_not_every_settable_field(client, operator_auth):
-    """This service's RUNTIME_POLICY declares exactly one knob (AFFILIATE_WITHDRAWAL_MIN_HALALAS,
-    core/payouts.py's own effective_min_withdrawal_halalas actually reads it) — the surface must
-    offer that and nothing else, same discipline the scaffold's own comment states: an advertised
-    knob nothing consults reports a change that never happened, with an audit entry to prove it.
+    """This service's RUNTIME_POLICY declares exactly two knobs (AFFILIATE_WITHDRAWAL_MIN_HALALAS,
+    core/payouts.py's own effective_min_withdrawal_halalas; AFFILIATE_TEAM_FINANCIALS_VISIBLE,
+    api/v1/affiliate_self.py's own _team_financials_visible) — the surface must offer those and
+    nothing else, same discipline the scaffold's own comment states: an advertised knob nothing
+    consults reports a change that never happened, with an audit entry to prove it.
     """
     h = {"headers": operator_auth}
     assert client.get("/api/v1/affiliates/operator/config", **h).json()["config"] == {
         "AFFILIATE_WITHDRAWAL_MIN_HALALAS": 0,
+        "AFFILIATE_TEAM_FINANCIALS_VISIBLE": False,
     }
     r = client.put("/api/v1/affiliates/operator/config", json={"key": "RATELIMIT_MAX", "value": 250}, **h)
     assert r.status_code == 400, "an undeclared knob was accepted and would have been inert"

@@ -294,8 +294,51 @@ def test_my_team_lists_members_with_their_earnings_and_a_team_total(client):
                    headers={"Authorization": f"Bearer {_token(sub='p-mgr-team-1')}"})
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["team_confirmed_halalas"] == 4000
-    assert [m for m in body["members"] if m["id"] == "prm-team-1"][0]["confirmed_halalas"] == 4000
+    # AFFILIATE_TEAM_FINANCIALS_VISIBLE is off by default — a manager's team revenue is now an
+    # admin-panel concern, not his. The roster itself still comes through.
+    assert "team_confirmed_halalas" not in body
+    member = [m for m in body["members"] if m["id"] == "prm-team-1"][0]
+    assert "confirmed_halalas" not in member
+    assert member["id"] == "prm-team-1"
+
+
+def test_my_team_shows_earnings_when_the_operator_turns_the_switch_on(client):
+    import asyncio
+
+    from app.core.models import ACTIVE, AFFILIATES, COMMISSIONS, CONFIRMED, CONVERSION, Affiliate, Commission
+
+    async def seed():
+        c = client.app.state.container
+        manager = Affiliate(id="mgr-team-2", person_id="p-mgr-team-2", phone="+966505550021",
+                            name="المدير", role="affiliate_manager", status=ACTIVE)
+        promoter = Affiliate(id="prm-team-2", person_id="p-prm-team-2", phone="+966505550022",
+                             name="مسوّق فرعي", role="affiliate_promoter",
+                             parent_id="mgr-team-2", status=ACTIVE)
+        await c.datastore.put(AFFILIATES, manager.id, manager.to_dict())
+        await c.datastore.put(AFFILIATES, promoter.id, promoter.to_dict())
+        commission = Commission(id="comm-team-2", tenant="t-team-2", affiliate_id=promoter.id,
+                                kind=CONVERSION, amount_halalas=4000, status=CONFIRMED)
+        await c.datastore.put(COMMISSIONS, commission.id, commission.to_dict())
+
+    asyncio.run(seed())
+    # The same live switch every RUNTIME_POLICY knob uses — reversible with no redeploy.
+    put = client.put("/api/v1/operator/config", json={"key": "AFFILIATE_TEAM_FINANCIALS_VISIBLE",
+                                                       "value": True},
+                     headers={"Authorization": f"Bearer {_token(caps=['platform.config'])}"})
+    assert put.status_code == 200, put.text
+
+    try:
+        r = client.get("/api/v1/affiliates/me/team",
+                       headers={"Authorization": f"Bearer {_token(sub='p-mgr-team-2')}"})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["team_confirmed_halalas"] == 4000
+        assert [m for m in body["members"] if m["id"] == "prm-team-2"][0]["confirmed_halalas"] == 4000
+    finally:
+        # `client` is module-scoped — a platform-wide override left standing here would leak into
+        # every later test in this file.
+        client.delete("/api/v1/operator/config/AFFILIATE_TEAM_FINANCIALS_VISIBLE",
+                      headers={"Authorization": f"Bearer {_token(caps=['platform.config'])}"})
 
 
 def test_my_team_is_empty_for_a_promoter_with_nobody_under_him(client):
@@ -314,10 +357,8 @@ def test_my_team_is_empty_for_a_promoter_with_nobody_under_him(client):
     r = client.get("/api/v1/affiliates/me/team",
                    headers={"Authorization": f"Bearer {_token(sub='p-prm-solo-1')}"})
     assert r.status_code == 200, r.text
-    assert r.json() == {"my_shops": [], "my_net_revenue_minor": 0, "my_revenue_partial": False,
-                        "members": [], "team_confirmed_halalas": 0, "team_pending_halalas": 0,
-                        "team_net_revenue_minor": 0, "team_revenue_partial": False,
-                        "platform_revenue_enabled": False}
+    # AFFILIATE_TEAM_FINANCIALS_VISIBLE is off by default — every riyal figure is stripped.
+    assert r.json() == {"my_shops": [], "members": [], "platform_revenue_enabled": False}
 
 
 def test_platform_revenue_toggle_refuses_without_the_capability(client):

@@ -115,6 +115,21 @@ describe('AffiliateHome', () => {
     expect(screen.getByText('2 قرار بانتظارك')).toBeTruthy();
   });
 
+  it('a manager sees his team WITHOUT revenue when the financials switch is off', async () => {
+    homeMock = () => Promise.resolve({
+      ...BASE_PROMOTER,
+      affiliate: { id: 'aff-3', name: 'سلطان', role: 'affiliate_manager' },
+      team: { member_count: 3, pending_wafa_requests_count: 0 },   // no *_halalas keys at all
+    });
+    render(<AffiliateHome session={SESSION} onOpenTicket={() => {}} />);
+    await waitFor(() => expect(screen.getByText('فريقك')).toBeTruthy());
+    expect(screen.getByText('3')).toBeTruthy();               // the member count still shows
+    // «إيراد مؤكَّد» is the ONLY money label TeamCard ever renders — its absence proves the team
+    // money row is gone. (His OWN balance card is untouched by this flag and legitimately still
+    // shows «٠ ريال» elsewhere on this same screen, so a page-wide "no ريال" check would be wrong.)
+    expect(screen.queryByText('إيراد مؤكَّد')).toBeFalsy();
+  });
+
   it('a failed read says so rather than showing a stale or empty screen', async () => {
     homeMock = () => Promise.reject(new Error('network'));
     render(<AffiliateHome session={SESSION} onOpenTicket={() => {}} />);

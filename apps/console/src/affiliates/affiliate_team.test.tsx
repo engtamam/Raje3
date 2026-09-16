@@ -104,6 +104,33 @@ describe('AffiliateTeam — roster', () => {
     expect(screen.getByText('90٪')).toBeTruthy();
   });
 
+  it('hides every riyal figure when AFFILIATE_TEAM_FINANCIALS_VISIBLE is off — the server omits them, not zeroes them', async () => {
+    teamMock = () => Promise.resolve({
+      my_shops: 0, members: [{ id: 'm1', name: 'فيصل', status: 'active', commission_count: 2,
+                              shops: 3, active_shops: 3, retention_rate: 0.9, refund_rate: 0.02,
+                              total_referrals: 10, total_commissions: 5,
+                              support_kpis: { available: true, avg_first_response_seconds: 120,
+                                             avg_resolution_seconds: 3600, escalation_rate: 0.05 } }],
+      platform_revenue_enabled: false,
+    });
+    teamWafaMock = () => Promise.resolve({
+      wafa_requests: [{ id: 'w1', affiliate_id: 'm1', active_shops: 50, status: 'requested',
+                       requested_at: 0, system_recommendation: 'approve',
+                       system_retention_rate: 0.9, system_refund_rate: 0.02, manager_decision: '',
+                       manager_decided_by: '', manager_decided_at: 0, manager_reason: '',
+                       decided_by: '', decided_at: 0, reason: '', granted_at: 0 }],
+    });
+    render(<AffiliateTeam session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('فيصل')).toBeTruthy());
+    // «فريقك» not «أرباح فريقك» — the header itself admits nothing financial is here.
+    expect(screen.getByText('فريقك')).toBeTruthy();
+    expect(screen.queryByText('أرباح فريقك')).toBeFalsy();
+    expect(screen.queryByText('مؤكَّد')).toBeFalsy();
+    expect(screen.getByText('3 محل')).toBeTruthy();      // the shop count survives
+    expect(screen.getByText('50 محل')).toBeTruthy();     // the wafa queue's shop count too
+    expect(screen.queryByText(/ريال/)).toBeFalsy();        // no riyal amount anywhere on screen
+  });
+
   it('a member with no performance data yet cannot be expanded', async () => {
     teamMock = () => Promise.resolve({
       ...EMPTY_TEAM,

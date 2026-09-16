@@ -17,4 +17,8 @@ RUNTIME_POLICY: frozenset[str] = frozenset({
     # every /me/home, /me/balance and withdrawal request (core/payouts.py's own
     # effective_min_withdrawal_halalas), so a panel change takes effect with no redeploy.
     "AFFILIATE_WITHDRAWAL_MIN_HALALAS",
+    # Whether a manager's GET /me/team and GET /me/team/wafa-requests carry riyal figures at all —
+    # read at the point of use in api/v1/affiliate_self.py. Off by default (config.py), and an
+    # operator may turn it back on with no redeploy if the decision is ever reversed.
+    "AFFILIATE_TEAM_FINANCIALS_VISIBLE",
 })
