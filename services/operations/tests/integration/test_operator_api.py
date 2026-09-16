@@ -107,21 +107,23 @@ def test_the_config_view_never_carries_a_credential(client, operator_auth):
 
 
 def test_the_config_surface_offers_exactly_what_something_reads(client, operator_auth):
-    """Five knobs, because exactly five are wired.
+    """Three knobs, because exactly three are wired.
 
     A key enters RUNTIME_POLICY in the same change that wires the read — the retention horizon is
-    read per tenant by core/retention.py on every sweep; the rating/report/booking master Flow ids
-    are read (platform scope) by api/v1/connect.py's background provisioning task; the
+    read per tenant by core/retention.py on every sweep; the booking/visit master Flow ids are
+    read (platform scope) by api/v1/connect.py's background provisioning task; the
     subscription-renewal master Flow id is read (also platform scope, but as a one-time
     idempotency check, never per shop) by api/v1/platform.py's explicit admin action. Everything
     else stays unavailable, which is honest: an advertised knob nothing consults reports a change
     that never happened, with an audit entry to prove it. Order is not the contract (a frozenset
     has none) — set equality is.
+
+    `MASTER_RATING_FLOW_ID`/`MASTER_REPORT_FLOW_ID` REMOVED (2026-09-16) — see
+    core/flows.py's own module docstring.
     """
     h = {"headers": operator_auth}
     assert set(client.get("/api/v1/operations/operator/config", **h).json()["config"]) == {
-        "MASTER_RATING_FLOW_ID", "MASTER_REPORT_FLOW_ID", "MASTER_BOOKING_FLOW_ID",
-        "MASTER_VISIT_FLOW_ID",
+        "MASTER_BOOKING_FLOW_ID", "MASTER_VISIT_FLOW_ID",
         "MASTER_SUBSCRIPTION_RENEWAL_FLOW_ID", "RETENTION_CUSTOMER_YEARS"}
     r = client.put("/api/v1/operations/operator/config", json={"key": "RATELIMIT_MAX", "value": 250}, **h)
     assert r.status_code == 400, "an undeclared knob was accepted and would have been inert"
@@ -1173,6 +1175,62 @@ def test_the_field_door_records_when_the_visit_happened(client):
     assert r.status_code == 201, r.text
     assert r.json()["visit"]["occurred_at"] == took_it_at, (
         "the reminder is scheduled from this, and the confirmation is sent from it")
+
+
+# ── "2× غسيل خارجي" recorded by hand, exactly like an integrated till would send it ────────────
+
+def test_a_manual_quantity_prices_and_counts_like_the_till_path_does(client):
+    import asyncio
+
+    from app.core.models import Service
+    from app.core.stores import ServiceStore
+
+    asyncio.run(ServiceStore(client.app.state.container.datastore).save(
+        Service(id="svc_wash_qty", tenant="t_qty", name="غسيل خارجي", price_minor=3000)))
+
+    r = client.post("/api/v1/field/visits",
+                    json={"phone": "0501234500", "service_ids": ["svc_wash_qty"],
+                          "quantities": {"svc_wash_qty": 2}},
+                    headers=_auth("operations.record", tenant="t_qty"))
+    assert r.status_code == 201, r.text
+    assert r.json()["visit"]["quantities"] == {"svc_wash_qty": 2}
+    assert r.json()["visit"]["total_minor"] == 6000
+
+
+def test_a_quantity_for_a_service_not_on_the_visit_is_silently_dropped(client):
+    """Same filter `record_visit` already applies to `Visit.quantities` — a stray key for a
+    service this visit does not actually hold must not survive onto the row."""
+    import asyncio
+
+    from app.core.models import Service
+    from app.core.stores import ServiceStore
+
+    asyncio.run(ServiceStore(client.app.state.container.datastore).save(
+        Service(id="svc_wash_only", tenant="t_qty2", name="غسيل", price_minor=1000)))
+
+    r = client.post("/api/v1/field/visits",
+                    json={"phone": "0501234501", "service_ids": ["svc_wash_only"],
+                          "quantities": {"svc_never_chosen": 5}},
+                    headers=_auth("operations.record", tenant="t_qty2"))
+    assert r.status_code == 201, r.text
+    assert r.json()["visit"]["quantities"] == {}
+    assert r.json()["visit"]["total_minor"] == 1000
+
+
+def test_an_out_of_range_quantity_is_refused_before_any_visit_is_written(client):
+    r = client.post("/api/v1/field/visits",
+                    json={"phone": "0501234502", "service_ids": ["svc_x"],
+                          "quantities": {"svc_x": 0}},
+                    headers=_auth("operations.record", tenant="t_qty3"))
+    assert r.status_code == 422
+
+
+def test_a_negative_quantity_is_refused_too(client):
+    r = client.post("/api/v1/field/visits",
+                    json={"phone": "0501234503", "service_ids": ["svc_x"],
+                          "quantities": {"svc_x": -3}},
+                    headers=_auth("operations.record", tenant="t_qty4"))
+    assert r.status_code == 422
 
 
 # ── the interval is a word billing knows, and `once` is not for a recurring plan (ز-1) ─────────

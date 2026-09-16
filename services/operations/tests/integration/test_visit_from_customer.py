@@ -61,3 +61,34 @@ def test_no_token_is_refused(client):
     r = client.post(PATH, json={"tenant": TENANT, "customer_id": "x", "service_ids": ["y"],
                                 "idempotency_key": "z"})
     assert r.status_code == 401
+
+
+def test_the_bookings_own_quantities_price_and_count_the_resulting_visit(client):
+    """A booking made for "2× حلاقة" must produce a Visit whose total is priced at 2×, and whose
+    own `quantities` reflects it — the same carry-through `attend()` (bookings-service) relies on
+    (`HttpVisitGateway.create` -> here)."""
+    from app.core.models import Service
+    from app.core.stores import ServiceStore, VisitStore
+
+    cust_id, svc_id = _seed(client)
+    priced = Service(id="svc_priced", tenant=TENANT, name="غيار زيت", price_minor=1000, active=True)
+    asyncio.run(ServiceStore(client.app.state.container.datastore).save(priced))
+
+    r = client.post(PATH, json={"tenant": TENANT, "customer_id": cust_id,
+                                "service_ids": [priced.id], "idempotency_key": "bkg_qty",
+                                "quantities": {priced.id: 2}},
+                    headers=INTERNAL)
+    assert r.status_code == 200, r.text
+    visit_id = r.json()["visit_id"]
+    visit = asyncio.run(VisitStore(client.app.state.container.datastore).get(TENANT, visit_id))
+    assert visit.total_minor == 2000
+    assert visit.quantities == {priced.id: 2}
+
+
+def test_an_out_of_range_quantity_is_refused_not_silently_clamped(client):
+    cust_id, svc_id = _seed(client)
+    r = client.post(PATH, json={"tenant": TENANT, "customer_id": cust_id,
+                                "service_ids": [svc_id], "idempotency_key": "bkg_bad_qty",
+                                "quantities": {svc_id: -1}},
+                    headers=INTERNAL)
+    assert r.status_code == 422
