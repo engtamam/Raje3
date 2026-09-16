@@ -55,6 +55,11 @@ dependencies = [
 postgres = ["asyncpg>=0.29,<1.0"]
 redis = ["redis>=5.0,<6.0"]
 s3 = ["aioboto3>=13.0,<15.0"]
+# translation — TRANSLATION_ENGINE_DRIVER=nllb200 only (core/translation_engine.py). ctranslate2
+# MIT, sentencepiece Apache-2.0. Deliberately NOT `transformers` — a single sentencepiece model
+# is the whole tokenizer NLLB-200 needs; see that module's own docstring for why pulling in the
+# much heavier `transformers` package was skipped.
+translation = ["ctranslate2>=4.0,<5.0", "sentencepiece>=0.2,<1.0"]
 
 # Dev/test — PERMISSIVE ONLY.
 #   pytest   MIT

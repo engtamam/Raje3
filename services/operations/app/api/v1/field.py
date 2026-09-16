@@ -465,6 +465,10 @@ class StaffPerformanceExportIn(BaseModel):
     until: int
     branch_id: str = Field(default="", max_length=64)
     file_format: str = Field(default="pdf", pattern="^(docx|pdf)$")
+    # SAME MEANING AS `ProcedureChecklistExportIn.locale` (staff.py) — the document's own labels
+    # and flow direction only; `rows` carries operator NAMES, never translated (a person's name is
+    # not shop-written content to be read in another language).
+    locale: str = Field(default="ar", max_length=8)
 
 
 @router.post("/staff/performance/export", dependencies=[Depends(rate_limit)])
@@ -509,7 +513,7 @@ async def staff_performance_export(request: Request, body: StaffPerformanceExpor
     build_staff_performance_docx(
         tenant=tenant, rows=staff, out_path=docx_path, shop_name=shop_name,
         logo_png=branding.logo_png, accent_color=branding.accent,
-        generated_at_label=now.strftime("%Y-%m-%d %H:%M"))
+        generated_at_label=now.strftime("%Y-%m-%d %H:%M"), locale=body.locale)
 
     if body.file_format == "docx":
         return FileResponse(docx_path, media_type=

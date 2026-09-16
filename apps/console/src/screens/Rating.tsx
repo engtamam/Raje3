@@ -30,7 +30,8 @@ import { action, call, type Catalog } from '../catalog';
 import { fresh } from '../renew';
 import type { Session } from '../session';
 import { scopeQuery } from '../branch-scope';
-import { useOperatorI18n, tf } from '../operator-i18n';
+import { useOperatorI18n, tf, type OperatorLocale } from '../operator-i18n';
+import { PrintLocalePicker } from '../rj-ui/PrintLocalePicker';
 import './rating-i18n';
 
 interface StaffRow {
@@ -128,7 +129,7 @@ function RankMedal({ rank }: { rank: 1 | 2 | 3 }) {
 }
 
 export function RatingScreen({ session, catalog, branch }: { session: Session; catalog: Catalog; branch: string }) {
-  const { t } = useOperatorI18n();
+  const { t, locale } = useOperatorI18n();
   const [tab, setTab] = useState<'overview' | 'ratings'>('overview');
   const [period, setPeriod] = useState<Period>('month');
   const [customSince, setCustomSince] = useState(daysAgoInput(30));
@@ -137,6 +138,7 @@ export function RatingScreen({ session, catalog, branch }: { session: Session; c
   const [metric, setMetric] = useState<MetricKey>('avg');
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
+  const [printLocale, setPrintLocale] = useState<OperatorLocale>(locale);
 
   const perfAction = action(catalog, 'operations.staff_performance');
   const exportAction = action(catalog, 'operations.staff_performance_export');
@@ -166,7 +168,8 @@ export function RatingScreen({ session, catalog, branch }: { session: Session; c
       const res = await fetch(`${API_BASE}${exportAction.path}`, {
         method: exportAction.method,
         headers: { Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ since, until, ...scopeQuery(branch), file_format: 'pdf' }),
+        body: JSON.stringify({ since, until, ...scopeQuery(branch), file_format: 'pdf',
+                              locale: printLocale }),
       });
       if (!res.ok) throw new Error('export failed');
       const blob = await res.blob();
@@ -239,6 +242,7 @@ export function RatingScreen({ session, catalog, branch }: { session: Session; c
           staff={staff} rangeReady={Boolean(range)} metric={metric} setMetric={setMetric}
           exportAvailable={Boolean(exportAction)} exporting={exporting} exportError={exportError}
           onExport={() => void exportReport()}
+          printLocale={printLocale} onPrintLocaleChange={setPrintLocale}
         />
       ) : (
         <RatingsListTab session={session} catalog={catalog} branch={branch} tab={tab} period={period} />
@@ -282,7 +286,7 @@ function TrainingDetail({ stats }: { stats: TrainingStat[] | null | undefined })
   );
 }
 
-function OverviewTab({ session, catalog, staff, rangeReady, metric, setMetric, exportAvailable, exporting, exportError, onExport }: {
+function OverviewTab({ session, catalog, staff, rangeReady, metric, setMetric, exportAvailable, exporting, exportError, onExport, printLocale, onPrintLocaleChange }: {
   session: Session; catalog: Catalog;
   staff: StaffRow[] | null | undefined;
   /** `false` only for an incomplete/reversed custom date pick — a distinct sentence from "still
@@ -291,6 +295,7 @@ function OverviewTab({ session, catalog, staff, rangeReady, metric, setMetric, e
   metric: MetricKey; setMetric: (m: MetricKey) => void;
   exportAvailable: boolean; exporting: boolean; exportError: string;
   onExport: () => void;
+  printLocale: OperatorLocale; onPrintLocaleChange: (l: OperatorLocale) => void;
 }) {
   const { t } = useOperatorI18n();
   // «أين يحتاج تدريباً» ([[task-service-procedure-checklists]] phase 5) — fetched lazily, only for
@@ -387,9 +392,13 @@ function OverviewTab({ session, catalog, staff, rangeReady, metric, setMetric, e
             <p className="text-xs text-text-secondary">{t('rating.leaderboard.note')}</p>
           </div>
           {exportAvailable ? (
-            <Button type="button" variant="outline" size="sm" disabled={exporting} onClick={onExport}>
-              <Download size={15} aria-hidden /> {exporting ? t('rating.exporting') : t('rating.export')}
-            </Button>
+            <div className="flex items-center gap-2">
+              <PrintLocalePicker value={printLocale} onChange={onPrintLocaleChange}
+                                label={t('rating.exportLocale')} />
+              <Button type="button" variant="outline" size="sm" disabled={exporting} onClick={onExport}>
+                <Download size={15} aria-hidden /> {exporting ? t('rating.exporting') : t('rating.export')}
+              </Button>
+            </div>
           ) : null}
         </div>
         {exportError ? <p className="text-xs text-danger">{exportError}</p> : null}

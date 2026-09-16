@@ -362,6 +362,14 @@ def build_container(settings: Settings) -> Container:
     container.jobs = (
         HttpJobService(base_url=settings.JOB_SERVICE_URL, token=settings.INTERNAL_SERVICE_TOKEN)
         if settings.JOB_SERVICE_URL else NullJobService())
+    # Shop-content translation (phase 3) — see core/translation_engine.py's own module docstring.
+    # NullTranslationEngine when the driver is unset, same posture as every other optional peer
+    # here: the jobs/run route simply finds nothing it can do rather than crashing.
+    from app.core.translation_engine import NullTranslationEngine, Nllb200TranslationEngine
+
+    container.translation_engine = (
+        Nllb200TranslationEngine(settings.TRANSLATION_MODEL_PATH, settings.TRANSLATION_SP_MODEL_PATH)
+        if settings.TRANSLATION_ENGINE_DRIVER == "nllb200" else NullTranslationEngine())
     # What the shop bought, for every lock the console draws. One read, five keys, no enforcement:
     # the gates are in the services that own the acts.
     from app.core.apps import build_apps

@@ -53,7 +53,9 @@ from app.core import whatsapp_visit_flag as WVF
 from app.core import whatsapp_auto_register as WAR
 from app.core.signup import SignupRefused
 from app.core.stores import (BranchStore, OperatorStepStatStore, OperatorStore, PackageStore,
-                             ProcedureStepStore, ServiceStore, new_id)
+                             ProcedureStepStore, ServiceStore, TranslationStore, new_id)
+from app.core.translations import TARGET_LOCALES, entry_id as translation_entry_id
+from app.core.translations import resolve as resolve_translation
 from app.api.subscribed import no_subscription_needed, subscribed_write
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
@@ -1298,8 +1300,14 @@ class ServiceIn(BaseModel):
     description: str = Field(default="", max_length=300)
 
 
+def _localize_field(entries: dict[str, Any], entity_type: str, entity_id: str, field: str,
+                    source: str, locale: str) -> str:
+    return resolve_translation(entries.get(translation_entry_id(entity_type, entity_id, field)),
+                               locale, source)
+
+
 @router.get("/services", dependencies=[Depends(rate_limit)])
-async def list_services(request: Request, include_retired: bool = False,
+async def list_services(request: Request, include_retired: bool = False, locale: str = "ar",
                         principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
     """The OWNER's catalogue, which is not the field grid.
 
@@ -1311,9 +1319,26 @@ async def list_services(request: Request, include_retired: bool = False,
 
     Gated on `operations.manage` OR `operations.manage_services` — not read:
     this is the list you edit, and an operator has no business seeing what the shop has retired.
+
+    `locale`, WHEN NOT "ar" AND ONE OF `TARGET_LOCALES` — overrides `name`/`description` in each
+    row with its own translation (see core/translations.py). Any other value (unset, "ar", junk)
+    returns the shop's own Arabic untouched; there is no error path here, only the honest fallback
+    `resolve()` itself already gives a locale with no answer yet.
     """
-    rows = await ServiceStore(request.app.state.container.datastore).list(
-        _tenant(principal), active_only=not include_retired)
+    tenant = _tenant(principal)
+    ds = request.app.state.container.datastore
+    rows = await ServiceStore(ds).list(tenant, active_only=not include_retired)
+    if locale in TARGET_LOCALES:
+        entries = await TranslationStore(ds).get_many(
+            tenant, "service", [s.id for s in rows], ("name", "description"))
+        out = []
+        for s in rows:
+            d = s.public()
+            d["name"] = _localize_field(entries, "service", s.id, "name", s.name, locale)
+            d["description"] = _localize_field(
+                entries, "service", s.id, "description", s.description, locale)
+            out.append(d)
+        return {"services": out}
     return {"services": [s.public() for s in rows]}
 
 
@@ -1591,12 +1616,23 @@ class ProcedureStepIn(BaseModel):
 
 
 @router.get("/procedure-steps", dependencies=[Depends(rate_limit)])
-async def list_procedure_steps(request: Request, include_retired: bool = False,
+async def list_procedure_steps(request: Request, include_retired: bool = False, locale: str = "ar",
                                principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
     """The owner's own protocol catalogue — same shape as `list_services` above (owner's edit
-    list includes what he retired, so a stopped step can be brought back)."""
-    rows = await ProcedureStepStore(request.app.state.container.datastore).list(
-        _tenant(principal), active_only=not include_retired)
+    list includes what he retired, so a stopped step can be brought back), including the same
+    `locale` override."""
+    tenant = _tenant(principal)
+    ds = request.app.state.container.datastore
+    rows = await ProcedureStepStore(ds).list(tenant, active_only=not include_retired)
+    if locale in TARGET_LOCALES:
+        entries = await TranslationStore(ds).get_many(
+            tenant, "procedure_step", [s.id for s in rows], ("text",))
+        out = []
+        for s in rows:
+            d = s.public()
+            d["text"] = _localize_field(entries, "procedure_step", s.id, "text", s.text, locale)
+            out.append(d)
+        return {"procedure_steps": out}
     return {"procedure_steps": [s.public() for s in rows]}
 
 
@@ -1670,6 +1706,12 @@ class ProcedureChecklistExportIn(BaseModel):
     # service, with a step shared by more than one of them printed exactly ONCE.
     service_ids: list[str] = Field(min_length=1, max_length=20)
     file_format: str = Field(default="pdf", pattern="^(docx|pdf)$")
+    # THE LANGUAGE TO PRINT IN — never the operator's own console locale implicitly, always
+    # explicit at the moment of export (owner's own instruction: he may want a copy in a
+    # technician's language while reading the console itself in Arabic). "ar" (default) skips
+    # resolution entirely; anything else falls back to Arabic per field where no translation
+    # exists yet (core/translations.py::resolve) — never a blank field or a 4xx.
+    locale: str = Field(default="ar", max_length=8)
 
 
 @router.post("/procedure-checklist/export", dependencies=[Depends(rate_limit)])
@@ -1722,6 +1764,21 @@ async def export_procedure_checklist(request: Request, body: ProcedureChecklistE
     all_step_ids = {sid for svc in services for sid in svc.procedure_step_ids}
     resolved = await ProcedureStepStore(ds).get_many(tenant, list(all_step_ids))
 
+    # LOCALIZED ONCE, UP FRONT — `also_in`'s own captions and `service_names` below both read
+    # from this same map, so a shop's service name is translated (or falls back to Arabic)
+    # identically everywhere it appears on the document, never once translated and once not.
+    svc_name: dict[str, str] = {s.id: s.name for s in services}
+    step_text: dict[str, str] = {sid: st.text for sid, st in resolved.items()}
+    if body.locale in TARGET_LOCALES:
+        svc_entries = await TranslationStore(ds).get_many(
+            tenant, "service", [s.id for s in services], ("name",))
+        step_entries = await TranslationStore(ds).get_many(
+            tenant, "procedure_step", list(all_step_ids), ("text",))
+        svc_name = {s.id: _localize_field(svc_entries, "service", s.id, "name", s.name,
+                                          body.locale) for s in services}
+        step_text = {sid: _localize_field(step_entries, "procedure_step", sid, "text", st.text,
+                                          body.locale) for sid, st in resolved.items()}
+
     # first_service: which selected service each step id resolves to FIRST, for the "مشتركة مع"
     # caption; `steps` keeps the FIRST-OCCURRENCE order across the whole selection.
     steps: list[dict[str, Any]] = []
@@ -1734,10 +1791,10 @@ async def export_procedure_checklist(request: Request, body: ProcedureChecklistE
                 continue
             if sid not in seen:
                 seen.add(sid)
-                steps.append({"id": step.id, "text": step.text, "severity": step.severity})
+                steps.append({"id": step.id, "text": step_text[sid], "severity": step.severity})
                 also_in[sid] = []
-            elif svc.name not in also_in[sid]:
-                also_in[sid].append(svc.name)
+            elif svc_name[svc.id] not in also_in[sid]:
+                also_in[sid].append(svc_name[svc.id])
     for step in steps:
         step["also_in"] = also_in.get(step["id"], [])
 
@@ -1756,9 +1813,10 @@ async def export_procedure_checklist(request: Request, body: ProcedureChecklistE
     tmp_dir = Path(tempfile.mkdtemp(prefix="procedure_checklist_"))
     docx_path = tmp_dir / f"procedure_checklist_{tenant}.docx"
     build_procedure_checklist_docx(
-        shop_name=shop_name, service_names=[s.name for s in services],
+        shop_name=shop_name, service_names=[svc_name[s.id] for s in services],
         steps=steps, out_path=docx_path, logo_png=branding.logo_png,
-        accent_color=branding.accent, generated_at_label=now.strftime("%Y-%m-%d %H:%M"))
+        accent_color=branding.accent, generated_at_label=now.strftime("%Y-%m-%d %H:%M"),
+        locale=body.locale)
 
     if body.file_format == "docx":
         return FileResponse(docx_path, media_type=

@@ -69,6 +69,10 @@ ACCOUNT_SETTINGS = "account_settings"
 # and not one, and [[task-service-procedure-checklists]] for the feature this pair exists for.
 PROCEDURE_STEPS = "procedure_steps"
 OPERATOR_STEP_STATS = "operator_step_stats"
+# ONE ROW PER (entity_type, entity_id, field) — a shop's own Arabic text (a service name, a
+# procedure step's wording) and its translations into every OTHER operator locale. See
+# `core/translations.py` for the hash-based change detection this collection exists to hold.
+TRANSLATIONS = "translations"
 
 
 @dataclass
@@ -680,3 +684,37 @@ class OperatorStepStat:
                 "step_id": self.step_id, "times_flagged": self.times_flagged,
                 "times_flagged_critical": self.times_flagged_critical,
                 "last_flagged_at": self.last_flagged_at, "last_visit_id": self.last_visit_id}
+
+
+@dataclass
+class TranslationEntry:
+    """A shop's own Arabic text — a service's `name`/`description`, a `ProcedureStep.text` — and
+    its translation into every OTHER operator locale (see `operator-i18n.tsx`'s own
+    `OperatorLocale`: en, ur, ha, fil, bn). One row per (entity_type, entity_id, field).
+
+    `source_hash` IS THE WHOLE POINT (see `core/translations.py`). It is never read for its own
+    sake — only compared against a freshly hashed `source_text` at save time — so a shop that never
+    touches a field never re-triggers translation, and a shop that edits one word re-triggers only
+    that field, not the whole catalogue.
+
+    `status` STARTS "pending" AND STAYS THERE UNTIL A WORKER FILLS `translations` — the console
+    reads `source_text` (the Arabic) as the correct fallback for any locale not yet answered, never
+    a blank field or an error. Nothing here depends on a worker existing; this row is meaningful on
+    its own from the moment a shop's first Arabic text is saved.
+    """
+    id: str               # deterministic: f"{entity_type}:{entity_id}:{field}"
+    tenant: str
+    entity_type: str      # "service" | "procedure_step"
+    entity_id: str
+    field: str             # "name" | "description" | "text"
+    source_text: str
+    source_hash: str
+    translations: dict[str, str] = field(default_factory=dict)  # locale -> translated text
+    status: str = "pending"   # "pending" | "done"
+    updated_at: int = 0
+
+    def public(self) -> dict[str, Any]:
+        return {"id": self.id, "tenant": self.tenant, "entity_type": self.entity_type,
+                "entity_id": self.entity_id, "field": self.field,
+                "source_text": self.source_text, "translations": dict(self.translations),
+                "status": self.status, "updated_at": self.updated_at}

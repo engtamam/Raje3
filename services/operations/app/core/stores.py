@@ -21,9 +21,10 @@ from typing import Any
 from app.adapters.datastore.drain import drain
 from app.core import privacy_requests as PR
 from app.core.models import (ACCOUNT_SETTINGS, ASSETS, BRANCHES, CUSTOMERS, OPERATOR_STEP_STATS,
-                             OPERATORS, PACKAGES, PROCEDURE_STEPS, SERVICES, VISITS, Asset, Branch,
-                             Customer, Operator, OperatorStepStat, Package, ProcedureStep, Service,
-                             Visit)
+                             OPERATORS, PACKAGES, PROCEDURE_STEPS, SERVICES, TRANSLATIONS, VISITS,
+                             Asset, Branch, Customer, Operator, OperatorStepStat, Package,
+                             ProcedureStep, Service, TranslationEntry, Visit)
+from app.core.translations import detect_change
 
 _PAGE = 100
 
@@ -256,6 +257,10 @@ class ServiceStore(_Base):
 
     async def save(self, s: Service) -> Service:
         await self._put(s.tenant, s.id, s.__dict__.copy())
+        await TranslationStore(self._s).detect_and_mark(
+            s.tenant, "service", s.id, "name", s.name)
+        await TranslationStore(self._s).detect_and_mark(
+            s.tenant, "service", s.id, "description", s.description)
         return s
 
     async def save_new(self, **fields: Any) -> Service:
@@ -534,6 +539,8 @@ class ProcedureStepStore(_Base):
 
     async def save(self, s: ProcedureStep) -> ProcedureStep:
         await self._put(s.tenant, s.id, s.__dict__.copy())
+        await TranslationStore(self._s).detect_and_mark(
+            s.tenant, "procedure_step", s.id, "text", s.text)
         return s
 
 
@@ -577,3 +584,91 @@ class OperatorStepStatStore(_Base):
         stat.last_visit_id = visit_id
         await self._put(tenant, ident, stat.__dict__.copy())
         return stat
+
+
+class TranslationStore(_Base):
+    """One row per (entity_type, entity_id, field) — see `TranslationEntry`'s own docstring, and
+    `core/translations.py` for the hash comparison `detect_and_mark` runs on every call."""
+
+    collection = TRANSLATIONS
+
+    async def get(self, tenant: str, entity_type: str, entity_id: str,
+                  field: str) -> TranslationEntry | None:
+        from app.core.translations import entry_id
+        row = await self._get(tenant, entry_id(entity_type, entity_id, field))
+        return TranslationEntry(**row) if row else None
+
+    async def get_many(self, tenant: str, entity_type: str, entity_ids: list[str],
+                       fields: tuple[str, ...]) -> dict[str, TranslationEntry]:
+        """Every (entity_id, field) pair's own entry, in one round trip — same "direct key gets,
+        concurrent" shape `ProcedureStepStore.get_many`'s own docstring already uses, for a locale-
+        aware list read that would otherwise be one lookup per row per field. Keyed by `entry.id`
+        (`f"{entity_type}:{entity_id}:{field}"`) so a caller resolving a specific row's specific
+        field never needs to reconstruct it."""
+        if not entity_ids or not fields:
+            return {}
+        found = await asyncio.gather(*(
+            self.get(tenant, entity_type, eid, f) for eid in entity_ids for f in fields))
+        return {e.id: e for e in found if e is not None}
+
+    async def detect_and_mark(self, tenant: str, entity_type: str, entity_id: str, field: str,
+                              source_text: str) -> TranslationEntry | None:
+        """Called from `ServiceStore.save`/`ProcedureStepStore.save` on EVERY save — cheap when
+        nothing changed (one get, one hash, no write) and correct when it did (see
+        `detect_change`'s own docstring for why a hash rather than a dirty flag)."""
+        existing = await self.get(tenant, entity_type, entity_id, field)
+        updated = detect_change(existing, tenant=tenant, entity_type=entity_type,
+                                entity_id=entity_id, field=field, source_text=source_text)
+        if updated is None:
+            return existing
+        await self._put(tenant, updated.id, updated.__dict__.copy())
+        return updated
+
+    async def list_pending(self, limit: int = 500) -> list[TranslationEntry]:
+        """EVERY shop's own untranslated text, across every tenant — the phase-3 worker's whole
+        work list, same cross-tenant `scan_all` shape `WhatsAppConnections.all()`
+        (core/connect.py) already uses for its own fleet-wide sweep. Never exposed on a route a
+        shop's own token could reach; only `translations_scan` (internal-token-gated,
+        api/internal.py) calls this."""
+        rows = await self._s.scan_all(self.collection, max(1, min(2000, limit)))
+        return [TranslationEntry(**r) for r in rows if r.get("status") == "pending"][:limit]
+
+    async def write_result(self, tenant: str, entry_id_: str, source_hash: str,
+                           translations: dict[str, str]) -> str:
+        """Write a worker's own translation result back — COMPARE-AND-SWAP ON `source_hash`, not a
+        blind overwrite. `entry_id_` is `TranslationEntry.id` (already includes entity_type/
+        entity_id/field); `source_hash` is the hash the WORKER translated against, captured when
+        its job was enqueued.
+
+        THE HARD CASE THIS EXISTS FOR: a shop edits the same field again AFTER a translation job
+        was enqueued but BEFORE it finishes — `detect_and_mark` (called from the very next `save`)
+        already overwrote the row with a NEW hash and reset it to `pending`. Writing the OLD
+        translation over that row would silently resurrect stale text under a `status="done"` that
+        claims to answer text the shop no longer has. So this reads the row fresh, and only writes
+        when its CURRENT hash still matches what the worker translated — otherwise it is a no-op,
+        and returns `"stale"` so the caller acks the job without treating it as a failure (the
+        entry is already correctly `pending` again, under its own new hash, for a future scan to
+        pick up).
+
+        Returns `"written"` | `"stale"` | `"missing"` (the row no longer exists — retired data,
+        an entity deleted between enqueue and this write) — never raises for any of the three;
+        all three are real, ordinary outcomes for a worker running well after the fact.
+        """
+        row = await self._s.get(self.collection, _key(tenant, entry_id_))
+        if row is None:
+            return "missing"
+        current = TranslationEntry(**row)
+        if current.source_hash != source_hash:
+            return "stale"
+        if not translations:
+            return "stale"
+        current.translations = dict(translations)
+        # DONE ONLY WHEN EVERY TARGET LOCALE ANSWERED — a partial result (one locale's own
+        # inference failed, see `Nllb200TranslationEngine.translate`'s own docstring) stays
+        # `pending` so the NEXT scan re-enqueues exactly this entry rather than the caller having
+        # to track "which locales are still missing" anywhere.
+        from app.core.translations import TARGET_LOCALES
+        current.status = "done" if all(l in current.translations for l in TARGET_LOCALES) else "pending"
+        current.updated_at = int(time.time())
+        await self._put(tenant, entry_id_, current.__dict__.copy())
+        return "written"

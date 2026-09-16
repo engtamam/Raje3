@@ -26,7 +26,7 @@ image:
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
   repository: ghcr.io/engtamam/raje3/operations
-  digest: "sha256:9a770b235448f3c6c3b1b0a8afdc02449f59390369884b2251af95cb04036986"   # 0b53a0a0, published by publish-images.sh
+  digest: "sha256:3e24fd700d6ecc027d72d25d038140e063390894ed3960af16aae22a5bbe5413"   # 5dcd25ec, published by publish-images.sh
 
 replicas: 1
 
@@ -99,10 +99,36 @@ networkPolicy:
     # the open internet, and saying so here is cheaper than discovering otherwise.
     internet: false
 
+# THE TRANSLATION MODEL (core/translation_engine.py, phase 3) — READ-ONLY, filled by a SEPARATE
+# one-off Job with its own narrow egress, never by this deployment's own pods (see
+# deploy/k3s/translation-model.yaml's own header for the full story and why `internet: false`
+# above stays untouched). Mounted even before that Job has ever run — an empty/missing PVC just
+# means `Nllb200TranslationEngine._ensure_loaded` refuses honestly (TRANSLATION_ENGINE_DRIVER
+# below still defaults to "null" everywhere except here, so this mount alone changes nothing
+# until an operator deliberately flips it — see env block).
+extraVolumes:
+  - name: translation-model
+    persistentVolumeClaim: { claimName: translation-model }
+extraVolumeMounts:
+  - name: translation-model
+    mountPath: /models/translation
+    readOnly: true
+
 metrics:
   serviceMonitor: false   # flipped on with the rest of the fleet; the flip restarts every pod
 
 env:
+  # ── shop-content translation (phase 3, core/translation_engine.py) ────────────────────────
+  # Flipped ON here, not left at config.py's own "null" default — the model is staged by
+  # deploy/k3s/translation-model.yaml's own fetch Job (see extraVolumes above) BEFORE this
+  # deployment's pods ever start reading it, and `Nllb200TranslationEngine` is lazy-loaded (first
+  # real translation job, not at boot) so a pod that starts before the fetch Job finishes still
+  # boots clean — it only refuses honestly (TranslationEngineUnavailable) the first time
+  # `translations_jobs_run` actually finds something to translate before the mount has data.
+  TRANSLATION_ENGINE_DRIVER: "nllb200"
+  TRANSLATION_MODEL_PATH: "/models/translation"
+  TRANSLATION_SP_MODEL_PATH: "/models/translation/sentencepiece.bpe.model"
+
   # ── The request budget per person (§1.1) ──────────────────────────────────────────────────
   #
   # EVERY SERVICE CARRIES ITS OWN LIMITER, and its default is 100 requests a minute per subject.
@@ -442,6 +468,14 @@ env:
 #       renewal-heads-up-scan operations.renewal_heads_up_scan
 #   deploy/hooks/job-dispatch-target.sh register renewal-heads-up-scan \
 #       http://operations:8000/internal/operations/subscriptions/renewal-heads-up/scan
+#   deploy/hooks/job-schedule.sh create translations-scan "*/10 * * * *" translations-scan \
+#       operations.translations_scan
+#   deploy/hooks/job-dispatch-target.sh register translations-scan \
+#       http://operations:8000/internal/operations/translations/scan
+#   deploy/hooks/job-schedule.sh create translations-jobs-run "*/2 * * * *" translations-jobs-run \
+#       operations.translations_jobs_run
+#   deploy/hooks/job-dispatch-target.sh register translations-jobs-run \
+#       http://operations:8000/internal/operations/translations/jobs/run
 #   deploy/hooks/job-schedule.sh create renewal-heads-up-jobs-run "4-59/5 * * * *" \
 #       renewal-heads-up-jobs-run operations.renewal_heads_up_jobs_run
 #   deploy/hooks/job-dispatch-target.sh register renewal-heads-up-jobs-run \
@@ -490,6 +524,14 @@ env:
 # subscription renewal notice (app/core/renewal_heads_up.py's own docstring) — a daily, read-only
 # billing scan enqueues one durable job per row; the run claims and actually calls
 # whatsapp-assistant.
+#
+# translations-scan/translations-jobs-run are the shop-content translation pair
+# (core/translation_engine.py's own module docstring, [[task-catalog-translation-phases]]
+# memory) — the scan (every 10 minutes, cheap: one cross-tenant collection scan) enqueues one
+# durable job per untranslated field onto the SEPARATE `translations` work queue; the run (every
+# 2 minutes) claims from THAT queue and is the only one of this whole file's schedules that
+# self-refuses when the box is busy (core/server_load.py::is_idle) — every other pair here runs
+# unconditionally on its own clock.
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door

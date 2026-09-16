@@ -65,6 +65,8 @@ ROUTES=(
   "salla-jobs-run|2-59/5 * * * *|salla-jobs-run|operations.salla_jobs_run|operations:8000|/internal/operations/salla/jobs/run"
   "renewal-heads-up-scan|26 4 * * *|renewal-heads-up-scan|operations.renewal_heads_up_scan|operations:8000|/internal/operations/subscriptions/renewal-heads-up/scan"
   "renewal-heads-up-jobs-run|4-59/5 * * * *|renewal-heads-up-jobs-run|operations.renewal_heads_up_jobs_run|operations:8000|/internal/operations/subscriptions/renewal-heads-up/jobs/run"
+  "translations-scan|*/10 * * * *|translations-scan|operations.translations_scan|operations:8000|/internal/operations/translations/scan"
+  "translations-jobs-run|*/2 * * * *|translations-jobs-run|operations.translations_jobs_run|operations:8000|/internal/operations/translations/jobs/run"
 )
 
 FAILED=0

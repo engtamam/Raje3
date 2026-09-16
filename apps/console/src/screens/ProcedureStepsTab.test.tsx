@@ -118,7 +118,7 @@ describe('الإجراءات', () => {
       expect.stringContaining('/procedure-checklist/export'),
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ service_ids: ['svc_2'], file_format: 'pdf' }),
+        body: JSON.stringify({ service_ids: ['svc_2'], file_format: 'pdf', locale: 'ar' }),
       }),
     ));
     await waitFor(() => expect(createObjectURL).toHaveBeenCalledWith(blob));
@@ -144,7 +144,7 @@ describe('الإجراءات', () => {
       expect.stringContaining('/procedure-checklist/export'),
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ service_ids: ['svc_1', 'svc_2'], file_format: 'pdf' }),
+        body: JSON.stringify({ service_ids: ['svc_1', 'svc_2'], file_format: 'pdf', locale: 'ar' }),
       }),
     ));
 

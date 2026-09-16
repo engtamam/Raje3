@@ -48,9 +48,10 @@ from docx.oxml.ns import qn
 from docx.shared import Inches, Pt
 
 from app.core.staff_performance_render import (
-    _DEFAULT_RULE_COLOR, _FONT, _horizontal_rule, arabic_run, finalize_rtl, fixed_widths, ltr,
+    _DEFAULT_RULE_COLOR, _FONT, _horizontal_rule, arabic_run, finalize_direction, fixed_widths, ltr,
     rule_color,
 )
+from app.core.print_i18n import is_rtl, label
 
 # A real ceiling, not a guess — same reasoning `staff_performance_render.MAX_ROWS` gives: a
 # protocol nobody would actually hand a customer this long still gets a document, capped, with a
@@ -61,20 +62,26 @@ _CRITICAL_RED = "B3261E"
 _MUTED_GREY = "6B6B76"
 
 
-def _severity_tag(p, severity: str) -> None:
+def _severity_tag(p, severity: str, locale: str) -> None:
     if severity == "critical":
-        arabic_run(p, "  ⚠ خطوة حرجة", size=9, bold=True, color=_CRITICAL_RED)
+        arabic_run(p, label(locale, "checklist.critical_tag"), size=9, bold=True,
+                  color=_CRITICAL_RED)
 
 
 def build_procedure_checklist_docx(
     *, shop_name: str, service_names: list[str], steps: list[dict[str, Any]],
     out_path: str | Path, logo_png: bytes | None = None, accent_color: str = "",
-    generated_at_label: str = "",
+    generated_at_label: str = "", locale: str = "ar",
 ) -> Path:
     """Build the branded .docx. `steps` is already resolved, ORDERED and DEDUPED by the caller
     (`api/v1/staff.py::export_procedure_checklist`) — this never re-orders, re-fetches or merges;
     each is `{id, text, severity, also_in: list[str]}` (`also_in` empty for a step that belongs to
     only one of `service_names`). `logo_png`/`accent_color` come from `core/tenant_branding.py`.
+
+    `locale` PICKS THE DOCUMENT'S OWN LABELS (`print_i18n.py`) AND FLOW DIRECTION — `steps`'
+    own `text` and `service_names` arrive ALREADY RESOLVED to this locale by the caller (via
+    `core/translations.py::resolve`), never translated in this module; this module only ever
+    renders what it is handed.
     """
     doc = Document()
     color = rule_color(accent_color)
@@ -96,7 +103,7 @@ def build_procedure_checklist_docx(
 
     footer_p = sec.footer.paragraphs[0]
     if generated_at_label:
-        arabic_run(footer_p, f"أُنشئ بتاريخ: {ltr(generated_at_label)}", size=9)
+        arabic_run(footer_p, f"{label(locale, 'generated_at')}{ltr(generated_at_label)}", size=9)
         footer_p.add_run("    ")
     fld = OxmlElement("w:fldSimple")
     fld.set(qn("w:instr"), "PAGE")
@@ -105,7 +112,7 @@ def build_procedure_checklist_docx(
     # THE MASTHEAD — a cover strip naming every service this specific card covers, not a bare
     # title, since this page may be handed over on its own with no other context on it.
     eyebrow_p = doc.add_paragraph()
-    arabic_run(eyebrow_p, "بطاقة إجراءات الخدمة", size=10, bold=True,
+    arabic_run(eyebrow_p, label(locale, "checklist.eyebrow"), size=10, bold=True,
               color=color if color != _DEFAULT_RULE_COLOR else _MUTED_GREY)
 
     title_p = doc.add_paragraph()
@@ -113,15 +120,15 @@ def build_procedure_checklist_docx(
 
     if len(service_names) > 1:
         combo_p = doc.add_paragraph()
-        arabic_run(combo_p, f"قائمة موحّدة لـ{ltr(str(len(service_names)))} خدمات — كل إجراء "
-                           f"مشترك مذكور مرة واحدة فقط.", size=10, color=_MUTED_GREY)
+        arabic_run(combo_p, label(locale, "checklist.combined_note", n=ltr(str(len(service_names)))),
+                  size=10, color=_MUTED_GREY)
 
     _horizontal_rule(doc, color)
 
     if not steps:
         p = doc.add_paragraph()
-        arabic_run(p, "لا توجد إجراءات مسجَّلة لهذه الخدمة بعد.", size=11)
-        finalize_rtl(doc)
+        arabic_run(p, label(locale, "checklist.empty"), size=11)
+        finalize_direction(doc, rtl=is_rtl(locale))
         out_path = Path(out_path)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         doc.save(out_path)
@@ -130,8 +137,8 @@ def build_procedure_checklist_docx(
     truncated = len(steps) > MAX_STEPS
     if truncated:
         warn_p = doc.add_paragraph()
-        arabic_run(warn_p, f"⚠ هذه البطاقة تعرض أعلى {MAX_STEPS} إجراءً فقط من أصل "
-                          f"{ltr(str(len(steps)))}.", size=10, bold=True)
+        arabic_run(warn_p, label(locale, "checklist.truncated", n=ltr(str(MAX_STEPS)),
+                                 m=ltr(str(len(steps)))), size=10, bold=True)
         _horizontal_rule(doc, color)
 
     # ONE ROW PER STEP, NOT ONE COMPRESSED TABLE — a numbered circle, the step text, a real
@@ -151,12 +158,13 @@ def build_procedure_checklist_docx(
         text_p = row[1].paragraphs[0]
         arabic_run(text_p, step.get("text") or "—", size=12)
         if step.get("severity") == "critical":
-            _severity_tag(text_p, "critical")
+            _severity_tag(text_p, "critical", locale)
 
         also_in = step.get("also_in") or []
         if also_in:
             shared_p = row[1].add_paragraph()
-            arabic_run(shared_p, f"↳ مشتركة مع: {'، '.join(also_in)}", size=9, color=_MUTED_GREY)
+            arabic_run(shared_p, f"{label(locale, 'checklist.shared_with')}{'، '.join(also_in)}",
+                      size=9, color=_MUTED_GREY)
 
         box_p = row[2].paragraphs[0]
         box_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -184,7 +192,7 @@ def build_procedure_checklist_docx(
         tblBorders.append(el)
     tblPr.append(tblBorders)
 
-    finalize_rtl(doc)
+    finalize_direction(doc, rtl=is_rtl(locale))
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(out_path)

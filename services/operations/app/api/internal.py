@@ -31,7 +31,7 @@ from app.core.integration import Integration
 from app.core.partners import PartnerError, PartnerRegistry
 from app.core.stores import (AssetStore, BranchStore, CustomerStore, OperatorStepStatStore,
                              OperatorStore, PackageStore, PrivacyRequestStore, ProcedureStepStore,
-                             ServiceStore, VisitStore, new_id)
+                             ServiceStore, TranslationStore, VisitStore, new_id)
 from app.core.operations import OperationError, RecordedVisit
 from app.core.quantities import check_quantities
 from app.core.whatsapp_visit_flag import WhatsAppVisitFlagStore
@@ -2674,6 +2674,120 @@ async def salla_jobs_run(request: Request) -> dict:
             failed += 1
             await c.jobs.nack(job_id, lease_token, str(exc)[:200])
     return {"claimed": len(claimed), "refreshed": refreshed, "skipped": skipped, "failed": failed}
+
+
+@router.post("/operations/translations/scan",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
+async def translations_scan(request: Request) -> dict:
+    """Find every shop's own untranslated text, across every tenant, and enqueue ONE translation
+    job per row — driven by job-service's own schedule (see [[task-catalog-translation-phases]]
+    memory: this scan is cheap and may fire often; `jobs/run` below is the expensive one, gated on
+    `core/server_load.py::is_idle`, never this route).
+
+    `unique_key` IS SCOPED TO THE ENTRY'S CURRENT `source_hash`, THE SAME CONVENTION
+    `salla_refresh_scan`'s own docstring argues for — a shop editing the same field again before
+    its first job finishes mints a genuinely new key (via `detect_and_mark`'s own fresh row),
+    never colliding with a job-service has already claimed for the OLD text.
+    """
+    c = request.app.state.container
+    rows = await TranslationStore(c.datastore).list_pending()
+    enqueued = unavailable = 0
+    for row in rows:
+        try:
+            await c.jobs.enqueue(
+                queue="translations", tenant=row.tenant, type="translations.translate",
+                payload={"entity_type": row.entity_type, "entity_id": row.entity_id,
+                        "field": row.field, "source_hash": row.source_hash},
+                unique_key=f"translate:{row.id}:{row.source_hash}")
+            enqueued += 1
+        except job_service_core.JobServiceUnavailable:
+            # job-service is not configured on this deployment — the same entry is simply found
+            # again on the next scan; nothing here is lost, only delayed indefinitely until it is.
+            unavailable += 1
+    return {"scanned": len(rows), "enqueued": enqueued, "unavailable": unavailable}
+
+
+@router.post("/operations/translations/jobs/run",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
+async def translations_jobs_run(request: Request) -> dict:
+    """job-service's own schedule fires this every couple of minutes, UNCONDITIONALLY — job-
+    service itself has no notion of "server load", so THIS ROUTE is the one place that decides
+    whether to actually do anything (`core/server_load.py::is_idle`). A firing that finds the box
+    busy returns immediately, tries again next time — the same "delayed, never lost" posture
+    `salla_refresh_scan`'s own docstring already gives a scan that finds nothing to do.
+
+    NOTHING IS CLAIMED (NOT EVEN LEASED) WHEN THE ENGINE IS UNAVAILABLE OR THE BOX IS BUSY —
+    checked BEFORE the claim, not after (same "ask before the call, not after" discipline
+    `core/signup.py::send_code`'s own docstring argues for): claiming a batch this process will
+    not touch would just hold jobs leased and idle until their lease expires, for no benefit over
+    not claiming at all. And when the queue is genuinely EMPTY, `claim()` itself returns nothing
+    to iterate — the model is never loaded at all (`Nllb200TranslationEngine._ensure_loaded` is
+    lazy, first touched inside the loop below), so an idle box with no pending translations costs
+    this route one cheap load-average read and nothing else.
+    """
+    from starlette.concurrency import run_in_threadpool
+
+    from app.core.server_load import is_idle
+    from app.core.translation_engine import NullTranslationEngine, TranslationEngineUnavailable
+    from app.core.translations import TARGET_LOCALES
+
+    c = request.app.state.container
+    engine = c.translation_engine
+    if isinstance(engine, NullTranslationEngine):
+        return {"claimed": 0, "translated": 0, "stale": 0, "failed": 0}
+    if not is_idle(get_settings().TRANSLATION_LOAD_THRESHOLD):
+        return {"claimed": 0, "translated": 0, "stale": 0, "failed": 0, "skipped": "server_busy"}
+
+    now = int(time.time())
+    claimed = await c.jobs.claim(worker=f"translations-{now}", queue="translations", batch=20)
+    store = TranslationStore(c.datastore)
+    translated = stale = failed = 0
+    for job in claimed:
+        job_id, lease_token = job.get("id", ""), job.get("lease_token", "")
+        tenant = str(job.get("tenant") or "")
+        payload = job.get("payload") or {}
+        entity_type, entity_id, field = (str(payload.get("entity_type") or ""),
+                                        str(payload.get("entity_id") or ""),
+                                        str(payload.get("field") or ""))
+        source_hash = str(payload.get("source_hash") or "")
+        try:
+            from app.core.translations import entry_id as _entry_id
+            current = await store.get(tenant, entity_type, entity_id, field)
+            if current is None or current.source_hash != source_hash:
+                # ALREADY STALE BEFORE TRANSLATION EVEN RAN — the shop edited this field again, or
+                # the entity is gone, since this job was enqueued. Cheaper to notice here than to
+                # spend a model call on text nobody needs translated any more.
+                await c.jobs.ack(job_id, lease_token, {"skipped": "stale"})
+                stale += 1
+                continue
+            result = await run_in_threadpool(
+                engine.translate, current.source_text, list(TARGET_LOCALES))
+            outcome = await store.write_result(
+                tenant, _entry_id(entity_type, entity_id, field), source_hash, result)
+            if outcome == "written":
+                await c.jobs.ack(job_id, lease_token, {"translated": list(result.keys())})
+                translated += 1
+            elif outcome == "stale":
+                await c.jobs.ack(job_id, lease_token, {"skipped": "stale"})
+                stale += 1
+            else:  # "missing"
+                await c.jobs.ack(job_id, lease_token, {"skipped": "missing"})
+                stale += 1
+        except TranslationEngineUnavailable as exc:
+            # THE MODEL ITSELF IS BROKEN (a bad path, a corrupt file) — every OTHER job in this
+            # same batch would fail identically, so nack the rest without even trying them rather
+            # than burning the whole claimed batch one slow failure at a time.
+            await c.jobs.nack(job_id, lease_token, f"engine_unavailable: {exc}"[:200])
+            failed += 1
+            for rest in claimed[claimed.index(job) + 1:]:
+                await c.jobs.nack(rest.get("id", ""), rest.get("lease_token", ""),
+                                  "engine_unavailable")
+                failed += 1
+            break
+        except Exception as exc:                                     # noqa: BLE001
+            failed += 1
+            await c.jobs.nack(job_id, lease_token, str(exc)[:200])
+    return {"claimed": len(claimed), "translated": translated, "stale": stale, "failed": failed}
 
 
 @router.post("/operations/subscriptions/renewal-heads-up/scan",

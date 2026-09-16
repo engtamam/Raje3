@@ -31,7 +31,8 @@ import { EmptyState } from '../rj-ui/EmptyState';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
-import { useOperatorI18n, tf } from '../operator-i18n';
+import { useOperatorI18n, tf, type OperatorLocale } from '../operator-i18n';
+import { PrintLocalePicker } from '../rj-ui/PrintLocalePicker';
 import { fresh } from '../renew';
 import './procedure-steps-tab-i18n';
 
@@ -78,8 +79,13 @@ function SeverityDot({ severity }: { severity: Severity }) {
 // parses (same reasoning Rating.tsx's own export button already settled on). Shared by the
 // per-service drawer's own print button AND the service-list's multi-select bulk print — one
 // service or several, the server-side route always takes a `service_ids` list.
+//
+// `locale` IS THE PRINT'S OWN CHOICE, NEVER SILENTLY THE OPERATOR'S UI LANGUAGE — an operator
+// reading the console in Arabic may still need to hand a technician (or a customer) a copy in
+// their own language, so every print surface offers this pick separately, defaulting to (but
+// never locked to) the operator's own current locale. See `PrintLocalePicker` below.
 async function downloadProcedureChecklist(
-  session: Session, catalog: Catalog, serviceIds: string[], filename: string,
+  session: Session, catalog: Catalog, serviceIds: string[], filename: string, locale: string,
 ): Promise<void> {
   const a = action(catalog, 'operations.export_procedure_checklist');
   if (!a) throw new Error('no action');
@@ -87,7 +93,7 @@ async function downloadProcedureChecklist(
   const res = await fetch(`${API_BASE}${a.path}`, {
     method: a.method,
     headers: { Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ service_ids: serviceIds, file_format: 'pdf' }),
+    body: JSON.stringify({ service_ids: serviceIds, file_format: 'pdf', locale }),
   });
   if (!res.ok) throw new Error('export failed');
   const blob = await res.blob();
@@ -99,7 +105,7 @@ async function downloadProcedureChecklist(
 }
 
 export function ProcedureStepsTab({ session, catalog }: { session: Session; catalog: Catalog }) {
-  const { t } = useOperatorI18n();
+  const { t, locale } = useOperatorI18n();
   const [steps, setSteps] = useState<ProcedureStep[] | null | undefined>(undefined);
   const [services, setServices] = useState<ServiceLite[] | null | undefined>(undefined);
   const [openServiceId, setOpenServiceId] = useState<string | null>(null);
@@ -107,19 +113,24 @@ export function ProcedureStepsTab({ session, catalog }: { session: Session; cata
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkPrinting, setBulkPrinting] = useState(false);
   const [bulkPrintError, setBulkPrintError] = useState('');
+  const [printLocale, setPrintLocale] = useState<OperatorLocale>(locale);
 
   const load = () => {
     const stepsAction = action(catalog, 'operations.list_procedure_steps');
     const svcAction = action(catalog, 'operations.manage_services');
     if (!stepsAction || !svcAction) { setSteps(null); setServices(null); return; }
-    call<{ procedure_steps: ProcedureStep[] }>(session, stepsAction)
+    // `locale` — the OPERATOR'S OWN interface language, same value his الإعدادات language
+    // switcher already picks. Server-side `?locale=` (core/translations.py) falls back to
+    // Arabic per-field on its own when nothing is translated yet, so this is never a wasted
+    // round trip even on a locale that has no translations at all.
+    call<{ procedure_steps: ProcedureStep[] }>(session, stepsAction, { locale })
       .then((x) => setSteps(x.procedure_steps ?? []))
       .catch(() => setSteps(null));
-    call<{ services: ServiceLite[] }>(session, svcAction)
+    call<{ services: ServiceLite[] }>(session, svcAction, { locale })
       .then((x) => setServices(x.services ?? []))
       .catch(() => setServices(null));
   };
-  useEffect(load, [session, catalog]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(load, [session, catalog, locale]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const stepsById = useMemo(() => {
     const m = new Map<string, ProcedureStep>();
@@ -169,7 +180,7 @@ export function ProcedureStepsTab({ session, catalog }: { session: Session; cata
       const ids = [...selected];
       const names = visibleServices.filter((s) => selected.has(s.id)).map((s) => s.name);
       await downloadProcedureChecklist(session, catalog, ids,
-        `${names.join(' + ') || 'إجراءات'}.pdf`);
+        `${names.join(' + ') || 'إجراءات'}.pdf`, printLocale);
       setSelected(new Set());
     } catch {
       setBulkPrintError(t('procedures.drawer.printFailed'));
@@ -199,7 +210,9 @@ export function ProcedureStepsTab({ session, catalog }: { session: Session; cata
             {selectedCountLabel(t, selected.size)}
           </span>
           {bulkPrintError ? <p role="alert" className="text-caption text-danger">{bulkPrintError}</p> : null}
-          <div className="ms-auto flex gap-2">
+          <div className="ms-auto flex items-center gap-2">
+            <PrintLocalePicker value={printLocale} onChange={setPrintLocale}
+                              label={t('procedures.bulkPrint.printLocale')} />
             <Button type="button" variant="ghost" onClick={() => setSelected(new Set())}>
               {t('procedures.bulkPrint.clear')}
             </Button>
@@ -287,13 +300,14 @@ function ServiceDrawer({
   allSteps: ProcedureStep[]; stepsById: Map<string, ProcedureStep>; usageCount: Map<string, number>;
   onClose: () => void; onSaved: () => void;
 }) {
-  const { t } = useOperatorI18n();
+  const { t, locale } = useOperatorI18n();
   const [order, setOrder] = useState<string[]>(service.procedure_step_ids);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState('');
+  const [printLocale, setPrintLocale] = useState<OperatorLocale>(locale);
 
   const dirty = order.length !== service.procedure_step_ids.length
     || order.some((id, i) => id !== service.procedure_step_ids[i]);
@@ -317,7 +331,8 @@ function ServiceDrawer({
     if (printing) return;
     setPrinting(true); setPrintError('');
     try {
-      await downloadProcedureChecklist(session, catalog, [service.id], `${service.name}.pdf`);
+      await downloadProcedureChecklist(session, catalog, [service.id], `${service.name}.pdf`,
+        printLocale);
     } catch {
       setPrintError(t('procedures.drawer.printFailed'));
     } finally {
@@ -335,6 +350,8 @@ function ServiceDrawer({
         <div className="flex w-full items-center gap-2">
           {error ? <p role="alert" className="text-caption text-danger">{error}</p> : null}
           {printError ? <p role="alert" className="text-caption text-danger">{printError}</p> : null}
+          <PrintLocalePicker value={printLocale} onChange={setPrintLocale}
+                            label={t('procedures.drawer.printLocale')} />
           <Button type="button" variant="ghost" onClick={print} disabled={printing || order.length === 0}>
             <Printer size={15} />
             {printing ? t('procedures.drawer.printing') : t('procedures.drawer.print')}

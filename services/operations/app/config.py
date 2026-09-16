@@ -291,6 +291,20 @@ class Settings(BaseSettings):
     # NullJobService, same posture as every other optional peer URL in this file: the refresh
     # scan simply finds nothing to enqueue rather than crashing.
     JOB_SERVICE_URL: str = ""                # e.g. http://job-service:8000
+
+    # ── shop-content translation (phase 3 — core/translation_engine.py) ────────────────────────
+    # "null" — the honest default until a deployment actually seals a model in place. "nllb200"
+    # loads a local, quantized NLLB-200 model via ctranslate2 (never a cloud API — see
+    # [[task-catalog-translation-phases]] memory for why: a shop's service names and procedure
+    # text stay on this box). Empty paths under "nllb200" refuse at first use, not at boot — a
+    # deployment with the driver flipped on before the model files are actually staged must not
+    # crash startup for every OTHER route this service serves.
+    TRANSLATION_ENGINE_DRIVER: str = "null"     # null | nllb200
+    TRANSLATION_MODEL_PATH: str = ""            # ctranslate2 model directory (model.bin, config)
+    TRANSLATION_SP_MODEL_PATH: str = ""         # the shared sentencepiece.bpe.model file
+    # THE FRACTION OF CPU COUNT `core/server_load.py::is_idle` refuses above — see that module's
+    # own docstring for why this is a fraction, not a raw load number.
+    TRANSLATION_LOAD_THRESHOLD: float = 0.7
     # Whether a shop has a WhatsApp account, ASKED of notification-service rather than stored: a
     # copy here is a second answer to the same question, and the first disagreement refuses a
     # subscription from a shop that connected an hour ago.

@@ -1,0 +1,76 @@
+# The shop-content translation model (core/translation_engine.py, phase 3) — a PersistentVolume
+# operations reads from with NO INTERNET ACCESS OF ITS OWN (operations.values.yaml's own
+# networkPolicy sets `egress.internet: false`, deliberately: "a service that holds phone numbers
+# has no business reaching the open internet" — this file must never change that).
+#
+# THE FILE ITSELF ARRIVES THROUGH A SEPARATE, ONE-OFF Job (below) — its own pod, unrelated to and
+# unselected by `operations`'s own NetworkPolicy (a stock k8s NetworkPolicy only restricts a pod
+# it selects; this Job carries none of operations' labels), that runs once, writes into the PVC,
+# and exits. `operations`'s own running pods never gain internet access; they only ever mount this
+# PVC read-only.
+#
+# NO PER-HOSTNAME EGRESS RULE HERE — this cluster's Calico is installed without the
+# `projectcalico.org/v3` API extension that per-domain policy needs (confirmed live, 2026-09-16:
+# applying one fails with "no matches for kind NetworkPolicy in version projectcalico.org/v3").
+# A stock k8s NetworkPolicy cannot match by hostname at all, only by IP/CIDR/podSelector — and
+# GitHub's asset-serving IPs are not a small pinned range worth hardcoding. This Job's egress is
+# therefore left at the cluster's own ambient default (unrestricted, the same as any pod nothing
+# selects), same as every other one-off migration/seed Job in this namespace.
+#
+# THE MODEL ITSELF IS A PUBLIC ASSET — re-hosted at github.com/engtamam/raje3-assets (a dedicated
+# PUBLIC repo that carries no proprietary code, deliberately separate from this private one), so
+# the fetch needs no auth token and therefore no Secret to provision. See that release's own notes
+# for provenance (int8-quantized NLLB-200-distilled-600M, converted with ctranslate2).
+#
+# RE-RUN THE JOB TO REFRESH: `kubectl delete job -n base-services translation-model-fetch` then
+# re-apply this file — a Job does not re-run on its own once Complete, by k8s's own design.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: translation-model
+  namespace: base-services
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi     # ~622MB model.bin + ~11MB tokenizer/vocab files, rounded up with headroom
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: translation-model-fetch
+  namespace: base-services
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        job-name: translation-model-fetch
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: fetch
+          image: curlimages/curl:8.11.0
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              BASE="https://github.com/engtamam/raje3-assets/releases/download/translation-model-nllb200-int8-v1"
+              cd /data
+              for f in model.bin sentencepiece.bpe.model config.json shared_vocabulary.json SHA256SUMS.txt; do
+                echo "fetching $f"
+                curl -fSL --retry 5 --retry-delay 5 -o "$f" "$BASE/$f"
+              done
+              echo "verifying checksums"
+              sha256sum -c SHA256SUMS.txt
+              echo "translation model staged OK"
+          volumeMounts:
+            - name: model
+              mountPath: /data
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits:   { memory: 512Mi }
+      volumes:
+        - name: model
+          persistentVolumeClaim: { claimName: translation-model }

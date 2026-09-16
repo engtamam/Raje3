@@ -53,7 +53,17 @@ def _ensure(parent, tag, successors):
     return True
 
 
-def finalize_rtl(doc: Document) -> None:
+def finalize_direction(doc: Document, *, rtl: bool = True) -> None:
+    """`finalize_rtl`, parameterised (added for `?locale=`-aware exports — see `print_i18n.py`).
+
+    THE PER-RUN ARABIC-SCRIPT DETECTION BELOW RUNS UNCHANGED EITHER WAY — a run's own text decides
+    its own `w:rtl` regardless of `rtl`, so a borrowed Arabic term (a brand name, say) inside an
+    otherwise-English document still shapes correctly. WHAT `rtl` GATES is the DOCUMENT'S OWN FLOW:
+    paragraph/table/section `w:bidi` and the "start" justification these paragraphs get — an
+    English, Hausa, Filipino or Bengali document must read left-to-right top to bottom exactly like
+    any other Word document, not merely contain correctly-shaped glyphs inside a mirrored page.
+    Only `ar`/`ur` (`print_i18n.RTL_LOCALES`) call this with `rtl=True`.
+    """
     stories = [doc.element.body]
     for sec in doc.sections:
         for part in (sec.header, sec.footer, sec.first_page_header,
@@ -69,7 +79,8 @@ def finalize_rtl(doc: Document) -> None:
             if pPr is None:
                 pPr = OxmlElement("w:pPr")
                 p.insert(0, pPr)
-            _ensure(pPr, "w:bidi", _after(_PPR, "w:bidi"))
+            if rtl:
+                _ensure(pPr, "w:bidi", _after(_PPR, "w:bidi"))
             jc = pPr.find(qn("w:jc"))
             if jc is None:
                 jc = OxmlElement("w:jc")
@@ -96,20 +107,28 @@ def finalize_rtl(doc: Document) -> None:
             if _AR.search(txt):
                 _ensure(rPr, "w:rtl", _after(_RPR, "w:rtl"))
 
-    for tbl in doc.element.body.iter(qn("w:tbl")):
-        tblPr = tbl.find(qn("w:tblPr"))
-        if tblPr is not None and tblPr.find(qn("w:bidiVisual")) is None:
-            tblPr.insert(0, OxmlElement("w:bidiVisual"))
+    if rtl:
+        for tbl in doc.element.body.iter(qn("w:tbl")):
+            tblPr = tbl.find(qn("w:tblPr"))
+            if tblPr is not None and tblPr.find(qn("w:bidiVisual")) is None:
+                tblPr.insert(0, OxmlElement("w:bidiVisual"))
 
-    for sec in doc.sections:
-        _ensure(sec._sectPr, "w:bidi",
-               ("w:rtlGutter", "w:docGrid", "w:printerSettings", "w:sectPrChange"))
-    try:
-        n = doc.styles["Normal"]
-        _ensure(n.element.get_or_add_pPr(), "w:bidi", _after(_PPR, "w:bidi"))
-        _ensure(n.element.get_or_add_rPr(), "w:rtl", _after(_RPR, "w:rtl"))
-    except KeyError:
-        pass
+        for sec in doc.sections:
+            _ensure(sec._sectPr, "w:bidi",
+                   ("w:rtlGutter", "w:docGrid", "w:printerSettings", "w:sectPrChange"))
+        try:
+            n = doc.styles["Normal"]
+            _ensure(n.element.get_or_add_pPr(), "w:bidi", _after(_PPR, "w:bidi"))
+            _ensure(n.element.get_or_add_rPr(), "w:rtl", _after(_RPR, "w:rtl"))
+        except KeyError:
+            pass
+
+
+def finalize_rtl(doc: Document) -> None:
+    """The original, unparameterised entry point — kept so nothing that already imports this name
+    (the insights service's own VERBATIM copy of this file is a separate file entirely and is
+    untouched by this edit) needs to change. Always RTL, exactly as before."""
+    finalize_direction(doc, rtl=True)
 
 
 # ── the small helpers the reference also documents ────────────────────────────────────────────
@@ -199,7 +218,7 @@ MAX_ROWS = 500
 def build_staff_performance_docx(*, tenant: str, rows: list[dict[str, Any]],
                                  out_path: str | Path, logo_png: bytes | None = None,
                                  accent_color: str = "", shop_name: str = "",
-                                 generated_at_label: str = "") -> Path:
+                                 generated_at_label: str = "", locale: str = "ar") -> Path:
     """Build the branded .docx. `rows` is `Operations.staff_performance`'s own merged shape
     (operator_id, operator_name, visits, ratings, average_rating, no_show_rate) — already sorted
     by average_rating descending by the caller, so this never re-sorts.
@@ -208,7 +227,13 @@ def build_staff_performance_docx(*, tenant: str, rows: list[dict[str, Any]],
     instruction, 2026-09-16: a shop's own saved logo/colour must appear on every document that
     leaves the building, «حتى بتقرير الفريق») — all optional, degrading to a text-only «راجِع»
     header exactly as before when a shop has none set.
+
+    `locale` PICKS THE DOCUMENT'S OWN LABELS (`print_i18n.py`) AND FLOW DIRECTION
+    (`finalize_direction`) — `rows` themselves (operator names) are never translated here; a
+    person's name is not text a shop wrote to be read in another language.
     """
+    from app.core.print_i18n import is_rtl, label
+
     doc = Document()
     color = rule_color(accent_color)
 
@@ -230,25 +255,25 @@ def build_staff_performance_docx(*, tenant: str, rows: list[dict[str, Any]],
 
     footer_p = sec.footer.paragraphs[0]
     if generated_at_label:
-        arabic_run(footer_p, f"أُنشئ بتاريخ: {ltr(generated_at_label)}", size=9)
+        arabic_run(footer_p, f"{label(locale, 'generated_at')}{ltr(generated_at_label)}", size=9)
         footer_p.add_run("    ")
     fld = OxmlElement("w:fldSimple")
     fld.set(qn("w:instr"), "PAGE")
     footer_p._p.append(fld)
 
     title_p = doc.add_paragraph()
-    arabic_run(title_p, "تقرير أداء الموظفين", size=18, bold=True)
+    arabic_run(title_p, label(locale, "performance.title"), size=18, bold=True)
 
     subtitle_p = doc.add_paragraph()
-    arabic_run(subtitle_p, "معرّف المنشأة (UUID): ", size=11, bold=True)
+    arabic_run(subtitle_p, label(locale, "performance.tenant_id"), size=11, bold=True)
     arabic_run(subtitle_p, ltr(tenant), size=11)
 
     _horizontal_rule(doc, color)
 
     if not rows:
         p = doc.add_paragraph()
-        arabic_run(p, "لا توجد بيانات أداء لهذه الفترة.", size=11)
-        finalize_rtl(doc)
+        arabic_run(p, label(locale, "performance.empty"), size=11)
+        finalize_direction(doc, rtl=is_rtl(locale))
         out_path = Path(out_path)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         doc.save(out_path)
@@ -257,18 +282,20 @@ def build_staff_performance_docx(*, tenant: str, rows: list[dict[str, Any]],
     truncated = len(rows) > MAX_ROWS
     if truncated:
         warn_p = doc.add_paragraph()
-        arabic_run(warn_p, f"⚠ هذا التقرير يعرض أعلى {MAX_ROWS} موظفاً فقط من أصل "
-                          f"{ltr(str(len(rows)))} — رتّب حسب الفرع لتضييق النطاق.", size=10,
-                  bold=True)
+        arabic_run(warn_p, label(locale, "performance.truncated", n=ltr(str(MAX_ROWS)),
+                                 m=ltr(str(len(rows)))), size=10, bold=True)
         _horizontal_rule(doc, color)
 
     table = doc.add_table(rows=1, cols=5)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     fixed_widths(table, [2.2, 1.0, 1.0, 1.15, 1.15])
     hdr = table.rows[0].cells
-    for cell, label in zip(hdr, ("الموظف", "الزيارات", "التقييمات", "متوسط التقييم",
-                                "نسبة عدم الحضور")):
-        arabic_run(cell.paragraphs[0], label, size=10, bold=True)
+    col_labels = (label(locale, "performance.col.operator"), label(locale, "performance.col.visits"),
+                 label(locale, "performance.col.ratings"),
+                 label(locale, "performance.col.avg_rating"),
+                 label(locale, "performance.col.no_show_rate"))
+    for cell, col_label in zip(hdr, col_labels):
+        arabic_run(cell.paragraphs[0], col_label, size=10, bold=True)
 
     for row in rows[:MAX_ROWS]:
         cells = table.add_row().cells
@@ -281,7 +308,7 @@ def build_staff_performance_docx(*, tenant: str, rows: list[dict[str, Any]],
         no_show_rate = row.get("no_show_rate") or 0.0
         arabic_run(cells[4].paragraphs[0], ltr(f"{no_show_rate * 100:.0f}%"), size=10)
 
-    finalize_rtl(doc)
+    finalize_direction(doc, rtl=is_rtl(locale))
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(out_path)
