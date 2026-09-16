@@ -26,6 +26,7 @@ import { AlertTriangle, ClipboardList, GripVertical, Library, Plus, Printer, X }
 import { Button } from '../rj-ui/Button';
 import { Badge } from '../rj-ui/Badge';
 import { Drawer } from '../rj-ui/Drawer';
+import { Modal } from '../rj-ui/Modal';
 import { Input, Select } from '../rj-ui/Field';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Skeleton } from '../rj-ui/Skeleton';
@@ -593,7 +594,11 @@ function LibraryDrawer({
   };
 
   return (
-    <Drawer open onClose={onClose} title={t('procedures.library.title')} subtitle={t('procedures.library.subtitle')}>
+    // A LIBRARY, NOT A FORM — the side-drawer shape (Drawer, still right for ServiceDrawer's own
+    // per-service picker just above) reads as a narrow strip when the content is a whole managed
+    // list with its own add row, filter and per-row editor. `xl` gives it the same wide, centered
+    // window every other list-management screen in the console already opens as.
+    <Modal open={open} onClose={onClose} title={t('procedures.library.title')} subtitle={t('procedures.library.subtitle')} size="xl">
       <div className="mb-4 flex gap-2">
         <Input
           value={newText}
@@ -662,6 +667,6 @@ function LibraryDrawer({
         <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden />
         {t('procedures.severity.hint')}
       </p>
-    </Drawer>
+    </Modal>
   );
 }
