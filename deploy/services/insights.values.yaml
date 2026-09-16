@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/insights
-  digest: "sha256:67c6af91b430129633442574d4030bb68b6cf89e681a98431306ac7529c5d878"   # 5dcd25ec, published by publish-images.sh
+  digest: "sha256:5e40f543dd162992daf1eaf9c5548130f5a59311f0198c2bc45ef0983d463407"   # 00947116, published by publish-images.sh
 
 replicas: 1
 

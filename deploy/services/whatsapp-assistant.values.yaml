@@ -18,7 +18,7 @@ image:
   # Placeholder — set to the real digest by publish-images.sh once this service ships. A moving tag
   # is a rollback that is only a hope; every other service in this chart is pinned by digest and
   # this one should not be the exception the day it goes to production.
-  digest: "sha256:762d8ddbde74072330b33ce65e46d8722e3f528de80cb4f76179a883cf3b3782"   # 5dcd25ec, published by publish-images.sh
+  digest: "sha256:72117cb7cbb0fc7a143f0bfd286751ab1de34b28d0e96289f5d742d98e0241d2"   # 00947116, published by publish-images.sh
 
 replicas: 1
 
