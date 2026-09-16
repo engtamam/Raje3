@@ -322,8 +322,8 @@ def test_my_team_shows_earnings_when_the_operator_turns_the_switch_on(client):
 
     asyncio.run(seed())
     # The same live switch every RUNTIME_POLICY knob uses — reversible with no redeploy.
-    put = client.put("/api/v1/operator/config", json={"key": "AFFILIATE_TEAM_FINANCIALS_VISIBLE",
-                                                       "value": True},
+    put = client.put("/api/v1/affiliates/operator/config",
+                     json={"key": "AFFILIATE_TEAM_FINANCIALS_VISIBLE", "value": True},
                      headers={"Authorization": f"Bearer {_token(caps=['platform.config'])}"})
     assert put.status_code == 200, put.text
 
@@ -337,7 +337,7 @@ def test_my_team_shows_earnings_when_the_operator_turns_the_switch_on(client):
     finally:
         # `client` is module-scoped — a platform-wide override left standing here would leak into
         # every later test in this file.
-        client.delete("/api/v1/operator/config/AFFILIATE_TEAM_FINANCIALS_VISIBLE",
+        client.delete("/api/v1/affiliates/operator/config/AFFILIATE_TEAM_FINANCIALS_VISIBLE",
                       headers={"Authorization": f"Bearer {_token(caps=['platform.config'])}"})
 
 
