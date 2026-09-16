@@ -15,7 +15,7 @@ from app.core.stores import BookingStore
 TENANT = "t1"
 
 
-async def _duration(tenant, service_ids):
+async def _duration(tenant, service_ids, quantities=None):
     return 30
 
 

@@ -15,7 +15,7 @@
  * in (operations' own `sort` field, ascending).
  */
 import { useEffect, useRef, useState } from 'react';
-import { Check, Gift, ImageOff, Layers } from 'lucide-react';
+import { Check, Gift, ImageOff, Layers, Minus, Plus } from 'lucide-react';
 import { type CataloguePackage, type CatalogueService, packageImageUrl, serviceImageUrl } from './api';
 import type { Session } from './session';
 import { riyals } from './money';
@@ -51,6 +51,17 @@ export interface ServiceGridProps {
    * not set points up yet is sixteen zeros telling him the feature is broken.
    */
   points?: Record<string, number>;
+  /**
+   * HOW MANY OF EACH SELECTED SERVICE — like a real till's own line quantity ("2× غسيل خارجي"),
+   * not a second selection mechanism. Absent for an id in `selected` means one, same default the
+   * server side already carries (`Operations.record_visit`'s own `quantities` parameter).
+   *
+   * BOTH THIS AND `onQuantityChange` ARE OPTIONAL, AND TOGETHER — omit both and every tile keeps
+   * behaving exactly as a plain toggle always has (Visit.tsx/BookingDialog.tsx's own test suites
+   * never touch this prop, so neither must ever notice it exists).
+   */
+  quantities?: Record<string, number>;
+  onQuantityChange?: (id: string, quantity: number) => void;
 }
 
 /**
@@ -112,7 +123,7 @@ function Placeholder() {
 
 export function ServiceGrid({
   session, services, selected, onToggle, packages = [], selectedPackageId = '',
-  onSelectPackage, offered, redeemable, points = {},
+  onSelectPackage, offered, redeemable, points = {}, quantities, onQuantityChange,
 }: ServiceGridProps) {
   const { t } = useOperatorI18n();
   const items = [
@@ -183,13 +194,20 @@ export function ServiceGrid({
           const on = selected.includes(s.id);
           const url = images[`service:${s.id}`];
           return (
-            <button
+            // A `<div role="button">`, NOT a real `<button>` — a real quantity stepper below is
+            // itself a pair of real `<button>`s, and a `<button>` nested inside a `<button>` is
+            // invalid HTML: the browser closes the outer one early, at the first inner button,
+            // silently detaching everything meant to render after it. `tabIndex`/`onKeyDown` keep
+            // the tile itself keyboard-operable exactly like the real button it replaces.
+            <div
               key={s.id}
-              type="button"
+              role="button"
+              tabIndex={0}
               aria-pressed={on}
               onClick={() => onToggle(s.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(s.id); } }}
               className={[
-                'group relative flex aspect-square flex-col overflow-hidden rounded-card text-start shadow-sm transition-transform active:scale-95',
+                'group relative flex aspect-square cursor-pointer flex-col overflow-hidden rounded-card text-start shadow-sm transition-transform active:scale-95',
                 on ? 'shadow-md ring-2 ring-accent ring-offset-2 ring-offset-surface-0' : '',
               ].join(' ')}
             >
@@ -250,7 +268,46 @@ export function ServiceGrid({
                   +{points[s.id]}
                 </span>
               ) : null}
-            </button>
+
+              {/* HOW MANY — a real till's own line quantity, not a second selection mechanism.
+                  Bottom-end (mirrors the points pill's own bottom-start), and ONLY once the tile
+                  is actually selected — a stepper on a tile nobody chose yet would ask "how many
+                  of nothing?". Every tap here calls `stopPropagation` so it never also fires the
+                  tile's own toggle underneath it. */}
+              {on && onQuantityChange ? (
+                <span
+                  dir="ltr"
+                  className="relative ms-auto me-1.5 mb-1.5 flex w-fit items-center gap-1 rounded-full bg-white/90 px-1 py-0.5 text-[11px] font-bold leading-none text-accent-on-soft"
+                >
+                  <button
+                    type="button"
+                    aria-label={t('serviceGrid.quantityMinus')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const next = (quantities?.[s.id] ?? 1) - 1;
+                      if (next <= 0) onToggle(s.id); else onQuantityChange(s.id, next);
+                    }}
+                    className="grid size-4 place-items-center rounded-full hover:bg-accent-soft"
+                  >
+                    <Minus size={10} aria-hidden />
+                  </button>
+                  <span className="min-w-[1em] text-center tabular-nums">
+                    {quantities?.[s.id] ?? 1}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={t('serviceGrid.quantityPlus')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onQuantityChange(s.id, (quantities?.[s.id] ?? 1) + 1);
+                    }}
+                    className="grid size-4 place-items-center rounded-full hover:bg-accent-soft"
+                  >
+                    <Plus size={10} aria-hidden />
+                  </button>
+                </span>
+              ) : null}
+            </div>
           );
         })}
       </div>

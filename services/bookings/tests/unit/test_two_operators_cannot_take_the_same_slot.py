@@ -44,7 +44,7 @@ class _SlowStore:
         return getattr(self._inner, name)
 
 
-async def _lookup(tenant: str, service_ids) -> int:
+async def _lookup(tenant: str, service_ids, quantities=None) -> int:
     return 30
 
 

@@ -23,6 +23,7 @@ from app.core.lock import SlotClaimBusy, claiming
 from app.core.models import (IDEMPOTENCY_CLAIMS, PAYMENT_DEPOSIT, PAYMENT_NONE, PAYMENT_STATES,
                              STATUS_ATTENDED, STATUS_BOOKED, STATUS_CANCELLED, STATUS_NO_SHOW,
                              TERMINAL, Booking)
+from app.core.quantities import check_quantities
 from app.core.stores import BookingStore, day_bucket, new_id
 
 
@@ -37,15 +38,32 @@ class OperationError(Exception):
     """A refusal an operator can act on, carrying its own Arabic sentence."""
 
 
+def _clean_quantities(service_ids: list[str] | tuple[str, ...],
+                      quantities: dict[str, int] | None) -> dict[str, int]:
+    """Same filter `operations`' own `record_visit` applies to `Visit.quantities` — only ids
+    actually on this booking, and only a real positive count. The API layer already validates
+    shape via `check_quantities`, but the CORE re-checks rather than trusting it — this module is
+    reachable from more than one caller (the HTTP route, and any future internal one), and an
+    `OperationError` here is the one exception every caller in this file already handles, not a
+    bare `ValueError` that would surface as an unhandled 500."""
+    try:
+        check_quantities(quantities or {})
+    except ValueError as exc:
+        raise OperationError(str(exc)) from exc
+    ids = set(service_ids)
+    return {k: int(v) for k, v in (quantities or {}).items() if k in ids and int(v) > 0}
+
+
 @dataclass
 class DurationLookup:
     """The one question this module asks `operations`: what is `service_ids` worth in minutes,
     right now. Kept as a tiny injected port rather than a direct import — `bookings` and
     `operations` are independent services and do not import each other's code."""
-    lookup: Any   # async (tenant, service_ids) -> int | None; None == not configured
+    lookup: Any   # async (tenant, service_ids, quantities) -> int | None; None == not configured
 
-    async def minutes(self, tenant: str, service_ids: tuple[str, ...]) -> int | None:
-        return await self.lookup(tenant, service_ids)
+    async def minutes(self, tenant: str, service_ids: tuple[str, ...],
+                      quantities: dict[str, int] | None = None) -> int | None:
+        return await self.lookup(tenant, service_ids, quantities or {})
 
 
 @dataclass
@@ -321,6 +339,11 @@ class BookingOperations:
                      payment_status: str = PAYMENT_NONE, deposit_amount_minor: int | None = None,
                      price_override_minor: int | None = None,
                      intended_reward_id: str | None = None,
+                     # HOW MANY OF EACH — "" for a service missing here means one. Ignored on the
+                     # package path (a package has no per-component quantity concept — see
+                     # `Package.service_ids`'s own docstring in operations-service's models.py: a
+                     # package is a bundle of DISTINCT services, never one repeated).
+                     quantities: dict[str, int] | None = None,
                      # MUTUALLY EXCLUSIVE WITH `service_ids` — a booking is one or the other,
                      # never both (§ packages feature). "" is the ordinary, unchanged path below;
                      # everything in this `if package_id:` block is the ONLY new code path this
@@ -396,10 +419,13 @@ class BookingOperations:
         # never strands an existing booking, but it stops a new one being made.
         await self._licence.require(tenant)
 
+        # PACKAGE BOOKINGS CARRY NO QUANTITY — cleared rather than trusted from the caller, same
+        # "the write itself decides, not the suggestion" posture as everywhere else here.
+        clean_quantities = {} if package_id else _clean_quantities(service_ids, quantities)
         if package_id:
             duration = await self._package_durations.minutes(tenant, package_id)
         else:
-            duration = await self._durations.minutes(tenant, tuple(service_ids))
+            duration = await self._durations.minutes(tenant, tuple(service_ids), clean_quantities)
         if not duration:
             # THE "SILENT DEFAULT DECIDES POLICY" FAMILY, NAMED EXPLICITLY: no thirty-minute
             # guess. §4 of the plan requires this refusal by name.
@@ -431,7 +457,7 @@ class BookingOperations:
         booking = Booking(
             id=new_id("bkg"), tenant=tenant, branch_id=branch_id, operator_id=operator_id,
             customer_id=customer_id, subject_ref=subject_ref, service_ids=tuple(service_ids),
-            package_id=package_id,
+            package_id=package_id, quantities=clean_quantities,
             starts_at=int(starts_at), duration_minutes=duration, status=STATUS_BOOKED,
             payment_status=payment_status,
             deposit_amount_minor=deposit_amount_minor,
@@ -463,14 +489,23 @@ class BookingOperations:
         await self._events.emit(kind="rescheduled", booking=saved)
         return saved
 
-    async def edit_services(self, tenant: str, booking_id: str, service_ids: list[str]) -> Booking:
+    async def edit_services(self, tenant: str, booking_id: str, service_ids: list[str],
+                            quantities: dict[str, int] | None = None) -> Booking:
         """`duration_minutes` is a SNAPSHOT (§2) — it is recomputed HERE, on an explicit edit, and
-        nowhere else. A background read must never silently reshuffle a booking's length."""
+        nowhere else. A background read must never silently reshuffle a booking's length.
+
+        `quantities` FOLLOWS `service_ids` HERE TOO — an edit that changes which services a
+        booking holds without also being told their counts would otherwise silently reset every
+        quantity to one, since `Booking.quantities` is a snapshot recomputed on this exact call,
+        same as `duration_minutes` right beside it. A package booking (no `service_ids` edit path
+        of its own) never reaches this method at all, so no package-quantity guard is needed here.
+        """
         booking = await self._require(tenant, booking_id)
         await self._licence.require(tenant)
         if not service_ids or any(not str(s).strip() for s in service_ids):
             raise OperationError("اختر خدمة واحدة على الأقل")
-        duration = await self._durations.minutes(tenant, tuple(service_ids))
+        clean_quantities = _clean_quantities(service_ids, quantities)
+        duration = await self._durations.minutes(tenant, tuple(service_ids), clean_quantities)
         if not duration:
             raise OperationError("مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»")
         # Fixed 2026-09-07 — same gap as reschedule()'s own fix: swapping in a service the
@@ -479,6 +514,7 @@ class BookingOperations:
             tenant, booking.operator_id, tuple(service_ids), booking.package_id)
         now = time.time()
         booking.service_ids = tuple(service_ids)
+        booking.quantities = clean_quantities
         booking.duration_minutes = duration
         booking.updated = int(now)
         # A duration-only edit does not move the slot's time, so it cannot create a NEW conflict —
@@ -583,7 +619,7 @@ class BookingOperations:
             tenant=tenant, customer_id=booking.customer_id, service_ids=booking.service_ids,
             operator_id=booking.operator_id, branch_id=booking.branch_id, note=booking.note,
             idempotency_key=f"bkg:{booking.id}", occurred_at=occurred_at,
-            package_id=booking.package_id)
+            package_id=booking.package_id, quantities=dict(booking.quantities))
         if result is None or not result.get("visit_id"):
             raise OperationError("تعذّر تسجيل الزيارة الآن — حاول مجدداً بعد قليل")
 
@@ -733,6 +769,10 @@ class BookingOperations:
                            service_ids: list[str], after: int,
                            search_days: int = 14,
                            exclude_booking_id: str = "",
+                           # HOW MANY OF EACH — a search for "2× غسيل خارجي" must look for a slot
+                           # twice as long, never the single-unit duration. Ignored on the package
+                           # path, same reasoning `create()`'s own note gives.
+                           quantities: dict[str, int] | None = None,
                            # MUTUALLY EXCLUSIVE WITH `service_ids` — same packages-feature rule as
                            # `create()`. "" is the ordinary, unchanged path below.
                            package_id: str = "") -> int | None:
@@ -754,7 +794,8 @@ class BookingOperations:
             if allowed and operator_id not in allowed:
                 raise OperationError("هذا الموظف لا يقدر يسوّي هذه الباقة")
         else:
-            duration = await self._durations.minutes(tenant, tuple(service_ids))
+            clean_quantities = _clean_quantities(service_ids, quantities)
+            duration = await self._durations.minutes(tenant, tuple(service_ids), clean_quantities)
             if not duration:
                 raise OperationError(
                     "مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»")
@@ -802,7 +843,8 @@ class BookingOperations:
     async def nearest_slots_any(self, *, tenant: str, branch_id: str, operator_ids: list[str],
                                 service_ids: list[str], after: int, window_end: int,
                                 max_slots: int, exclude_booking_id: str = "",
-                                search_days: int = 14) -> list:
+                                search_days: int = 14,
+                                quantities: dict[str, int] | None = None) -> list:
         """The «أي متاح» merge (app/core/assignment.py). `operator_ids` is the caller's OWN
         eligible set (the console already computes this for display; recomputing it here would be
         a second, possibly-drifting copy of the same intersection) — this method only refuses
@@ -823,7 +865,8 @@ class BookingOperations:
         from app.core.assignment import Candidate, nearest_slots_any as _merge, order_candidates
         from app.core.availability import Busy
 
-        duration = await self._durations.minutes(tenant, tuple(service_ids))
+        clean_quantities = _clean_quantities(service_ids, quantities)
+        duration = await self._durations.minutes(tenant, tuple(service_ids), clean_quantities)
         if not duration:
             raise OperationError(
                 "مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»")
@@ -868,7 +911,8 @@ class BookingOperations:
                       window_end=window_end, max_slots=max_slots, search_days=search_days)
 
     async def day_slots_any(self, *, tenant: str, branch_id: str, operator_ids: list[str],
-                            service_ids: list[str], day_start: int, day_end: int) -> list[int]:
+                            service_ids: list[str], day_start: int, day_end: int,
+                            quantities: dict[str, int] | None = None) -> list[int]:
         """The WhatsApp Flow TIME screen's own question (Phase 5): every distinct time on ONE day
         that at least one eligible operator is free for — never WHO, since the Flow customer picks
         a time only (see `assignment.day_slots_any`'s own docstring for why picking an operator
@@ -880,7 +924,8 @@ class BookingOperations:
         from app.core.assignment import Candidate, day_slots_any as _day_union
         from app.core.availability import Busy
 
-        duration = await self._durations.minutes(tenant, tuple(service_ids))
+        clean_quantities = _clean_quantities(service_ids, quantities)
+        duration = await self._durations.minutes(tenant, tuple(service_ids), clean_quantities)
         if not duration:
             raise OperationError(
                 "مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»")

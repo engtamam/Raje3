@@ -23,13 +23,13 @@ class _FixedDurations:
     def __init__(self, minutes: dict[str, int]) -> None:
         self._by_service = minutes
 
-    async def __call__(self, tenant: str, service_ids) -> int | None:
+    async def __call__(self, tenant: str, service_ids, quantities=None) -> int | None:
         total = 0
         for sid in service_ids:
             m = self._by_service.get(sid)
             if not m:
                 return None
-            total += m
+            total += m * max(1, int((quantities or {}).get(sid, 1)))
         return total
 
 
@@ -143,6 +143,77 @@ def test_editing_service_ids_recomputes_duration_not_only_at_create():
 
     edited = _run(run())
     assert edited.duration_minutes == 45, "a service edit must recompute the snapshot, not keep it"
+
+
+# ── "2× غسيل خارجي" as a booking, exactly like the same thing recorded as a visit ──────────────
+
+def test_a_quantity_doubles_the_slot_duration_it_asks_for():
+    ops = _ops(minutes={"svc1": 30})
+
+    async def run():
+        return await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
+                                quantities={"svc1": 2})
+
+    booking = _run(run())
+    assert booking.duration_minutes == 60
+    assert booking.quantities == {"svc1": 2}
+
+
+def test_a_quantity_for_a_service_not_on_the_booking_is_dropped():
+    ops = _ops(minutes={"svc1": 30})
+
+    async def run():
+        return await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
+                                quantities={"svc_never_chosen": 5})
+
+    booking = _run(run())
+    assert booking.quantities == {}
+    assert booking.duration_minutes == 30
+
+
+def test_an_out_of_range_quantity_refuses_before_any_booking_is_created():
+    ops = _ops(minutes={"svc1": 30})
+
+    async def run():
+        with pytest.raises(OperationError, match="quantities"):
+            await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1", customer_id="c1",
+                            service_ids=["svc1"], starts_at=1786860000,
+                            quantities={"svc1": 0})
+
+    _run(run())
+
+
+def test_editing_services_also_updates_the_quantity_snapshot():
+    ops = _ops(minutes={"svc1": 30, "svc2": 20})
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
+                                   quantities={"svc1": 2})
+        assert booking.duration_minutes == 60
+        return await ops.edit_services(TENANT, booking.id, ["svc2"], quantities={"svc2": 3})
+
+    edited = _run(run())
+    assert edited.duration_minutes == 60   # 20 × 3
+    assert edited.quantities == {"svc2": 3}
+    # the OLD quantity entry must not survive an edit that dropped its own service.
+    assert "svc1" not in edited.quantities
+
+
+def test_attend_carries_the_bookings_own_quantities_to_the_visit_gateway():
+    visits = _FixedVisits(answer={"visit_id": "vis_1"})
+    ops = _ops(minutes={"svc1": 30}, visits=visits)
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
+                                   quantities={"svc1": 2})
+        return await ops.attend(TENANT, booking.id)
+
+    _run(run())
+    assert visits.calls[-1]["quantities"] == {"svc1": 2}
 
 
 def test_a_reschedule_moves_the_grid_index_bucket():

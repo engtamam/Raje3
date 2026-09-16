@@ -18,7 +18,7 @@
  * error after one is picked, and there is exactly one merged "when" step rather than a date box, a
  * time box and a separate "أقرب موعد" button that only ever fills those same two boxes.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '../rj-ui/Button';
 import { Field, Input, Select } from '../rj-ui/Field';
 import { Modal } from '../rj-ui/Modal';
@@ -34,7 +34,7 @@ import {
 } from '../api';
 import { asLocal } from '../phone';
 import { halalas, riyals } from '../money';
-import { PAYMENT_LABEL, PAYMENT_ORDER, type PaymentStatus } from '../bookingPayment';
+import { PAYMENT_ORDER, paymentLabel, type PaymentStatus } from '../bookingPayment';
 import { digitsOnly } from '../digits';
 import { newIdempotencyKey } from '../queue';
 import { ServiceGrid } from '../ServiceGrid';
@@ -119,6 +119,23 @@ export function BookingDialog(
   const [customer, setCustomer] = useState<CustomerHit | null>(initialCustomer ?? null);
   const [name, setName] = useState(initialCustomer?.name ?? '');
   const [chosen, setChosen] = useState<string[]>(editing?.service_ids ?? initialServiceIds ?? []);
+  /** HOW MANY OF EACH — "2× غسيل خارجي", like the same thing recorded as a visit. Absent for an
+   *  id in `chosen` means one, same default the server side already carries. Seeded from the
+   *  booking being edited, when there is one. */
+  const [quantities, setQuantities] = useState<Record<string, number>>(editing?.quantities ?? {});
+  const toggleService = useCallback((id: string) => {
+    setChosen((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+    // DESELECTING FORGETS THE COUNT TOO — same rule Visit.tsx's own `toggle` follows.
+    setQuantities((cur) => {
+      if (!(id in cur)) return cur;
+      const next = { ...cur };
+      delete next[id];
+      return next;
+    });
+  }, []);
+  const changeQuantity = useCallback((id: string, quantity: number) => {
+    setQuantities((cur) => ({ ...cur, [id]: quantity }));
+  }, []);
   const [operatorId, setOperatorId] = useState(editing?.operator_id ?? initialOperatorId ?? '');
   const [day, setDay] = useState(editing ? dayOfEpoch(editing.starts_at) : date);
   const [time, setTime] = useState(
@@ -200,8 +217,8 @@ export function BookingDialog(
     localDurations[id] ?? services.find((s) => s.id === id)?.duration_minutes ?? 0;
 
   const durationTotal = useMemo(
-    () => chosen.reduce((sum, id) => sum + durationOf(id), 0),
-    [chosen, services, localDurations],
+    () => chosen.reduce((sum, id) => sum + durationOf(id) * Math.max(1, quantities[id] ?? 1), 0),
+    [chosen, services, localDurations, quantities],
   );
   // A SELECTED SERVICE WITH NO DURATION SET REFUSES THE SAVE, NEVER GUESSES — the same rule the
   // server itself enforces; said here too so he learns it before the round trip, not after.
@@ -214,8 +231,9 @@ export function BookingDialog(
   // catalogue ONLY when he explicitly ticks the box below — two different acts, never implied by
   // each other.
   const catalogPriceMinor = useMemo(
-    () => chosen.reduce((sum, id) => sum + (services.find((s) => s.id === id)?.price_minor ?? 0), 0),
-    [chosen, services],
+    () => chosen.reduce((sum, id) => sum
+      + (services.find((s) => s.id === id)?.price_minor ?? 0) * Math.max(1, quantities[id] ?? 1), 0),
+    [chosen, services, quantities],
   );
   const [priceText, setPriceText] = useState('');
   const [priceTouched, setPriceTouched] = useState(false);
@@ -336,7 +354,8 @@ export function BookingDialog(
       if (candidates.length === 0) { if (!stale) setSlots([]); return; }
       try {
         const r = await nearestSlotsAny(
-          session, branchId, candidates, chosen, after, dayEndEpoch, SLOTS_PER_DAY, editing?.id);
+          session, branchId, candidates, chosen, after, dayEndEpoch, SLOTS_PER_DAY, editing?.id,
+          quantities);
         if (!stale) {
           setSlots(r.slots.map((s) => ({ operatorId: s.operator_id, startsAt: s.starts_at })));
         }
@@ -347,7 +366,7 @@ export function BookingDialog(
     run();
     return () => { stale = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chosen, operatorId, day, missingDuration, durationTotal, noCommonOperator]);
+  }, [chosen, quantities, operatorId, day, missingDuration, durationTotal, noCommonOperator]);
 
   function pickSlot(s: Slot) {
     setOperatorId(s.operatorId);
@@ -390,7 +409,7 @@ export function BookingDialog(
       let best: Slot | null = null;
       for (const opId of candidates) {
         // eslint-disable-next-line no-await-in-loop
-        const r = await nearestSlot(session, branchId, opId, chosen, after, editing?.id);
+        const r = await nearestSlot(session, branchId, opId, chosen, after, editing?.id, quantities);
         if (r.starts_at !== null && (best === null || r.starts_at < best.startsAt)) {
           best = { operatorId: opId, startsAt: r.starts_at };
         }
@@ -416,9 +435,15 @@ export function BookingDialog(
     setError('');
     try {
       let booking = editing;
+      const editingQuantities = editing.quantities ?? {};
+      const quantitiesChanged = Object.keys(quantities).length !== Object.keys(editingQuantities).length
+        || Object.entries(quantities).some(([id, q]) => editingQuantities[id] !== q);
       const servicesChanged = chosen.length !== editing.service_ids.length
-        || chosen.some((id) => !editing.service_ids.includes(id));
-      if (servicesChanged) booking = await editBookingServices(session, editing.id, chosen);
+        || chosen.some((id) => !editing.service_ids.includes(id))
+        || quantitiesChanged;
+      if (servicesChanged) {
+        booking = await editBookingServices(session, editing.id, chosen, quantities);
+      }
       if (operatorId !== editing.operator_id || starts_at !== editing.starts_at) {
         booking = await rescheduleBooking(session, editing.id, starts_at, operatorId);
       }
@@ -459,6 +484,7 @@ export function BookingDialog(
       }
       const booking = await createBooking(session, {
         branch_id: branchId, operator_id: operatorId, customer_id: c.id, service_ids: chosen,
+        quantities: Object.keys(quantities).length > 0 ? quantities : undefined,
         starts_at, note: note.trim() || undefined, idempotency_key: idempotencyKey,
         // undefined WHEN IT MATCHES THE CATALOGUE — a booking at the ordinary price carries no
         // override at all, rather than a redundant copy of a number that can change under it.
@@ -582,13 +608,14 @@ export function BookingDialog(
             </p>
           ) : null}
           <ServiceGrid session={session} services={services} selected={chosen}
-                      onToggle={(id) => setChosen((cur) => (
-                        cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))}
+                      onToggle={toggleService}
                       offered={new Set(offer?.service_ids ?? [])}
                       redeemable={new Set(
                         (balance?.rewards ?? []).map((r) => r.service_id ?? '').filter(Boolean),
                       )}
-                      points={pointsByService(earn ?? null, services.map((s) => s.id))} />
+                      points={pointsByService(earn ?? null, services.map((s) => s.id))}
+                      quantities={quantities}
+                      onQuantityChange={changeQuantity} />
           {chosen.length > 0 ? (
             missingDuration ? (
               <div className="mt-1 flex flex-col gap-1.5">
@@ -763,7 +790,7 @@ export function BookingDialog(
                 ariaLabel={t('bookingDialog.paymentStatusLabel')}
                 value={paymentStatus}
                 onChange={setPaymentStatus}
-                options={PAYMENT_ORDER.map((s) => ({ value: s, label: PAYMENT_LABEL[s] }))}
+                options={PAYMENT_ORDER.map((s) => ({ value: s, label: paymentLabel(s, t) }))}
                 className="w-full [&>button]:flex-1"
               />
             </Field>

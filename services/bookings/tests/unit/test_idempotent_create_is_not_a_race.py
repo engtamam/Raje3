@@ -15,7 +15,7 @@ from app.core.stores import BookingStore
 TENANT = "t1"
 
 
-async def _lookup(tenant: str, service_ids) -> int:
+async def _lookup(tenant: str, service_ids, quantities=None) -> int:
     return 30
 
 

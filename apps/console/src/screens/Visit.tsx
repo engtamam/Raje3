@@ -110,6 +110,9 @@ export function Visit() {
   // in the product paid for and threw away, plus a state that made a reviewer believe a «عملاء
   // اليوم» strip existed. `recentCustomers` still serves «عملائي», which does show it.
   const [chosen, setChosen] = useState<string[]>([]);
+  /** HOW MANY OF EACH — "2× غسيل خارجي", like a real till's own line quantity. Absent for an id
+   *  in `chosen` means one, same default the server side already carries. */
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [plate, setPlate] = useState('');
@@ -195,6 +198,18 @@ export function Visit() {
 
   const toggle = useCallback((id: string) => {
     setChosen((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+    // DESELECTING FORGETS THE COUNT TOO — re-adding the same service later is a fresh "one",
+    // never a stale "2" left over from a choice he already undid.
+    setQuantities((cur) => {
+      if (!(id in cur)) return cur;
+      const next = { ...cur };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
+  const changeQuantity = useCallback((id: string, quantity: number) => {
+    setQuantities((cur) => ({ ...cur, [id]: quantity }));
   }, []);
 
   /** WHICH PACKAGE THIS VISIT SELLS — see `VisitDraft.package_id`'s own docstring for why this is
@@ -202,9 +217,11 @@ export function Visit() {
    *  component services either way, exactly as it would if he had tapped each of them by hand. */
   const [selectedPackageId, setSelectedPackageId] = useState('');
   const selectPackage = useCallback((pkg: CataloguePackage) => {
+    let removed: string[] = [];
     setChosen((cur) => {
       if (selectedPackageId === pkg.id) {
         // TAPPED AGAIN — undo exactly what selecting it added, nothing he chose separately.
+        removed = pkg.service_ids;
         return cur.filter((id) => !pkg.service_ids.includes(id));
       }
       // A PREVIOUSLY SELECTED PACKAGE STEPS ASIDE FIRST. A visit sells one package at a time; a
@@ -214,8 +231,18 @@ export function Visit() {
       const withoutPrevious = previous
         ? cur.filter((id) => !previous.service_ids.includes(id))
         : cur;
+      removed = previous?.service_ids ?? [];
       return [...new Set([...withoutPrevious, ...pkg.service_ids])];
     });
+    // SAME "FORGET THE COUNT" RULE `toggle` FOLLOWS — a service dropped by swapping/undoing a
+    // package must not keep a stale quantity if he later picks it again by hand.
+    if (removed.length > 0) {
+      setQuantities((cur) => {
+        const next = { ...cur };
+        for (const id of removed) delete next[id];
+        return next;
+      });
+    }
     setSelectedPackageId((cur) => (cur === pkg.id ? '' : pkg.id));
   }, [packages, selectedPackageId]);
 
@@ -431,6 +458,7 @@ export function Visit() {
     queue.add({
       phone,
       service_ids: chosen,
+      quantities: Object.keys(quantities).length > 0 ? quantities : undefined,
       name: name.trim() || undefined,
       plate: showPlate && plate.trim() ? plate.trim() : undefined,
       meter: showMeter && meter ? Number(meter) : undefined,
@@ -460,6 +488,7 @@ export function Visit() {
     // held still for a round trip would spend its five-second budget on a network the operator
     // cannot see and cannot fix.
     setChosen([]);
+    setQuantities({});
     setSelectedPackageId('');
     setPhone('');
     setName('');
@@ -467,8 +496,8 @@ export function Visit() {
     setMeter('');
     setNote(t('visit.saved'));
     window.setTimeout(() => setNote(null), 1500);
-  }, [applying, chosen, couponOn, couponPercent, couponPhone, couponScope, meter, name, phone,
-     plate, selectedPackageId, session, showMeter, showPlate, subject]);
+  }, [applying, chosen, quantities, couponOn, couponPercent, couponPhone, couponScope, meter, name,
+     phone, plate, selectedPackageId, session, showMeter, showPlate, subject]);
 
   const save = useCallback(() => {
     // A WRONG NUMBER IS REFUSED HERE AND NOWHERE ELSE, and the refusal SAYS what is wrong. Silence
@@ -1021,6 +1050,8 @@ export function Visit() {
           (balance?.rewards ?? []).map((r) => r.service_id ?? '').filter(Boolean),
         )}
         points={pointsByService(earn ?? null, (services ?? []).map((x) => x.id))}
+        quantities={quantities}
+        onQuantityChange={changeQuantity}
       />
 
       {/* WHY HE NEVER SAW AN OFFERS PAGE. Skipping a step silently makes an operator wonder what

@@ -67,6 +67,65 @@ describe('ServiceGrid — photos', () => {
   });
 });
 
+describe('ServiceGrid — quantity', () => {
+  it('shows no stepper on a tile that is not selected', () => {
+    open({ selected: [] });
+    expect(screen.queryByLabelText('زيادة الكمية')).toBeFalsy();
+  });
+
+  it('shows no stepper without onQuantityChange, even when selected', () => {
+    open({ selected: ['svc_wash'] });
+    expect(screen.queryByLabelText('زيادة الكمية')).toBeFalsy();
+  });
+
+  it('shows a stepper starting at 1 once a service is selected', () => {
+    open({ selected: ['svc_wash'], onQuantityChange: () => {} });
+    expect(screen.getByText('1')).toBeTruthy();
+    expect(screen.getByLabelText('زيادة الكمية')).toBeTruthy();
+  });
+
+  it('tapping + calls onQuantityChange with the next count, never toggles the tile off', () => {
+    const onQuantityChange = vi.fn();
+    const onToggle = vi.fn();
+    open({ selected: ['svc_wash'], quantities: { svc_wash: 1 }, onQuantityChange, onToggle });
+    fireEvent.click(screen.getByLabelText('زيادة الكمية'));
+    expect(onQuantityChange).toHaveBeenCalledWith('svc_wash', 2);
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  it('tapping − above one calls onQuantityChange with one fewer', () => {
+    const onQuantityChange = vi.fn();
+    open({ selected: ['svc_wash'], quantities: { svc_wash: 2 }, onQuantityChange });
+    fireEvent.click(screen.getByLabelText('إنقاص الكمية'));
+    expect(onQuantityChange).toHaveBeenCalledWith('svc_wash', 1);
+  });
+
+  it('tapping − at one deselects the tile instead of going to zero', () => {
+    const onQuantityChange = vi.fn();
+    const onToggle = vi.fn();
+    open({ selected: ['svc_wash'], quantities: { svc_wash: 1 }, onQuantityChange, onToggle });
+    fireEvent.click(screen.getByLabelText('إنقاص الكمية'));
+    expect(onToggle).toHaveBeenCalledWith('svc_wash');
+    expect(onQuantityChange).not.toHaveBeenCalled();
+  });
+
+  it('tapping the stepper never also toggles the tile underneath it', () => {
+    const onToggle = vi.fn();
+    open({ selected: ['svc_wash'], quantities: { svc_wash: 1 }, onQuantityChange: () => {},
+          onToggle });
+    fireEvent.click(screen.getByLabelText('زيادة الكمية'));
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  it('the tile itself still toggles on a plain tap, quantity or not', () => {
+    const onToggle = vi.fn();
+    open({ selected: ['svc_wash'], quantities: { svc_wash: 3 }, onQuantityChange: () => {},
+          onToggle });
+    fireEvent.click(screen.getByRole('button', { name: /غسيل خارجي/ }));
+    expect(onToggle).toHaveBeenCalledWith('svc_wash');
+  });
+});
+
 describe('ServiceGrid — packages', () => {
   it('selecting a package selects every one of its services at once', async () => {
     const onSelectPackage = vi.fn();

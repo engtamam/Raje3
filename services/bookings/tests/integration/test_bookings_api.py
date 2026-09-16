@@ -70,7 +70,7 @@ def _stub_ops(client) -> None:
 
     c = client.app.state.container
 
-    async def duration(tenant, service_ids):
+    async def duration(tenant, service_ids, quantities=None):
         return 30
 
     async def visit(**kw):

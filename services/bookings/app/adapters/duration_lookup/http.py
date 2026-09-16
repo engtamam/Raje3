@@ -18,15 +18,22 @@ class HttpDurationLookup:
         self._token = token
         self._timeout = timeout
 
-    async def __call__(self, tenant: str, service_ids: tuple[str, ...]) -> int | None:
+    async def __call__(self, tenant: str, service_ids: tuple[str, ...],
+                       quantities: dict[str, int] | None = None) -> int | None:
         """`None` on ANY failure — unreachable, malformed, or the peer's own "not configured"
         answer — never a guessed number. A peer outage refusing a booking create is correct: the
-        alternative is inventing a duration nobody set."""
-        # OFF THE EVENT LOOP — urllib has no async mode.
-        return await asyncio.to_thread(self._call_sync, tenant, service_ids)
+        alternative is inventing a duration nobody set.
 
-    def _call_sync(self, tenant: str, service_ids: tuple[str, ...]) -> int | None:
-        body = json.dumps({"tenant": tenant, "service_ids": list(service_ids)}).encode()
+        `quantities` — how many of each service, so a booking for "2× غسيل خارجي" asks for a slot
+        twice as long, not the single-unit duration a bare id list would give. Missing entry means
+        one, same default `operations`' own peer route already carries."""
+        # OFF THE EVENT LOOP — urllib has no async mode.
+        return await asyncio.to_thread(self._call_sync, tenant, service_ids, quantities or {})
+
+    def _call_sync(self, tenant: str, service_ids: tuple[str, ...],
+                   quantities: dict[str, int] | None = None) -> int | None:
+        body = json.dumps({"tenant": tenant, "service_ids": list(service_ids),
+                          "quantities": quantities or {}}).encode()
         req = urllib.request.Request(
             self._url, data=body, method="POST",
             headers={"Content-Type": "application/json", "X-Internal-Token": self._token})

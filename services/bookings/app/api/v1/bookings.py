@@ -14,9 +14,11 @@ id, unchecked, is a write filed for a branch nobody there expects.
 """
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.adapters.branch_scope import DENIED, visible
 from app.api.auth import Principal, require_user
@@ -26,6 +28,7 @@ from app.core.lock import SlotClaimBusy
 from app.core.licence import LicenceError
 from app.core.models import Booking
 from app.core.operations import OperationError
+from app.core.quantities import check_quantities
 from app.core.stores import ConcurrentEditError, day_bucket
 
 router = APIRouter(prefix="/api/v1/bookings", tags=["bookings"])
@@ -206,9 +209,30 @@ async def write_assignment_settings(request: Request, body: AssignmentSettingsIn
     return await c.assignment_settings.get(tenant)
 
 
+def _parse_quantities(raw: str) -> dict[str, int]:
+    """`quantities` on a GET route — as a JSON object string, since a query string carries no
+    dict natively (same reasoning `service_ids`/`operator_ids` on these same routes gives for
+    going comma-separated instead — a dict just cannot flatten to that same shape). Malformed
+    input is REFUSED, never silently dropped to "no quantities" — a caller that meant "2× غسيل"
+    and mistyped the JSON must not silently get a 1-unit slot search back with no signal why."""
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except ValueError as exc:
+        raise OperationError("quantities غير صالحة — يجب أن تكون JSON") from exc
+    if not isinstance(parsed, dict) or not all(isinstance(k, str) for k in parsed):
+        raise OperationError("quantities يجب أن تكون كائن JSON بمفاتيح نصية")
+    try:
+        return check_quantities({k: int(v) for k, v in parsed.items()})
+    except (ValueError, TypeError) as exc:
+        raise OperationError(str(exc)) from exc
+
+
 @router.get("/nearest", dependencies=[Depends(_READ), Depends(rate_limit)])
 async def nearest_slot(request: Request, branch_id: str, operator_id: str,
                        service_ids: str, after: int, exclude_booking_id: str = "",
+                       quantities: str = "",
                        principal: Principal = Depends(require_user)) -> dict:
     """The "أقرب موعد" button (§6.2) — `service_ids` is a comma-separated list, since query
     params carry no arrays cleanly. `null` when nothing is free in the search window.
@@ -218,15 +242,19 @@ async def nearest_slot(request: Request, branch_id: str, operator_id: str,
     very appointment being moved — so its current hour reads as taken and, for a long service on a
     busy day, the answer comes back "لا موعد فاضٍ هذا اليوم" for a booking that is sitting in a
     perfectly good slot right now. The one booking being edited is not a conflict with itself.
+
+    `quantities`: see `_parse_quantities`'s own note — a JSON object string, empty means every
+    service is one.
     """
     tenant = _tenant(principal)
     await _require_branch(request, principal, branch_id)
     c = request.app.state.container
     ids = [s for s in service_ids.split(",") if s]
     try:
+        qty = _parse_quantities(quantities)
         found = await c.booking_ops.nearest_slot(
             tenant=tenant, branch_id=branch_id, operator_id=operator_id,
-            service_ids=ids, after=after, exclude_booking_id=exclude_booking_id)
+            service_ids=ids, after=after, exclude_booking_id=exclude_booking_id, quantities=qty)
     except OperationError as exc:
         return _handle(exc)
     return {"starts_at": found}
@@ -236,22 +264,26 @@ async def nearest_slot(request: Request, branch_id: str, operator_id: str,
 async def nearest_slots_any(request: Request, branch_id: str, operator_ids: str,
                             service_ids: str, after: int, window_end: int,
                             max_slots: int = 6, exclude_booking_id: str = "",
+                            quantities: str = "",
                             principal: Principal = Depends(require_user)) -> dict:
     """The «أي متاح» merge (app/core/assignment.py, Phase 0) — ONE call instead of the console's
     old sequential per-candidate loop against `/nearest` above. `operator_ids` is the caller's own
     eligible set (comma-separated, same convention `service_ids` already uses on this route) —
     each is still refused individually if ineligible, same as `/nearest` always has been; this
-    endpoint does not itself decide who is eligible."""
+    endpoint does not itself decide who is eligible.
+
+    `quantities`: see `_parse_quantities`'s own note on `/nearest` above — a JSON object string."""
     tenant = _tenant(principal)
     await _require_branch(request, principal, branch_id)
     c = request.app.state.container
     op_ids = [s for s in operator_ids.split(",") if s]
     svc_ids = [s for s in service_ids.split(",") if s]
     try:
+        qty = _parse_quantities(quantities)
         found = await c.booking_ops.nearest_slots_any(
             tenant=tenant, branch_id=branch_id, operator_ids=op_ids, service_ids=svc_ids,
             after=after, window_end=window_end, max_slots=max_slots,
-            exclude_booking_id=exclude_booking_id)
+            exclude_booking_id=exclude_booking_id, quantities=qty)
     except OperationError as exc:
         return _handle(exc)
     return {"slots": [{"operator_id": s.operator_id, "starts_at": s.starts_at} for s in found]}
@@ -264,6 +296,9 @@ class CreateIn(BaseModel):
     # EMPTY IS VALID — but only when `package_id` is set instead. Bookings' own `create()` refuses
     # the "both" and "neither" cases with a clear Arabic reason; pydantic only bounds the shape.
     service_ids: list[str] = Field(default_factory=list, max_length=20)
+    # HOW MANY OF EACH — "" for a service missing here means one. Ignored on the package path
+    # (see `BookingOperations.create`'s own note).
+    quantities: dict[str, int] = Field(default_factory=dict)
     # MUTUALLY EXCLUSIVE WITH `service_ids` — a booking is one or the other (packages feature).
     package_id: str = Field(default="", max_length=64)
     starts_at: int = Field(gt=0)
@@ -279,6 +314,8 @@ class CreateIn(BaseModel):
     # in core/operations.py for why the actual redeem waits for attend().
     intended_reward_id: str | None = Field(default=None, max_length=128)
 
+    _check_quantities = field_validator("quantities")(check_quantities)
+
 
 @router.post("", dependencies=[Depends(_WRITE), Depends(rate_limit)])
 async def create_booking(request: Request, body: CreateIn,
@@ -290,7 +327,7 @@ async def create_booking(request: Request, body: CreateIn,
         booking = await c.booking_ops.create(
             tenant=tenant, branch_id=body.branch_id, operator_id=body.operator_id,
             customer_id=body.customer_id, service_ids=body.service_ids,
-            package_id=body.package_id,
+            quantities=body.quantities, package_id=body.package_id,
             starts_at=body.starts_at, note=body.note, idempotency_key=body.idempotency_key,
             created_by=principal.subject,
             payment_status=body.payment_status, deposit_amount_minor=body.deposit_amount_minor,
@@ -338,6 +375,9 @@ async def reschedule_booking(request: Request, booking_id: str, body: Reschedule
 
 class ServicesIn(BaseModel):
     service_ids: list[str] = Field(min_length=1, max_length=20)
+    quantities: dict[str, int] = Field(default_factory=dict)
+
+    _check_quantities = field_validator("quantities")(check_quantities)
 
 
 @router.patch("/{booking_id}/services", dependencies=[Depends(_WRITE), Depends(rate_limit)])
@@ -347,7 +387,8 @@ async def edit_booking_services(request: Request, booking_id: str, body: Service
     await _get_own(request, principal, booking_id)
     c = request.app.state.container
     try:
-        booking = await c.booking_ops.edit_services(tenant, booking_id, body.service_ids)
+        booking = await c.booking_ops.edit_services(
+            tenant, booking_id, body.service_ids, quantities=body.quantities)
     except (OperationError, SlotClaimBusy, LicenceError, ConcurrentEditError) as exc:
         return _handle(exc)
     return _public(booking)

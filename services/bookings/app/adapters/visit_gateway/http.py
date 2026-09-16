@@ -23,28 +23,34 @@ class HttpVisitGateway:
 
     async def create(self, *, tenant: str, customer_id: str, service_ids: tuple[str, ...],
                      operator_id: str, branch_id: str, note: str, idempotency_key: str,
-                     occurred_at: int, package_id: str = "") -> dict | None:
+                     occurred_at: int, package_id: str = "",
+                     quantities: dict[str, int] | None = None) -> dict | None:
         """`None` on ANY failure — unreachable peer, a 404 (the customer vanished), a 400 (a
         service id the catalogue no longer knows). The caller (`BookingOperations.attend`) turns
         that into an explicit refusal — never a booking marked attended with no visit behind it.
 
         `package_id`: "" for an ordinary booking. Set, `operations` re-resolves the package's own
         CURRENT components itself rather than trusting `service_ids` here — see its own
-        `/internal/operations/visits/from-customer` docstring."""
+        `/internal/operations/visits/from-customer` docstring.
+
+        `quantities`: the booking's own `Booking.quantities`, carried through so the resulting
+        Visit prices and counts the appointment the same way the booking itself was made for."""
         # OFF THE EVENT LOOP — urllib has no async mode.
         return await asyncio.to_thread(
             self._create_sync, tenant=tenant, customer_id=customer_id, service_ids=service_ids,
             operator_id=operator_id, branch_id=branch_id, note=note,
-            idempotency_key=idempotency_key, occurred_at=occurred_at, package_id=package_id)
+            idempotency_key=idempotency_key, occurred_at=occurred_at, package_id=package_id,
+            quantities=quantities)
 
     def _create_sync(self, *, tenant: str, customer_id: str, service_ids: tuple[str, ...],
                      operator_id: str, branch_id: str, note: str, idempotency_key: str,
-                     occurred_at: int, package_id: str = "") -> dict | None:
+                     occurred_at: int, package_id: str = "",
+                     quantities: dict[str, int] | None = None) -> dict | None:
         body = json.dumps({
             "tenant": tenant, "customer_id": customer_id, "service_ids": list(service_ids),
             "operator_id": operator_id, "branch_id": branch_id, "note": note,
             "idempotency_key": idempotency_key, "occurred_at": occurred_at,
-            "package_id": package_id,
+            "package_id": package_id, "quantities": quantities or {},
         }).encode()
         req = urllib.request.Request(
             self._url, data=body, method="POST",

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hmac
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
@@ -21,6 +21,7 @@ from app.core.lock import SlotClaimBusy
 from app.core.licence import LicenceError
 from app.core.models import Booking
 from app.core.operations import OperationError
+from app.core.quantities import check_quantities
 from app.core.stores import ConcurrentEditError
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
@@ -317,6 +318,7 @@ class InternalNearestRealSlotIn(BaseModel):
     # EMPTY IS VALID — but only when `package_id` is set instead (packages feature, mutually
     # exclusive, same as the console's own POST /bookings body).
     service_ids: list[str] = Field(default_factory=list, max_length=20)
+    quantities: dict[str, int] = Field(default_factory=dict)
     package_id: str = Field(default="", max_length=64)
     after: int = Field(gt=0)
     search_days: int = Field(default=14, ge=1, le=90)
@@ -329,6 +331,8 @@ class InternalNearestRealSlotIn(BaseModel):
     # conflict with itself. Empty (default) means "no exclusion", the pre-existing behaviour for
     # every other caller of this route (a brand-new booking has no id of its own yet to exclude).
     exclude_booking_id: str = Field(default="", max_length=64)
+
+    _check_quantities = field_validator("quantities")(check_quantities)
 
 
 @router.post("/bookings/nearest-real-slot", dependencies=[Depends(require_internal_token)])
@@ -345,7 +349,8 @@ async def internal_nearest_real_slot(request: Request, body: InternalNearestReal
         found = await c.booking_ops.nearest_slot(
             tenant=body.tenant, branch_id=body.branch_id, operator_id=body.operator_id,
             service_ids=body.service_ids, after=body.after, search_days=body.search_days,
-            exclude_booking_id=body.exclude_booking_id, package_id=body.package_id)
+            exclude_booking_id=body.exclude_booking_id, package_id=body.package_id,
+            quantities=body.quantities)
     except OperationError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     return {"starts_at": found}
@@ -360,10 +365,13 @@ class InternalNearestAnyRealSlotIn(BaseModel):
     # `nearest_slots_any`) — never trusted blindly.
     operator_ids: list[str] = Field(min_length=1, max_length=64)
     service_ids: list[str] = Field(min_length=1, max_length=20)
+    quantities: dict[str, int] = Field(default_factory=dict)
     after: int = Field(gt=0)
     search_days: int = Field(default=14, ge=1, le=90)
     max_slots: int = Field(default=1, ge=1, le=20)
     exclude_booking_id: str = Field(default="", max_length=64)
+
+    _check_quantities = field_validator("quantities")(check_quantities)
 
 
 @router.post("/bookings/nearest-any-real", dependencies=[Depends(require_internal_token)])
@@ -382,7 +390,7 @@ async def internal_nearest_any_real_slot(request: Request, body: InternalNearest
             tenant=body.tenant, branch_id=body.branch_id, operator_ids=body.operator_ids,
             service_ids=body.service_ids, after=body.after, window_end=window_end,
             max_slots=body.max_slots, exclude_booking_id=body.exclude_booking_id,
-            search_days=body.search_days)
+            search_days=body.search_days, quantities=body.quantities)
     except OperationError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     return {"slots": [{"operator_id": s.operator_id, "starts_at": s.starts_at} for s in found]}
@@ -393,8 +401,11 @@ class InternalDaySlotsAnyIn(BaseModel):
     branch_id: str = Field(min_length=1, max_length=64)
     operator_ids: list[str] = Field(min_length=1, max_length=64)
     service_ids: list[str] = Field(min_length=1, max_length=20)
+    quantities: dict[str, int] = Field(default_factory=dict)
     day_start: int = Field(gt=0)
     day_end: int = Field(gt=0)
+
+    _check_quantities = field_validator("quantities")(check_quantities)
 
 
 @router.post("/bookings/day-slots-real", dependencies=[Depends(require_internal_token)])
@@ -411,7 +422,8 @@ async def internal_day_slots_any(request: Request, body: InternalDaySlotsAnyIn) 
     try:
         times = await c.booking_ops.day_slots_any(
             tenant=body.tenant, branch_id=body.branch_id, operator_ids=body.operator_ids,
-            service_ids=body.service_ids, day_start=body.day_start, day_end=body.day_end)
+            service_ids=body.service_ids, day_start=body.day_start, day_end=body.day_end,
+            quantities=body.quantities)
     except OperationError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     return {"starts_at": times}
@@ -424,6 +436,7 @@ class InternalCreateBookingIn(BaseModel):
     customer_id: str = Field(min_length=1, max_length=64)
     # EMPTY IS VALID — but only when `package_id` is set instead (packages feature).
     service_ids: list[str] = Field(default_factory=list, max_length=20)
+    quantities: dict[str, int] = Field(default_factory=dict)
     package_id: str = Field(default="", max_length=64)
     starts_at: int = Field(gt=0)
     note: str = Field(default="", max_length=500)
@@ -443,6 +456,8 @@ class InternalCreateBookingIn(BaseModel):
     # one only for callers that have not been wired, not silently mislabelled either way.
     created_by: str = Field(default="", max_length=64)
 
+    _check_quantities = field_validator("quantities")(check_quantities)
+
 
 @router.post("/bookings", dependencies=[Depends(require_internal_token)])
 async def internal_create_booking(request: Request, body: InternalCreateBookingIn) -> dict:
@@ -460,7 +475,7 @@ async def internal_create_booking(request: Request, body: InternalCreateBookingI
         booking = await c.booking_ops.create(
             tenant=body.tenant, branch_id=body.branch_id, operator_id=body.operator_id,
             customer_id=body.customer_id, service_ids=body.service_ids,
-            package_id=body.package_id,
+            quantities=body.quantities, package_id=body.package_id,
             starts_at=body.starts_at, note=body.note, idempotency_key=body.idempotency_key,
             intended_reward_id=body.intended_reward_id, created_by=body.created_by)
     except (SlotClaimBusy, ConcurrentEditError) as exc:

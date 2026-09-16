@@ -10,7 +10,7 @@ import hmac
 import time
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
 
@@ -29,9 +29,11 @@ from app.core.models import CUSTOMERS, VISITS
 from app.core import invoices as _invoices
 from app.core.integration import Integration
 from app.core.partners import PartnerError, PartnerRegistry
-from app.core.stores import (AssetStore, BranchStore, CustomerStore, OperatorStore, PackageStore,
-                             PrivacyRequestStore, ServiceStore, VisitStore, new_id)
+from app.core.stores import (AssetStore, BranchStore, CustomerStore, OperatorStepStatStore,
+                             OperatorStore, PackageStore, PrivacyRequestStore, ProcedureStepStore,
+                             ServiceStore, VisitStore, new_id)
 from app.core.operations import OperationError, RecordedVisit
+from app.core.quantities import check_quantities
 from app.core.whatsapp_visit_flag import WhatsAppVisitFlagStore
 from app.core.whatsapp_auto_register import WhatsAppAutoRegisterFlagStore
 from app.core import backup as _backup
@@ -858,12 +860,18 @@ async def internal_templates(request: Request) -> dict:
 class ServiceDurationsIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     service_ids: list[str] = Field(min_length=1, max_length=20)
+    # HOW MANY OF EACH — a booking for "2× غسيل خارجي" needs a slot twice as long, not the
+    # single-unit duration a bare service-id list would give. Missing entry means one, same
+    # default `record_visit`'s own `quantities` already carries.
+    quantities: dict[str, int] = Field(default_factory=dict)
+
+    _check_quantities = field_validator("quantities")(check_quantities)
 
 
 @router.post("/operations/service-durations", dependencies=[Depends(require_internal_token)])
 async def internal_service_durations(request: Request, body: ServiceDurationsIn) -> dict:
-    """The sum of `Service.duration_minutes` for a set of services, or `null` if ANY of them is
-    not configured — for `bookings`, the one question it asks this service (its own
+    """The sum of `Service.duration_minutes × quantity` for a set of services, or `null` if ANY of
+    them is not configured — for `bookings`, the one question it asks this service (its own
     `app/core/operations.py::DurationLookup`).
 
     NULL, NOT ZERO, on a missing/unconfigured duration. Zero would be indistinguishable from a
@@ -879,7 +887,7 @@ async def internal_service_durations(request: Request, body: ServiceDurationsIn)
         svc = by_id.get(sid)
         if svc is None or not svc.duration_minutes:
             return {"duration_minutes": None}
-        total += svc.duration_minutes
+        total += svc.duration_minutes * max(1, int(body.quantities.get(sid, 1)))
     return {"duration_minutes": total}
 
 
@@ -1107,6 +1115,12 @@ class VisitFromCustomerIn(BaseModel):
     # so the visit (and, downstream, loyalty) knows it. `service_ids` above still carries the
     # package's real components either way; this changes nothing about how the visit is built.
     package_id: str = Field(default="", max_length=64)
+    # THE BOOKING'S OWN "HOW MANY" — carried straight through from `bookings`' own `Booking.
+    # quantities` (see `HttpVisitGateway.create`), so a booking made for "2× غسيل خارجي" produces a
+    # visit that prices and counts the same way a till or the field screen would.
+    quantities: dict[str, int] = Field(default_factory=dict)
+
+    _check_quantities = field_validator("quantities")(check_quantities)
 
 
 @router.post("/operations/visits/from-customer", dependencies=[Depends(require_internal_token)])
@@ -1145,7 +1159,7 @@ async def internal_visit_from_customer(request: Request, body: VisitFromCustomer
             tenant=body.tenant, phone=customer.phone, service_ids=service_ids,
             operator_id=body.operator_id, branch_id=body.branch_id, note=body.note,
             idempotency_key=body.idempotency_key, occurred_at=body.occurred_at,
-            package_id=body.package_id)
+            package_id=body.package_id, quantities=body.quantities)
     except OperationError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     # THE SEAMS RUN HERE TOO (ز-7) — same guard as the interactive path: a retry that lands on an
@@ -1808,6 +1822,13 @@ class VisitRatingIn(BaseModel):
     # BOUNDED THE SAME AS rating_settings.MAX_POINTS (10_000) — not imported from reminders (a
     # cross-service import this codebase does not do), restated here as the same product ceiling.
     rating_points: int = Field(default=0, ge=0, le=10_000)
+    # NEGATIVE SELECTION, FROM THE CUSTOMER'S OWN CHECKLIST ([[task-service-procedure-checklists]],
+    # phase 2 — the hosted rating page portal serves, not a native WhatsApp Flow any more) — empty
+    # means "nothing was wrong", the ordinary case, never a value this route invents on the
+    # customer's behalf. Bounded generously (a real
+    # protocol is at most a few dozen steps; 200 is headroom, not a real expected count) so a
+    # malformed caller cannot make this one visit carry an unbounded list.
+    rating_issue_step_ids: list[str] = Field(default_factory=list, max_length=200)
 
 
 @router.post("/operations/visits/{visit_id}/rating", dependencies=[Depends(require_internal_token)])
@@ -1860,7 +1881,29 @@ async def record_visit_rating(request: Request, visit_id: str, body: VisitRating
     visit.rating = body.rating
     visit.feedback_text = body.feedback_text.strip()
     visit.rated_at = int(time.time())
+    # EVERY FLAGGED STEP ID IS CHECKED against this tenant's own live catalogue before it is
+    # trusted — same "drop what does not resolve, never store it" discipline
+    # `update_service`/`update_procedure_step` already apply to `procedure_step_ids`. The customer
+    # answered a Flow built from a real menu, but this route has no way to know that menu was not
+    # stale by the time he replied, so it re-checks rather than trusting the ids blindly.
+    flagged_steps: dict[str, Any] = {}
+    if body.rating_issue_step_ids:
+        flagged_steps = await ProcedureStepStore(request.app.state.container.datastore).get_many(
+            body.tenant, body.rating_issue_step_ids)
+    visit.rating_issue_step_ids = [sid for sid in body.rating_issue_step_ids if sid in flagged_steps]
     await store.save(visit)
+    if visit.operator_id and visit.rating_issue_step_ids:
+        # BEST-EFFORT, SAME AS THE LOYALTY CREDIT AND RATING-ALERT CALLS BELOW — a lost increment
+        # here does not undo the rating or the step list just written above, both of which are
+        # already real. See `OperatorStepStat`'s own docstring for the one accepted trade-off
+        # (read-modify-write, not a true atomic counter).
+        stats = OperatorStepStatStore(request.app.state.container.datastore)
+        for step_id in visit.rating_issue_step_ids:
+            step = flagged_steps.get(step_id)
+            await stats.record_issue(
+                body.tenant, visit.operator_id, step_id,
+                critical=bool(step and step.severity == "critical"),
+                visit_id=visit.id, at=visit.rated_at)
     if body.subject_ref and body.rating_points > 0:
         desk = getattr(request.app.state.container, "loyalty_desk", None)
         if desk is not None:
@@ -1880,6 +1923,63 @@ async def record_visit_rating(request: Request, visit_id: str, body: VisitRating
             operator_name=operator.name if operator else "", branch_id=visit.branch_id,
             triggering_visit_id=visit.id)
     return {"recorded": True, "changed": True, "visit_id": visit.id}
+
+
+class VisitRatingContextIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/operations/visits/{visit_id}/rating-context",
+             dependencies=[Depends(require_internal_token)])
+async def visit_rating_context(request: Request, visit_id: str,
+                               body: VisitRatingContextIn) -> dict:
+    """What the hosted rating page (portal) needs to RENDER the checklist for one visit —
+    [[task-service-procedure-checklists]] phase 2. A read-only twin of `record_visit_rating`
+    above: that route WRITES the answer, this one describes the QUESTION.
+
+    `found: false` for an unknown visit or a tenant mismatch — same "no oracle" posture
+    `record_visit_rating`'s own docstring already argues for an internal-token-holding caller.
+
+    `already_rated` lets portal show a plain "thank you, already recorded" screen instead of a
+    form that would silently do nothing (the write route's own idempotency guard would refuse a
+    second rating anyway; this is so the CUSTOMER is told why, not just the write route).
+
+    STEPS ARE THE UNION ACROSS EVERY SERVICE ON THIS VISIT, DEDUPED, ORDER PRESERVED — a visit for
+    two services never asks the same shared step twice (see `Service.procedure_step_ids`'s own
+    note on steps being shared by id across services), and "first service's own order" wins for a
+    step that appears in more than one service's list, which is as good an order as any other
+    since the two services agreed to share the step in the first place. RETIRED STEPS ARE DROPPED
+    (never shown) — same reasoning `update_service`'s own docstring gives for a service's list.
+    """
+    store = VisitStore(request.app.state.container.datastore)
+    visit = await store.get(body.tenant, visit_id)
+    if visit is None:
+        return {"found": False}
+    if visit.rating:
+        return {"found": True, "already_rated": True}
+
+    services = ServiceStore(request.app.state.container.datastore)
+    steps_store = ProcedureStepStore(request.app.state.container.datastore)
+    ordered_step_ids: list[str] = []
+    seen: set[str] = set()
+    service_names: list[str] = []
+    for sid in visit.service_ids:
+        svc = await services.get(body.tenant, sid)
+        if svc is None:
+            continue
+        service_names.append(svc.name)
+        for step_id in svc.procedure_step_ids:
+            if step_id not in seen:
+                seen.add(step_id)
+                ordered_step_ids.append(step_id)
+
+    resolved = await steps_store.get_many(body.tenant, ordered_step_ids)
+    steps = [resolved[sid].public() for sid in ordered_step_ids
+            if sid in resolved and resolved[sid].active]
+
+    return {"found": True, "already_rated": False, "service_names": service_names,
+            "steps": [{"id": s["id"], "text": s["text"], "severity": s["severity"]}
+                     for s in steps]}
 
 
 class CatalogueIn(BaseModel):

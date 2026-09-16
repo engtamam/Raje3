@@ -55,6 +55,11 @@ class Booking:
                                           # from operations (§6.5, DSAR fan-out target; also what
                                           # bookings.booking.changed events key on for reminders)
     service_ids: tuple[str, ...] = ()    # mutable; drives duration_minutes and the picker
+    # HOW MANY OF EACH — "" for a service missing from this dict means one, same reading
+    # `operations`' own `Visit.quantities` gives (core/operations.py::DurationLookup, `attend()`'s
+    # own note below). Recomputes `duration_minutes` at the same two moments `service_ids` itself
+    # does (create, and an explicit `edit_services` call) — never re-derived on a background read.
+    quantities: dict[str, int] = field(default_factory=dict)
     # "" for an ordinary booking. Set at creation, MUTUALLY EXCLUSIVE with a client-chosen
     # `service_ids` (which is instead RESOLVED from the package's own components and stamped here
     # for display continuity — see BookingOperations.create's own note). Fixed after creation, same

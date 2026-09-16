@@ -17,7 +17,7 @@ from app.core.operations import BookingEvents, BookingOperations, DurationLookup
 from app.core.stores import BookingStore
 
 
-async def _lookup(tenant: str, service_ids) -> int:
+async def _lookup(tenant: str, service_ids, quantities=None) -> int:
     return 60   # a full hour — long enough to push a 23:50 start past midnight
 
 

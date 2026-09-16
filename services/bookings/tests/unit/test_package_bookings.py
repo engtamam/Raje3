@@ -18,7 +18,7 @@ TENANT = "t1"
 
 
 class _FixedDurations:
-    async def __call__(self, tenant: str, service_ids) -> int | None:
+    async def __call__(self, tenant: str, service_ids, quantities=None) -> int | None:
         return 30 * len(service_ids) if service_ids else None
 
 
@@ -144,6 +144,20 @@ def test_an_eligible_operator_is_allowed_for_a_package():
     booking = _run(ops.create(tenant=TENANT, branch_id="b1", operator_id="op1", customer_id="c1",
                               service_ids=[], package_id="pkg1", starts_at=1786860000))
     assert booking.package_id == "pkg1"
+
+
+def test_a_package_booking_ignores_any_quantity_sent_for_it():
+    """Packages have no per-component quantity concept (`Package.service_ids` in operations-
+    service's own models.py: a bundle of DISTINCT services, never one repeated) — a caller
+    sending `quantities` alongside a package must not have it silently accepted onto the row,
+    and must not be refused for it either (the same way `meter`/`plate` are simply ignored by a
+    shop that does not track vehicles, rather than validated against a field that has no meaning
+    here)."""
+    ops, _ = _ops()
+    booking = _run(ops.create(tenant=TENANT, branch_id="b1", operator_id="op1", customer_id="c1",
+                              service_ids=[], package_id="pkg1", starts_at=1786860000,
+                              quantities={"svc1": 999_999_999}))   # would refuse if validated
+    assert booking.quantities == {}
 
 
 def test_attending_a_package_booking_carries_its_package_id_to_the_visit_gateway():
