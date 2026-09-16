@@ -352,6 +352,114 @@ async def _fetch_and_record_order(request: Request, tenant: str, order_id: str) 
         occurred_at=int(order.get("create_time") or 0))
 
 
+async def _fetch_and_reply_to_message(request: Request, tenant: str, conversation_id: str) -> None:
+    """After a webhook whose `data` carried a `conversation_id` but not `order_id`/`order_status`
+    (so not the order path above) — Phase 3's own trigger. Fetches the real messages (the webhook
+    body itself is never trusted for content, same discipline `_fetch_and_record_order` already
+    applies), and only replies when the NEWEST message is actually from the buyer — a webhook that
+    fired because OUR OWN prior reply just landed in the same conversation must never trigger a
+    second reply to itself, which would be an infinite loop.
+
+    Never raises — same "the webhook's own 200 is not this function's to risk" posture as the
+    order path, logged on every failure so a quiet break is at least visible in telemetry.
+    """
+    c = request.app.state.container
+    s = request.app.state.container_settings
+
+    if await refuses_machine_writes(
+            getattr(c, "tiktok_licence", None), tenant):
+        return
+    conn = await c.tiktok_shop.connection_for(tenant)
+    if conn is None:
+        return
+
+    try:
+        messages = await run_in_threadpool(
+            c.tiktok_shop.client.get_conversation_messages, access_token=conn.access_token,
+            shop_cipher="", conversation_id=conversation_id)
+    except Exception as exc:                                                  # noqa: BLE001
+        c.telemetry.event("tiktok_messages_fetch_failed", tenant=tenant, error=str(exc)[:200])
+        return
+    if not messages:
+        return
+    newest = messages[0]
+    sender = newest.get("sender") if isinstance(newest.get("sender"), dict) else {}
+    if str(sender.get("role") or "").upper() != "BUYER":
+        # Newest message is ours (or the system's) — nothing for the assistant to answer.
+        return
+    user_text = str(newest.get("plaintext") or "").strip()
+    if not user_text:
+        return
+
+    from app.core.marketplaces.tiktok_assistant import (
+        TikTokAssistantUnavailable, generate_reply, model_url_and_shape, resolve_shop_context,
+    )
+
+    if not s.ASSISTANT_SERVICE_URL:
+        return
+    shop = await resolve_shop_context(c.datastore, s, tenant)
+    if not shop.ai_enabled:
+        # THE OWNER'S OWN KILL SWITCH — shared with WhatsApp's, see ShopContext's own docstring.
+        return
+
+    url, shape = model_url_and_shape(
+        s.TIKTOK_ASSISTANT_MODEL_LOCATION, s.TIKTOK_ASSISTANT_MODEL_PROJECT,
+        s.TIKTOK_ASSISTANT_MODEL_NAME)
+    try:
+        reply = await generate_reply(
+            connections=c.tiktok_assistant_connections, tenant=tenant, shop_name=shop.name,
+            owner_notes=shop.ai_notes, recent_messages=[], user_message=user_text,
+            model_url=url, model_shape=shape, model_name=s.TIKTOK_ASSISTANT_MODEL_NAME,
+            model_auth=s.TIKTOK_ASSISTANT_MODEL_AUTH,
+            credential=s.TIKTOK_ASSISTANT_MODEL_CREDENTIAL,
+            max_reply_tokens=s.TIKTOK_ASSISTANT_MAX_REPLY_TOKENS)
+    except TikTokAssistantUnavailable as exc:
+        c.telemetry.event("tiktok_assistant_unavailable", tenant=tenant, error=str(exc)[:200])
+        return
+    except Exception as exc:                                                  # noqa: BLE001
+        # THE WEBHOOK'S OWN 200 IS NOT THIS CALL'S TO RISK — same "never let a downstream failure
+        # become a 500 on TikTok's own delivery" posture `_fetch_and_record_order` already
+        # applies, broadened here to any unexpected error (not only `TikTokAssistantUnavailable`)
+        # because assistant-service is a peer this route does not fully control the failure
+        # shapes of.
+        c.telemetry.event("tiktok_assistant_unavailable", tenant=tenant, error=str(exc)[:200])
+        return
+
+    if reply.category:
+        await c.tiktok_shop.record_message_category(
+            tenant=tenant, category=reply.category, source="dm",
+            conversation_id=conversation_id)
+
+    # PHASE 3 IS READ-ONLY BY CONSTRUCTION (see tiktok_assistant.py's own module docstring) — a
+    # tool call today can only be a LOOKUP (order status, points), never a write, so there is no
+    # PendingProposal/button-confirmation step to build yet: the tool's own answer is folded
+    # straight into what gets sent, never executed as a side effect on its own.
+    text = reply.text
+    if reply.tool_call:
+        name, args = reply.tool_call
+        if name == "check_order_status":
+            order = await run_in_threadpool(
+                c.tiktok_shop.client.get_order_detail, access_token=conn.access_token,
+                shop_cipher="", order_id=str(args.get("order_id") or ""))
+            text = (f"حالة طلبك: {order.get('status')}" if order
+                   else "ما لقيت طلب بهذا الرقم — تأكد منه وأعد المحاولة.")
+        elif name == "get_customer_points_summary":
+            phone = str(args.get("phone") or "").strip()
+            customer = await c.operations.customer_by_phone(tenant, phone) if phone else None
+            desk = getattr(c, "loyalty_desk", None)
+            if customer is None or desk is None or not desk.configured or not customer.subject_ref:
+                text = "ما قدرت ألقى رصيد نقاط بهذا الرقم."
+            else:
+                bal = await desk.balance(tenant=tenant, subject_ref=customer.subject_ref)
+                text = (f"رصيدك الحالي: {bal.get('points', 0)} نقطة" if bal
+                       and bal.get("has_programme") else "ما عندك رصيد نقاط مسجّل حالياً.")
+
+    if text:
+        await run_in_threadpool(
+            c.tiktok_shop.client.send_message, access_token=conn.access_token, shop_cipher="",
+            conversation_id=conversation_id, text=text)
+
+
 @router.post("/tiktok-shop/webhook", dependencies=[Depends(rate_limit)])
 async def tiktok_shop_webhook(request: Request) -> Any:
     """TikTok's own server call — verified against `Authorization` (see
@@ -384,6 +492,12 @@ async def tiktok_shop_webhook(request: Request) -> Any:
     # together are unambiguously `ORDER_STATUS_CHANGE`, confirmed live in the reproducible
     # signing example on `tts-webhooks-overview`.
     is_order_event = "order_id" in data and "order_status" in data
+    # PHASE 3's OWN TRIGGER — `conversation_id` is the one field the docs' own `NEW_CONVERSATION`/
+    # `NEW_MESSAGE` trigger descriptions both imply must exist (a conversation-scoped event with
+    # no conversation id would be unusable), but the exact `data` shape was never confirmed live.
+    # Deliberately narrow: only fires when the payload is UNAMBIGUOUSLY not the order shape above,
+    # so a future order-topic field named similarly can never be misread as a message event.
+    conversation_id = str(data.get("conversation_id") or "") if not is_order_event else ""
 
     if not verified or not shop_id or not notification_id:
         # STILL 200 — see the docstring. No event log either when the signature itself failed:
@@ -395,21 +509,29 @@ async def tiktok_shop_webhook(request: Request) -> Any:
 
     conn = await c.tiktok_shop.connection_for_shop(shop_id)
     tenant = conn.tenant if conn else ""
+    event_type = WEBHOOK_TOPIC if is_order_event else (
+        "message" if conversation_id else "unrecognised_shape")
     await c.tiktok_shop.record_event(
-        tts_notification_id=notification_id, shop_id=shop_id,
-        event_type=(WEBHOOK_TOPIC if is_order_event else "unrecognised_shape"),
+        tts_notification_id=notification_id, shop_id=shop_id, event_type=event_type,
         tenant=tenant, verified=True)
 
-    if not tenant or not is_order_event:
-        # NOT AN ORDER EVENT — `SELLER_DEAUTHORIZATION`/`UPCOMING_AUTHORIZATION_EXPIRATION` are
-        # deliberately NOT acted on here yet: this app only ever registers `ORDER_STATUS_CHANGE`
-        # (`register_webhook`'s own `event=WEBHOOK_TOPIC`, called once at connect time — TikTok
-        # never sends a topic nobody subscribed to), and the OTHER two topics' own `data` shape
-        # was never confirmed live against a real payload (only their trigger SCENARIOS were, on
-        # `tts-webhooks-overview`). Guessing a shape to act on would risk disconnecting a shop on
-        # a payload that was never actually that event — logged above either way, acted on once a
-        # real payload confirms the shape (see [[task-tiktok-app-phases]] memory).
+    if not tenant:
         return {"received": True}
 
-    await _fetch_and_record_order(request, tenant, str(data.get("order_id") or ""))
+    if is_order_event:
+        await _fetch_and_record_order(request, tenant, str(data.get("order_id") or ""))
+        return {"received": True}
+
+    if conversation_id:
+        await _fetch_and_reply_to_message(request, tenant, conversation_id)
+        return {"received": True}
+
+    # NEITHER SHAPE — `SELLER_DEAUTHORIZATION`/`UPCOMING_AUTHORIZATION_EXPIRATION` are
+    # deliberately NOT acted on here yet: this app only ever registers `ORDER_STATUS_CHANGE`
+    # (`register_webhook`'s own `event=WEBHOOK_TOPIC`, called once at connect time — TikTok never
+    # sends a topic nobody subscribed to), and those two topics' own `data` shape was never
+    # confirmed live against a real payload (only their trigger SCENARIOS were, on
+    # `tts-webhooks-overview`). Guessing a shape to act on would risk disconnecting a shop on a
+    # payload that was never actually that event — logged above either way, acted on once a real
+    # payload confirms the shape (see [[task-tiktok-app-phases]] memory).
     return {"received": True}

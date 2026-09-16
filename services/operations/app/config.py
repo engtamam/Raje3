@@ -299,6 +299,30 @@ class Settings(BaseSettings):
     # authorization-overview docs 2026-09-16: the authorize URL takes `service_id`, never
     # `app_key` (that is only used for signing and the token endpoints).
     TIKTOK_SHOP_SERVICE_ID: str = ""
+
+    # ── TikTok assistant (Phase 3 — see [[task-tiktok-app-phases]] memory) ─────────────────────
+    # A GENUINELY SEPARATE assistant-service PEER FROM whatsapp-assistant's own — this service
+    # calls assistant-service DIRECTLY (never through the WhatsApp service), so it needs its own
+    # copy of the same three settings that service's ASSISTANT_SERVICE_URL/_CONNECTIONS_PATH
+    # already carry. Empty URL means "not configured" — `tiktok_assistant.generate_reply`'s own
+    # caller (api/v1/tiktok.py's webhook route) skips the automated reply entirely rather than
+    # crashing the webhook's own 200.
+    ASSISTANT_SERVICE_URL: str = ""
+    ASSISTANT_SERVICE_CONNECTIONS_PATH: str = "/internal/assistant/connections"
+    ASSISTANT_SERVICE_TIMEOUT_SECONDS: int = 20
+    # SAME NAMES, SAME DEFAULTS AS whatsapp-assistant's OWN ASSISTANT_MODEL_* — a DIFFERENT set of
+    # values here (a distinct GCP project/credential is allowed but not required; the platform-
+    # wide project may simply be reused, same as any two Vertex AI callers on one project can be).
+    # DELIBERATE SIMPLIFICATION (disclosed, not silent — see tiktok_assistant.py's own module
+    # docstring): no live operator-rotatable credential yet, just these three settings read once.
+    TIKTOK_ASSISTANT_MODEL_PROJECT: str = ""
+    TIKTOK_ASSISTANT_MODEL_LOCATION: str = "me-central2"
+    TIKTOK_ASSISTANT_MODEL_NAME: str = "gemini-2.5-flash"
+    TIKTOK_ASSISTANT_MODEL_AUTH: str = "vertex"          # api_key | vertex
+    TIKTOK_ASSISTANT_MODEL_CREDENTIAL: str = ""          # a GCP service-account key JSON
+    # A TikTok DM reply is a couple of sentences at most — same "generous headroom, not a blank
+    # cheque" reasoning whatsapp-assistant's own MAX_REPLY_TOKENS comment gives.
+    TIKTOK_ASSISTANT_MAX_REPLY_TOKENS: int = 300
     # job-service — the platform's own durable scheduler (adapters/job_service.py). Empty means
     # NullJobService, same posture as every other optional peer URL in this file: the refresh
     # scan simply finds nothing to enqueue rather than crashing.

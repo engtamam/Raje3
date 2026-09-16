@@ -242,11 +242,11 @@ class TikTokShopClient:
 
     def get_order_detail(self, *, access_token: str, shop_cipher: str,
                          order_id: str) -> dict[str, Any] | None:
-        """`GET /order/202507/orders` — the ONLY endpoint this client calls beyond OAuth, because
-        it is the only thing Phase 1/2 needs: a webhook's `ORDER_STATUS_CHANGE` payload carries
-        just `order_id`/`order_status`/`update_time` (confirmed live, the reproducible signing
-        example on `tts-webhooks-overview`), never the phone or the line items `record_visit`
-        needs — those only exist on this call's own response.
+        """`GET /order/202507/orders` — Phase 1/2's own signed call, because a webhook's
+        `ORDER_STATUS_CHANGE` payload carries just `order_id`/`order_status`/`update_time`
+        (confirmed live, the reproducible signing example on `tts-webhooks-overview`), never the
+        phone or the line items `record_visit` needs — those only exist on this call's own
+        response.
         """
         if not self.configured:
             return None
@@ -268,6 +268,75 @@ class TikTokShopClient:
             return None
         orders = ((out.get("data") or {}).get("orders")) or []
         return orders[0] if orders else None
+
+    def get_conversation_messages(self, *, access_token: str, shop_cipher: str,
+                                  conversation_id: str,
+                                  page_size: int = 10) -> list[dict[str, Any]]:
+        """`GET /customer_service/202309/conversations/{conversation_id}/messages` — Phase 3's
+        own read: a `NEW_MESSAGE` webhook's own `data` shape was never confirmed live (only its
+        trigger SCENARIO was — "a new message is sent" — `tts-webhooks-overview`'s own table),
+        so — same "fetch the real thing, never trust an unverified webhook body" discipline
+        `_fetch_and_record_order` already applies to `ORDER_STATUS_CHANGE` — the webhook route
+        only ever reads `conversation_id` out of the payload defensively and calls this for
+        everything else. Confirmed live against
+        `get-conversation-messages-202309`'s own response sample — each message carries `id`,
+        `type`, `content` (a JSON-serialised STRING, e.g. `'{"content": "hi"}'`), `create_time`,
+        `sender.role` (`"BUYER"` for the customer's own messages), and `plaintext`.
+
+        `sort_order=DESC` (the endpoint's own default) is relied on — index 0 is the newest
+        message, which is what a reply is actually responding to.
+        """
+        if not self.configured:
+            return []
+        path = f"/customer_service/202309/conversations/{conversation_id}/messages"
+        query = {"app_key": self._key, "timestamp": str(int(time.time())),
+                "shop_cipher": shop_cipher, "page_size": str(page_size),
+                "need_plaintext": "true"}
+        sign = sign_request(method="GET", path=path, query=query, body=b"",
+                            content_type="application/json", app_secret=self._secret)
+        full_query = {**query, "sign": sign}
+        url = f"{API_BASE}{path}?{urllib.parse.urlencode(full_query)}"
+        req = urllib.request.Request(url, headers={
+            "content-type": "application/json", ACCESS_TOKEN_HEADER: access_token})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310
+                out = json.loads(resp.read() or b"{}")
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return []
+        if out.get("code") != 0:
+            return []
+        return list((out.get("data") or {}).get("messages") or [])
+
+    def send_message(self, *, access_token: str, shop_cipher: str, conversation_id: str,
+                     text: str) -> bool:
+        """`POST /customer_service/202606/conversations/{conversation_id}/messages` — confirmed
+        live against `send-message-202606`: `content` is itself a JSON-SERIALISED STRING (double-
+        encoded — `'{"content": "..."}'`, not a bare string), `type` is one of a fixed enum
+        (`TEXT` is the only one this client ever sends), and `sender_role` distinguishes an
+        automated reply (`"SYSTEM"`) from one a real human agent typed (`"CUSTOMER_SERVICE"`) — a
+        distinction TikTok's own UI likely surfaces to the buyer, so this is never spoofed as a
+        human's own reply.
+        """
+        if not self.configured or not text.strip():
+            return False
+        path = f"/customer_service/202606/conversations/{conversation_id}/messages"
+        query = {"app_key": self._key, "timestamp": str(int(time.time())),
+                "shop_cipher": shop_cipher}
+        body_obj = {"type": "TEXT", "content": json.dumps({"content": text[:2000]}),
+                   "sender_role": "SYSTEM"}
+        body = json.dumps(body_obj).encode("utf-8")
+        sign = sign_request(method="POST", path=path, query=query, body=body,
+                            content_type="application/json", app_secret=self._secret)
+        full_query = {**query, "sign": sign}
+        url = f"{API_BASE}{path}?{urllib.parse.urlencode(full_query)}"
+        req = urllib.request.Request(url, data=body, method="POST", headers={
+            "content-type": "application/json", ACCESS_TOKEN_HEADER: access_token})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310
+                out = json.loads(resp.read() or b"{}")
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return False
+        return out.get("code") == 0
 
 
 class TikTokShopService:
@@ -361,3 +430,25 @@ class TikTokShopService:
         await self._s.put(TIKTOK_SHOP_EVENTS, f"{PLATFORM}|seen|{tts_notification_id}",
                           {"tenant": PLATFORM, **asdict(row)})
         return row
+
+    async def record_message_category(self, *, tenant: str, category: str, source: str = "dm",
+                                      conversation_id: str = "") -> None:
+        """One durable row per tagged message — «أكثر شكوى تتكرر» reads these back with a plain
+        COUNT-by-category, the exact same "aggregate over real rows, invent nothing" shape
+        `record_visit`'s own `rating_issue_step_ids` counting already uses (operations/core/
+        operations.py). `category` may be a `tiktok_categories.KNOWN_SLUGS` member OR a novel
+        slug the model proposed — this store does not judge which; a slug outside the known set
+        simply never appears on an owner's report until a human decides to add it (the "adaptive
+        taxonomy" design agreed 2026-09-16 — see [[task-tiktok-app-phases]] memory).
+
+        `source` — `"dm"` or `"comment"` — travels as its own field, never folded into the
+        category name itself (the same unified-taxonomy decision).
+        """
+        import uuid
+
+        if not tenant or not category:
+            return
+        row_id = f"tkcat_{uuid.uuid4().hex}"
+        await self._s.put("tiktok_message_categories", f"{tenant}|{row_id}", {
+            "tenant": tenant, "id": row_id, "category": category, "source": source,
+            "conversation_id": conversation_id, "created": int(time.time())})

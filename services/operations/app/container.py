@@ -365,6 +365,18 @@ def build_container(settings: Settings) -> Container:
             app_key=settings.TIKTOK_SHOP_APP_KEY, app_secret=settings.TIKTOK_SHOP_APP_SECRET,
             service_id=settings.TIKTOK_SHOP_SERVICE_ID))
 
+    # TikTok assistant (Phase 3) — see core/marketplaces/tiktok_assistant.py's own module
+    # docstring. A separate assistant-service client from whatsapp-assistant's own (that service
+    # is a different deployable this one cannot import); empty ASSISTANT_SERVICE_URL means the
+    # webhook route below skips the automated reply rather than crashing.
+    from app.core.marketplaces.tiktok_assistant import HttpAssistantConnections
+
+    container.tiktok_assistant_connections = HttpAssistantConnections(
+        url=settings.ASSISTANT_SERVICE_URL,
+        connections_path=settings.ASSISTANT_SERVICE_CONNECTIONS_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN,
+        timeout=settings.ASSISTANT_SERVICE_TIMEOUT_SECONDS)
+
     # job-service — see adapters/job_service.py's own module docstring. Optional, like every
     # other peer here: NullJobService when JOB_SERVICE_URL is unset.
     from app.adapters.job_service import HttpJobService, NullJobService
