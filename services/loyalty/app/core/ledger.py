@@ -66,37 +66,16 @@ class Ledger:
                                                   "reason": reason}, limit=1)
         return bool(rows)
 
-    async def entry_for(self, tenant: str, source: str, reason: str) -> LedgerEntry | None:
-        """The one entry a (source, reason) pair actually posted, if any — `already_posted`'s own
-        query, returning the row instead of a bool. Written for `earn.py::reverse_earn`: reversing
-        a visit's `earn` needs to know exactly how many points it granted, not merely that it did
-        — reversing a GUESSED amount could over- or under-take a balance a human never actually
-        held that much of."""
-        if not source:
-            return None
-        rows, _ = await self.store.find(ENTRIES, {"tenant": tenant, "source": source,
-                                                  "reason": reason}, limit=1)
-        return LedgerEntry(**rows[0]) if rows else None
-
     # ── the write ────────────────────────────────────────────────────────────────────────────
     async def post(self, *, tenant: str, subject_ref: str, delta: int, reason: str,
                    source: str = "", actor: str = "", rule_level: str = "",
                    note: str = "", branch_id: str = "",
-                   now: int | None = None, allow_negative: bool = False) -> LedgerEntry | None:
+                   now: int | None = None) -> LedgerEntry | None:
         """Move a balance. Returns the entry, or None if this cause was already posted.
 
         None rather than an exception for the idempotent case: a redelivered event is not an
         error, it is the bus behaving as documented, and callers that must treat it as one can
         check the return.
-
-        `allow_negative` — OFF BY DEFAULT, AND EVERY EXISTING CALLER KEEPS REFUSING AN OVERDRAW
-        UNCHANGED. Added 2026-09-16, the owner's own explicit call, for exactly one caller
-        (`earn.py::reverse_earn`, TikTok's own CANCELLED-order reversal): a customer who already
-        SPENT the points a since-cancelled order granted must not walk away having profited from
-        an order that never actually happened — the balance goes negative (a real debt, collected
-        against a future earn) rather than the take-back silently stopping at zero, which is
-        exactly the gap that lets that trick work. This flag is never set by `redeem` or any
-        human-facing spend path — those still refuse an overdraw exactly as before.
         """
         if reason not in REASONS:
             raise LoyaltyError(f"unknown reason {reason!r}")
@@ -110,7 +89,7 @@ class Ledger:
 
         bal = await self.balance(tenant, subject_ref)
         after = bal.points + delta
-        if after < 0 and not allow_negative:
+        if after < 0:
             raise Overdraft(
                 f"balance is {bal.points}, this movement is {delta} — refused rather than clamped")
 

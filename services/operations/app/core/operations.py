@@ -275,21 +275,12 @@ class Operations:
                            # package's real components either way; this is threaded through
                            # unchanged to the seams event so loyalty can look up the package's own
                            # point value instead of summing the components'.
-                           package_id: str = "",
-                           # NO USABLE PHONE ARRIVED — a TikTok Shop order under the default
-                           # "TikTok Shipping" mode masks the buyer's real number, and refusing the
-                           # order would lose the sale entirely (`Customer.anonymous`'s own
-                           # docstring). `phone` is IGNORED entirely on this path (never
-                           # normalised, never required) — every no-phone order for this tenant
-                           # resolves to the SAME one placeholder customer. Never combine with a
-                           # real phone: the caller decides ONE identity for this visit, not both.
-                           anonymous: bool = False) -> RecordedVisit:
+                           package_id: str = "") -> RecordedVisit:
         if not tenant:
             raise OperationError("لا توجد منشأة على الطلب — سجّل الدخول من جديد")
-        if not anonymous:
-            phone = _normalise_phone(phone)
-            if not phone:
-                raise OperationError("رقم الجوال مطلوب، ولم نتعرّف على ما أُدخل — تأكّد أنه أرقام فقط")
+        phone = _normalise_phone(phone)
+        if not phone:
+            raise OperationError("رقم الجوال مطلوب، ولم نتعرّف على ما أُدخل — تأكّد أنه أرقام فقط")
         if not service_ids:
             raise OperationError("اختر خدمة واحدة على الأقل")
         if any(not str(s).strip() for s in service_ids):
@@ -326,16 +317,7 @@ class Operations:
                                      duplicate=True)
 
         now = _now()
-        if anonymous:
-            customer = await self._customers.anonymous(tenant)
-            created_customer = customer is None
-            if customer is None:
-                customer = Customer(
-                    id=new_id("cus"), tenant=tenant, phone="",
-                    subject_ref=subject_ref(self._salt, tenant, f"tiktok-anonymous:{tenant}"),
-                    name="طلبات تيك توك بلا رقم", created=now, source="tiktok", anonymous=True)
-        else:
-            customer, created_customer = await self._resolve_customer(tenant, phone, name)
+        customer, created_customer = await self._resolve_customer(tenant, phone, name)
 
         # UNKNOWN SERVICES ARE ABSORBED, NOT REFUSED — and only on the integration path, where
         # `allow_unknown_services` is set. A till sends a service the owner never added to our

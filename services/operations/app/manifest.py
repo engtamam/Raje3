@@ -426,12 +426,6 @@ def build_manifest(
             {"path": "/api/v1/staff/salla/install", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/salla/status", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/salla/disconnect", "tier": "user", "method": "POST"},
-            # ── TikTok — see api/v1/tiktok.py's own module docstring (Phase 1 order door + Phase 2
-            # OAuth/webhook, same install/callback split as Salla above).
-            {"path": "/api/v1/tiktok/orders", "tier": "user", "method": "POST"},
-            {"path": "/api/v1/staff/tiktok-shop/install", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/staff/tiktok-shop/status", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/staff/tiktok-shop/disconnect", "tier": "user", "method": "POST"},
             # ── mobile/on-the-go service requests — see api/v1/mobile_requests.py's own note.
             {"path": "/api/v1/staff/mobile-requests", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/mobile-requests", "tier": "user", "method": "POST"},
@@ -445,10 +439,6 @@ def build_manifest(
             # redirect and Salla's own server call carry no Bearer token to check.
             {"path": "/api/v1/salla/callback", "tier": "public", "method": "GET"},
             {"path": "/api/v1/salla/webhook", "tier": "public", "method": "POST"},
-            # PUBLIC, deliberately, same posture as Salla's own pair above: TikTok's browser
-            # redirect and TikTok's own server call carry no Bearer token to check.
-            {"path": "/api/v1/tiktok-shop/callback", "tier": "public", "method": "GET"},
-            {"path": "/api/v1/tiktok-shop/webhook", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/code", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/verify", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/claim", "tier": "public", "method": "POST"},

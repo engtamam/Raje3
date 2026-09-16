@@ -134,14 +134,6 @@ class CustomerStore(_Base):
         rows, _ = await self._find(tenant, {"phone": phone}, limit=1)
         return Customer(**rows[0]) if rows else None
 
-    async def anonymous(self, tenant: str) -> Customer | None:
-        """The tenant's ONE placeholder customer, if it has one yet — see `Customer.anonymous`'s
-        own docstring. Same query-by-flag shape `ServiceStore.catchall` already uses: looked up
-        rather than assumed, so a tenant that has never had a no-phone TikTok order simply has
-        none, and the caller (`Operations.record_visit`) creates it the first time it is needed."""
-        rows, _ = await self._find(tenant, {"anonymous": True}, limit=1)
-        return Customer(**rows[0]) if rows else None
-
     async def save(self, c: Customer) -> Customer:
         await self._put(c.tenant, c.id, c.__dict__.copy())
         return c

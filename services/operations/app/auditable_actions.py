@@ -828,43 +828,6 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "the customer is looking at our screen",
     },
     {
-        "action": "tiktok.connected",
-        "source": "internal",
-        "critical": False,
-        "resource": "tiktok_shop_connection",
-        "why": "an owner linked this shop's TikTok Shop account — the row support reads when a "
-               "shop asks why orders stopped, or disputes which of their accounts is wired",
-    },
-    {
-        "action": "tiktok.disconnected",
-        "source": "internal",
-        "critical": False,
-        "resource": "tiktok_shop_connection",
-        "why": "the link was removed, by the owner or by TikTok's own SELLER_DEAUTHORIZATION — "
-               "the same reason `salla.disconnected` is audited",
-    },
-    {
-        "action": "tiktok.order_recorded",
-        "source": "internal",
-        "critical": False,
-        "resource": "visit",
-        "why": "a TikTok Shop order became a visit through the machine credential in "
-               "api/v1/tiktok.py — the only surface where neither the owner nor the customer is "
-               "watching our screen when a masked or missing phone silently routed the sale to "
-               "the tenant's anonymous placeholder rather than a named customer, which is exactly "
-               "the fact an owner reconciling a slow week needs to find without reading every row",
-    },
-    {
-        "action": "tiktok.order_cancelled_points_reversed",
-        "source": "internal",
-        "critical": False,
-        "resource": "visit",
-        "why": "a TikTok order that had already earned points was cancelled, and the points were "
-               "taken back — possibly pushing the customer's balance negative if he already spent "
-               "them. An owner disputing a balance with a customer needs this row to explain a "
-               "number that otherwise looks like it came from nowhere",
-    },
-    {
         # FOUND UNDECLARED 2026-09-07 by ci/check_audit_actions.py, itself found unwired into any
         # workflow the same day (see .github/workflows/guards.yml's own commit) — every call to
         # this, scheduled sweep or the "فحص الآن" button in AdminFinance's GatewayPanel alike, had

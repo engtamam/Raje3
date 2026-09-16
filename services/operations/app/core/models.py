@@ -113,30 +113,12 @@ class Customer:
     # writes a non-default value, and a future channel (a booking widget, another chat app) adds
     # its own string here with no shape change to this row.
     source: str = "manual"
-    # THE ONE PLACEHOLDER CUSTOMER PER TENANT — never a real person, never messaged, never counted
-    # toward a return-visit signal. Exists for exactly one reason (2026-09-16, the TikTok Shop
-    # order-ingestion door, `api/v1/tiktok.py`): TikTok masks a buyer's phone under its default
-    # "TikTok Shipping" mode (1-2 visible digits) — a real number to key a real customer on
-    # simply never arrives. Refusing the order would lose the sale entirely; the SAME "never lose
-    # the visit" reasoning `record_visit`'s own unknown-service absorption already applies to a
-    # service id the catalogue does not know. `CustomerStore.anonymous()` gets-or-creates this ONE
-    # row per tenant (looked up by this flag, same query-by-flag shape `ServiceStore.catchall`
-    # already uses for "خدمة أخرى") — every no-phone order piles onto the SAME row rather than
-    # minting a new, meaningless customer per order.
-    #
-    # NEVER MESSAGED, NEVER SCHEDULED. The route that creates a visit under this customer
-    # deliberately skips `Seams.after_visit` (see that route's own docstring) — no reminder, no
-    # campaign, no loyalty accrual ever fires for it, because none of those would mean anything for
-    # a "customer" that is not a real, identifiable person. The visit itself is still saved in
-    # full (real price, real service, real revenue) — only the identity-bound side effects are
-    # skipped.
-    anonymous: bool = False
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "phone": self.phone, "name": self.name,
                 "created": self.created, "last_visit": self.last_visit,
                 "visit_count": self.visit_count, "last_branch_id": self.last_branch_id,
-                "source": self.source, "anonymous": self.anonymous}
+                "source": self.source}
 
     def peer_view(self) -> dict[str, Any]:
         """What leaves this service toward another one: the ref, never the number."""

@@ -101,17 +101,6 @@ class LoyaltyDesk:
             # a default supplied by a middle layer would be a signature nobody wrote.
             "approved_by": approved_by})
 
-    async def reverse_earn(self, *, tenant: str, subject_ref: str, visit_id: str,
-                          actor: str = "", branch_id: str = "") -> dict[str, Any] | None:
-        """Take back exactly what `visit_id`'s own earn granted — TikTok's own CANCELLED-order
-        path (api/v1/tiktok.py). `None` on an unreachable peer, same posture as every other write
-        here; the caller decides whether that is retried or simply logged."""
-        if not self.configured:
-            return None
-        return await run_in_threadpool(self._call, "/internal/loyalty/reverse-earn", body={
-            "tenant": tenant, "subject_ref": subject_ref, "visit_id": visit_id,
-            "actor": actor, "branch_id": branch_id})
-
     async def rating_bonus(self, *, tenant: str, subject_ref: str, visit_id: str, points: int,
                            actor: str = "", branch_id: str = "") -> dict[str, Any] | None:
         """Credit the rating app's own incentive for one just-submitted rating.

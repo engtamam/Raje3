@@ -106,34 +106,6 @@ class Earner:
         return {"earned": points, "rule_level": level, "balance": entry.balance_after,
                 "entry_id": entry.id}
 
-    async def reverse_earn(self, tenant: str, *, visit_id: str, subject_ref: str,
-                           actor: str = "", branch_id: str = "") -> dict:
-        """Take back exactly what `from_visit` granted for this visit — never a guessed amount,
-        never more than once (spec: the owner's own 2026-09-16 call, written for TikTok's own
-        CANCELLED-order path). `Ledger.entry_for` reads the REAL prior `earn` entry; there is
-        nothing here to reverse if that visit never earned anything (a free visit, an unpriced
-        service, a shop with no earning rule configured at the time) — answered honestly rather
-        than inventing a movement.
-
-        `allow_negative=True` ON THIS CALL ONLY — see `Ledger.post`'s own docstring for the full
-        reasoning. A customer who already spent what this visit granted walks away in debt, not
-        having profited from an order that turned out not to have happened.
-        """
-        if not subject_ref or not visit_id:
-            return {"reversed": 0, "reason": "missing subject or visit"}
-
-        original = await self.ledger.entry_for(tenant, source=visit_id, reason="earn")
-        if original is None or original.delta <= 0:
-            return {"reversed": 0, "reason": "nothing was earned for this visit"}
-
-        async with SpendLock(self.cache, tenant, subject_ref):
-            entry = await self.ledger.post(
-                tenant=tenant, subject_ref=subject_ref, delta=-original.delta, reason="reversal",
-                source=visit_id, actor=actor, branch_id=branch_id, allow_negative=True)
-        if entry is None:
-            return {"reversed": 0, "duplicate": True, "reason": "already reversed for this visit"}
-        return {"reversed": original.delta, "balance": entry.balance_after, "entry_id": entry.id}
-
     async def catch_up(self, tenant: str, visits: list[dict[str, Any]],
                        tree: EarnTree | None = None) -> dict:
         """Award points for visits the event never brought.

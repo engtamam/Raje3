@@ -40,13 +40,9 @@ REWARDS = "loyalty_rewards"
 REDEMPTIONS = "loyalty_redemptions"
 SETTINGS = "loyalty_settings"
 
-# Why a balance moved. Five: every movement is a grant, a spend, a lapse, a human correcting one
-# of the three, or an automated take-back of a grant whose underlying sale did not hold
-# (`"reversal"`, added 2026-09-16 for TikTok's own CANCELLED order — see
-# `earn.py::reverse_earn`'s own docstring). Kept distinct from `"adjust"` (a human's own manual
-# correction) precisely so a report can tell the two apart — an owner tidying his books is not the
-# same fact as a customer's order falling through.
-REASONS = ("earn", "redeem", "expire", "adjust", "reversal")
+# Why a balance moved. Four, and no more: every movement is a grant, a spend, a lapse, or a human
+# correcting one of the three.
+REASONS = ("earn", "redeem", "expire", "adjust")
 
 # What a reward IS. The `service` type is the one with consequences beyond points: redeeming it
 # records a real visit, which restarts the reminder cycle (spec §9.4).
