@@ -66,12 +66,34 @@ NOT_FOR_A_SCREEN: dict[str, str] = {
     # services list/create calls) and so are not actually reported as orphans today — only the
     # PACKAGE-image ones are. Both families are declared here anyway, honestly, rather than relying
     # on that coincidence to keep the gate quiet.
+    #
+    # `operations.delete_service_image`/`operations.delete_package_image` REMOVED FROM THIS LIST
+    # (found live, 2026-09-16, while auditing this gate's own failures) — neither action exists in
+    # the backend catalogue any more (delete was dropped from the plan; only upload/get remain),
+    # so the gate's own "stale allow-list entry" check was failing the build on two names nothing
+    # declares — a real, previously-undetected break, not a false positive worth re-adding.
     "operations.upload_service_image": "services-images-board phase 1 — no console screen until phase 3",
     "operations.get_service_image": "services-images-board phase 1 — no console screen until phase 3",
-    "operations.delete_service_image": "services-images-board phase 1 — no console screen until phase 3",
     "operations.upload_package_image": "services-images-board phase 1 — no console screen until phase 3",
     "operations.get_package_image": "services-images-board phase 1 — no console screen until phase 3",
-    "operations.delete_package_image": "services-images-board phase 1 — no console screen until phase 3",
+
+    # task-service-procedure-checklists phase 3 (2026-09-16): ProcedureStepsTab.tsx (a tab inside
+    # «خدماتي ومنتجاتي») now calls create/list/update_procedure_step directly, so those three came
+    # off this list. `operations.list_operator_step_stats` came off it too (phase 5, same day) —
+    # Rating.tsx's own staff quadrant now calls it when an operator's bubble is selected (the
+    # training detail inside `StaffQuadrant`'s own selected-row card), not «فريقي» after all —
+    # its path stem ("/api/v1/staff/operators") already coincided with an existing console call
+    # before this, so it was never actually reported as an orphan; declared here anyway before
+    # today for the same honesty-over-coincidence reason the services-images-board note above
+    # gives, and now genuinely reachable so the note is simply removed.
+
+    # «حان وقت الخدمة» — a real, deliberate on/off setting (services/campaigns/app/api/v1/
+    # campaigns.py::get/set_service_due_settings, its own docstring: "never a launch screen, this
+    # goal has no audience, no send count, no card in goals.py::CARDS") with no console toggle
+    # wired to it yet — found while auditing this gate's own failures, not built today (a real
+    # gap, honestly declared rather than silently left failing).
+    "campaigns.service_due_settings_read": "on/off setting exists server-side; no console toggle built yet",
+    "campaigns.service_due_settings_write": "on/off setting exists server-side; no console toggle built yet",
 
     # bookings.list/create/reschedule/edit_note/cancel/attend are all called now — Bookings.tsx
     # and BookingDialog.tsx (Stage 6). bookings.no_show is called too (the row action on a booked
