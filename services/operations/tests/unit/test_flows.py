@@ -1,8 +1,13 @@
-"""Giving a shop its own copy of the rating Flow — mirrors test_library.py's own structure.
+"""Giving a shop its own copy of a clone-per-shop Flow — mirrors test_library.py's own structure.
 
 WHAT WAS BROKEN. A template with a Flow button referencing a Flow this shop's WABA never got a
 copy of is refused by Meta at submission. Something has to provision that copy — cloned from the
 one master, named the same on every shop — right where the template library itself is registered.
+
+`flow_name`/`categories` HAVE NO DEFAULT (2026-09-16, [[task-service-procedure-checklists]]) — the
+rating Flow these used to default to is gone (the rating screen moved off native Flow entirely),
+so every call in this file names its own generic test values (`"test_flow"`/`["OTHER"]`) rather
+than relying on a removed constant.
 """
 from __future__ import annotations
 
@@ -11,8 +16,11 @@ import json
 import urllib.error
 from unittest.mock import patch
 
-from app.core.flows import (RATING_FLOW_CATEGORIES, RATING_FLOW_NAME, HttpFlows, NullFlows,
-                            build_flows, provision_shop_flow, provision_shop_flow_encryption)
+from app.core.flows import HttpFlows, NullFlows, build_flows, provision_shop_flow, \
+    provision_shop_flow_encryption
+
+FLOW_NAME = "test_flow"
+FLOW_CATEGORIES = ["OTHER"]
 
 
 def run(c):
@@ -43,26 +51,28 @@ def client():
 # ── NullFlows: honest about being unconfigured ──────────────────────────────────────────────────
 def test_null_flows_says_it_is_not_configured_rather_than_pretend_success():
     null = NullFlows()
-    out = run(null.provision("t1", clone_flow_id="mf1"))
+    out = run(null.provision("t1", clone_flow_id="mf1", flow_name=FLOW_NAME,
+                             categories=FLOW_CATEGORIES))
     assert out == {"ok": False, "reason": "flow provisioning is not configured"}
     assert null.provisioned == ["t1"]
 
 
 # ── HttpFlows: the shape of the call ────────────────────────────────────────────────────────────
-def test_a_shop_clone_is_requested_with_the_stable_name_and_the_master_id():
+def test_a_shop_clone_is_requested_with_the_caller_named_flow_and_the_master_id():
     seen = {}
 
     def _urlopen(req, timeout=0):
         seen["url"] = req.full_url
         seen["body"] = json.loads(req.data)
-        return _Resp({"ok": True, "flow_id": "clone-1", "name": RATING_FLOW_NAME,
+        return _Resp({"ok": True, "flow_id": "clone-1", "name": FLOW_NAME,
                      "status": "PUBLISHED", "created": True, "published": True})
 
     with patch("urllib.request.urlopen", _urlopen):
-        out = run(client().provision("t1", clone_flow_id="master-1"))
+        out = run(client().provision("t1", clone_flow_id="master-1", flow_name=FLOW_NAME,
+                                     categories=FLOW_CATEGORIES))
     assert seen["url"].endswith("/internal/whatsapp/flows/provision")
     assert seen["body"] == {
-        "tenant": "t1", "name": RATING_FLOW_NAME, "categories": RATING_FLOW_CATEGORIES,
+        "tenant": "t1", "name": FLOW_NAME, "categories": FLOW_CATEGORIES,
         "clone_flow_id": "master-1", "publish": True,
     }
     assert out["ok"] is True and out["flow_id"] == "clone-1"
@@ -76,8 +86,9 @@ def test_no_master_id_is_refused_before_any_call_is_made():
         raise AssertionError("must not call Meta with no master flow configured")
 
     with patch("urllib.request.urlopen", _urlopen):
-        out = run(client().provision("t1", clone_flow_id=""))
-    assert out == {"ok": False, "reason": "no master rating flow configured"}
+        out = run(client().provision("t1", clone_flow_id="", flow_name=FLOW_NAME,
+                                     categories=FLOW_CATEGORIES))
+    assert out == {"ok": False, "reason": "no master test flow configured"}
 
 
 def test_a_refused_provision_is_reported_rather_than_raised():
@@ -87,7 +98,8 @@ def test_a_refused_provision_is_reported_rather_than_raised():
         raise boom
 
     with patch("urllib.request.urlopen", _urlopen):
-        out = run(client().provision("t1", clone_flow_id="master-1"))
+        out = run(client().provision("t1", clone_flow_id="master-1", flow_name=FLOW_NAME,
+                                     categories=FLOW_CATEGORIES))
     assert out["ok"] is False and "reason" in out
 
 
@@ -98,7 +110,8 @@ def test_an_unreachable_peer_is_a_failure_that_says_so():
         raise down
 
     with patch("urllib.request.urlopen", _urlopen):
-        out = run(client().provision("t1", clone_flow_id="master-1"))
+        out = run(client().provision("t1", clone_flow_id="master-1", flow_name=FLOW_NAME,
+                                     categories=FLOW_CATEGORIES))
     assert out["ok"] is False and out["reason"]
 
 
@@ -182,7 +195,8 @@ def test_no_peer_configured_gives_the_null_driver():
 
     flows = build_flows(S())
     assert flows.driver == "null"
-    assert run(flows.provision("t1", clone_flow_id="mf"))["ok"] is False
+    assert run(flows.provision("t1", clone_flow_id="mf", flow_name=FLOW_NAME,
+                               categories=FLOW_CATEGORIES))["ok"] is False
 
 
 def test_a_wired_peer_gives_the_http_client():
@@ -198,6 +212,7 @@ def test_a_wired_peer_gives_the_http_client():
 # ── the free function connect.py's background task calls ───────────────────────────────────────
 def test_provision_shop_flow_forwards_to_the_driver():
     null = NullFlows()
-    out = run(provision_shop_flow(null, "t1", "master-1"))
+    out = run(provision_shop_flow(null, "t1", "master-1", flow_name=FLOW_NAME,
+                                  categories=FLOW_CATEGORIES))
     assert out["ok"] is False
     assert null.provisioned == ["t1"]

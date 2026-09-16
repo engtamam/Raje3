@@ -17,15 +17,11 @@ RUNTIME_POLICY: frozenset[str] = frozenset({
     # every sweep. Our configured value is the ceiling and the default: a shop may shorten it and
     # may not extend it past what we hold.
     "RETENTION_CUSTOMER_YEARS",
-    # The master rating-Flow id, minted once by deploy/seed/bootstrap-rating-flow.py and written
-    # here rather than to a values file — core/flows.py's caller (connect.py) reads it per shop
-    # through RuntimeConfig, so the id takes effect the moment the bootstrap script writes it,
-    # with no redeploy of this service required.
-    "MASTER_RATING_FLOW_ID",
-    # THE SAME PATTERN, A SECOND FLOW — the weekly owner report (rating-app-feature.md phase 6b),
-    # minted once by deploy/seed/bootstrap-report-flow.sh, read per shop by connect.py.
-    "MASTER_REPORT_FLOW_ID",
-    # THE SAME PATTERN, A THIRD FLOW — WhatsApp booking (Phase 5), minted once by
+    # `MASTER_RATING_FLOW_ID`/`MASTER_REPORT_FLOW_ID` BOTH REMOVED (2026-09-16) — see
+    # core/flows.py's own module docstring: the rating screen moved off native Flow entirely, and
+    # the report Flow's config was orphaned by an earlier, incomplete feature deletion.
+    #
+    # THE SAME PATTERN, THE REMAINING FLOWS — WhatsApp booking (Phase 5), minted once by
     # deploy/seed/bootstrap-booking-flow.sh, read per shop by connect.py. MISSING HERE UNTIL NOW —
     # a real bug, not a new one: the bootstrap script's own write (PUT /api/v1/operator/config)
     # was refused by `settable()` on every run, silently leaving MASTER_BOOKING_FLOW_ID unset no

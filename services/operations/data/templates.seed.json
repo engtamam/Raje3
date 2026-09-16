@@ -107,9 +107,14 @@
         "participation points configured gets a full neutral sentence here, never a blank or a",
         "sentence naming zero points.",
         "",
-        "flow_button references the per-shop Flow clone by its stable flow_name (flows.py,",
-        "RATING_FLOW_NAME = \"rating_flow\") — not by flow_id, which differs per shop and only",
-        "exists after that shop's clone is provisioned."
+        "URL BUTTON, NOT A FLOW BUTTON (2026-09-16, [[task-service-procedure-checklists]] phase 2)",
+        "— the rating screen moved off native WhatsApp Flow entirely to a hosted web page (portal's",
+        "own /r/{ref}). `flat_button.url`'s trailing `{{1}}` is BUTTON-NAMESPACE, separate from the",
+        "body's own {{1}}..{{4}} above (Meta numbers each component's variables independently) —",
+        "filled at send time with `url_button_param` (reminders' tick.py, message_sender), the",
+        "SAME opaque ref RatingRequestStore remembers under. No platform-side change was needed to",
+        "REGISTER this (`flat_button` -> notification-service's generic flat `button: dict` field,",
+        "live since v0.22.8); the send-time `url_button_param` field itself is base-services v0.24.4."
       ],
       "name": "svc_visit_confirmation_rating_masculine",
       "type": "svc_visit_confirmation_rating",
@@ -126,9 +131,11 @@
         4
       ],
       "header": "",
-      "button": "قيّم زيارتك",
-      "flow_button": {
-        "flow_name": "rating_flow"
+      "flat_button": {
+        "type": "URL",
+        "text": "قيّم زيارتك",
+        "url": "https://my.raje3.sa/r/{{1}}",
+        "example": ["rate:vis_demo00000000"]
       },
       "fills": [
         "system",
@@ -164,9 +171,11 @@
         4
       ],
       "header": "",
-      "button": "قيّم زيارتك",
-      "flow_button": {
-        "flow_name": "rating_flow"
+      "flat_button": {
+        "type": "URL",
+        "text": "قيّم زيارتك",
+        "url": "https://my.raje3.sa/r/{{1}}",
+        "example": ["rate:vis_demo00000000"]
       },
       "fills": [
         "system",
