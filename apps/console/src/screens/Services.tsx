@@ -481,31 +481,44 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       const id = created?.id ?? '';
 
       if (id) {
+        // EACH FOLLOW-UP STEP RUNS EVEN IF AN EARLIER ONE FAILED — the service itself is already
+        // created and real, and the comment below already promised "partial creation is fine, rest
+        // is editable after" for the photo specifically. That promise did not actually hold: these
+        // four steps shared one try/catch, so a refused follow-up-days or group call (an unrelated
+        // 400, a service hiccup) threw straight past the photo upload below it, and the row came
+        // back from `load()` with no error visible past the form closing — reported live as "we
+        // added a product with a photo, and the photo never made it, only editing it in after
+        // the fact works." Isolating each awaited call means one refusal costs only its own field.
+        let firstError: unknown = null;
+        const attempt = async (fn: () => Promise<unknown>) => {
+          try { await fn(); } catch (e) { firstError ??= e; }
+        };
+
         const rem = action(catalog, 'reminders.set_service_settings');
         // THE CYCLE WENT WITH THE ROW ALREADY; the follow-up is reminders' and has to be said
         // separately. Zero means "do not ask after this service", which is a real answer and not
         // an unset field — so it is only sent when he typed something above zero.
         if (rem && opts.followUpDays > 0) {
-          await call(session, rem, { service_id: id, follow_up_days: opts.followUpDays });
+          await attempt(() => call(session, rem, { service_id: id, follow_up_days: opts.followUpDays }));
         }
         // NULL MEANS "follow the general rule" (§9.2: inherit, never copy). Writing today's
         // general number instead would freeze it, and the next change to the general setting
         // would skip this service without saying so.
         if (earnAction && opts.points !== null) {
-          await call(session, earnAction, { service_id: id, points: opts.points });
+          await attempt(() => call(session, earnAction, { service_id: id, points: opts.points }));
         }
         const grp = action(catalog, 'reminders.set_group');
         if (grp && opts.group.trim()) {
-          await call(session, grp, { name: opts.group.trim(), service_ids: [id] });
+          await attempt(() => call(session, grp, { name: opts.group.trim(), service_ids: [id] }));
         }
         // THE HELD PHOTO GOES LAST, AGAINST THE REAL ID — the only moment it can go anywhere at
         // all. uploadServiceImage() does its own load()/error handling, so nothing further is
         // needed here beyond forgetting the held file either way (success or failure both leave
-        // the form closing; a failed photo does not undo the service that was already created,
-        // same "partial creation is fine, rest is editable after" posture as every field above).
+        // the form closing; a failed photo does not undo the service that was already created).
         if (action(catalog, 'operations.upload_service_image') && opts.image) {
           await uploadServiceImage(id, opts.image);
         }
+        if (firstError) throw firstError;
       }
 
       setPendingImage(null);
