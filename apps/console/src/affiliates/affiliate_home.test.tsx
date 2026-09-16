@@ -126,7 +126,7 @@ describe('AffiliateHome', () => {
     expect(screen.getByText('3')).toBeTruthy();               // the member count still shows
     // «إيراد مؤكَّد» is the ONLY money label TeamCard ever renders — its absence proves the team
     // money row is gone. (His OWN balance card is untouched by this flag and legitimately still
-    // shows «٠ ريال» elsewhere on this same screen, so a page-wide "no ريال" check would be wrong.)
+    // shows «0 ريال» elsewhere on this same screen, so a page-wide "no ريال" check would be wrong.)
     expect(screen.queryByText('إيراد مؤكَّد')).toBeFalsy();
   });
 
