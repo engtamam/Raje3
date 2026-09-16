@@ -580,7 +580,7 @@ function RatingsListTab({ session, catalog, branch, tab, period }: {
           <span aria-hidden>✕</span>
         </button>
       ) : topIssues.length > 0 ? (
-        <div className="flex flex-col gap-1.5 rounded-card border border-border-subtle bg-surface-1 p-3">
+        <Card className="flex flex-col gap-1.5 p-3" sheen={false}>
           <p className="text-xs font-bold text-text-secondary">{t('rating.topIssues.title')}</p>
           <div className="flex flex-wrap gap-1.5">
             {topIssues.map((issue) => (
@@ -596,7 +596,7 @@ function RatingsListTab({ session, catalog, branch, tab, period }: {
               </button>
             ))}
           </div>
-        </div>
+        </Card>
       ) : null}
 
       {rows === undefined ? (
