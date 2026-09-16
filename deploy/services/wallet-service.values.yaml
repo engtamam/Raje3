@@ -186,7 +186,12 @@ env:
 # for an in-flight send is never touched.
 cronJobs:
   - name: sweep-holds
-    schedule: "*/2 * * * *"
+    # OFFSET FROM :00 — same class of pile-up job-service's reclaim and compliance's dsar-sweep
+    # were already offset for (see their own notes), just never extended here: `*/2` still hits
+    # :00 every other minute, landing on the same instant as job-service's own every-minute
+    # scheduler-tick/dispatch-run and notification-service's notify-drain — found live the same
+    # way, watching pods pile into Pending on server_cpu_pressure during a routine fleet ship.
+    schedule: "1-59/2 * * * *"
     path: /internal/wallet/sweep-holds
     # RESTORED (platform v0.18.2) — real support now: a RANDOM 0..jitterSeconds sleep before the
     # call. 60s here (double the every-minute jobs') since this fires every 2 minutes — more

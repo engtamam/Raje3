@@ -162,7 +162,10 @@ env:
 # gets its half-open probe — so an endpoint that recovered stays broken from our side.
 cronJobs:
   - name: sweep
-    schedule: "*/5 * * * *"
+    # OFFSET FROM :00 — same pile-up already fixed for job-service's reclaim (minute 2) and
+    # compliance's dsar-sweep (minute 1); this one was never extended to match, so `*/5` still
+    # landed on :00 every fifth minute alongside every other service's own every-minute job.
+    schedule: "3-59/5 * * * *"
     path: /internal/webhooks/sweep
 
 ingress:
