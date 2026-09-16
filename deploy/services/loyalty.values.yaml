@@ -141,7 +141,7 @@ env:
   # defended at all.
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 

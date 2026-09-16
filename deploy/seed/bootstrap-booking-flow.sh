@@ -3,12 +3,11 @@
 #
 #   ./deploy/seed/bootstrap-booking-flow.sh
 #
-# WHY THIS EXISTS (assignment-mode redesign, Phase 5). Mirrors bootstrap-rating-flow.sh/
-# bootstrap-report-flow.sh EXACTLY (see either for the full "one master, cloned per shop"
-# reasoning) — with ONE real difference: rating_flow/report_flow author their master FROM A
-# STATIC FILE (rating-flow.json/report-flow.json, hand-authored, never changes); the booking Flow
-# is DYNAMIC and its content is GENERATED, by notification-service itself, from its own
-# WHATSAPP_BOOKING_DEFINITION config — so this script asks the running service for the JSON
+# WHY THIS EXISTS (assignment-mode redesign, Phase 5). Same "one master, cloned per shop" shape
+# every clone-per-shop Flow in core/flows.py follows — with ONE real difference from a Flow whose
+# content is a hand-authored, never-changing static file: the booking Flow is DYNAMIC and its
+# content is GENERATED, by notification-service itself, from its own WHATSAPP_BOOKING_DEFINITION
+# config — so this script asks the running service for the JSON
 # (`GET /internal/whatsapp/flow/booking-json`) rather than reading a file nobody wrote by hand.
 # The generator's own docstring guarantees the screens/field names can never drift from the
 # engine that answers them, which a hand-authored file could never promise for a dynamic Flow.
@@ -77,8 +76,8 @@ INTERNAL_TOKEN=$(kubectl -n "$NS" get secret notification-service-secrets \
 
 # ── 2. FETCH THE GENERATED JSON, THEN AUTHOR THE MASTER ─────────────────────────────────────
 # ONE POD, ONE PYTHON PROCESS for both steps — the generated JSON never touches a shell variable
-# (Windows Git Bash / kubectl exec quoting has bitten this exact pattern before — seed-templates.
-# sh's own lesson, restated in bootstrap-report-flow.sh) — it stays inside the running interpreter
+# (Windows Git Bash / kubectl exec quoting has bitten this exact pattern before — see
+# seed-templates.sh's own lesson on quoted heredocs) — it stays inside the running interpreter
 # from the moment it is read to the moment it is sent back out to Meta.
 echo "generating + authoring the master booking Flow on the platform's own WABA"
 FLOW_ID=$(kubectl -n "$NS" exec -i "$NOTIFY_POD" -- python - "$INTERNAL_TOKEN" <<'PY'

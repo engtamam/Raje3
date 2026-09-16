@@ -211,7 +211,7 @@ Wire it in three places, all required:
 
 `ci/check_entitlements.py` compares `deploy/seed/plans.json` (what is SOLD) against every
 `"feature.*"` string literal in `services/*/app/**/*.py` (what is ENFORCED — your fresh
-`licence.py`'s `KEY` already counts) and `apps/console/src/screens/Plans.tsx`'s `LIMIT_WORDS`
+`licence.py`'s `KEY` already counts) and `apps/console/src/billingShared.tsx`'s `LIMIT_KEYS`
 block (what has a sentence to show).
 
 1. `deploy/seed/plans.json`: a new plan row for the app itself, **and** the key added at
@@ -220,16 +220,16 @@ block (what has a sentence to show).
    answer for the new key or the console cannot tell "not bought" from "never heard of it." Check
    `ci/check_plans_shape.py` catches a plan that is missing the key entirely, not just a wrong
    value.
-2. `apps/console/src/screens/Plans.tsx`'s `LIMIT_WORDS`: one Arabic sentence, even if the app is
+2. `apps/console/src/billingShared.tsx`'s `LIMIT_KEYS`: one Arabic sentence, even if the app is
    not launched yet — see below.
 
 **If the app is not actually usable yet (no screen, no working flow): set `"listed": false` on
-its plan row.** This hides the plan CARD entirely (`Plans.tsx` filters `listed !== false` before
-rendering), so the wording you just added to satisfy the gate never actually reaches a real
-customer — but it exists, ready, the day `listed` flips to `true`, rather than being written
-under launch pressure. This is not optional: selling a key nothing serves is the exact mirror of
-the defect `check_entitlements.py` exists to catch on the other side (a key enforced with nothing
-sold).
+its plan row.** This hides the plan CARD entirely (`launcher/useAppBilling.ts` filters
+`listed !== false` before rendering), so the wording you just added to satisfy the gate never
+actually reaches a real customer — but it exists, ready, the day `listed` flips to `true`, rather
+than being written under launch pressure. This is not optional: selling a key nothing serves is
+the exact mirror of the defect `check_entitlements.py` exists to catch on the other side (a key
+enforced with nothing sold).
 
 ## 3b. Six more registration lists, all found by `ci/check_deploy_wiring.py` alone
 

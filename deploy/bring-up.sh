@@ -768,21 +768,18 @@ soft "notification templates" bash "$HERE/seed/seed-notification-templates.sh"
 # success against an empty list. The day postgres is lost, operations — the only holder of
 # customers' phone numbers in the clear — has no archive, and the first sign of it is the restore.
 soft "backup targets" bash "$HERE/seed/seed-backup-targets.sh"
-# THE MASTER RATING FLOW — authored once, ever, under the platform's own WABA; every shop's own
-# clone is provisioned later, at ITS connect time (api/v1/connect.py), never here. Idempotent by
-# name on notification-service's side and by a stored id on ours, so a re-run of this whole
-# install is exactly as safe as the seeders above it.
-soft "rating flow" bash "$HERE/seed/bootstrap-rating-flow.sh"
-# THE SAME PATTERN, A SECOND FLOW — the weekly owner report (rating-app-feature.md phase 6b).
-# Same idempotency guarantees as the rating flow above; see bootstrap-report-flow.sh's own header.
-soft "report flow" bash "$HERE/seed/bootstrap-report-flow.sh"
-# THE SAME PATTERN, A THIRD FLOW — WhatsApp booking (assignment-mode redesign, Phase 5). Content
-# is GENERATED (notification-service's own JSON generator, not a hand-authored file — see the
-# script's own header), so this must run AFTER notification-service is up with a real
-# WHATSAPP_BOOKING_DEFINITION configured, same ordering constraint the two Flow scripts above
-# already satisfy by running here. Missing from this install chain until 2026-09-08 — found the
-# same day the display-row gap (ci/check_listed_apps_are_wired.py) was found, same root cause:
-# a feature finished in code with no install-chain step to make it real on a fresh cluster.
+# RATING AND REPORT FLOWS BOTH REMOVED (2026-09-16) — the rating screen moved off native
+# WhatsApp Flow entirely to a hosted web page ([[task-service-procedure-checklists]] phase 2);
+# the report Flow's template was already deleted 2026-09-13 but this install-chain step (and its
+# script/JSON) were accidentally left behind — found and removed alongside the rating cleanup
+# rather than repeating that same incomplete-deletion mistake a second time.
+# THE SAME CLONE-PER-SHOP PATTERN, THE REMAINING FLOWS — WhatsApp booking (assignment-mode
+# redesign, Phase 5). Content is GENERATED (notification-service's own JSON generator, not a
+# hand-authored file — see the script's own header), so this must run AFTER notification-service
+# is up with a real WHATSAPP_BOOKING_DEFINITION configured. Missing from this install chain until
+# 2026-09-08 — found the same day the display-row gap (ci/check_listed_apps_are_wired.py) was
+# found, same root cause: a feature finished in code with no install-chain step to make it real
+# on a fresh cluster.
 soft "booking flow" bash "$HERE/seed/bootstrap-booking-flow.sh"
 # THE SAME ORDERING CONSTRAINT, A FIFTH FLOW — visit-registration over WhatsApp, cloned per shop
 # like booking (never a manual admin action — see the subscription-renewal note right below for

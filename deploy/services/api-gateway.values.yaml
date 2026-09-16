@@ -12,7 +12,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/api-gateway
-  digest: "sha256:1b9407882cc9d55494fdd9e4a95311a99d694e0562786ee6f82b04f3cd10d4e5"   # v0.23.1
+  digest: "sha256:1b9407882cc9d55494fdd9e4a95311a99d694e0562786ee6f82b04f3cd10d4e5"   # v0.24.3
 
 replicas: 1
 
@@ -343,7 +343,7 @@ env:
 
   # ── CORS ──────────────────────────────────────────────────────────────────────────────────
   # This is the origin the browser actually talks to, so this is where CORS truly matters.
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
 
   EGRESS_ALLOWED_HOSTS: ""

@@ -15,7 +15,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/identity-service
-  digest: "sha256:2a79373e35777b3333cc9ac3622c38c141b7889e3bbb879277bc4e408a40638a"   # v0.23.1
+  digest: "sha256:2a79373e35777b3333cc9ac3622c38c141b7889e3bbb879277bc4e408a40638a"   # v0.24.3
 
 replicas: 1
 
@@ -232,7 +232,7 @@ env:
   # expense — every one of those messages is billed to somebody.
   OTP_RESEND_COOLDOWN_SECONDS: "60"
   OTP_MAX_PER_HOUR: "5"
-  EMAIL_VERIFICATION_URL: "https://app.raje3.sa/verify?token="
+  EMAIL_VERIFICATION_URL: "https://app.raje3.com.sa/verify?token="
   # Sends through notification-service, which arrives in Wave 3. Until then verification mail is
   # not delivered and this is the first thing to re-check when Wave 3 lands.
   NOTIFIER_DRIVER: "http"
@@ -308,7 +308,7 @@ env:
   AUDIT_SERVICE_URL: "http://audit-service:8000"
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 

@@ -46,11 +46,20 @@ kubectl -n "$NS" get statefulset postgres >/dev/null 2>&1 || {
 # TEN MINUTES IS NOT A GUESS: the observed fsync pass was past 80 seconds and still walking the
 # directory when it was killed, on a database this small. A ceiling that only just fits is a
 # ceiling that fails the first time the data grows.
+# The probe's own "-U postgres" is a role that has never existed here — gen-secrets.py
+# provisions POSTGRES_USER (base_services by default), and that's the name the container's
+# own env already carries. pg_isready doesn't fail on an unknown role (it only proves the
+# server accepts a connection), so this was harmless — just a permanent, misleading
+# "role does not exist" line in the first log anyone reads when something looks wrong.
+#
+# Kubernetes' $(VAR) substitution applies ONLY to a container's own command/args, never to
+# a probe's exec.command array — so the fix is a real shell, reading the container's own
+# genuine env var at runtime, not Kubernetes' substitution syntax.
 read -r -d '' PATCH <<'JSON'
 {"spec":{"template":{"spec":{"containers":[{
   "name":"postgres",
   "startupProbe":{
-    "exec":{"command":["pg_isready","-U","postgres"]},
+    "exec":{"command":["sh","-c","pg_isready -U \"$POSTGRES_USER\""]},
     "initialDelaySeconds":10,"periodSeconds":10,"timeoutSeconds":5,
     "failureThreshold":60,"successThreshold":1}
 }]}}}}

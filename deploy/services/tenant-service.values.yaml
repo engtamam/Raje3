@@ -16,7 +16,7 @@ image:
   repository: ghcr.io/engtamam/tenant-service
   # Digest, never a tag: with :latest + IfNotPresent a node silently keeps the image it already
   # has, so a rollback is not a rollback. Replace at publish time.
-  digest: "sha256:c8133cecb7aa03537404d78614b5d7fb91a2c24cc7b342c87aee52a2018cdd2f"   # v0.23.1
+  digest: "sha256:c8133cecb7aa03537404d78614b5d7fb91a2c24cc7b342c87aee52a2018cdd2f"   # v0.24.3
 
 replicas: 1
 
@@ -100,7 +100,7 @@ env:
   # physical separation; `schema` and `db` are the same knob, not a rewrite.
   ISOLATION_DRIVER: "shared-row"
   DOMAIN_RESOLVER_DRIVER: "subdomain"
-  BASE_DOMAIN: "app.raje3.sa"
+  BASE_DOMAIN: "app.raje3.com.sa"
 
   # ── Audit (spec §11.2 — an immutable trail of who did what) ───────────────────────────────
   # http, not null: the boot guard refuses null in production, and rightly — a service that
@@ -128,7 +128,7 @@ env:
   # Both portals are browser apps on their own origins (§4 field entry + dashboard, §15 console),
   # so without this every fetch() is refused by the browser before our code sees it — invisible
   # from curl, fatal in the product. Exact origins, never '*'.
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"
   CORS_ALLOW_CREDENTIALS: "true"
 
   # ── Egress ────────────────────────────────────────────────────────────────────────────────

@@ -17,7 +17,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/assistant-service
-  digest: "sha256:f90ec86ee2bed954da9bc8532f2c923f22d4a8565f8ff21236589f4fcb2a7f2f"   # v0.23.1
+  digest: "sha256:e0a7dc41d69d5a708c96d937b5f5fee1d15599c5467a5879d41bd357b82ad3f3"   # v0.24.3
 
 replicas: 1
 
@@ -133,7 +133,7 @@ env:
 
   BRAND_NAME: "راجِع"
 
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 

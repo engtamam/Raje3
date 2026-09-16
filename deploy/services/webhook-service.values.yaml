@@ -32,7 +32,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/webhook-service
-  digest: "sha256:3507402c588971796c722754bee398bec79441bed1b235d17624ee6cb47f72f5"   # v0.23.1
+  digest: "sha256:3507402c588971796c722754bee398bec79441bed1b235d17624ee6cb47f72f5"   # v0.24.3
 
 replicas: 1
 
@@ -151,7 +151,7 @@ env:
   AUDIT_SERVICE_URL: "http://audit-service:8000"
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"
   CORS_ALLOW_CREDENTIALS: "true"
   # Distinct from WEBHOOK_ALLOWED_HOSTS: this bounds the service's OWN outbound helper calls, not
   # customer delivery destinations. Empty, because it has none.

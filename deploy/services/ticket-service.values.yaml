@@ -19,7 +19,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/ticket-service
-  digest: "sha256:1ad4205426ab00137af7515969875fe06aad41b6d43e9f5ca7a6f47798c1e14f"   # v0.23.1
+  digest: "sha256:2db464ffdf3b13e8600b3c560e2890ea7a8dffa858490241961df30890a8fc73"   # v0.24.3
 
 replicas: 1
 
@@ -172,7 +172,7 @@ env:
   AUDIT_SERVICE_URL: "http://audit-service:8000"
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 

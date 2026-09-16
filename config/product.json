@@ -31,18 +31,18 @@
   },
 
   "urls": {
-    "marketing": "https://raje3.sa",
-    "app": "https://app.raje3.sa",
-    "admin": "https://admin.raje3.sa",
-    "docs": "https://docs.raje3.sa",
-    "status": "https://status.raje3.sa"
+    "marketing": "https://raje3.com.sa",
+    "app": "https://app.raje3.com.sa",
+    "admin": "https://admin.raje3.com.sa",
+    "docs": "https://docs.raje3.com.sa",
+    "status": "https://status.raje3.com.sa"
   },
 
   "support": {
     "email": "mang.raje3@gmail.com",
     "salesEmail": "mang.raje3@gmail.com",
     "securityEmail": "mang.raje3@gmail.com",
-    "phone": ""
+    "phone": "966500000000"
   },
 
   "brand": {
@@ -56,8 +56,8 @@
     "wordmark": "راجِع",
     "_colorNote": "The brand accent — the ONE colour that carries Raje3's identity. Light and dark are the same hue at different lightness so it reads on both grounds. The full palette (surfaces, borders, semantic colours) lives in the UI theme; only the accent is brand-owned and lives here so a rebrand is one edit. A tenant may still override it (white-label). REBRANDED from the old gold/ivory identity to violet — the colour the shop-console's own 'محلّي' screen was already redesigned around ('الوان شاشة محلي كويسه — نعتمد الالوان الجديدة حتى للشعار').",
     "accent": {
-      "light": "#6a4cf5",
-      "dark": "#8f74ff"
+      "light": "#7C3AED",
+      "dark": "#A78BFA"
     },
     "documentFooter": {
       "ar": "أُرسلت هذه الرسالة عبر منصة راجِع باسم المنشأة.",
@@ -82,8 +82,8 @@
       "ar": "",
       "en": ""
     },
-    "termsUrl": "https://raje3.sa/terms",
-    "privacyUrl": "https://raje3.sa/privacy",
+    "termsUrl": "https://raje3.com.sa/terms",
+    "privacyUrl": "https://raje3.com.sa/privacy",
     "dpoEmail": ""
   },
 
