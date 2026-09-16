@@ -20,8 +20,9 @@ from typing import Any
 
 from app.adapters.datastore.drain import drain
 from app.core import privacy_requests as PR
-from app.core.models import (ACCOUNT_SETTINGS, ASSETS, BRANCHES, CUSTOMERS, OPERATORS, PACKAGES,
-                             SERVICES, VISITS, Asset, Branch, Customer, Operator, Package, Service,
+from app.core.models import (ACCOUNT_SETTINGS, ASSETS, BRANCHES, CUSTOMERS, OPERATOR_STEP_STATS,
+                             OPERATORS, PACKAGES, PROCEDURE_STEPS, SERVICES, VISITS, Asset, Branch,
+                             Customer, Operator, OperatorStepStat, Package, ProcedureStep, Service,
                              Visit)
 
 _PAGE = 100
@@ -131,6 +132,14 @@ class CustomerStore(_Base):
         the keypad needs is served by search-service's /suggest, not by this store: a prefix scan
         over a datastore is a table scan, and this call sits inside a five-second budget."""
         rows, _ = await self._find(tenant, {"phone": phone}, limit=1)
+        return Customer(**rows[0]) if rows else None
+
+    async def anonymous(self, tenant: str) -> Customer | None:
+        """The tenant's ONE placeholder customer, if it has one yet — see `Customer.anonymous`'s
+        own docstring. Same query-by-flag shape `ServiceStore.catchall` already uses: looked up
+        rather than assumed, so a tenant that has never had a no-phone TikTok order simply has
+        none, and the caller (`Operations.record_visit`) creates it the first time it is needed."""
+        rows, _ = await self._find(tenant, {"anonymous": True}, limit=1)
         return Customer(**rows[0]) if rows else None
 
     async def save(self, c: Customer) -> Customer:
@@ -499,3 +508,80 @@ class BranchStore(_Base):
         rows, nxt = await self._s.find(self.collection, {"active": True},
                                        limit=limit, after=after, sort=("created", "desc"))
         return [Branch(**r) for r in rows], nxt
+
+
+class ProcedureStepStore(_Base):
+    """The shared protocol catalogue — see `ProcedureStep`'s own docstring for why this is a real
+    collection rather than free text repeated on each service."""
+
+    collection = PROCEDURE_STEPS
+
+    async def get(self, tenant: str, ident: str) -> ProcedureStep | None:
+        row = await self._get(tenant, ident)
+        return ProcedureStep(**row) if row else None
+
+    async def get_many(self, tenant: str, ids: list[str]) -> dict[str, ProcedureStep]:
+        """Resolves a `Service.procedure_step_ids` list (or a `Visit.rating_issue_step_ids` one)
+        back to real text, in one call — same "direct key gets, concurrent" shape as
+        `CustomerStore.get_many`, for the same reason: a service's own protocol is at most a few
+        dozen steps, never a scan-sized collection."""
+        if not ids:
+            return {}
+        found = await asyncio.gather(*(self.get(tenant, i) for i in set(ids)))
+        return {s.id: s for s in found if s is not None}
+
+    async def list(self, tenant: str, *, active_only: bool = True) -> list[ProcedureStep]:
+        """The WHOLE catalogue — same `drain`-not-`limit` reasoning `ServiceStore.list`'s own
+        docstring gives: a shop's protocol list is exactly the kind of thing an owner expects to
+        see in full the moment he opens the new tab, not truncated at an arbitrary page size."""
+        where: dict[str, Any] = {"tenant": tenant}
+        if active_only:
+            where["active"] = True
+        rows = await drain(self._s, self.collection, where, sort=("created", "asc"))
+        return [ProcedureStep(**r) for r in rows]
+
+    async def save(self, s: ProcedureStep) -> ProcedureStep:
+        await self._put(s.tenant, s.id, s.__dict__.copy())
+        return s
+
+
+class OperatorStepStatStore(_Base):
+    """The per-operator training signal — see `OperatorStepStat`'s own docstring for the
+    incremental-update design and its one stated trade-off (read-modify-write, not a true atomic
+    counter)."""
+
+    collection = OPERATOR_STEP_STATS
+
+    @staticmethod
+    def _stat_id(operator_id: str, step_id: str) -> str:
+        return f"{operator_id}:{step_id}"
+
+    async def get(self, tenant: str, operator_id: str, step_id: str) -> OperatorStepStat | None:
+        row = await self._get(tenant, self._stat_id(operator_id, step_id))
+        return OperatorStepStat(**row) if row else None
+
+    async def for_operator(self, tenant: str, operator_id: str) -> list[OperatorStepStat]:
+        """The whole "أين يحتاج تدريباً" list for one person's own record — a staff profile page,
+        never a tenant-wide scan (filtered on `operator_id`, an indexed-by-containment field the
+        same way every other `_find` call in this file already is)."""
+        rows, _ = await self._find(tenant, {"operator_id": operator_id}, limit=200,
+                                   sort=("times_flagged", "desc"))
+        return [OperatorStepStat(**r) for r in rows]
+
+    async def record_issue(self, tenant: str, operator_id: str, step_id: str, *,
+                           critical: bool, visit_id: str, at: int) -> OperatorStepStat:
+        """Called once per flagged step, from the same webhook that already writes
+        `Visit.rating_issue_step_ids` — see `OperatorStepStat`'s own docstring for why this is a
+        get-then-put rather than a database-level atomic increment, and why that trade-off is
+        acceptable here."""
+        ident = self._stat_id(operator_id, step_id)
+        row = await self._get(tenant, ident)
+        stat = OperatorStepStat(**row) if row else OperatorStepStat(
+            id=ident, tenant=tenant, operator_id=operator_id, step_id=step_id)
+        stat.times_flagged += 1
+        if critical:
+            stat.times_flagged_critical += 1
+        stat.last_flagged_at = at
+        stat.last_visit_id = visit_id
+        await self._put(tenant, ident, stat.__dict__.copy())
+        return stat

@@ -274,10 +274,15 @@ def test_with_no_licence_wired_nothing_is_refused():
 
 
 def test_the_refusal_names_the_key_and_the_way_out():
-    """The reader is an integration's log, so it is English — and it still names the purchase."""
+    """The reader is an integration's log, so it is English. STALE ASSERTION FIXED 2026-09-16:
+    this used to check for an Arabic "go buy it on the plans page" pointer, back when `feature.api`
+    was merely unenforced-but-sellable. It is now closed by an explicit product decision
+    (`API_LINK_ENABLED` defaults False, see `core/licence.py`'s own module docstring) — nobody can
+    buy the key at all, so a sentence pointing to «الباقات» would be actively misleading. The
+    refusal still names the key, which is all an integrator's log needs."""
     from app.core.licence import NOT_INCLUDED
 
-    assert "feature.api" in NOT_INCLUDED and "الباقات" in NOT_INCLUDED
+    assert "feature.api" in NOT_INCLUDED
 
 
 # ── orphaned_dependents — the self-heal check, not a sweep ──────────────────────────────────────

@@ -37,7 +37,8 @@ from app.core.digits import WESTERN, western
 from app.core.models import Asset, Customer, Visit
 from app.core.pii import subject_ref
 from app.core.stores import (AssetStore, BranchStore, CustomerStore, OperatorStore,
-                             PackageStore, PrivacyRequestStore, ServiceStore, VisitStore, new_id)
+                             PackageStore, PrivacyRequestStore, ProcedureStepStore, ServiceStore,
+                             VisitStore, new_id)
 
 
 class OperationError(Exception):
@@ -81,6 +82,7 @@ class Operations:
         self._services = ServiceStore(store)
         self._packages = PackageStore(store)
         self._visits = VisitStore(store)
+        self._steps = ProcedureStepStore(store)
         # WHICH PLACES THIS SHOP ACTUALLY HAS — read on the write path so an id nobody recognises
         # cannot invent a branch that then appears in every report (core/branches.py).
         self._branches = BranchStore(store)
@@ -273,12 +275,21 @@ class Operations:
                            # package's real components either way; this is threaded through
                            # unchanged to the seams event so loyalty can look up the package's own
                            # point value instead of summing the components'.
-                           package_id: str = "") -> RecordedVisit:
+                           package_id: str = "",
+                           # NO USABLE PHONE ARRIVED — a TikTok Shop order under the default
+                           # "TikTok Shipping" mode masks the buyer's real number, and refusing the
+                           # order would lose the sale entirely (`Customer.anonymous`'s own
+                           # docstring). `phone` is IGNORED entirely on this path (never
+                           # normalised, never required) — every no-phone order for this tenant
+                           # resolves to the SAME one placeholder customer. Never combine with a
+                           # real phone: the caller decides ONE identity for this visit, not both.
+                           anonymous: bool = False) -> RecordedVisit:
         if not tenant:
             raise OperationError("لا توجد منشأة على الطلب — سجّل الدخول من جديد")
-        phone = _normalise_phone(phone)
-        if not phone:
-            raise OperationError("رقم الجوال مطلوب، ولم نتعرّف على ما أُدخل — تأكّد أنه أرقام فقط")
+        if not anonymous:
+            phone = _normalise_phone(phone)
+            if not phone:
+                raise OperationError("رقم الجوال مطلوب، ولم نتعرّف على ما أُدخل — تأكّد أنه أرقام فقط")
         if not service_ids:
             raise OperationError("اختر خدمة واحدة على الأقل")
         if any(not str(s).strip() for s in service_ids):
@@ -315,7 +326,16 @@ class Operations:
                                      duplicate=True)
 
         now = _now()
-        customer, created_customer = await self._resolve_customer(tenant, phone, name)
+        if anonymous:
+            customer = await self._customers.anonymous(tenant)
+            created_customer = customer is None
+            if customer is None:
+                customer = Customer(
+                    id=new_id("cus"), tenant=tenant, phone="",
+                    subject_ref=subject_ref(self._salt, tenant, f"tiktok-anonymous:{tenant}"),
+                    name="طلبات تيك توك بلا رقم", created=now, source="tiktok", anonymous=True)
+        else:
+            customer, created_customer = await self._resolve_customer(tenant, phone, name)
 
         # UNKNOWN SERVICES ARE ABSORBED, NOT REFUSED — and only on the integration path, where
         # `allow_unknown_services` is set. A till sends a service the owner never added to our
@@ -718,8 +738,34 @@ class Operations:
         if customer is None:
             return None
         # INACTIVE ONES INCLUDED: a visit for a service the shop has since retired is still a
-        # visit for that service, and «زيارة» in its place is the defect this closes.
+        # visit for that service, and «زيارة» في مكانها is the defect this closes.
         names = {s.id: s.name for s in await self._services.list(tenant, active_only=False)}
+        visits = await self._visits.for_customer(tenant, customer_id)
+
+        # WHICH PROCEDURE STEPS THIS CUSTOMER HAS FLAGGED, ACROSS EVERY VISIT — resolved to real
+        # text here rather than sent as bare ids, same as the ratings-list route's own enrichment
+        # ([[task-service-procedure-checklists]] phase 5). A retired step still resolves (never
+        # deleted, only retired — ProcedureStepStore's own docstring).
+        all_ids = {sid for v in visits for sid in v.rating_issue_step_ids}
+        steps = await self._steps.get_many(tenant, list(all_ids))
+
+        def _issue_steps(v) -> list[dict[str, Any]]:
+            return [{"id": s.id, "text": s.text, "severity": s.severity}
+                   for sid in v.rating_issue_step_ids if (s := steps.get(sid)) is not None]
+
+        # THE PATTERN — the whole reason this exists (owner's own instruction, 2026-09-16):
+        # "شكيت من نفس الشي أكثر من مرة", not a scoreboard of every flag ever raised. Only a step
+        # this customer's OWN visits named MORE THAN ONCE counts as a pattern; a single complaint
+        # is just a complaint. Sorted by how many times it repeated, most first.
+        counts: dict[str, int] = {}
+        for v in visits:
+            for sid in set(v.rating_issue_step_ids):  # once per VISIT, never twice for one visit
+                counts[sid] = counts.get(sid, 0) + 1
+        repeated = sorted(
+            ({"id": sid, "text": steps[sid].text, "severity": steps[sid].severity, "count": n}
+             for sid, n in counts.items() if n > 1 and sid in steps),
+            key=lambda r: r["count"], reverse=True)
+
         return {
             # THE PSEUDONYM TRAVELS WITH THIS ONE RECORD, and with nothing else.
             #
@@ -737,8 +783,9 @@ class Operations:
             # screen told him less than his customer's page did: the portal feed joins the same
             # names and always has. The join happens once for the whole record rather than per
             # row, which is why it is here and not in `public()`.
-            "visits": [{**v.public(), "services": _labels(v, names)}
-                       for v in await self._visits.for_customer(tenant, customer_id)],
+            "visits": [{**v.public(), "services": _labels(v, names), "rating_issue_steps": _issue_steps(v)}
+                       for v in visits],
+            "repeated_issues": repeated,
         }
 
     async def catalogue(self, tenant: str) -> list[dict[str, Any]]:

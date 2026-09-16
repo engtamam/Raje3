@@ -64,6 +64,11 @@ BRANCHES = "branches"
 # JWT subject directly (`AccountSettingsStore.get_by_subject`), so an owner and a staff operator
 # both get one row, regardless of role.
 ACCOUNT_SETTINGS = "account_settings"
+# THE SHARED PROTOCOL CATALOGUE, and the aggregate every operator's own «التدريب» view reads —
+# see `ProcedureStep`/`OperatorStepStat` at the end of this file for why these are two collections
+# and not one, and [[task-service-procedure-checklists]] for the feature this pair exists for.
+PROCEDURE_STEPS = "procedure_steps"
+OPERATOR_STEP_STATS = "operator_step_stats"
 
 
 @dataclass
@@ -108,12 +113,30 @@ class Customer:
     # writes a non-default value, and a future channel (a booking widget, another chat app) adds
     # its own string here with no shape change to this row.
     source: str = "manual"
+    # THE ONE PLACEHOLDER CUSTOMER PER TENANT — never a real person, never messaged, never counted
+    # toward a return-visit signal. Exists for exactly one reason (2026-09-16, the TikTok Shop
+    # order-ingestion door, `api/v1/tiktok.py`): TikTok masks a buyer's phone under its default
+    # "TikTok Shipping" mode (1-2 visible digits) — a real number to key a real customer on
+    # simply never arrives. Refusing the order would lose the sale entirely; the SAME "never lose
+    # the visit" reasoning `record_visit`'s own unknown-service absorption already applies to a
+    # service id the catalogue does not know. `CustomerStore.anonymous()` gets-or-creates this ONE
+    # row per tenant (looked up by this flag, same query-by-flag shape `ServiceStore.catchall`
+    # already uses for "خدمة أخرى") — every no-phone order piles onto the SAME row rather than
+    # minting a new, meaningless customer per order.
+    #
+    # NEVER MESSAGED, NEVER SCHEDULED. The route that creates a visit under this customer
+    # deliberately skips `Seams.after_visit` (see that route's own docstring) — no reminder, no
+    # campaign, no loyalty accrual ever fires for it, because none of those would mean anything for
+    # a "customer" that is not a real, identifiable person. The visit itself is still saved in
+    # full (real price, real service, real revenue) — only the identity-bound side effects are
+    # skipped.
+    anonymous: bool = False
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "phone": self.phone, "name": self.name,
                 "created": self.created, "last_visit": self.last_visit,
                 "visit_count": self.visit_count, "last_branch_id": self.last_branch_id,
-                "source": self.source}
+                "source": self.source, "anonymous": self.anonymous}
 
     def peer_view(self) -> dict[str, Any]:
         """What leaves this service toward another one: the ref, never the number."""
@@ -148,6 +171,10 @@ class Asset:
 # Service.assignment_mode's only two real values — validated wherever a caller may set it
 # (staff.py), never trusted to be one of these just because a row came out of the store.
 ASSIGNMENT_MODES = frozenset({"named", "auto"})
+
+# ProcedureStep.severity's only two real values — same validate-at-the-edge discipline as
+# ASSIGNMENT_MODES immediately above.
+PROCEDURE_STEP_SEVERITIES = frozenset({"normal", "critical"})
 
 
 @dataclass
@@ -229,6 +256,18 @@ class Service:
     # file-service note argued for keeping OUT of scope for one picture per shop; a catalogue can
     # hold dozens, so this one earns the real object store that logo deliberately went without.
     image_key: str = ""
+    # THE PROTOCOL — an ORDERED reference into `ProcedureStep`'s own shared catalogue (see below),
+    # same "id-list on the owning side, not a junction row" convention `eligible_staff_ids` above
+    # already established for this file. ORDER IS LIST POSITION, deliberately not a second field:
+    # the same step ("اغسل بالماء") can be step 1 for one service and step 3 for another, so the
+    # sequence is a fact about THIS service's use of the step, never about the step itself — and a
+    # plain ordered list already carries that with no extra shape to keep in sync.
+    #
+    # SHARED, NOT COPIED — the whole point (owner's own instruction, 2026-09-16): two services that
+    # both include "اغسل السيارة" reference the SAME `ProcedureStep.id`, so fixing its wording once
+    # fixes it everywhere it is used, and a rating that flags it means the same thing regardless of
+    # which service the visit was for.
+    procedure_step_ids: list[str] = field(default_factory=list)
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "name": self.name,
@@ -238,7 +277,8 @@ class Service:
                 "external_id": self.external_id, "seeded": self.seeded, "created": self.created,
                 "eligible_staff_ids": list(self.eligible_staff_ids),
                 "assignment_mode": self.assignment_mode,
-                "description": self.description, "has_image": bool(self.image_key)}
+                "description": self.description, "has_image": bool(self.image_key),
+                "procedure_step_ids": list(self.procedure_step_ids)}
 
 
 @dataclass
@@ -429,12 +469,28 @@ class Visit:
     # that could mark one handled on its own.
     rating_handled_at: int = 0
     rating_handled_note: str = ""
+    # WHICH PROTOCOL STEPS THE CUSTOMER FLAGGED — NEGATIVE SELECTION, on purpose (owner's own
+    # instruction, 2026-09-16): an empty list means every step was fine, exactly the way the rating
+    # Flow already frames "لا يوجد شيء لأذكره" as the ordinary, no-tap case rather than something
+    # the customer has to affirm. Only checked ids reach here.
+    #
+    # A FLAT LIST, NOT GROUPED BY SERVICE — safe precisely because `ProcedureStep.id` is already
+    # globally unique per tenant and `Service.procedure_step_ids` already says which service(s) a
+    # step belongs to; grouping here would be a second place that fact could drift from the first.
+    # Written by the same webhook that already sets `rating`/`feedback_text` above, never at
+    # visit-creation time.
+    rating_issue_step_ids: list[str] = field(default_factory=list)
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "customer_id": self.customer_id,
                 "service_ids": list(self.service_ids), "asset_id": self.asset_id,
                 "operator_id": self.operator_id, "branch_id": self.branch_id,
                 "meter": self.meter, "note": self.note, "custom_service": self.custom_service,
+                # HOW MANY OF EACH, AND WHAT IT CAME TO — both existed on the model before today
+                # but neither ever reached a reader outside this service (§10.6.2's own group-
+                # basket test is the only one that read `quantities`, straight off the store row).
+                # A receipt/history screen that wants to say "2× غسيل خارجي" needs both now.
+                "quantities": dict(self.quantities), "total_minor": self.total_minor,
                 "created": self.created,
                 "free": self.free,
                 "occurred_at": self.occurred_at or self.created,
@@ -443,7 +499,8 @@ class Visit:
                 "package_id": self.package_id,
                 "rating": self.rating, "feedback_text": self.feedback_text,
                 "rated_at": self.rated_at, "rating_handled_at": self.rating_handled_at,
-                "rating_handled_note": self.rating_handled_note}
+                "rating_handled_note": self.rating_handled_note,
+                "rating_issue_step_ids": list(self.rating_issue_step_ids)}
 
 
 @dataclass
@@ -550,3 +607,94 @@ class Branch:
         return {"id": self.id, "tenant": self.tenant, "name": self.name,
                 "active": self.active, "created": self.created, "closed_at": self.closed_at,
                 "lat": self.lat, "lng": self.lng, "city": self.city}
+
+
+@dataclass
+class ProcedureStep:
+    """ONE LINE OF A PROTOCOL — "اغسل بالماء", "افحص ضغط الإطارات" — held ONCE per tenant and
+    referenced by id from every `Service.procedure_step_ids` that uses it (see that field's own
+    note). This is the entity a shop that runs several near-identical services (غسيل خارجي/غسيل
+    داخلي/تلميع) was missing: without it, the same step existed as separate hand-typed text on
+    each service, and fixing a wrong instruction meant finding and editing every copy — miss one
+    and the service floor is following two different versions of "the same" step.
+
+    NEVER HARD-DELETED. A `Visit.rating_issue_step_ids` entry, or an `OperatorStepStat` row, means
+    nothing without the step id it points at still resolving to real text — the exact reason
+    `Service` above never deletes a row either (see `active`, same field, same reasoning: retire by
+    flag, because a live reference must keep meaning years later, same doctrine core/erasure.py
+    applies to the entities a deletion request is actually allowed to remove).
+
+    `severity` IS NOT COSMETIC. A shop's whole protocol is not one tier of importance — forgetting
+    to top off a tyre's air is not the same failure as forgetting to torque a wheel nut — and a
+    rating that flags a `critical` step is a materially different signal to the owner and to the
+    operator's own record than one that flags a `minor` one. `OperatorStepStat` carries both counts
+    separately rather than one blended number for exactly this reason.
+    """
+    id: str
+    tenant: str
+    text: str
+    severity: str = "normal"   # "normal" | "critical" — see docstring above.
+    # SURFACED WHERE AN OPERATOR REPEATEDLY MISSES THIS STEP — a fix written once by the owner
+    # ("ذكّره إنه يفحص من الأسفل مو بس من فوق") rather than invented per operator by whoever happens
+    # to review that person's record that month. Empty is the ordinary case.
+    training_note: str = ""
+    active: bool = True
+    created: int = 0
+    # WHO DEFINED THE RULE — "" for the owner himself (no Operator row exists for him, same
+    # structural absence `Operator`'s own docstring already notes), a real operator id when a
+    # manager-role account added it. An audit fact, never read as a permission.
+    created_by: str = ""
+    updated_at: int = 0
+
+    def public(self) -> dict[str, Any]:
+        return {"id": self.id, "tenant": self.tenant, "text": self.text,
+                "severity": self.severity, "training_note": self.training_note,
+                "active": self.active, "created": self.created,
+                "created_by": self.created_by, "updated_at": self.updated_at}
+
+
+@dataclass
+class OperatorStepStat:
+    """ONE OPERATOR'S RECORD ON ONE STEP — a running count, not a report generated on demand.
+
+    WHY A SEPARATE, MAINTAINED ROW RATHER THAN COUNTED FROM `Visit` AT READ TIME. An owner opening
+    a staff profile is asking "where does he need training" in the moment, at the counter, same
+    urgency as every other field screen in this service — and counting flagged ids across a whole
+    tenant's visit history on every profile view is the exact "cheap existence check vs list()'s
+    full page" tradeoff `ServiceStore.has_any_active`'s own docstring already argues against, at a
+    much larger scale (visits, not services). This row is updated incrementally the moment a rating
+    with issues lands (see core/rating layer), so the read is always one direct key lookup — same
+    "one row per key, not a scan" shape every store in this file already follows.
+
+    `id` IS DETERMINISTIC — `f"{operator_id}:{step_id}"` — so "has this pair been seen before" is
+    always a direct get, never a `find`, the same reasoning `PrivacyRequestStore.open_request`'s own
+    natural key already follows for the identical shape of problem (idempotent create-or-fetch).
+
+    READ-MODIFY-WRITE, NOT A TRUE ATOMIC INCREMENT — worth stating plainly rather than implying a
+    guarantee this store does not make: two ratings for the same operator+step landing in the same
+    instant could race and one increment could be lost. Named here rather than hidden because a
+    training signal that undercounts by one in a genuinely rare double-write is a real, acceptable
+    trade against building a distributed counter for a number nobody reads to the exact digit —
+    exactly the kind of trade-off this file's own docstrings elsewhere insist on stating outright
+    rather than leaving to be discovered later as a surprise bug report.
+    """
+    id: str
+    tenant: str
+    operator_id: str
+    step_id: str
+    times_flagged: int = 0
+    # SPLIT BY THE STEP'S OWN SEVERITY AT THE MOMENT IT WAS FLAGGED — kept as two counters rather
+    # than joined against `ProcedureStep.severity` at read time, because a step's severity can be
+    # reclassified later (a shop that realises "افحص الفرامل" was always critical, not normal) and
+    # an operator's PAST record should not silently reshuffle the day that happens.
+    times_flagged_critical: int = 0
+    last_flagged_at: int = 0
+    # SO A MANAGER REVIEWING A WEAK POINT CAN OPEN THE ACTUAL VISIT — a bare count says "this keeps
+    # happening"; the visit id says "here is the last time, go look at what else was on it".
+    last_visit_id: str = ""
+
+    def public(self) -> dict[str, Any]:
+        return {"id": self.id, "tenant": self.tenant, "operator_id": self.operator_id,
+                "step_id": self.step_id, "times_flagged": self.times_flagged,
+                "times_flagged_critical": self.times_flagged_critical,
+                "last_flagged_at": self.last_flagged_at, "last_visit_id": self.last_visit_id}

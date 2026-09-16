@@ -117,9 +117,13 @@ def build_manifest(
             # A visit performed for no money, bought with points. Identified by PSEUDONYM because
             # the caller (`loyalty`) holds no phone number and must not be handed one.
             {"path": "/internal/operations/visits/by-ref", "tier": "internal", "method": "POST"},
-            # The rating app's own write — reminders resolves a Flow reply's flow_token back to a
-            # visit and hands the rating here as a plain fact.
+            # The rating app's own write — reminders resolves the hosted rating page's submit back
+            # to a visit and hands the rating here as a plain fact.
             {"path": "/internal/operations/visits/{}/rating", "tier": "internal", "method": "POST"},
+            # The rating app's own READ — portal's hosted rating page asks what to show before the
+            # customer answers anything ([[task-service-procedure-checklists]] phase 2).
+            {"path": "/internal/operations/visits/{}/rating-context",
+             "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/seed-tenant", "tier": "internal", "method": "POST"},
             {"path": "/internal/signup/partner-invite", "tier": "internal", "method": "POST"},
             # The most sensitive surface this service has: it turns a pseudonym back into a phone
@@ -301,6 +305,11 @@ def build_manifest(
             {"path": "/api/v1/staff/packages/{}", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/staff/packages/{}/image", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/packages/{}/image", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/procedure-steps", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/procedure-steps", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/procedure-steps/{}", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/staff/operators/{}/step-stats", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/procedure-checklist/export", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/coupons/grant", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/coupons/history", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/coupons/stats", "tier": "user", "method": "GET"},
@@ -417,6 +426,12 @@ def build_manifest(
             {"path": "/api/v1/staff/salla/install", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/salla/status", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/salla/disconnect", "tier": "user", "method": "POST"},
+            # ── TikTok — see api/v1/tiktok.py's own module docstring (Phase 1 order door + Phase 2
+            # OAuth/webhook, same install/callback split as Salla above).
+            {"path": "/api/v1/tiktok/orders", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/tiktok-shop/install", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/tiktok-shop/status", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/tiktok-shop/disconnect", "tier": "user", "method": "POST"},
             # ── mobile/on-the-go service requests — see api/v1/mobile_requests.py's own note.
             {"path": "/api/v1/staff/mobile-requests", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/mobile-requests", "tier": "user", "method": "POST"},
@@ -430,6 +445,10 @@ def build_manifest(
             # redirect and Salla's own server call carry no Bearer token to check.
             {"path": "/api/v1/salla/callback", "tier": "public", "method": "GET"},
             {"path": "/api/v1/salla/webhook", "tier": "public", "method": "POST"},
+            # PUBLIC, deliberately, same posture as Salla's own pair above: TikTok's browser
+            # redirect and TikTok's own server call carry no Bearer token to check.
+            {"path": "/api/v1/tiktok-shop/callback", "tier": "public", "method": "GET"},
+            {"path": "/api/v1/tiktok-shop/webhook", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/code", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/verify", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/claim", "tier": "public", "method": "POST"},

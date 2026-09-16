@@ -98,6 +98,11 @@ GATED_UNSOLD: dict[str, str] = {
     "feature.api": "closed by product decision — the door refuses everyone, "
                   "settings.API_LINK_ENABLED defaults False (services/operations/app/core/"
                   "licence.py)",
+    "feature.tiktok": "Phase 1 of the new TikTok app is mid-build (task-tiktok-app-phases memory) "
+                      "— the order-ingestion door (services/operations/app/api/v1/tiktok.py) and "
+                      "its licence gate are wired so the door refuses correctly the day it IS "
+                      "sold, but no plan grants the key yet and there is no console app tile "
+                      "(Phase 6). Remove this line once a plan sells it.",
 }
 
 

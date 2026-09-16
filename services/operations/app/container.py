@@ -355,6 +355,16 @@ def build_container(settings: Settings) -> Container:
             redirect_uri=(f"{settings.PUBLIC_BASE_URL.rstrip('/')}/api/v1/salla/callback"
                          if settings.PUBLIC_BASE_URL else "")))
 
+    # TikTok Shop — infrastructure only, see core/marketplaces/tiktok_shop.py's own module
+    # docstring. Same "always wired, .configured answers the real state" posture as Salla above.
+    from app.core.marketplaces.tiktok_shop import TikTokShopClient, TikTokShopService
+
+    container.tiktok_shop = TikTokShopService(
+        store=container.datastore,
+        client=TikTokShopClient(
+            app_key=settings.TIKTOK_SHOP_APP_KEY, app_secret=settings.TIKTOK_SHOP_APP_SECRET,
+            service_id=settings.TIKTOK_SHOP_SERVICE_ID))
+
     # job-service — see adapters/job_service.py's own module docstring. Optional, like every
     # other peer here: NullJobService when JOB_SERVICE_URL is unset.
     from app.adapters.job_service import HttpJobService, NullJobService
@@ -408,6 +418,10 @@ def build_container(settings: Settings) -> Container:
     container.campaigns_licence = build_feature_licence(settings, "feature.campaigns")
     container.loyalty_licence = build_feature_licence(settings, "feature.loyalty")
     container.rating_licence = build_feature_licence(settings, "feature.rating")
+    # NOT JOINED TO `subscribed_write`'s OR — owning campaigns/loyalty/rating must never unlock
+    # recording a TikTok order; only owning TikTok itself does, same reasoning `feature.api`'s own
+    # dedicated gate on `till.py` already gives (core/licence.py) rather than the generic OR.
+    container.tiktok_licence = build_feature_licence(settings, "feature.tiktok")
     container.templates = TemplateLibrary(container.datastore)
     # The door. Built early, because a signup that cannot
     # seed a catalogue is a signup that lands the new owner on an empty «خدماتي».

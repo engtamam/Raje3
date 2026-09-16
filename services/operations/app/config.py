@@ -286,6 +286,19 @@ class Settings(BaseSettings):
     # for the whole app in the Partners Portal's own webhook settings, not per merchant. Verified
     # in core/marketplaces/salla.py::verify_signature.
     SALLA_WEBHOOK_SECRET: str = ""
+
+    # ── TikTok Shop (Phase 1/2 — see [[task-tiktok-app-phases]] memory) ────────────────────────
+    # SAME POSTURE AS SALLA'S OWN THREE ABOVE — set through secrets-admin, never typed here. An
+    # owner registers the app in TikTok Shop Partner Center (App & Service), reads `app_key`/
+    # `app_secret`/`service_id` off the app's own detail page, pastes them into the secrets
+    # screen. Empty means "not configured" (`TikTokShopClient.configured`), same as an unset
+    # `SALLA_CLIENT_ID` above.
+    TIKTOK_SHOP_APP_KEY: str = ""
+    TIKTOK_SHOP_APP_SECRET: str = ""
+    # THE OAUTH CLIENT ID, A DIFFERENT VALUE FROM `app_key` — read live from TikTok's own
+    # authorization-overview docs 2026-09-16: the authorize URL takes `service_id`, never
+    # `app_key` (that is only used for signing and the token endpoints).
+    TIKTOK_SHOP_SERVICE_ID: str = ""
     # job-service — the platform's own durable scheduler (adapters/job_service.py). Empty means
     # NullJobService, same posture as every other optional peer URL in this file: the refresh
     # scan simply finds nothing to enqueue rather than crashing.

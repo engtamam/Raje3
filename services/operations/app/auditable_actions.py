@@ -142,6 +142,19 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "any other write to a visit does",
     },
     {
+        # THE TILL'S OWN "attended" MARK — a cashier-integration caller (actor `till:{subject}`,
+        # api/v1/till.py) telling us a booking was actually served at the counter. NOT critical:
+        # an audit outage must not stop a real customer being checked off at the till, and the
+        # booking record itself (bookings-service) is the primary evidence either way — this is
+        # the same "attribute the write, don't gate it" posture visit.rated already takes.
+        "action": "booking.attended_via_till",
+        "source": "internal",
+        "critical": False,
+        "resource": "booking",
+        "why": "which till integration marked a booking attended, and when — a cashier's own "
+               "claim of service needs the same accountability any other write carries",
+    },
+    {
         # THE OWNER'S OWN ACT, from the console's «التقييمات» tab — never automatic (see
         # Visit.rating_handled_at's own docstring). Not critical for the same reason as
         # visit.rated: an audit outage must not stop him from acting on a rating he is looking at
@@ -376,6 +389,31 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         # made of.
         "critical": False,
         "resource": "package",
+    },
+    {
+        # A step's text/severity is SHARED — editing it here changes what every linked service's
+        # checklist actually asks the field to do, same reasoning `service.updated` audits price.
+        "action": "procedure_step.created",
+        "source": "admin",
+        "critical": False,
+        "resource": "procedure_step",
+    },
+    {
+        "action": "procedure_step.updated",
+        "source": "admin",
+        "critical": False,
+        "resource": "procedure_step",
+    },
+    {
+        # SAME REASONING AS `staff_performance.exported` ABOVE — a read that leaves the building as
+        # a real file (handed to a customer or printed) gets the same trail any other export does.
+        "action": "procedure_checklist.exported",
+        "source": "admin",
+        "critical": False,
+        "resource": "service",
+        "why": "who printed a service's procedure checklist, in what format and how many steps it "
+               "carried at that moment — the document may leave the shop entirely, so the same "
+               "accountability any other data export gets applies here too",
     },
     {
         "action": "service.image_set",
@@ -788,6 +826,33 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "why": "a discount was honoured at an integrated till. It is money off an invoice the shop "
                "has to explain later, and the till is the one surface where neither the owner nor "
                "the customer is looking at our screen",
+    },
+    {
+        "action": "tiktok.connected",
+        "source": "internal",
+        "critical": False,
+        "resource": "tiktok_shop_connection",
+        "why": "an owner linked this shop's TikTok Shop account — the row support reads when a "
+               "shop asks why orders stopped, or disputes which of their accounts is wired",
+    },
+    {
+        "action": "tiktok.disconnected",
+        "source": "internal",
+        "critical": False,
+        "resource": "tiktok_shop_connection",
+        "why": "the link was removed, by the owner or by TikTok's own SELLER_DEAUTHORIZATION — "
+               "the same reason `salla.disconnected` is audited",
+    },
+    {
+        "action": "tiktok.order_recorded",
+        "source": "internal",
+        "critical": False,
+        "resource": "visit",
+        "why": "a TikTok Shop order became a visit through the machine credential in "
+               "api/v1/tiktok.py — the only surface where neither the owner nor the customer is "
+               "watching our screen when a masked or missing phone silently routed the sale to "
+               "the tenant's anonymous placeholder rather than a named customer, which is exactly "
+               "the fact an owner reconciling a slow week needs to find without reading every row",
     },
     {
         # FOUND UNDECLARED 2026-09-07 by ci/check_audit_actions.py, itself found unwired into any

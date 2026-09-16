@@ -31,6 +31,12 @@ def client():
         "TOKEN_AUDIENCE": AUD,
         "RATELIMIT_MAX": "1000",
         "PII_SALT": "s" * 32,
+        # `feature.api` is closed for every tenant by default since 2026-09-16 (product decision,
+        # see `core/licence.py`'s own module docstring) — this file tests the till's OWN mechanics
+        # (package_id threading through), not that licence gate, so it opens the link the same way
+        # a real subscribed shop would rather than asserting against a refusal unrelated to what
+        # it is checking.
+        "API_LINK_ENABLED": "true",
     })
     get_settings.cache_clear()
     from app.main import create_app
