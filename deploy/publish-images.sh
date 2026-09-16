@@ -83,14 +83,32 @@ LOGS="$(mktemp -d)"; trap 'rm -rf "$LOGS"' EXIT
 
 # ONE IMAGE, BUILD TO DIGEST, IN ITS OWN PROCESS. It writes the digest to a file rather than printing
 # it: eleven of these run at once, and stdout is not a place two processes can share a sentence.
+# A TRANSIENT PUSH FAILURE IS NOT A BUILD FAILURE. `docker push` talking to ghcr over a home/office
+# connection sees the occasional mid-upload reset ("EOF", a stalled blob) that has nothing to do
+# with the image itself — confirmed live shipping the whole fleet at once: five of eleven pushes
+# died on the identical "failed to do request: ... EOF" mid-blob, the other six landed clean in the
+# same run over the same link. Retrying the SAME already-built image costs a few seconds of network
+# time, not a rebuild — `docker build`'s own layer cache means a retry here never recompiles
+# anything. Three tries, a short pause between (long enough for a flaky link to recover, short
+# enough that eleven images retrying in parallel do not all hammer ghcr at once).
+push_with_retry(){
+  local ref="$1" attempt=1
+  while true; do
+    if docker push "$ref"; then return 0; fi
+    if [ "$attempt" -ge 3 ]; then return 1; fi
+    sleep "$attempt"
+    attempt=$((attempt + 1))
+  done
+}
+
 one(){
   local name="$1" d=""
   {
     # `${VITE_BUILD_ARGS[@]+"${VITE_BUILD_ARGS[@]}"}` — empty-array expansion that survives `set -u`, which is
     # on. Every other image ignores the args it was not asked about.
     docker build ${VITE_BUILD_ARGS[@]+"${VITE_BUILD_ARGS[@]}"}       -t "$REG/$name:$COMMIT" -t "$REG/$name:latest" -f "$(dfl "$name")" "$(ctx "$name")" || exit 1
-    docker push "$REG/$name:$COMMIT" || exit 1
-    docker push "$REG/$name:latest"  || true
+    push_with_retry "$REG/$name:$COMMIT" || exit 1
+    push_with_retry "$REG/$name:latest"  || true
     # ASK THE REGISTRY, DO NOT READ THE LOCAL IMAGE. RepoDigests is empty for an image built from
     # cache, and reading it there is how a pin silently keeps its previous value while every line
     # printed success.
