@@ -9,6 +9,7 @@
  * itself changes (light/dark, a future rebrand) with zero edits here.
  */
 import type { ReactNode } from 'react';
+import { Card } from './Card';
 
 export interface FilterRailItem {
   id: string;
@@ -27,10 +28,10 @@ export function FilterRail({ items, active, onChange, ariaLabel }: {
   ariaLabel: string;
 }) {
   return (
-    <div
+    <Card
       role="group"
       aria-label={ariaLabel}
-      className="sticky top-4 flex h-fit flex-col gap-1 rounded-card border border-border-subtle bg-surface-1 p-3 shadow-sm"
+      className="sticky top-4 flex h-fit flex-col gap-1 p-3"
     >
       {items.map((it) => (
         <button
@@ -56,6 +57,6 @@ export function FilterRail({ items, active, onChange, ariaLabel }: {
           ) : null}
         </button>
       ))}
-    </div>
+    </Card>
   );
 }

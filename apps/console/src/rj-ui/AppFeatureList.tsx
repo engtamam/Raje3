@@ -31,7 +31,7 @@ import {
   Layers, MapPin, Megaphone, MessageCircle, Move, Receipt, Search, ShieldCheck, Sparkles, Star,
   Truck, Users, UserPlus, type LucideIcon,
 } from 'lucide-react';
-import { cn } from '@base-ui/lib/cn';
+import { cn } from '../cn';
 import type { AppFeature } from '../apps';
 import { Skeleton } from './Skeleton';
 

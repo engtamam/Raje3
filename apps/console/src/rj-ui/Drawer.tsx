@@ -7,7 +7,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
-import { cn } from '@base-ui/lib/cn';
+import { cn } from '../cn';
 
 export function Drawer({
   open, onClose, title, subtitle, children, footer, testId,

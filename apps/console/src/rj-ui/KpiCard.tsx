@@ -7,7 +7,7 @@
  * screen actually needs a trend pill.
  */
 import type { ReactNode } from 'react';
-import { cn } from '@base-ui/lib/cn';
+import { cn } from '../cn';
 
 export type RjKpiTone = 'neutral' | 'accent' | 'info' | 'success' | 'warning' | 'danger';
 

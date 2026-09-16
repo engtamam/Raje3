@@ -26,7 +26,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { cn } from '@base-ui/lib/cn';
+import { cn } from '../cn';
 
 function hourLabel(h: number): string {
   return `${String(h % 24).padStart(2, '0')}:00`;

@@ -4,7 +4,7 @@
  * `<button role="switch">`, RTL-safe thumb travel via `rtl:` variants — a direct port, no scoped-
  * down risk the way rj-ui/Modal had: this one carries no shared state of its own to begin with.
  */
-import { cn } from '@base-ui/lib/cn';
+import { cn } from '../cn';
 
 export interface RjToggleProps {
   checked: boolean;

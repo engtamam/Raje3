@@ -562,12 +562,14 @@ export function AppShell({
             {!brand.markOnly && <span className="text-sm font-semibold">{brand.name}</span>}
           </div>
         </div>
-        {/* max-w-5xl READ AS A MOBILE LAYOUT STRETCHED THIN across a desktop window — every screen
-            kept stacking single-column cards inside a fixed 1024px column no matter how wide the
-            browser actually was, leaving two dead margins on anything bigger than a laptop. A
-            screen is free to lay its own content out in columns past `lg`; this only stops
-            reserving the width for it. */}
-        <div className="mx-auto w-full max-w-5xl flex-1 p-4 sm:p-6 md:p-8 lg:max-w-7xl xl:max-w-[88rem]">
+        {/* NO MAX-WIDTH CAP AT ALL, ANY MORE — the owner's own direct instruction (2026-09-16): a
+            fixed cap (`max-w-5xl`, then a staged `lg:max-w-7xl xl:max-w-[88rem]`) still read as a
+            mobile layout stretched thin the moment the real window got wide enough to clear it —
+            zooming out or sitting at an ultra-wide/4K desktop left two dead margins eating more
+            than half the screen. `w-full` with no ceiling means the column always tracks the
+            actual window; a screen that wants its OWN inner cap (a form, a reading column) sets
+            that locally, which costs nothing here. */}
+        <div className="w-full flex-1 p-4 sm:p-6 md:p-8">
           {children ?? <Outlet />}
         </div>
         {footer}

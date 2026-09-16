@@ -11,7 +11,7 @@
 import { forwardRef } from 'react';
 import type { ButtonHTMLAttributes } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { cn } from '@base-ui/lib/cn';
+import { cn } from '../cn';
 
 export const rjButtonVariants = cva(
   'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl font-semibold ' +

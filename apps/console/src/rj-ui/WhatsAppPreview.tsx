@@ -27,7 +27,7 @@
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink, ImageIcon, MoreVertical, Send, Sparkles } from 'lucide-react';
-import { cn } from '@base-ui/lib/cn';
+import { cn } from '../cn';
 import { Skeleton } from './Skeleton';
 import { riyalsLabel } from '../money';
 

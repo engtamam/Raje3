@@ -1317,3 +1317,15 @@ jobs:
       # repo would catch it, only a colour that looks slightly off to whoever notices first.
       - name: "'@base-ui' always resolves to our own copy, never to platform/"
         run: python3 ci/check_base_ui_alias_never_points_at_platform.py
+
+      # Found twice in one session, both times the same shape: a screen copied a theme.config.ts
+      # neutral as a hex literal under a comment promising to "follow" it, then drifted silently
+      # the next time the palette changed — see this gate's own docstring.
+      - name: a hardcoded colour does not shadow a theme token
+        run: python3 ci/check_a_hardcoded_color_does_not_shadow_a_token.py
+
+      # The app-store/premium redesign's own sweep (2026-09-16): 96 hand-rolled cards migrated to
+      # the shared <Card> primitive; what remains in the script's own ALLOWLIST is reviewed, not
+      # un-migrated — see the gate's own docstring for why each one is a real exception.
+      - name: a hand-rolled card does not skip the shared component
+        run: python3 ci/check_a_hand_rolled_card_skips_the_shared_component.py

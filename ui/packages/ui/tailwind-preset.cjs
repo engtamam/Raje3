@@ -118,6 +118,20 @@ module.exports = {
         base: 'var(--motion-base)',
         slow: 'var(--motion-slow)',
       },
+      // THE GLOSS, AS A SHARED PRESET TOKEN — 2026-09-16, the owner's own instruction: nothing may
+      // read as dull, and a future change to how it looks must reach every consumer from ONE edit,
+      // the same "single source of truth" reasoning that already governs colour/radius/shadow above.
+      // Living here (not in one app's own CSS) is what makes it reach EVERY app that extends this
+      // preset, not just apps/console.
+      keyframes: {
+        'card-sheen': {
+          '0%': { backgroundPosition: '200% 0%' },
+          '55%, 100%': { backgroundPosition: '-80% 0%' },
+        },
+      },
+      animation: {
+        'card-sheen': 'card-sheen 6s ease-in-out infinite',
+      },
     },
   },
   plugins: [
@@ -133,6 +147,35 @@ module.exports = {
         '.focus-ring-inset:focus-visible': {
           outline: '2px solid var(--focus-ring)',
           'outline-offset': '-2px',
+        },
+      });
+    },
+    // THE GLOSS ITSELF — an accent-tinted diagonal light sweep, ON TOP OF whatever surface/palette
+    // is already there (no token overrides, unlike a one-off themed card), so it composes with
+    // every appearance rather than replacing one. `<Card>` applies this by default; any other
+    // element can opt in the same way with `className="card-sheen"`.
+    function cardSheen({ addComponents }) {
+      addComponents({
+        '.card-sheen': {
+          position: 'relative',
+          isolation: 'isolate',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            inset: '0',
+            zIndex: '0',
+            pointerEvents: 'none',
+            backgroundImage:
+              'linear-gradient(115deg, transparent 35%, ' +
+              'color-mix(in srgb, var(--accent) 22%, transparent) 48%, transparent 62%)',
+            backgroundSize: '240% 240%',
+            animation: 'card-sheen 6s ease-in-out infinite',
+          },
+          '@media (prefers-reduced-motion: reduce)': {
+            '&::before': { animation: 'none' },
+          },
+          '& > *': { position: 'relative', zIndex: '1' },
         },
       });
     },

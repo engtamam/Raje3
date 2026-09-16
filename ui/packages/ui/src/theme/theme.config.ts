@@ -84,7 +84,7 @@ export interface Scale {
 declare const __PRODUCT_ACCENT__: { light: string; dark: string };
 const BRAND = typeof __PRODUCT_ACCENT__ !== 'undefined'
   ? __PRODUCT_ACCENT__
-  : { light: '#B8862B', dark: '#D8B876' };
+  : { light: '#7C3AED', dark: '#A78BFA' };
 
 /** Mix two hex colours by `amount` (0..1 toward `to`). Lets us derive a hover, a soft tint and on-soft
  *  text from a single brand hex, so the ramp is computed rather than hand-picked in a second place. */
@@ -123,19 +123,23 @@ const light: Palette = {
   // (`surface-0`) so a white CARD (`surface-1`) still visibly lifts off it — true page-white AND
   // card-white at once would erase that lift entirely, the one thing a "white" redesign must not
   // also flatten.
-  'surface-0': '#f7f8fa',
+  // REBRANDED AGAIN 2026-09-16 (SECOND PASS SAME DAY), THE OWNER'S OWN DIRECT INSTRUCTION: the
+  // violet-tinted grey from the first pass still read "ممل" (dull) — the ask now is a clean,
+  // glossy, pure white ground ("أبيض صافي بلمعه"), simple and light, not a coloured scaffold. The
+  // PAGE itself is true white, and a CARD (`surface-1`) is ALSO white — the lift between them now
+  // comes entirely from `shadow`/`card-sheen` (see tailwind-preset.cjs) rather than from a tinted
+  // page behind a whiter card, so "white" actually means white everywhere, not two whites.
+  'surface-0': '#ffffff',
   'surface-1': '#ffffff',
-  // THE SAME "REAL STEP, NOT A HAIRLINE" SEPARATION THE 2026-09-13 WIDENING ESTABLISHED — carried
-  // over verbatim in spirit, just re-based on a neutral grey family instead of warm cream: a
-  // chip's OFF state, a toggle's OFF track, an unselected tab must all still read as a visibly
-  // different surface from the page under them.
-  'surface-2': '#e7e9ee',
-  'surface-3': '#d7dae2',
-  'text-primary': '#14161c',
-  'text-secondary': '#5b6270',
-  'text-muted': '#868c99',
-  'border-subtle': '#dde0e7',
-  'border-strong': '#c5cad4',
+  // Still a real step for a chip's OFF state / an unselected tab — now a plain light neutral grey
+  // instead of a violet tint, since the whole point of this pass is "no more coloured grey".
+  'surface-2': '#f1f1f4',
+  'surface-3': '#e4e4ea',
+  'text-primary': '#17171f',
+  'text-secondary': '#63636f',
+  'text-muted': '#96969f',
+  'border-subtle': '#e9e9ee',
+  'border-strong': '#d3d3dc',
   accent: ACCENT_LIGHT.base,
   'accent-hover': ACCENT_LIGHT.hover,
   // Violet is dark enough at this saturation that WHITE ink reads clearly on a filled button —
@@ -143,15 +147,18 @@ const light: Palette = {
   'accent-contrast': '#ffffff',
   'accent-soft': ACCENT_LIGHT.soft,
   'accent-on-soft': ACCENT_LIGHT.onSoft,
-  success: '#1e9e82',
+  // PUNCHED UP 2026-09-16 alongside the neutrals above — same hue family as before (never
+  // rebranded), just higher-chroma versions so they read as confidently saturated rather than
+  // muted/mustard next to the new glossier neutrals.
+  success: '#12b886',
   'success-soft': '#dcf3ec',
-  'success-on-soft': '#146b58',
-  warning: '#c99a2c',
+  'success-on-soft': '#0e8a64',
+  warning: '#f59f00',
   'warning-soft': '#f7ecd2',
-  'warning-on-soft': '#8a6a1e',
+  'warning-on-soft': '#a0680a',
   // DANGER = coral, the same hue محلّي already uses for churn/at-risk attention — so a red flag
   // reads as the same colour language everywhere, not a leftover brick-red from the old theme.
-  danger: '#d9584a',
+  danger: '#e8590c',
   'danger-soft': '#fbe1dd',
   'danger-on-soft': '#b7412f',
   'danger-contrast': '#ffffff',
@@ -168,7 +175,7 @@ const light: Palette = {
   'gift-on-soft': '#086e5c',
   'gift-contrast': '#ffffff',
   'focus-ring': ACCENT_LIGHT.base,
-  overlay: 'rgb(20 22 28 / 0.45)',
+  overlay: 'rgb(22 19 40 / 0.45)',
 };
 
 const dark: Palette = {
@@ -241,11 +248,13 @@ const scale: Scale = {
   // the palette above — the previous tint (a cool navy-ink rgb) was left over from before the
   // paper/violet identity existed; white cards now lift off the warm cream canvas with a soft
   // premium halo that actually matches the ground they sit on.
+  // TINTED TOWARD THE NEW VIOLET INK (#161328), 2026-09-16 alongside the neutrals above — same
+  // shape as before, just re-based off the violet family instead of a hueless grey shadow.
   shadow: {
-    sm: '0 1px 2px -1px rgb(20 22 28 / 0.10), 0 1px 1px rgb(20 22 28 / 0.05)',
-    md: '0 2px 8px -3px rgb(20 22 28 / 0.12), 0 10px 26px -8px rgb(20 22 28 / 0.14)',
-    lg: '0 8px 18px -8px rgb(20 22 28 / 0.14), 0 24px 52px -16px rgb(20 22 28 / 0.20)',
-    pop: '0 12px 26px -12px rgb(20 22 28 / 0.18), 0 34px 72px -20px rgb(20 22 28 / 0.28)',
+    sm: '0 1px 2px -1px rgb(22 19 40 / 0.10), 0 1px 1px rgb(22 19 40 / 0.05)',
+    md: '0 2px 8px -3px rgb(22 19 40 / 0.12), 0 10px 26px -8px rgb(22 19 40 / 0.14)',
+    lg: '0 8px 18px -8px rgb(22 19 40 / 0.14), 0 24px 52px -16px rgb(22 19 40 / 0.20)',
+    pop: '0 12px 26px -12px rgb(22 19 40 / 0.18), 0 34px 72px -20px rgb(22 19 40 / 0.28)',
     glow: '0 10px 34px -8px color-mix(in srgb, var(--accent) 42%, transparent)',
   },
   motion: { fast: '120ms', base: '200ms', slow: '360ms', ease: 'cubic-bezier(0.22, 1, 0.36, 1)' },

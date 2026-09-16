@@ -29,7 +29,7 @@
  * it explicitly asks for it.
  */
 import type { LucideIcon } from 'lucide-react';
-import { cn } from '@base-ui/lib/cn';
+import { cn } from '../cn';
 
 export interface RjSegmentedOption<T extends string> {
   value: T;

@@ -16,7 +16,7 @@
  * no border. This is the one place in the console allowed to look like "real navigation" rather
  * than a control, because it IS navigation — switching to a different section of the same screen.
  */
-import { cn } from '@base-ui/lib/cn';
+import { cn } from '../cn';
 
 export interface RjTabBarOption<T extends string> {
   value: T;

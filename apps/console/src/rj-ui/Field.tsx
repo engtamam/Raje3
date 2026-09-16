@@ -14,7 +14,7 @@ import type {
   InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, ReactNode,
 } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { cn } from '@base-ui/lib/cn';
+import { cn } from '../cn';
 
 const CONTROL =
   'w-full rounded-md border border-border-strong bg-surface-1 px-3 py-2 text-sm text-text-primary ' +

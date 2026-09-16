@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '../design-system/Button';
+import { Card } from '../design-system/Card';
 import { DocBlocksView, type DocBlock } from '../components';
 import { useAuthI18n } from './i18n';
 
@@ -59,12 +60,12 @@ export function AcceptTerms({ outstanding, onAccept, onDone, mapError }: AcceptT
           {t('auth.legal.updated')}
         </p>
       )}
-      <div className="max-h-[52vh] overflow-y-auto rounded-lg border border-border-subtle bg-surface-1 p-4">
+      <Card className="max-h-[52vh] overflow-y-auto p-4">
         {doc.view?.blocks?.length
           ? <DocBlocksView blocks={doc.view.blocks} locale={locale}
               resolve={(k) => values[k]} unfilledLabel={t('auth.legal.unfilled')} />
           : <p className="text-sm text-text-muted">{doc.view?.title || doc.doc_id}</p>}
-      </div>
+      </Card>
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       <Button type="button" onClick={accept} disabled={busy} className="w-full">
         {t('auth.legal.accept')}

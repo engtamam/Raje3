@@ -9,7 +9,7 @@
  * (filled/ringed/empty), never one colour repeated — the same "a shelf must read as distinct
  * states, not a shade of the same thing" rule `KpiCard`'s own tone system already holds.
  */
-import { cn } from '@base-ui/lib/cn';
+import { cn } from '../cn';
 
 export interface TierLadderRung {
   /** The percent this rung represents — rendered as-is (`%` appended by the caller's own

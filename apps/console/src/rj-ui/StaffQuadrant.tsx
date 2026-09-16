@@ -18,7 +18,8 @@
  * panel (works with a finger on the tablet this console's field screen already targets); hover
  * shows a lightweight, mouse-only tooltip that follows the pointer. Neither replaces the other.
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import { Card } from './Card';
 import { useOperatorI18n, tf } from '../operator-i18n';
 import './staff-quadrant-i18n';
 
@@ -59,10 +60,22 @@ function zoneOf(row: StaffQuadrantRow, rate: number): typeof ZONES[keyof typeof 
   return ZONES.needsSupport;
 }
 
-export function StaffQuadrant({ rows }: { rows: StaffQuadrantRow[] }) {
+export function StaffQuadrant({ rows, onSelect, extra }: {
+  rows: StaffQuadrantRow[];
+  /** Fired whenever a bubble is (re-)selected — the training panel below (`extra`) is fetched by
+   *  the PARENT, lazily, only for whichever operator is actually selected right now. This
+   *  component stays presentational and knows nothing about `OperatorStepStat`. */
+  onSelect?: (operatorId: string) => void;
+  /** Rendered inside the SAME detail card, right under the built-in rows — the natural, already-
+   *  built extension point ([[task-service-procedure-checklists]] phase 5) rather than a second
+   *  card or a new drawer: the owner is already looking at this operator's own numbers. */
+  extra?: (row: StaffQuadrantRow) => ReactNode;
+}) {
   const { t } = useOperatorI18n();
   const [selected, setSelected] = useState<string | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number; row: StaffQuadrantRow; rate: number } | null>(null);
+
+  const select = (operatorId: string) => { setSelected(operatorId); onSelect?.(operatorId); };
 
   const withRate = rows.map((r) => ({ row: r, rate: r.visits > 0 ? r.ratings / r.visits : 0 }));
   const xThresh = xPos(E_THRESHOLD), yThresh = yPos(Q_THRESHOLD);
@@ -70,7 +83,7 @@ export function StaffQuadrant({ rows }: { rows: StaffQuadrantRow[] }) {
 
   return (
     <div className="flex flex-col gap-2 sm:grid sm:grid-cols-[1fr_240px] sm:items-stretch sm:gap-3">
-      <div className="relative max-w-[560px] rounded-card border border-border-subtle bg-surface-1 p-3 pb-1.5">
+      <Card className="relative max-w-[560px] p-3 pb-1.5">
         <svg
           viewBox={`0 0 ${W} ${H}`} role="img"
           aria-label={t('rating.quadrant.ariaLabel')}
@@ -116,8 +129,8 @@ export function StaffQuadrant({ rows }: { rows: StaffQuadrantRow[] }) {
                 tabIndex={0}
                 role="button"
                 aria-label={row.operator_name}
-                onClick={() => setSelected(row.operator_id)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelected(row.operator_id); }}
+                onClick={() => select(row.operator_id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') select(row.operator_id); }}
                 onMouseEnter={() => setHover({ x: cx, y: cy, row, rate })}
                 onMouseMove={() => setHover({ x: cx, y: cy, row, rate })}
                 onMouseLeave={() => setHover(null)}
@@ -148,9 +161,9 @@ export function StaffQuadrant({ rows }: { rows: StaffQuadrantRow[] }) {
             })}
           </div>
         ) : null}
-      </div>
+      </Card>
 
-      <div className="flex flex-col gap-2 self-start rounded-card border border-border-subtle bg-surface-1 p-4">
+      <Card className="flex flex-col gap-2 self-start p-4">
         {selectedEntry ? (
           <>
             <p className="m-0 text-base font-bold">{selectedEntry.row.operator_name}</p>
@@ -165,11 +178,12 @@ export function StaffQuadrant({ rows }: { rows: StaffQuadrantRow[] }) {
             <DetailRow label={t('rating.quadrant.ratings')} value={String(selectedEntry.row.ratings)} />
             <DetailRow label={t('rating.quadrant.engagementRate')} value={`%${Math.round(selectedEntry.rate * 100)}`} />
             <DetailRow label={t('rating.quadrant.averageRating')} value={selectedEntry.row.average_rating.toFixed(1)} />
+            {extra ? extra(selectedEntry.row) : null}
           </>
         ) : (
           <p className="m-auto text-center text-xs text-text-secondary">{t('rating.quadrant.emptyDetail')}</p>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
