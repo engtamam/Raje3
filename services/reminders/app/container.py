@@ -150,6 +150,12 @@ class Container:
     ingest: Any = None
     tick: Any = None
     rating_consumer: Any = None
+    # THE HOSTED RATING PAGE'S OWN SYNCHRONOUS SUBMIT (phase 2) shares these three with
+    # `rating_consumer` above rather than rebuilding them — see the container-build site's own
+    # comment on why duplicating either would let the bus path and the page path drift apart.
+    rating_writer: Any = None
+    rating_points_for: Any = None
+    rating_requests: Any = None
     app_entitlement: Any = None
     service_due_settings: Any = None
 
@@ -287,8 +293,17 @@ def build_container(settings: Settings) -> Container:
             return 0
         return settings_row.points
 
+    # EXPOSED ON THE CONTAINER TOO (not just closed over by the consumer above) — the hosted
+    # rating page's own synchronous submit route (api/internal.py, phase 2) needs the exact same
+    # writer and the exact same fresh-points computation the bus consumer already uses, and must
+    # not duplicate either: two definitions of "what a rating is worth right now" is how they
+    # drift the day only one of them is edited.
+    container.rating_writer = rating_writer
+    container.rating_points_for = _rating_bonus_points
+    container.rating_requests = RatingRequestStore(container.datastore)
+
     container.rating_consumer = RatingConsumer(
-        requests=RatingRequestStore(container.datastore), writer=rating_writer,
+        requests=container.rating_requests, writer=rating_writer,
         bonus_points=_rating_bonus_points)
 
     # DID IT ARRIVE. The receipt feed is the other half of the sender: one hands the message over,

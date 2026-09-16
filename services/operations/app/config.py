@@ -417,29 +417,27 @@ class Settings(BaseSettings):
     # per-tenant Flow-encryption key exists and its public half is registered with Meta. See
     # core/flows.py's `HttpFlows.ensure_encryption`.
     WHATSAPP_FLOW_ENCRYPTION_ENSURE_PATH: str = "/internal/whatsapp/flow-encryption/ensure"
-    # THE MASTER FLOW'S id, minted ONCE by deploy/seed/bootstrap-rating-flow.py under the
-    # platform's own WABA and stored through THIS SETTING'S RuntimeConfig override (platform
+    # THE MASTER FLOW'S id, minted ONCE by each Flow's own deploy/seed/bootstrap-*-flow.sh under
+    # the platform's own WABA and stored through THIS SETTING'S RuntimeConfig override (platform
     # scope, tenant="") — never a static default, because the id does not exist until that
     # script has run. Read at connect time through RuntimeConfig, not this field directly, so a
     # fresh install needs no redeploy once the bootstrap script has written it.
-    MASTER_RATING_FLOW_ID: str = ""
-    # THE SAME PATTERN, A SECOND FLOW — the weekly owner report (rating-app-feature.md phase 6b),
-    # minted once by deploy/seed/bootstrap-report-flow.sh. See MASTER_RATING_FLOW_ID's own comment
-    # above for why this is read through RuntimeConfig at connect time rather than used directly.
-    MASTER_REPORT_FLOW_ID: str = ""
-    # THE SAME PATTERN, A THIRD FLOW — the WhatsApp booking Flow (Phase 5), minted once by
-    # deploy/seed/bootstrap-booking-flow.sh. See MASTER_RATING_FLOW_ID's own comment above.
+    #
+    # RATING AND REPORT FLOWS BOTH REMOVED (2026-09-16) — `MASTER_RATING_FLOW_ID`/
+    # `MASTER_REPORT_FLOW_ID` used to sit here; see core/flows.py's own module docstring for why
+    # (the rating screen moved off native Flow entirely; the report Flow's template was already
+    # deleted 2026-09-13 and this was orphaned config left behind by that same deletion).
     MASTER_BOOKING_FLOW_ID: str = ""
-    # THE SAME PATTERN, A FIFTH FLOW — visit-registration over WhatsApp, minted once by
-    # deploy/seed/bootstrap-visit-flow.sh. See MASTER_RATING_FLOW_ID's own comment above.
+    # THE SAME PATTERN, A SECOND REMAINING FLOW — visit-registration over WhatsApp, minted once by
+    # deploy/seed/bootstrap-visit-flow.sh. See `MASTER_BOOKING_FLOW_ID`'s own comment above.
     MASTER_VISIT_FLOW_ID: str = ""
-    # THE SAME PATTERN, A FOURTH FLOW — subscription renewal (deploy/seed/
+    # THE SAME PATTERN, A THIRD REMAINING FLOW — subscription renewal (deploy/seed/
     # subscription-renewal-flow.json), minted once by
-    # deploy/seed/bootstrap-subscription-renewal-flow.sh. See MASTER_RATING_FLOW_ID's own comment
-    # above; DYNAMIC like booking (needs its own endpoint_uri at connect time, below).
+    # deploy/seed/bootstrap-subscription-renewal-flow.sh. See `MASTER_BOOKING_FLOW_ID`'s own
+    # comment above; DYNAMIC like booking (needs its own endpoint_uri at connect time, below).
     MASTER_SUBSCRIPTION_RENEWAL_FLOW_ID: str = ""
-    # WHERE META CALLS BACK — unlike rating_flow/report_flow (static, no server round-trip ever
-    # needed), the booking Flow is DYNAMIC and MUST tell Meta a real endpoint per shop's own clone
+    # WHERE META CALLS BACK — unlike a static Flow (no server round-trip ever needed), the booking
+    # Flow is DYNAMIC and MUST tell Meta a real endpoint per shop's own clone
     # (notification-service's `/webhooks/whatsapp/flow/{tenant}` resolves which shop's sealed key
     # to decrypt with FROM this URL — a clone with no endpoint_uri, or the wrong tenant's, can
     # never receive real traffic). Same "set from DOMAIN at install time, never guessed" posture

@@ -280,62 +280,6 @@ def test_the_owners_line_still_wins_at_the_route(client):
     assert seen["offer_text"] == "لك غسلة مجانية"
 
 
-# ── the report Flow's own button (rating-app-feature.md phase 6b) ──────────────────────────────
-def test_a_send_with_no_flow_fields_carries_none_through(client):
-    """Every existing caller (campaigns never opens a Flow) must get byte-identical behaviour —
-    an absent flow_token/flow_action_data on the request must arrive as empty on the schedule."""
-    seen: dict = {}
-
-    class Tick:
-        async def send_one(self, tenant, schedule, **kw):
-            seen.update(schedule)
-            return {"sent": True}
-
-    c = client.app.state.container
-    c.tick = Tick()
-    c.identity = Identity("calm")
-    c.library = Library()
-    c.approved_templates = Approved({"of_calm"})
-
-    r = client.post("/internal/reminders/send", headers=HEAD, json={
-        "tenant": "t-1", "subject_ref": "sub_abcdefgh", "template_type": "mkt_offer",
-        "class": "marketing", "owner_text": "خصم", "idempotency_key": "cmp:4:sub_abcdefgh"})
-
-    assert r.status_code == 200, r.text
-    assert seen.get("flow_token") == ""
-    assert seen.get("flow_action_data") == {}
-
-
-def test_a_report_sends_flow_token_and_flow_action_data_through_to_the_schedule(client):
-    """The rating request is one caller that DOES open a Flow — its flow_token and the rating
-    screen's data must reach `send_one`'s schedule dict unchanged."""
-    seen: dict = {}
-
-    class Tick:
-        async def send_one(self, tenant, schedule, **kw):
-            seen.update(schedule)
-            return {"sent": True}
-
-    c = client.app.state.container
-    c.tick = Tick()
-    c.identity = Identity("calm")
-    c.library = Library()
-    c.approved_templates = Approved({"of_calm"})
-
-    r = client.post("/internal/reminders/send", headers=HEAD, json={
-        "tenant": "t-1", "subject_ref": "sub_abcdefgh", "template_type": "svc_visit_confirmation_rating",
-        "class": "service", "owner_text": "زيارتك في مغسلة النخيل",
-        "idempotency_key": "reminders:rating:t-1:sub_abcdefgh:2900",
-        "flow_token": "reminders:rating:t-1:sub_abcdefgh:2900",
-        "flow_action_data": {"header_text": "زيارتك في مغسلة النخيل", "show_visits": True,
-                             "visits_text": "120 (+15)"}})
-
-    assert r.status_code == 200, r.text
-    assert seen["flow_token"] == "reminders:rating:t-1:sub_abcdefgh:2900"
-    assert seen["flow_action_data"]["show_visits"] is True
-    assert seen["flow_action_data"]["visits_text"] == "120 (+15)"
-
-
 def test_campaign_id_reaches_the_schedule_dict_the_send_log_stamps_from(client):
     """2026-09-14 (till-integration audit follow-up): the send log used to carry an offer's
     WORDS with no way to say which campaign produced them, so a shop applying an offer at the

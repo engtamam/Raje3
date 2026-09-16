@@ -102,18 +102,23 @@ class NullOperations:
         # by doing nothing further.
         return False
 
+    async def rating_context(self, tenant: str, visit_id: str) -> dict[str, Any]:
+        return {"found": False}
+
 
 class HttpOperations:
     driver = "http"
 
     def __init__(self, *, url: str, path: str, token: str, timeout: int = 3,
-                 limit: int = 10) -> None:
-        self._url = url.rstrip("/") + path
+                 limit: int = 10, rating_context_path: str = "") -> None:
+        self._base = url.rstrip("/")
+        self._url = self._base + path
         self._token = token
         self._timeout = timeout
         # TEN, and the page shows ten. A customer's page is not a statement of account, and asking
         # for a hundred to display ten is a hundred rows crossing a network for nothing.
         self._limit = limit
+        self._rating_context_path = rating_context_path
 
     async def visits_for(self, tenant: str, subject_ref: str) -> list[dict[str, Any]]:
         data = await _post(self._url, {"tenant": tenant, "subject_ref": subject_ref,
@@ -127,11 +132,24 @@ class HttpOperations:
         erased here, and why the moment matters more than the wording: it is when the thirty-day
         clock in the regulation starts.
         """
-        base = self._url.rsplit("/internal/", 1)[0]
-        data = await _post(f"{base}/internal/operations/privacy-request",
+        data = await _post(f"{self._base}/internal/operations/privacy-request",
                      {"tenant": tenant, "subject_ref": subject_ref, "type": kind},
                      self._token, self._timeout)
         return bool(data.get("ok"))
+
+    async def rating_context(self, tenant: str, visit_id: str) -> dict[str, Any]:
+        """What the hosted rating page needs to render — [[task-service-procedure-checklists]]
+        phase 2. `{"found": False}` on any peer failure, same "no oracle, no crash" posture every
+        other read in this file already holds — a page that cannot reach operations shows a plain
+        "try again later" screen, never a 500."""
+        if not self._rating_context_path:
+            return {"found": False}
+        path = self._rating_context_path.replace("{}", urllib.parse.quote(visit_id, safe=""))
+        try:
+            return await _post(f"{self._base}{path}", {"tenant": tenant},
+                               self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return {"found": False}
 
 
 # ── reminders: the switches ────────────────────────────────────────────────────────────────────
@@ -186,15 +204,24 @@ class NullReminders:
         # be the worst lie in this file: the screen would thank him and the record would be empty.
         return False
 
+    async def rating_anchor(self, ref: str) -> dict[str, Any]:
+        return {"found": False}
+
+    async def rating_submit(self, ref: str, *, rating: int, feedback_text: str,
+                            rating_issue_step_ids: list[str]) -> dict[str, Any]:
+        return {"recorded": False}
+
 
 class HttpReminders:
     driver = "http"
 
-    def __init__(self, *, url: str, path: str, token: str, timeout: int = 3) -> None:
+    def __init__(self, *, url: str, path: str, token: str, timeout: int = 3,
+                 rating_anchor_path: str = "") -> None:
         self._url = url.rstrip("/")
         self._path = path
         self._token = token
         self._timeout = timeout
+        self._rating_anchor_path = rating_anchor_path
 
     def _ref_path(self, tenant: str, subject_ref: str) -> str:
         ref = urllib.parse.quote(f"{tenant}.{subject_ref}", safe="")
@@ -285,6 +312,33 @@ class HttpReminders:
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return False
 
+    async def rating_anchor(self, ref: str) -> dict[str, Any]:
+        """What ref resolves to — a peek, never a consume (see reminders' own
+        `RatingRequestStore.get` docstring: a page load must not spend the single-use anchor)."""
+        if not self._rating_anchor_path:
+            return {"found": False}
+        path = self._rating_anchor_path.replace("{ref}", urllib.parse.quote(ref, safe=""))
+        try:
+            return await _get(f"{self._url}{path}", self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return {"found": False}
+
+    async def rating_submit(self, ref: str, *, rating: int, feedback_text: str,
+                            rating_issue_step_ids: list[str]) -> dict[str, Any]:
+        """The real answer — CONSUMES the anchor on reminders' own side. Any peer failure reports
+        `recorded: false`, same "the peer's answer, never our optimism" rule every write in this
+        file already follows (see `set_prefs`'s own docstring)."""
+        if not self._rating_anchor_path:
+            return {"recorded": False}
+        path = self._rating_anchor_path.replace("{ref}", urllib.parse.quote(ref, safe=""))
+        try:
+            return await _post(f"{self._url}{path}/submit",
+                         {"rating": rating, "feedback_text": feedback_text,
+                          "rating_issue_step_ids": rating_issue_step_ids},
+                         self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return {"recorded": False}
+
 
 def build_peers(settings) -> tuple[Any, Any, Any, Any]:
     """FOUR NOW, and loyalty is the fourth. Returned rather than reached for so that a deployment
@@ -299,9 +353,11 @@ def build_peers(settings) -> tuple[Any, Any, Any, Any]:
                      ttl_seconds=settings.IDENTITY_CACHE_TTL_SECONDS),
         HttpOperations(url=settings.OPERATIONS_SERVICE_URL,
                        path=settings.OPERATIONS_VISITS_PATH,
-                       token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
+                       token=settings.INTERNAL_SERVICE_TOKEN, timeout=t,
+                       rating_context_path=getattr(settings, "OPERATIONS_RATING_CONTEXT_PATH", "")),
         HttpReminders(url=settings.REMINDERS_SERVICE_URL, path=settings.REMINDERS_PREFS_PATH,
-                      token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
+                      token=settings.INTERNAL_SERVICE_TOKEN, timeout=t,
+                      rating_anchor_path=getattr(settings, "REMINDERS_RATING_ANCHOR_PATH", "")),
         (HttpLoyalty(url=settings.LOYALTY_SERVICE_URL,
                      token=settings.INTERNAL_SERVICE_TOKEN, timeout=t)
          if getattr(settings, "LOYALTY_SERVICE_URL", "") else NullLoyalty()),

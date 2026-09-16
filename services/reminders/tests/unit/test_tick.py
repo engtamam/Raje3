@@ -1042,54 +1042,6 @@ def test_the_send_log_keeps_the_service_names_the_message_was_rendered_with(st):
     assert "offer_code" not in logged[0]
 
 
-# ── the report Flow's own button (rating-app-feature.md phase 6b) ─────────────────────────────
-def test_send_one_passes_flow_token_and_flow_action_data_to_the_sender(st):
-    """The schedule row is the ONLY place `send_one` (the campaigns path) can read a
-    Flow button from — it has no visit of its own to derive a token from, unlike the scheduled
-    rating-request send. Absent on every existing caller, so this is additive."""
-    from app.core.consent import Consent
-
-    run(EngagementStore(st).put("t1", "sub_a", {"score": 100.0, "scored_at": at(9)}))
-    run(Consent(st).record("t1", "sub_a", state="granted", source="customer_page",
-                           shop="ورشة النخبة"))
-    sender = FakeSender()
-    row = {"tenant": "t1", "subject_ref": "sub_a", "cls": "marketing",
-          "template_type": "mkt_offer", "service_id": "_campaign", "kind": "campaign",
-          "owner_text": "خصم 20%", "idempotency_key": "idem_flow", "id": "idem_flow",
-          "offer_text": "خصم 20%", "offer_expires_at": at(10, day=20),
-          "offer_services": ["oil"],
-          "flow_token": "cmp:idem_flow:sub_a",
-          "flow_action_data": {"header_text": "عرضك في ورشة النخبة", "show_visits": True,
-                               "visits_text": "120 (+15)"}}
-
-    out = run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB,
-                                        service_names=NAMES, establishment="ورشة النخبة"))
-    assert out["sent"] is True, out
-    assert sender.calls[0]["flow_token"] == "cmp:idem_flow:sub_a"
-    assert sender.calls[0]["flow_action_data"]["show_visits"] is True
-
-
-def test_send_one_with_no_flow_fields_on_the_row_passes_them_through_empty(st):
-    """Every existing caller (a plain campaign) never set these — `send_one` must not invent a
-    token or a data payload for a send that carries none."""
-    from app.core.consent import Consent
-
-    run(EngagementStore(st).put("t1", "sub_a", {"score": 100.0, "scored_at": at(9)}))
-    run(Consent(st).record("t1", "sub_a", state="granted", source="customer_page",
-                           shop="ورشة النخبة"))
-    sender = FakeSender()
-    row = {"tenant": "t1", "subject_ref": "sub_a", "cls": "marketing",
-          "template_type": "mkt_offer", "service_id": "_campaign", "kind": "campaign",
-          "owner_text": "خصم 20%", "idempotency_key": "idem_noflow", "id": "idem_noflow",
-          "offer_text": "خصم 20%", "offer_expires_at": at(10, day=20), "offer_services": ["oil"]}
-
-    out = run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB,
-                                        service_names=NAMES, establishment="ورشة النخبة"))
-    assert out["sent"] is True, out
-    assert sender.calls[0]["flow_token"] == ""
-    assert sender.calls[0]["flow_action_data"] is None
-
-
 # ── the unified single-item quick-reply button (core/shape.py, 2026-09-13) ─────────────────────
 # BUG FIXED THE SAME DAY THIS SUITE GREW (see tick.py's own comment at the send-branch): a
 # `button_item_id` on the row used to reach `send()`'s `button_payload` regardless of whether the

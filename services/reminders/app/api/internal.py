@@ -799,25 +799,13 @@ class CampaignSendIn(BaseModel):
     # The services the offer covers, NAMED — this service holds ids, and «خصم على svc_9f2» is not
     # a message. The caller owns the catalogue, so the caller sends the words.
     service_names: list[str] = Field(default_factory=list, max_length=100)
-    # THE WEEKLY REPORT'S OWN FLOW BUTTON (rating-app-feature.md phase 6b) — empty for every other
-    # caller today (campaigns never opens a Flow), so this is a no-op everywhere but insights'
-    # digest send. `flow_action_data` fills the report screen's `${data.*}` placeholders; the
-    # Flow itself is published once (deploy/seed/report-flow.json) and never changes — only the
-    # values and the per-section `visible` flags travel per send. See core/tick.py's own comment
-    # on why these ride straight through the schedule dict rather than becoming a new parameter.
-    # SAME CEILING AS `idempotency_key` ABOVE (256, not the rating app's own 128) — insights
-    # reuses its own idempotency_key verbatim as this Flow's token (see the module docstring
-    # comment at the call site), so a cap narrower than that field's own would reject a value
-    # the SAME request already accepted under a different name.
-    flow_token: str = Field(default="", max_length=256)
-    flow_action_data: dict[str, Any] = Field(default_factory=dict)
     # THE UNIFIED SINGLE-ITEM QUICK-REPLY BUTTON (core/shape.py, 2026-09-13) — for a campaign of
     # one of the three non-booking types that names exactly one service/package: a
     # "carousel:{kind}:{id}" quick-reply button on an otherwise flat send (the payload prefix
     # whatsapp-assistant's own tap handler recognises — coined for the multi-card carousel send
     # this service used to also offer, deleted 2026-09-13, and kept here because this button
-    # mechanism shares the exact same prefix and handler). Empty means no button, same
-    # "omitted when meaningless" posture as `flow_token`.
+    # mechanism shares the exact same prefix and handler). Empty means no button, omitted from
+    # the wire body entirely when meaningless — same posture every optional field here follows.
     button_item_id: str = Field(default="", max_length=64)
     button_kind: str = Field(default="service", max_length=16)
     # WHICH OF THREE REWARDS THIS CAMPAIGN GIVES (occasion pilot, 2026-09-13) — "discount" is the
@@ -880,8 +868,6 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
         "offer_value": body.offer_value,
         "reward_type": body.reward_type,
         "reward_points": body.reward_points,
-        "flow_token": body.flow_token,
-        "flow_action_data": dict(body.flow_action_data),
         "button_item_id": body.button_item_id,
         "button_kind": body.button_kind,
         "campaign_id": body.campaign_id,
@@ -1496,3 +1482,59 @@ async def expedite_rating_request(request: Request, body: RatingExpediteIn) -> d
     row["due_at"] = int(time.time())
     await store.upsert(body.tenant, key, row)
     return {"ok": True}
+
+
+# ── the hosted rating page's own two calls ([[task-service-procedure-checklists]] phase 2) ──────
+# portal's public `/r/{ref}` page is the customer-facing half; these are the internal-token-holding
+# half it calls server-to-server, mirroring the split every other portal-facing route in this
+# product already follows (see reminders' own `/internal/reminders/prefs/{ref}` for the pattern).
+
+@router.get("/reminders/rating/{ref}", dependencies=[Depends(require_internal_token)])
+async def rating_anchor(request: Request, ref: str) -> dict:
+    """What the page needs BEFORE the customer answers anything: which tenant, which visit —
+    read-only, never consumes the anchor (see `RatingRequestStore.get`'s own docstring for why a
+    page LOAD must not spend the same single-use token `resolve()` is for).
+
+    `found: false` for an unknown or already-consumed ref — same "no oracle, no 404" posture
+    operations' own `record_visit_rating` route already documents for the identical shape of
+    problem: an internal-token holder gets a plain fact, never a distinction between "never
+    existed" and "already used", which would let a caller map the ref space.
+    """
+    pending = await request.app.state.container.rating_requests.get(ref)
+    if pending is None:
+        return {"found": False}
+    return {"found": True, "tenant": pending.tenant, "visit_id": pending.visit_id}
+
+
+class RatingSubmitIn(BaseModel):
+    rating: int = Field(ge=1, le=5)
+    feedback_text: str = Field(default="", max_length=2000)
+    rating_issue_step_ids: list[str] = Field(default_factory=list, max_length=200)
+
+
+@router.post("/reminders/rating/{ref}/submit", dependencies=[Depends(require_internal_token)])
+async def rating_submit(request: Request, ref: str, body: RatingSubmitIn) -> dict:
+    """The real answer — CONSUMES the anchor (see `RatingRequestStore.resolve`), same single-use
+    guarantee the old Flow-reply bus consumer held, now reached by a synchronous call from
+    portal's own form POST instead of an inbound WhatsApp message.
+
+    POINTS COMPUTED HERE, FRESH — the exact same `rating_points_for` callable
+    `RatingConsumer.handle` already uses, so the bus path (still live for any deployment mid-
+    migration) and this page path can never answer "what is this rating worth right now"
+    differently. See that callable's own docstring (container.py) for why fresh-at-reply-time is
+    the deliberate design, not a shortcut.
+
+    `found: false, reason: "..."` for an unknown/already-consumed ref (expired link, or a
+    duplicate submit) — portal renders this as "already recorded, thank you" rather than an error,
+    since the ordinary reason a ref is gone is that it was already answered.
+    """
+    c = request.app.state.container
+    pending = await c.rating_requests.resolve(ref)
+    if pending is None:
+        return {"recorded": False, "reason": "expired or already submitted"}
+    points = await c.rating_points_for(pending.tenant) if c.rating_points_for else 0
+    ok = await c.rating_writer.write(
+        tenant=pending.tenant, visit_id=pending.visit_id, rating=body.rating,
+        feedback_text=body.feedback_text, subject_ref=pending.subject_ref,
+        rating_points=points, rating_issue_step_ids=body.rating_issue_step_ids)
+    return {"recorded": ok, "visit_id": pending.visit_id if ok else ""}

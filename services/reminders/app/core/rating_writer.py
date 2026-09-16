@@ -22,10 +22,12 @@ class NullRatingWriter:
         self.written: list[dict[str, Any]] = []
 
     async def write(self, *, tenant: str, visit_id: str, rating: int, feedback_text: str,
-                    subject_ref: str = "", rating_points: int = 0) -> bool:
+                    subject_ref: str = "", rating_points: int = 0,
+                    rating_issue_step_ids: list[str] | None = None) -> bool:
         self.written.append({"tenant": tenant, "visit_id": visit_id, "rating": rating,
                              "feedback_text": feedback_text, "subject_ref": subject_ref,
-                             "rating_points": rating_points})
+                             "rating_points": rating_points,
+                             "rating_issue_step_ids": list(rating_issue_step_ids or [])})
         return True
 
 
@@ -38,19 +40,23 @@ class HttpRatingWriter:
         self._timeout = timeout
 
     async def write(self, *, tenant: str, visit_id: str, rating: int, feedback_text: str,
-                    subject_ref: str = "", rating_points: int = 0) -> bool:
+                    subject_ref: str = "", rating_points: int = 0,
+                    rating_issue_step_ids: list[str] | None = None) -> bool:
         """`True` iff the visit now carries a rating (this write or an earlier one) — the caller
-        (the bus consumer) logs a mismatch but never retries: operations' own route is already
-        idempotent on "already rated", so a `False` here means the visit itself was never found,
-        which no retry fixes.
+        (the bus consumer, or the hosted rating page's own synchronous submit) logs a mismatch but
+        never retries: operations' own route is already idempotent on "already rated", so a
+        `False` here means the visit itself was never found, which no retry fixes.
 
         `subject_ref`/`rating_points` ride along so operations can credit the rating app's own
         loyalty incentive (Phase 4) inside the SAME idempotent write — see that route's own
         docstring for why the points value is computed here, fresh, rather than read back from
-        anywhere durable."""
+        anywhere durable. `rating_issue_step_ids` — the checklist page's own negative selection
+        ([[task-service-procedure-checklists]] phase 2) — rides the same call for the same reason:
+        one write, one idempotency guard, never a second call that could land on one side only."""
         url = self._url.format(visit_id)
         body = json.dumps({"tenant": tenant, "rating": rating, "feedback_text": feedback_text,
-                           "subject_ref": subject_ref, "rating_points": rating_points}).encode()
+                           "subject_ref": subject_ref, "rating_points": rating_points,
+                           "rating_issue_step_ids": list(rating_issue_step_ids or [])}).encode()
         try:
             # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
             status, raw = await asyncio.to_thread(

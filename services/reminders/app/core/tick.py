@@ -585,17 +585,6 @@ class Tick:
                     # message is actually sent with. `""` — every shop in the default mode —
                     # resolves to the establishment inside the sender, exactly as before.
                     sending_identity=_sending_identity(tenant, row),
-                    # THE SAME OPTIONAL FLOW-BUTTON FIELDS THE SCHEDULED RATING SEND USES BELOW
-                    # (`flow_token=f"rate:{visit_id}"`), read off THIS row instead of computed here
-                    # — `send_one` serves every caller of `/internal/reminders/send` (campaigns AND
-                    # insights' weekly digest), so it has no visit of its own to derive a token
-                    # from; the caller (campaign_send) is the one that knows whether this particular
-                    # send opens a Flow, and passes both fields straight through the schedule dict
-                    # it already builds. Empty on every existing caller, so this is a no-op for
-                    # them — `HttpSender.send` already omits `flow_token` from the wire body
-                    # entirely when it is "".
-                    flow_token=str(row.get("flow_token") or ""),
-                    flow_action_data=row.get("flow_action_data") or None,
                     branch_id=str(row.get("branch_id") or ""))
         except Unsendable as exc:
             # GIVE THE UNIT BACK. The consume had to come first to be atomic, so a send that did
@@ -978,16 +967,22 @@ class Tick:
             return
 
         # THE RATING APP'S OWN ANCHOR — remembered BEFORE the send, not after, same reasoning as
-        # the quota consume above: a timeout is not evidence that nothing was sent, and a reply
+        # the quota consume above: a timeout is not evidence that nothing was sent, and an answer
         # that arrives before this call returns must still resolve to something. Deterministic on
-        # the visit id, so a retry of this exact schedule row remembers the SAME token rather than
+        # the visit id, so a retry of this exact schedule row remembers the SAME ref rather than
         # orphaning the first one (RatingRequestStore.remember is a plain overwrite, harmless).
-        flow_token = ""
+        #
+        # THE SAME STRING IS NOW THE HOSTED RATING PAGE'S OWN URL SUFFIX
+        # ([[task-service-procedure-checklists]] phase 2), not a WhatsApp Flow's `flow_token` —
+        # portal's `/r/{ref}` reads this exact value back via `RatingRequestStore.get`. Kept the
+        # variable name `rating_ref` rather than `flow_token` for the same reason the module
+        # docstring was reworded: there is no Flow left to open.
+        rating_ref = ""
         if is_rating:
             from app.core.rating_request import RatingRequestStore
-            flow_token = f"rate:{row.get('visit_id', '')}"
+            rating_ref = f"rate:{row.get('visit_id', '')}"
             await RatingRequestStore(self._store).remember(
-                flow_token=flow_token, tenant=tenant, subject_ref=subject,
+                flow_token=rating_ref, tenant=tenant, subject_ref=subject,
                 visit_id=str(row.get("visit_id") or ""), now=now)
 
         try:
@@ -1000,8 +995,9 @@ class Tick:
                 # establishment inside the sender, exactly as before.
                 sending_identity=_sending_identity(tenant, row),
                 # EMPTY FOR EVERY KIND EXCEPT rating_request — the sender itself omits the wire
-                # field entirely when flow_token is "", so this is harmless for every other send.
-                flow_token=flow_token)
+                # field entirely when url_button_param is "", so this is harmless for every other
+                # send. See message_sender's own docstring on the URL-button component this fills.
+                url_button_param=rating_ref)
         except CeilingReached as exc:
             # WHATSAPP WILL NOT TAKE ANOTHER MESSAGE FROM THIS SHOP RIGHT NOW (spec §8.4.3).
             # Nothing left, so nothing is counted — and what happens next is the TEMPLATE's

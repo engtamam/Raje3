@@ -1,6 +1,7 @@
 """kind='rating_request' at actual send time — the piece that ties phases 1-3 together: the
-rating_cta slot reflects the shop's OWN configured points, a flow_token is remembered so the
-customer's reply can resolve back to this exact visit, and the sender receives it.
+rating_cta slot reflects the shop's OWN configured points, a ref is remembered
+(`RatingRequestStore`) so the customer's answer on the hosted rating page can resolve back to
+this exact visit, and the sender receives it as the template's URL-button parameter.
 """
 from __future__ import annotations
 
@@ -63,15 +64,15 @@ def _run_tick(st, sender):
                 customer_names={"sub_a": "أحمد"}))
 
 
-def test_the_flow_token_is_sent_and_deterministic_on_the_visit_id():
+def test_the_rating_ref_is_sent_as_the_url_button_param_and_deterministic_on_the_visit_id():
     st = MemoryDataStore()
     _seed(st, _schedule())
     sender = FakeSender()
     _run_tick(st, sender)
-    assert sender.calls[0]["flow_token"] == "rate:vis_1"
+    assert sender.calls[0]["url_button_param"] == "rate:vis_1"
 
 
-def test_the_flow_token_is_remembered_before_the_send(monkeypatch):
+def test_the_rating_ref_is_remembered_before_the_send(monkeypatch):
     st = MemoryDataStore()
     _seed(st, _schedule())
     _run_tick(st, FakeSender())
@@ -99,7 +100,7 @@ def test_rating_cta_is_the_neutral_sentence_when_no_points_configured():
     assert sender.calls[0]["variables"][2] == NO_POINTS
 
 
-def test_an_ordinary_kind_never_gets_a_flow_token_or_touches_rating_request_store():
+def test_an_ordinary_kind_never_gets_a_url_button_param_or_touches_rating_request_store():
     st = MemoryDataStore()
     lib = [{"name": "svc_visit_confirmation_masculine", "type": "svc_visit_confirmation",
            "tone": "masculine", "class": "service", "variables": [1, 2, 3],
@@ -113,5 +114,5 @@ def test_an_ordinary_kind_never_gets_a_flow_token_or_touches_rating_request_stor
                public_base_url="https://my.raje3.sa")
     run(tick.run("t1", now=at(10), library=lib, service_names={}, establishment="مغسلة النخيل",
                 customer_names={"sub_a": "أحمد"}))
-    assert sender.calls[0]["flow_token"] == ""
+    assert sender.calls[0]["url_button_param"] == ""
     assert run(RatingRequestStore(st).resolve("rate:vis_2")) is None

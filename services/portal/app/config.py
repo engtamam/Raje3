@@ -190,6 +190,11 @@ class Settings(BaseSettings):
     # one-tap stop returned no confirmation — and an unconfirmed stop is how a customer blocks the
     # shop's number instead.
     REMINDERS_PREFS_PATH: str = "/internal/portal/prefs/{ref}"
+    # THE HOSTED RATING PAGE'S OWN TWO CALLS ([[task-service-procedure-checklists]] phase 2) —
+    # `{ref}` is the SAME string reminders' own tick.py remembers under (see rating_request.py's
+    # own docstring); portal never invents or parses it, only forwards it.
+    REMINDERS_RATING_ANCHOR_PATH: str = "/internal/reminders/rating/{ref}"
+    OPERATIONS_RATING_CONTEXT_PATH: str = "/internal/operations/visits/{}/rating-context"
     # Short: three of these run under ONE page deadline, and a customer is waiting.
     PEER_TIMEOUT_SECONDS: int = 3
     IDENTITY_CACHE_TTL_SECONDS: int = 300

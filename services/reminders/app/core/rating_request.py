@@ -1,17 +1,22 @@
-"""What we are waiting to hear back — one row per rating Flow actually sent.
+"""What we are waiting to hear back — one row per rating request actually sent.
 
 WHY THIS EXISTS. `send()` (adapters/message_sender — the ordinary template send, carrying a
 `flow_token` only for this one kind) only sends; it does not know which visit the message was
 about, and it must not — a sender that also remembers things is a sender two callers can disagree
 about. The caller that DOES know is tick.py's own send step: it writes one row here immediately
-before the send, keyed by the same `flow_token` it hands to `send()`. When the customer's answer
-comes back on the bus, that token is the ONLY thing the reply carries that means anything to us —
-resolving it here is how a reply becomes "this visit, this tenant" rather than a stray message
-from a number we do not recognise.
+before the send, keyed by the same `flow_token` it hands to `send()` — the SAME string, now, also
+doubles as the path segment in the hosted rating page's own link (portal's `/r/{ref}`,
+[[task-service-procedure-checklists]] phase 2) rather than a WhatsApp Flow's completion payload;
+either way it is the ONLY thing that means anything to us when the customer answers — resolving it
+here is how an answer becomes "this visit, this tenant" rather than a stray request from someone
+who guessed a URL.
 
-ONE ROW, RESOLVED ONCE. `resolve()` deletes the row it returns — a flow_token is a single-use
-anchor: a second inbound reply for the same token (Meta's own retry, or a customer somehow
-re-submitting) finds nothing and is silently a no-op, never a second write to the same visit.
+TWO READS, ONE DESTRUCTIVE. `get()` peeks without consuming — the rating PAGE's own load, which a
+customer may open, read, and come back to later before submitting anything. `resolve()` deletes
+the row it returns, at the one moment that actually matters: the real submit. A flow_token is a
+single-use anchor there — a second submit for the same token (a duplicate form post, a customer
+somehow submitting twice) finds nothing and is silently a no-op, never a second write to the same
+visit.
 """
 from __future__ import annotations
 
@@ -48,6 +53,21 @@ class RatingRequestStore:
         if row is None:
             return None
         await self._s.delete(_COLL, flow_token)
+        return self._row(row)
+
+    async def get(self, flow_token: str) -> RatingRequest | None:
+        """The row, WITHOUT consuming it — the hosted rating page's own read
+        ([[task-service-procedure-checklists]] phase 2). A customer may open the link, look at
+        it, and come back later before actually submitting; a page load must not spend the same
+        single-use anchor `resolve()` is for. Only the real submit (still `resolve()`, unchanged)
+        consumes it."""
+        if not flow_token:
+            return None
+        row = await self._s.get(_COLL, flow_token)
+        return self._row(row) if row is not None else None
+
+    @staticmethod
+    def _row(row: dict[str, Any]) -> RatingRequest:
         return RatingRequest(
             flow_token=str(row.get("flow_token") or ""), tenant=str(row.get("tenant") or ""),
             subject_ref=str(row.get("subject_ref") or ""),

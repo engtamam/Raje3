@@ -85,7 +85,7 @@ def test_a_matched_reply_writes_the_rating_and_returns_true():
     assert ok is True
     assert writer.written == [{"tenant": "t1", "visit_id": "vis_1", "rating": 4,
                                "feedback_text": "جيد", "subject_ref": "sub_a",
-                               "rating_points": 0}]
+                               "rating_points": 0, "rating_issue_step_ids": []}]
 
 
 def test_an_unmatched_token_writes_nothing_and_returns_false():

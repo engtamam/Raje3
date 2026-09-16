@@ -48,7 +48,7 @@ def test_posts_to_the_visit_specific_url():
     assert ok is True
     assert seen["url"] == "http://ops/internal/operations/visits/vis_1/rating"
     assert seen["body"] == {"tenant": "t1", "rating": 5, "feedback_text": "ممتاز",
-                            "subject_ref": "", "rating_points": 0}
+                            "subject_ref": "", "rating_points": 0, "rating_issue_step_ids": []}
 
 
 def test_recorded_false_from_operations_is_reported_as_false():

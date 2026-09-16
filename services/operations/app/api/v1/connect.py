@@ -220,30 +220,15 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         from app.core.runtime_config import RuntimeConfig
         from app.runtime_policy import RUNTIME_POLICY
 
-        # THE FLOW BEFORE THE TEMPLATES THAT POINT AT IT. A template whose flow_button names a
-        # Flow this shop's WABA does not yet have is refused by Meta at submission — so the clone
-        # must exist (or at least have been attempted) before the library that references it by
-        # name is registered. Both are still "after the response, not inside it" — see above.
-        #
-        # PLATFORM SCOPE (tenant=""), because the master id is the SAME for every shop; it is
-        # written once by deploy/seed/bootstrap-rating-flow.py and read here through RuntimeConfig
-        # rather than `s.MASTER_RATING_FLOW_ID` directly, so a fresh install needs no redeploy
-        # once that script has run.
+        # RATING FLOW REMOVED (2026-09-16, [[task-service-procedure-checklists]] phase 2) — the
+        # customer rating screen moved from a native WhatsApp Flow to a hosted web page (a link in
+        # the template body/button instead), so there is no Flow left to clone at connect time.
+        # REPORT FLOW ALSO REMOVED — its template was deleted 2026-09-13 (the owner's decision to
+        # drop the weekly-digest feature entirely) but this clone-at-connect call was accidentally
+        # left behind; found and removed alongside the rating Flow cleanup rather than repeating
+        # that same incomplete-deletion mistake a second time.
         rc = RuntimeConfig(c.datastore, Settings, policy=RUNTIME_POLICY)
-        master_flow_id = await rc.get(
-            tenant="", key="MASTER_RATING_FLOW_ID", default=s.MASTER_RATING_FLOW_ID)
-        background.add_task(provision_shop_flow, c.flows, tenant, master_flow_id)
-        # THE SAME CLONE-AT-CONNECT-TIME PATTERN, A SECOND FLOW — the weekly owner report
-        # (rating-app-feature.md phase 6b, deploy/seed/report-flow.json). Its own master id,
-        # minted by deploy/seed/bootstrap-report-flow.sh; an install that has not run that script
-        # yet simply gets "no master report_flow configured" from provision(), same harmless
-        # after-the-response failure as an unconfigured rating Flow.
-        from app.core.flows import REPORT_FLOW_CATEGORIES, REPORT_FLOW_NAME
-        master_report_flow_id = await rc.get(
-            tenant="", key="MASTER_REPORT_FLOW_ID", default=s.MASTER_REPORT_FLOW_ID)
-        background.add_task(provision_shop_flow, c.flows, tenant, master_report_flow_id,
-                            flow_name=REPORT_FLOW_NAME, categories=REPORT_FLOW_CATEGORIES)
-        # THE SAME CLONE-AT-CONNECT-TIME PATTERN, A THIRD FLOW — the WhatsApp booking Flow
+        # THE SAME CLONE-AT-CONNECT-TIME PATTERN, STILL — the WhatsApp booking Flow
         # (Phase 5, deploy/seed/bootstrap-booking-flow.sh). Its own master id, minted from
         # notification-service's own JSON generator (the definition is config-driven and shared
         # by every tenant, unlike rating/report's static per-file content) — an install that has

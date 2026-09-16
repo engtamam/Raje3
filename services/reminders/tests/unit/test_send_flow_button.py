@@ -1,7 +1,8 @@
-"""HttpSender.send's own flow_token/flow_action_data — the rating app's Flow-button-in-a-template
-send (notification-service v0.18.24). Distinct from send_flow (the in-session interactive Flow,
-24h window) — this is the business-initiated path, an ordinary template call with two extra
-optional fields.
+"""HttpSender.send's own url_button_param — the rating app's URL-button-in-a-template send
+([[task-service-procedure-checklists]] phase 2, base-services v0.24.4). Distinct from send_flow
+(the in-session interactive Flow, 24h window) — this is the business-initiated path, an ordinary
+template call with one extra optional field. REPLACES the old flow_token/flow_action_data pair
+(same send() method, same rating caller, moved off native Flow entirely to a hosted web page).
 """
 from __future__ import annotations
 
@@ -54,52 +55,32 @@ def _call(**over):
     return seen["body"]
 
 
-def test_no_flow_token_means_no_flow_fields_on_the_wire_at_all():
+def test_no_url_button_param_means_no_such_field_on_the_wire_at_all():
     body = _call()
-    assert "flow_token" not in body
-    assert "flow_action_data" not in body
+    assert "url_button_param" not in body
 
 
-def test_a_flow_token_is_carried_onto_the_wire():
-    body = _call(flow_token="rate:vis_1")
-    assert body["flow_token"] == "rate:vis_1"
-
-
-def test_flow_action_data_rides_alongside_a_real_flow_token():
-    body = _call(flow_token="rate:vis_1", flow_action_data={"customer_name": "أحمد"})
-    assert body["flow_action_data"] == {"customer_name": "أحمد"}
-
-
-def test_an_empty_flow_action_data_is_never_sent_as_an_empty_object():
-    body = _call(flow_token="rate:vis_1", flow_action_data={})
-    assert "flow_action_data" not in body
-
-
-def test_flow_action_data_with_no_flow_token_is_silently_dropped():
-    """flow_action_data means nothing without the anchor it belongs to — never sent alone."""
-    body = _call(flow_action_data={"customer_name": "أحمد"})
-    assert "flow_token" not in body
-    assert "flow_action_data" not in body
+def test_a_url_button_param_is_carried_onto_the_wire():
+    body = _call(url_button_param="rate:vis_1")
+    assert body["url_button_param"] == "rate:vis_1"
 
 
 def test_the_ordinary_template_fields_are_unaffected():
-    body = _call(flow_token="rate:vis_1")
+    body = _call(url_button_param="rate:vis_1")
     assert body["template_key"] == "svc_visit_confirmation_rating_warm"
     assert body["tenant"] == "t1"
     assert body["variables"]["1"] == "أحمد"
 
 
-def test_null_sender_records_the_flow_fields_too():
+def test_null_sender_records_the_field_too():
     s = NullSender()
     run(s.send(tenant="t1", subject_ref="sub_a", template_name="x", variables=[], cls="service",
-              idempotency_key="k1", flow_token="rate:vis_1", flow_action_data={"a": 1}))
-    assert s.sent[0]["flow_token"] == "rate:vis_1"
-    assert s.sent[0]["flow_action_data"] == {"a": 1}
+              idempotency_key="k1", url_button_param="rate:vis_1"))
+    assert s.sent[0]["url_button_param"] == "rate:vis_1"
 
 
-def test_null_sender_defaults_to_no_flow_token():
+def test_null_sender_defaults_to_no_url_button_param():
     s = NullSender()
     run(s.send(tenant="t1", subject_ref="sub_a", template_name="x", variables=[], cls="service",
               idempotency_key="k1"))
-    assert s.sent[0]["flow_token"] == ""
-    assert s.sent[0]["flow_action_data"] == {}
+    assert s.sent[0]["url_button_param"] == ""

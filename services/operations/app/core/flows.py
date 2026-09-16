@@ -1,22 +1,31 @@
-"""Giving a shop its own copy of the rating Flow — the same shape as `core/library.py`'s publish.
+"""Giving a shop its own copy of a clone-per-shop Flow — the same shape as `core/library.py`'s
+publish.
 
-WHY A FLOW AT ALL. The rating message is a WhatsApp TEMPLATE with a Flow button (ح-2's
-`flow_button`, referencing a Flow by NAME); the Flow itself is the actual star-rating screen Meta
-renders inside the chat. A template can be registered without ever having a live Flow behind its
-button, and Meta then refuses to send it — so the Flow must exist on THIS SHOP'S OWN WABA before
-its templates are registered, exactly as the template library must exist before it can be drained.
+WHY A FLOW AT ALL. A Flow-button template can be registered without ever having a live Flow behind
+its button, and Meta then refuses to send it — so the Flow must exist on THIS SHOP'S OWN WABA
+before its templates are registered, exactly as the template library must exist before it can be
+drained.
 
 ONE MASTER, CLONED PER SHOP. A Flow is WABA-scoped and every shop connects its own WABA, so a
 platform-wide Flow cannot be referenced by every shop — each needs its own copy. Authoring the
-same screen sixty-six times is not the answer: the master is authored ONCE (see
-`deploy/seed/bootstrap-rating-flow.py`, which mints it under the platform's own WABA and stores the
+same screen sixty-six times is not the answer: the master is authored ONCE (see each Flow's own
+`deploy/seed/bootstrap-*-flow.sh`, which mints it under the platform's own WABA and stores the
 resulting id), and every shop's copy is a Meta-side CLONE of that master, requested here with
-`clone_flow_id`. Clones share the FLOW NAME (`RATING_FLOW_NAME`) — never the id — because the
-template's `flow_button` references a Flow by name, and that name must resolve on every shop's own
-WABA to ITS OWN clone.
+`clone_flow_id`. Clones share the FLOW NAME — never the id — because a template's `flow_button`
+references a Flow by name, and that name must resolve on every shop's own WABA to ITS OWN clone.
 
 IDEMPOTENT BY NAME, on notification-service's side (`ensure_flow`) — a re-run (a shop reconnecting,
 a retried background task) finds the shop's existing clone by name rather than making a second one.
+
+RATING AND REPORT FLOWS BOTH REMOVED (2026-09-16) — the rating screen moved from a native Flow to
+a hosted web page ([[task-service-procedure-checklists]] phase 2); the report Flow's own template
+was deleted 2026-09-13 (owner's decision to drop the weekly-digest feature) but its clone-at-
+connect call in `connect.py` was accidentally left behind — found and removed alongside this
+cleanup rather than repeating that same incomplete-deletion mistake a second time. `provision()`/
+`provision_shop_flow()` below stayed generic (built for the report Flow) and both booking_flow/
+visit_flow already pass their own explicit `flow_name`/`categories`, so removing the two constants
+these functions used to default to needed no signature change — every remaining caller was already
+explicit.
 """
 from __future__ import annotations
 
@@ -25,22 +34,6 @@ import json
 import urllib.error
 import urllib.request
 from typing import Any
-
-#: The stable name every shop's clone carries — templates reference the Flow by THIS, never by id,
-#: because the id differs per shop while the name does not (see the module docstring above).
-RATING_FLOW_NAME = "rating_flow"
-
-#: Meta's fixed category set requires at least one; a rating screen is a survey and nothing else.
-RATING_FLOW_CATEGORIES = ["SURVEY"]
-
-#: THE SAME PATTERN, A SECOND FLOW — the weekly owner report (rating-app-feature.md phase 6b).
-#: Static and read-only (deploy/seed/report-flow.json's own docstring), so it clones and
-#: publishes through the exact same call `provision()` already makes generic below.
-REPORT_FLOW_NAME = "report_flow"
-#: Meta's fixed category set (SIGN_UP/SIGN_IN/APPOINTMENT_BOOKING/LEAD_GENERATION/CONTACT_US/
-#: CUSTOMER_SUPPORT/SURVEY/OTHER) has no "report"/"dashboard" category — OTHER is the honest fit,
-#: never SURVEY (this Flow asks nothing, unlike rating_flow).
-REPORT_FLOW_CATEGORIES = ["OTHER"]
 
 #: THE RESERVED TENANT PLATFORM-OWNED FLOWS/TEMPLATES ARE FILED UNDER — same spelling as
 #: core/commission.py, core/partners.py, core/templates.py's own `PLATFORM` constant (each its
@@ -160,7 +153,7 @@ class NullFlows:
         self.provisioned: list[str] = []
 
     async def provision(self, tenant: str, *, clone_flow_id: str,
-                       flow_name: str = RATING_FLOW_NAME,
+                       flow_name: str,
                        categories: list[str] | None = None,
                        endpoint_uri: str = "") -> dict[str, Any]:
         self.provisioned.append(tenant)
@@ -211,22 +204,21 @@ class HttpFlows:
             return 503, {"detail": str(exc)[:120]}
 
     async def provision(self, tenant: str, *, clone_flow_id: str,
-                       flow_name: str = RATING_FLOW_NAME,
-                       categories: list[str] | None = None,
+                       flow_name: str,
+                       categories: list[str],
                        endpoint_uri: str = "") -> dict[str, Any]:
         """Ensure THIS shop's WABA has a published clone of a master Flow, named `flow_name`.
 
-        GENERIC SINCE THE REPORT FLOW (rating-app-feature.md phase 6b) — this used to hardcode
-        `RATING_FLOW_NAME`/`RATING_FLOW_CATEGORIES`; every existing caller keeps working
-        unchanged (the defaults are exactly what it used to send), and a caller cloning a second
-        Flow (e.g. `REPORT_FLOW_NAME`) passes its own name/categories instead.
+        GENERIC, BUILT FOR MULTIPLE FLOWS SHARING THIS ONE CALL — `flow_name`/`categories` have no
+        default any more (2026-09-16): they used to default to the rating Flow's own name/
+        category, which silently made every OTHER caller's explicit values look optional when they
+        never were. Both remaining callers (booking_flow, visit_flow) already pass their own.
 
-        `endpoint_uri` (Phase 5) — OMITTED (never sent) unless a caller passes one. rating_flow/
-        report_flow are static/read-only and never call back to us at all, so they have never
-        needed this; the booking Flow (dynamic, data_exchange) DOES — Meta calls THIS URL to
-        reach the shop's own clone, and it must resolve to that shop's own tenant on our side
-        (see PUBLIC_BASE_URL's own docstring in config.py). Sent only when non-empty so the two
-        existing static Flows' provisioning body is byte-for-byte unchanged.
+        `endpoint_uri` (Phase 5) — OMITTED (never sent) unless a caller passes one. A static,
+        read-only Flow never calls back to us at all, so it never needs this; the booking Flow
+        (dynamic, data_exchange) DOES — Meta calls THIS URL to reach the shop's own clone, and it
+        must resolve to that shop's own tenant on our side (see PUBLIC_BASE_URL's own docstring in
+        config.py).
 
         NO MASTER, NO CALL. `clone_flow_id` is resolved by the caller (connect.py) from the stored
         setting the bootstrap script writes once — see its module docstring. Calling Meta with an
@@ -237,7 +229,7 @@ class HttpFlows:
             return {"ok": False, "reason": f"no master {flow_name.replace('_', ' ')} configured"}
         body: dict[str, Any] = {
             "tenant": tenant, "name": flow_name,
-            "categories": categories or RATING_FLOW_CATEGORIES,
+            "categories": categories,
             "clone_flow_id": clone_flow_id, "publish": True,
         }
         if endpoint_uri:
@@ -295,17 +287,14 @@ def build_flows(settings: Any) -> Any:
 
 
 async def provision_shop_flow(flows: Any, tenant: str, master_flow_id: str, *,
-                              flow_name: str = RATING_FLOW_NAME,
-                              categories: list[str] | None = None,
+                              flow_name: str,
+                              categories: list[str],
                               endpoint_uri: str = "") -> dict[str, Any]:
     """The one call connect.py's background task makes — mirrors `library.publish`'s free-function
-    shape so the two background tasks read the same way at the call site. Defaults to the rating
-    Flow so the existing call site (connect.py) needs no change; a second call with
-    `flow_name=REPORT_FLOW_NAME` clones the report Flow instead. `endpoint_uri` — see
-    `HttpFlows.provision`'s own docstring — only the booking Flow's call site sets one."""
-    # NO GUESSED DEFAULT HERE — a caller naming a non-rating flow_name must name its own
-    # categories too (connect.py does, for the report Flow); guessing RATING_FLOW_CATEGORIES for
-    # an unrecognised flow_name would submit "SURVEY" for a Flow that asks nothing.
+    shape so the several background tasks read the same way at each call site. `flow_name`/
+    `categories` are always the caller's own (no default, see `HttpFlows.provision`'s own note on
+    why the rating Flow's former default was removed); `endpoint_uri` — see that same docstring —
+    only a DYNAMIC Flow's call site (booking, visit) sets one."""
     return await flows.provision(tenant, clone_flow_id=master_flow_id, flow_name=flow_name,
                                  categories=categories, endpoint_uri=endpoint_uri)
 

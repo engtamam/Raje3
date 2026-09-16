@@ -86,8 +86,7 @@ class NullSender:
 
     async def send(self, *, tenant: str, subject_ref: str, template_name: str,
                    variables: list[str], cls: str, idempotency_key: str,
-                   sending_identity: str = "", flow_token: str = "",
-                   flow_action_data: dict[str, Any] | None = None,
+                   sending_identity: str = "", url_button_param: str = "",
                    button_item_id: str = "", button_kind: str = "service",
                    branch_id: str = "") -> None:
         self.sent.append({"tenant": tenant,
@@ -97,7 +96,7 @@ class NullSender:
                           "subject_ref": subject_ref,
                           "template_name": template_name, "variables": variables,
                           "cls": cls, "idempotency_key": idempotency_key,
-                          "flow_token": flow_token, "flow_action_data": dict(flow_action_data or {}),
+                          "url_button_param": url_button_param,
                           "button_item_id": button_item_id, "button_kind": button_kind,
                           "branch_id": branch_id})
         # THE FAKE RETURNS A HANDLE TOO, derived from the key so it is stable across a retry —
@@ -175,15 +174,17 @@ class HttpSender:
 
     async def send(self, *, tenant: str, subject_ref: str, template_name: str,
                    variables: list[str], cls: str, idempotency_key: str,
-                   sending_identity: str = "", flow_token: str = "",
-                   flow_action_data: dict[str, Any] | None = None,
+                   sending_identity: str = "", url_button_param: str = "",
                    button_item_id: str = "", button_kind: str = "service",
                    branch_id: str = "") -> None:
-        """`flow_token`/`flow_action_data` — the rating app's own Flow-button-in-a-template send
-        (notification-service v0.18.24): when the approved template carries a Flow button, these
-        supply the per-send action; empty otherwise, and notification-service ignores them for an
-        ordinary template. `flow_action_data` is omitted from the wire body entirely when empty —
-        Meta rejects an empty data object, same rule build_flow's own docstring states.
+        """`url_button_param` — the rating app's own URL-button-in-a-template send
+        ([[task-service-procedure-checklists]] phase 2, base-services v0.24.4): when the approved
+        template carries a dynamic URL button, this fills its one `{{1}}` suffix; empty otherwise,
+        and notification-service ignores it for an ordinary template. THIS REPLACES the old
+        `flow_token`/`flow_action_data` pair (the rating screen's own Flow-button send, removed the
+        same day the screen moved off native Flow entirely to a hosted web page) — that pair had
+        exactly one caller in this whole service and it is this same rating send, so there is no
+        second caller left to keep them for.
 
         `button_item_id`/`button_kind` — THE UNIFIED REAL-BOOKING BUTTON (2026-09-13), a
         `"carousel:{kind}:{id}"` quick-reply payload — the prefix predates this send path, from
@@ -246,32 +247,12 @@ class HttpSender:
             # whose delivery row we lost still says which of OUR sends it was about.
             "biz_opaque_callback_data": idempotency_key,
         }
-        # THE RATING APP'S OWN ACTION — only when this call actually carries one. An ordinary
-        # template send (every message today except rating_request) must not grow a flow_token
-        # key at all: notification-service ignores it harmlessly either way, but sending "" for
-        # every plain confirmation is a wire field with no meaning, forever. `flow_action_data` is
-        # additionally never sent as an empty {} — Meta rejects an empty data object, same rule
-        # build_flow's own docstring states for the interactive-Flow path.
-        if flow_token:
-            payload["flow_token"] = flow_token
-            if flow_action_data:
-                action_data = dict(flow_action_data)
-                # ── THE BOOKING FLOW'S SEED, FILLED HERE FOR THE SAME REASON THE NAME IS ────────
-                # The booking Flow is keyed on the customer's own phone number — that is the
-                # identity every op in whatsapp-assistant's FlowBookingBackend reads, and a Flow
-                # opened without it cannot say who is asking. Neither campaigns nor this service
-                # holds a phone number: the pseudonym is the whole point (see the module
-                # docstring), and putting the number on a schedule row would put it in a render, a
-                # log and a backup.
-                #
-                # It is already in scope right here, for the length of this one call, resolved a
-                # few lines above beside the customer's name — so the caller DECLARES the key
-                # empty and this fills the blank, exactly as the greeting above fills `variables[0]`
-                # and by exactly the same rule: only over a blank, never over a value a caller
-                # supplied. The weekly report's own Flow declares no such key and is untouched.
-                if "customer" in action_data and not str(action_data["customer"] or ""):
-                    action_data["customer"] = recipient
-                payload["flow_action_data"] = action_data
+        # THE RATING APP'S OWN URL-BUTTON PARAMETER — only when this call actually carries one.
+        # An ordinary template send (every message today except rating_request) must not grow a
+        # `url_button_param` key at all: notification-service ignores it harmlessly either way,
+        # but sending "" for every plain confirmation is a wire field with no meaning, forever.
+        if url_button_param:
+            payload["url_button_param"] = url_button_param
         # THE UNIFIED BOOKING BUTTON. Declared only when used, same discipline as flow_token above.
         if button_item_id:
             payload["button_payload"] = f"carousel:{button_kind}:{button_item_id}"
