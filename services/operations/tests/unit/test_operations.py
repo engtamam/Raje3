@@ -569,6 +569,101 @@ def test_the_customer_record_names_the_services_it_lists(ops):
     assert "زيارة" not in labels, "the placeholder is for a visit we genuinely cannot name"
 
 
+# ── rating_issue_steps + repeated_issues ([[task-service-procedure-checklists]] phase 5) ────────
+
+def _flag(store, tenant: str, visit_id: str, step_ids: list[str]) -> None:
+    v = run(VisitStore(store).get(tenant, visit_id))
+    v.rating_issue_step_ids = step_ids
+    run(VisitStore(store).save(v))
+
+
+def _step(store, tenant: str, step_id: str, *, severity: str = "normal") -> None:
+    from app.core.models import ProcedureStep
+    from app.core.stores import ProcedureStepStore
+
+    run(ProcedureStepStore(store).save(
+        ProcedureStep(id=step_id, tenant=tenant, text=f"نص {step_id}", severity=severity)))
+
+
+def test_each_visits_flagged_steps_are_resolved_to_real_text(ops):
+    from app.core.models import Service
+    from app.core.stores import ServiceStore
+
+    svc, store = ops
+    run(ServiceStore(store).save(Service(id="svc_x", tenant=A, name="خدمة")))
+    _step(store, A, "step_a", severity="critical")
+    rec = run(svc.record_visit(tenant=A, phone="0503333333", service_ids=["svc_x"]))
+    _flag(store, A, rec.visit.id, ["step_a"])
+
+    got = run(svc.customer_record(A, rec.customer.id))
+    assert got["visits"][0]["rating_issue_steps"] == [
+        {"id": "step_a", "text": "نص step_a", "severity": "critical"}]
+
+
+def test_a_step_flagged_only_once_is_not_a_pattern(ops):
+    from app.core.models import Service
+    from app.core.stores import ServiceStore
+
+    svc, store = ops
+    run(ServiceStore(store).save(Service(id="svc_x", tenant=A, name="خدمة")))
+    _step(store, A, "step_a")
+    rec = run(svc.record_visit(tenant=A, phone="0504444444", service_ids=["svc_x"]))
+    _flag(store, A, rec.visit.id, ["step_a"])
+
+    got = run(svc.customer_record(A, rec.customer.id))
+    assert got["repeated_issues"] == []
+
+
+def test_the_same_step_flagged_across_two_visits_is_a_repeated_issue(ops):
+    from app.core.models import Service
+    from app.core.stores import ServiceStore
+
+    svc, store = ops
+    run(ServiceStore(store).save(Service(id="svc_x", tenant=A, name="خدمة")))
+    _step(store, A, "step_a", severity="critical")
+    rec1 = run(svc.record_visit(tenant=A, phone="0505555555", service_ids=["svc_x"]))
+    rec2 = run(svc.record_visit(tenant=A, phone="0505555555", service_ids=["svc_x"]))
+    _flag(store, A, rec1.visit.id, ["step_a"])
+    _flag(store, A, rec2.visit.id, ["step_a"])
+
+    got = run(svc.customer_record(A, rec1.customer.id))
+    assert got["repeated_issues"] == [
+        {"id": "step_a", "text": "نص step_a", "severity": "critical", "count": 2}]
+
+
+def test_repeated_issues_are_sorted_by_count_worst_first(ops):
+    from app.core.models import Service
+    from app.core.stores import ServiceStore
+
+    svc, store = ops
+    run(ServiceStore(store).save(Service(id="svc_x", tenant=A, name="خدمة")))
+    _step(store, A, "step_a")
+    _step(store, A, "step_b")
+    rec1 = run(svc.record_visit(tenant=A, phone="0506666666", service_ids=["svc_x"]))
+    rec2 = run(svc.record_visit(tenant=A, phone="0506666666", service_ids=["svc_x"]))
+    rec3 = run(svc.record_visit(tenant=A, phone="0506666666", service_ids=["svc_x"]))
+    _flag(store, A, rec1.visit.id, ["step_a", "step_b"])
+    _flag(store, A, rec2.visit.id, ["step_b"])
+    _flag(store, A, rec3.visit.id, ["step_b"])
+
+    got = run(svc.customer_record(A, rec1.customer.id))
+    # step_a was flagged only once across these three visits — not a pattern, dropped entirely.
+    assert [r["id"] for r in got["repeated_issues"]] == ["step_b"]
+    assert got["repeated_issues"][0]["count"] == 3
+
+
+def test_a_visit_with_no_flagged_steps_gets_an_empty_list_not_a_missing_key(ops):
+    from app.core.models import Service
+    from app.core.stores import ServiceStore
+
+    svc, store = ops
+    run(ServiceStore(store).save(Service(id="svc_x", tenant=A, name="خدمة")))
+    rec = run(svc.record_visit(tenant=A, phone="0507777777", service_ids=["svc_x"]))
+    got = run(svc.customer_record(A, rec.customer.id))
+    assert got["visits"][0]["rating_issue_steps"] == []
+    assert got["repeated_issues"] == []
+
+
 def test_a_visit_we_cannot_name_still_reads_as_something(ops):
     """The catch-all's own label first, and «زيارة» only when there is nothing at all: a blank
     line in a history reads as a broken record rather than as an unnamed service."""

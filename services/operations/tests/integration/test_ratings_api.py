@@ -192,3 +192,53 @@ def test_marking_another_tenants_visit_handled_is_refused(client):
     r = client.patch("/api/v1/field/ratings/vis_a/handled", json={},
                      headers=_auth("operations.record", tenant="tnt_b"))
     assert r.json()["handled"] is False
+
+
+# ── rating_issue_step_ids resolved to real text ([[task-service-procedure-checklists]] phase 4) ──
+
+def _step(client, step_id: str, *, tenant: str = "tnt_ratings", severity: str = "normal",
+         active: bool = True) -> None:
+    from app.core.models import ProcedureStep
+    from app.core.stores import ProcedureStepStore
+
+    asyncio.run(ProcedureStepStore(client.app.state.container.datastore).save(
+        ProcedureStep(id=step_id, tenant=tenant, text=f"نص {step_id}", severity=severity,
+                     active=active)))
+
+
+def test_flagged_steps_are_resolved_to_real_text_and_severity(client):
+    _step(client, "step_a", severity="critical")
+    _seed(client, visit_id="vis_steps", rating=2, rated_at=1_000,
+         rating_issue_step_ids=["step_a"])
+    r = client.get("/api/v1/field/ratings", headers=_auth("operations.read"))
+    row = r.json()["ratings"][0]
+    assert row["rating_issue_steps"] == [{"id": "step_a", "text": "نص step_a", "severity": "critical"}]
+
+
+def test_a_retired_step_still_resolves_on_an_old_rating(client):
+    """ProcedureStep is never deleted, only retired — an old rating must not lose the text it
+    once pointed at just because the step was later switched off."""
+    _step(client, "step_old", active=False)
+    _seed(client, visit_id="vis_old_step", rating=3, rated_at=1_000,
+         rating_issue_step_ids=["step_old"])
+    r = client.get("/api/v1/field/ratings", headers=_auth("operations.read"))
+    row = r.json()["ratings"][0]
+    assert row["rating_issue_steps"][0]["text"] == "نص step_old"
+
+
+def test_a_rating_with_no_flagged_steps_gets_an_empty_list_not_a_missing_key(client):
+    _seed(client, visit_id="vis_clean", rating=5, rated_at=1_000)
+    r = client.get("/api/v1/field/ratings", headers=_auth("operations.read"))
+    assert r.json()["ratings"][0]["rating_issue_steps"] == []
+
+
+def test_filtering_by_step_id_returns_only_ratings_that_flagged_it(client):
+    _step(client, "step_a")
+    _step(client, "step_b")
+    _seed(client, visit_id="vis_a", rating=2, rated_at=1_000, rating_issue_step_ids=["step_a"])
+    _seed(client, visit_id="vis_b", rating=2, rated_at=1_000, rating_issue_step_ids=["step_b"])
+
+    r = client.get("/api/v1/field/ratings", params={"step_id": "step_a"},
+                   headers=_auth("operations.read"))
+    ids = {row["id"] for row in r.json()["ratings"]}
+    assert ids == {"vis_a"}

@@ -78,6 +78,16 @@ BACKUP: dict[str, Any] = {
         # THE CUSTOMER-MESSAGE WORD LIMIT — losing it silently resets a shop's own tightened/
         # loosened ceiling back to the default, with no error anywhere to say why.
         {"name": "shop_msg_word_limits", "tenant_scoped": True},
+        # THE PROTOCOL ITSELF. Losing it silently strips every service's checklist and leaves
+        # every past `Visit.rating_issue_step_ids`/`OperatorStepStat` row pointing at ids that no
+        # longer resolve to any text — a rating history the owner can no longer read.
+        {"name": "procedure_steps", "tenant_scoped": True},
+        # THE TRAINING SIGNAL — losing it does not lose any customer-facing fact (every flagged
+        # step still lives on its own `Visit` row), but it silently resets every operator's own
+        # "أين يحتاج تدريباً" record back to zero, with no error anywhere to say why — the same
+        # "cache the current fact" reasoning `Branch.closed_at`'s own note gives, except here the
+        # aggregate itself is the only copy, not a cache of something rebuildable elsewhere.
+        {"name": "operator_step_stats", "tenant_scoped": True},
     ],
     # Nothing is excluded. The idempotency key lives ON the visit row rather than in a side table,
     # precisely so there is no collection anyone has to argue about — an excluded collection is a

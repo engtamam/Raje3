@@ -190,7 +190,8 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/field/ratings", "capability": "operations.read",
         "group": "الشاشة",
         "help": "كل زيارة قيّمها عميل فعلياً — عبر تطبيق التقييم بعد الزيارة — قابلة للتصفية "
-                "بعدد النجوم أو حالة المعالجة أو الفرع.",
+                "بعدد النجوم أو حالة المعالجة أو الفرع أو خطوة إجراء معينة، وتُرجع أي خطوات "
+                "علّمها العميل كمشكلة مع كل زيارة.",
     },
     {
         "id": "operations.mark_rating_handled", "label": "تمت المعالجة", "method": "PATCH",
@@ -404,6 +405,46 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/staff/services/bulk_import", "capability": "operations.manage_services",
         "group": "خدماتي ومنتجاتي", "confirm": True,
         "help": "ملف كامل يُرفض لو فيه أي صف خاطئ أو اسم مكرر — لا استيراد جزئي أبداً.",
+    },
+    # ── الإجراءات والبروتوكول (procedure checklists, [[task-service-procedure-checklists]]) ──────
+    # نفس صلاحية إدارة الخدمات بالضبط — البروتوكول جزء من كتالوج الخدمة، لا صلاحية مستقلة نفتحها
+    # لدور لا يملك أصلاً حق تعديل الخدمة التي يتبع لها.
+    {
+        "id": "operations.list_procedure_steps", "label": "قائمة الإجراءات والبروتوكول", "method": "GET",
+        "path": "/api/v1/staff/procedure-steps", "capability": "operations.manage_services",
+        "group": "خدماتي ومنتجاتي",
+        "help": "الكتالوج المركزي المشترك بين كل الخدمات — تعديل خطوة هنا ينعكس أينما استُخدمت.",
+    },
+    {
+        "id": "operations.create_procedure_step", "label": "إضافة خطوة إجراء", "method": "POST",
+        "path": "/api/v1/staff/procedure-steps", "capability": "operations.manage_services",
+        "group": "خدماتي ومنتجاتي",
+        "help": "خطوة واحدة تُضاف للكتالوج المشترك، ثم تُربط بأي خدمة تحتاجها.",
+    },
+    {
+        "id": "operations.update_procedure_step", "label": "تعديل خطوة إجراء", "method": "PATCH",
+        "path": "/api/v1/staff/procedure-steps/{id}", "capability": "operations.manage_services",
+        "group": "خدماتي ومنتجاتي", "confirm": True,
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "الإيقاف بـ active=false لا بالحذف — تقييمات قديمة قد تشير إلى هذه الخطوة.",
+    },
+    {
+        "id": "operations.list_operator_step_stats", "label": "سجل الموظف بالإجراءات", "method": "GET",
+        "path": "/api/v1/staff/operators/{id}/step-stats", "capability": "operations.manage_services",
+        "group": "خدماتي ومنتجاتي",
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "أكثر الخطوات تكراراً كمشكلة لهذا الموظف — للتدريب، لا للعقاب.",
+    },
+    {
+        "id": "operations.export_procedure_checklist", "label": "طباعة بطاقة إجراءات الخدمات",
+        "method": "POST", "path": "/api/v1/staff/procedure-checklist/export",
+        "capability": "operations.manage_services", "group": "خدماتي ومنتجاتي",
+        "params": [
+            {"name": "service_ids", "in": "body", "type": "array", "required": True},
+            {"name": "file_format", "in": "body", "type": "string", "required": False},
+        ],
+        "help": "بطاقة PDF/Word جاهزة للطباعة، بشعار المحل، لخدمة واحدة أو أكثر دفعة وحدة — أي "
+                "إجراء مشترك بين الخدمات المختارة يُطبَع مرة واحدة فقط. خطوة موقوفة لا تظهر بها.",
     },
     {
         "id": "operations.list_packages", "label": "الباقات — للإدارة", "method": "GET",

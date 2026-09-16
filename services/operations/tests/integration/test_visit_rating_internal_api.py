@@ -50,16 +50,30 @@ def _visit(client, tenant: str, *, visit_id: str = "vis_1") -> str:
 
 
 def _rate(client, tenant: str, visit_id: str, *, rating: int, feedback_text: str = "",
-          subject_ref: str = "", rating_points: int = 0) -> dict:
+          subject_ref: str = "", rating_points: int = 0,
+          rating_issue_step_ids: list[str] | None = None) -> dict:
     body = {"tenant": tenant, "rating": rating, "feedback_text": feedback_text}
     if subject_ref:
         body["subject_ref"] = subject_ref
     if rating_points:
         body["rating_points"] = rating_points
+    if rating_issue_step_ids is not None:
+        body["rating_issue_step_ids"] = rating_issue_step_ids
     r = client.post(f"/internal/operations/visits/{visit_id}/rating", headers=_internal(),
                     json=body)
     assert r.status_code == 200, r.text
     return r.json()
+
+
+def _step(client, tenant: str, step_id: str, *, severity: str = "normal") -> str:
+    from app.core.models import ProcedureStep
+    from app.core.stores import ProcedureStepStore
+
+    store = client.app.state.container.datastore
+    s = ProcedureStep(id=step_id, tenant=tenant, text="اغسل بالماء", severity=severity,
+                      created=1_000)
+    asyncio.run(ProcedureStepStore(store).save(s))
+    return s.id
 
 
 class _FakeLoyaltyDesk:
@@ -362,3 +376,173 @@ def test_an_unconfigured_loyalty_desk_is_a_silent_no_op(client):
     vid = _visit(client, "t1")
     out = _rate(client, "t1", vid, rating=5, subject_ref="sub_abc", rating_points=15)
     assert out == {"recorded": True, "changed": True, "visit_id": vid}
+
+
+# ── rating_issue_step_ids ([[task-service-procedure-checklists]], phase 1) ───────────────────────
+# NEGATIVE SELECTION FROM THE CUSTOMER'S OWN CHECKLIST — see `VisitRatingIn.rating_issue_step_ids`'s
+# own note and `OperatorStepStat`'s docstring (models.py) for the full design.
+
+def test_flagged_steps_that_exist_land_on_the_visit(client):
+    tenant = "t1"
+    step_id = _step(client, tenant, "step_1")
+    vid = _visit(client, tenant, visit_id="vis_flagged")
+    from app.core.stores import VisitStore
+    v = asyncio.run(VisitStore(client.app.state.container.datastore).get(tenant, vid))
+    v.operator_id = "op_1"
+    asyncio.run(VisitStore(client.app.state.container.datastore).save(v))
+
+    out = _rate(client, tenant, vid, rating=2, rating_issue_step_ids=[step_id])
+    assert out == {"recorded": True, "changed": True, "visit_id": vid}
+
+    v = asyncio.run(VisitStore(client.app.state.container.datastore).get(tenant, vid))
+    assert v.rating_issue_step_ids == [step_id]
+
+
+def test_an_unknown_step_id_is_dropped_never_stored(client):
+    # A stale menu, a foreign id, or a caller error — never trusted blindly, same discipline
+    # `update_service`'s own `procedure_step_ids` handling applies at the console-write side.
+    tenant = "t1"
+    vid = _visit(client, tenant, visit_id="vis_unknown_step")
+    _rate(client, tenant, vid, rating=3, rating_issue_step_ids=["step_does_not_exist"])
+
+    from app.core.stores import VisitStore
+    v = asyncio.run(VisitStore(client.app.state.container.datastore).get(tenant, vid))
+    assert v.rating_issue_step_ids == []
+
+
+def test_a_flagged_normal_step_increments_the_operators_stat_but_not_the_critical_count(client):
+    tenant = "t1"
+    step_id = _step(client, tenant, "step_normal", severity="normal")
+    vid = _visit(client, tenant, visit_id="vis_normal_flag")
+    from app.core.stores import OperatorStepStatStore, VisitStore
+    v = asyncio.run(VisitStore(client.app.state.container.datastore).get(tenant, vid))
+    v.operator_id = "op_2"
+    asyncio.run(VisitStore(client.app.state.container.datastore).save(v))
+
+    _rate(client, tenant, vid, rating=2, rating_issue_step_ids=[step_id])
+
+    stat = asyncio.run(
+        OperatorStepStatStore(client.app.state.container.datastore).get(tenant, "op_2", step_id))
+    assert stat is not None
+    assert stat.times_flagged == 1
+    assert stat.times_flagged_critical == 0
+    assert stat.last_visit_id == vid
+
+
+def test_a_flagged_critical_step_counts_in_both_totals(client):
+    tenant = "t1"
+    step_id = _step(client, tenant, "step_critical", severity="critical")
+    vid = _visit(client, tenant, visit_id="vis_critical_flag")
+    from app.core.stores import OperatorStepStatStore, VisitStore
+    v = asyncio.run(VisitStore(client.app.state.container.datastore).get(tenant, vid))
+    v.operator_id = "op_3"
+    asyncio.run(VisitStore(client.app.state.container.datastore).save(v))
+
+    _rate(client, tenant, vid, rating=1, rating_issue_step_ids=[step_id])
+
+    stat = asyncio.run(
+        OperatorStepStatStore(client.app.state.container.datastore).get(tenant, "op_3", step_id))
+    assert stat.times_flagged == 1
+    assert stat.times_flagged_critical == 1
+
+
+def test_no_operator_on_the_visit_means_no_stat_row_but_the_visit_still_records_the_flag(client):
+    tenant = "t1"
+    step_id = _step(client, tenant, "step_no_operator")
+    vid = _visit(client, tenant, visit_id="vis_no_operator")  # _visit sets no operator_id
+
+    _rate(client, tenant, vid, rating=2, rating_issue_step_ids=[step_id])
+
+    from app.core.stores import OperatorStepStatStore, VisitStore
+    v = asyncio.run(VisitStore(client.app.state.container.datastore).get(tenant, vid))
+    assert v.rating_issue_step_ids == [step_id]
+    stat = asyncio.run(
+        OperatorStepStatStore(client.app.state.container.datastore).get(tenant, "", step_id))
+    assert stat is None
+
+
+def test_a_retried_already_rated_visit_never_double_counts_the_stat(client):
+    tenant = "t1"
+    step_id = _step(client, tenant, "step_retry")
+    vid = _visit(client, tenant, visit_id="vis_retry_flag")
+    from app.core.stores import OperatorStepStatStore, VisitStore
+    v = asyncio.run(VisitStore(client.app.state.container.datastore).get(tenant, vid))
+    v.operator_id = "op_4"
+    asyncio.run(VisitStore(client.app.state.container.datastore).save(v))
+
+    _rate(client, tenant, vid, rating=2, rating_issue_step_ids=[step_id])
+    # a retried webhook for the same visit never leaves the "already rated" branch — see the
+    # route's own docstring — so the stat must not move a second time either.
+    _rate(client, tenant, vid, rating=5, rating_issue_step_ids=[step_id])
+
+    stat = asyncio.run(
+        OperatorStepStatStore(client.app.state.container.datastore).get(tenant, "op_4", step_id))
+    assert stat.times_flagged == 1
+
+
+# ── /internal/operations/visits/{id}/rating-context (phase 2 — the hosted rating page's own read)
+
+def _rating_context(client, tenant: str, visit_id: str) -> dict:
+    r = client.post(f"/internal/operations/visits/{visit_id}/rating-context", headers=_internal(),
+                    json={"tenant": tenant})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _service_with_steps(client, tenant: str, service_id: str, step_ids: list[str]) -> None:
+    from app.core.models import Service
+    from app.core.stores import ServiceStore
+
+    store = client.app.state.container.datastore
+    s = Service(id=service_id, tenant=tenant, name="غسيل خارجي", procedure_step_ids=step_ids)
+    asyncio.run(ServiceStore(store).save(s))
+
+
+def test_an_unknown_visit_is_not_found(client):
+    assert _rating_context(client, "t1", "vis_never_existed") == {"found": False}
+
+
+def test_an_already_rated_visit_is_reported_so_and_carries_no_steps(client):
+    vid = _visit(client, "t1", visit_id="vis_ctx_rated")
+    _rate(client, "t1", vid, rating=4)
+    assert _rating_context(client, "t1", vid) == {"found": True, "already_rated": True}
+
+
+def test_steps_are_the_ordered_deduped_union_across_the_visits_services(client):
+    tenant = "t1"
+    a = _step(client, tenant, "ctx_step_a")
+    b = _step(client, tenant, "ctx_step_b")
+    # svc_1 is the fixed service id `_visit` always attaches — shared with a second, unrelated
+    # service that repeats step `a` (the exact "two services share a step" case this design
+    # exists for): `a` must appear only once, in the order it was FIRST seen.
+    _service_with_steps(client, tenant, "svc_1", [a, b])
+    _service_with_steps(client, tenant, "svc_other", [a])
+
+    from app.core.models import Visit
+    from app.core.stores import VisitStore
+    v = Visit(id="vis_ctx_union", tenant=tenant, customer_id="cus_1",
+              service_ids=["svc_1", "svc_other"], created=1_000, occurred_at=1_000)
+    asyncio.run(VisitStore(client.app.state.container.datastore).save(v))
+
+    ctx = _rating_context(client, tenant, "vis_ctx_union")
+    assert ctx["found"] is True
+    assert ctx["already_rated"] is False
+    assert [s["id"] for s in ctx["steps"]] == [a, b]
+    assert ctx["service_names"] == ["غسيل خارجي", "غسيل خارجي"]
+
+
+def test_a_retired_step_is_dropped_from_the_context(client):
+    tenant = "t1"
+    from app.core.models import ProcedureStep, Visit
+    from app.core.stores import ProcedureStepStore, VisitStore
+
+    store = client.app.state.container.datastore
+    step = ProcedureStep(id="ctx_step_retired", tenant=tenant, text="خطوة متقاعدة", active=False)
+    asyncio.run(ProcedureStepStore(store).save(step))
+    _service_with_steps(client, tenant, "svc_1", [step.id])
+    v = Visit(id="vis_ctx_retired", tenant=tenant, customer_id="cus_1", service_ids=["svc_1"],
+              created=1_000, occurred_at=1_000)
+    asyncio.run(VisitStore(store).save(v))
+
+    ctx = _rating_context(client, tenant, "vis_ctx_retired")
+    assert ctx["steps"] == []

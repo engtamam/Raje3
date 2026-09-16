@@ -28,6 +28,10 @@ authors = [{ name = "Tamam Alahdal" }]
 #   python-docx        MIT          (the staff-performance report's own .docx builder — same
 #                                     library services/insights already carries for the same
 #                                     reason, see core/staff_performance_render.py)
+#   Pillow             MIT-CMU       (decodes a shop's own stored logo — WebP/JPEG/PNG, see
+#                                     AccountPanes.tsx's own `shrink()` — into the PNG python-docx
+#                                     can actually embed; python-docx's own `docx.image` package
+#                                     has no WebP reader at all, see core/tenant_branding.py)
 # Logging uses the Python stdlib (no extra dep) to keep the attack surface minimal.
 dependencies = [
     "fastapi>=0.115,<1.0",
@@ -41,6 +45,7 @@ dependencies = [
     # PYSEC-2026-3552, fixed in 50.0.0. Pinned so the CVE cannot re-enter via resolution.
     "cryptography>=50.0.0",
     "python-docx>=1.1,<2.0",
+    "Pillow>=12.3,<13.0",
 ]
 
 [project.optional-dependencies]
