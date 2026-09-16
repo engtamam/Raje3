@@ -179,7 +179,7 @@ describe('ServicesImportDrawer', () => {
     </OperatorI18nProvider>);
     const link = screen.getByText('نزّل قالب ملف الاستيراد').closest('a');
     expect(link).toBeTruthy();
-    expect(link?.getAttribute('href')).toBe('/templates/services-import-template.xlsx');
+    expect(link?.getAttribute('href')).toBe('/app/templates/services-import-template.xlsx');
   });
 
   it('an active service missing from the file offers the opt-in deactivate toggle, off by default', async () => {

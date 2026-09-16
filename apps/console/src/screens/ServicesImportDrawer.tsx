@@ -20,7 +20,7 @@
  *
  * A DOWNLOADABLE TEMPLATE, NOT A BLANK PAGE. An owner typing his own header row from memory is
  * exactly how "duration" and "duration_minutes" end up as two different files nobody can import —
- * `/templates/services-import-template.xlsx` (public/, generated once by
+ * `/app/templates/services-import-template.xlsx` (public/, generated once by
  * scripts/generate-services-import-template.py, never hand-edited) already carries the right
  * headers and one example row, so the only thing he has to get right is the values.
  */
@@ -258,7 +258,7 @@ export function ServicesImportDrawer({ session, catalog, existing, open, onClose
             {/* THE TEMPLATE, ABOVE THE PICKER — a real file to download and fill, not a column
                 list to memorise. `download` names the saved file regardless of what the browser
                 shows in its address bar for a static /public/ asset. */}
-            <a href="/templates/services-import-template.xlsx"
+            <a href="/app/templates/services-import-template.xlsx"
                download={t('services.import.templateFileName')}
                className="flex items-center justify-center gap-1.5 self-center rounded-lg px-3 py-1.5
                           text-xs font-medium text-text-secondary transition-colors hover:bg-surface-2">
