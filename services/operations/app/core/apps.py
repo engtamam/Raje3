@@ -124,6 +124,20 @@ CONTACTS_FEATURES: tuple[dict[str, Any], ...] = (
      # `ensure_customer` indexes the new customer for search IMMEDIATELY (api/v1/field.py:342-348),
      # unlike a customer who only appears once a first visit is recorded elsewhere.
      },
+    # «عملائي»'s own «من تأخّر» tab (apps/console/src/screens/Customers.tsx) — merged into this
+    # app's own feature list (2026-09-16, the owner's own instruction: «عملائي» IS «جهات الاتصال»,
+    # one app not two) rather than repeated as a second, unattributed capability. THE ENGINE OWNS
+    # THE DEFINITION of "overdue" (that screen's own note) — this reads `reminders.list_schedule`'s
+    # pending, past-due entries and resolves them to real customers via
+    # `operations.customers_by_refs`, never re-deriving a cycle/last-visit rule of its own.
+    {"id": "contacts.finds_who_stopped_coming", "title": "يتابع عملاءك ويُنبّهك بمن انقطع",
+     "detail": "يراقب موعد عودة كل عميل تلقائياً، ويُبرز من توقّف عن الحضور لتحتويه قبل أن يغادرك فعلاً",
+     "icon": "alert-triangle", "tone": "amber", "shared_with": [], "owned_by": "",
+     # NOT a copy of a reminders-authored sentence (unlike `reminders.learns_each_customer` above)
+     # — this is «عملائي»'s OWN tab/join built on top of reminders' read, so it carries no
+     # `shared_with`/`owned_by` attribution and is exempt from the shared-features byte-match CI
+     # check that only applies to a literal shared copy.
+     },
 )
 
 # التقييم — THE OWNER'S OWN FRAMING (2026-09-11): "يفهم عميله اللي مكمّل ليه مكمّل، واللي ما يكمل
@@ -266,12 +280,11 @@ COUPONS_FEATURES: tuple[dict[str, Any], ...] = (
 #
 # `screen` is where the lock is drawn.
 #
-# AND `feature.api` IS NOT HERE, DELIBERATELY. The programmatic link moved INTO the base: a till
-# writing a visit is the same act the field screen performs, arriving through another door, and a
-# shop with a till never uses manual entry anyway — so selling the door while the act is free was
-# arbitrary. The KEY still exists and is still enforced at the till (operations/core/licence.py),
-# because a shop whose subscription lapsed must not keep writing; it is simply granted by the base
-# rather than bought. A row here would draw a buy button for something nobody can buy.
+# AND `feature.api` IS NOT HERE, DELIBERATELY. It is not a base-included feature and not a sold
+# app either — the owner's own call (2026-09-16) was to close the programmatic link entirely
+# rather than price it or fold it into every app: `core/licence.py`'s `ClosedApiLicence` refuses
+# every till, unconditionally, regardless of plan (`settings.API_LINK_ENABLED`, default `False`).
+# A row here would draw a buy button for something nobody can buy at any price.
 APPS: tuple[dict[str, Any], ...] = (
     {"key": "feature.campaigns", "name": "الحملات", "screen": "messages",
      "what": "يعيد إليك عملاءك على وشك مغادرتك، فيكبر إيرادك من قاعدة عملائك الحالية بدل الاعتماد "
