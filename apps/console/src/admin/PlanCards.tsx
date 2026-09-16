@@ -55,7 +55,7 @@ import { riyals, riyalsLabel, halalas } from '../money';
 import type { AdminAction } from './catalog';
 import { req, type AdminSession } from './api';
 import { sentenceFor } from '../api';
-import { LIMIT_KEYS, REQUIRES_ANY_KEYS, isStandalone, kindOf, appKey } from '../screens/Plans';
+import { LIMIT_KEYS, REQUIRES_ANY_KEYS, isStandalone, kindOf, appKey } from '../billingShared';
 import { translate } from '../operator-i18n';
 import { APP_ROWS } from '../apps';
 import { AppFeatureList, appIcon, toneClasses } from '../rj-ui/AppFeatureList';
@@ -222,11 +222,12 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload,
   // never off its name — and both get their own icon/tone rather than sharing the generic Package
   // every card used to wear regardless of what it actually sold.
   // THE SAME AppRow apps.ts's OWN icon/tone — a capacity row (no app of its own) still gets
-  // `Boxes`, but a real app (base included) reads its icon/colour from the one registry every
-  // other screen already reads, instead of the plain grey `Package` this card used to fall back
-  // to for anything it could not otherwise name.
+  // `Boxes`, but a real app reads its icon/colour from the one registry every other screen
+  // already reads, instead of the plain grey `Package` this card used to fall back to for
+  // anything it could not otherwise name. NO 'base' BRANCH ANY MORE — retired 2026-09-10
+  // alongside the base subscription concept itself; `kindOf` never classifies a row as `'base'`
+  // against real seed data (see `Plans.tsx`'s own note).
   const matchedApp = kind === 'capacity' ? undefined
-    : kind === 'base' ? APP_ROWS.find((a) => a.id === 'base')
     : APP_ROWS.find((a) => a.key === appKey(plan as never));
   const CardIcon = kind === 'capacity' ? Boxes : matchedApp ? appIcon(matchedApp.icon) : Package;
   // THE SAME CARD THE STORE SHOWS — a real catalog path means this row is one of the five apps

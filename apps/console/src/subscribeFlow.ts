@@ -23,7 +23,7 @@ import { useEffect, useState } from 'react';
 import { canMintToken, confirmToken } from './payment';
 import { takePending, type PendingPayment } from './pendingPayment';
 import { action, call, type Catalog } from './catalog';
-import { canBuy, appKey, type Plan } from './screens/Plans';
+import { canBuy, appKey, type Plan } from './billingShared';
 import type { Session } from './session';
 import { useOperatorI18n } from './operator-i18n';
 import './subscribe-flow-i18n';

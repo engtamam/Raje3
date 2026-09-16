@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
 import { Input } from '../rj-ui/Field';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
@@ -123,7 +124,7 @@ function ServiceConfigCard({ session, svc, onReload }: {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+    <Card className="flex flex-col gap-3 p-4">
       <h2 className="text-lg font-semibold">{svc.service}</h2>
       {svc.values === 'loading' ? (
         <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
@@ -157,6 +158,6 @@ function ServiceConfigCard({ session, svc, onReload }: {
         </div>
       )}
       {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
-    </section>
+    </Card>
   );
 }

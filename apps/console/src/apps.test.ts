@@ -25,10 +25,14 @@ describe('the registry', () => {
     }
   });
 
-  it('has exactly one base row, and it is not for sale', () => {
+  it('has no base row any more — الأساس was retired entirely, and `owns()` still treats a null'
+    + ' key as always-owned for whichever future row might need it', () => {
+    // [[base-plan-is-dead-code]] — الأساس (the bundled base plan) was retired 2026-09-10; every
+    // app is its own licence now. `owns()`'s own `key === null` branch (apps.ts) is kept, not
+    // deleted, so a future row that genuinely needs "never for sale, always granted" still has a
+    // real mechanism to ask for it — this just asserts none exists TODAY.
     const base = APP_ROWS.filter((a) => a.key === null);
-    expect(base).toHaveLength(1);
-    expect(base[0].id).toBe('base');
+    expect(base).toHaveLength(0);
   });
 
   it('names no section that the nav does not have', () => {
@@ -48,8 +52,12 @@ describe('the registry', () => {
   it('answers which key locks a section, and null for the base', () => {
     expect(keyForSection('messages')).toBe('feature.campaigns');
     expect(keyForSection('points')).toBe('feature.loyalty');
-    // «عملائي» and «تسجيل زيارة» are the base and are never locked, whatever he stopped paying.
-    expect(keyForSection('customers')).toBeNull();
+    // «عملائي» claims `feature.contacts` now (2026-09-16, owner's own instruction — see the
+    // `contacts` row's own comment in apps.ts) so the launcher's «تطبيقاتي» shelf can list it —
+    // never actually locked in practice, since `feature.contacts` is free and granted to every
+    // shop from signup (`_start_contacts_grant`). «تسجيل زيارة» has no section tie-in at all and
+    // stays null.
+    expect(keyForSection('customers')).toBe('feature.contacts');
     expect(keyForSection('visit')).toBeNull();
   });
 

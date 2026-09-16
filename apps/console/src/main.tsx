@@ -1,9 +1,8 @@
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { Visit } from './screens/Visit';
-import { Home } from './screens/Home';
 import { Customers } from './screens/CustomersRoute';
 import { Customer } from './screens/CustomerRoute';
 import { Account } from './screens/AccountRoute';
@@ -16,18 +15,28 @@ import { Team } from './screens/TeamRoute';
 import { MobileRequests } from './screens/MobileRequestsRoute';
 import { Bookings } from './screens/BookingsRoute';
 import { ShopScreen } from './screens/Shop';
-import { Store } from './screens/StoreRoute';
 import { Support } from './screens/SupportRoute';
+import { WhatsAppAssistantRoute } from './screens/WhatsAppAssistantRoute';
 import { AffiliatePortal } from './affiliates/AffiliatePortal';
 import { AdminPortal } from './admin/AdminPortal';
 import { Legal } from './screens/Legal';
-import { AuthI18nProvider } from '@base-ui/auth/i18n';
-import { BlockDocI18nProvider } from '@base-ui/components/blockdoc';
-import { ImtithalakUiProvider } from '@base-ui/design-system/shell';
+import { AuthI18nProvider } from '../../../ui/packages/ui/src/auth/i18n';
+import { BlockDocI18nProvider } from '../../../ui/packages/ui/src/components/blockdoc';
+import { ImtithalakUiProvider } from '../../../ui/packages/ui/src/design-system/shell';
 import { arabicAuth, arabicBlockDoc, arabicShared } from './i18n';
 import { applyRaje3 } from './brand/theme';
 import { installErrorReporter } from './lib/errorReporter';
+import { Skeleton } from './rj-ui/Skeleton';
 import './index.css';
+
+// LAZY, ON PURPOSE (2026-09-16, live performance concern) — `AppLauncher` pulls in Fuse.js (the
+// store's own fuzzy search) as a real, separate bundle chunk now, so a person who never opens the
+// launcher (a phone kiosk parked on «تسجيل زيارة», say) never downloads it at all — statically
+// importing it here put it in the SAME chunk every other screen loads too. It races the ~2s
+// catalogue read (`App.tsx`'s own `fetchCatalog`) rather than adding to it — the two happen in
+// parallel, not one after the other, since `<App/>` itself does not render `<Outlet/>` (and so
+// never asks for this chunk) until the catalogue has already answered.
+const AppLauncher = lazy(() => import('./launcher/AppLauncher').then((m) => ({ default: m.AppLauncher })));
 
 // AFFILIATES.<DOMAIN> AND ADMIN.<DOMAIN> ARE DIFFERENT HOSTS, NOT DIFFERENT DEPLOYS. The edge
 // (deploy/edge/edge.json) puts both hostnames on the same certificate and the same site block as
@@ -51,7 +60,11 @@ const shopRouter = createBrowserRouter([
     path: '/',
     element: <App />,
     children: [
-      { index: true, element: <Home /> },
+      { index: true, element: (
+        <Suspense fallback={<div className="p-4 sm:p-6 md:p-8"><Skeleton width={192} height={40} /></div>}>
+          <AppLauncher />
+        </Suspense>
+      ) },
       { path: 'visit', element: <Visit /> },
       { path: 'bookings', element: <Bookings /> },
       { path: 'customers', element: <Customers /> },
@@ -71,11 +84,8 @@ const shopRouter = createBrowserRouter([
       // index route) — the page «اليوم» and «محلّي» became. Bookmarks, links in messages and the
       // e2e suite all use this path directly.
       { path: 'shop', element: <ShopScreen /> },
-      // «متجر التطبيقات» — the name four screens print, given the address it never had. It renders
-      // the selling pane of «حسابي» rather than a second copy of it; `/account?tab=billing` still
-      // answers, for every link already sent.
-      { path: 'store', element: <Store /> },
       { path: 'support', element: <Support /> },
+      { path: 'whatsapp-assistant', element: <WhatsAppAssistantRoute /> },
     ],
   },
   // OUTSIDE <App/> ON PURPOSE. A marketer has no shop, no branch, no operator PIN and no action

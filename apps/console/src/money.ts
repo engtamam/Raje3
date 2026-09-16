@@ -24,6 +24,8 @@
  * WESTERN DIGITS, ALWAYS. The product's numbers are read against bank statements and card
  * receipts, which are Western everywhere in the Kingdom.
  */
+import { translate } from './operator-i18n';
+import './money-i18n';
 
 /** Halalas → the exact riyals to show. `26950` → `269.50`; `700` → `7`. */
 export function riyals(minor: number): string {
@@ -41,10 +43,15 @@ export function riyals(minor: number): string {
   return cents === 0 ? `${sign}${whole}` : `${sign}${whole}.${String(cents).padStart(2, '0')}`;
 }
 
-/** Halalas → riyals with the currency word, or an em dash when there is nothing to show. */
-export function riyalsLabel(minor: number | null | undefined): string {
+/** Halalas → riyals with the currency word, or an em dash when there is nothing to show.
+ *  `t` defaults to an ar-only translator (same pattern as Wallet.tsx's own `unitsLabel`) because
+ *  this function is called from many places that do not carry a live `t` in scope (admin/
+ *  affiliate cards, tests); a real render site that has `useOperatorI18n()` should pass its own. */
+export function riyalsLabel(
+  minor: number | null | undefined, t: (key: string) => string = (k) => translate('ar', k),
+): string {
   if (minor === null || minor === undefined || Number.isNaN(Number(minor))) return '—';
-  return `${riyals(Number(minor))} ريال`;
+  return `${riyals(Number(minor))} ${t('money.riyal')}`;
 }
 
 /**

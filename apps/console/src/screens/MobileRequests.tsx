@@ -32,6 +32,7 @@ import {
   MessageCircle, Copy, Check, Plus,
 } from 'lucide-react';
 import { PageHeader } from '../rj-ui/PageHeader';
+import { Card } from '../rj-ui/Card';
 import { KpiCard } from '../rj-ui/KpiCard';
 import { Segmented } from '../rj-ui/Segmented';
 import { Badge } from '../rj-ui/Badge';
@@ -562,14 +563,14 @@ function RequestCard({
   onAssign: (operatorId: string) => void;
 }) {
   const needsDecision = isNeedsDecision(r, now);
-  const initial = (r.customer_name || r.phone).trim().charAt(0) || '؟';
+  const initial = (r.customer_name || r.phone).trim().charAt(0) || t('mobileRequests.unknownInitial');
 
   return (
-    <div
+    <Card
       data-testid="mobile-request-card"
       className={[
-        'flex flex-wrap items-start gap-4 rounded-card border bg-surface-1 p-4 shadow-sm',
-        needsDecision ? 'border-warning/40 bg-warning-soft/40' : 'border-border-subtle',
+        'flex flex-wrap items-start gap-4 p-4',
+        needsDecision ? 'border-warning/40 bg-warning-soft/40' : '',
       ].join(' ')}
     >
       <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-info-soft text-base font-bold text-info-on-soft">
@@ -677,6 +678,6 @@ function RequestCard({
           {relativeTime(r.status === 'pending' ? r.created : (r.decided_at || r.created), now, t)}
         </span>
       </div>
-    </div>
+    </Card>
   );
 }

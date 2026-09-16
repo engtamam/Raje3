@@ -36,7 +36,7 @@ import { asLocal } from '../phone';
 import { outsideVisits } from '../branch-scope';
 import { AssistantHint } from '../AssistantHint';
 import { riyalsLabel } from '../money';
-import { useOperatorI18n, tf } from '../operator-i18n';
+import { useOperatorI18n, tf, translate } from '../operator-i18n';
 import './shop-i18n';
 
 export { outsideVisits };
@@ -45,19 +45,20 @@ export { outsideVisits };
  *  nothing borrowed from the platform's gold. Applied once, on the outer wrapper, and read by
  *  every child via `var(--sh-*)` the same way the rest of the console already reads `--rj-*`.
  *
- * `--sh-ground`/`--sh-ink`/`--sh-ink-soft`/`--sh-line` matched to `theme.config.ts`'s own
- * `surface-0`/`text-primary`/`text-secondary`/`border-subtle` (2026-09-14 white/violet rebrand) —
- * this screen's ground was close but not identical to the rest of the product's, visible as a
- * seam right at this screen's edge. `--sh-surface-2` stays this screen's own violet-tinted tile,
- * not the platform's neutral one — chosen deliberately for THIS screen's own accent family. */
+ * `--sh-ground`/`--sh-ink`/`--sh-ink-soft`/`--sh-line` READ `theme.config.ts`'s own
+ * `surface-0`/`text-primary`/`text-secondary`/`border-subtle` BY REFERENCE, not a hex snapshot —
+ * a hardcoded copy here (2026-09-14) is exactly what went stale and needed a manual re-match, the
+ * same drift `.rj-grid`'s own tokens just had fixed the same way (2026-09-16). `--sh-surface-2`
+ * stays this screen's own violet-tinted tile, not the platform's neutral one — chosen deliberately
+ * for THIS screen's own accent family, so it keeps its own hardcoded value. */
 const TOKENS: CSSProperties = {
-  ['--sh-ground' as string]: '#f7f8fa',
-  ['--sh-surface' as string]: '#ffffff',
+  ['--sh-ground' as string]: 'var(--surface-0)',
+  ['--sh-surface' as string]: 'var(--surface-1)',
   ['--sh-surface-2' as string]: '#eceefa',
-  ['--sh-ink' as string]: '#14161c',
-  ['--sh-ink-soft' as string]: '#5b6270',
+  ['--sh-ink' as string]: 'var(--text-primary)',
+  ['--sh-ink-soft' as string]: 'var(--text-secondary)',
   ['--sh-ink-faint' as string]: '#9797ad',
-  ['--sh-line' as string]: '#dde0e7',
+  ['--sh-line' as string]: 'var(--border-subtle)',
   ['--sh-violet' as string]: '#6a4cf5',
   ['--sh-violet-deep' as string]: '#4c34c4',
   ['--sh-violet-soft' as string]: '#ece7fe',
@@ -133,13 +134,17 @@ interface MissedOpp { subject_ref: string; has: string; missing: string; verdict
 interface CustomerHitLite { id: string; phone: string; name?: string; subject_ref?: string }
 /** services/whatsapp-assistant/app/core/shop_impact_report.py::ShopImpactReport.as_dict() —
  *  THIS SHOP'S OWN numbers only, never a platform aggregate (see that module's own docstring). */
-interface ShopImpact {
+// EXPORTED — the same `whatsapp_assistant.my_impact` shape `WhatsAppAssistant.tsx`'s own
+// analytics section reads, so the two screens can never disagree about what this wire shape is.
+export interface ShopImpact {
   days: number; conversations: number; ai_bookings: number; conversion_rate: number | null;
   avg_invoice_value_minor: number | null; upsell_offered: number; upsell_accepted: number;
   upsell_acceptance_rate: number | null; truncated: boolean;
 }
 
-export function blockedSentence(b: Blocked, t: (key: string) => string = () => '{why} — {have} من {need}.'): string {
+export function blockedSentence(
+  b: Blocked, t: (key: string) => string = (k) => translate('ar', k),
+): string {
   const why = (b.why ?? '').trim();
   if (!why) return '';
   const have = b.progress?.have, need = b.progress?.need;

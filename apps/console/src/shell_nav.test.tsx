@@ -6,7 +6,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { AppShell, type AppShellNavItem } from '@base-ui/shell';
+import { AppShell, type AppShellNavItem } from '../../../ui/packages/ui/src/shell';
 import { Home } from 'lucide-react';
 
 afterEach(() => { cleanup(); localStorage.clear(); });

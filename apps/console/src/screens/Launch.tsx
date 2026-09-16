@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
 import { HourRangePicker } from '../rj-ui/HourRangePicker';
 import { RangeSlider } from '../rj-ui/RangeSlider';
 import { Segmented } from '../rj-ui/Segmented';
@@ -551,11 +552,11 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
 
   if (sent) {
     return (
-      <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 text-center shadow-sm">
+      <Card className="flex flex-col gap-3 p-4 text-center">
         <p className="font-medium">{t('launch.sentTitle')}</p>
         <p className="text-sm text-text-secondary">{sent}</p>
         <div><Button onClick={onDone}>{t('launch.done')}</Button></div>
-      </section>
+      </Card>
     );
   }
 
@@ -579,7 +580,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
       ) : goals.length === 0 ? (
         <p className="text-sm text-text-secondary">{t('launch.noGoalsAvailable')}</p>
       ) : (
-        <div className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-3 shadow-sm">
+        <Card className="flex flex-col gap-2 p-3">
           <label className="flex items-center gap-2 rounded-lg bg-surface-1 border border-border-subtle px-3 py-2">
             <Search size={14} className="shrink-0 text-text-secondary" aria-hidden />
             <input
@@ -651,7 +652,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
               );
             })}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );
@@ -725,7 +726,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
           </div>
         )}
 
-        <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+        <Card className="flex flex-col gap-2 p-4">
           {preview ? (
             <>
               {preview.when ? (
@@ -808,13 +809,13 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
             )}
             <Button variant="ghost" onClick={onDone}>{t('launch.cancel')}</Button>
           </div>
-        </div>
+        </Card>
       </div>
     );
     return (
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         {rail}
-      <section className="flex flex-1 flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+      <Card className="flex flex-1 flex-col gap-3 p-4">
         {/* NO "تغيير الهدف" BUTTON — the rail beside this panel IS the goal switcher now
             (2026-09-13, matching the approved mockup): every goal already sits one press away on
             it, always visible, so a second control here duplicated the same choice. */}
@@ -1253,7 +1254,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
             </div>
           ) : null}
         </div>
-      </section>
+      </Card>
         {phone}
       </div>
     );

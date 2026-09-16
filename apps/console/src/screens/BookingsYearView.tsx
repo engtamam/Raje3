@@ -13,6 +13,7 @@
  * for that month — two different targets, both reachable from the same mini-calendar.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { Card } from '../rj-ui/Card';
 import { fetchBookingCounts } from '../api';
 import type { Session } from '../session';
 import { monthGrid, startOfYear, addMonths } from './calendarMath';
@@ -61,8 +62,8 @@ export function BookingsYearView({
       {months.map((monthStart, mi) => {
         const cells = monthGrid(monthStart);
         return (
-          <div key={monthStart}
-              className="group relative flex flex-col gap-2 overflow-hidden rounded-2xl border border-border-subtle bg-surface-1 p-3
+          <Card key={monthStart}
+              className="group relative flex flex-col gap-2 overflow-hidden p-3
                         transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/5">
             <button type="button" onClick={() => onSelectMonth(monthStart)}
                    data-testid={`rj-year-month-${monthStart}`}
@@ -101,7 +102,7 @@ export function BookingsYearView({
                 );
               })}
             </div>
-          </div>
+          </Card>
         );
       })}
     </div>

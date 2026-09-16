@@ -15,6 +15,7 @@ import {
   BadgeCheck, CheckCircle2, Gauge, Lock, ShieldQuestion, XCircle,
 } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
 import { Input } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
 import { EmptyState } from '../rj-ui/EmptyState';
@@ -193,7 +194,7 @@ function WhatsAppNumberTools({ session, tenant, limitAction, fieldsAction, verif
   limitAction?: AdminAction; fieldsAction?: AdminAction; verifyAction?: AdminAction; pinAction?: AdminAction;
 }) {
   return (
-    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+    <Card className="flex flex-col gap-3 p-4">
       <div>
         <h2 className="font-medium">رقم واتساب هذا المحل عند ميتا</h2>
         <p className="text-label text-text-secondary" dir="ltr">{tenant}</p>
@@ -204,7 +205,7 @@ function WhatsAppNumberTools({ session, tenant, limitAction, fieldsAction, verif
         {fieldsAction ? <SubscribedFieldsCard session={session} tenant={tenant} action={fieldsAction} /> : null}
       </div>
       {pinAction ? <TwoStepPinCard session={session} tenant={tenant} action={pinAction} /> : null}
-    </section>
+    </Card>
   );
 }
 

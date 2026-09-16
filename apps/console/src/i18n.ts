@@ -16,8 +16,8 @@
  * الإلكتروني" for `auth.email`, because in this product the login field IS the phone
  * (IDENTITY_LOGIN_FIELD=phone) and a label that says email would be simply false.
  */
-import type { AuthI18n } from '@base-ui/auth/i18n';
-import type { BlockDocI18n } from '@base-ui/components/blockdoc';
+import type { AuthI18n } from '../../../ui/packages/ui/src/auth/i18n';
+import type { BlockDocI18n } from '../../../ui/packages/ui/src/components/blockdoc';
 
 const AR: Record<string, string> = {
   // ── signing in ──────────────────────────────────────────────────────────────────────────

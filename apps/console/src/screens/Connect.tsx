@@ -20,6 +20,7 @@
 import { useEffect, useState } from 'react';
 import { DENIED, hasFailed, isDenied, isLoading, type Loading } from '../loading';
 import { Badge } from '../rj-ui/Badge';
+import { Card } from '../rj-ui/Card';
 import { Button } from '../rj-ui/Button';
 import { action, call, type Catalog } from '../catalog';
 import { loadMetaSdk, metaSdk, SIGNUP_EXTRAS, type MetaConfig, type SdkState } from '../meta';
@@ -209,7 +210,7 @@ export function Connect({
   const statusAction = action(catalog, 'whatsapp.connect_status');
 
   return (
-    <div className="flex flex-col gap-4 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-4 p-4">
       {/* THE MARK AND THE NAME, FIRST — a card that only ever said «مربوط» / «اربط» in plain text
           read as belonging to nothing recognisable on a screenshot; the brand mark and the actual
           product name it connects to are what make this card legible at a glance. */}
@@ -362,7 +363,7 @@ export function Connect({
           )}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 

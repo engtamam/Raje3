@@ -18,7 +18,7 @@ const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 // theme.config.ts's OWN hardcoded gold every build, and a change to product.json did nothing. Read
 // straight from the file the doc comment already points at, so the promise is finally true.
 const product = JSON.parse(readFileSync(here('../../config/product.json'), 'utf8')) as
-  { brand: { accent: { light: string; dark: string } } };
+  { brand: { accent: { light: string; dark: string } }; support: { phone: string } };
 
 export default defineConfig({
   // THE CONSOLE LIVES AT /app/, AND THE BUNDLE HAS TO KNOW. Without this every asset is written as
@@ -28,18 +28,25 @@ export default defineConfig({
   base: '/app/',
   define: {
     __PRODUCT_ACCENT__: JSON.stringify(product.brand.accent),
+    // «الدعم الفني» icon opens WhatsApp directly instead of the in-app support screen — the
+    // owner's own instruction (2026-09-16): stop the icon opening the old screen, keep the route
+    // itself alive underneath for when he asks to relink it.
+    __SUPPORT_WHATSAPP_PHONE__: JSON.stringify(product.support.phone),
   },
   plugins: [react(), legalDocsPlugin()],
   resolve: {
     alias: {
-      '@base-ui': here('../../ui/packages/ui/src'),
-
-      // AND ITS PEERS, EXPLICITLY — which is not boilerplate but the consequence of the aliasing
-      // decision. Node resolves a bare import relative to the importing FILE, so `clsx` inside
-      // platform/ui/.../lib/cn.ts is looked for by walking up from platform/, never reaching this
-      // app's node_modules. The kit's README says to "supply the peers"; on a source alias that
-      // means pointing them at ours by name. Getting this wrong fails at BUILD, loudly, which is
-      // the good kind — the alternative was vendoring a second copy of React into the bundle.
+      // NO `@base-ui` ALIAS ANY MORE (removed 2026-09-16) — every console file that still reads
+      // real code from `ui/packages/ui/src` (OtpVerify, AcceptTerms, the block renderers, theme/
+      // i18n providers, AppShell, the two Modal call sites that need its stacking registry) now
+      // imports it by a plain relative path instead, per the owner's own instruction to stop
+      // using the alias entirely. The PEERS below still have to stay: those relative imports
+      // still land in files under `ui/packages/ui/src` that import bare `clsx` etc., and node
+      // resolves a bare import relative to the importing FILE, so it would walk up from
+      // `platform/` and never reach this app's `node_modules` without them.
+      //
+      // Getting this wrong fails at BUILD, loudly, which is the good kind — the alternative was
+      // vendoring a second copy of React into the bundle.
       clsx: here('node_modules/clsx'),
       'tailwind-merge': here('node_modules/tailwind-merge'),
       'class-variance-authority': here('node_modules/class-variance-authority'),

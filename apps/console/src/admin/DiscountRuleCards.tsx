@@ -18,6 +18,7 @@
 import { useState } from 'react';
 import { Plus, Pencil, ArrowLeftRight } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
+import { Card } from '../rj-ui/Card';
 import { Button } from '../rj-ui/Button';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { Modal } from '../rj-ui/Modal';
@@ -116,7 +117,7 @@ function DiscountRuleCard({ session, rule, updateAction, deleteAction, onReload 
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-medium">
           <span>{appName(rule.owning_key)}</span>
@@ -173,7 +174,7 @@ function DiscountRuleCard({ session, rule, updateAction, deleteAction, onReload 
                                 open={editing} onClose={() => setEditing(false)}
                                 onSaved={() => { setEditing(false); onReload(); }} />
       ) : null}
-    </section>
+    </Card>
   );
 }
 

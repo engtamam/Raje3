@@ -2,6 +2,7 @@ import { registerOperatorStrings } from '../operator-i18n';
 
 registerOperatorStrings({
   ar: {
+    'mobileRequests.unknownInitial': '؟',
     'mobileRequests.title': 'خدمات متنقلة',
     'mobileRequests.subtitle': 'طلبات الخدمة عند موقع العميل — راجع، اقبل أو ارفض، وحدّث حالة المواعيد المنتهية',
     'mobileRequests.kpi.pending': 'قيد المراجعة',
@@ -63,6 +64,7 @@ registerOperatorStrings({
     'mobileRequests.add.assignLabel': 'إسناد (اختياري)',
   },
   en: {
+    'mobileRequests.unknownInitial': '?',
     'mobileRequests.title': 'Mobile Service Requests',
     'mobileRequests.subtitle': 'Requests for service at the customer’s own location — review, accept or reject, and update finished appointments',
     'mobileRequests.kpi.pending': 'Pending review',
@@ -124,6 +126,7 @@ registerOperatorStrings({
     'mobileRequests.add.assignLabel': 'Assign (optional)',
   },
   ur: {
+    'mobileRequests.unknownInitial': '؟',
     'mobileRequests.title': 'موبائل سروس درخواستیں',
     'mobileRequests.subtitle': 'گاہک کی اپنی جگہ پر سروس کی درخواستیں — جائزہ لیں، قبول یا مسترد کریں، اور مکمل ہونے والی ملاقاتیں اپ ڈیٹ کریں',
     'mobileRequests.kpi.pending': 'جائزے کے منتظر',
@@ -185,6 +188,7 @@ registerOperatorStrings({
     'mobileRequests.add.assignLabel': 'تفویض (اختیاری)',
   },
   ha: {
+    'mobileRequests.unknownInitial': '?',
     'mobileRequests.title': 'Neman Hidima na Tafi-da-gidanka',
     'mobileRequests.subtitle': 'Neman hidima a wurin abokin ciniki — duba, karɓa ko ƙi, kuma sabunta alƙawuran da suka ƙare',
     'mobileRequests.kpi.pending': 'Suna jiran dubawa',
@@ -246,6 +250,7 @@ registerOperatorStrings({
     'mobileRequests.add.assignLabel': 'Bayarwa (na zaɓi)',
   },
   fil: {
+    'mobileRequests.unknownInitial': '?',
     'mobileRequests.title': 'Mga Kahilingan sa Mobile na Serbisyo',
     'mobileRequests.subtitle': 'Mga kahilingan para sa serbisyo sa mismong lokasyon ng customer — suriin, tanggapin o tanggihan, at i-update ang mga tapos nang appointment',
     'mobileRequests.kpi.pending': 'Naghihintay ng review',
@@ -307,6 +312,7 @@ registerOperatorStrings({
     'mobileRequests.add.assignLabel': 'Italaga (opsyonal)',
   },
   bn: {
+    'mobileRequests.unknownInitial': '?',
     'mobileRequests.title': 'ভ্রাম্যমাণ সেবা অনুরোধ',
     'mobileRequests.subtitle': 'গ্রাহকের নিজের অবস্থানে সেবার অনুরোধ — পর্যালোচনা করুন, গ্রহণ বা প্রত্যাখ্যান করুন, এবং সম্পন্ন অ্যাপয়েন্টমেন্ট আপডেট করুন',
     'mobileRequests.kpi.pending': 'পর্যালোচনার অপেক্ষায়',

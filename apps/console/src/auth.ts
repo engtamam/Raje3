@@ -12,7 +12,9 @@
  * know his tenant id and should never be shown it. Our service resolves the shop from the number
  * and forwards the login, so the browser sends what the owner typed and nothing else.
  */
+import { translate } from './operator-i18n';
 import type { Session } from './session';
+import './auth-i18n';
 
 const BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
 
@@ -88,7 +90,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   // refusal too, and treating it as success would let a failed signup fall through to a sign-in.
   if (!res.ok || (parsed as { ok?: boolean } | null)?.ok === false) {
     const reason = (parsed as { reason?: string } | null)?.reason ?? '';
-    throw new Refused(said || 'تعذّر إكمال الطلب. حاول مرة أخرى.', reason);
+    throw new Refused(said || translate('ar', 'auth.requestFailed'), reason);
   }
   return parsed as T;
 }

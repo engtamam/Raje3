@@ -28,7 +28,7 @@ import { useEffect, useRef, useState } from 'react';
 // kit's Modal exists precisely to coordinate that; reimplementing its registry here risks the
 // bug it was built to prevent the moment this modal ever had to coexist with another one — which
 // is exactly what happens the first time an owner opens the editor from inside the preview.
-import { Modal } from '@base-ui/design-system/Modal';
+import { Modal } from '../../../../ui/packages/ui/src/design-system/Modal';
 import { Button } from '../rj-ui/Button';
 import { Lock, Plus } from 'lucide-react';
 import { action, call, type Catalog } from '../catalog';

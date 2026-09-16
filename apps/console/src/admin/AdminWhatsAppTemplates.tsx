@@ -20,6 +20,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
 import { Field, Input, Select, Textarea } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
 import { KpiCard } from '../rj-ui/KpiCard';
@@ -277,7 +278,7 @@ function TemplateCard({ template, session, submitAction, registerAction, flowJso
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2.5">
           <span className="mt-0.5 inline-flex rounded-lg bg-surface-2 p-2 text-text-secondary">
@@ -370,7 +371,7 @@ function TemplateCard({ template, session, submitAction, registerAction, flowJso
           />
         </Modal>
       ) : null}
-    </section>
+    </Card>
   );
 }
 
@@ -443,7 +444,7 @@ function TestSendPanel({ session, action, templates }: {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+    <Card className="flex flex-col gap-3 p-4">
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
              className="flex w-full items-center gap-2.5 text-start">
         <span className="inline-flex rounded-lg bg-surface-2 p-2 text-text-secondary">
@@ -529,7 +530,7 @@ function TestSendPanel({ session, action, templates }: {
       <ConfirmDialog open={arm} onClose={() => setArm(false)} onConfirm={doSend} busy={busy}
                     title="إرسال رسالة تجريبية حقيقية؟"
                     body={`ستصل رقم ${to} فعلياً الآن، مباشرة عبر ميتا.`} />
-    </section>
+    </Card>
   );
 }
 
@@ -569,7 +570,7 @@ function SeedRenewalFlowPanel({ session, action }: { session: AdminSession; acti
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-start gap-2.5">
         <span className="inline-flex rounded-lg bg-surface-2 p-2 text-text-secondary">
           <FlaskConical size={16} />
@@ -603,7 +604,7 @@ function SeedRenewalFlowPanel({ session, action }: { session: AdminSession; acti
       <ConfirmDialog open={arm} onClose={() => setArm(false)} onConfirm={doSeed} busy={busy}
                     title="تجهيز فلو تجديد الاشتراك على ميتا؟"
                     body="ينشئ شاشة تفاعلية حقيقية على حساب المنصة عند ميتا — مرة واحدة فقط." />
-    </section>
+    </Card>
   );
 }
 

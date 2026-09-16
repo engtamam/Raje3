@@ -48,12 +48,14 @@ type Translator = (key: string) => string;
 export function unitsLabel(
   minorHalalas: number, unitsPerHalala: number | null, t: Translator = (k) => translate('ar', k),
 ): string {
-  if (unitsPerHalala === null) return riyalsLabel(minorHalalas);
+  if (unitsPerHalala === null) return riyalsLabel(minorHalalas, t);
   const units = Math.round(minorHalalas * unitsPerHalala);
   return `${units.toLocaleString('en-US')} ${t('wallet.unit')}`;
 }
 
-interface WalletBalance {
+// EXPORTED — the same `wallet.my_balance` shape `WhatsAppAssistant.tsx`'s own AI-units usage gauge
+// reads, reused rather than re-typed so the two screens can never disagree about this wire shape.
+export interface WalletBalance {
   currency: string;
   funds: Record<string, number>;
   held: Record<string, number>;
@@ -149,7 +151,7 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
             <WalletIcon size={16} aria-hidden /> {t('wallet.hero.total')}
           </span>
           <span className="text-4xl font-bold tabular-nums tracking-tight">
-            {riyalsLabel(wallet.available_total ?? wallet.balance)}
+            {riyalsLabel(wallet.available_total ?? wallet.balance, t)}
           </span>
           <span className="text-sm text-accent-contrast/85">
             {t('wallet.hero.desc')}
@@ -190,7 +192,7 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
             icon={<RefreshCw size={20} aria-hidden />}
             tone={renewal > 0 ? 'neutral' : 'warning'}
             label={t('wallet.renewal.label')}
-            value={riyalsLabel(renewal)}
+            value={riyalsLabel(renewal, t)}
             hint={renewal > 0
               ? t('wallet.renewal.hintOk')
               : t('wallet.renewal.hintLow')}
@@ -202,7 +204,7 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
             icon={<Banknote size={20} aria-hidden />}
             tone="success"
             label={t('wallet.commission.label')}
-            value={riyalsLabel(commission)}
+            value={riyalsLabel(commission, t)}
             hint={t('wallet.commission.hint')}
           />
         ) : null}
@@ -291,7 +293,7 @@ function TopUpDialog({ session, action: checkoutAction, open, unitsPerHalala, on
             <Minus size={14} />
           </Button>
           <span className="min-w-[5rem] text-center text-lg font-semibold tabular-nums" dir="ltr">
-            {riyalsLabel(amountSar * 100)}
+            {riyalsLabel(amountSar * 100, t)}
           </span>
           <Button type="button" variant="outline" size="sm"
                  aria-label={tf(t, 'wallet.topup.increaseAriaLabel', { step: TOPUP_STEP_SAR })}

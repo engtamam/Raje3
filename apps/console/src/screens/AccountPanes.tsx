@@ -12,6 +12,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Building2, CalendarDays, Clock } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
+import { Card } from '../rj-ui/Card';
 import { riyalsLabel } from '../money';
 import { Button } from '../rj-ui/Button';
 import { Toggle } from '../rj-ui/Toggle';
@@ -196,7 +197,7 @@ export function AiNotesCard({ session, catalog }: { session: Session; catalog: C
       setDraft(savedText);
       const hits = (out.redacted || []).map((c) => (REDACTED_KEYS[c] ? t(REDACTED_KEYS[c]) : c));
       setSaved(hits.length
-        ? tf(t, 'accountPanes.saved.redacted', { items: hits.join('، ') })
+        ? tf(t, 'accountPanes.saved.redacted', { items: hits.join(t('accountPanes.listSeparator')) })
         : t('accountPanes.saved.plain'));
     } catch (err) {
       setError(err instanceof Error ? err.message : t('accountPanes.aiNotes.saveFailed'));
@@ -206,7 +207,7 @@ export function AiNotesCard({ session, catalog }: { session: Session; catalog: C
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <span className="flex flex-col">
         <span className="text-sm font-medium">{t('accountPanes.aiNotes.title')}</span>
         <span className="text-xs text-text-secondary">
@@ -238,7 +239,7 @@ export function AiNotesCard({ session, catalog }: { session: Session; catalog: C
           {busy ? t('accountPanes.saving') : t('accountPanes.save')}
         </Button>
       ) : null}
-    </section>
+    </Card>
   );
 }
 
@@ -292,7 +293,7 @@ export function MsgWordLimitCard({ session, catalog }: { session: Session; catal
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <span className="flex flex-col">
         <span className="text-sm font-medium">{t('accountPanes.wordLimit.title')}</span>
         <span className="text-xs text-text-secondary">
@@ -327,7 +328,7 @@ export function MsgWordLimitCard({ session, catalog }: { session: Session; catal
           {busy ? t('accountPanes.saving') : t('accountPanes.save')}
         </Button>
       ) : null}
-    </section>
+    </Card>
   );
 }
 
@@ -379,7 +380,7 @@ export function AiToggleCard({ session, catalog }: { session: Session; catalog: 
   }
 
   return (
-    <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-2 p-4">
       <div className="flex items-center justify-between gap-3">
         <span className="flex flex-col">
           <span className="text-sm font-medium">{t('accountPanes.aiToggle.title')}</span>
@@ -400,7 +401,7 @@ export function AiToggleCard({ session, catalog }: { session: Session; catalog: 
                     body={confirming
                       ? t('accountPanes.aiToggle.confirmEnableBody')
                       : t('accountPanes.aiToggle.confirmDisableBody')} />
-    </section>
+    </Card>
   );
 }
 
@@ -456,7 +457,7 @@ export function WhatsAppVisitRegistrationCard({ session, catalog, owned }: {
   }
 
   return (
-    <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-2 p-4">
       <div className="flex items-center justify-between gap-3">
         <span className="flex flex-col">
           <span className="text-sm font-medium">{t('accountPanes.waRegistration.title')}</span>
@@ -479,7 +480,7 @@ export function WhatsAppVisitRegistrationCard({ session, catalog, owned }: {
                     body={confirming
                       ? t('accountPanes.waRegistration.confirmEnableBody')
                       : t('accountPanes.waRegistration.confirmDisableBody')} />
-    </section>
+    </Card>
   );
 }
 
@@ -540,7 +541,7 @@ export function WhatsAppAutoRegisterCard({ session, catalog }: {
   }
 
   return (
-    <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-2 p-4">
       <div className="flex items-center justify-between gap-3">
         <span className="flex flex-col">
           <span className="text-sm font-medium">{t('accountPanes.waAutoRegister.title')}</span>
@@ -563,7 +564,7 @@ export function WhatsAppAutoRegisterCard({ session, catalog }: {
                     body={confirming
                       ? t('accountPanes.waAutoRegister.confirmEnableBody')
                       : t('accountPanes.waAutoRegister.confirmDisableBody')} />
-    </section>
+    </Card>
   );
 }
 
@@ -781,7 +782,7 @@ function Fact({ label, value, wide, hint, icon }:
     { label: string; value: React.ReactNode; wide?: boolean; hint?: React.ReactNode;
       icon?: React.ReactNode }) {
   return (
-    <div className={`flex items-start gap-2.5 rounded-card bg-surface-1 p-3 shadow-sm ${wide ? 'col-span-2' : ''}`}>
+    <Card className={`flex items-start gap-2.5 p-3 ${wide ? 'col-span-2' : ''}`}>
       {/* THE SAME "ICON IN A SOFT CIRCLE" LANGUAGE AS THE IDENTITY CARD ABOVE AND Wallet.tsx's own
          KpiCard — a smaller size-8 here since these are four secondary facts, not the one
          headline card, but the same visual vocabulary so the page reads as one design. */}
@@ -798,7 +799,7 @@ function Fact({ label, value, wide, hint, icon }:
         </span>
         <span className="truncate">{value}</span>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -858,7 +859,7 @@ export function DataPane({ session, catalog }: { session: Session; catalog: Cata
       </Card>
 
       {canAsk ? (
-        <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+        <Card className="flex flex-col gap-3 p-4">
           <h3>{t('accountPanes.dsar.title')}</h3>
           <p className="text-sm text-text-secondary">
             {t('accountPanes.dsar.desc')}
@@ -885,7 +886,7 @@ export function DataPane({ session, catalog }: { session: Session; catalog: Cata
           </div>
           {error ? <p className="text-sm text-danger">{error}</p> : null}
           {said ? <p className="text-sm">{said}</p> : null}
-        </div>
+        </Card>
       ) : null}
 
       <Card>
@@ -907,10 +908,6 @@ export function DataPane({ session, catalog }: { session: Session; catalog: Cata
 }
 
 // ── the small shared pieces ──────────────────────────────────────────────────────────────────
-
-function Card({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">{children}</div>;
-}
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -990,7 +987,7 @@ export function InvoicesPane({ session, catalog }: { session: Session; catalog: 
   if (isLoading(rows)) return <Skeleton height={80} />;
 
   return (
-    <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-2 p-4">
       <h3 className="text-sm text-text-secondary">{t('accountPanes.invoices.title')}</h3>
       {isDenied(rows) ? (
         // A ROLE ANSWER, AND IT SAYS WHICH. "No invoices yet" to somebody whose role simply
@@ -1019,7 +1016,7 @@ export function InvoicesPane({ session, catalog }: { session: Session; catalog: 
                   </span>
                   <span className="flex items-center gap-3">
                     <span className="tabular-nums">
-                      {v.total_minor ? riyalsLabel(v.total_minor) : '—'}
+                      {v.total_minor ? riyalsLabel(v.total_minor, t) : '—'}
                     </span>
                     <Badge tone={v.status === 'paid' ? 'success' : 'warning'}>
                       {v.status === 'paid' ? t('accountPanes.invoices.paid') : t('accountPanes.invoices.unpaid')}
@@ -1050,7 +1047,7 @@ export function InvoicesPane({ session, catalog }: { session: Session; catalog: 
           </ul>
         </>
       )}
-    </div>
+    </Card>
   );
 }
 

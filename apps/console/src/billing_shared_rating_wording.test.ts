@@ -4,7 +4,7 @@
  * plan flips — same discipline `feature.bookings` followed while its own stages were in progress.
  */
 import { describe, expect, it } from 'vitest';
-import { planLines, type Plan } from './Plans';
+import { planLines, type Plan } from './billingShared';
 
 function plan(limits: Plan['limits']): Plan {
   return { id: 'p1', name: 'التقييم', limits };

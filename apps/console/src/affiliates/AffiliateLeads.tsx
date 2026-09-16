@@ -24,11 +24,12 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Search, ChevronRight, Phone, Copy, Check, MessageCircle } from 'lucide-react';
-import { Button } from '@base-ui/design-system/Button';
+import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
 import { Segmented } from '../rj-ui/Segmented';
-import { Badge } from '@base-ui/design-system/Badge';
-import { EmptyState } from '@base-ui/design-system/EmptyState';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Badge } from '../rj-ui/Badge';
+import { EmptyState } from '../rj-ui/EmptyState';
+import { Skeleton } from '../rj-ui/Skeleton';
 import {
   AffiliateRefused, leads as fetchLeads, oneLead, setLeadStatus, outreachStages, templates,
   templateUsesForLead, logTemplateUse, setOutcome, setDecisionMaker,
@@ -252,7 +253,7 @@ function LeadDetail({ session, leadId, onBack }: {
     <div className="flex flex-col gap-4 p-4">
       <BackRow onBack={onBack} />
 
-      <div className="flex flex-col gap-1 rounded-card bg-surface-1 p-4 shadow-sm">
+      <Card className="flex flex-col gap-1 p-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl leading-tight">{lead.name || 'محل بلا اسم مسجَّل'}</h1>
           <Badge tone={STATUS_TONE[lead.status] ?? 'neutral'}>
@@ -277,7 +278,7 @@ function LeadDetail({ session, leadId, onBack }: {
             </a>
           </div>
         ) : null}
-      </div>
+      </Card>
 
       {error ? <p role="alert" className="text-danger">{error}</p> : null}
 
@@ -285,7 +286,7 @@ function LeadDetail({ session, leadId, onBack }: {
           Absent entirely once a lead is closed (registered/not interested) — there is nothing left
           to send. */}
       {!CLOSED_STATUSES.has(lead.status) ? (
-        <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+        <Card className="flex flex-col gap-3 p-4">
           <h2 className="text-sm font-medium text-text-secondary">
             قوالب {stages.find((s) => s.code === lead.outreach_stage_code)?.name || 'المرحلة الحالية'}
           </h2>
@@ -315,11 +316,11 @@ function LeadDetail({ session, leadId, onBack }: {
               </div>
             </div>
           ) : null}
-        </div>
+        </Card>
       ) : null}
 
       {/* الحالة يدويًا — فقط الحالات اللي يملك المسوّق تغييرها فعليًا */}
-      <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+      <Card className="flex flex-col gap-2 p-4">
         <h2 className="text-sm font-medium text-text-secondary">تحديث الحالة</h2>
         <div className="flex flex-wrap gap-2">
           {LEAD_MANUAL_STATUSES.map((s) => (
@@ -329,12 +330,12 @@ function LeadDetail({ session, leadId, onBack }: {
             </Button>
           ))}
         </div>
-      </div>
+      </Card>
 
       <DecisionMakerCard session={session} lead={lead} onSaved={reload} />
 
       {timeline.length > 0 ? (
-        <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+        <Card className="flex flex-col gap-3 p-4">
           <h2 className="text-sm font-medium text-text-secondary">السجل</h2>
           <ul className="flex flex-col gap-2">
             {timeline.map((e, i) => (
@@ -349,7 +350,7 @@ function LeadDetail({ session, leadId, onBack }: {
               </li>
             ))}
           </ul>
-        </div>
+        </Card>
       ) : null}
     </div>
   );
@@ -420,7 +421,7 @@ function DecisionMakerCard({ session, lead, onSaved }: {
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-2 p-4">
       <h2 className="text-sm font-medium text-text-secondary">صاحب القرار</h2>
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder="الاسم"
              className="h-11 rounded-md border border-border-strong bg-surface-0 px-3 text-sm" />
@@ -431,6 +432,6 @@ function DecisionMakerCard({ session, lead, onSaved }: {
       {dirty ? (
         <Button type="button" disabled={busy} onClick={save}>حفظ</Button>
       ) : null}
-    </div>
+    </Card>
   );
 }

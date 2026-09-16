@@ -5,13 +5,18 @@
  *  NOT `payment.ts` — that module is the subscription card-form stub (a different "payment"
  *  entirely: what the shop owes راجِع, not what a customer owes the shop for one booking).
  *  Sharing the name would have made two unrelated concepts import from the same file. */
+import { translate } from './operator-i18n';
+import './booking-payment-i18n';
+
 export type PaymentStatus = 'none' | 'deposit' | 'paid';
 
-export const PAYMENT_LABEL: Record<PaymentStatus, string> = {
-  none: 'بدون عربون',
-  deposit: 'عربون',
-  paid: 'مدفوع',
-};
+/** `t` defaults to an ar-only translator (same pattern as Wallet.tsx's own `unitsLabel`) — a
+ *  real render site (Bookings.tsx, BookingDialog.tsx) passes its own live `t` from context. */
+export function paymentLabel(
+  status: PaymentStatus, t: (key: string) => string = (k) => translate('ar', k),
+): string {
+  return t(`bookingPayment.label.${status}`);
+}
 
 // Distinct hues, not just distinct opacity — a glance at the card must tell the three apart
 // without reading the label. Neutral for "nothing in hand yet", accent violet for "something",

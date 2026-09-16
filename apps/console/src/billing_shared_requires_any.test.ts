@@ -4,8 +4,8 @@
  * reads it with. These are the pure-function tests; the purchase refusal itself is tested there.
  */
 import { describe, expect, it } from 'vitest';
-import { missingRequirement, planLines, requiresAny, type Plan } from './Plans';
-import type { Owned } from '../apps';
+import { missingRequirement, planLines, requiresAny, type Plan } from './billingShared';
+import type { Owned } from './apps';
 
 function loyaltyPlan(): Plan {
   return {

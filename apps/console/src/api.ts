@@ -22,6 +22,21 @@ import type { Session } from './session';
 
 const BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
 
+// AR-ONLY, ON PURPOSE, NOT `translate()` FROM `./operator-i18n` — THAT MODULE IMPORTS THIS ONE
+// (`getMyLocale`/`setMyLocale`), so importing it back here would be a real circular module
+// dependency, not a stylistic one (confirmed live: it broke `registerOperatorStrings` at import
+// time — CATALOGS not yet initialized when this module's own side-effect import ran). These are
+// only the DEFAULT for a caller that has no live `t` in scope (this file's own tests, and the one
+// direct throw below); every real render site still passes its own `t` from context, and the same
+// keys are registered for every locale in `./api-i18n` — imported from `App.tsx` instead, which
+// nothing here is on the other end of a cycle with.
+const AR_DEFAULT: Record<string, string> = {
+  'api.sessionExpired': 'انتهت الجلسة — أعد فتح الشاشة.',
+  'api.serviceDown': 'الخدمة لا تستجيب الآن. حاول بعد قليل.',
+  'api.noConnection': 'لا يوجد اتصال — تحقّق من الشبكة وحاول مرة أخرى.',
+  'api.searchUnavailable': 'تعذّر البحث الآن — حاول بعد لحظات',
+};
+
 export class ApiError extends Error {
   constructor(readonly status: number, readonly body: unknown, message: string) {
     super(message);
@@ -47,25 +62,27 @@ export class ApiError extends Error {
  *  `fallback` IS THE CALL SITE'S OWN WORDS, and it is required rather than defaulted: «تعذّر
  *  السحب» and «تعذّر الحذف» are not the same sentence, and one generic message for both is how a
  *  screen stops telling anyone which act failed. */
-export function sentenceFor(e: unknown, fallback: string): string {
+export function sentenceFor(
+  e: unknown, fallback: string, t: (key: string) => string = (k) => AR_DEFAULT[k] ?? k,
+): string {
   if (e instanceof ApiError) {
     const body = e.body as { message?: string; detail?: string; reason?: string } | null;
     // THE PEER'S OWN WORDS FIRST. `reason` is the key our services answer refusals with; `message`
     // and `detail` are the platform's. Whichever arrives, it was written for this person.
     const said = body?.message || body?.detail || body?.reason;
     if (said) return String(said);
-    if (e.status === 401 || e.status === 403) return 'انتهت الجلسة — أعد فتح الشاشة.';
-    if (e.status >= 500) return 'الخدمة لا تستجيب الآن. حاول بعد قليل.';
+    if (e.status === 401 || e.status === 403) return t('api.sessionExpired');
+    if (e.status >= 500) return t('api.serviceDown');
     return fallback;
   }
   // A network failure is the NORMAL case in a workshop, not an exception — and it is the one
   // message that must not alarm.
-  if (e instanceof TypeError) return 'لا يوجد اتصال — تحقّق من الشبكة وحاول مرة أخرى.';
+  if (e instanceof TypeError) return t('api.noConnection');
   // A REQUEST THAT NEVER ANSWERED, not one that was refused — `fetchWithTimeout`'s own abort()
   // throws this, never an ApiError, because no response ever arrived to build one from. To the
   // person reading it, "nothing came back within 10 seconds" and "no connection" are the same
   // fact, so they get the same sentence rather than a raw "AbortError".
-  if (e instanceof DOMException && e.name === 'AbortError') return 'لا يوجد اتصال — تحقّق من الشبكة وحاول مرة أخرى.';
+  if (e instanceof DOMException && e.name === 'AbortError') return t('api.noConnection');
 
   // AN ARABIC MESSAGE WAS WRITTEN FOR A PERSON; KEEP IT.
   //
@@ -340,7 +357,7 @@ export async function suggestByPrefix(session: Session, prefix: string): Promise
   // `ok: false` IS «WE COULD NOT ASK», NOT «NOBODY MATCHED». The caller draws a different sentence
   // for each, and telling a man at the counter he is not registered when the index was merely
   // unreachable is the one wrong answer this screen must never give.
-  if (out.ok === false) throw new ApiError(503, out, 'تعذّر البحث الآن — حاول بعد لحظات');
+  if (out.ok === false) throw new ApiError(503, out, AR_DEFAULT['api.searchUnavailable']);
   return (out.customers ?? [])
     .map((h) => {
       const f = (h ?? {}) as Record<string, unknown>;
@@ -669,6 +686,10 @@ export interface VisitDraft {
   coupon_percent?: number;
   coupon_general?: boolean;
   coupon_app_keys?: string[];
+  /** HOW MANY OF EACH — "2× غسيل خارجي", exactly like an integrated till's own line quantity
+   *  (services/operations `field.py::VisitIn.quantities`). A service missing here means one; this
+   *  is never a second way to select a service, only a count on one already in `service_ids`. */
+  quantities?: Record<string, number>;
 }
 
 export interface VisitAck {
@@ -797,6 +818,9 @@ export interface Booking {
   cancelled_reason: string | null;
   thumb_up: boolean | null;
   rev: number;
+  /** HOW MANY OF EACH — "2× غسيل خارجي", a snapshot recomputed the same two moments
+   *  `duration_minutes` is (create, and an explicit services edit). Missing entry means one. */
+  quantities?: Record<string, number>;
 }
 
 /** One weekday's own policy. `0`=Monday..`6`=Sunday — `date.weekday()`'s own numbering, the same
@@ -881,6 +905,8 @@ export interface CreateBookingDraft {
   operator_id: string;
   customer_id: string;
   service_ids: string[];
+  /** HOW MANY OF EACH — see Booking.quantities. Ignored server-side on a package booking. */
+  quantities?: Record<string, number>;
   starts_at: number;
   note?: string;
   idempotency_key?: string;
@@ -906,10 +932,11 @@ export function rescheduleBooking(
 }
 
 export function editBookingServices(
-  session: Session, id: string, serviceIds: string[],
+  session: Session, id: string, serviceIds: string[], quantities?: Record<string, number>,
 ): Promise<Booking> {
   return call(session, `/api/v1/bookings/${encodeURIComponent(id)}/services`, {
-    method: 'PATCH', body: JSON.stringify({ service_ids: serviceIds }),
+    method: 'PATCH',
+    body: JSON.stringify({ service_ids: serviceIds, quantities: quantities ?? {} }),
   });
 }
 
@@ -981,12 +1008,17 @@ export function nearestSlot(
   /** The booking being RESCHEDULED, when there is one — its own current hour must not read as
    *  taken while searching for a new one for it. Omitted for a brand-new booking. */
   excludeBookingId?: string,
+  /** HOW MANY OF EACH — a search for "2× غسيل خارجي" needs a slot twice as long. Sent as a JSON
+   *  object string (`bookings.py::_parse_quantities`'s own note) since a query string carries no
+   *  dict natively, same reasoning `service_ids` going comma-separated already gives. */
+  quantities?: Record<string, number>,
 ): Promise<{ starts_at: number | null }> {
   const q = new URLSearchParams({
     branch_id: branchId, operator_id: operatorId, service_ids: serviceIds.join(','),
     after: String(after),
   });
   if (excludeBookingId) q.set('exclude_booking_id', excludeBookingId);
+  if (quantities && Object.keys(quantities).length > 0) q.set('quantities', JSON.stringify(quantities));
   return call(session, `/api/v1/bookings/nearest?${q.toString()}`);
 }
 
@@ -997,12 +1029,14 @@ export function nearestSlotsAny(
   session: Session, branchId: string, operatorIds: string[], serviceIds: string[],
   after: number, windowEnd: number, maxSlots: number,
   excludeBookingId?: string,
+  quantities?: Record<string, number>,
 ): Promise<{ slots: { operator_id: string; starts_at: number }[] }> {
   const q = new URLSearchParams({
     branch_id: branchId, operator_ids: operatorIds.join(','), service_ids: serviceIds.join(','),
     after: String(after), window_end: String(windowEnd), max_slots: String(maxSlots),
   });
   if (excludeBookingId) q.set('exclude_booking_id', excludeBookingId);
+  if (quantities && Object.keys(quantities).length > 0) q.set('quantities', JSON.stringify(quantities));
   return call(session, `/api/v1/bookings/nearest-any?${q.toString()}`);
 }
 

@@ -8,8 +8,8 @@
  * «إلغاء» واحد يغلق الاثنين معاً.
  */
 import { useEffect, useState } from 'react';
-import { Modal } from '@base-ui/design-system/Modal';
-import { Button } from '@base-ui/design-system/Button';
+import { Modal } from '../rj-ui/Modal';
+import { Button } from '../rj-ui/Button';
 import { GripVertical } from 'lucide-react';
 import { Segmented } from '../rj-ui/Segmented';
 import {

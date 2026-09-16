@@ -21,6 +21,7 @@ import {
 } from './api';
 import type { Session } from './session';
 import { useOperatorI18n } from './operator-i18n';
+import { Card } from './rj-ui/Card';
 import './today-bookings-strip-i18n';
 
 export interface TodayBookingsStripProps {
@@ -106,8 +107,8 @@ export function TodayBookingsStrip({ session, branchId, services }: TodayBooking
       {note ? <p className="text-sm text-accent">{note}</p> : null}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {sorted.map((b) => (
-          <div key={b.id}
-              className="flex shrink-0 items-center gap-2 rounded-2xl bg-surface-1 px-3 py-2 shadow-sm">
+          <Card key={b.id}
+              className="flex shrink-0 items-center gap-2 px-3 py-2">
             <div className="flex flex-col leading-tight">
               <span className="text-xs font-semibold tabular-nums">{timeOf(b.starts_at, t)}</span>
               <span className="text-xs text-text-secondary">
@@ -123,7 +124,7 @@ export function TodayBookingsStrip({ session, branchId, services }: TodayBooking
             >
               <Check size={16} aria-hidden />
             </button>
-          </div>
+          </Card>
         ))}
       </div>
     </div>

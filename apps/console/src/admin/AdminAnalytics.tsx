@@ -9,6 +9,7 @@ import { AreaTrend, type TrendPoint } from '../rj-ui/AreaTrend';
 import { Heatmap, type HeatmapCell } from '../rj-ui/Heatmap';
 import { GeoMap, type GeoPoint } from '../rj-ui/GeoMap';
 import { KpiCard } from '../rj-ui/KpiCard';
+import { Card } from '../rj-ui/Card';
 import { riyalsLabel } from '../money';
 import { fetchCatalog, type AdminCatalog } from './catalog';
 import {
@@ -77,16 +78,16 @@ export function AdminAnalytics({ session }: { session: AdminSession }) {
       {state.leadPoints.length > 0 || state.branchPoints.length > 0 ? (
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {state.leadPoints.length > 0 ? (
-            <section className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-4">
+            <Card className="flex flex-col gap-2 p-4">
               <h3 className="font-semibold">خريطة العملاء المحتملين</h3>
               <GeoMap points={state.leadPoints} />
-            </section>
+            </Card>
           ) : null}
           {state.branchPoints.length > 0 ? (
-            <section className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-4">
+            <Card className="flex flex-col gap-2 p-4">
               <h3 className="font-semibold">خريطة المحلات الفعلية</h3>
               <GeoMap points={state.branchPoints} />
-            </section>
+            </Card>
           ) : null}
         </div>
       ) : null}
@@ -99,9 +100,9 @@ function InsightsSection({ insights }: {
 }) {
   if (insights.computing) {
     return (
-      <section className="rounded-card border border-border-subtle bg-surface-1 p-4 text-sm text-text-secondary">
+      <Card className="p-4 text-sm text-text-secondary">
         ملخص المنصّة الكلي لم يُحسب بعد — يظهر بعد أول دورة تجميع.
-      </section>
+      </Card>
     );
   }
   const { data } = insights;
@@ -114,7 +115,7 @@ function InsightsSection({ insights }: {
   const heatCols = Array.from(new Set(data.peakGrid.map((c) => c.hour))).sort();
 
   return (
-    <section className="flex flex-col gap-4 rounded-card border border-border-subtle bg-surface-1 p-4">
+    <Card className="flex flex-col gap-4 p-4">
       <h3 className="font-semibold">صحة المنصّة والاحتفاظ (عبر {data.tenantsWithSnapshot} محلاً)</h3>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {data.returnRate != null ? (
@@ -138,7 +139,7 @@ function InsightsSection({ insights }: {
           <Heatmap rows={heatRows} cols={heatCols} cells={heatCells} />
         </div>
       ) : null}
-    </section>
+    </Card>
   );
 }
 
@@ -146,7 +147,7 @@ function AffiliatesSection({ stats, leaderboard }: {
   stats: AffiliateStats | null; leaderboard: LeaderboardRow[];
 }) {
   return (
-    <section className="flex flex-col gap-4 rounded-card border border-border-subtle bg-surface-1 p-4">
+    <Card className="flex flex-col gap-4 p-4">
       <h3 className="font-semibold">المسوّقين والتسويق</h3>
       {stats ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -169,6 +170,6 @@ function AffiliatesSection({ stats, leaderboard }: {
           ))}
         </ul>
       ) : null}
-    </section>
+    </Card>
   );
 }

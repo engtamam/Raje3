@@ -465,7 +465,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                   <div className="flex flex-col">
                     <span className="font-semibold">{p.name}</span>
                     <span className="text-sm text-text-secondary">
-                      {riyalsLabel(p.price_minor)}
+                      {riyalsLabel(p.price_minor, t)}
                       {(p.person_count ?? 1) > 1 ? tf(t, 'packages.personCount', { n: p.person_count ?? 1 }) : ''}
                     </span>
                   </div>

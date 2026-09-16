@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { Plus, Pencil } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
+import { Card } from '../rj-ui/Card';
 import { Button } from '../rj-ui/Button';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { Modal } from '../rj-ui/Modal';
@@ -116,7 +117,7 @@ function CouponCard({ session, coupon, planName, updateAction, deleteAction, pla
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-start justify-between gap-2">
         <h3 dir="ltr" className="text-lg font-semibold">{coupon.code}</h3>
         <Badge tone={status.tone}>{status.label}</Badge>
@@ -175,7 +176,7 @@ function CouponCard({ session, coupon, planName, updateAction, deleteAction, pla
                          open={editing} onClose={() => setEditing(false)}
                          onSaved={() => { setEditing(false); onReload(); }} />
       ) : null}
-    </section>
+    </Card>
   );
 }
 

@@ -21,10 +21,10 @@
  */
 import type { LucideIcon } from 'lucide-react';
 import {
-  CalendarClock, ClipboardPlus, Gift, Handshake, LifeBuoy, MessageSquare, Star, Store, TrendingUp,
+  CalendarClock, ClipboardPlus, Gift, Handshake, LifeBuoy, Megaphone, MessageSquare, Star, TrendingUp,
   Truck, Users, Wrench,
 } from 'lucide-react';
-import { NAV_ACCENTS } from '@base-ui/theme';
+import { NAV_ACCENTS } from '../../../ui/packages/ui/src/theme';
 import type { Catalog } from './catalog';
 import { hasAll } from './catalog';
 
@@ -116,12 +116,18 @@ export const SECTIONS: Section[] = [
   // تُظهر التبويب القديم.
   { service: 'operations', id: 'rating', path: '/rating', label: 'التقييم', icon: Star, requires: ['operations.ratings'], accent: NAV_ACCENTS[4] },
   // «تحالف استراتيجي» — id/path stay `coupons` (the stored capability names and the route both
-  // key off it), only the label changed. Gated on `operations.grant_coupon_direct` specifically,
-  // NOT the broader `operations.grant_coupon` a plain field operator also holds (visit-linked
-  // grants only, from the visit screen itself). This standalone tab's own grant form needs the
-  // direct-grant door, so an operator who cannot use it does not see a tab that would 403.
+  // key off it), only the label changed. Gated on the REAL ACTION ID `operations.grant_coupon`
+  // (found live, 2026-09-16: this used to name `operations.grant_coupon_direct` — a CAPABILITY
+  // string, never an action id of its own, same bug class `canBrowseStore` had earlier this same
+  // session — so `hasAll()` never found it and this tab was invisible to EVERY role, owner and
+  // manager included). `operations.grant_coupon` is itself gated server-side on the
+  // `operations.grant_coupon_direct` capability (user_actions.py), which is exactly the
+  // distinction this tab needs from the broader `operations.coupon_history`/`.coupon_stats`
+  // actions a plain field operator also holds (visit-linked grants only, from the visit screen
+  // itself) — the capability is enforced by the backend deciding whether to include the action
+  // in the catalogue at all, never by naming the capability string here directly.
   { service: 'operations', id: 'coupons', path: '/coupons', label: 'تحالف استراتيجي', icon: Handshake,
-   requires: ['operations.grant_coupon_direct'], accent: NAV_ACCENTS[10] },
+   requires: ['operations.grant_coupon'], accent: NAV_ACCENTS[10] },
   // «خدمات متنقلة» — a real sold app now (Phase 4, feature.mobile_requests); the row itself still
   // gates on the review queue's own list action (real per ci/check_ui_actions.py — an action id
   // the catalogue actually declares, never the bare capability string), and MobileRequestsRoute's
@@ -153,22 +159,15 @@ export const SECTIONS: Section[] = [
   // apparently is not for them and does not open it again. The rail pays two extra words for a
   // trade that would otherwise think the product was not built for it.
   { service: 'operations', id: 'services', path: '/services', label: 'خدماتي ومنتجاتي', icon: Wrench, requires: ['operations.update_service'], accent: NAV_ACCENTS[5] },
-  { service: 'reminders', id: 'messages', path: '/messages', label: 'الحملات', icon: MessageSquare, requires: ['reminders.get_settings'], accent: NAV_ACCENTS[6] },
+  // `Megaphone`, NOT `MessageSquare` (2026-09-16, the owner's own instruction) — a chat-bubble
+  // read as "a send/message icon", which is exactly the wrong metaphor for a campaign: this row
+  // broadcasts an offer to many customers at once, closer to a megaphone than a single message.
+  { service: 'reminders', id: 'messages', path: '/messages', label: 'الحملات', icon: Megaphone, requires: ['reminders.get_settings'], accent: NAV_ACCENTS[6] },
   // ON THE EDIT, NOT THE READ. `loyalty.settings.read` is `loyalty.read`, which the OPERATOR
   // holds — he has to see a customer's balance to say it out loud at the counter. Gating on it
   // would put a settings section in the nav of a man whose screen is one screen. The section
   // exists to change the programme, so it is gated on being able to.
   { service: 'loyalty', id: 'points', path: '/points', label: 'نقاطي', icon: Gift, requires: ['loyalty.rewards.update'], accent: NAV_ACCENTS[7] },
-  // THE STORE IS A PLACE NOW, BECAUSE FOUR SCREENS ALREADY SENT PEOPLE TO IT.
-  //
-  // «رقِّ باقتك من «متجر التطبيقات»» — «أضِفه إلى اشتراكي» — every locked card and the branch
-  // cap pointed at a name that existed nowhere: the tab was called «اشتراكي», the rail had no
-  // row, and the only way in was a link somebody had to already be looking at. An owner who
-  // read the sentence and went looking found four tabs, none of them the one he was sent to.
-  //
-  // ONE NAME, IN THE RAIL, WHERE A SHOP GOES TO BUY. Not a ninth errand: it is the only row
-  // that takes money, and a product that hides its own till is a product that does not sell.
-  { service: 'billing', id: 'store', path: '/store', label: 'متجر التطبيقات', icon: Store, requires: ['billing.plans'], accent: NAV_ACCENTS[8] },
   // «الدعم الفني» — the shop's own half of the support loop, the affiliate portal's
   // TicketCarousel being the other. `tickets.open` is ticket-service's own user action
   // (platform/services/ticket-service/app/user_actions.py) — `tickets.self`, granted to owner and
@@ -210,6 +209,17 @@ export const ACCOUNT_PATH = '/account';
  *  named once rather than re-typed at the one call site that needs it. */
 export const SUPPORT_PATH = '/support';
 
+/** «الدعم الفني» icon opens WHATSAPP DIRECTLY now, not `SUPPORT_PATH` — the owner's own
+ *  instruction (2026-09-16): "خلي الايقونة معد تفك شاشة الدعم الفني، مستقبلا نرجع نربطها". The
+ *  route/screen itself, and `SUPPORT_PATH` above, are left exactly as they are — only the icon's
+ *  own handler in `App.tsx` was repointed — so relinking it later is a one-line revert, not a
+ *  rebuild. `product.json`'s `support.phone` is a placeholder pending the owner's real number.
+ *  `declare` matches `brand/theme.ts`'s own `__PRODUCT_ACCENT__` pattern — injected at build time
+ *  by `vite.config.ts`, undefined under vitest, hence the same typeof guard. */
+declare const __SUPPORT_WHATSAPP_PHONE__: string;
+export const SUPPORT_WHATSAPP_URL =
+  `https://wa.me/${typeof __SUPPORT_WHATSAPP_PHONE__ !== 'undefined' ? __SUPPORT_WHATSAPP_PHONE__ : '966500000000'}`;
+
 /**
  * «فريقي», which left the rail and stayed a screen — and was named in a COMMENT alone.
  *
@@ -232,9 +242,11 @@ export const TEAM_PATH = '/team';
  *  screen `check_roles.py` cannot ask about. */
 export const SHOP_PATH = '/shop';
 
-/** Where «متجر التطبيقات» lives — named once, so no screen builds the address out of a literal
- *  and drifts from the row above it. Every «أضِفه» button in the product points here. */
-export const STORE_PATH = '/store';
+/** Where an owner goes to buy — «متجر التطبيقات»'s own dedicated route/rail row was deleted
+ *  2026-09-16 (dead code: it only ever rendered `<AccountScreen openOn="billing">`, the exact
+ *  same pane this address already opens). Named once, so no screen builds the address out of a
+ *  literal — every «أضِفه» button in the product points here. */
+export const STORE_PATH = '/account?tab=billing';
 
 /** A sibling of `/`, outside `<App/>` on purpose (see main.tsx) — a legal document has to render
  *  for someone who has never signed up, so it carries no `requires:` and no section row. Named

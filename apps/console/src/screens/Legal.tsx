@@ -16,7 +16,7 @@
  */
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { DocBlocksView, type DocBlock } from '@base-ui/components/DocBlockRenderer';
+import { DocBlocksView, type DocBlock } from '../../../../ui/packages/ui/src/components/DocBlockRenderer';
 import docs from 'virtual:legal-docs';
 import { translate } from '../operator-i18n';
 import './legal-i18n';

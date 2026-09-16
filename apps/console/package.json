@@ -12,6 +12,8 @@
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^13.3.0",
+    "fuse.js": "^7.5.0",
     "js-yaml": "^5.4.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.475.0",

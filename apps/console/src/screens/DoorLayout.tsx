@@ -31,6 +31,7 @@
 import type { ReactNode } from 'react';
 import { Wordmark } from '../brand/Mark';
 import { legalUrl } from '../legal/url';
+import { OperatorLocaleSwitcher } from '../OperatorLocaleSwitcher';
 import { useOperatorI18n } from '../operator-i18n';
 import './door-layout-i18n';
 
@@ -97,14 +98,25 @@ export function DoorLayout({ children, title, subtitle }: {
 
         <main className="flex items-center justify-center bg-surface-0 p-6">
           <div className="w-full max-w-sm">
-            {/* The mark again, for the phone — where the hero does not exist and the page would
-                otherwise open on a segmented control with no idea what product it belongs to. */}
-            {/* And on the phone, where the hero panel does not exist, this is the ONLY mark on the
-                screen — so it carries the whole burden of saying both what this is and how to
-                leave. A dead logo on a page with no other exit is a page people abandon. */}
-            <a href="/" className="mb-8 flex items-center gap-2 lg:hidden" aria-label={t('doorLayout.backHome')}>
-              <Wordmark className="text-lg" />
-            </a>
+            {/* THE ONLY WAY TO CHANGE LANGUAGE BEFORE SIGNING IN. Everywhere else in the product
+                this control sits in the signed-in shell's TopBar — a person who has not signed in
+                yet never reaches it, so a non-Arabic visitor was stuck reading Arabic through the
+                whole sign-in/sign-up flow. Reusing the same component (not rebuilding it) here,
+                on the one row every breakpoint renders, rather than duplicating it once for the
+                desktop hero and once for the phone logo row below. */}
+            <div className="mb-8 flex items-center justify-between gap-2">
+              {/* The mark again, for the phone — where the hero does not exist and the page would
+                  otherwise open on a segmented control with no idea what product it belongs to. */}
+              {/* And on the phone, where the hero panel does not exist, this is the ONLY mark on
+                  the screen — so it carries the whole burden of saying both what this is and how
+                  to leave. A dead logo on a page with no other exit is a page people abandon. */}
+              <a href="/" className="flex items-center gap-2 lg:hidden" aria-label={t('doorLayout.backHome')}>
+                <Wordmark className="text-lg" />
+              </a>
+              <div className="ms-auto">
+                <OperatorLocaleSwitcher />
+              </div>
+            </div>
             {children}
           </div>
         </main>

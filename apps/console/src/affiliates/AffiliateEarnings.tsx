@@ -19,10 +19,11 @@
  */
 import { useEffect, useState } from 'react';
 import { Wallet, TrendingUp, FileText } from 'lucide-react';
-import { Button } from '@base-ui/design-system/Button';
-import { Badge } from '@base-ui/design-system/Badge';
-import { EmptyState } from '@base-ui/design-system/EmptyState';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
+import { Badge } from '../rj-ui/Badge';
+import { EmptyState } from '../rj-ui/EmptyState';
+import { Skeleton } from '../rj-ui/Skeleton';
 import { riyalsLabel } from '../money';
 import {
   AffiliateRefused, me, balance, commissions, requestWithdrawal, myWithdrawals,
@@ -103,7 +104,7 @@ function BalanceSection({ session }: { session: AffiliateSession }) {
   const remaining = data.min_withdrawal_halalas - data.confirmed_available_halalas;
 
   return (
-    <div className="flex flex-col gap-4 rounded-card bg-surface-1 p-5 shadow-sm">
+    <Card className="flex flex-col gap-4 p-5">
       <span className="text-label font-medium text-text-secondary">رصيدك الجاهز للسحب</span>
       <span className="text-4xl font-semibold leading-none tracking-tight tabular-nums">
         {riyalsLabel(data.confirmed_available_halalas)}
@@ -138,7 +139,7 @@ function BalanceSection({ session }: { session: AffiliateSession }) {
           <Wallet size={16} /> اسحب أرباحك
         </Button>
       )}
-    </div>
+    </Card>
   );
 }
 

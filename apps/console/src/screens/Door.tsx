@@ -32,12 +32,12 @@
  *   channel he is about to connect anyway — no SMS contract, no second vendor.
  */
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
-import { OtpVerify } from '@base-ui/auth/OtpVerify';
-import { Button } from '@base-ui/design-system/Button';
-import { Field, Input } from '@base-ui/design-system/Field';
+import { OtpVerify } from '../../../../ui/packages/ui/src/auth/OtpVerify';
+import { Button } from '../rj-ui/Button';
+import { Field, Input } from '../rj-ui/Field';
 import { Segmented } from '../rj-ui/Segmented';
 import { hasFailed, isLoading } from '../loading';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Skeleton } from '../rj-ui/Skeleton';
 import { Check, Eye, EyeOff } from 'lucide-react';
 import { DoorLayout } from './DoorLayout';
 import {
@@ -329,17 +329,13 @@ function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
 
       {error ? <p role="alert" className="text-danger">{error}</p> : null}
 
-      {/* DIMMED BUT NEVER DISABLED, and this pane is the one place that distinction earns its
-          keep: a password manager fills both fields without firing React's onChange, so the state
-          reads empty over a form that plainly is not (see `submit`). Disabling here would leave a
-          returning owner staring at a dead button above his own saved credentials.
-          The dimming is the kit's own `disabled:opacity-50`, applied by hand — the same "not yet"
-          the rest of the product uses, without the dead end. */}
-      <Button
-        type="submit"
-        disabled={busy}
-        className={phone && password ? undefined : 'opacity-50'}
-      >
+      {/* NEVER DIMMED, NEVER DISABLED FOR "NOT YET COMPLETE" — the owner's own direct instruction,
+          same rule as the sign-up pane below. A button that looks half-dead reads as broken, not
+          as "fill more in". `submit` already reads straight off the submitted form (see its own
+          comment on the autofill trap) and answers a real reason — `door.signIn.missingFields` —
+          the moment it is pressed empty, so nothing is lost by dropping the dimming. Disabled only
+          while a request is actually in flight. */}
+      <Button type="submit" disabled={busy}>
         {busy ? t('door.signIn.busy') : t('door.signIn.submit')}
       </Button>
     </form>
@@ -452,7 +448,6 @@ function NewShopPane({ onSignedIn, onWelcome }: {
     shopName: errorFor(t, 'shopName', v.shopName),
   }), [v, t]);
 
-  /** What the state can see. Never a gate — only the button's appearance; see the button. */
   /**
    * THE SHOP NAME IS NOT THE PASSWORD, and this is a cross-field check because no single field
    * can see it. A manager that fills the name with the generated password produces a form where
@@ -460,9 +455,6 @@ function NewShopPane({ onSignedIn, onWelcome }: {
    * shop's customers open, and sent inside every WhatsApp message it signs.
    */
   const nameIsPassword = v.shopName.length > 0 && v.shopName === v.password;
-
-  const looksComplete = !nameIsPassword && !errs.phone && !errs.password && !errs.shopName
-    && agree;
 
   const set = (k: FieldName) => (e: React.ChangeEvent<HTMLInputElement>) => {
     // FOLD THE PHONE, AND ONLY FOLD IT. `western` changes the script of a digit and removes
@@ -620,16 +612,13 @@ function NewShopPane({ onSignedIn, onWelcome }: {
 
       {error ? <p role="alert" className="text-danger">{error}</p> : null}
 
-      {/* GENUINELY DISABLED UNTIL THE FORM IS COMPLETE, and here that is safe — which it is not on
-          the sign-in pane.
-          The autofill trap needs the browser to fill EVERY gate silently. It cannot here: the
-          consent box is a click nobody's password manager makes. So `looksComplete` is false only
-          when the form really is incomplete.
-          The `soft` variant was tried and is wrong for this — it is `bg-accent-soft`, a bright
-          wash meant for a secondary ACTION, so it read as a second, louder button. Disabled uses
-          the kit's own dimming (`disabled:opacity-50` on solid), which is what "not yet" looks
-          like everywhere else in the product. */}
-      <Button type="submit" disabled={busy || !looksComplete}>
+      {/* NEVER DISABLED FOR "NOT YET COMPLETE" — the owner's own direct instruction: a button that
+          looks dead reads as broken, not as "fill more in". `submit` already touches every field on
+          press, which is what turns each one's inline error on, and the `agree`/name-is-password
+          checks each set their own top-level `error` line — so pressing an incomplete form always
+          answers with a real reason, never silence. Disabled only while a request is actually in
+          flight (`busy`), same rule the sign-in pane already uses. */}
+      <Button type="submit" disabled={busy}>
         {busy ? t('door.newShop.busy') : t('door.newShop.submit')}
       </Button>
     </form>

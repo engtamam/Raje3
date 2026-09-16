@@ -19,8 +19,8 @@
  * no longer overrides the accent at all: the kit's own theme, fed by our product config, already
  * carries the right colour.
  */
-import { applyTheme } from '@base-ui/theme';
-import { applyDir } from '@base-ui/i18n';
+import { applyTheme } from '../../../../ui/packages/ui/src/theme';
+import { applyDir } from '../../../../ui/packages/ui/src/i18n';
 
 /**
  * LIGHT, AND THAT IS NOT A DEFAULT. A dark theme is unreadable on a tablet in an open workshop at

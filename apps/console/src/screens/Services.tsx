@@ -18,7 +18,7 @@
  */
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { NAV_ACCENTS } from '@base-ui/theme';
+import { NAV_ACCENTS } from '../../../../ui/packages/ui/src/theme';
 import { Button } from '../rj-ui/Button';
 import { Modal } from '../rj-ui/Modal';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
@@ -28,6 +28,7 @@ import { EmptyState } from '../rj-ui/EmptyState';
 import { PageHeader } from '../rj-ui/PageHeader';
 import { CircleHelp, ImageOff, Pencil, Plus, Power, PowerOff, SlidersHorizontal, Trash2, Upload, Wrench } from 'lucide-react';
 import { Hint } from '../Hint';
+import { Card } from '../rj-ui/Card';
 import { AssistantHint } from '../AssistantHint';
 import { Toggle } from '../rj-ui/Toggle';
 import { FilterMenu } from '../rj-ui/FilterMenu';
@@ -40,6 +41,7 @@ import { useOperatorI18n, tf } from '../operator-i18n';
 import './services-i18n';
 import { ServicesImportDrawer } from './ServicesImportDrawer';
 import { PackagesTab } from './PackagesTab';
+import { ProcedureStepsTab } from './ProcedureStepsTab';
 
 interface Service {
   id: string; name: string; cycle_days: number; price_minor: number;
@@ -135,18 +137,21 @@ interface EarnSettings {
  *  `?tab=packages` is how محلّي's «باقات مقترحة» card and «أضفها لهذه الباقة» button (Shop.tsx)
  *  land here already on the right tab, carrying their own prefill params that PackagesTab reads
  *  and clears itself. */
-type ServicesPageTab = 'services' | 'packages';
+type ServicesPageTab = 'services' | 'packages' | 'procedures';
 
 export function ServicesScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const { t } = useOperatorI18n();
   const [params, setParams] = useSearchParams();
-  const tab: ServicesPageTab = params.get('tab') === 'packages' ? 'packages' : 'services';
+  const tabParam = params.get('tab');
+  const tab: ServicesPageTab =
+    tabParam === 'packages' ? 'packages' : tabParam === 'procedures' ? 'procedures' : 'services';
   const setTab = (next: ServicesPageTab) => {
     const p = new URLSearchParams(params);
     if (next === 'services') p.delete('tab'); else p.set('tab', next);
     setParams(p, { replace: true });
   };
   const packagesEnabled = !!action(catalog, 'operations.list_packages');
+  const proceduresEnabled = !!action(catalog, 'operations.list_procedure_steps');
   const [services, setServices] = useState<Service[] | null | undefined>(undefined);
   /** The list could not be READ — as opposed to being read and found empty. Two different facts,
    *  and this screen used to say the same sentence for both. */
@@ -771,7 +776,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   const switcher = (
     <>
       <PageHeader icon={Wrench} title={t('services.title')} />
-      {packagesEnabled ? (
+      {packagesEnabled || proceduresEnabled ? (
         <Segmented
           // FULL WIDTH, SPLIT EVENLY — same top-level-switcher convention as Points.tsx/Messages.tsx's
           // own tab bars, not the default hug-content sizing (that default is for a nested filter row,
@@ -782,7 +787,9 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           onChange={(v) => setTab(v as ServicesPageTab)}
           options={[
             { value: 'services', label: t('services.title') },
-            { value: 'packages', label: t('services.packagesTab') },
+            ...(packagesEnabled ? [{ value: 'packages' as const, label: t('services.packagesTab') }] : []),
+            ...(proceduresEnabled
+              ? [{ value: 'procedures' as const, label: t('procedures.tab') }] : []),
           ]}
         />
       ) : null}
@@ -829,6 +836,18 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       <div className="flex flex-col gap-3 p-4">
         {switcher}
         <PackagesTab session={session} catalog={catalog} />
+      </div>
+    );
+  }
+
+  // «الإجراءات» IS ITS OWN SELF-CONTAINED SUB-COMPONENT TOO — same reasoning as «الباقات» right
+  // above: it does not depend on `services`/`settings` having loaded here, so it short-circuits
+  // before every guard below that is all about the SERVICES tab's own data.
+  if (tab === 'procedures') {
+    return (
+      <div className="flex flex-col gap-3 p-4">
+        {switcher}
+        <ProcedureStepsTab session={session} catalog={catalog} />
       </div>
     );
   }
@@ -908,7 +927,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           nothing until he agrees. Rearranging his settings on his behalf is the fastest way to
           lose his trust in this page. */}
       {suggestion && action(catalog, 'reminders.set_group') ? (
-        <div className="rounded-card border border-border-subtle bg-surface-1 p-4">
+        <Card className="p-4">
           <p className="text-sm">
             {tf(t, 'services.suggestion.text', { n: suggestion.services.length })}
           </p>
@@ -937,7 +956,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               <Button variant="ghost" onClick={() => setNaming(null)}>{t('services.cancel')}</Button>
             </div>
           )}
-        </div>
+        </Card>
       ) : null}
 
       {/* ── the rail: his own groups, as navigation ──────────────────────────────────────────
@@ -1101,7 +1120,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
 
       {action(catalog, 'reminders.set_general') && openGeneral ? (
         <>
-          <div className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-4">
+          <Card className="flex flex-col gap-2 p-4">
             <div className="flex items-center gap-2">
               <span className="text-sm text-text-secondary">{t('services.appliesToUncustomized')}</span>
               <Hint>
@@ -1172,7 +1191,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 onChange={setVisitConfirmation}
               />
             </div>
-          </div>
+          </Card>
         </>
       ) : null}
 
@@ -1359,11 +1378,11 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             const stopped = svc.active === false;
             const selected = modalSvc === svc.id;
             return (
-              <div key={svc.id}
+              <Card key={svc.id}
                   className={[
-                    'flex flex-col overflow-hidden rounded-card border bg-surface-1 shadow-sm',
+                    'flex flex-col overflow-hidden p-0',
                     'transition-all duration-200 hover:-translate-y-0.5 hover:shadow-pop',
-                    selected ? 'border-accent' : 'border-border-subtle',
+                    selected ? 'border-accent' : '',
                     stopped ? 'opacity-60' : '',
                   ].join(' ')}>
                 {/* A REAL PHOTO, LARGE, OR A NEUTRAL PLACEHOLDER — never a blank box. The absence
@@ -1424,7 +1443,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     </button>
                   </div>
                 ) : null}
-              </div>
+              </Card>
             );
           })}
         </div>

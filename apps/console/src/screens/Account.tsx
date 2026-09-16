@@ -26,15 +26,14 @@ import { KeyRound, MapPin, UserCog } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Field, Input } from '../rj-ui/Field';
 import { PageHeader } from '../rj-ui/PageHeader';
+import { Card } from '../rj-ui/Card';
 import { Segmented } from '../rj-ui/Segmented';
 import { TabBar } from '../rj-ui/TabBar';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { ConnectByBranch } from './Connect';
-import { AppGate } from './Locked';
-import { AiNotesCard, AiToggleCard, DataPane, InvoicesPane, KeysPane, MsgWordLimitCard, ShopPane,
-        WhatsAppVisitRegistrationCard, WhatsAppAutoRegisterCard } from './AccountPanes';
-import { PlansPane } from './Plans';
+import { DataPane, InvoicesPane, KeysPane, ShopPane } from './AccountPanes';
+import { BillingStatusPane } from './BillingStatusPane';
 import { WalletPane } from './Wallet';
 import { TeamScreen } from './Team';
 import { type BranchGate } from '../branches';
@@ -222,7 +221,7 @@ export function AccountScreen(
           A COLOURED ICON CIRCLE, not a bare text block — the same "identity card" language every
           other screen in this redesign pass now uses (Wallet.tsx's own KpiCard icons), so the
           person reading it recognises the pattern instead of meeting a fifth flat gray box. */}
-      <div className="flex items-center gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+      <Card className="flex items-center gap-3 p-4">
         <span aria-hidden
              className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-on-soft">
           <UserCog size={20} />
@@ -237,7 +236,7 @@ export function AccountScreen(
             <span className="text-sm text-danger">{t('account.myBranchReadFailed')}</span>
           ) : null}
         </div>
-      </div>
+      </Card>
 
       <div className="flex flex-col gap-1.5">
         {/* THE TOP-LEVEL SWITCHER FOR THE WHOLE PAGE — TabBar (rj-ui/TabBar.tsx), never Segmented:
@@ -262,15 +261,7 @@ export function AccountScreen(
 
       {active === 'billing' ? (
         <div className="flex flex-col gap-4">
-          <PlansPane
-            session={session}
-            catalog={catalog}
-            owned={owned}
-            // THE ONE SEAM BETWEEN TWO TABS, and it earns itself: a subscription cannot run without a
-            // connected number, so the pane that says so must be able to take him there — which is
-            // now a section on another tab rather than a tab of its own.
-            onGoConnect={() => setPane('shop')}
-          />
+          <BillingStatusPane session={session} catalog={catalog} />
         </div>
       ) : null}
 
@@ -307,35 +298,15 @@ export function AccountScreen(
               {/* PER_BRANCH SHOPS GET ONE CARD A BRANCH — `ConnectByBranch` itself decides between
                   the single establishment-wide card (every shop that never left `central` mode,
                   the overwhelming default) and a list, by reading `shop_mode`; nothing here needs
-                  to know which one it is. */}
+                  to know which one it is.
+                  THIS IS THE ONLY WHATSAPP CARD LEFT HERE, ON PURPOSE (2026-09-16, the owner's own
+                  instruction) — connecting the number itself is a GENERAL establishment fact, not
+                  something specific to the assistant bot (a shop could in principle connect the
+                  number for a future, non-AI use of the channel). Everything that configures the
+                  ASSISTANT's own behaviour moved to its own dedicated app screen —
+                  `WhatsAppAssistant.tsx`, reached from متجر التطبيقات like any other app, not
+                  buried three tabs deep in «حسابي». */}
               <ConnectByBranch session={session} catalog={catalog} />
-
-              {/* MOVED FROM «الهوية والإعدادات» 2026-09-07 — both configure the WhatsApp
-                  assistant's own behaviour (what it knows about this shop, how long a customer's
-                  message may be before it's refused), not the establishment's identity. A shop
-                  owner flagged the old placement directly.
-
-                  LOCKED BEHIND THE APP, NOT JUST THE CAPABILITY — found live: a shop with no
-                  WhatsApp bot bought at all could still type notes and set a word limit for an
-                  assistant that would never read either, because both cards only ever checked
-                  whether the OPERATOR'S ROLE could write, never whether the SHOP had bought the
-                  bot. Same shape as every other app's lock (Locked.tsx's own AppGate). */}
-              <AppGate appId="whatsapp" owned={owned} session={session} catalog={catalog}>
-                {/* THE MASTER SWITCH, FIRST — separate from the subscription itself (AppGate
-                    above already proved the shop bought the app); this is the owner's own
-                    runtime choice to keep the assistant quiet, reversible either direction. */}
-                <AiToggleCard session={session} catalog={catalog} />
-                <AiNotesCard session={session} catalog={catalog} />
-                <MsgWordLimitCard session={session} catalog={catalog} />
-                {/* ITS OWN, SECOND ownership check inside (feature.visit) — this shop already
-                   proved it owns واتساب to get this far (the AppGate above), but تسجيل الزيارة
-                   عبر واتساب needs تسجيل زيارة itself too. Silently absent rather than a second
-                   LockedCard stacked inside this tab — see the card's own header note. */}
-                <WhatsAppVisitRegistrationCard session={session} catalog={catalog} owned={owned} />
-                {/* ITS OWN, SECOND ownership check inside (feature.contacts) — same reasoning as
-                   تسجيل الزيارة عبر واتساب right above: واتساب alone doesn't imply جهات الاتصال. */}
-                <WhatsAppAutoRegisterCard session={session} catalog={catalog} />
-              </AppGate>
             </div>
           ) : null}
 
@@ -399,7 +370,7 @@ function ChangePasswordCard({ session, catalog }: { session: Session; catalog: C
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-center gap-2 text-sm font-medium text-text-secondary">
         <KeyRound size={16} /> {t('account.changePassword.title')}
       </div>
@@ -426,6 +397,6 @@ function ChangePasswordCard({ session, catalog }: { session: Session; catalog: C
         </Button>
         <Button type="button" variant="ghost" onClick={() => setOpen(false)}>{t('account.changePassword.cancel')}</Button>
       </div>
-    </div>
+    </Card>
   );
 }

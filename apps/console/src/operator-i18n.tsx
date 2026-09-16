@@ -23,7 +23,7 @@
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { getMyLocale, setMyLocale } from './api';
-import type { Session } from './session';
+import { isSignedIn, type Session } from './session';
 
 export type OperatorLocale = 'ar' | 'en' | 'ur' | 'ha' | 'fil' | 'bn';
 
@@ -119,6 +119,13 @@ export function OperatorI18nProvider({ session, children }: { session: Session; 
     const prev = locale;
     setSaveError(false);
     setLocaleState(l); // optimistic — the switch must feel instant, not wait on a round trip
+    // PRE-LOGIN, THERE IS NO ACCOUNT TO PERSIST AGAINST — a signed-out session legitimately
+    // refuses `setMyLocale` every time (no real account behind it yet), and reverting on that
+    // refusal would snap the Door screen's language back to Arabic right after every pick, which
+    // defeats the whole point of a switcher on a screen a non-Arabic visitor opens FIRST. The
+    // local choice sticks for the session instead; only a REAL signed-in account's failed save is
+    // worth reverting + surfacing as an error.
+    if (!isSignedIn(session)) return;
     setMyLocale(session, l).catch(() => { setLocaleState(prev); setSaveError(true); });
   }
 

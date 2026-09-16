@@ -4,6 +4,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
 import { Input } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
 import { Table, type TableColumn } from '../rj-ui/Table';
@@ -70,7 +71,7 @@ function VerifyChain({ session, action }: { session: AdminSession; action: Admin
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-4">
+    <Card className="flex flex-col gap-2 p-4">
       <div className="flex items-center justify-between gap-3">
         <span className="font-medium">تحقّق سلامة السلسلة</span>
         <Button type="button" size="sm" disabled={result === 'loading'} onClick={run}>
@@ -89,7 +90,7 @@ function VerifyChain({ session, action }: { session: AdminSession; action: Admin
           )}
         </div>
       ) : null}
-    </div>
+    </Card>
   );
 }
 

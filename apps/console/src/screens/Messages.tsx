@@ -47,6 +47,7 @@ import { TEMPLATE_STATUS_META, type TemplateStatus } from './templateStatus';
 import { Toggle } from '../rj-ui/Toggle';
 import { Button } from '../rj-ui/Button';
 import { AssistantHint } from '../AssistantHint';
+import { Card } from '../rj-ui/Card';
 import { BUTTON_ELIGIBLE_GOALS, FLOW_ELIGIBLE_GOALS, Launch } from './Launch';
 import { LockedCard } from './Locked';
 import { MessagePreview } from './MessagePreview';
@@ -696,7 +697,7 @@ function TodayCard({ today, session }: { today: Today; session: Session }) {
   const ceiling = today.ceiling ?? { known: false, unlimited: false };
   const quality = qualityLabel(t, ceiling.quality ?? '');
   return (
-    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4 shadow-sm">
+    <Card data-testid="today-card" className="flex flex-col gap-3 p-4">
       {today.blocked ? (
         <div className="flex items-start gap-2 rounded-lg bg-danger-soft p-3 text-sm text-danger-on-soft">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
@@ -727,7 +728,7 @@ function TodayCard({ today, session }: { today: Today; session: Session }) {
           <AssistantHint session={session} anchor="messages.ceiling" />
         </p>
       ) : null}
-    </section>
+    </Card>
   );
 }
 
@@ -1742,13 +1743,13 @@ export function MessagesScreen(
       ) : isLoading(campaigns) ? (
         // A DIFFERENT ABSENCE, KEPT SEPARATE: the shop HAS campaigns and this person may not use
         // them. Nothing to buy, so nothing to sell him — the sentence is about permission.
-        <section className="rounded-card bg-surface-1 p-4 text-center shadow-sm">
+        <Card className="p-4 text-center">
           <Lock size={20} className="mx-auto mb-3 text-text-secondary" aria-hidden />
           <EmptyState
             title={t('messages.campaigns.roleLockedTitle')}
             description={t('messages.campaigns.roleLockedDesc')}
           />
-        </section>
+        </Card>
       ) : (
         <section className="flex flex-col gap-4">
           {/* THE APPROVED MOCKUP'S OWN TWO SCREENS — never a button gating an empty state before
@@ -1888,7 +1889,7 @@ export function MessagesScreen(
                       answers for by name, so a shop with several campaigns never has to guess
                       which one this is describing. */}
                   {runsFor && runs ? (
-                    <div className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4 shadow-sm">
+                    <Card className="flex flex-col gap-3 p-4">
                       <div className="flex items-center justify-between gap-2">
                         <h3 className="font-medium">
                           {tf(t, 'messages.campaigns.detailTitle', {
@@ -1988,7 +1989,7 @@ export function MessagesScreen(
                           ))}
                         </ul>
                       )}
-                    </div>
+                    </Card>
                   ) : null}
                 </>
               )}

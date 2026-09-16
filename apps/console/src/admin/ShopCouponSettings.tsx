@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
 import { Field, Input } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
 import { EmptyState } from '../rj-ui/EmptyState';
@@ -103,7 +104,7 @@ function GlobalSettingsCard({ session, getAction, setAction }: {
   if (settings === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت قراءة الإعدادات.</p>;
 
   return (
-    <section className="flex flex-col gap-4 rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm">
+    <Card className="flex flex-col gap-4 p-5">
       <div>
         <h2 className="text-lg font-bold">السقف العام والشرائح التلقائية</h2>
         <p className="text-sm text-text-secondary">
@@ -169,7 +170,7 @@ function GlobalSettingsCard({ session, getAction, setAction }: {
       ) : null}
 
       {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
-    </section>
+    </Card>
   );
 }
 
@@ -240,7 +241,7 @@ function TenantOverrideCard({ session, lookupAction, overrideGetAction, override
   const isBlocked = override?.percent === 0;
 
   return (
-    <section className="flex flex-col gap-4 rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm">
+    <Card className="flex flex-col gap-4 p-5">
       <div>
         <h2 className="text-lg font-bold">سقف خاص لمحل معيّن</h2>
         <p className="text-sm text-text-secondary">
@@ -308,6 +309,6 @@ function TenantOverrideCard({ session, lookupAction, overrideGetAction, override
       ) : null}
 
       {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
-    </section>
+    </Card>
   );
 }

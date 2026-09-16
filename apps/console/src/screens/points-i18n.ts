@@ -13,6 +13,7 @@ import { registerOperatorStrings } from '../operator-i18n';
 
 registerOperatorStrings({
   ar: {
+    'points.title': 'نقاطي',
     'points.percentValue': '{n}٪',
     'points.type.service.label': 'من خدماتي',
     'points.type.service.hint': 'يختار ما يحصل عليه مما تقدّمه — خدمةً كان أو منتجاً',
@@ -97,6 +98,7 @@ registerOperatorStrings({
     'points.returnToGeneral': 'العودة إلى العام',
   },
   en: {
+    'points.title': 'My points',
     'points.percentValue': '{n}%',
     'points.type.service.label': 'From my services',
     'points.type.service.hint': 'He picks what he gets from what you offer — a service or a product',
@@ -181,6 +183,7 @@ registerOperatorStrings({
     'points.returnToGeneral': 'Return to general',
   },
   ur: {
+    'points.title': 'میرے پوائنٹس',
     'points.percentValue': '{n}٪',
     'points.type.service.label': 'میری خدمات میں سے',
     'points.type.service.hint': 'وہ چیز چنیں جو آپ کی پیشکش میں سے ملے — خدمت ہو یا مصنوعہ',
@@ -265,6 +268,7 @@ registerOperatorStrings({
     'points.returnToGeneral': 'عمومی کی طرف واپس جائیں',
   },
   ha: {
+    'points.title': 'Makina',
     'points.percentValue': '{n}%',
     'points.type.service.label': 'Daga sabis na',
     'points.type.service.hint': 'Yana zaɓar abin da zai samu daga abin da kake bayarwa — sabis ko kaya',
@@ -349,6 +353,7 @@ registerOperatorStrings({
     'points.returnToGeneral': 'Koma zuwa na gama gari',
   },
   fil: {
+    'points.title': 'Mga puntos ko',
     'points.percentValue': '{n}%',
     'points.type.service.label': 'Mula sa mga serbisyo ko',
     'points.type.service.hint': 'Pipiliin niya kung ano ang makukuha niya mula sa inaalok mo — serbisyo man o produkto',
@@ -433,6 +438,7 @@ registerOperatorStrings({
     'points.returnToGeneral': 'Bumalik sa general',
   },
   bn: {
+    'points.title': 'আমার পয়েন্ট',
     'points.percentValue': '{n}%',
     'points.type.service.label': 'আমার সেবা থেকে',
     'points.type.service.hint': 'সে বেছে নেবে আপনার দেওয়া সেবা বা পণ্য থেকে কী পাবে',

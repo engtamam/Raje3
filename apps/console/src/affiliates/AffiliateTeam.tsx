@@ -14,10 +14,11 @@
 import { useEffect, useState } from 'react';
 import { Users, CheckCircle2, XCircle, QrCode } from 'lucide-react';
 import QRCode from 'qrcode';
-import { Button } from '@base-ui/design-system/Button';
-import { Badge } from '@base-ui/design-system/Badge';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
-import { EmptyState } from '@base-ui/design-system/EmptyState';
+import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
+import { Badge } from '../rj-ui/Badge';
+import { Skeleton } from '../rj-ui/Skeleton';
+import { EmptyState } from '../rj-ui/EmptyState';
 import { riyalsLabel } from '../money';
 import { PerformanceStats } from './AffiliateEarnings';
 import {
@@ -62,7 +63,7 @@ function ReferralLinkSection({ session }: { session: AffiliateSession }) {
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-5 shadow-sm">
+    <Card className="flex flex-col gap-3 p-5">
       <div>
         <h2 className="text-lg">أضف عضواً لفريقك</h2>
         <p className="mt-1 text-sm text-text-secondary">
@@ -75,7 +76,7 @@ function ReferralLinkSection({ session }: { session: AffiliateSession }) {
         <Button type="button" onClick={copy}>{copied ? 'تم النسخ' : 'نسخ'}</Button>
         <QrDownloadButton link={link} />
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -117,7 +118,7 @@ function TeamRoster({ session }: { session: AffiliateSession }) {
   if (data === 'failed') return <EmptyState title="تعذّرت قراءة الفريق" />;
 
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-center gap-2 text-sm font-medium text-text-secondary">
         <Users size={16} /> أرباح فريقك
       </div>
@@ -166,7 +167,7 @@ function TeamRoster({ session }: { session: AffiliateSession }) {
           })}
         </ul>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -190,7 +191,7 @@ function TeamWafaQueue({ session }: { session: AffiliateSession }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-text-secondary">طلبات دعم الوفاء بانتظارك</span>
         <Badge tone="warning">{rows.length}</Badge>
@@ -212,6 +213,6 @@ function TeamWafaQueue({ session }: { session: AffiliateSession }) {
           </li>
         ))}
       </ul>
-    </div>
+    </Card>
   );
 }

@@ -23,6 +23,7 @@
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Badge } from '../rj-ui/Badge';
+import { Card } from '../rj-ui/Card';
 import { halalas } from '../money';
 import { KpiCard } from '../rj-ui/KpiCard';
 import { AlertTriangle, Coins, Gift, Power, Users } from 'lucide-react';
@@ -280,7 +281,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
 
   return (
     <div className="flex flex-col gap-5 p-4">
-      <PageHeader icon={Gift} title="نقاطي" />
+      <PageHeader icon={Gift} title={t('points.title')} />
 
       {/* ── what the programme is costing him ────────────────────────────────────────────────
           FOUR NUMBERS NOW, AND TWO OF THEM CARRY COLOUR ON PURPOSE. Points outstanding are a debt
@@ -320,7 +321,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
           there is something to rank — a programme with zero redemptions has nothing here to say
           that the KPI above has not already said. */}
       {report?.top_rewards && report.top_rewards.length > 0 ? (
-        <div className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-4">
+        <Card className="flex flex-col gap-2 p-4">
           <h2 className="text-sm font-medium text-text-secondary">{t('points.topRewards.title')}</h2>
           <ul className="flex flex-col divide-y divide-border-subtle">
             {report.top_rewards.map(([name, count]) => (
@@ -330,7 +331,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
               </li>
             ))}
           </ul>
-        </div>
+        </Card>
       ) : null}
 
       <Segmented
@@ -522,7 +523,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
               grants twice for one transaction — an error that does not show on the screen but at
               the end of the month, as an obligation double what he expected. */}
           {canSetMode ? (
-            <div className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+            <Card className="flex flex-col gap-3 p-4">
               <Head title={t('points.mode.title')}
                     said={t('points.mode.said')} />
               <Segmented
@@ -581,11 +582,11 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   {t('points.mode.needsPricedServices')}
                 </p>
               ) : null}
-            </div>
+            </Card>
           ) : null}
 
           {canSetGeneral ? (
-            <div className="rounded-card border border-border-subtle bg-surface-1 p-4">
+            <Card className="p-4">
               <label className="flex items-center justify-between gap-3">
                 <span className="flex flex-col">
                   <span className="text-sm">{t('points.general.label')}</span>
@@ -665,7 +666,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   className="h-10 w-28 rounded-lg bg-surface-2 px-3 text-center tabular-nums"
                 />
               </label>
-            </div>
+            </Card>
           ) : null}
 
           {/* ── points for a whole GROUP of services ────────────────────────────────────────
@@ -678,7 +679,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
               settings the engine returns, so there is no second place to define a group and no way
               for the two to disagree. */}
           {canSetGroup && groupNames.length > 0 ? (
-            <div className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+            <Card className="flex flex-col gap-3 p-4">
               <Head title={t('points.group.title')}
                     said={t('points.group.said')} />
               <ul className="flex flex-col gap-2">
@@ -723,11 +724,11 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   </li>
                 ))}
               </ul>
-            </div>
+            </Card>
           ) : null}
 
           {canSetService && (services ?? []).length > 0 ? (
-            <div className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+            <Card className="flex flex-col gap-3 p-4">
               <Head title={t('points.perService.title')}
                     said={t('points.perService.said')} />
               <ul className="flex flex-col gap-2">
@@ -780,7 +781,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   );
                 })}
               </ul>
-            </div>
+            </Card>
           ) : null}
         </section>
       )}

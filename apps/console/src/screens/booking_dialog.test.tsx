@@ -5,7 +5,7 @@
  * nobody was ever told the read had failed (م · النمط 1).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render as rtlRender, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
 import type { CustomerHit } from '../api';
 import { OperatorI18nProvider } from '../operator-i18n';
 
@@ -77,5 +77,20 @@ describe('BookingDialog — a failed loyalty read, named', () => {
     open();
     await screen.findByText('قص شعر');
     expect(screen.queryByText(/تعذّرت قراءة نقاط هذا العميل وعروضه/)).toBeNull();
+  });
+});
+
+describe('BookingDialog — quantity', () => {
+  it('a service selected with 2× doubles the shown total duration', async () => {
+    earnMock = () => Promise.resolve({ services: {}, groups: {}, service_group: {}, general: {}, packages: {} });
+    customerByPhoneMock = () => Promise.resolve({ customer: { subject_ref: 'ref1' } });
+    open();
+    await screen.findByText('قص شعر');
+
+    fireEvent.click(screen.getByRole('button', { name: /قص شعر/ }));
+    await waitFor(() => expect(screen.getByText('المدة الإجمالية: 30 دقيقة')).toBeTruthy());
+
+    fireEvent.click(screen.getByLabelText('زيادة الكمية'));
+    await waitFor(() => expect(screen.getByText('المدة الإجمالية: 60 دقيقة')).toBeTruthy());
   });
 });

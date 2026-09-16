@@ -138,7 +138,9 @@ def worded() -> set[str]:
     # Arabic sentences to translation keys resolved through plans-i18n.ts. A key present here is
     # still exactly "the pricing page has a sentence for it somewhere", which is all this asks.
     #
-    text = (ROOT / "apps" / "console" / "src" / "screens" / "Plans.tsx").read_text(encoding="utf-8")
+    # MOVED to `billingShared.tsx` (2026-09-16) — `screens/Plans.tsx` is deleted; `LIMIT_KEYS`
+    # itself is unchanged, just re-homed alongside the other shared billing logic.
+    text = (ROOT / "apps" / "console" / "src" / "billingShared.tsx").read_text(encoding="utf-8")
     block = text.split("LIMIT_KEYS", 1)[-1].split("};", 1)[0]
     # COUNTERS TOO, and the same reasoning exactly. A limit with no sentence is not rendered —
     # so a shop comparing plans sees no seat count, no branch count and no message cap, while all

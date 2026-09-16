@@ -8,8 +8,8 @@
  * billing-service's `subscribe`, which is read-only to us; saying the truth we already hold is not.
  */
 import { describe, expect, it } from 'vitest';
-import { distinctRenewalDays, unreadSentence } from './Plans';
-import type { Owned } from '../apps';
+import { distinctRenewalDays, unreadSentence } from './billingShared';
+import type { Owned } from './apps';
 
 const DAY = 86_400;
 const JAN_3 = Date.UTC(2026, 0, 3) / 1000;

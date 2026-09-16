@@ -92,18 +92,17 @@ export interface AppRow {
    *  stays enforced exactly like every other action. Absent for base/visit/contacts/rating: those
    *  come inline. */
   featuresAction?: string;
+  /** WHERE TO OPEN IT when `section` is empty — an app that adds to an EXISTING screen instead of
+   *  owning a rail row of its own (صفقات's own cards inside «محلّي», واتساب's own config tab
+   *  inside «حسابي»). The launcher's own catalog (`launcherCatalog.ts::allApps`) reads this so
+   *  «كل التطبيقات» can still offer a real tile for it — the old متجر التطبيقات screen sold every
+   *  row here regardless of whether it owned a page, and the launcher silently dropped the two
+   *  that don't until this field existed (found live: the owner's own comparison against the old
+   *  store screen). */
+  openPath?: string;
 }
 
 export const APP_ROWS: AppRow[] = [
-  {
-    id: 'base',
-    key: null,
-    name: 'الأساس',
-    what: 'عملاؤك وزياراتهم وخدماتك، وتأكيد الزيارة والتذكير بها، وربط صندوقك.',
-    section: '',
-    onCustomer: 'الزيارات، والخدمات التي أخذها',
-    icon: 'layers', tone: 'accent',
-  },
   {
     id: 'campaigns',
     key: 'feature.campaigns',
@@ -146,6 +145,7 @@ export const APP_ROWS: AppRow[] = [
     onCustomer: '',
     icon: 'sparkles', tone: 'info',
     featuresAction: 'insights.features',
+    openPath: '/shop',
   },
   // BUILT AND WIRED — the whole pipeline (per-shop Flow clone, the template's real flow_button,
   // the send/receive round-trip, its own dedicated «التقييم» rail section gated on
@@ -177,7 +177,11 @@ export const APP_ROWS: AppRow[] = [
     key: 'feature.contacts',
     name: 'جهات الاتصال',
     what: 'يبني لك قاعدة عملاء حقيقية من أول يوم لافتتاح محلك، تصبح أصلاً تسوّق عليه متى شئت.',
-    section: '',
+    // «عملائي» IS THIS APP'S OWN SECTION — the owner's own instruction (2026-09-16): جهات الاتصال
+    // was listed here with no section at all (it used to have nowhere of its own to open), leaving
+    // it invisible to the launcher's «تطبيقاتي» shelf, which only lists rows with a section. Tied
+    // to nav.ts's `customers` id — the same rail row `Customer.tsx`/`Bookings.tsx` already open.
+    section: 'customers',
     onCustomer: '',
     icon: 'user-plus', tone: 'accent',
     // NO featuresAction — see «التقييم»'s own note above; operations owns this row too.
@@ -212,6 +216,10 @@ export const APP_ROWS: AppRow[] = [
     onCustomer: '',
     icon: 'message-circle', tone: 'accent',
     featuresAction: 'whatsapp_assistant.features',
+    // ITS OWN DEDICATED WORKSPACE (2026-09-16) — `WhatsAppAssistant.tsx`, not «حسابي»'s own
+    // ربط واتساب tab (that tab stays a GENERAL establishment fact, the owner's own instruction:
+    // "ربط الواتساب مكانه صحيح ما نغيره لانه عام مو مخصص للبوات").
+    openPath: '/whatsapp-assistant',
   },
   // «تحالف استراتيجي» — shop-to-shop: a discount on ANOTHER registered shop's own subscription
   // with us, applied at its next renewal (deploy/seed/plans.json's own note on this row, and

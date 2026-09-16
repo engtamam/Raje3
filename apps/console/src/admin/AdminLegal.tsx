@@ -27,9 +27,10 @@ import { FilePlus2, FileText, FileClock, CircleDot } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Field, Input, Textarea } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
+import { Card } from '../rj-ui/Card';
 import { Segmented } from '../rj-ui/Segmented';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
-import { BlockView, type Block } from '@base-ui/components/BlockRenderer';
+import { BlockView, type Block } from '../../../../ui/packages/ui/src/components/BlockRenderer';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
 import { sentenceFor } from '../api';
@@ -291,7 +292,7 @@ export function AdminLegal({ session }: { session: AdminSession }) {
                 {Array.isArray(history) ? (
                   <div className="flex flex-col gap-1.5">
                     {history.map((v) => (
-                      <div key={v.version} className="flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-1 px-3 py-2 text-sm">
+                      <Card key={v.version} className="flex items-center gap-2 px-3 py-2 text-sm">
                         <FileText size={14} className="text-text-secondary" />
                         <span dir="ltr" className="font-mono">{v.version}</span>
                         <Badge tone={v.status === 'published' ? 'success' : 'neutral'}>
@@ -310,7 +311,7 @@ export function AdminLegal({ session }: { session: AdminSession }) {
                                 onClick={() => setVersion(`${(Number(v.version) || 0) + 0.1 || '2.0'}`)}>
                           إصدار نسخة تالية
                         </button>
-                      </div>
+                      </Card>
                     ))}
                   </div>
                 ) : null}
@@ -319,7 +320,7 @@ export function AdminLegal({ session }: { session: AdminSession }) {
               <p className="text-sm text-text-secondary">اكتب معرّف (slug) لنوع مستند لم يوجد من قبل — أي نص حر، مثل <span dir="ltr" className="font-mono">refund-policy</span>.</p>
             )}
 
-            <section className="flex flex-col gap-4 rounded-2xl border border-border-subtle bg-surface-1 p-4">
+            <Card className="flex flex-col gap-4 p-4">
               <h2 className="text-lg font-medium">
                 {selected === '__new__' ? 'نوع مستند جديد' : 'إصدار نسخة جديدة'}
               </h2>
@@ -383,7 +384,7 @@ export function AdminLegal({ session }: { session: AdminSession }) {
                 <Button onClick={doDraft} disabled={!canDraft || busy}>حفظ كمسوّدة</Button>
                 <Button onClick={() => setArmPublish(true)} disabled={!drafted || busy} variant="danger">نشر</Button>
               </div>
-            </section>
+            </Card>
           </div>
         ) : (
           <p className="p-6 text-sm text-text-secondary">اختر نوع مستند من القائمة، أو ابدأ نوعاً جديداً.</p>

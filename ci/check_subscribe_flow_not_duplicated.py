@@ -10,6 +10,13 @@ every rule in it the hard way (see its own header note — د-15's gateway/token
 it out for `Locked.tsx`'s inline buy button to reuse. A third copy is how the two quietly drift —
 one honours `plan.requires_any`'s ordering and the other forgets it.
 
+`screens/Plans.tsx` IS DELETED (2026-09-16, [[task-app-store-redesign-7-phases]]) — every app
+purchase moved to the launcher, whose own `launcher/useAppBilling.ts` reads this same
+fallback order directly (it also owns cancel/discount/capacity, which `useSubscribeFlow` was
+never built to carry, so it is not simply routed through that hook instead). It replaces
+`screens/Plans.tsx` in the allowed set below for the same reason that file was allowed: it is a
+deliberate second real caller, not an accidental third copy.
+
 So this gate is narrow on purpose: a real STRING LITERAL of either action id may appear only in
 the two files that are allowed to call it. Everywhere else — including a brand-new app's own
 locked card or route — reads a plan through `useSubscribeFlow` instead, same as `Locked.tsx`.
@@ -32,7 +39,7 @@ SRC = ROOT / "apps/console/src"
 
 ALLOWED = {
     SRC / "subscribeFlow.ts",
-    SRC / "screens/Plans.tsx",
+    SRC / "launcher/useAppBilling.ts",
 }
 
 ACTION_IDS = re.compile(r"""['"](subscription\.activate|billing\.subscribe)['"]""")

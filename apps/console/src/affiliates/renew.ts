@@ -11,6 +11,14 @@
  * See `../renew.ts` for the full reasoning (early-renewal window, shared in-flight promise, why a
  * network failure is not a sign-out); this file only differs in which storage key and event name
  * it owns, since the two sessions must never cross-trigger each other's re-render.
+ *
+ * CROSS-TAB LOCK, SAME FIX AS `../renew.ts` (2026-09-16, found live on the shop console, ported
+ * here for the identical reason): the in-flight promise below only ever covered one tab's own JS
+ * memory. Two tabs of the same signed-in session share the same stored tokens and hit the same
+ * expiry at the same moment; each fires `/auth/refresh` with the same refresh token, and
+ * identity-service's rotation treats that concurrent reuse as theft — it revokes the WHOLE
+ * session, not just the loser. `navigator.locks` serializes every tab of this origin through the
+ * same named lock, and the winner of the wait re-reads storage before ever touching the network.
  */
 import { KEY } from './session';
 import type { AffiliateSession } from './api';
@@ -63,36 +71,50 @@ function stored(): AffiliateSession | null {
   }
 }
 
+const LOCK_NAME = 'raje3-affiliate-token-refresh';
+
 /** Trade the refresh token for a new bearer. Returns '' when renewal is impossible or refused. */
 export function renew(): Promise<string> {
   if (inFlight) return inFlight;
 
-  const s = stored();
-  if (!s?.refresh_token) return Promise.resolve('');
-
   inFlight = (async () => {
     try {
-      const res = await fetch(`${BASE}/api/v1/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: s.refresh_token }),
-      });
-      if (!res.ok) return '';
-      const body = (await res.json()) as { access_token?: string; refresh_token?: string };
-      const token = body.access_token || '';
-      if (!token) return '';
-      const next: AffiliateSession = {
-        ...s, access_token: token, refresh_token: body.refresh_token || s.refresh_token,
-      };
-      localStorage.setItem(KEY, JSON.stringify(next));
-      window.dispatchEvent(new Event(AFFILIATE_SESSION_RENEWED));
-      return token;
-    } catch {
-      return '';
+      if (typeof navigator !== 'undefined' && 'locks' in navigator) {
+        return await navigator.locks.request(LOCK_NAME, doRenew);
+      }
+      return await doRenew();
     } finally {
       inFlight = null;
     }
   })();
 
   return inFlight;
+}
+
+async function doRenew(): Promise<string> {
+  const s = stored();
+  if (!s?.refresh_token) return '';
+  if (s.access_token) {
+    const left = expiresAt(s.access_token) - Math.floor(Date.now() / 1000);
+    if (left > EARLY_SECONDS) return s.access_token;
+  }
+  try {
+    const res = await fetch(`${BASE}/api/v1/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: s.refresh_token }),
+    });
+    if (!res.ok) return '';
+    const body = (await res.json()) as { access_token?: string; refresh_token?: string };
+    const token = body.access_token || '';
+    if (!token) return '';
+    const next: AffiliateSession = {
+      ...s, access_token: token, refresh_token: body.refresh_token || s.refresh_token,
+    };
+    localStorage.setItem(KEY, JSON.stringify(next));
+    window.dispatchEvent(new Event(AFFILIATE_SESSION_RENEWED));
+    return token;
+  } catch {
+    return '';
+  }
 }

@@ -12,7 +12,11 @@ import {
 } from './operator-i18n';
 import type { Session } from './session';
 
-const SESSION = { token: 'tok-1' } as Session;
+// `tenant` MUST be present alongside `token` — `isSignedIn()` (session.ts) requires both, and a
+// fixture missing it silently fails that check: `setLocale` then takes its pre-login branch (the
+// optimistic switch sticks, `setMyLocale` is never even called) instead of the signed-in
+// write/rollback path these very tests exist to exercise.
+const SESSION = { tenant: 't1', token: 'tok-1' } as Session;
 
 let getMyLocaleMock: ReturnType<typeof vi.fn>;
 let setMyLocaleMock: ReturnType<typeof vi.fn>;

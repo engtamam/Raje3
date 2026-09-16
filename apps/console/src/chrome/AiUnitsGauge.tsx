@@ -1,0 +1,101 @@
+/**
+ * «مقياس وحدات الذكاء الاصطناعي» — a real-time donut in the top bar, the owner's own instruction
+ * (2026-09-16): "الشريط العلوي نقدر نستغله ونسوي رسم بياني... يعرض عدد الوحدات اللي عنده حالياً
+ * سواء المضمّنة أو اللي اشتراها من خلال شحن المحفظة".
+ *
+ * TWO DIFFERENT NUMBERS, ON PURPOSE — never confused with each other again after the owner caught
+ * exactly this on the app tile (`AppPriceStrip`/`AiUnitsChip` in `AppDetailsModal.tsx`): the CARD
+ * shows the plan's own INCLUDED allowance (a fixed fact about the price, from `Plan.prices[].
+ * included_credit_minor`) — this gauge shows the LIVE remaining BALANCE (`wallet.my_balance`),
+ * split by source (included vs a manual top-up), and it depletes as the month is used.
+ *
+ * SHOWN WHENEVER HE HOLDS THE APP, EVEN AT A REAL ZERO — found live (owner's own report): gating
+ * on `remaining > 0` alone hid the gauge the moment a subscribed shop's balance actually hit zero,
+ * which is exactly the moment a zero balance is most worth seeing. Gated on owning
+ * `feature.whatsapp` (`owns(owned, 'feature.whatsapp')`) OR still holding a leftover manual
+ * top-up balance — a shop that cancelled the bot but still has unspent top-up money keeps seeing
+ * it until that runs out too.
+ */
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Zap } from 'lucide-react';
+import { action, call, type Catalog } from '../catalog';
+import { unitsLabel, type WalletBalance } from '../screens/Wallet';
+import { owns, type Owned } from '../apps';
+import type { Loading } from '../loading';
+import type { Session } from '../session';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './top-bar-i18n';
+
+const R = 15;
+const STROKE = 4;
+const CIRCUMFERENCE = 2 * Math.PI * R;
+
+export function AiUnitsGauge({ session, catalog, owned }: { session: Session; catalog: Catalog; owned: Loading<Owned> }) {
+  const { t } = useOperatorI18n();
+  const navigate = useNavigate();
+  const [wallet, setWallet] = useState<WalletBalance | null | undefined>(undefined);
+  const [unitsPerHalala, setUnitsPerHalala] = useState<number | null>(null);
+
+  useEffect(() => {
+    const a = action(catalog, 'wallet.my_balance');
+    if (!a) { setWallet(null); return; }
+    call<WalletBalance>(session, a).then(setWallet).catch(() => setWallet(null));
+  }, [session, catalog]);
+
+  useEffect(() => {
+    const a = action(catalog, 'whatsapp_assistant.pricing_current');
+    if (!a) return;
+    call<{ ai_unit_units_per_halala: number }>(session, a)
+      .then((x) => setUnitsPerHalala(x.ai_unit_units_per_halala))
+      .catch(() => {});
+  }, [session, catalog]);
+
+  if (!wallet) return null;
+
+  const at = (name: string) => Math.max(0, (wallet.funds?.[name] ?? 0) - (wallet.held?.[name] ?? 0));
+  const included = at('ai_credit');
+  const topup = at('topup');
+  const total = included + topup;
+  // SUBSCRIBED, OR STILL HOLDING LEFTOVER TOP-UP MONEY — either keeps the gauge on screen even at
+  // a real zero balance. Neither: a shop that never had the bot and never topped up sees nothing.
+  const subscribed = owns(owned, 'feature.whatsapp') === true;
+  if (!subscribed && total <= 0) return null;
+
+  const includedFrac = total > 0 ? included / total : 0;
+  const includedLen = includedFrac * CIRCUMFERENCE;
+  const topupLen = CIRCUMFERENCE - includedLen;
+
+  return (
+    <button
+      type="button"
+      onClick={() => navigate('/whatsapp-assistant')}
+      title={tf(t, 'topBar.aiUnits.breakdown', {
+        included: unitsLabel(included, unitsPerHalala, t),
+        topup: unitsLabel(topup, unitsPerHalala, t),
+      })}
+      aria-label={t('topBar.aiUnits.label')}
+      className="grid size-9 shrink-0 place-items-center rounded-full text-text-secondary transition hover:bg-surface-1 hover:text-text-primary focus-ring"
+    >
+      <span className="relative grid size-7 place-items-center">
+        <svg viewBox="0 0 36 36" className="absolute inset-0 size-7 -rotate-90">
+          <circle cx="18" cy="18" r={R} fill="none" stroke="currentColor" strokeWidth={STROKE} className="text-border-subtle" opacity={0.4} />
+          {included > 0 ? (
+            <circle
+              cx="18" cy="18" r={R} fill="none" stroke="#7c3aed" strokeWidth={STROKE} strokeLinecap="round"
+              strokeDasharray={`${includedLen} ${CIRCUMFERENCE - includedLen}`}
+            />
+          ) : null}
+          {topup > 0 ? (
+            <circle
+              cx="18" cy="18" r={R} fill="none" stroke="#d4af37" strokeWidth={STROKE} strokeLinecap="round"
+              strokeDasharray={`${topupLen} ${CIRCUMFERENCE - topupLen}`}
+              strokeDashoffset={-includedLen}
+            />
+          ) : null}
+        </svg>
+        <Zap size={12} className="relative" />
+      </span>
+    </button>
+  );
+}

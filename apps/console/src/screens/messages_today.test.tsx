@@ -72,11 +72,13 @@ describe('«الحملات» — the status card', () => {
   it('shows the three counts and the ceiling when sending is not blocked', async () => {
     todayResponse = TODAY_OK;
     open();
-    const sentToday = await screen.findByText('12');
-    // SCOPED TO THE CARD ITSELF — «لوحة الحملات»'s own KPI tiles (2026-09-12) render a real
-    // campaign count on the same page, and a plain shop with two campaigns makes "2" ambiguous
-    // read from the whole document.
-    const card = sentToday.closest('section')!;
+    await screen.findByText('12');
+    // SCOPED TO THE CARD ITSELF, BY TESTID NOW — «لوحة الحملات»'s own KPI tiles (2026-09-12)
+    // render a real campaign count on the same page, and a plain shop with two campaigns makes
+    // "2" ambiguous read from the whole document. `.closest('section')` broke the day TodayCard
+    // migrated to the shared <Card> primitive (a `<div>`, 2026-09-16) — a stable testid survives
+    // whatever element the card renders as.
+    const card = screen.getByTestId('today-card');
     expect(within(card).getByText('3')).toBeTruthy();
     expect(within(card).getByText('2')).toBeTruthy();
     expect(within(card).getByText(/رسائل تحاول الخروج/)).toBeTruthy();

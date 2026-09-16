@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Handshake, Store } from 'lucide-react';
 import { PageHeader } from '../rj-ui/PageHeader';
+import { Card } from '../rj-ui/Card';
 import { KpiCard } from '../rj-ui/KpiCard';
 import { TabBar } from '../rj-ui/TabBar';
 import { Badge } from '../rj-ui/Badge';
@@ -278,7 +279,7 @@ export function CouponsScreen({ session, catalog }: { session: Session; catalog:
       <p className="-mt-2 text-sm text-text-secondary">{t('coupons.subtitle')}</p>
 
       {sallaInstallAction ? (
-        <div className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-4 shadow-sm">
+        <Card className="flex flex-col gap-2 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Store size={18} className="text-text-secondary" />
@@ -314,23 +315,23 @@ export function CouponsScreen({ session, catalog }: { session: Session; catalog:
           {sallaError ? (
             <p className="text-xs font-semibold text-danger" role="alert">{sallaError}</p>
           ) : null}
-        </div>
+        </Card>
       ) : null}
 
       {prefsSetAction && visitGrantEnabled !== null ? (
-        <div className="flex items-center justify-between gap-3 rounded-card border border-border-subtle bg-surface-1 p-4 shadow-sm">
+        <Card className="flex items-center justify-between gap-3 p-4">
           <div>
             <p className="text-sm font-bold">{t('coupons.prefs.title')}</p>
             <p className="text-xs text-text-secondary">{t('coupons.prefs.desc')}</p>
           </div>
           <Toggle checked={visitGrantEnabled} onChange={onTogglePrefs} disabled={prefsSaving}
                  ariaLabel={t('coupons.prefs.title')} testId="coupon-prefs-toggle" />
-        </div>
+        </Card>
       ) : null}
 
       {/* ── grant form ──────────────────────────────────────────────────────────────────── */}
       {grantAction ? (
-        <div className="flex flex-col gap-4 rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm">
+        <Card className="flex flex-col gap-4 p-5">
           <p className="text-sm font-bold">{t('coupons.grant.title')}</p>
           <div className="flex flex-wrap items-end gap-4">
             <Field label={t('coupons.grant.phoneLabel')}>
@@ -396,7 +397,7 @@ export function CouponsScreen({ session, catalog }: { session: Session; catalog:
               {result.text}
             </div>
           ) : null}
-        </div>
+        </Card>
       ) : null}
 
       {/* ── tabs ────────────────────────────────────────────────────────────────────────── */}
@@ -505,7 +506,7 @@ function StatsTab({ stats, t, locale }: {
                 value={`${stats.ceiling_percent}%`} tone="neutral" testId="coupon-kpi-ceiling" />
       </div>
 
-      <div className="rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm">
+      <Card className="p-5">
         <p className="mb-3 text-sm font-bold">{t('coupons.stats.ladder.title')}</p>
         <TierLadder rungs={rungs} testId="coupon-ladder" />
         <p className="mt-3 text-center text-xs text-text-secondary">
@@ -518,14 +519,14 @@ function StatsTab({ stats, t, locale }: {
         <p className="mt-2 border-t border-dashed border-border-subtle pt-2 text-center text-xs text-text-tertiary">
           {tf(t, 'coupons.stats.ceilingNote', { p: stats.ceiling_percent })}
         </p>
-      </div>
+      </Card>
 
-      <div className="rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm">
+      <Card className="p-5">
         <p className="mb-3 text-sm font-bold">{t('coupons.stats.chart.title')}</p>
         <BarCompare
           items={stats.history.map((h) => ({ label: monthLabel(h.month_key, locale), value: h.grants }))}
         />
-      </div>
+      </Card>
     </div>
   );
 }

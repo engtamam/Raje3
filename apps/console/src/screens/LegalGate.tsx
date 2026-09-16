@@ -19,7 +19,7 @@
  */
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { isReady } from '../loading';
-import { AcceptTerms, type OutstandingDoc } from '@base-ui/auth/AcceptTerms';
+import { AcceptTerms, type OutstandingDoc } from '../../../../ui/packages/ui/src/auth/AcceptTerms';
 import { AGREED_KEY } from '../auth';
 import { action, call, type Catalog } from '../catalog';
 import { announceExpiry } from '../expired';

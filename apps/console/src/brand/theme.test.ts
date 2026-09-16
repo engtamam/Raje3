@@ -16,17 +16,19 @@ describe('راجِع theme', () => {
   it('applies the real product accent — violet, not a leftover gold', () => {
     applyRaje3();
     const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-    expect(accent.toLowerCase()).toBe('#6a4cf5');
+    // config/product.json's own `brand.accent.light` — the ONE place this colour is authored.
+    expect(accent.toLowerCase()).toBe('#7c3aed');
   });
 
   it('forces the light appearance — the field screen must never render dark', () => {
     applyRaje3();
     const surface0 = getComputedStyle(document.documentElement).getPropertyValue('--surface-0').trim();
-    // The dark theme's ground is a near-black plum; light's is a clean near-white grey (rebranded
-    // 2026-09-14, the owner's own instruction: white ground + violet accent, retiring the warm
-    // paper cream from 2026-09-12). Cheap, reliable signal without importing the palette module
+    // The dark theme's ground is a near-black plum; light's is a clean, glossy pure white
+    // (rebranded 2026-09-16, second pass same day — the first pass's violet-tinted grey still
+    // read "ممل", so the page itself went fully white, with `shadow`/`card-sheen` doing the lift a
+    // tinted ground used to). Cheap, reliable signal without importing the palette module
     // directly into a test that should watch the DOM.
-    expect(surface0.toLowerCase()).toBe('#f7f8fa');
+    expect(surface0.toLowerCase()).toBe('#ffffff');
   });
 
   it('sets Arabic as the document direction', () => {

@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { Search, User, XCircle } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
 import { Field, Input } from '../rj-ui/Field';
 import type { AdminAction } from './catalog';
 import { req, type AdminSession } from './api';
@@ -47,7 +48,7 @@ export function CustomerByPhoneLookup({ session, action, onFound, foundNote }: {
   };
 
   return (
-    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+    <Card className="flex flex-col gap-3 p-4">
       <h2 className="font-medium">ابحث عن عميل</h2>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <Field label="المنشأة (tenant)" className="flex-1">
@@ -86,6 +87,6 @@ export function CustomerByPhoneLookup({ session, action, onFound, foundNote }: {
           </div>
         </div>
       ) : null}
-    </section>
+    </Card>
   );
 }

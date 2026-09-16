@@ -17,8 +17,9 @@
  */
 import { useEffect, useState } from 'react';
 import { CircleUserRound, LogOut, Wallet, KeyRound } from 'lucide-react';
-import { Button } from '@base-ui/design-system/Button';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
+import { Skeleton } from '../rj-ui/Skeleton';
 import {
   AffiliateRefused, me, payoutMethod, setPayoutMethod, changePassword, PAYOUT_CHANNELS,
   type AffiliateSession, type Me, type PayoutMethod,
@@ -50,7 +51,7 @@ export function AffiliateAccount({ session, onSignOut }: {
       {who === 'loading' ? (
         <Skeleton height={90} />
       ) : (
-        <div className="flex items-center gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+        <Card className="flex items-center gap-3 p-4">
           <div className="grid size-12 shrink-0 place-items-center rounded-full bg-surface-2 text-text-muted">
             <CircleUserRound size={24} />
           </div>
@@ -62,7 +63,7 @@ export function AffiliateAccount({ session, onSignOut }: {
               <span className="text-sm text-text-secondary">{ROLE_LABEL[who.role] ?? who.role}</span>
             ) : null}
           </div>
-        </div>
+        </Card>
       )}
 
       <PayoutMethodCard session={session} />
@@ -102,7 +103,7 @@ function PayoutMethodCard({ session }: { session: AffiliateSession }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-center gap-2 text-sm font-medium text-text-secondary">
         <Wallet size={16} /> طريقة استلام أرباحك
       </div>
@@ -127,7 +128,7 @@ function PayoutMethodCard({ session }: { session: AffiliateSession }) {
           <Button type="button" onClick={() => setEditing(true)}>إضافة</Button>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -152,7 +153,7 @@ function PayoutMethodForm({ session, current, onDone, onCancel }: {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-center gap-2 text-sm font-medium text-text-secondary">
         <Wallet size={16} /> {current ? 'تغيير طريقة الاستلام' : 'إضافة طريقة استلام'}
       </div>
@@ -188,7 +189,7 @@ function PayoutMethodForm({ session, current, onDone, onCancel }: {
         <Button type="button" disabled={busy || !accountRef.trim()} onClick={save}>حفظ</Button>
         <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>إلغاء</Button>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -228,7 +229,7 @@ function ChangePasswordCard({ session }: { session: AffiliateSession }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-center gap-2 text-sm font-medium text-text-secondary">
         <KeyRound size={16} /> تغيير كلمة المرور
       </div>
@@ -259,6 +260,6 @@ function ChangePasswordCard({ session }: { session: AffiliateSession }) {
           إلغاء
         </Button>
       </div>
-    </div>
+    </Card>
   );
 }

@@ -25,13 +25,14 @@ import {
   MessageCircle, PhoneOff, Send, Sparkles, Store, UserX, XCircle,
 } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
 import { Field, Input, Select } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
 import { KpiCard } from '../rj-ui/KpiCard';
 import { Segmented } from '../rj-ui/Segmented';
 import { TabBar } from '../rj-ui/TabBar';
 import { Modal } from '../rj-ui/Modal';
-import { BlockView, type Block } from '@base-ui/components/BlockRenderer';
+import { BlockView, type Block } from '../../../../ui/packages/ui/src/components/BlockRenderer';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
 import { sentenceFor } from '../api';
@@ -430,7 +431,7 @@ function MetaStatusSection({ session, action }: { session: AdminSession; action:
     ? Math.round((d.sent / (d.sent + d.failed)) * 100) : null;
 
   return (
-    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-center justify-between gap-2">
         <div>
           <h2 className="font-medium">حالة واتساب المنصة</h2>
@@ -515,7 +516,7 @@ function MetaStatusSection({ session, action }: { session: AdminSession; action:
           </table>
         </div>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -907,7 +908,7 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       {/* ── تعديلات مجدولة قادمة ─────────────────────────────────────────────────────────── */}
-      <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+      <Card className="flex flex-col gap-3 p-4">
         <h3 className="font-medium">تعديلات مجدولة قادمة</h3>
         {pending === 'loading' ? (
           <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
@@ -932,10 +933,10 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
             ))}
           </div>
         )}
-      </section>
+      </Card>
 
       {/* ── وحدات الذكاء — سعر عرض ثابت حول تكلفة حقيقية بالنموذج ───────────────────────────── */}
-      <section className="flex flex-col gap-4 rounded-card border border-border-subtle bg-surface-1 p-4 lg:col-span-2">
+      <Card className="flex flex-col gap-4 p-4 lg:col-span-2">
         <div>
           <h3 className="font-medium">إعدادات وحدات الذكاء</h3>
           <p className="text-label text-text-secondary">
@@ -1051,7 +1052,7 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
             {aiUnitScheduleDone ? <p className="text-success text-sm">تمّت الجدولة.</p> : null}
           </div>
         ) : null}
-      </section>
+      </Card>
     </div>
   );
 }

@@ -28,7 +28,7 @@ import { asLocal } from '../phone';
 import { digitsOnly } from '../digits';
 import type { ScopeBranch } from '../branch-scope';
 import { riyals } from '../money';
-import { PAYMENT_COLOR, PAYMENT_LABEL, PAYMENT_ORDER, type PaymentStatus } from '../bookingPayment';
+import { PAYMENT_COLOR, PAYMENT_ORDER, paymentLabel, type PaymentStatus } from '../bookingPayment';
 import { FilterMenu } from '../rj-ui/FilterMenu';
 import type { Session } from '../session';
 import { AssistantHint } from '../AssistantHint';
@@ -777,7 +777,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                          style={v === filterPayment
                            ? { background: PAYMENT_COLOR[v].fg, color: 'var(--rj-bg)' }
                            : { background: PAYMENT_COLOR[v].bg, color: PAYMENT_COLOR[v].fg }}>
-                    {PAYMENT_LABEL[v]}
+                    {paymentLabel(v, t)}
                   </button>
                 ))}
               </div>
@@ -804,7 +804,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 {t('bookings.filters')}
                 {activeFilterCount ? (
                   <span className="grid h-4 w-4 place-items-center rounded-full text-[10px] font-bold"
-                       style={{ background: 'var(--rj-info)', color: '#ffffff' }}>
+                       style={{ background: 'var(--rj-info)', color: 'var(--accent-contrast)' }}>
                     {activeFilterCount}
                   </span>
                 ) : null}
@@ -852,7 +852,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                                style={v === filterPayment
                                  ? { background: PAYMENT_COLOR[v].fg, color: 'var(--rj-bg)' }
                                  : { background: PAYMENT_COLOR[v].bg, color: PAYMENT_COLOR[v].fg }}>
-                          {PAYMENT_LABEL[v]}
+                          {paymentLabel(v, t)}
                         </button>
                       ))}
                     </div>
@@ -1162,7 +1162,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                       >
                         <span
                           className="pointer-events-none absolute inset-inline-end-1.5 top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[9px] font-bold shadow-sm group-hover:block"
-                          style={{ background: 'var(--rj-ink)', color: '#ffffff' }}>
+                          style={{ background: 'var(--rj-ink)', color: 'var(--accent-contrast)' }}>
                           {timeLabel(t, m)}
                         </span>
                       </button>
@@ -1280,7 +1280,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                               ? tf(t, 'bookings.deposit', { amount: riyals(b.deposit_amount_minor) })
                               : pay === 'paid' && price !== null
                                 ? tf(t, 'bookings.paid', { amount: riyals(price) })
-                                : pay !== 'none' ? PAYMENT_LABEL[pay] : null;
+                                : pay !== 'none' ? paymentLabel(pay, t) : null;
                             const payPill = payLabel ? (
                               <span
                                 className="shrink-0 truncate rounded-full px-1.5 py-px text-[10px] font-bold leading-tight"
@@ -1313,7 +1313,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                             const payShort = pay === 'deposit' && b.deposit_amount_minor
                               ? riyals(b.deposit_amount_minor)
                               : pay === 'paid' && price !== null ? riyals(price)
-                              : pay !== 'none' ? PAYMENT_LABEL[pay] : null;
+                              : pay !== 'none' ? paymentLabel(pay, t) : null;
                             // FULL LABEL WHEN THERE IS ROOM, THE NUMBER ALONE WHEN THERE IS NOT
                             // — a single-lane day-view card has plenty of width even at this
                             // height (a quick 15-minute service); only week view or a shared
@@ -1429,7 +1429,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
         aria-label={t('bookings.newBooking')}
         title={t('bookings.newBooking')}
         className="fixed bottom-6 inset-inline-end-6 z-20 grid h-14 w-14 place-items-center rounded-full shadow-glow transition-transform active:scale-95"
-        style={{ background: 'var(--rj-accent)', color: '#ffffff' }}
+        style={{ background: 'var(--rj-accent)', color: 'var(--accent-contrast)' }}
       >
         <Plus size={24} aria-hidden />
       </button>
@@ -1662,7 +1662,7 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
               const payLabel = pay === 'deposit' && b.deposit_amount_minor
                 ? tf(t, 'bookings.deposit', { amount: riyals(b.deposit_amount_minor) })
                 : pay === 'paid' && price !== null ? tf(t, 'bookings.paid', { amount: riyals(price) })
-                  : pay !== 'none' ? PAYMENT_LABEL[pay] : null;
+                  : pay !== 'none' ? paymentLabel(pay, t) : null;
               return (
                 <Fragment key={b.id}>
                   {/* A DAY HEADER ROW ONLY WHEN THE DATE ACTUALLY CHANGES — a single day's list
@@ -1807,7 +1807,7 @@ function CustomerHistoryList({ entries, nameOf, serviceNameOf, priceMinorOf, onO
                 const payLabel = pay === 'deposit' && b.deposit_amount_minor
                   ? tf(t, 'bookings.deposit', { amount: riyals(b.deposit_amount_minor) })
                   : pay === 'paid' && price !== null ? tf(t, 'bookings.paid', { amount: riyals(price) })
-                    : pay !== 'none' ? PAYMENT_LABEL[pay] : null;
+                    : pay !== 'none' ? paymentLabel(pay, t) : null;
                 return (
                   <button type="button" onClick={() => onOpenBooking(b)}
                          className="flex w-full items-center gap-3 border-b px-4 py-3 text-start transition-colors last:border-b-0 hover:brightness-[0.98]"
@@ -1943,7 +1943,7 @@ function BookingActions({ booking, operatorLabel, services, priceMinorOf, servic
                        style={{ background: PAYMENT_COLOR[pay].bg, color: PAYMENT_COLOR[pay].fg }}>
                     {pay === 'deposit' && booking.deposit_amount_minor
                       ? tf(t, 'bookings.depositRiyal', { amount: riyals(booking.deposit_amount_minor) })
-                      : PAYMENT_LABEL[pay]}
+                      : paymentLabel(pay, t)}
                   </span>
                 ) : null}
                 {priceMinor !== null ? (

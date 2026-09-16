@@ -5,20 +5,15 @@
 /* THE FIELD IS NOT A DESKTOP. Three rules that only matter on a tablet on a workbench: no text
    selection when a big button is held a moment too long, no tap highlight flashing over an
    already-confirmed choice, and no rubber-band scroll on a screen that does not scroll. */
-/* `overflow: hidden` ADDED HERE 2026-09-14 — BUG FIXED: `AppShell.tsx`'s own shell is
-   `h-screen overflow-hidden` and hands ALL scrolling to its own `<main overflow-y-auto>`; the
-   document itself was never meant to scroll on its own. But `height: 100%` alone does not
-   GUARANTEE that — a sub-pixel rounding mismatch in the height:100% chain (html → body → #root),
-   invisible on an ordinary page, became a real, scrollable few pixels of DOCUMENT-level overflow
-   the moment the root font-size stopped being the browser default (rootFontPct, applyTheme.ts) —
-   and only crossed the one-pixel threshold a browser actually shows a scrollbar for on the
-   TALLEST page in the product (شاشة إنشاء الحملة, by far the longest conditional form here), which
-   is exactly the one screen the owner reported it on. A second, independent scrollbar appeared
-   over the sidebar (hovering it scrolls the whole DOCUMENT, not the app's own internal region) —
-   confirmed live, not guessed. `overflow: hidden` here removes the possibility outright, on any
-   page, regardless of root font-size: the shell's own internal scroll stays the only one that
-   can ever exist. */
-html, body, #root { height: 100%; overflow: hidden; overscroll-behavior: none; }
+/* `overflow: hidden` REMOVED HERE (2026-09-16) — it was added 2026-09-14 for a shell (`AppShell`'s
+   own `h-screen overflow-hidden` + internal `<main overflow-y-auto>`) that no longer exists: the
+   sidebar rail (and the second, competing scrollbar it could produce) is gone entirely
+   ([[task-app-store-redesign-7-phases]]'s last step), and `ConsoleLayout.tsx` is a plain
+   document-flow page with no internal scroll container of its own. Leaving `overflow: hidden`
+   here after that shell was removed left the WHOLE PAGE unable to scroll at all (found live) —
+   the fix that once prevented a rare double-scrollbar became a total scroll lock the moment its
+   own reason stopped being true. Natural document scroll is correct again now. */
+html, body, #root { height: 100%; overscroll-behavior: none; }
 body { -webkit-tap-highlight-color: transparent; }
 
 /* THE WEBFONT TOKEN, ACTUALLY APPLIED — fixed 2026-09-12, a real gap this rebrand found:
@@ -102,15 +97,20 @@ button { user-select: none; -webkit-user-select: none; touch-action: manipulatio
  * white + violet (theme.config.ts's `light.surface-0`). This file's third re-hue chased the paper
  * rebrand it was matching at the time; it was never touched again when that rebrand changed under
  * it, so this screen kept rendering the retired cream ground while the rest of the product had
- * already moved on — the exact "second divergence" its own header warns against. `--rj-bg`/
- * `--rj-line` now follow `surface-0`/`border-subtle` directly; `--rj-ink`/`--rj-ink-soft` follow
- * `text-primary`/`text-secondary`. */
+ * already moved on — the exact "second divergence" its own header warns against.
+ *
+ * RE-HUED A FIFTH TIME 2026-09-16, AND THIS TIME BY REFERENCE NOT VALUE — the fourth re-hue's own
+ * comment already said "follows surface-0/border-subtle/text-primary/text-secondary directly" but
+ * still hardcoded a hex snapshot of them, which is exactly how it drifted the time before that.
+ * `var(--surface-0)` etc. read the live token theme.config.ts emits, so a future palette pass
+ * (like the violet-neutral one just applied there) reaches this screen automatically instead of
+ * needing a sixth manual re-hue here. */
 .rj-grid {
-  --rj-bg: #f7f8fa;
-  --rj-surface: #ffffff;
-  --rj-ink: #14161c;
-  --rj-ink-soft: #5b6270;
-  --rj-line: #dde0e7;
+  --rj-bg: var(--surface-0);
+  --rj-surface: var(--surface-1);
+  --rj-ink: var(--text-primary);
+  --rj-ink-soft: var(--text-secondary);
+  --rj-line: var(--border-subtle);
   --rj-accent: #5c1b7a;
   --rj-accent-soft: #f1e4f8;
   --rj-accent-deep: #3d0f54;
@@ -359,6 +359,45 @@ button.bg-transparent.text-text-secondary:hover {
 }
 @media (prefers-reduced-motion: reduce) {
   .rj-gold-card::before { animation: none; }
+}
+
+/* ── THE GENERAL-PURPOSE GLOSS — the owner's own instruction 2026-09-16: "ما ابغ شي باهت كلها
+ * لازم تكون لميعه" (nothing dull — everything must be glossy). `.rj-gold-card` above already
+ * proves the technique (a diagonal light sweep, animated) but is scoped to ONE gift-card's own
+ * dark-gold palette override. This is that same sweep, generalised: any surface-1 card can opt in
+ * with `className="rj-sheen"` to pick up a subtle accent-tinted sheen ON TOP OF WHATEVER PALETTE
+ * IT ALREADY HAS (light or dark, violet or otherwise) — no token overrides, unlike the gold card,
+ * so it composes with the new violet-neutral light palette instead of replacing it. This is the
+ * shared primitive the app-store redesign's own new card/tile components should build on, rather
+ * than each one re-inventing its own gradient sweep the way `.rj-gold-card` had to before this
+ * existed. */
+.rj-sheen {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.rj-sheen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 35%,
+    color-mix(in srgb, var(--accent) 22%, transparent) 48%,
+    transparent 62%
+  );
+  background-size: 240% 240%;
+  animation: rj-sheen-sweep 6s ease-in-out infinite;
+}
+.rj-sheen > * { position: relative; z-index: 1; }
+@keyframes rj-sheen-sweep {
+  0% { background-position: 200% 0%; }
+  55%, 100% { background-position: -80% 0%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rj-sheen::before { animation: none; }
 }
 
 /* ── THE DISCOUNT-PREVIEW BADGE — a small gold pill, not a whole gold card ──────────────────────

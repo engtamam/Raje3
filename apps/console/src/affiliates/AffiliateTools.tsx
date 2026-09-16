@@ -22,10 +22,11 @@ import {
   MessagesSquare, Quote, Search as SearchIcon, ChevronRight, Plus, Pencil, Ban, Copy, Check,
   BarChart3, Ticket, Send,
 } from 'lucide-react';
-import { Button } from '@base-ui/design-system/Button';
-import { Badge } from '@base-ui/design-system/Badge';
-import { EmptyState } from '@base-ui/design-system/EmptyState';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
+import { Badge } from '../rj-ui/Badge';
+import { EmptyState } from '../rj-ui/EmptyState';
+import { Skeleton } from '../rj-ui/Skeleton';
 import {
   AffiliateRefused, me, outreachStages, templates, templateStats, templateKindStats,
   createTemplate, updateTemplate,
@@ -322,7 +323,7 @@ function TemplateForm({ session, stages, defaultStage, existing, onDone }: {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <label className="flex flex-col gap-1 text-sm text-text-secondary">
         المرحلة
         <select value={stageCode} onChange={(e) => setStageCode(e.target.value)}
@@ -343,7 +344,7 @@ function TemplateForm({ session, stages, defaultStage, existing, onDone }: {
       <Button type="button" disabled={busy || !title.trim() || !stageCode} onClick={save}>
         حفظ
       </Button>
-    </div>
+    </Card>
   );
 }
 
@@ -471,7 +472,7 @@ function CitationForm({ session, existing, onDone }: {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان قصير"
              className="h-11 rounded-md border border-border-strong bg-surface-0 px-3 text-sm" />
       <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4}
@@ -489,7 +490,7 @@ function CitationForm({ session, existing, onDone }: {
       <Button type="button" disabled={busy || !title.trim() || !body.trim()} onClick={save}>
         حفظ
       </Button>
-    </div>
+    </Card>
   );
 }
 
@@ -529,10 +530,10 @@ function LeadSearchTool({ session, onBack }: { session: AffiliateSession; onBack
       <BackRow onBack={onBack} title="أداة البحث عن عملاء محتملين" />
 
       {keyReady && keyReady.set && !showKeyForm ? (
-        <div className="flex items-center justify-between rounded-card bg-surface-1 p-4 shadow-sm">
+        <Card className="flex items-center justify-between p-4">
           <span className="text-sm text-text-secondary">مفتاح خرائط جوجل: {keyReady.hint}</span>
           <Button type="button" variant="ghost" onClick={() => setShowKeyForm(true)}>تغيير</Button>
-        </div>
+        </Card>
       ) : null}
 
       {!keyReady ? <Skeleton height={56} /> : (!keyReady.set || showKeyForm) ? (
@@ -620,7 +621,7 @@ function PlacesKeyForm({ session, hasKey, onDone }: {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <h2 className="text-sm font-medium text-text-secondary">مفتاح خرائط جوجل الخاص بك</h2>
       <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} dir="ltr"
              placeholder="AIza..."
@@ -634,7 +635,7 @@ function PlacesKeyForm({ session, hasKey, onDone }: {
           </Button>
         ) : null}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -672,7 +673,7 @@ function StartSearchForm({ session, onDone, onCancel }: {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <input value={sectorCode} onChange={(e) => setSectorCode(e.target.value)}
              placeholder="رمز القطاع (مثال: salons)"
              className="h-11 rounded-md border border-border-strong bg-surface-0 px-3 text-sm" />
@@ -697,7 +698,7 @@ function StartSearchForm({ session, onDone, onCancel }: {
         <Button type="button" disabled={busy} onClick={submit}>ابدأ البحث</Button>
         <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>إلغاء</Button>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -913,7 +914,7 @@ function NewTicketForm({ session, tenant, onDone, onCancel }: {
   return (
     <div className="flex flex-col gap-4 p-6">
       <BackRow onBack={onCancel} title="تذكرة جديدة" />
-      <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+      <Card className="flex flex-col gap-3 p-4">
         <input value={type} onChange={(e) => setType(e.target.value)} placeholder="نوع المشكلة"
                className="h-11 rounded-md border border-border-strong bg-surface-0 px-3 text-sm" />
         <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="عنوان (اختياري)"
@@ -923,7 +924,7 @@ function NewTicketForm({ session, tenant, onDone, onCancel }: {
                  className="rounded-md border border-border-strong bg-surface-0 p-3 text-sm" />
         {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
         <Button type="button" disabled={busy || !type.trim()} onClick={submit}>فتح التذكرة</Button>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -948,12 +949,12 @@ function TicketThread({ session, tenant, ticket, onBack }: {
     <div className="flex flex-col gap-4 p-6">
       <BackRow onBack={onBack} title={ticket.subject || ticket.type || 'التذكرة'} />
 
-      <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+      <Card className="flex flex-col gap-2 p-4">
         {ticket.status ? <Badge tone="neutral">{ticket.status}</Badge> : null}
         <p className="text-sm">{ticket.body}</p>
-      </div>
+      </Card>
 
-      <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+      <Card className="flex flex-col gap-2 p-4">
         <textarea value={reply} onChange={(e) => { setReply(e.target.value); setSent(false); }} rows={4}
                  placeholder="اكتب ردّك"
                  className="rounded-md border border-border-strong bg-surface-0 p-3 text-sm" />
@@ -963,7 +964,7 @@ function TicketThread({ session, tenant, ticket, onBack }: {
                className="flex items-center justify-center gap-2">
           <Send size={16} /> إرسال الردّ
         </Button>
-      </div>
+      </Card>
     </div>
   );
 }

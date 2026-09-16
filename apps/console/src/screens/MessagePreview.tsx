@@ -20,11 +20,12 @@ import { useEffect, useState } from 'react';
 // the top dialog binds Escape when two are open together. rj-ui/Modal is single-dialog only by
 // its own scope note; swapping just this one half of the pair would not make them coordinate —
 // the registry only knows about other kit Modals — so both stay on it rather than one.
-import { Modal } from '@base-ui/design-system/Modal';
+import { Modal } from '../../../../ui/packages/ui/src/design-system/Modal';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { isDenied, isReady, DENIED, hasFailed, isLoading, type Loading } from '../loading';
 import { Skeleton } from '../rj-ui/Skeleton';
+import { Card } from '../rj-ui/Card';
 import { Check, ExternalLink, Eye, Lock, Sparkles } from 'lucide-react';
 import { TextEditor, type Mandatory, type Slot } from './TextEditor';
 import { action, call, type Catalog } from '../catalog';
@@ -450,7 +451,7 @@ export function MessagePreview({
                           {/* THE FLOW, OPENED FOR REAL — only for the row whose button was
                               actually pressed; a second row's bubble stays a static preview. */}
                           {(o.buttons ?? []).some((b) => b.flow_name && (openFlow === 'loading' || openFlow?.name === b.flow_name)) ? (
-                            <div className="flex flex-col items-center gap-2 rounded-card border border-border-subtle bg-surface-1 p-3">
+                            <Card className="flex flex-col items-center gap-2 p-3">
                               {openFlow === 'loading' ? (
                                 <>
                                   <Skeleton height={16} width={120} />
@@ -459,7 +460,7 @@ export function MessagePreview({
                               ) : openFlow ? (
                                 <WaFlowScreens flow={openFlow.flow} onDone={() => setOpenFlow(null)} />
                               ) : null}
-                            </div>
+                            </Card>
                           ) : null}
                           {flowError && (o.buttons ?? []).some((b) => b.kind === 'flow') ? (
                             <p role="alert" className="text-xs text-danger">{flowError}</p>
@@ -588,7 +589,8 @@ export function MessagePreview({
       {/* THE SAME MOCKUP لوحة الإدارة يستخدمها — same engine, same chrome, same "بالضبط ما يستلمه
           العميل" promise, for whichever wording he pressed «معاينة على واتساب» on. Nested INSIDE
           this screen's own Modal on purpose — see this file's own header note on why this screen
-          stays on `@base-ui/design-system/Modal`: its stacking registry is exactly what lets a
+          stays on the shared `ui/packages/ui/src/design-system/Modal` (no local `@base-ui` alias
+          any more, just a plain relative import to the same component): its stacking registry is exactly what lets a
           second dialog open on top of the first without either losing Escape/focus handling. */}
       {phonePreview ? (
         <Modal open onClose={() => setPhonePreview(null)} title={t('messagePreview.previewOnWhatsapp')}

@@ -10,6 +10,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
 import { Input, Select } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
 import { EmptyState } from '../rj-ui/EmptyState';
@@ -194,7 +195,7 @@ function ServiceSecretsCard({ session, svc, onReload }: {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+    <Card className="flex flex-col gap-3 p-4">
       <h2 className="text-lg font-semibold">{svc.service}</h2>
       {svc.rows === 'loading' ? (
         <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
@@ -262,6 +263,6 @@ function ServiceSecretsCard({ session, svc, onReload }: {
                     title={`مسح "${nameChoices?.find((c) => c.value === armClear)?.label ?? armClear}"؟`}
                     body={nameChoices?.find((c) => c.value === armClear)?.impact ??
                           'أي اتصال يعتمد عليه سيتوقف فوراً حتى يُضبَط سرّ بديل.'} />
-    </section>
+    </Card>
   );
 }

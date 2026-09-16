@@ -24,8 +24,8 @@
  * turned on, with no change needed here.
  */
 import { useMemo, useState, type FormEvent } from 'react';
-import { Button } from '@base-ui/design-system/Button';
-import { Field, Input } from '@base-ui/design-system/Field';
+import { Button } from '../rj-ui/Button';
+import { Field, Input } from '../rj-ui/Field';
 import { Segmented } from '../rj-ui/Segmented';
 import { DoorLayout } from '../screens/DoorLayout';
 import { western } from '../digits';

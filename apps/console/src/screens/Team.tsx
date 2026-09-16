@@ -20,6 +20,7 @@
  */
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Field, Input, Select } from '../rj-ui/Field';
 import { Segmented } from '../rj-ui/Segmented';
@@ -376,7 +377,7 @@ export function People({ session, operators, branches, add, edit, hire, setHours
   if (isLoading(operators)) return <Skeleton height={200} />;
 
   return (
-    <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       {hasFailed(operators) ? (
         // «لا يوجد موظفون بعد» INVITES HIM TO ADD PEOPLE HE ALREADY HAS. Said after a failed read
         // it is an instruction to redo work, on the screen that decides who sees whose data.
@@ -552,7 +553,7 @@ export function People({ session, operators, branches, add, edit, hire, setHours
           </div>
         </form>
       ) : null}
-    </section>
+    </Card>
   );
 }
 
@@ -1010,18 +1011,18 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
   if (gate === 'role') {
     // NOTHING TO SELL HIM HERE. The shop may own branches already; this is one person's role.
     return (
-      <section className="rounded-card bg-surface-1 p-6 text-center shadow-sm">
+      <Card className="p-6 text-center">
         <Lock size={20} className="mx-auto mb-3 text-text-secondary" aria-hidden />
         <p className="text-text-primary">{t('team.branches.roleLockedTitle')}</p>
         <p className="mt-1 text-sm text-text-secondary">{t('team.branches.roleLockedDesc')}</p>
-      </section>
+      </Card>
     );
   }
   if (gate === 'plan') {
     // THE ENTITLEMENT, AND ONLY WHEN BILLING SAID SO. Hidden, an owner cannot discover that branches
     // exist — and cannot buy them. The sentence names the app store because that is what he acts on.
     return (
-      <section className="rounded-card bg-surface-1 p-6 text-center shadow-sm">
+      <Card className="p-6 text-center">
         <Lock size={20} className="mx-auto mb-3 text-text-secondary" aria-hidden />
         <p className="text-text-primary">{t('team.branches.planLockedTitle')}</p>
         <p className="mt-1 text-sm text-text-secondary">
@@ -1036,7 +1037,7 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
         >
           {t('team.branches.openStore')}
         </Link>
-      </section>
+      </Card>
     );
   }
 
@@ -1106,7 +1107,7 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
           made it read as a per-branch switch — and it is not one: `operations.shop_vehicles` is a
           fact about the WHOLE establishment, and a shop cannot work on cars in one branch and not
           another. It belongs with the shop's identity, which is where it now is. */}
-      <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+      <Card className="flex flex-col gap-3 p-4">
       {isLoading(branches) ? (
         <Skeleton height={120} />
       ) : hasFailed(branches) || branches.length === 0 ? (
@@ -1213,7 +1214,7 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
           </div>
         </form>
       ) : null}
-      </section>
+      </Card>
     </div>
   );
 }
@@ -1265,7 +1266,7 @@ export function VehiclesCard({ session, catalog }: { session: Session; catalog: 
   if (!read || tracks === null) return null;
 
   return (
-    <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-2 p-4">
       <div className="flex items-center justify-between gap-3">
         <span className="flex flex-col">
           <span className="text-sm font-medium">{t('team.vehicles.title')}</span>
@@ -1277,7 +1278,7 @@ export function VehiclesCard({ session, catalog }: { session: Session; catalog: 
                ariaLabel={t('team.vehicles.ariaLabel')} testId="vehicles-toggle" />
       </div>
       {error ? <p className="text-sm text-danger">{error}</p> : null}
-    </section>
+    </Card>
   );
 }
 
@@ -1326,7 +1327,7 @@ function ModeCard({ session, catalog }: { session: Session; catalog: Catalog }) 
   const per = mode.mode === 'per_branch';
 
   return (
-    <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-2 p-4">
       <h3 className="font-medium">{t('team.mode.title')}</h3>
       <p className="text-sm text-text-secondary">
         {per
@@ -1360,7 +1361,7 @@ function ModeCard({ session, catalog }: { session: Session; catalog: Catalog }) 
         </p>
       )}
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
-    </section>
+    </Card>
   );
 }
 

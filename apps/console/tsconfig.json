@@ -12,8 +12,6 @@
     "types": ["vitest/globals", "node"],
     "baseUrl": ".",
     "paths": {
-      "@base-ui/*": ["../../ui/packages/ui/src/*"],
-
       "//": [
         "THE KIT LIVES OUTSIDE THIS APP, so TypeScript resolves ITS bare imports by walking up",
         "from ui/ and never reaches our node_modules. Its components then compile with any",

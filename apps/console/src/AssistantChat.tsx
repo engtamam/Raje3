@@ -17,6 +17,7 @@
 import { useRef, useState } from 'react';
 import { Send } from 'lucide-react';
 import { Button } from './rj-ui/Button';
+import { Card } from './rj-ui/Card';
 import { Input } from './rj-ui/Field';
 import { askAssistant, sentenceFor, type AssistantAnswer } from './api';
 import type { Session } from './session';
@@ -57,7 +58,7 @@ export function AssistantChat({ session, surface }: { session: Session; surface:
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <p className="text-sm text-text-secondary">
         {t('assistantChat.intro')}
       </p>
@@ -112,6 +113,6 @@ export function AssistantChat({ session, surface }: { session: Session; surface:
           <Send size={16} aria-hidden /> {t('assistantChat.send')}
         </Button>
       </form>
-    </div>
+    </Card>
   );
 }

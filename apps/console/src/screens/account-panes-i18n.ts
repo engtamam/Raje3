@@ -13,6 +13,7 @@ import { registerOperatorStrings } from '../operator-i18n';
 
 registerOperatorStrings({
   ar: {
+    'accountPanes.listSeparator': '، ',
     'accountPanes.noReadPermission': 'لا تملك صلاحية عرض بيانات المنشأة.',
     'accountPanes.noBrandPermission': 'لا تملك صلاحية تعديل الهوية.',
     'accountPanes.noNamePermission': 'لا تملك صلاحية تغيير اسم المحل.',
@@ -129,6 +130,7 @@ registerOperatorStrings({
     'accountPanes.keys.revoke': 'سحب المفتاح',
   },
   en: {
+    'accountPanes.listSeparator': ', ',
     'accountPanes.noReadPermission': "You don't have permission to view the establishment's data.",
     'accountPanes.noBrandPermission': "You don't have permission to edit the identity.",
     'accountPanes.noNamePermission': "You don't have permission to change the shop's name.",
@@ -245,6 +247,7 @@ registerOperatorStrings({
     'accountPanes.keys.revoke': 'Revoke key',
   },
   ur: {
+    'accountPanes.listSeparator': '، ',
     'accountPanes.noReadPermission': 'آپ کے پاس تنصیب کا ڈیٹا دیکھنے کی اجازت نہیں۔',
     'accountPanes.noBrandPermission': 'آپ کے پاس شناخت میں ترمیم کی اجازت نہیں۔',
     'accountPanes.noNamePermission': 'آپ کے پاس دکان کا نام تبدیل کرنے کی اجازت نہیں۔',
@@ -361,6 +364,7 @@ registerOperatorStrings({
     'accountPanes.keys.revoke': 'کلید واپس لیں',
   },
   ha: {
+    'accountPanes.listSeparator': ', ',
     'accountPanes.noReadPermission': "Ba ka da izinin duba bayanan kamfanin.",
     'accountPanes.noBrandPermission': 'Ba ka da izinin gyara shaida.',
     'accountPanes.noNamePermission': 'Ba ka da izinin canza sunan shago.',
@@ -477,6 +481,7 @@ registerOperatorStrings({
     'accountPanes.keys.revoke': 'Soke makulli',
   },
   fil: {
+    'accountPanes.listSeparator': ', ',
     'accountPanes.noReadPermission': "Wala kang pahintulot na makita ang data ng negosyo.",
     'accountPanes.noBrandPermission': "Wala kang pahintulot na i-edit ang identity.",
     'accountPanes.noNamePermission': "Wala kang pahintulot na baguhin ang pangalan ng tindahan.",
@@ -593,6 +598,7 @@ registerOperatorStrings({
     'accountPanes.keys.revoke': 'Bawiin ang key',
   },
   bn: {
+    'accountPanes.listSeparator': ', ',
     'accountPanes.noReadPermission': 'প্রতিষ্ঠানের তথ্য দেখার অনুমতি আপনার নেই।',
     'accountPanes.noBrandPermission': 'পরিচয় সম্পাদনার অনুমতি আপনার নেই।',
     'accountPanes.noNamePermission': 'দোকানের নাম পরিবর্তনের অনুমতি আপনার নেই।',

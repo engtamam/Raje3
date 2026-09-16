@@ -22,11 +22,12 @@ import { AppFeatureList, appIcon, toneClasses } from '../rj-ui/AppFeatureList';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
 import { action, call, type Catalog } from '../catalog';
 import { hasFailed, isReady, type Loading } from '../loading';
 import { STORE_PATH } from '../nav';
 import { APP_ROWS, owns, type Owned } from '../apps';
-import { missingRequirement } from './Plans';
+import { missingRequirement } from '../billingShared';
 import { CardForm } from './CardForm';
 import { useSubscribeFlow } from '../subscribeFlow';
 import type { Session } from '../session';
@@ -65,7 +66,7 @@ export function LockedCard({ appId, session, catalog, owned }: {
   // falls back to the store link — never a dead button pretending to buy.
   const canBuyHere = Boolean(plan) && !lockedNote && flow.live(plan);
   return (
-    <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <header className="flex items-center gap-2.5">
         <span aria-hidden className={['grid h-10 w-10 shrink-0 place-items-center rounded-full', toneClasses(row.tone)].join(' ')}>
           <Icon size={18} />
@@ -116,7 +117,7 @@ export function LockedCard({ appId, session, catalog, owned }: {
           {t('locked.addFromStore')}
         </Link>
       )}
-    </section>
+    </Card>
   );
 }
 

@@ -19,7 +19,8 @@
 import { useEffect, useState } from 'react';
 import { QrCode } from 'lucide-react';
 import QRCode from 'qrcode';
-import { Button } from '@base-ui/design-system/Button';
+import { Button } from '../rj-ui/Button';
+import { Card } from '../rj-ui/Card';
 import { riyalsLabel } from '../money';
 import { home, type AffiliateSession, type Home, type HomeTicket } from './api';
 import { TicketCarousel } from './TicketCarousel';
@@ -104,7 +105,7 @@ function UrgentLeadsCard({ data }: { data: Home }) {
 function EarningsCard({ data }: { data: Home }) {
   const { balance } = data;
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-5 shadow-sm">
+    <Card className="flex flex-col gap-3 p-5">
       <span className="text-label font-medium text-text-secondary">رصيدك الجاهز للسحب</span>
       <span className="text-4xl font-semibold leading-none tracking-tight tabular-nums">
         {riyalsLabel(balance.confirmed_available_halalas)}
@@ -132,7 +133,7 @@ function EarningsCard({ data }: { data: Home }) {
       ) : data.pending_withdrawal ? (
         <p className="text-xs text-text-secondary">طلب سحبك الحالي قيد المراجعة.</p>
       ) : null}
-    </div>
+    </Card>
   );
 }
 
@@ -145,7 +146,7 @@ function EligibilityRow({ data }: { data: Home }) {
   const emp = data.employment_eligibility;
   const empPct = Math.min(100, Math.round((emp.converted_customers / emp.threshold) * 100));
   return (
-    <div className="flex gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex gap-3 p-4">
       <Meter
         label="محلات نشِطة"
         value={`${wafa.active_shops} / ${wafa.tier_shops}`}
@@ -160,7 +161,7 @@ function EligibilityRow({ data }: { data: Home }) {
         pct={empPct}
         note={emp.eligible ? 'مؤهَّل للترشّح لوظيفة الآن' : `${emp.customers_until_eligible} للترشّح لوظيفة`}
       />
-    </div>
+    </Card>
   );
 }
 
@@ -185,7 +186,7 @@ function TopTemplateCard({ data }: { data: Home }) {
   const t = data.top_template_this_period;
   if (!t) return null;
   return (
-    <div className="flex items-center justify-between rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex items-center justify-between p-4">
       <div className="flex flex-col">
         <span className="text-sm font-medium">{t.title}</span>
         <span className="text-xs text-text-secondary">أفضل قالب يشتغل معك — {t.uses} استخدام</span>
@@ -193,13 +194,13 @@ function TopTemplateCard({ data }: { data: Home }) {
       <span className="text-xl font-semibold tabular-nums text-success">
         {Math.round(t.advance_rate * 100)}٪
       </span>
-    </div>
+    </Card>
   );
 }
 
 function TeamCard({ team }: { team: NonNullable<Home['team']> }) {
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-center justify-between">
         <span className="text-lg">فريقك</span>
         {team.pending_wafa_requests_count > 0 ? (
@@ -218,7 +219,7 @@ function TeamCard({ team }: { team: NonNullable<Home['team']> }) {
           <span className="tabular-nums font-medium">{riyalsLabel(team.team_confirmed_halalas)}</span>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -245,7 +246,7 @@ function ReferralLinkCard({ self }: { self: Home['affiliate'] }) {
   };
 
   return (
-    <div className="flex flex-col gap-4 rounded-card bg-surface-1 p-5 shadow-sm">
+    <Card className="flex flex-col gap-4 p-5">
       <h2 className="text-lg">رابطك</h2>
 
       <div className="flex flex-col gap-1.5">
@@ -273,7 +274,7 @@ function ReferralLinkCard({ self }: { self: Home['affiliate'] }) {
           </div>
         </div>
       ) : null}
-    </div>
+    </Card>
   );
 }
 

@@ -6,35 +6,34 @@
  * that alone settles it. The operator is not given a smaller app; he is given the same app, which
  * shows him one section because that is all his capabilities reach.
  *
- * THE CHROME IS ui/'s AppShell, BY ALIAS. Sidebar rail, persisted collapse, brand slot, user
- * block, theme and language toggles, and a Toaster — all of it already built. `ui/` is our own
- * copy (taken from base-services' platform/ui at their v0.16.29, 2026-08-22, so we could edit it
- * ourselves) — we supply the nav items and the brand, and can now change the shell itself too,
- * rather than waiting on someone else's release.
+ * NO SIDEBAR RAIL (2026-09-16, the last step of the 7-phase app-store redesign,
+ * [[task-app-store-redesign-7-phases]]) — the chrome used to be `ui/`'s `@base-ui` `AppShell`
+ * (a shared copy taken from base-services' platform/ui); it is gone entirely now, replaced by
+ * `chrome/ConsoleLayout.tsx` + `chrome/TopBar.tsx`, this product's own fresh components
+ * (`rj-ui/`), once every rail row had a real equivalent path through the launcher/top bar.
  */
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, type NavigateFunction } from 'react-router-dom';
 
 import { SubscriptionBar } from './SubscriptionBar';
-import { AppShell } from '@base-ui/shell';
-import { EmptyState } from '@base-ui/design-system/EmptyState';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { EmptyState } from './rj-ui/EmptyState';
+import { Skeleton } from './rj-ui/Skeleton';
+import { Button } from './rj-ui/Button';
 import { DENIED, isReady, type Loading } from './loading';
-import { NAME_AR, Wordmark } from './brand/Mark';
 import { Door } from './screens/Door';
 import { LegalGate } from './screens/LegalGate';
 import { WelcomeTrial } from './screens/WelcomeTrial';
 import { action, call, fetchCatalog, SessionExpired, type Catalog } from './catalog';
-import { ACCOUNT_PATH, isOutage, SUPPORT_PATH, visibleSections, type SectionState } from './nav';
-import { BranchSwitch } from './BranchSwitch';
+import { ACCOUNT_PATH, isOutage, SUPPORT_WHATSAPP_URL, visibleSections, type SectionState } from './nav';
 import { currentBranch, loadBranch, saveBranch, type ScopeBranch } from './branch-scope';
 import type { Owned } from './apps';
 import { isSignedIn, useSession, type Session } from './session';
 import { WELCOME_TRIAL_KEY } from './auth';
-import { OperatorI18nProvider, tf, useOperatorI18n } from './operator-i18n';
-import { OperatorLocaleSwitcher } from './OperatorLocaleSwitcher';
-import { NotificationBell } from './NotificationBell';
+import { OperatorI18nProvider } from './operator-i18n';
+import { TopBar } from './chrome/TopBar';
+import { ConsoleLayout } from './chrome/ConsoleLayout';
 import './nav-i18n';
+import './api-i18n';
 
 /**
  * THE SHELL ITSELF, AS ITS OWN COMPONENT — split out of `App()` for exactly one reason:
@@ -58,98 +57,46 @@ function ConsoleShell({
   navigate: NavigateFunction;
   signOut: () => void;
 }) {
-  const { t } = useOperatorI18n();
   return (
-    <AppShell
-      // OUR OWN MARK IS THE NAME ITSELF (2026-09-16 rebrand) — no separate icon, drawn or
-      // otherwise. `markOnly` tells the shell not to also print `brand.name` beside it (this IS
-      // the name, compact); see ui/'s own AppShell.tsx for why that flag exists at all.
-      brand={{ name: NAME_AR, mark: <Wordmark compact className="shrink-0" />, markOnly: true }}
-      // DERIVED, NOT WRITTEN — see nav.ts. An operator's list has one entry and a manager's is
-      // missing what the owner keeps, with no role check anywhere in this file.
-      // A SECTION WHOSE SERVICE IS DOWN IS NAMED, NOT DELETED (م · النمط 3). The row stays where
-      // his hand expects it and the label says why it will not answer — «الحملات · متعذّر الآن»
-      // rather than a rail that quietly grew shorter and left him counting his own permissions.
-      // AND THE ICON, WHICH IS THE ROW'S ONLY FACE WHEN THE RAIL IS COLLAPSED. We passed labels
-      // alone, and the shell PERSISTS the collapsed choice per browser — so an owner who once
-      // folded the rail was left with seven blank rows: sized, clickable, and mute. He had lost
-      // his navigation with nothing on screen to say what had happened or how to undo it.
-      // «الدعم الفني» IS FILTERED OUT HERE, not deleted from `SECTIONS` — see nav.ts's own note
-      // beside that entry. It still gates on `tickets.open` exactly as before; this only decides
-      // where it renders (the icon row below, beside «حسابي», rather than a ninth rail row).
-      // TRANSLATED HERE, BY `nav.<id>` — see nav-i18n.ts's own header for why the key is the
-      // section's stable id rather than its (Arabic) `label` field, which stays as the ar/fallback
-      // text `translate()` reaches for when a locale has not shipped this key yet.
-      navItems={sections.filter((s) => s.id !== 'support').map((s) => {
-        const label = t(`nav.${s.id}`);
-        return {
-          to: s.path,
-          label: s.unavailable ? tf(t, 'nav.unavailableSuffix', { label }) : label,
-          icon: s.icon,
-          accent: s.accent,
-        };
-      })}
-      user={{ name: session.operatorName || session.operator }}
-      labels={{ collapse: t('shell.collapse'), expand: t('shell.expand'), signOut: t('shell.signOut'),
-                account: t('shell.account'), support: t('nav.support') }}
-      // «حسابي» AS AN ICON BESIDE SIGN-OUT, not as a ninth row in the rail. Both controls are
-      // about the PERSON rather than about the shop, and the shell already groups them in one
-      // block — so this costs no rail height and reads where a person already looks for himself.
-      // «الدعم الفني» JOINS IT for the same reason, right beside it — moved out of the rail's
-      // eight shop-work rows.
-      // THE SCOPE ABOVE THE NAV, which is where a scope belongs: everything below this line is
-      // about what it says. The shell keeps this slot for exactly that and hides it on the
-      // collapsed rail, where there is no room for a control with a label.
-      // AND THE STATE TRAVELS WHOLE INTO IT. `allowed` is the collapsed list every OTHER reader
-      // wants — «is there a scope to apply» — but the control itself must tell a shop with ONE
-      // branch from a shop whose branches we could not READ, and only the raw state can.
-      projectSwitcher={
-        <BranchSwitch
-          branches={scopeBranches}
-          branch={scoped}
-          onChange={setBranch}
-          catalog={catalog}
-          // AND THE DOOR IT OPENS IS THE SHOP'S OWN, not a second form built beside the rail.
-          // «منشأتي» already creates a branch, counts it against the subscription, names it and can close
-          // it; a quick field here would be a second way in that drifts from the first the day
-          // either changes. What this saves him is the search — not the screen.
-          onAdd={() => navigate(`${ACCOUNT_PATH}?tab=shop`)}
-        />
-      }
-      onAccount={() => navigate(ACCOUNT_PATH)}
-      // UNDEFINED, NOT A HANDLER THAT REFUSES — `sections` is already `visibleSections(catalog)`,
-      // so an operator without `tickets.open` never gets the entry in the first place; the icon
-      // simply does not render for him, same as every other role-gated control in this shell.
-      onSupport={sections.some((s) => s.id === 'support') ? () => navigate(SUPPORT_PATH) : undefined}
-      onSignOut={() => { signOut(); navigate('/'); }}
-      // THE LANGUAGE SWITCH ITSELF, IN THE RAIL — not per-screen any more, and now visible to the
-      // owner too (2026-09-11 — the preference moved off Operator rows onto a platform-wide
-      // one). It used to live inside Visit.tsx alone, when Visit was the only screen that read
-      // useOperatorI18n(); Bookings, Points, Services and «الاشتراك» all read it now too, so a
-      // control duplicated onto each of them (or missing from the rest) was the wrong shape.
-      // `railSlot` is the shell's own extension point for exactly this — a widget above the user
-      // block, alongside `projectSwitcher` above. The bell sits beside the language switch rather
-      // than replacing it — two independent controls, one slot, same shape the shell already
-      // gives `projectSwitcher` when both a scope and an add-branch action share it.
-      railSlot={<div className="flex items-center gap-2"><NotificationBell session={session} /><OperatorLocaleSwitcher /></div>}
-    >
-      {/* THE SHELL RENDERS CHILDREN INSTEAD OF THE ROUTER OUTLET when given them — its two modes.
-          We pass the Outlet explicitly so the screens receive the session and the catalogue we
-          already loaded, rather than each fetching the catalogue again on every navigation. */}
-      {/* THE LEGAL GATE SITS INSIDE THE SHELL, not in front of it. An owner who must accept a
+    <ConsoleLayout>
+      <TopBar
+        session={session}
+        catalog={catalog}
+        owned={owned}
+        branch={scoped}
+        branches={scopeBranches}
+        onChangeBranch={setBranch}
+        onAddBranch={() => navigate(`${ACCOUNT_PATH}?tab=shop`)}
+        onAccount={() => navigate(ACCOUNT_PATH)}
+        onSignOut={() => { signOut(); navigate('/'); }}
+        // UNDEFINED, NOT A HANDLER THAT REFUSES — `sections` is already `visibleSections(catalog)`,
+        // so an operator without `tickets.open` never gets the entry in the first place; the icon
+        // simply does not render for him, same as every other role-gated control in this bar.
+        //
+        // OPENS WHATSAPP DIRECTLY, NOT `SUPPORT_PATH` (owner's own instruction, 2026-09-16) — the
+        // in-app support screen/route is untouched underneath, just unlinked from this icon; see
+        // `SUPPORT_WHATSAPP_URL`'s own note in `nav.ts` for how to relink it later.
+        onSupport={sections.some((s) => s.id === 'support')
+          ? () => window.open(SUPPORT_WHATSAPP_URL, '_blank', 'noopener,noreferrer')
+          : undefined}
+      />
+      {/* THE LEGAL GATE SITS INSIDE THE LAYOUT, not in front of it. An owner who must accept a
           re-issued privacy notice is not locked out of a product he pays for — he is stopped at
-          the content until he answers, with his own nav still around him. Nothing outstanding
+          the content until he answers, with the top bar still around him. Nothing outstanding
           renders nothing at all. */}
       <LegalGate session={session} catalog={catalog}>
-        {/* THE SUBSCRIPTION STATE, ABOVE THE WORK AND NOT INSIDE IT. operations and reminders
-            answer 402 on every write once the base lapses, and a 402 arrives after he has typed a
-            customer's name and reached for save — the worst possible moment to learn the month
-            ended. One line here says it before the first press, and says what still works.
-            It renders nothing at all while the answer is unknown or the month has time left. */}
-        <SubscriptionBar owned={owned} now={Date.now()} />
-        <Outlet context={{ session, catalog, owned, branch: scoped, branches: allowed, setBranch }} />
+        <div className="p-4 sm:p-6 md:p-8">
+          {/* THE SUBSCRIPTION STATE, ABOVE THE WORK AND NOT INSIDE IT. operations and reminders
+              answer 402 on every write once the base lapses, and a 402 arrives after he has typed
+              a customer's name and reached for save — the worst possible moment to learn the
+              month ended. One line here says it before the first press, and says what still
+              works. It renders nothing at all while the answer is unknown or the month has time
+              left. */}
+          <SubscriptionBar owned={owned} now={Date.now()} />
+          <Outlet context={{ session, catalog, owned, branch: scoped, branches: allowed, setBranch }} />
+        </div>
       </LegalGate>
-    </AppShell>
+    </ConsoleLayout>
   );
 }
 
@@ -158,6 +105,13 @@ export function App() {
   const navigate = useNavigate();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [failed, setFailed] = useState(false);
+  // BUMPED TO RE-RUN THE CATALOGUE FETCH BELOW — a plain boolean `failed` gave the owner no way
+  // back except a manual page reload, on a screen whose own caption promises "أعد المحاولة بعد
+  // قليل" (try again shortly) with nothing on it that tries again. Found live (2026-09-16): a
+  // session left idle — tab backgrounded, then the OS/browser's own network briefly drops during
+  // resume — throws a plain fetch error, never `SessionExpired`, so it landed here and stayed
+  // here forever, on a platform that came right back a second later.
+  const [retryTick, setRetryTick] = useState(0);
   // WHAT THE SHOP BOUGHT — READ ONCE, HERE, FOR EVERY SCREEN.
   //
   // Five keys asked from five screens is five round trips on every navigation and five different
@@ -195,16 +149,38 @@ export function App() {
 
   useEffect(() => {
     if (!isSignedIn(session)) return;
+    let live = true;
+    setFailed(false);
     fetchCatalog(session)
-      .then(setCatalog)
+      .then((c) => { if (live) setCatalog(c); })
       .catch((err) => {
+        if (!live) return;
         // AN EXPIRED SESSION IS SHOWN THE DOOR, not an outage screen. Signing out puts him one tap
         // from the only action that helps — and leaving him on «تعذّر الوصول إلى المنصة» tells
         // him to wait for something that is not broken.
         if (err instanceof SessionExpired) signOut();
         else setFailed(true);
       });
-  }, [session, signOut]);
+    return () => { live = false; };
+  }, [session, signOut, retryTick]);
+
+  // AUTO-RETRY THE MOMENT HE ACTUALLY COMES BACK — the exact trigger reported live: leave the tab
+  // idle a while, come back, platform unreachable. A tab that was backgrounded long enough for the
+  // OS to freeze its network, or one whose connection simply dropped and came back, resumes with
+  // no signal of its own that anything happened; `visibilitychange`/`online` are the two real
+  // signals a browser gives for "the person is looking again" and "the network is back", so retry
+  // on either rather than making him find and press a button for something that fixes itself.
+  useEffect(() => {
+    if (!failed) return;
+    const retry = () => setRetryTick((n) => n + 1);
+    const onVisible = () => { if (document.visibilityState === 'visible') retry(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', retry);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', retry);
+    };
+  }, [failed]);
 
   useEffect(() => {
     if (!catalog) return;
@@ -307,6 +283,7 @@ export function App() {
           <EmptyState
             title="تعذّر الوصول إلى المنصة"
             description="حسابك سليم — أعد المحاولة بعد قليل."
+            action={<Button onClick={() => setRetryTick((n) => n + 1)}>إعادة المحاولة</Button>}
           />
         </main>
         {welcomeOverlay}
