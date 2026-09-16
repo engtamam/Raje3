@@ -70,6 +70,13 @@ metrics:
   serviceMonitor: false
 
 env:
+  # Same fix as insights/operations/reminders own DATASTORE_POOL_MAX -- the platform default
+  # (pool_max=5) is a real ceiling under fleet-wide concurrent load, not a leak: found live,
+  # every affected service returning readyz "pool exhausted (max_connections reached)" while
+  # postgres itself sat at 14/100 connections -- the SERVICE own small pool was full, not the
+  # database. Raised fleet-wide rather than per-incident so the next burst (a mass redeploy, a
+  # traffic spike) does not rediscover this one service at a time.
+  DATASTORE_POOL_MAX: "10"
 
   TOKEN_VERIFIER_DRIVER: "jwks"
   TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
