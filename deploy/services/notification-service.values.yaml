@@ -86,7 +86,11 @@ env:
   # postgres itself sat at 14/100 connections — the SERVICE's own small pool was full, not the
   # database. Raised fleet-wide rather than per-incident so the next burst (a mass redeploy, a
   # traffic spike) does not rediscover this one service at a time.
-  DATASTORE_POOL_MAX: "10"
+  #
+  # DOUBLE the fleet default here specifically — every WhatsApp/SMS/email send across the whole
+  # product routes through this one service, so its concurrent demand scales with the whole
+  # fleet's messaging traffic, not its own. Still tiny against postgres's real ceiling (100).
+  DATASTORE_POOL_MAX: "20"
   DEFAULT_LOCALE: "ar"
 
   TOKEN_VERIFIER_DRIVER: "jwks"

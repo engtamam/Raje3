@@ -73,7 +73,11 @@ env:
   # postgres itself sat at 14/100 connections -- the SERVICE own small pool was full, not the
   # database. Raised fleet-wide rather than per-incident so the next burst (a mass redeploy, a
   # traffic spike) does not rediscover this one service at a time.
-  DATASTORE_POOL_MAX: "10"
+  #
+  # DOUBLE the fleet default here specifically -- this is the one service every OTHER service
+  # calls into for every audited action, so its concurrent demand scales with the whole fleet's
+  # traffic, not its own. Still tiny against postgres's real ceiling (100).
+  DATASTORE_POOL_MAX: "20"
 
   # ── Token verification ────────────────────────────────────────────────────────────────────
   # rs256 VERIFY-only: the public key is in this service's secret, the private key exists
