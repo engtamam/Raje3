@@ -63,7 +63,8 @@ class PostgresDataStore:
     driver = "postgres"
 
     def __init__(self, dsn: str, *, pool_min: int = 1, pool_max: int = 5,
-                 pool_timeout: float = 10.0, pool_max_inactive_lifetime: float = 300.0) -> None:
+                 pool_timeout: float = 10.0, pool_max_inactive_lifetime: float = 300.0,
+                 statement_cache_size: int = 0) -> None:
         if not dsn:
             raise ConfigError("DATASTORE_DSN is required for the postgres driver")
         self._asyncpg = load("asyncpg", "postgres")
@@ -79,6 +80,12 @@ class PostgresDataStore:
         self._pool_max = max(self._pool_min, int(pool_max), 1)
         self._pool_timeout = float(pool_timeout)
         self._pool_max_inactive = float(pool_max_inactive_lifetime)
+        # 0 => PgBouncer transaction-mode safe (no asyncpg prepared-statement cache); a pooled
+        # backend can change identity between statements under transaction pooling, and a cached
+        # prepared statement tied to one backend then errors on the next (found live: `scan_all`
+        # threw `InvalidSQLStatementNameError` on every call). Every other service's own copy of
+        # this adapter already carries this fix — this one was missing it.
+        self._statement_cache_size = max(0, int(statement_cache_size))
 
     async def _ensure(self) -> Any:
         if self._pool is None:
@@ -88,6 +95,7 @@ class PostgresDataStore:
                 max_size=self._pool_max,
                 timeout=self._pool_timeout,                        # wait this long for a slot, then fail cleanly
                 max_inactive_connection_lifetime=self._pool_max_inactive,  # return idle connections to the server
+                statement_cache_size=self._statement_cache_size,   # 0 => PgBouncer transaction-mode safe
             )
             async with self._pool.acquire() as con:
                 await con.execute(

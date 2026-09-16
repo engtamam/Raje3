@@ -815,6 +815,7 @@ class Settings(BaseSettings):
     DATASTORE_POOL_MAX: int = 5
     DATASTORE_POOL_TIMEOUT_SECONDS: float = 10.0
     DATASTORE_POOL_MAX_INACTIVE_LIFETIME_SECONDS: float = 300.0
+    DATASTORE_STATEMENT_CACHE_SIZE: int = 0   # 0 => PgBouncer transaction-mode safe (no asyncpg prepared-statement cache)
 
     CACHE_DRIVER: str = "memory"
     CACHE_URL: str = ""
