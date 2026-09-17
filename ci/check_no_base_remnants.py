@@ -69,6 +69,22 @@ PATTERNS = [
     # even at a call site that does not literally say "base". A function named `_start_base_trial`
     # is itself a remnant worth a reviewer's eyes, whatever its body does today.
     re.compile(r"_start_base_trial\b"),
+    # ADDED 2026-09-17, THIRD PASS — the console's OWN wire shape for «الأساس» itself. The first
+    # two passes caught every function/flag NAMED after the concept; they never caught the actual
+    # DATA FIELD it flows through — `Owned.base`, its readers (`owned.base`, `baseState`), and the
+    # object-literal shape (`base: null` / `base: { plan_id, ... }`) every test fixture and real
+    # caller still constructs. Found live: with plans.json seeding no row that carries
+    # `messages.monthly` any more (see subscribe.py's own `is_base` docstring), `owned.base` can
+    # now NEVER be non-null for a shop created from today's seed data — the whole field, and every
+    # line that reads or fabricates it, is exactly as dead as `is_base` itself, just one layer
+    # further from the name.
+    re.compile(r"\bowned\.base\b"),
+    re.compile(r"\banswer\.base\b"),
+    re.compile(r"\bbaseState\b"),
+    # THE FIELD ITSELF, wherever a literal constructs or declares it — `base?: { ... }` (the
+    # interface), `base: null` / `base: { plan_id: ... }` (every real response and test fixture).
+    # `\bnull\b` on the right keeps this from ever matching an unrelated `base: someOtherThing`.
+    re.compile(r"\bbase\??\s*:\s*(\{|null\b)"),
 ]
 
 #: {relative_path: {line_number: "why this exact line is still allowed"}}
@@ -94,6 +110,12 @@ ALLOWLIST: dict[str, dict[int, str]] = {
     "services/operations/tests/unit/test_may_add.py": {
         0: "tests is_base() directly as the pure structural reader it still is — see "
            "subscribe.py's own allowlist entry",
+    },
+    "apps/console/src/affiliates/AffiliateNav.tsx": {
+        # `const base: {...}[] = [...]` — a local array of nav tabs, named `base` by coincidence
+        # (the affiliate console's own always-shown tabs). No relation to a subscription; read in
+        # full 2026-09-17.
+        35: "unrelated local variable — an array of affiliate nav tabs, not the subscription field",
     },
 }
 
