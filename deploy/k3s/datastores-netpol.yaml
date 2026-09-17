@@ -49,14 +49,26 @@ spec:
     matchLabels:
       base-services/role: datastore
   policyTypes: [Ingress]
-  # FOUND LIVE, THE HARD WAY: `app.kubernetes.io/name` alone missed pgbouncer — it carries
-  # `base-services/role: datastore` (same as postgres/redis, correctly: it IS the datastore tier,
-  # not a caller of it) but no `app.kubernetes.io/name`, so this policy's own default-deny caught
-  # pgbouncer's OWN connections to postgres and blocked them. Every application service reaches
-  # postgres THROUGH pgbouncer, never directly — so the one connection that actually needs to
-  # cross this boundary is pgbouncer's, and the rule below only ever matched the wrong pod. Took
-  # the whole fleet down for real (every service's own datastore probe timing out, not a
-  # coincidence) until this was found and the policy removed, then reapplied correctly here.
+  # FOUND LIVE, THE HARD WAY (round 1): `app.kubernetes.io/name` alone missed pgbouncer — it
+  # carries `base-services/role: datastore` (same as postgres/redis, correctly: it IS the
+  # datastore tier, not a caller of it) but no `app.kubernetes.io/name`, so this policy's own
+  # default-deny caught pgbouncer's OWN connections to postgres and blocked them. Every
+  # application service reaches postgres THROUGH pgbouncer, never directly — so the one
+  # connection that actually needs to cross this boundary is pgbouncer's, and the rule below only
+  # ever matched the wrong pod. Took the whole fleet down for real (every service's own datastore
+  # probe timing out, not a coincidence) until this was found and the policy removed, then
+  # reapplied correctly here.
+  #
+  # FOUND LIVE, THE HARD WAY (round 2): fixing round 1 was not enough — pgbouncer carries
+  # `base-services/role: datastore` too, so THIS policy's own podSelector (line 49) selects
+  # pgbouncer itself as well as postgres/redis, and the ports list below only ever opened
+  # 5432/6379 (postgres/redis' own ports). Nothing opened 6432 — pgbouncer's OWN listen port —
+  # so every service's connection to pgbouncer:6432 (its actual DSN target, see
+  # deploy/gen-secrets.py's PG_HOST) was silently denied by this same rule, on the very next
+  # fresh install after round 1 shipped. Confirmed live: pgbouncer's own logs showed "0 xacts/s"
+  # from boot — it never received a single connection attempt, fleet-wide, while identity-service
+  # and affiliate-service (the two that connect eagerly at boot rather than on first request)
+  # crash-looped on the resulting timeout and everyone else sat unready forever.
   ingress:
     - from:
         - podSelector:
@@ -71,6 +83,7 @@ spec:
       ports:
         - { protocol: TCP, port: 5432 }
         - { protocol: TCP, port: 6379 }
+        - { protocol: TCP, port: 6432 }   # pgbouncer's own listen port — see round 2 note above
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
