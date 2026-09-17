@@ -125,7 +125,16 @@ esac
 echo "registering backup targets in backup-service"
 # NO COMMAND SUBSTITUTION BELOW THIS LINE, INCLUDING IN COMMENTS — the heredoc is unquoted so the
 # shell would evaluate one before python ever saw it. This has happened mid-seed, from a comment.
-kubectl -n "$NS" exec -i "$POD" -- python - "$ADMIN" "$DRY" "$TOKEN_VALUE" "$ROSTER" "$EXEMPT" <<'PY'
+#
+# TIMEOUT ON THE OUTER EXEC, NOT JUST THE INNER HTTP CALLS. Every `call()` below bounds its own
+# urlopen at 15s — but that only protects against a slow HTTP response. It does nothing if the
+# `kubectl exec` channel itself never delivers a shell to backup-service in the first place (found
+# live: a fleet-wide NetworkPolicy bug left every service unable to reach postgres, backup-service
+# among them — its own readyz never turned green, and this exec sat with no output and no exit for
+# over 20 minutes, blocking the entire install behind it with no way to tell "still working" from
+# "will never finish"). `timeout` makes the outer command itself fail loud and bounded — an install
+# that hits this now gets a red line here in under two minutes, not a silent multi-hour hang.
+timeout 120 kubectl -n "$NS" exec -i "$POD" -- python - "$ADMIN" "$DRY" "$TOKEN_VALUE" "$ROSTER" "$EXEMPT" <<'PY'
 import json
 import sys
 import urllib.error
