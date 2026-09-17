@@ -663,6 +663,18 @@ bash "$HERE/hooks/pre-deploy.sh"
 step "our services' secrets"
 bash "$HERE/mint-our-secrets.sh"
 
+# ── 6c ────────────────────────────────────────────────────────────────────────────────────────
+# THE SAME GAP, ONE MORE TIME — assistant-kb-shop is a ConfigMap deploy/kb/sync-shop-kb.sh builds
+# from deploy/kb/shop/*.json, and assistant-service's own values file mounts it via extraVolumes.
+# Not a deploy/k3s/*.yaml file (step 2b above never touched it), so it had its own silent gap:
+# found live on THIS install, assistant-service's pod stuck forever on
+# `MountVolume.SetUp failed ... configmap "assistant-kb-shop" not found` — the exact same "a human
+# has to remember to run one more script after every reinstall" shape, just in a different
+# directory. Before "services" (next step), because that step is what actually creates the pod
+# that mounts it.
+step "assistant-service knowledge base"
+bash "$ROOT/deploy/kb/sync-shop-kb.sh" || warn "KB sync failed — assistant-service will stay stuck on a missing ConfigMap until this is re-run"
+
 # ── 7 ─────────────────────────────────────────────────────────────────────────────────────────
 # Upstream's, health-gated, ONE SERVICE AT A TIME. Not a loop of our own: a hand-written parallel
 # restart is what exhausted the connection pool and deadlocked this cluster once already. The
