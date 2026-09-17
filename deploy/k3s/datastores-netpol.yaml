@@ -49,6 +49,14 @@ spec:
     matchLabels:
       base-services/role: datastore
   policyTypes: [Ingress]
+  # FOUND LIVE, THE HARD WAY: `app.kubernetes.io/name` alone missed pgbouncer — it carries
+  # `base-services/role: datastore` (same as postgres/redis, correctly: it IS the datastore tier,
+  # not a caller of it) but no `app.kubernetes.io/name`, so this policy's own default-deny caught
+  # pgbouncer's OWN connections to postgres and blocked them. Every application service reaches
+  # postgres THROUGH pgbouncer, never directly — so the one connection that actually needs to
+  # cross this boundary is pgbouncer's, and the rule below only ever matched the wrong pod. Took
+  # the whole fleet down for real (every service's own datastore probe timing out, not a
+  # coincidence) until this was found and the policy removed, then reapplied correctly here.
   ingress:
     - from:
         - podSelector:
@@ -57,6 +65,9 @@ spec:
               # fleet; the two internet-facing Caddy pods do not carry it, which is the whole point.
               - key: app.kubernetes.io/name
                 operator: Exists
+        - podSelector:
+            matchLabels:
+              app: pgbouncer
       ports:
         - { protocol: TCP, port: 5432 }
         - { protocol: TCP, port: 6379 }
