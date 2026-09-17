@@ -1,0 +1,158 @@
+# ==================================================================================================
+#  pod-reaper — a pod that answers "not ready" forever, not just for a while, gets a fresh copy.
+# --------------------------------------------------------------------------------------------------
+#  THE GAP THIS CLOSES. Kubernetes' own two health checks are deliberately asymmetric (see every
+#  service's own deployment.yaml comment): liveness (/healthz) touches no dependency, on purpose —
+#  pointing it at readiness would turn one slow Postgres moment into a fleet-wide restart storm.
+#  Readiness (/readyz) DOES check dependencies, and a pod that fails it is correctly pulled from
+#  traffic — but never restarted, by design. That is the right call for "the database is briefly
+#  slow." It is the WRONG call for "the process itself hung" — confirmed live: analytics-service
+#  answered /healthz normally (200 OK, every 10s, for eight straight minutes) while /readyz never
+#  answered at all, not even from a request made INSIDE the same pod. Liveness saw a living
+#  process; nothing ever told Kubernetes the process had stopped doing its actual job. Only a
+#  human noticing and running a manual restart fixed it.
+#
+#  WHY THIS, NOT A LIVENESS CHANGE. The fix is not "make liveness stricter" — that reintroduces
+#  the exact fleet-wide restart storm the current design was written to prevent. This is a
+#  SEPARATE, narrow watcher: it only ever acts on a pod that has been continuously NotReady for a
+#  long, deliberately generous window (10 minutes — see MAX_AGE_SECONDS below), and it only ever
+#  deletes pods owned by a ReplicaSet (a Deployment's own replacement mechanism recreates them
+#  immediately; nothing here is destructive by construction). It never touches services' own code,
+#  probes, or contracts — this is entirely infrastructure, watching from outside.
+#
+#  WHAT IT DELIBERATELY NEVER TOUCHES, ALL BY THE SAME `ownerReferences.kind == ReplicaSet` FILTER:
+#    - postgres-0 / redis (StatefulSet-owned) — deleting a stateful pod is never "just a restart".
+#    - fluent-bit (DaemonSet-owned).
+#    - any one-off Job's own pod (job-service-reclaim, the *-sweep CronJobs, translation-model-fetch)
+#      — a Job's own pod legitimately sits Pending/Running under real conditions (node contention,
+#      no PVC yet) that a restart does not fix and reaping would only repeat pointlessly.
+#
+#  THE EXPLICIT EXCLUDE LIST below is the second safety net, for a ReplicaSet-owned pod that is
+#  CORRECTLY not-ready by design rather than stuck: backup-service, which has no real OSS
+#  credential on this box yet (documented at length in its own values.yaml) and will answer
+#  "not ready" forever no matter how many times it is restarted — reaping it on a timer would just
+#  manufacture a pointless restart loop instead of leaving it alone as intended.
+#
+#  THE SAFETY CAP (MAX_DELETES_PER_RUN). If postgres itself is genuinely down, EVERY service goes
+#  not-ready at once — the exact scenario this tool must never make worse. Capping deletions per
+#  run means a real outage gets at most a few pods bounced per tick while the human (or a fix)
+#  addresses the real cause, never a mass simultaneous pod-deletion storm compounding an outage
+#  that infrastructure churn, not code, caused in the first place.
+#
+#  ⚠ NOT APPLIED BY THIS FILE. Applying it changes a running cluster, which needs a deliberate call.
+# ==================================================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-reaper
+  namespace: base-services
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-reaper
+  namespace: base-services
+rules:
+  # get + list, to find candidates. delete, to act on them. NOTHING ELSE — no exec, no logs, no
+  # secrets, no create, no patch on anything. A pod with this Role can end another pod's life and
+  # read pod metadata; it cannot read a single byte of application data or credentials.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pod-reaper
+  namespace: base-services
+subjects:
+  - kind: ServiceAccount
+    name: pod-reaper
+    namespace: base-services
+roleRef:
+  kind: Role
+  name: pod-reaper
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pod-reaper
+  namespace: base-services
+spec:
+  # OFFSET FROM :00 — same pile-up class every other every-N-minute CronJob in this fleet was
+  # already found colliding on (see wallet-service/webhook-service/job-service's own notes); this
+  # one gets its own minute from the day it is born instead of rediscovering the lesson later.
+  schedule: "4-59/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 120
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: pod-reaper
+          restartPolicy: Never
+          automountServiceAccountToken: true
+          containers:
+            - name: pod-reaper
+              image: bitnami/kubectl:1.31.4
+              resources:
+                requests: { cpu: 10m, memory: 32Mi }
+                limits: { memory: 64Mi }
+              env:
+                - { name: NS, value: "base-services" }
+                # 10 MINUTES — generous on purpose. Long enough that a slow image pull, a real
+                # migration, or a genuinely busy node never gets caught by this; short enough
+                # that nobody has to notice and restart a hung pod by hand before it self-heals.
+                - { name: MAX_AGE_SECONDS, value: "600" }
+                # A hard ceiling on how much damage one run can do, whatever the cause.
+                - { name: MAX_DELETES_PER_RUN, value: "3" }
+                # Space-separated `app.kubernetes.io/name` (or bare `app`) values to NEVER reap —
+                # correctly, permanently not-ready by design, not stuck.
+                - { name: EXCLUDE_APPS, value: "backup-service" }
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+                  now="$(date -u +%s)"
+                  deleted=0
+
+                  # ONE LINE PER CANDIDATE: "<pod-name> <app-label> <readyCondition.lastTransitionTime>".
+                  # Filtered server-side to ReplicaSet-owned, currently-not-Ready pods only -- a
+                  # StatefulSet/DaemonSet/Job pod, or one already Ready, never appears here at all.
+                  candidates="$(kubectl -n "$NS" get pods -o go-template='{{range .items}}{{$owner := ""}}{{range .metadata.ownerReferences}}{{$owner = .kind}}{{end}}{{if eq $owner "ReplicaSet"}}{{$name := .metadata.name}}{{$app := ""}}{{with index .metadata.labels "app.kubernetes.io/name"}}{{$app = .}}{{end}}{{if eq $app ""}}{{with index .metadata.labels "app"}}{{$app = .}}{{end}}{{end}}{{range .status.conditions}}{{if eq .type "Ready"}}{{if eq .status "False"}}{{$name}} {{$app}} {{.lastTransitionTime}}{{"\n"}}{{end}}{{end}}{{end}}{{end}}{{end}}')"
+
+                  [ -z "$candidates" ] && { echo "nothing NotReady — nothing to do"; exit 0; }
+
+                  # PROCESS SUBSTITUTION, NOT A PIPE — `echo ... | while read` runs the loop body
+                  # in a subshell in bash, so `deleted=$((deleted + 1))` below would silently never
+                  # escape the loop: MAX_DELETES_PER_RUN would never actually trigger, and the
+                  # safety cap this whole script exists to enforce would be a no-op. `< <(...)`
+                  # keeps the while loop in THIS shell.
+                  while IFS=' ' read -r pod app since; do
+                    [ -z "$pod" ] && continue
+                    for ex in $EXCLUDE_APPS; do
+                      if [ "$app" = "$ex" ]; then
+                        echo "skip $pod (app=$app is on the exclude list)"
+                        continue 2
+                      fi
+                    done
+                    since_epoch="$(date -u -d "$since" +%s 2>/dev/null || echo 0)"
+                    [ "$since_epoch" = "0" ] && { echo "skip $pod (could not parse lastTransitionTime=$since)"; continue; }
+                    age=$((now - since_epoch))
+                    if [ "$age" -lt "$MAX_AGE_SECONDS" ]; then
+                      echo "skip $pod (NotReady for only ${age}s, under the ${MAX_AGE_SECONDS}s threshold)"
+                      continue
+                    fi
+                    if [ "$deleted" -ge "$MAX_DELETES_PER_RUN" ]; then
+                      echo "reached MAX_DELETES_PER_RUN=$MAX_DELETES_PER_RUN this run -- leaving $pod for the next tick"
+                      continue
+                    fi
+                    echo "reaping $pod (app=$app, NotReady for ${age}s)"
+                    kubectl -n "$NS" delete pod "$pod" --wait=false || true
+                    deleted=$((deleted + 1))
+                  done < <(printf '%s\n' "$candidates")
+                  echo "done — $deleted pod(s) reaped this run"
