@@ -1,5 +1,5 @@
 {
-  "release": "v0.25.3",
+  "release": "v0.25.4",
   "images": {
     "analytics-service": "sha256:d34ed143375c7c020cbe6bdb0e1153562f802484ba50a837fecbf774de07fd28",
     "api-gateway": "sha256:b0ac0cf62af8da598388253c1689c45290f21d61981b31f977a46f51a90fd5f3",
@@ -7,7 +7,7 @@
     "audit-service": "sha256:5bf43bb6580fe9ae103b68d8c44b4ed26c9b188b85889f2dc84589ed2eae1091",
     "authz-service": "sha256:dcc1abfe76749fa2eeb0c694b393bb510d3dcb4c932ce74713374047394f3886",
     "backup-service": "sha256:283db19a987d9c2e4ecdaeff85239502d60b2b00a593a414a3589778b756e3b7",
-    "billing-service": "sha256:e6ff6e66803a5362c4c8a775947a546fe8b54ef15b9ae82b7a6156910fe99dbc",
+    "billing-service": "sha256:d8a6edc46eb99a6d1a09ceffe57e61ad06bcdd0860639c5b9883d87354e59b01",
     "compliance-service": "sha256:a309736619ba71d742b3c5dbda4f4b6dc5202a9e561d0c54bc7dab2caea53d6a",
     "connector-service": "sha256:48001e4a8be28f3e926038ba26c3bc2301577cd5382c4ed88bd5f5495eec328a",
     "feature-flag-service": "sha256:4904a0b8216a609b905564fcaafe90ddcf96140b2d17363d500cb906fe244703",
