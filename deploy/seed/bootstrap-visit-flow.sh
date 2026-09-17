@@ -15,7 +15,7 @@
 #   1. If operations already has MASTER_VISIT_FLOW_ID set, this exits without calling Meta again.
 #   2. Even if it did not skip, notification-service's own provision route is idempotent BY NAME.
 #
-# WHERE THE RESULT LIVES. operations' own runtime-config override (PUT /api/v1/operator/config,
+# WHERE THE RESULT LIVES. operations' own runtime-config override (PUT /api/v1/operations/operator/config,
 # platform scope: tenant="") — the very next connect() reads it live, no restart required.
 set -uo pipefail
 # shellcheck disable=SC1091
@@ -54,7 +54,7 @@ esac
 EXISTING=$(kubectl -n "$NS" exec -i "$OPS_POD" -- python - "$ADMIN" <<'PY'
 import json, sys, urllib.request
 admin = sys.argv[1]
-req = urllib.request.Request("http://localhost:8000/api/v1/operator/config",
+req = urllib.request.Request("http://localhost:8000/api/v1/operations/operator/config",
                              headers={"Authorization": "Bearer " + admin})
 try:
     u = urllib.request.urlopen(req, timeout=15)
@@ -126,7 +126,7 @@ kubectl -n "$NS" exec -i "$OPS_POD" -- python - "$ADMIN" "$FLOW_ID" <<'PY'
 import json, sys, urllib.error, urllib.request
 admin, flow_id = sys.argv[1], sys.argv[2]
 body = json.dumps({"tenant": "", "key": "MASTER_VISIT_FLOW_ID", "value": flow_id}).encode()
-req = urllib.request.Request("http://localhost:8000/api/v1/operator/config", data=body,
+req = urllib.request.Request("http://localhost:8000/api/v1/operations/operator/config", data=body,
                              method="PUT",
                              headers={"Authorization": "Bearer " + admin,
                                       "Content-Type": "application/json"})
