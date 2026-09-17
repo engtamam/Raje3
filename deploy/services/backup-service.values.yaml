@@ -39,7 +39,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/backup-service
-  digest: "sha256:e202e9be8d0e4e117f03631bdd6c46b3a8640b9f9e2611f9fc57d8acc999f398"   # v0.25.2
+  digest: "sha256:283db19a987d9c2e4ecdaeff85239502d60b2b00a593a414a3589778b756e3b7"   # v0.25.3
 
 replicas: 1
 

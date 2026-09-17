@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/loyalty
-  digest: "sha256:2d7042a55f6bf7d44e8ed7a6b4563ec8fb4e3d77b00c7239ba01ff64892b46f0"   # 9ac86606, published by publish-images.sh
+  digest: "sha256:ae42d47d1068471f8924439ccaacde38afaad92f7c153ca0eb9ece04eeaf667a"   # ee98796d, published by publish-images.sh
 
 replicas: 1
 

@@ -22,7 +22,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/analytics-service
-  digest: "sha256:b2e0d20ad2abcd2f138b307c156886a7df710023bf6ee76bb7ce0bbeb562819e"   # v0.25.2
+  digest: "sha256:d34ed143375c7c020cbe6bdb0e1153562f802484ba50a837fecbf774de07fd28"   # v0.25.3
 
 replicas: 1
 
