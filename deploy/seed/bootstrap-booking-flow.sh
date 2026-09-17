@@ -38,14 +38,28 @@ NOTIFY_POD=$(kubectl -n "$NS" get pods --no-headers \
 KEY=$(kubectl -n "$NS" get secret identity-service-secrets \
       -o jsonpath='{.data.TOKEN_PRIVATE_KEY}' 2>/dev/null | base64 -d)
 [ -n "$KEY" ] || { red "no signing key in identity-service-secrets"; exit 1; }
+# THE kid HEADER — see seed-roles.sh's own note (and seed-backup-targets.sh, which carries the
+# identical block). A token minted with none is rejected by every JWKS verifier on this fleet as
+# 401 UNAUTHORIZED, not a mere missing-capability 403 — found live on this reinstall: this script
+# predated that fix and never got it, so "storing the config failed: UNAUTHORIZED" every run,
+# authored Flow and all, never actually landing MASTER_BOOKING_FLOW_ID. Thumbprints the SAME key
+# it signs with (RFC 7638, identical to identity-service's own `public_jwk`), so it works across a
+# rotation with no code change here.
 ADMIN=$(SEED_KEY="$KEY" python3 -c '
-import os, jwt, time
+import base64, hashlib, json, os, jwt, time
+from jwt.algorithms import RSAAlgorithm
 now = int(time.time())
+private_pem = os.environ["SEED_KEY"]
+key_obj = RSAAlgorithm(RSAAlgorithm.SHA256).prepare_key(private_pem)
+jwk = json.loads(RSAAlgorithm.to_jwk(key_obj))
+canonical = json.dumps({"e": jwk["e"], "kty": jwk["kty"], "n": jwk["n"]},
+                       separators=(",", ":"), sort_keys=True).encode("ascii")
+kid = base64.urlsafe_b64encode(hashlib.sha256(canonical).digest()).rstrip(b"=").decode("ascii")
 print(jwt.encode({"sub": "bootstrap-booking-flow", "tenant": "_platform",
                   "caps": ["platform.config"],
                   "iss": "raje3", "aud": "raje3", "iat": now,
                   "exp": now + 300},
-                 os.environ["SEED_KEY"], algorithm="RS256"), end="")')
+                 private_pem, algorithm="RS256", headers={"kid": kid}), end="")')
 case "$ADMIN" in
   ey*) : ;;
   *) red "minting failed; got a ${#ADMIN}-character value that is not a JWT"; exit 1 ;;
