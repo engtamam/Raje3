@@ -276,6 +276,31 @@ NAMESPACE="$NS" OBJECTSTORE_ENABLED=1 bash "$ROOT/platform/deploy/k3s/bootstrap.
 # this whole fleet to 0/1 for half an hour.
 bash "$HERE/patch-datastore-probes.sh" || warn "postgres probe patch failed — a crash recovery may loop"
 
+# ── 2b ────────────────────────────────────────────────────────────────────────────────────────
+# EVERY MANIFEST UNDER deploy/k3s/, APPLIED HERE, ALWAYS — not a step anyone remembers to run by
+# hand after a fresh install. THIS WAS THE ACTUAL BUG, three separate times in one night: the
+# translation-model PVC+Job, secrets-admin's own ServiceAccount/Role/RoleBinding, and the
+# datastore NetworkPolicy all lived in this directory as "apply this yourself" files with nothing
+# in the install path that ever did — each one silently missing after the SAME fresh reinstall
+# (secrets-admin's pod simply never existed; operations sat Pending on a PVC that was never
+# created; then, once the netpol WAS applied by hand, a bug in it — fixed the same night, see the
+# file's own note — took the whole fleet's postgres connectivity down because nothing had ever
+# exercised that exact file on a real bring-up before). Looping every *.yaml here, every time,
+# turns "a human has to remember and re-run four separate tool calls after every reinstall" into
+# "the install script already did it" — the gap cannot reopen because there is no longer a manual
+# step to forget.
+#
+# edge.yaml IS THE ONE DELIBERATE EXCEPTION — confirmed stale: `deploy/edge/console.yaml` and
+# `deploy/edge/deployment.yaml` are what step "edge" below actually applies (a different
+# directory, from before the deploy/edge/ split), and this file would create a second, dueling
+# `edge` Service/Deployment/NetworkPolicy from a superseded definition if it were ever applied.
+step "our own k3s manifests (deploy/k3s/*.yaml)"
+for f in "$ROOT"/deploy/k3s/*.yaml; do
+  name="$(basename "$f")"
+  [ "$name" = "edge.yaml" ] && { warn "skipping $name — superseded by deploy/edge/, see this step's own note"; continue; }
+  kubectl apply -f "$f" >/dev/null && ok "applied $name" || warn "failed to apply $name — check it by hand"
+done
+
 # ── 2c ────────────────────────────────────────────────────────────────────────────────────────
 # THE NETWORK PROOF, AFTER THE CNI THAT MAKES IT MEANINGFUL — and this order was learned on a
 # fresh machine. It used to run first, which was fine on every host that had been installed
