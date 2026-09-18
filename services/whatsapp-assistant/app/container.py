@@ -337,7 +337,8 @@ def build_container(settings: Settings) -> Container:
     container.active_offers = AO.build(settings)
     container.wallet_balance = WB.build(settings)
     container.licence = ToggleGatedLicence(build_licence(settings),
-                                           shop_identity=container.shop_identity)
+                                           shop_identity=container.shop_identity,
+                                           ai_assistant_enabled=settings.AI_ASSISTANT_ENABLED)
     from app.core.base_entitlement import build_base_entitlement
 
     container.base_entitlement = build_base_entitlement(settings)

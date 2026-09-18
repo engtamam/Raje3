@@ -105,13 +105,21 @@ class ToggleGatedLicence:
     THE BILLING CHECK RUNS FIRST, SHORT-CIRCUITING — a shop that never bought `feature.whatsapp` at
     all has nothing to ask operations about, and skips the extra peer call on the (much more
     common) case of a shop that has never touched its own toggle.
+
+    THE PLATFORM SWITCH IS CHECKED FIRST OF ALL (2026-09-19, `AI_ASSISTANT_ENABLED` in config.py) —
+    cheaper than either peer call, and the one condition that must win over both: every shop's own
+    entitlement and every shop's own toggle stay exactly as they are underneath, so flipping the
+    platform switch back on needs no per-shop repair afterward.
     """
 
-    def __init__(self, inner: Any, *, shop_identity: Any) -> None:
+    def __init__(self, inner: Any, *, shop_identity: Any, ai_assistant_enabled: bool = True) -> None:
         self._inner = inner
         self._shop_identity = shop_identity
+        self._ai_assistant_enabled = ai_assistant_enabled
 
     async def allowed(self, tenant: str) -> bool:
+        if not self._ai_assistant_enabled:
+            return False
         if not await self._inner.allowed(tenant):
             return False
         if self._shop_identity is None:

@@ -606,6 +606,17 @@ class Settings(BaseSettings):
     BILLING_SERVICE_URL: str = ""
     BILLING_CHECK_PATH: str = "/internal/billing/entitlements/check"
 
+    # ── the platform-wide external-AI kill switch (2026-09-19) ────────────────────────────────
+    # ONE FLAG, EVERY SHOP, NOT A PER-TENANT TOGGLE. `shop_identity.ai_enabled` (ToggleGatedLicence
+    # below) is the OWNER's own per-shop choice; this is ours — a single switch for the whole
+    # fleet, meant to sit OFF for the entire window between "stop calling Gemini" and "Meta Business
+    # Agent Platform is wired in", so no shop silently keeps billing for a provider we are mid-
+    # migration away from. Reuses the exact same enforcement path every existing licence caller
+    # already goes through (conversation.py's door gate and its second check right before the LLM
+    # call, visit_trigger.py) — OFF reads EXACTLY like "never bought it", never a softer state, so
+    # there is no second customer-facing message to keep in step.
+    AI_ASSISTANT_ENABLED: bool = True
+
     def assert_licence_config_ok(self) -> None:
         """Boot guard. Refuse production that cannot ask whether a shop bought the assistant.
 

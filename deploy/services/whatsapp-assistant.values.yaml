@@ -89,6 +89,14 @@ metrics:
   serviceMonitor: false
 
 env:
+  # ── the platform-wide external-AI kill switch (2026-09-19) ─────────────────────────────────
+  # Flip to "false" to stop every shop's AI-composed reply/booking fleet-wide, in one place,
+  # with no per-shop repair needed to bring it back — see core/licence.py's own note on
+  # ToggleGatedLicence for why this reads exactly like "unsubscribed", never a softer state.
+  # Meant to sit "false" for the whole window between retiring the current external AI provider
+  # and wiring in whatever replaces it.
+  AI_ASSISTANT_ENABLED: "true"
+
   # Same fix as insights/operations/reminders'own DATASTORE_POOL_MAX — the platform default
   # (pool_max=5) is a real ceiling under fleet-wide concurrent load, not a leak: found live,
   # every affected service returning readyz "pool exhausted (max_connections reached)" while

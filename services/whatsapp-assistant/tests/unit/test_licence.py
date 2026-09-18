@@ -167,3 +167,24 @@ def test_a_shop_that_never_bought_it_never_reaches_the_toggle_check_at_all():
 def test_no_shop_identity_wired_at_all_falls_back_to_the_real_licences_own_answer():
     gated = ToggleGatedLicence(NullLicence(), shop_identity=None)
     assert run(gated.allowed("t1")) is True
+
+
+# ── the platform-wide switch (2026-09-19) — every shop, ANDed in first, over both of the above ──
+def test_platform_switch_off_refuses_even_a_bought_and_shop_enabled_assistant():
+    """The one behaviour THIS flag exists for — off beats a real entitlement AND an owner who left
+    his own toggle on, same "reads exactly like unsubscribed" discipline as the per-shop toggle."""
+    gated = ToggleGatedLicence(NullLicence(), shop_identity=_ShopIdentity(True),
+                               ai_assistant_enabled=False)
+    assert run(gated.allowed("t1")) is False
+
+
+def test_platform_switch_off_never_even_asks_billing_or_the_shop_toggle():
+    identity = _ShopIdentity(True)
+    gated = ToggleGatedLicence(_NeverAllowed(), shop_identity=identity, ai_assistant_enabled=False)
+    assert run(gated.allowed("t1")) is False
+    assert identity.asked == []
+
+
+def test_platform_switch_defaults_to_on_so_every_existing_caller_is_unaffected():
+    gated = ToggleGatedLicence(NullLicence(), shop_identity=_ShopIdentity(True))
+    assert run(gated.allowed("t1")) is True
