@@ -66,3 +66,8 @@ id_ed25519
 # cannot be un-shared even after deletion.
 media/tours/.loadtest-result.json
 media/tours/.loadtest-tenants.json
+
+# docs/ is scratch/working notes, never product source — untracked entirely (2026-09-19, owner's
+# own instruction) so a stray plan/audit file never shows up as "uncommitted changes" noise on
+# every ship.
+docs/
