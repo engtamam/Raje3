@@ -82,8 +82,10 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
   const [unitsPerHalala, setUnitsPerHalala] = useState<number | null>(null);
   // THE PLATFORM-WIDE SWITCH (2026-09-19) — same fetch below, same rule as AiUnitsGauge.tsx: only
   // ever hides the AI-bot card and its top-up dialog, never the renewal/commission cards beside
-  // them (those are unrelated funds, unaffected by this switch).
-  const [aiEnabled, setAiEnabled] = useState(true);
+  // them (those are unrelated funds, unaffected by this switch). `null` = pending, and both
+  // render sites below already treat anything not strictly `true` as falsy, so the card stays
+  // hidden for the whole pending window rather than showing then disappearing.
+  const [aiEnabled, setAiEnabled] = useState<boolean | null>(null);
 
   const load = () => {
     if (!balanceAction) { setWallet(null); return; }
@@ -104,10 +106,10 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
   }, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!pricingCurrentAction) return;
+    if (!pricingCurrentAction) { setAiEnabled(true); return; }
     call<{ ai_unit_units_per_halala: number; ai_enabled?: boolean }>(session, pricingCurrentAction)
       .then((x) => { setUnitsPerHalala(x.ai_unit_units_per_halala); setAiEnabled(x.ai_enabled !== false); })
-      .catch(() => setUnitsPerHalala(null));
+      .catch(() => { setUnitsPerHalala(null); setAiEnabled(true); });
   }, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!balanceAction) return null;

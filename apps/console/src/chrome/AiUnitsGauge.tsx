@@ -46,12 +46,14 @@ export function AiUnitsGauge({ session, catalog, owned }: { session: Session; ca
   const navigate = useNavigate();
   const [wallet, setWallet] = useState<WalletBalance | null | undefined>(undefined);
   const [unitsPerHalala, setUnitsPerHalala] = useState<number | null>(null);
-  // THE PLATFORM-WIDE SWITCH (2026-09-19) — `true` until the same read that already fetches
-  // `unitsPerHalala` answers, so this never flickers the gauge on then off; a shop that cannot
-  // read this action at all (no `whatsapp_assistant.pricing_read`) never gets asked, same as the
-  // rate fetch below, and the gauge falls back to showing per the real balance/ownership rules
-  // beneath — the switch only ever HIDES, never invents visibility.
-  const [aiEnabled, setAiEnabled] = useState(true);
+  // THE PLATFORM-WIDE SWITCH (2026-09-19) — `null` until resolved, and the gauge stays HIDDEN
+  // for that whole pending window (see the render guard below), never shown-then-hidden. A
+  // shown-then-hidden flicker was the actual owner-reported bug this fixes: `wallet.my_balance`
+  // and `pricing_current` fetch in PARALLEL, so a naive "default true" let the wallet answer
+  // first and paint the gauge for one frame before the switch's own answer landed and hid it
+  // again. Resolved to `true` immediately when there is nothing to ask (no action at all, or the
+  // read fails) — those are "not applicable"/"network hiccup", never the switch itself.
+  const [aiEnabled, setAiEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
     const a = action(catalog, 'wallet.my_balance');
@@ -61,10 +63,10 @@ export function AiUnitsGauge({ session, catalog, owned }: { session: Session; ca
 
   useEffect(() => {
     const a = action(catalog, 'whatsapp_assistant.pricing_current');
-    if (!a) return;
+    if (!a) { setAiEnabled(true); return; }
     call<{ ai_unit_units_per_halala: number; ai_enabled?: boolean }>(session, a)
       .then((x) => { setUnitsPerHalala(x.ai_unit_units_per_halala); setAiEnabled(x.ai_enabled !== false); })
-      .catch(() => {});
+      .catch(() => setAiEnabled(true));
   }, [session, catalog]);
 
   if (!wallet || !aiEnabled) return null;

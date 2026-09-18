@@ -107,15 +107,16 @@ export function useAppBilling(session: Session, catalog: Catalog) {
   // "unit" conversions for the same halala mid-scroll.
   const [unitsPerHalala, setUnitsPerHalala] = useState<number | null>(null);
   // THE PLATFORM-WIDE SWITCH (2026-09-19) — same rate fetch, same field, see AiUnitsGauge.tsx's
-  // own note. `AppDetailsModal.tsx`'s `AiUnitsChip` reads this to decide whether the "included AI
-  // credit" badge belongs on a card at all right now.
-  const [aiEnabled, setAiEnabled] = useState(true);
+  // own note. `null` = pending; `AppLauncher.tsx`'s own consumption already treats anything not
+  // strictly `true` as falsy, so the "included AI" chip stays hidden for the whole pending
+  // window instead of showing then disappearing once the real answer lands.
+  const [aiEnabled, setAiEnabled] = useState<boolean | null>(null);
   useEffect(() => {
     const a = action(catalog, 'whatsapp_assistant.pricing_current');
-    if (!a) return;
+    if (!a) { setAiEnabled(true); return; }
     call<{ ai_unit_units_per_halala: number; ai_enabled?: boolean }>(session, a)
       .then((x) => { setUnitsPerHalala(x.ai_unit_units_per_halala); setAiEnabled(x.ai_enabled !== false); })
-      .catch(() => {});
+      .catch(() => setAiEnabled(true));
   }, [session, catalog]);
 
   const apps = useMemo(() => (plans ?? []).filter((p) => kindOf(p) === 'app'), [plans]);

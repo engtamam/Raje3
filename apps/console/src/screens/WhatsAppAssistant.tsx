@@ -85,7 +85,9 @@ export function WhatsAppAssistant({ session, catalog, owned }: {
   const [unitsPerHalala, setUnitsPerHalala] = useState<number | null>(null);
   // THE PLATFORM-WIDE SWITCH (2026-09-19) — see AiUnitsGauge.tsx's own note; same fetch below,
   // same "only ever hides, never invents visibility" rule.
-  const [aiEnabled, setAiEnabled] = useState(true);
+  // `null` = pending; the card stays hidden for the whole window rather than showing then
+  // disappearing once the switch's own answer lands (see AiUnitsGauge.tsx's own note).
+  const [aiEnabled, setAiEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
     const a = action(catalog, 'whatsapp_assistant.my_impact');
@@ -101,13 +103,13 @@ export function WhatsAppAssistant({ session, catalog, owned }: {
 
   useEffect(() => {
     const a = action(catalog, 'whatsapp_assistant.pricing_current');
-    if (!a) return;
+    if (!a) { setAiEnabled(true); return; }
     call<{ ai_unit_units_per_halala: number; ai_enabled?: boolean }>(session, a)
       .then((x) => { setUnitsPerHalala(x.ai_unit_units_per_halala); setAiEnabled(x.ai_enabled !== false); })
-      .catch(() => {});
+      .catch(() => setAiEnabled(true));
   }, [session, catalog]);
 
-  const aiCreditRemaining = wallet && aiEnabled
+  const aiCreditRemaining = wallet && aiEnabled === true
     ? Math.max(0, (wallet.funds?.ai_credit ?? 0) - (wallet.held?.ai_credit ?? 0))
     : null;
 

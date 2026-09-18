@@ -145,10 +145,11 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
   // بالكود قد لا تكون موجودة أصلاً لهذا الحساب.
   const [openProvider, setOpenProvider] = useState<string | null>(initialOpenProvider ?? null);
   // THE PLATFORM-WIDE SWITCH (2026-09-19) — read-only, off `/operator/config`'s own extra field
-  // (operator.py's own note). `true` until the real answer lands, same "only ever hides, never
-  // invents visibility" rule as the shop-facing surfaces. Fetched once here, not inside
+  // (operator.py's own note). `null` = pending; the calculator only ever renders once this is
+  // strictly `true` (see the render guard below), so it never shows for one frame then gets
+  // replaced by the "off" notice once the real answer lands. Fetched once here, not inside
   // AIConfigCard, because "المحاسبة" (AIPricingCalculator) needs it too and renders independently.
-  const [aiAssistantEnabled, setAiAssistantEnabled] = useState(true);
+  const [aiAssistantEnabled, setAiAssistantEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -163,10 +164,10 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
 
   useEffect(() => {
     const a = findAction('whatsapp_assistant.operator_config');
-    if (!a) return;
+    if (!a) { setAiAssistantEnabled(true); return; }
     req<{ ai_assistant_enabled?: boolean }>(a.path, 'GET', undefined, session.access_token)
       .then((body) => setAiAssistantEnabled(body.ai_assistant_enabled !== false))
-      .catch(() => {});
+      .catch(() => setAiAssistantEnabled(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- findAction is derived per render from catalog, not a stable dep
   }, [catalog, session.access_token]);
   const listAction = findAction('secrets.list');
@@ -310,9 +311,14 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
                     <AIPersonaCard session={session} previewAction={personaPreviewAction} />
                   ) : null}
                 </div>
+              ) : aiAssistantEnabled === null ? (
+                // STILL PENDING (2026-09-19) — never the calculator here, never the "off" notice
+                // either, until the switch's own answer actually lands; either default would risk
+                // showing one for a single frame then swapping to the other.
+                <p className="p-6 text-sm text-text-secondary">جارٍ التحميل…</p>
               ) : !aiAssistantEnabled ? (
-                // THE PLATFORM-WIDE SWITCH IS OFF (2026-09-19) — no reply is being priced right
-                // now, so a pricing calculator here would price a cost nobody is actually paying.
+                // THE PLATFORM-WIDE SWITCH IS OFF — no reply is being priced right now, so a
+                // pricing calculator here would price a cost nobody is actually paying.
                 <p className="rounded-card border border-dashed border-border-subtle p-6 text-sm text-text-secondary">
                   المساعد الذكي عبر واتساب متوقف حالياً على مستوى المنصة كلها — لا تسعير جارٍ حتى
                   يُفعَّل مجدداً.
