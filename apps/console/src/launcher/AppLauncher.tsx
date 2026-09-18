@@ -353,7 +353,11 @@ export function AppLauncher() {
                         ? appNameOf(billing.discountPreviews[plan.id].owning_key) : undefined,
                       potentialDiscountAppName: billing.potentialDiscounts[plan.id]
                         ? appNameOf(billing.potentialDiscounts[plan.id].owning_key) : undefined,
-                      includedCreditMinor: includedAiCreditOf(plan),
+                      // THE PLATFORM-WIDE SWITCH (2026-09-19) — `undefined` (not 0) so the chip's
+                      // own `!includedCreditMinor` guard drops it, same as a plan with no
+                      // included allowance at all. Never shows an "included AI" promise for a
+                      // feature answering nothing right now.
+                      includedCreditMinor: billing.aiEnabled ? includedAiCreditOf(plan) : undefined,
                       unitsPerHalala: billing.unitsPerHalala,
                       cascadeNames: sub ? billing.cascadeTargets(sub.id).map((p) => p.name) : [],
                     } : undefined}

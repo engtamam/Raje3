@@ -100,6 +100,15 @@ async def pricing_current(request: Request,
                if c.key in _SHOP_VISIBLE_PENDING_KEYS]
 
     return {
+        # THE PLATFORM-WIDE SWITCH (2026-09-19, config.py::AI_ASSISTANT_ENABLED) — every console
+        # surface that shows AI-unit balance/pricing already calls this SAME action
+        # (AiUnitsGauge.tsx, Wallet.tsx, WhatsAppAssistant.tsx, useAppBilling.ts all read
+        # `whatsapp_assistant.pricing_current`), so this is the one place to add the field rather
+        # than a second action nobody else calls. The backend already enforces the switch
+        # fleet-wide via ToggleGatedLicence with no per-shop repair needed to flip it back; this
+        # lets the console hide every AI-units surface while it is off, instead of showing
+        # controls for a feature answering nothing right now.
+        "ai_enabled": settings.AI_ASSISTANT_ENABLED,
         # THE ONLY AI-UNIT FIELD A SHOP EVER NEEDS TO READ — the fixed halala->unit display scale
         # (core/ai_unit_pricing.py's own note: this NEVER varies by model). Margins/per-model costs
         # are our own cost basis, not a shop-facing fact — never returned here, same "a shop reads

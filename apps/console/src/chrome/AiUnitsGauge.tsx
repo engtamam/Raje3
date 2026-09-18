@@ -46,6 +46,12 @@ export function AiUnitsGauge({ session, catalog, owned }: { session: Session; ca
   const navigate = useNavigate();
   const [wallet, setWallet] = useState<WalletBalance | null | undefined>(undefined);
   const [unitsPerHalala, setUnitsPerHalala] = useState<number | null>(null);
+  // THE PLATFORM-WIDE SWITCH (2026-09-19) — `true` until the same read that already fetches
+  // `unitsPerHalala` answers, so this never flickers the gauge on then off; a shop that cannot
+  // read this action at all (no `whatsapp_assistant.pricing_read`) never gets asked, same as the
+  // rate fetch below, and the gauge falls back to showing per the real balance/ownership rules
+  // beneath — the switch only ever HIDES, never invents visibility.
+  const [aiEnabled, setAiEnabled] = useState(true);
 
   useEffect(() => {
     const a = action(catalog, 'wallet.my_balance');
@@ -56,12 +62,12 @@ export function AiUnitsGauge({ session, catalog, owned }: { session: Session; ca
   useEffect(() => {
     const a = action(catalog, 'whatsapp_assistant.pricing_current');
     if (!a) return;
-    call<{ ai_unit_units_per_halala: number }>(session, a)
-      .then((x) => setUnitsPerHalala(x.ai_unit_units_per_halala))
+    call<{ ai_unit_units_per_halala: number; ai_enabled?: boolean }>(session, a)
+      .then((x) => { setUnitsPerHalala(x.ai_unit_units_per_halala); setAiEnabled(x.ai_enabled !== false); })
       .catch(() => {});
   }, [session, catalog]);
 
-  if (!wallet) return null;
+  if (!wallet || !aiEnabled) return null;
 
   const at = (name: string) => Math.max(0, (wallet.funds?.[name] ?? 0) - (wallet.held?.[name] ?? 0));
   const included = at('ai_credit');

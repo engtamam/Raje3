@@ -80,6 +80,10 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
   // null = not read yet (or the shop cannot read it) — unitsLabel falls back to riyals then, never
   // guesses a rate. See ai_unit_pricing.py's own docstring on why this is a FIXED, shared scale.
   const [unitsPerHalala, setUnitsPerHalala] = useState<number | null>(null);
+  // THE PLATFORM-WIDE SWITCH (2026-09-19) — same fetch below, same rule as AiUnitsGauge.tsx: only
+  // ever hides the AI-bot card and its top-up dialog, never the renewal/commission cards beside
+  // them (those are unrelated funds, unaffected by this switch).
+  const [aiEnabled, setAiEnabled] = useState(true);
 
   const load = () => {
     if (!balanceAction) { setWallet(null); return; }
@@ -101,8 +105,8 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
 
   useEffect(() => {
     if (!pricingCurrentAction) return;
-    call<{ ai_unit_units_per_halala: number }>(session, pricingCurrentAction)
-      .then((x) => setUnitsPerHalala(x.ai_unit_units_per_halala))
+    call<{ ai_unit_units_per_halala: number; ai_enabled?: boolean }>(session, pricingCurrentAction)
+      .then((x) => { setUnitsPerHalala(x.ai_unit_units_per_halala); setAiEnabled(x.ai_enabled !== false); })
       .catch(() => setUnitsPerHalala(null));
   }, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -163,29 +167,33 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {/* THE AI BOT'S OWN ALLOWANCE — every shop with the bot sees this, bundled with its
             manual top-up right beside it: one errand, one story («استخدمت المضمّن؟ هذا احتياطك»),
-            not two unrelated numbers. */}
-        <KpiCard
-          icon={<Bot size={20} aria-hidden />}
-          tone="info"
-          label={t('wallet.aiUnits.label')}
-          value={unitsLabel(aiTotal, unitsPerHalala, t)}
-          hint={
-            <span className="flex flex-col gap-0.5">
-              <span>{tf(t, 'wallet.aiUnits.includedHint', { units: unitsLabel(aiCredit, unitsPerHalala, t) })}</span>
-              {topup > 0 ? (
-                <span>{tf(t, 'wallet.aiUnits.topupHint', { units: unitsLabel(topup, unitsPerHalala, t) })}</span>
-              ) : (
-                <span>{t('wallet.aiUnits.noTopupHint')}</span>
-              )}
-              {topupCheckoutAction ? (
-                <Button type="button" size="sm" variant="outline" className="mt-1 self-start"
-                       onClick={() => setTopupOpen(true)}>
-                  {t('wallet.aiUnits.topupButton')}
-                </Button>
-              ) : null}
-            </span>
-          }
-        />
+            not two unrelated numbers. Gated on the platform-wide switch (2026-09-19) — off means
+            this whole card and its top-up button disappear, same as a feature answering nothing
+            right now, never a greyed-out control. */}
+        {aiEnabled ? (
+          <KpiCard
+            icon={<Bot size={20} aria-hidden />}
+            tone="info"
+            label={t('wallet.aiUnits.label')}
+            value={unitsLabel(aiTotal, unitsPerHalala, t)}
+            hint={
+              <span className="flex flex-col gap-0.5">
+                <span>{tf(t, 'wallet.aiUnits.includedHint', { units: unitsLabel(aiCredit, unitsPerHalala, t) })}</span>
+                {topup > 0 ? (
+                  <span>{tf(t, 'wallet.aiUnits.topupHint', { units: unitsLabel(topup, unitsPerHalala, t) })}</span>
+                ) : (
+                  <span>{t('wallet.aiUnits.noTopupHint')}</span>
+                )}
+                {topupCheckoutAction ? (
+                  <Button type="button" size="sm" variant="outline" className="mt-1 self-start"
+                         onClick={() => setTopupOpen(true)}>
+                    {t('wallet.aiUnits.topupButton')}
+                  </Button>
+                ) : null}
+              </span>
+            }
+          />
+        ) : null}
 
         {walletFundEnabled ? (
           <KpiCard
@@ -210,7 +218,7 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
         ) : null}
       </div>
 
-      {topupCheckoutAction ? (
+      {aiEnabled && topupCheckoutAction ? (
         <TopUpDialog session={session} action={topupCheckoutAction} open={topupOpen}
                     unitsPerHalala={unitsPerHalala}
                     onClose={() => setTopupOpen(false)} onCharged={load} />

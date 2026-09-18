@@ -84,6 +84,7 @@ def test_platform_config_alone_does_not_grant_this_read(client):
 def test_the_deploy_time_defaults_with_nothing_pending(client, shop_auth):
     body = client.get(PATH, headers=shop_auth).json()
     assert body == {
+        "ai_enabled": True,
         "ai_unit_units_per_halala": 1000,
         "pending_changes": [],
     }
@@ -131,6 +132,15 @@ def test_a_pending_margin_or_model_cost_change_never_leaks_here(client, shop_aut
 
     body = client.get(PATH, headers=shop_auth).json()
     assert body["pending_changes"] == []
+
+
+def test_ai_enabled_reflects_the_platform_switch_when_off(shop_auth):
+    """The platform-wide kill switch (2026-09-19) — every console surface that shows AI-unit
+    balance/pricing reads this same route, so this is the one place the console learns to hide
+    all of them, without a per-shop repair needed to flip it back on."""
+    client = _make_app(AI_ASSISTANT_ENABLED="false")
+    body = client.get(PATH, headers=shop_auth).json()
+    assert body["ai_enabled"] is False
 
 
 def test_a_landed_ai_unit_rate_change_is_reflected_here(client, shop_auth):
