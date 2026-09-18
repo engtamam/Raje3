@@ -144,7 +144,16 @@ export function myApps(catalog: Catalog, owned: Loading<Owned>): LauncherApp[] {
       inlineFeatures: ownedApps.find((o) => o.key === a.key)?.features,
     }));
 
-  return [...bySection, ...byOwnership];
+  // NOT-YET-BOUGHT SECTIONS DO NOT BELONG HERE (found live, owner's own report): a section this
+  // role may in principle SEE (`visibleSections`, same list the rail draws its own locked-upsell
+  // rows from) is not the same question as "did this shop actually buy it" — and «تطبيقاتي»'s
+  // whole reason to exist is answering the second one. `ownedByShop === false` is the one
+  // definitive "no" (confirmed unowned, catalogue already answered); `true` and `null`/loading
+  // both still belong here, so nothing flickers out mid-load only to vanish once billing answers.
+  // A locked, unbought app's one and only home is «كل التطبيقات», right below.
+  const bought = bySection.filter((a) => a.ownedByShop !== false);
+
+  return [...bought, ...byOwnership];
 }
 
 /** «كل التطبيقات (المتجر)» — the FULL catalog, whether or not this role may open it yet; the same
