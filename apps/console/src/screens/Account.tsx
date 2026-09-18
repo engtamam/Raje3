@@ -103,12 +103,15 @@ function tabsFor(t: (key: string) => string): { id: Pane; label: string; hint: s
     // act in this shop, and under whose name. They were five separate tabs and a person looking for
     // «who works here» had to guess which of them held it.
     { id: 'shop', label: t('account.tab.shop.label'), hint: t('account.tab.shop.hint') },
-    // THE APP AND THE INVOICES ARE ONE ERRAND: money. They were split because choosing an app and
-    // fetching a receipt are different acts — which is true, and still leaves both under the one
-    // word an owner thinks of when he is here for either.
-    // «متجر التطبيقات», WHICH IS WHAT THE REST OF THE PRODUCT ALREADY CALLED IT. The tab said
-    // «اشتراكي» and four screens said «متجر التطبيقات» — two names for one place, and the one
-    // printed in the sentences that send people here was the one that did not exist.
+    // RENAMED AGAIN, 2026-09-19 — «متجر التطبيقات» WAS RIGHT ONCE, AND STOPPED BEING RIGHT. This
+    // tab used to BE the store (subscribe/cancel/discounts/capacity add-ons all lived here), so
+    // calling it that matched what the rest of the product already said. Then the whole store
+    // moved to the launcher (`AppLauncher.tsx`, [[task-app-store-redesign-7-phases]]) and
+    // `BillingStatusPane.tsx` is what remained: a failing charge, and the one control that fixes
+    // it — no apps, no subscribing, no browsing. Leaving the label as «متجر التطبيقات» after that
+    // move was found live as dead-looking-code: an owner clicking it landed on a payment-method
+    // fix screen, not a store, with nothing here explaining the two are different. Renamed to
+    // «الفوترة» — what is actually behind this tab now.
     { id: 'billing', label: t('account.tab.billing.label'), hint: t('account.tab.billing.hint') },
     // A NEW TAB, DELIBERATELY NOT A NEW RAIL SECTION — nav.ts documents "the nine sections" as a
     // fixed architectural constant (a phone-width limit), so a wallet balance broken down by

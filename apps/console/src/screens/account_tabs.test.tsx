@@ -64,11 +64,11 @@ describe('«حسابي» — the tab that went, and where its parts landed', () 
     expect(await screen.findByText('فواتيري')).toBeTruthy();
   });
 
-  it('does not leave the invoices in the app store as well', async () => {
+  it('does not leave the invoices in billing as well', async () => {
     // TWO PLACES FOR ONE THING is how a screen starts disagreeing with itself: one of the copies
     // gets the next fix and the other keeps answering.
     render(<AccountScreen session={session} catalog={catalog} openOn="billing" />);
-    await screen.findByText('متجر التطبيقات');
+    await screen.findByText('الفوترة');
     expect(screen.queryByText('فواتيري')).toBeNull();
   });
 });

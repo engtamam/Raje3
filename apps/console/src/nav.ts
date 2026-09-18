@@ -242,11 +242,20 @@ export const TEAM_PATH = '/team';
  *  screen `check_roles.py` cannot ask about. */
 export const SHOP_PATH = '/shop';
 
-/** Where an owner goes to buy — «متجر التطبيقات»'s own dedicated route/rail row was deleted
- *  2026-09-16 (dead code: it only ever rendered `<AccountScreen openOn="billing">`, the exact
- *  same pane this address already opens). Named once, so no screen builds the address out of a
- *  literal — every «أضِفه» button in the product points here. */
-export const STORE_PATH = '/account?tab=billing';
+/** Where an owner goes to buy — the launcher (`AppLauncher.tsx`, mounted at the index route in
+ *  `main.tsx`), every app's own tile and the capacity shelf, all in one place.
+ *
+ *  WAS `/account?tab=billing` UNTIL 2026-09-19 — true the day it was written (that pane WAS the
+ *  store then), and stayed wrong silently once the store moved to the launcher and
+ *  `BillingStatusPane.tsx` replaced it with a payment-method fix and nothing else. Found live:
+ *  every «أضِفه إلى اشتراكي» button in the product (`Locked.tsx`, `Team.tsx`,
+ *  `SubscriptionBar.tsx`) sent an owner to a screen that could no longer sell him anything —
+ *  Locked.tsx's own comment even still says "the store screen still explains and still sells
+ *  every app", describing a screen this address had stopped opening.
+ *
+ *  Named once, so no screen builds the address out of a literal — every «أضِفه» button in the
+ *  product points here. */
+export const STORE_PATH = '/';
 
 /** A sibling of `/`, outside `<App/>` on purpose (see main.tsx) — a legal document has to render
  *  for someone who has never signed up, so it carries no `requires:` and no section row. Named
