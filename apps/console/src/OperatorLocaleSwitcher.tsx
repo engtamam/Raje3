@@ -16,7 +16,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, ChevronDown, Languages } from 'lucide-react';
+import { Check, Languages } from 'lucide-react';
 import { OPERATOR_LOCALES, useOperatorI18n } from './operator-i18n';
 import './operator-locale-switcher-i18n';
 
@@ -40,7 +40,6 @@ export function OperatorLocaleSwitcher() {
   }, [open]);
 
   if (!ready) return null;
-  const current = OPERATOR_LOCALES.find((l) => l.value === locale) ?? OPERATOR_LOCALES[0];
 
   return (
     <div ref={rootRef} className="relative flex items-center gap-2">
@@ -54,11 +53,9 @@ export function OperatorLocaleSwitcher() {
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={t('localeSwitcher.ariaLabel')}
-        className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-border-subtle bg-surface-1 px-3 text-sm font-semibold transition hover:border-accent/50 focus-ring"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface-1 transition hover:border-accent/50 focus-ring"
       >
-        <Languages size={14} className="shrink-0 text-text-muted" />
-        <span dir="ltr">{current.label}</span>
-        <ChevronDown size={14} className={`shrink-0 text-text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+        <Languages size={16} className="shrink-0 text-text-muted" />
       </button>
 
       <AnimatePresence>

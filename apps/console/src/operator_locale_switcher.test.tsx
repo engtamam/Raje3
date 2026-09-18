@@ -60,9 +60,12 @@ describe('OperatorLocaleSwitcher', () => {
     fireEvent.click(screen.getByLabelText('Language / اللغة'));
     fireEvent.click(screen.getByRole('option', { name: 'English' }));
     await waitFor(() => expect(screen.getByText(/تعذّر حفظ اللغة/)).toBeTruthy());
-    // AND IT ROLLED BACK — the account, not the click, is the truth. Picking a menu option closes
-    // it, so the toggle button's own displayed label (never translated — each language names
-    // itself, in its own script) is what still shows the real, reverted locale.
-    expect(screen.getByLabelText('Language / اللغة').textContent).toContain('العربية');
+    // AND IT ROLLED BACK — the account, not the click, is the truth. The toggle button is
+    // icon-only (2026-09-17, space-saving) and never displayed the label text itself, so the
+    // rollback is verified by re-opening the menu and confirming Arabic still shows as the
+    // checked option, not English.
+    fireEvent.click(screen.getByLabelText('Language / اللغة'));
+    const arabicOption = await screen.findByRole('option', { name: 'العربية' });
+    expect(arabicOption.getAttribute('aria-selected')).toBe('true');
   });
 });

@@ -15,6 +15,16 @@
  * `feature.whatsapp` (`owns(owned, 'feature.whatsapp')`) OR still holding a leftover manual
  * top-up balance — a shop that cancelled the bot but still has unspent top-up money keeps seeing
  * it until that runs out too.
+ *
+ * BLACK-AND-GOLD, FREE-STANDING NEXT TO SUPPORT (2026-09-19, owner's own instruction) — two fixes
+ * in one: (1) it used to sit inside the same muted neutral pill as language/notifications/account,
+ * reading as one more dull utility icon rather than the "how much AI is left" moment it actually
+ * is — moved out to its own chip in `TopBar.tsx`, beside the support button, the same free-standing
+ * treatment that button already earned. (2) the empty ring used to be `text-border-subtle` at 0.4
+ * opacity — on a light surface that is nearly the same colour as the page itself, so a real zero
+ * balance (the moment this gauge matters most) looked like nothing was there at all. Now a solid
+ * black chip with the ring always drawn in gold (`#d4af37`, visible at every fill level, empty
+ * included) and the bolt in the same gold — never blends into the background, whatever the balance.
  */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -75,14 +85,17 @@ export function AiUnitsGauge({ session, catalog, owned }: { session: Session; ca
         topup: unitsLabel(topup, unitsPerHalala, t),
       })}
       aria-label={t('topBar.aiUnits.label')}
-      className="grid size-9 shrink-0 place-items-center rounded-full text-text-secondary transition hover:bg-surface-1 hover:text-text-primary focus-ring"
+      className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-zinc-800 to-black shadow-[0_2px_10px_-2px_rgba(212,175,55,0.55)] transition hover:brightness-110 focus-ring"
     >
       <span className="relative grid size-7 place-items-center">
         <svg viewBox="0 0 36 36" className="absolute inset-0 size-7 -rotate-90">
-          <circle cx="18" cy="18" r={R} fill="none" stroke="currentColor" strokeWidth={STROKE} className="text-border-subtle" opacity={0.4} />
+          {/* THE EMPTY-RING BASE, ALWAYS GOLD — never the page's own muted border colour, so a
+              real zero balance still reads as "a gauge, showing nothing left" rather than "no
+              gauge here at all". */}
+          <circle cx="18" cy="18" r={R} fill="none" stroke="#d4af37" strokeWidth={STROKE} opacity={0.35} />
           {included > 0 ? (
             <circle
-              cx="18" cy="18" r={R} fill="none" stroke="#7c3aed" strokeWidth={STROKE} strokeLinecap="round"
+              cx="18" cy="18" r={R} fill="none" stroke="#a78bfa" strokeWidth={STROKE} strokeLinecap="round"
               strokeDasharray={`${includedLen} ${CIRCUMFERENCE - includedLen}`}
             />
           ) : null}
@@ -94,7 +107,7 @@ export function AiUnitsGauge({ session, catalog, owned }: { session: Session; ca
             />
           ) : null}
         </svg>
-        <Zap size={12} className="relative" />
+        <Zap size={12} className="relative text-amber-400" />
       </span>
     </button>
   );

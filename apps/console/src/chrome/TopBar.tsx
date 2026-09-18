@@ -92,6 +92,13 @@ export function TopBar({
         />
       </div>
 
+      {/* THE AI-UNITS GAUGE, FREE-STANDING TOO, RIGHT BESIDE SUPPORT (2026-09-19, owner's own
+          instruction) — same reasoning as the support button's own note just below: buried in the
+          muted neutral pill it read as one more dull utility icon, not "how much AI is left". Its
+          own black-and-gold chip (`AiUnitsGauge.tsx`'s own note) gives it the same distinct visual
+          weight, right next to the other "this one matters" icon. */}
+      <AiUnitsGauge session={session} catalog={catalog} owned={owned} />
+
       {/* «الدعم الفني» FREE-STANDING, NOT IN THE MUTED PILL — found live (owner's own report):
           folded into the same faded neutral pill as notifications/language/account, it read as
           just another dull utility icon, not the "talk to us" moment it actually is. Its own
@@ -113,7 +120,6 @@ export function TopBar({
           surface instead of icons floating loose against the page, so the group reads as one
           deliberate object rather than leftovers pulled out of the old rail. */}
       <div className="flex shrink-0 items-center gap-1 rounded-full border border-border-subtle bg-surface-2/60 p-1 shadow-sm">
-        <AiUnitsGauge session={session} catalog={catalog} owned={owned} />
         <NotificationBell session={session} />
         <OperatorLocaleSwitcher />
         <AccountMenu onAccount={onAccount} onSignOut={onSignOut} />
