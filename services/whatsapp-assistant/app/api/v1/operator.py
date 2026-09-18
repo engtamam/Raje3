@@ -120,7 +120,14 @@ async def effective_config(request: Request, tenant: str = "",
     """Every knob an operator may change, with its current effective value — built from the
     settable set, so a credential or a frozen identifier cannot appear here even by accident."""
     rc = _runtime_config(request)
-    return {"config": await rc.effective(tenant=tenant, settings=get_settings())}
+    # READ-ONLY, NOT A SETTABLE KNOB — `AI_ASSISTANT_ENABLED` (config.py, 2026-09-19) is a
+    # deploy-time, platform-wide switch on purpose, not a per-tenant runtime override; it never
+    # goes through `rc.effective()`'s settable set. Included here only so the admin pricing panel
+    # (AdminProviderSecrets.tsx's own `AIConfigCard`) can hide its now-pointless "المحاسبة"
+    # section when the switch is off, without a second round trip — the same JSON this card
+    # already fetches.
+    return {"config": await rc.effective(tenant=tenant, settings=get_settings()),
+            "ai_assistant_enabled": get_settings().AI_ASSISTANT_ENABLED}
 
 
 @router.put("/config", dependencies=[Depends(_CONFIG), Depends(rate_limit)])

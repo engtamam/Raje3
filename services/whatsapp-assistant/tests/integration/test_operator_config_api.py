@@ -100,6 +100,17 @@ def test_a_deploy_time_knob_is_refused(client, operator_auth):
         assert r.status_code == 400, f"{key} was accepted at runtime"
 
 
+def test_ai_assistant_enabled_is_read_only_and_reflects_the_switch(client, operator_auth):
+    """The platform-wide switch (2026-09-19) — read-only here, never one of the settable knobs,
+    so the admin pricing panel can hide its now-pointless section when it's off."""
+    r = client.get(f"{PREFIX}/config", headers=operator_auth)
+    assert r.json()["ai_assistant_enabled"] is True
+
+    off = _make_app(AI_ASSISTANT_ENABLED="false")
+    r = off.get(f"{PREFIX}/config", headers=operator_auth)
+    assert r.json()["ai_assistant_enabled"] is False
+
+
 def test_the_config_view_never_carries_a_credential(client, operator_auth):
     view = client.get(f"{PREFIX}/config", headers=operator_auth).json()["config"]
     for banned in ("SECRETS_KEK", "INTERNAL_SERVICE_TOKEN", "PII_SALT", "ASSISTANT_MODEL_CREDENTIAL"):

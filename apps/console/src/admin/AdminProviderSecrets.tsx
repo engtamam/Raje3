@@ -144,6 +144,11 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
   // "أول فئة موجودة فعلياً بالاستجابة" — يُحسم أول ما تصل الصفوف (انظر أدناه)، لا فئة مجمّدة
   // بالكود قد لا تكون موجودة أصلاً لهذا الحساب.
   const [openProvider, setOpenProvider] = useState<string | null>(initialOpenProvider ?? null);
+  // THE PLATFORM-WIDE SWITCH (2026-09-19) — read-only, off `/operator/config`'s own extra field
+  // (operator.py's own note). `true` until the real answer lands, same "only ever hides, never
+  // invents visibility" rule as the shop-facing surfaces. Fetched once here, not inside
+  // AIConfigCard, because "المحاسبة" (AIPricingCalculator) needs it too and renders independently.
+  const [aiAssistantEnabled, setAiAssistantEnabled] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -155,6 +160,15 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
   const allActions = catalog !== 'loading' && catalog !== 'failed'
     ? catalog.services.flatMap((s) => s.actions) : [];
   const findAction = (id: string) => allActions.find((a) => a.id === id);
+
+  useEffect(() => {
+    const a = findAction('whatsapp_assistant.operator_config');
+    if (!a) return;
+    req<{ ai_assistant_enabled?: boolean }>(a.path, 'GET', undefined, session.access_token)
+      .then((body) => setAiAssistantEnabled(body.ai_assistant_enabled !== false))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- findAction is derived per render from catalog, not a stable dep
+  }, [catalog, session.access_token]);
   const listAction = findAction('secrets.list');
   const updateAction = findAction('secrets.update');
   // "الحالة" — رؤية تشغيلية حقيقية لواتساب المنصة نفسها (Raje3 Meta-panel Phase 1): لا اتصال
@@ -296,6 +310,13 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
                     <AIPersonaCard session={session} previewAction={personaPreviewAction} />
                   ) : null}
                 </div>
+              ) : !aiAssistantEnabled ? (
+                // THE PLATFORM-WIDE SWITCH IS OFF (2026-09-19) — no reply is being priced right
+                // now, so a pricing calculator here would price a cost nobody is actually paying.
+                <p className="rounded-card border border-dashed border-border-subtle p-6 text-sm text-text-secondary">
+                  المساعد الذكي عبر واتساب متوقف حالياً على مستوى المنصة كلها — لا تسعير جارٍ حتى
+                  يُفعَّل مجدداً.
+                </p>
               ) : pricingPendingAction ? (
                 <AIPricingCalculator session={session}
                                      reportAction={pricingReportAction}
