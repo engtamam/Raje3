@@ -8,7 +8,7 @@
  * (المتجر)» is the full catalog, locked cards included — the same thing متجر التطبيقات/Plans.tsx
  * already sell, just browsable from the front door instead of a rail row away.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import Fuse from 'fuse.js';
@@ -124,6 +124,30 @@ export function AppLauncher() {
   const canBrowseStore = Boolean(action(catalog, 'operations.create_operator'));
   const tab: Tab = canBrowseStore ? tabState : 'mine';
 
+  // SWIPE BETWEEN THE TWO TABS — the owner's own report: on a phone, reaching up to tap the tab
+  // pill every time is friction a small horizontal drag removes. `touchStartX/Y` are refs, not
+  // state — they change on every touchmove and must never trigger a re-render. RTL-correct: the
+  // tab strip renders «تطبيقاتي» first (so it sits on the visual RIGHT in RTL) then «كل
+  // التطبيقات» to its LEFT — a left-swipe (finger moving left, content "advancing" the same
+  // direction the tabs are laid out) goes مين->all; a right-swipe reverses it. A vertical drag
+  // (scrolling the page) is deliberately never mistaken for a swipe: `SWIPE_MIN_PX` alone would
+  // fire on a diagonal scroll, so this also requires the horizontal move to dominate the vertical
+  // one, not just clear a minimum.
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const SWIPE_MIN_PX = 60;
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (!canBrowseStore) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    setTab(dx < 0 ? 'all' : 'mine');
+  };
+
   const mine = useMemo(() => myApps(catalog, owned), [catalog, owned]);
   const everything = useMemo(() => (canBrowseStore ? allApps(owned) : []), [owned, canBrowseStore]);
   const active = tab === 'mine' ? mine : everything;
@@ -186,7 +210,11 @@ export function AppLauncher() {
   const CONTENT_WIDTH = 'mx-auto w-full max-w-[1800px] px-4 sm:px-6';
 
   return (
-    <div className="flex flex-col gap-6 py-4 sm:py-6">
+    <div
+      className="flex flex-col gap-6 py-4 sm:py-6"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
       <div className={`flex flex-wrap items-center gap-3 ${CONTENT_WIDTH}`}>
         <div className="flex min-w-[200px] max-w-md flex-1 items-center gap-2 rounded-full border border-border-subtle bg-surface-1 px-4 py-2.5 shadow-sm">
           <Search size={16} className="shrink-0 text-text-muted" />
