@@ -148,8 +148,27 @@ export function AppLauncher() {
     setTab(dx < 0 ? 'all' : 'mine');
   };
 
+  // REAL SUBSCRIBE/CANCEL — the same logic `screens/Plans.tsx` already has, not a second copy
+  // (see useAppBilling.ts's own header on why reuse matters here specifically: real money, a real
+  // 3DS card flow). Computed here, ABOVE `everything` below, because `allApps` now needs
+  // `planByKey` to know which rows are unlisted.
+  const billing = useAppBilling(session, catalog);
+
   const mine = useMemo(() => myApps(catalog, owned), [catalog, owned]);
-  const everything = useMemo(() => (canBrowseStore ? allApps(owned) : []), [owned, canBrowseStore]);
+  // AN UNLISTED PLAN'S APP HAS EXACTLY ONE HOME: نفس تطبيقاتي، لمن يملكه فعلاً — never «كل
+  // التطبيقات» too (found live, owner's own report: a plan marked `listed: false` — a negotiated,
+  // invite-only deal, deploy/seed/plans.json's own convention — still rendered a full tile here
+  // for every shop, plan-less and unpriced but visible, because `allApps` never checked listing at
+  // all; only `useAppBilling`'s own `planByKey` silently dropped the PLAN, not the TILE).
+  // `billing.planByKey` already excludes `listed === false` rows (useAppBilling.ts), so "does this
+  // billingKey resolve to a real, listed plan" is the same read `AppTile`'s own `plan` lookup below
+  // uses — one source of truth, not a second filter that could disagree with it.
+  const everything = useMemo(
+    () => (canBrowseStore
+      ? allApps(owned).filter((a) => !a.billingKey || a.ownedByShop === true || billing.planByKey[a.billingKey])
+      : []),
+    [owned, canBrowseStore, billing.planByKey],
+  );
   const active = tab === 'mine' ? mine : everything;
 
   // FUZZY, NOT SUBSTRING — a shop owner typing "الحجزت" (a real one-letter slip on "الحجوزات")
@@ -176,11 +195,6 @@ export function AppLauncher() {
     if (!a) return Promise.reject(new Error(t('launcher.tile.noFeaturesPermission')));
     return call<{ features: AppFeature[] }>(session, a);
   }, [catalog, session, t]);
-
-  // REAL SUBSCRIBE/CANCEL — the same logic `screens/Plans.tsx` already has, not a second copy
-  // (see useAppBilling.ts's own header on why reuse matters here specifically: real money, a real
-  // 3DS card flow).
-  const billing = useAppBilling(session, catalog);
 
   const heroSlides: HeroSlide[] = useMemo(() => (
     HERO_APP_IDS
