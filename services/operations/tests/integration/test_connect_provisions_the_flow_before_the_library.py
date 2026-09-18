@@ -51,7 +51,7 @@ def _headers(tenant="tnt_flow_order"):
 
 
 class _FakeExchange:
-    async def exchange(self, *, tenant, code, waba_id, phone_number_id):
+    async def exchange(self, *, tenant, code, waba_id, phone_number_id, branch_id="", root_tenant=""):
         return True, ""
 
 

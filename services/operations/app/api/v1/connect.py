@@ -187,7 +187,12 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
 
     ok, detail = await connect.build_exchange(s).exchange(
         tenant=identity, code=body.code, waba_id=body.waba_id,
-        phone_number_id=body.phone_number_id)
+        phone_number_id=body.phone_number_id, branch_id=branch_id,
+        # THE BARE TENANT, SEPARATE FROM `identity` (2026-09-19) — `identity` stays the composite
+        # notification-service's own secret store already keys on, unchanged; this is the one new
+        # field WhatsAppNumberIndex's own `tenant` column needs, so the far side never has to
+        # re-derive it by parsing our composite string.
+        root_tenant=tenant)
 
     attempt = await store.record(connect.Attempt(
         tenant=tenant,

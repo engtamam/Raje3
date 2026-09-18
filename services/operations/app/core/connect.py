@@ -507,7 +507,8 @@ class NullExchange:
     configured = False
 
     async def exchange(self, *, tenant: str, code: str, waba_id: str,
-                       phone_number_id: str) -> tuple[bool, str]:
+                       phone_number_id: str, branch_id: str = "",
+                       root_tenant: str = "") -> tuple[bool, str]:
         # THE REASON IS A CODE, because the owner's sentence depends on it: nothing wired here is
         # ours, and telling him to try again would send him hunting through his Facebook account
         # for a fault that is on our side of the wire.
@@ -534,14 +535,23 @@ class HttpExchange:
         self._timeout = timeout
 
     async def exchange(self, *, tenant: str, code: str, waba_id: str,
-                       phone_number_id: str) -> tuple[bool, str]:
+                       phone_number_id: str, branch_id: str = "",
+                       root_tenant: str = "") -> tuple[bool, str]:
         import asyncio
         import json
         import urllib.error
         import urllib.request
 
+        # `tenant` STAYS THE COMPOSITE `identity` (tenant|branch_id) — notification-service's own
+        # secret store already keys on it, unchanged (this is the multi-branch fix that already
+        # shipped). `branch_id` is NEW, ADDITIVE (2026-09-19): the one bare field the routing index
+        # (WhatsAppNumberIndex) needs alongside phone_number_id/waba_id — that store's own `tenant`
+        # column must never be the composite string (see sending_identity.py's own note on the bug
+        # that class of leak already caused once), so this is sent as its own field rather than
+        # asking the far side to re-derive it by splitting `tenant` on our own separator.
         body = json.dumps({"tenant": tenant, "code": code, "waba_id": waba_id,
-                           "phone_number_id": phone_number_id}).encode()
+                           "phone_number_id": phone_number_id, "branch_id": branch_id,
+                           "root_tenant": root_tenant}).encode()
         try:
             # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve. Built
             # in adapters/internal_http.py, the one place this service attaches the token.

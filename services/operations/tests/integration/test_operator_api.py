@@ -782,7 +782,7 @@ class _Exchange:
     def __init__(self, ok=True):
         self.ok = ok
 
-    async def exchange(self, *, tenant, code, waba_id, phone_number_id):
+    async def exchange(self, *, tenant, code, waba_id, phone_number_id, branch_id="", root_tenant=""):
         return self.ok, "" if self.ok else "refused"
 
 

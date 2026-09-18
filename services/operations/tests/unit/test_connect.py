@@ -100,6 +100,51 @@ def test_no_establishment_has_ever_connected_by_default():
     assert run(connect.ConnectionStore(MemoryDataStore()).get("t")) is None
 
 
+# ── branch_id/root_tenant, additive fields for WhatsAppNumberIndex (2026-09-19) ──────────────────
+def test_http_exchange_sends_branch_id_and_root_tenant_alongside_the_composite_tenant(monkeypatch):
+    """`tenant` stays the composite `identity` (notification-service's own secret store already
+    keys on it, unchanged) — `branch_id`/`root_tenant` are the two NEW, additive fields the far
+    side's WhatsAppNumberIndex needs, sent explicitly rather than asking it to re-derive them by
+    parsing our own composite separator."""
+    import json as _json
+    from app.adapters import internal_http
+
+    seen = {}
+
+    def _fake_read(url, timeout, *, method, body, content_type, token):
+        seen["body"] = _json.loads(body)
+        return {}
+
+    monkeypatch.setattr(internal_http, "read", _fake_read)
+
+    ex = connect.HttpExchange(base_url="http://notification-service:8000",
+                              path="/internal/whatsapp/embedded-signup", token="t")
+    ok, _ = run(ex.exchange(tenant="tnt_x|brn-jeddah", code="c", waba_id="w",
+                            phone_number_id="p", branch_id="brn-jeddah", root_tenant="tnt_x"))
+    assert ok is True
+    assert seen["body"] == {
+        "tenant": "tnt_x|brn-jeddah", "code": "c", "waba_id": "w",
+        "phone_number_id": "p", "branch_id": "brn-jeddah", "root_tenant": "tnt_x",
+    }
+
+
+def test_http_exchange_defaults_branch_id_and_root_tenant_to_empty(monkeypatch):
+    """The single-branch/no-branch caller (every existing call site before this) never has to
+    pass either — both are additive and optional."""
+    import json as _json
+    from app.adapters import internal_http
+
+    seen = {}
+    monkeypatch.setattr(internal_http, "read",
+                        lambda url, timeout, **kw: seen.update(body=_json.loads(kw["body"])) or {})
+
+    ex = connect.HttpExchange(base_url="http://notification-service:8000",
+                              path="/internal/whatsapp/embedded-signup", token="t")
+    run(ex.exchange(tenant="tnt_x", code="c", waba_id="w", phone_number_id="p"))
+    assert seen["body"]["branch_id"] == ""
+    assert seen["body"]["root_tenant"] == ""
+
+
 # ── the sweep's work list ──────────────────────────────────────────────────────────────────────
 def _store_with(states):
     st = MemoryDataStore()

@@ -75,7 +75,7 @@ class _Registration:
 
 def _exchange_succeeds(monkeypatch):
     class _Ex:
-        async def exchange(self, *, tenant, code, waba_id, phone_number_id):
+        async def exchange(self, *, tenant, code, waba_id, phone_number_id, branch_id="", root_tenant=""):
             return True, ""
     monkeypatch.setattr(connect, "build_exchange", lambda s: _Ex())
 
