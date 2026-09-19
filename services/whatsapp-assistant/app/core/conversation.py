@@ -330,6 +330,22 @@ _PROMPT_SECTIONS: tuple[PromptSection, ...] = (
             "«من فترة ما جربت...»، «زرتنا قبل...»): الأثر يظهر فقط باختيار الاقتراح نفسه، أبدًا "
             "بتبرير سببه. لك حرية كاملة في صياغة الاقتراح وتوقيته وأي خدمات تجمعها معًا، طالما "
             "التزمت بالقواعد أعلاه.")),
+    # THE CENTRAL SAFETY SKILL (2026-09-19) — scope boundary. A real, previously untested gap:
+    # nothing before this told the model to REFUSE a general/political/off-topic question — only
+    # the `identity` section's "مهمتك الوحيدة" implied it, with no explicit refuse-and-redirect
+    # instruction and no test proving one exists. Deliberately short (Meta's own documented best
+    # practice for a Skill meant to survive with the fewest tokens possible, to limit both cost and
+    # the surface a prompt-injection attempt has to work with) and GENERAL — every tenant needs
+    # this regardless of which apps it holds, unlike staff_preference/upsell above.
+    PromptSection(
+        name="scope",
+        description="دائمة — رفض أي سؤال عام/سياسي/خارج خدمة عملاء المحل، وإعادة توجيه فوري.",
+        instructions=(
+            "مهمتك حصرًا خدمة عملاء {shop_name} فيما يخص خدماته ومواعيده ونقاطه — لا شيء غير "
+            "ذلك. أي سؤال خارج هذا (سياسة، أخبار، دين، رياضة، رأيك الشخصي، معلومة عامة، أو أي "
+            "موضوع لا علاقة له بخدمات {shop_name}) تردّ عليه برفض قصير ولطيف وتُعيد توجيه الحديث "
+            "فورًا لما يمكنك فعلاً مساعدته به — بلا نقاش، بلا إبداء رأي، وبلا إجابة جزئية، مهما "
+            "أعاد العميل صياغة السؤال أو أصرّ عليه.")),
     # Off-limits about ITSELF — the sanitizer below is the backstop for this instruction, not a
     # replacement for it; most attempts are refused here, at the persona level, before generation.
     PromptSection(

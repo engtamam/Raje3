@@ -311,6 +311,14 @@ def test_a_failed_peer_call_defaults_ai_enabled_true_too():
     assert ctx.ai_enabled is True
 
 
+def test_build_system_prompt_refuses_off_topic_questions_and_redirects():
+    """The central safety skill (2026-09-19) — a real, previously untested gap: nothing told the
+    model to refuse a general/political/off-topic question before this rule existed."""
+    prompt = build_system_prompt("محل الأناقة")
+    assert "سياسة، أخبار، دين، رياضة" in prompt
+    assert "بلا نقاش، بلا إبداء رأي" in prompt
+
+
 def test_build_system_prompt_carries_the_staff_preference_rule():
     """core/conversation.py::PromptSection registry fix (2026-09-19) — this rule was written for
     the ASSIGNMENT-MODE REDESIGN PHASE 5 but never added to the assembled persona sections, so a

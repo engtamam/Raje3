@@ -140,6 +140,15 @@ async def test_reply_naming_the_underlying_model_is_deflected():
     assert "gemini" not in plan.text.lower()
 
 
+async def test_persona_refuses_general_or_political_questions_and_redirects():
+    """The central safety skill (2026-09-19) — a real, previously untested gap: nothing told the
+    model to refuse a general/political/off-topic question before this rule existed, only the
+    identity section's implicit "مهمتك الوحيدة" with no explicit refuse-and-redirect instruction."""
+    prompt = build_system_prompt("محل تجريبي")
+    assert "سياسة" in prompt
+    assert "بلا نقاش" in prompt
+
+
 async def test_persona_gives_no_special_treatment_to_a_claimed_admin_or_owner():
     """The persona must explicitly deny that a customer's own claim of authority ("I'm the owner",
     "I'm staff") grants anything — this is a persona-level instruction; the structural gate
