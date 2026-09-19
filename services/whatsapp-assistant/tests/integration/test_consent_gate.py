@@ -39,7 +39,7 @@ class _RecordingEngine:
         self.calls.append(("text", tenant, subject_ref, text, branch_id))
         return _ReplyPlan(kind="none")
 
-    async def handle_button_reply(self, *, tenant, subject_ref, reply_id, redeemer, auditor):
+    async def handle_button_reply(self, *, tenant, subject_ref, reply_id, auditor, now=None):
         self.calls.append(("button_reply", tenant, subject_ref, reply_id))
         return _ReplyPlan(kind="none")
 
@@ -54,10 +54,17 @@ class _NullCustomerLookup:
 
 
 class _NullSender:
+    def __init__(self):
+        self.interactive_calls: list[dict] = []
+
     async def send_template(self, **kwargs):
         return ""
 
     async def send_list(self, **kwargs):
+        return ""
+
+    async def send_interactive(self, **kwargs):
+        self.interactive_calls.append(kwargs)
         return ""
 
 
@@ -68,10 +75,15 @@ class _ScriptedConsentGate:
         self.status = status
         self.reason = reason
         self.asked: list[tuple[str, str, str]] = []
+        self.recorded: list[tuple[str, str, str, bool]] = []
 
     async def check(self, *, tenant, subject, purpose):
         self.asked.append((tenant, subject, purpose))
         return ConsentVerdict(status=self.status, reason=self.reason, purpose=purpose)
+
+    async def record(self, *, tenant, subject, purpose, granted):
+        self.recorded.append((tenant, subject, purpose, granted))
+        return True
 
 
 class _RecordingAuditor:
@@ -122,12 +134,20 @@ def _ingest(container, settings, auditor):
         text="hi", reply_id="", raw_payload={"wamid": "wamid_1"})
 
 
-def test_denied_blocks_processing_before_the_engine_ever_sees_it():
-    gate = _ScriptedConsentGate(DENIED, reason="withdrawn")
+def test_denied_asks_explicitly_instead_of_reaching_the_engine():
+    """2026-09-19: DENIED (never asked before, or an on-record refusal — compliance-service's own
+    default-deny means both look identical) no longer silently drops the message. It sends the
+    interactive service-consent request and stops — the engine never sees this turn at all."""
+    gate = _ScriptedConsentGate(DENIED, reason="no_consent_record")
     c = _container(gate)
     result = run(_ingest(c, _settings(), auditor=None))
-    assert result == {"processed": False, "reason": "consent_denied"}
+    assert result == {"processed": True, "reason": "consent_requested"}
     assert c.engine.calls == []
+    assert len(c.sender.interactive_calls) == 1
+    call = c.sender.interactive_calls[0]
+    assert call["to"] == "+966500000000"
+    ids = {b["id"] for b in call["buttons"]}
+    assert ids == {"consent:agree", "consent:end"}
 
 
 def test_denied_is_asked_with_the_raw_phone_not_a_pseudonym():
@@ -141,11 +161,12 @@ def test_denied_is_asked_with_the_raw_phone_not_a_pseudonym():
 
 
 def test_denied_is_never_overridable_by_the_unknown_policy():
-    """fail_open only ever governs UNKNOWN — an on-record denial holds regardless."""
+    """fail_open only ever governs UNKNOWN — an on-record denial never silently proceeds either,
+    it is always asked explicitly regardless of what CONSENT_POLICY_ON_UNKNOWN says."""
     gate = _ScriptedConsentGate(DENIED)
     c = _container(gate)
     result = run(_ingest(c, _settings(policy_on_unknown="fail_open"), auditor=None))
-    assert result["reason"] == "consent_denied"
+    assert result["reason"] == "consent_requested"
     assert c.engine.calls == []
 
 
@@ -227,25 +248,70 @@ def test_an_allowed_message_records_attribution_never_the_text():
     assert "hi" not in str(kwargs.get("metadata", {}))
 
 
-def test_a_refusal_records_a_non_critical_audit_entry():
-    gate = _ScriptedConsentGate(DENIED, reason="withdrawn")
+def test_a_consent_request_records_a_non_critical_audit_entry():
+    gate = _ScriptedConsentGate(DENIED, reason="no_consent_record")
     auditor = _RecordingAuditor()
     c = _container(gate)
     run(_ingest(c, _settings(), auditor=auditor))
     assert len(auditor.calls) == 1
     action, kwargs = auditor.calls[0]
-    assert action == "whatsapp_assistant.consent_refused"
-    assert kwargs["metadata"]["status"] == "denied"
-    assert kwargs["metadata"]["reason"] == "withdrawn"
+    assert action == "whatsapp_assistant.consent_requested"
+    assert kwargs["metadata"]["reason"] == "no_consent_record"
 
 
-def test_a_refusal_is_still_marked_processed_so_it_is_never_retried_forever():
-    """A denied/unknown-blocked message must not be redelivered on every catch-up sweep as if it
-    were still pending — see app/core/inbound_ingest.py's own `finally: mark_processed` for the
-    normal path; the refusal path needs the same guarantee, taken explicitly since it returns
-    before reaching that `finally`."""
+def test_a_consent_request_is_still_marked_processed_so_it_is_never_retried_forever():
+    """A message that triggered the consent request must not be redelivered on every catch-up
+    sweep as if it were still pending — see app/core/inbound_ingest.py's own
+    `finally: mark_processed` for the normal path; this gate needs the same guarantee, taken
+    explicitly since it returns before reaching that `finally`."""
     gate = _ScriptedConsentGate(DENIED)
     c = _container(gate)
     run(_ingest(c, _settings(), auditor=None))
     row = run(c.inbound_store.get(TENANT, "wamid_1"))
     assert row is not None and row["processed"] is True
+
+
+# ── the customer's own live reply to the consent request ──────────────────────────────────────
+def _ingest_reply(container, settings, auditor, reply_id):
+    return ingest_inbound_message(
+        container=container, logger=_NullLogger(), settings=settings, auditor=auditor,
+        tenant=TENANT, wamid="wamid_2", from_number="+966500000000", kind="button_reply",
+        text="", reply_id=reply_id, raw_payload={"wamid": "wamid_2"})
+
+
+def test_tapping_agree_records_the_grant_and_reaches_the_engine_the_same_turn():
+    gate = _ScriptedConsentGate(DENIED)  # irrelevant here — a `consent:*` reply never calls check()
+    c = _container(gate)
+    result = run(_ingest_reply(c, _settings(), auditor=None, reply_id="consent:agree"))
+    assert result == {"processed": True, "reason": ""}
+    assert len(c.engine.calls) == 1
+    assert gate.recorded == [(TENANT, "+966500000000", "whatsapp_ai_assistant", True)]
+
+
+def test_tapping_end_records_the_withdrawal_and_never_reaches_the_engine():
+    gate = _ScriptedConsentGate(DENIED)
+    auditor = _RecordingAuditor()
+    c = _container(gate)
+    result = run(_ingest_reply(c, _settings(), auditor=auditor, reply_id="consent:end"))
+    assert result == {"processed": False, "reason": "consent_denied"}
+    assert c.engine.calls == []
+    assert gate.recorded == [(TENANT, "+966500000000", "whatsapp_ai_assistant", False)]
+    action, kwargs = auditor.calls[0]
+    assert action == "whatsapp_assistant.consent_refused"
+    assert kwargs["metadata"]["reason"] == "customer_declined"
+
+
+def test_a_failed_record_call_never_blocks_the_customers_own_answer_from_taking_effect():
+    """The write to compliance-service is best-effort here — a subject who just tapped «متابعة»
+    must not be stuck re-answering the same prompt forever because of a transient record()
+    failure; the customer's own turn proceeds regardless, exactly like every other best-effort
+    audit call in this file."""
+    class _BrokenRecord(_ScriptedConsentGate):
+        async def record(self, **kwargs):
+            raise RuntimeError("compliance-service down")
+
+    gate = _BrokenRecord(DENIED)
+    c = _container(gate)
+    result = run(_ingest_reply(c, _settings(), auditor=None, reply_id="consent:agree"))
+    assert result == {"processed": True, "reason": ""}
+    assert len(c.engine.calls) == 1

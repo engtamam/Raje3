@@ -26,8 +26,11 @@ class HttpConsentGate:
     driver = "http"
 
     def __init__(self, url: str, token: str, timeout: int = 3,
-                 path: str = "/internal/compliance/consent-check") -> None:
-        self._url = url.rstrip("/") + path
+                 path: str = "/internal/compliance/consent-check",
+                 record_path: str = "/internal/compliance/consent/record") -> None:
+        self._base = url.rstrip("/")
+        self._url = self._base + path
+        self._record_url = self._base + record_path
         self._token = token
         self._timeout = timeout
 
@@ -78,3 +81,31 @@ class HttpConsentGate:
             purpose=str(body.get("purpose") or purpose),
             cached=bool(body.get("cached")),
         )
+
+    async def record(self, *, tenant: str, subject: str, purpose: str, granted: bool) -> bool:
+        """The subject's own live answer, POSTed with the internal token — see the port's own
+        docstring for why this is a distinct write from compliance-service's admin-only
+        `/consent/grant`/`/consent/withdraw` (basis is always "self" on this route; a guardian/
+        delegated consent stays the operator flow). Contract confirmed live with the platform
+        team 2026-09-19, shipped in compliance-service v0.25.13:
+        `POST /internal/compliance/consent/record {tenant, subject, purpose, granted, method}` ->
+        200 with the written consent row. `granted:true` records a grant and resolves the very
+        next `check()` to ALLOWED immediately; `granted:false` records a withdrawal. Written into
+        the SAME store/proof chain the admin routes use — nothing changes on the read side."""
+        return await asyncio.to_thread(self._record_sync, tenant=tenant, subject=subject,
+                                       purpose=purpose, granted=granted)
+
+    def _record_sync(self, *, tenant: str, subject: str, purpose: str, granted: bool) -> bool:
+        # `method: "whatsapp_interactive"` — so the proof records HOW the decision was captured
+        # (surfaces in compliance-service's own consent-history), per the platform team's own note.
+        body = json.dumps({"tenant": tenant, "subject": subject, "purpose": purpose,
+                          "granted": granted, "method": "whatsapp_interactive"}).encode("utf-8")
+        req = urllib.request.Request(
+            self._record_url, method="POST", data=body,
+            headers={"X-Internal-Token": self._token, "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310 - config-only host
+                status = resp.status
+        except (urllib.error.URLError, urllib.error.HTTPError, OSError):
+            return False
+        return 200 <= status < 300

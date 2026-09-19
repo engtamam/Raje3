@@ -89,3 +89,15 @@ class ConsentGate(Protocol):
         the caller would learn nothing about WHY it could not proceed — so an unreachable
         compliance-service is reported as UNKNOWN and the caller's policy decides."""
         ...
+
+    async def record(self, *, tenant: str, subject: str, purpose: str, granted: bool) -> bool:
+        """The SUBJECT ITSELF just answered a live, interactive consent request (2026-09-19) —
+        never a human operator typing on their behalf, which is what compliance-service's own
+        `/consent/grant`/`/consent/withdraw` (admin-principal only) are for. This is the one
+        write a service holding no admin credential at all is trusted to make, and only for the
+        exact subject/purpose it just asked, never on anyone's behalf.
+
+        Returns True on a confirmed write, False on anything else (never raises, same posture as
+        `check()`) — the caller decides what "we could not record your answer" means for its own
+        flow rather than this port guessing."""
+        ...

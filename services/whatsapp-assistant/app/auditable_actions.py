@@ -115,12 +115,28 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "source": "internal",
         "critical": False,
         "resource": "conversation",
-        "why": "an inbound message was NOT processed because consent_gate.check() (app/core/"
-               "inbound_ingest.py) answered denied, or unknown under CONSENT_POLICY_ON_UNKNOWN="
-               "fail_closed — the message is dropped, nothing is sent back. Not critical: this is "
-               "already the safe outcome (nothing was done with the customer's data), so losing "
-               "the record on an audit-sink outage costs no protection the refusal itself did not "
-               "already provide — same reasoning as proposal_rejected, above",
+        "why": "an inbound message was NOT processed because either (a) the customer's own live "
+               "answer to the consent-request below was \"إنهاء المحادثة\", or (b) "
+               "consent_gate.check() answered unknown under CONSENT_POLICY_ON_UNKNOWN=fail_closed "
+               "(compliance-service genuinely unreachable — a real DENIED never reaches here any "
+               "more since 2026-09-19: it is re-asked instead, see consent_requested below). "
+               "Not critical: this is already the safe outcome (nothing was done with the "
+               "customer's data), so losing the record on an audit-sink outage costs no protection "
+               "the refusal itself did not already provide — same reasoning as proposal_rejected, "
+               "above",
+    },
+    {
+        "action": "whatsapp_assistant.consent_requested",
+        "source": "internal",
+        "critical": False,
+        "resource": "conversation",
+        "why": "compliance-service answered DENIED for this subject/purpose (2026-09-19: means "
+               "either never asked before, or an on-record refusal — this gate treats both "
+               "identically, neither final) — an interactive «متابعة»/«إنهاء المحادثة» message "
+               "was sent and nothing else in this turn is processed. Not critical: the safe "
+               "outcome (asking, not assuming) already happened; the customer's own next answer "
+               "is what actually matters and is itself audited (consent_refused above, or nothing "
+               "further to log on \"متابعة\" beyond the ordinary conversation path resuming).",
     },
     {
         "action": "whatsapp_assistant.message_attributed",

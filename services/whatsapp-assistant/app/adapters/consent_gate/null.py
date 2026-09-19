@@ -26,6 +26,7 @@ class NullConsentGate:
 
     def __init__(self) -> None:
         self.asked: list[tuple[str, str, str]] = []
+        self.recorded: list[tuple[str, str, str, bool]] = []
 
     async def check(self, *, tenant: str, subject: str, purpose: str) -> ConsentVerdict:
         # Recorded so a test can prove the gate was REACHED rather than skipped — the difference
@@ -38,3 +39,10 @@ class NullConsentGate:
                    "CONSENT_GATE_DRIVER=http and COMPLIANCE_SERVICE_URL to reach compliance-service.",
             purpose=purpose,
         )
+
+    async def record(self, *, tenant: str, subject: str, purpose: str, granted: bool) -> bool:
+        # HONEST FALSE, not a claimed write — same reasoning as `check()` answering UNKNOWN rather
+        # than ALLOWED: nothing was actually recorded anywhere, and claiming True here would let a
+        # deployment with no compliance-service believe every customer's answer was durably kept.
+        self.recorded.append((tenant, subject, purpose, granted))
+        return False

@@ -66,27 +66,75 @@ async def _gate_staff_menu(ctx: GateContext) -> GateOutcome:
     return None
 
 
-async def _gate_consent(ctx: GateContext) -> GateOutcome:
-    """THE CONSENT CHECK, WITH THE RAW NUMBER, BEFORE IT IS EVER FOLDED INTO A PSEUDONYM. The port
-    (app/ports/consent_gate.py) is explicit that a service holding only a subject_ref cannot use
-    it without defeating the pseudonymisation — so this is the one honest place left to ask: the
-    raw `from_number` is already in hand for this one call (same transient use customer_lookup
-    makes a few lines down in `ingest_inbound_message`), never persisted, and gone the moment this
-    function returns.
+# Fixed house copy — the explicit, first-contact service-processing consent ask (never bundled
+# with, and never a stand-in for, marketing consent, which stays its own separate purpose with its
+# own opt-in and an always-available unsubscribe — see this gate's own module docstring below).
+_CONSENT_BODY = (
+    "بالمتابعة، فإنك توافق على أن نقوم بمعالجة المعلومات اللازمة لإكمال خدمتك عبر واتساب — "
+    "استلام رسائلك، والرد عليها، وتنفيذ ما تطلبه من خدماتنا. هذا لا يشمل أي رسائل تسويقية، والتي "
+    "تتطلب موافقتك المنفصلة ويجب أن تتضمن دائمًا خيارًا لإلغاء الاشتراك.")
+_CONSENT_CONTINUE_ID = "consent:agree"
+_CONSENT_END_ID = "consent:end"
 
-    DENIED IS NEVER OVERRIDABLE BY POLICY — an on-record withdrawal holds regardless of
-    CONSENT_POLICY_ON_UNKNOWN, which only ever governs what happens when compliance-service could
-    not be reached at all. See config.py's own note on why UNKNOWN defaults to fail_open here."""
+
+async def _gate_consent(ctx: GateContext) -> GateOutcome:
+    """THE CONSENT GATE — first, explicit, service-only (never marketing) consent before this
+    tenant's replies are ever sent to a given customer, and re-askable, never a permanent ban.
+
+    TWO HALVES:
+
+    1) A `consent:*` button reply is this customer's OWN live answer to the request THIS gate
+       itself sent below — recorded via `consent_gate.record()` (2026-09-19, the subject's own
+       live decision, distinct from compliance-service's admin-only `/consent/grant`). "متابعة"
+       falls through to the ordinary path THIS SAME TURN (no need to make the customer repeat
+       themselves); "إنهاء المحادثة" stops here, exactly like an on-record refusal always has.
+
+    2) Otherwise: THE CONSENT CHECK, WITH THE RAW NUMBER, BEFORE IT IS EVER FOLDED INTO A
+       PSEUDONYM. The port (app/ports/consent_gate.py) is explicit that a service holding only a
+       subject_ref cannot use it without defeating the pseudonymisation — so this is the one
+       honest place left to ask: the raw `from_number` is already in hand for this one call (same
+       transient use customer_lookup makes a few lines down in `ingest_inbound_message`), never
+       persisted, and gone the moment this function returns.
+
+       compliance-service's own default-deny means "never asked before" and "an on-record refusal"
+       are BOTH reported as DENIED (reason `no_consent_record` vs a real withdrawal reason) — this
+       gate deliberately treats them identically: NEITHER is final. Every DENIED gets asked again,
+       explicitly, right here, on the very next message; only a live "متابعة" tap ever lets this
+       tenant past this gate. UNKNOWN keeps its OWN, separate, pre-existing meaning (compliance-
+       service is genuinely unreachable) and its own CONSENT_POLICY_ON_UNKNOWN posture, untouched.
+    """
+    if ctx.reply_id in (_CONSENT_CONTINUE_ID, _CONSENT_END_ID):
+        granted = ctx.reply_id == _CONSENT_CONTINUE_ID
+        try:
+            await ctx.container.consent_gate.record(
+                tenant=ctx.tenant, subject=ctx.from_number, purpose=ctx.settings.CONSENT_PURPOSE,
+                granted=granted)
+        except Exception as exc:                                      # noqa: BLE001
+            ctx.logger.warning("whatsapp_consent_record_failed", extra={
+                "tenant": ctx.tenant, "wamid": ctx.wamid, "error": str(exc)[:200]})
+        if granted:
+            return None
+        await ctx.container.inbound_store.mark_processed(ctx.tenant, ctx.wamid)
+        try:
+            await ctx.auditor.record(
+                "whatsapp_assistant.consent_refused", actor="whatsapp-assistant",
+                resource=f"wamid:{ctx.wamid}", tenant=ctx.tenant,
+                metadata={"status": "denied", "reason": "customer_declined",
+                         "purpose": ctx.settings.CONSENT_PURPOSE})
+        except Exception:                                            # noqa: BLE001
+            pass
+        return {"processed": False, "reason": "consent_denied"}
+
     verdict = await ctx.container.consent_gate.check(
         tenant=ctx.tenant, subject=ctx.from_number, purpose=ctx.settings.CONSENT_PURPOSE)
-    if verdict.status == DENIED or (
-            verdict.status == UNKNOWN and ctx.settings.CONSENT_POLICY_ON_UNKNOWN == "fail_closed"):
+
+    if verdict.status == UNKNOWN:
+        if ctx.settings.CONSENT_POLICY_ON_UNKNOWN == "fail_open":
+            return None
         await ctx.container.inbound_store.mark_processed(ctx.tenant, ctx.wamid)
         ctx.logger.info("whatsapp_consent_refused", extra={
             "tenant": ctx.tenant, "wamid": ctx.wamid, "status": verdict.status,
             "reason": verdict.reason})
-        # NOT CRITICAL (see auditable_actions.py's own note on this action) — best-effort, never
-        # blocks the refusal itself: the safe outcome (nothing processed) already happened.
         try:
             await ctx.auditor.record(
                 "whatsapp_assistant.consent_refused", actor="whatsapp-assistant",
@@ -96,6 +144,23 @@ async def _gate_consent(ctx: GateContext) -> GateOutcome:
         except Exception:                                            # noqa: BLE001
             pass
         return {"processed": False, "reason": f"consent_{verdict.status}"}
+
+    if verdict.status == DENIED:
+        await ctx.container.sender.send_interactive(
+            tenant=ctx.tenant, to=ctx.from_number, body=_CONSENT_BODY,
+            buttons=[{"id": _CONSENT_CONTINUE_ID, "title": "متابعة"},
+                    {"id": _CONSENT_END_ID, "title": "إنهاء المحادثة"}],
+            idempotency_key=f"{ctx.wamid}:consent_request")
+        await ctx.container.inbound_store.mark_processed(ctx.tenant, ctx.wamid)
+        try:
+            await ctx.auditor.record(
+                "whatsapp_assistant.consent_requested", actor="whatsapp-assistant",
+                resource=f"wamid:{ctx.wamid}", tenant=ctx.tenant,
+                metadata={"reason": verdict.reason, "purpose": ctx.settings.CONSENT_PURPOSE})
+        except Exception:                                            # noqa: BLE001
+            pass
+        return {"processed": True, "reason": "consent_requested"}
+
     return None
 
 
