@@ -103,12 +103,14 @@ def test_no_held_apps_shows_every_persona_rule_as_before():
     prompt = build_system_prompt("محل الأناقة")
     assert "يوزّع حجوزاتها تلقائيًا" in prompt          # staff_preference
     assert "بتاخذين X وY" in prompt                     # upsell
+    assert "بائع محترف" in prompt                       # procedure_selling
 
 
 def test_a_tenant_with_no_bookings_never_sees_the_booking_tied_persona_rules():
     prompt = build_system_prompt("محل الأناقة", held_apps=frozenset({"feature.loyalty"}))
     assert "يوزّع حجوزاتها تلقائيًا" not in prompt
     assert "بتاخذين X وY" not in prompt
+    assert "بائع محترف" not in prompt                   # procedure_selling
     # General rules stay — never narrowed by held_apps at all.
     assert "تقترح" in prompt
     assert "تجاهل" in prompt
@@ -118,6 +120,13 @@ def test_a_tenant_with_bookings_still_sees_the_booking_tied_persona_rules():
     prompt = build_system_prompt("محل الأناقة", held_apps=frozenset({"feature.bookings"}))
     assert "يوزّع حجوزاتها تلقائيًا" in prompt
     assert "بتاخذين X وY" in prompt
+    assert "بائع محترف" in prompt                       # procedure_selling
+
+
+def test_get_service_procedure_needs_bookings_like_every_other_bookings_tool():
+    base = frozenset({"get_service_procedure"})
+    assert T.tools_for_held_apps(base, frozenset({"feature.bookings"})) == base
+    assert T.tools_for_held_apps(base, frozenset({"feature.loyalty"})) == frozenset()
 
 
 # ── end-to-end through ConversationEngine ──────────────────────────────────────────────────────
