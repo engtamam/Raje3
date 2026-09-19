@@ -28,6 +28,7 @@ class _Settings:
 class _Container:
     datastore: MemoryDataStore
     coexistence_feed: object = None
+    licence: object = None
 
 
 class _FakeFeed:
@@ -61,8 +62,21 @@ class _OffFeed:
         return {}
 
 
-def _container(feed) -> _Container:
-    return _Container(datastore=MemoryDataStore(), coexistence_feed=feed)
+def _container(feed, *, licence=None) -> _Container:
+    return _Container(datastore=MemoryDataStore(), coexistence_feed=feed, licence=licence)
+
+
+class _StubLicence:
+    """Allows every tenant in `allowed_tenants`, refuses every other one — the same shape as
+    `ToggleGatedLicence`/`HttpLicence`'s own `allowed(tenant)` signature."""
+
+    def __init__(self, allowed_tenants: set[str]):
+        self._allowed = allowed_tenants
+        self.calls: list[str] = []
+
+    async def allowed(self, tenant: str) -> bool:
+        self.calls.append(tenant)
+        return tenant in self._allowed
 
 
 def test_configured_off_reports_it_rather_than_zeros_that_read_as_caught_up():
@@ -117,6 +131,35 @@ def test_the_cursor_advances_across_pages_and_a_second_run_resumes_from_it():
     second = run(poller.run(now=2000))
     assert second["read"] == 0
     assert feed.calls[-1] == "2"
+
+
+def test_a_disallowed_tenants_echoes_are_consumed_but_never_noted_while_an_allowed_tenants_are():
+    feed = _FakeFeed([{"tenant": "allowed", "contact": "+9665", "wamid": "w1"},
+                      {"tenant": "blocked", "contact": "+9666", "wamid": "w2"},
+                      {"tenant": "allowed", "contact": "+9667", "wamid": "w3"}])
+    licence = _StubLicence({"allowed"})
+    c = _container(feed, licence=licence)
+    result = run(CoexistencePoller(container=c, settings=_Settings(), logger=_NullLog()).run(now=1000))
+
+    # Both tenants' rows are read and the cursor moves past all of them — the poll never gets
+    # stuck re-reading the disallowed tenant's echoes forever.
+    assert result["read"] == 3
+    assert result["noted"] == 2
+    assert run(c.datastore.get("wa_coexistence_watermarks", "echo_poll"))["cursor"] == "3"
+
+    # Only the allowed tenant's contacts were actually noted — no side effect for the blocked one.
+    assert run(is_owner_active(c, tenant="allowed", contact="+9665", now=1000)) is True
+    assert run(is_owner_active(c, tenant="allowed", contact="+9667", now=1000)) is True
+    assert run(is_owner_active(c, tenant="blocked", contact="+9666", now=1000)) is False
+    assert licence.calls == ["allowed", "blocked", "allowed"]
+
+
+def test_no_licence_wired_behaves_exactly_as_before_unaffected():
+    feed = _FakeFeed([{"tenant": "t1", "contact": "+9665", "wamid": "w1"}])
+    c = _container(feed, licence=None)
+    result = run(CoexistencePoller(container=c, settings=_Settings(), logger=_NullLog()).run(now=1000))
+    assert result["read"] == 1 and result["noted"] == 1
+    assert run(is_owner_active(c, tenant="t1", contact="+9665", now=1000)) is True
 
 
 class _NullLog:

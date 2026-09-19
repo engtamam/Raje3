@@ -9,6 +9,14 @@ echo go unseen forever.
 
 `{}` FROM THE FEED MEANS «WE COULD NOT ASK», never «no echoes» — the watermark holds still on that
 answer, same as the inbound poller, because a missed echo means the AI answers over the owner.
+
+PER-TENANT LICENCE CHECK, INSIDE THE ROW LOOP — this sweep is fleet-wide, one call covers every
+tenant's echoes, but a tenant whose AI is off (`ToggleGatedLicence`: billing entitlement AND
+operations' own per-shop toggle) has nothing to protect: `compose_reply` never runs for it either
+way, so noting a hand-off for it would only be an unnecessary write of customer-contact data. The
+row is still consumed and still advances the cursor exactly like an allowed tenant's — only
+`note_owner_reply` is skipped — so the poller never gets stuck re-reading a disallowed tenant's
+echoes forever.
 """
 from __future__ import annotations
 
@@ -58,10 +66,21 @@ class CoexistencePoller:
                 seen += 1
                 tenant = str(row.get("tenant") or "")
                 contact = str(row.get("contact") or "")
-                if tenant and contact and cooldown > 0:
-                    await note_owner_reply(self._container, tenant=tenant, contact=contact,
-                                           now=now, cooldown_seconds=cooldown)
-                    noted += 1
+                if not tenant or not contact or cooldown <= 0:
+                    continue
+                # PER-ROW, NOT PER-RUN — this sweep is fleet-wide (one page can hold several
+                # tenants' echoes), and each tenant's own AI-enabled state (billing entitlement
+                # AND operations' per-shop toggle, `ToggleGatedLicence`) can differ from the next
+                # row's. A disallowed tenant's echo is still counted toward `seen` and still
+                # advances the cursor with everyone else's — only the write is skipped, since
+                # `compose_reply` never runs for that tenant anyway and there is nothing to
+                # protect it from; recording it would just be a needless customer-contact write.
+                licence = getattr(self._container, "licence", None)
+                if licence is not None and not await licence.allowed(tenant):
+                    continue
+                await note_owner_reply(self._container, tenant=tenant, contact=contact,
+                                       now=now, cooldown_seconds=cooldown)
+                noted += 1
             # AFTER THE WRITES, NEVER BEFORE — see module docstring.
             nxt = str(page.get("cursor") or "")
             if not nxt or nxt == cursor:
