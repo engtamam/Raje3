@@ -489,6 +489,14 @@ class FlowBookingIn(BaseModel):
     idempotency_key: str = ""
 
 
+#: Same tone/text as core/conversation.py's own `_NOT_SUBSCRIBED_TEXT` — a customer must never be
+#: able to tell "never bought this" from "bought it, toggled off" from any channel, this Flow route
+#: included. Only `reserve` has a slot in its own reply shape a sentence can live in (`reason`); see
+#: `whatsapp_flow_booking`'s own docstring for why the three read ops degrade to empty instead.
+_FLOW_NOT_SUBSCRIBED_TEXT = ("نعتذر، الخدمة الآلية متوقفة مؤقتًا. يسعد أحد موظفي المحل مساعدتك "
+                            "مباشرة على نفس المحادثة.")
+
+
 @router.post("/whatsapp-flow/booking", dependencies=[Depends(require_internal_token)])
 async def whatsapp_flow_booking(body: FlowBookingIn, request: Request) -> dict:
     """Answers the platform's generic booking_flow.py engine (v0.18.54+) — see
@@ -496,11 +504,32 @@ async def whatsapp_flow_booking(body: FlowBookingIn, request: Request) -> dict:
     single-branch-shops-only limitation. 404s (via a plain refusal, never a stack trace) when
     WHATSAPP_FLOW_BOOKING_ENABLED is off, so an unconfigured deployment's Flow simply cannot
     reach a backend rather than crash one that half-exists.
+
+    LICENCE CHECKED BEFORE THE BACKEND IS EVER TOUCHED — this route is the platform's Flow engine
+    calling straight in, bypassing conversation.py's own door gate entirely; without this check an
+    unsubscribed/toggled-off tenant's Flow could still read real availability and create real
+    bookings (core/licence.py::ToggleGatedLicence — OFF must read exactly like never-subscribed).
+    Same pattern as app/api/v1/connectors.py::_invoke()'s own licence check. THE REFUSAL SHAPE
+    MATCHES EACH OP'S OWN EXISTING DEGRADE CONVENTION (see flow_booking_backend.py's own docstring
+    on the single-branch limitation: "options/calendar/slots all return empty rather than guessing
+    a branch, and reserve refuses with a reason a customer can read") — never a new shape, never an
+    HTTP error the platform's Flow engine has no instruction for.
     """
     container = getattr(request.app.state, "container", None)
     backend = getattr(container, "flow_booking_provider", None) if container is not None else None
     if backend is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "WhatsApp Flow booking is not enabled")
+
+    if container.licence is not None and not await container.licence.allowed(body.tenant):
+        if body.op == "options":
+            return {"options": []}
+        if body.op == "calendar":
+            return {}
+        if body.op == "slots":
+            return {"slots": []}
+        if body.op == "reserve":
+            return {"ok": False, "reason": _FLOW_NOT_SUBSCRIBED_TEXT}
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"unknown op {body.op!r}")
 
     if body.op == "options":
         options = await backend.options(tenant=body.tenant, dimension=body.dimension,

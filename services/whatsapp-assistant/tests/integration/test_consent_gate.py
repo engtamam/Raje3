@@ -103,6 +103,20 @@ class _FakeContainer:
     engine: object = field(default_factory=_RecordingEngine)
     sender: object = field(default_factory=_NullSender)
     points_summary: object = None
+    licence: object = None
+
+
+class _ScriptedLicence:
+    """Answers whatever this test wants — the OFF case standing in for
+    `core/licence.py::ToggleGatedLicence.allowed()` returning False, whatever combination of a
+    lapsed entitlement, `AI_ASSISTANT_ENABLED=false`, or a per-shop toggle produced it."""
+    def __init__(self, allowed: bool):
+        self._allowed = allowed
+        self.asked: list[str] = []
+
+    async def allowed(self, tenant: str) -> bool:
+        self.asked.append(tenant)
+        return self._allowed
 
 
 class _NullLogger:
@@ -113,10 +127,10 @@ class _NullLogger:
         pass
 
 
-def _container(consent_gate):
+def _container(consent_gate, licence=None):
     store = MemoryDataStore()
     return _FakeContainer(datastore=store, inbound_store=build_inbound_store(store),
-                          consent_gate=consent_gate)
+                          consent_gate=consent_gate, licence=licence)
 
 
 def _settings(policy_on_unknown: str = "fail_open"):
@@ -313,5 +327,47 @@ def test_a_failed_record_call_never_blocks_the_customers_own_answer_from_taking_
     gate = _BrokenRecord(DENIED)
     c = _container(gate)
     result = run(_ingest_reply(c, _settings(), auditor=None, reply_id="consent:agree"))
+    assert result == {"processed": True, "reason": ""}
+    assert len(c.engine.calls) == 1
+
+
+# ── the licence/toggle kill switch — must be checked BEFORE `_GATES`, never inside them ─────────
+def test_licence_off_never_sends_a_consent_request_or_records_anything():
+    """2026-09-19 fix: a toggled-off tenant's brand-new customer used to still get a real
+    `send_interactive` consent ask and a real `consent_gate.check()` call, before this tenant's
+    licence was ever consulted. `core/licence.py::ToggleGatedLicence`'s own docstring is explicit
+    that OFF must read exactly like never-subscribed — an unsubscribed shop's stranger never gets
+    asked anything either."""
+    gate = _ScriptedConsentGate(DENIED)  # would ask/send if ever reached
+    licence = _ScriptedLicence(allowed=False)
+    c = _container(gate, licence=licence)
+    result = run(_ingest(c, _settings(), auditor=None))
+    assert licence.asked == [TENANT]
+    assert gate.asked == []
+    assert gate.recorded == []
+    assert c.sender.interactive_calls == []
+    # Falls through to the engine exactly as an allowed tenant would — `conversation.py`'s own
+    # door gate is what actually answers a disallowed tenant, not a new refusal invented here.
+    assert len(c.engine.calls) == 1
+
+
+def test_licence_on_reaches_consent_exactly_as_before():
+    """No regression for the ordinary path: an allowed tenant still goes through `_gate_consent`
+    unchanged."""
+    gate = _ScriptedConsentGate(DENIED, reason="no_consent_record")
+    licence = _ScriptedLicence(allowed=True)
+    c = _container(gate, licence=licence)
+    result = run(_ingest(c, _settings(), auditor=None))
+    assert licence.asked == [TENANT]
+    assert result == {"processed": True, "reason": "consent_requested"}
+    assert len(c.sender.interactive_calls) == 1
+
+
+def test_no_licence_wired_behaves_exactly_as_before_this_fix():
+    """`container.licence` is `None` on a deployment with no licence adapter wired at all (tests,
+    local runs) — must behave exactly as it did before this fix, never refuse."""
+    gate = _ScriptedConsentGate(ALLOWED)
+    c = _container(gate, licence=None)
+    result = run(_ingest(c, _settings(), auditor=None))
     assert result == {"processed": True, "reason": ""}
     assert len(c.engine.calls) == 1
