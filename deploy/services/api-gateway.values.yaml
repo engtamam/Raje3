@@ -361,7 +361,11 @@ env:
   # gateway's own default (authorization,content-type,x-request-id) until now because no browser
   # client had ever sent it — every preflight from apps/mobile 400'd with "Disallowed CORS
   # headers" until this was added.
-  CORS_ALLOWED_HEADERS: "authorization,content-type,x-request-id,x-client-type"
+  # x-tenant-id is ALSO real and permanent: apps/mobile's ContextInterceptor injects it into
+  # every tenant-scoped call once a tenant is known (post-login) — found the same way as
+  # x-client-type above, this time only on the SECOND call the app makes (staff/operators/me,
+  # app/catalog), since signin itself is pre-tenant and doesn't send it.
+  CORS_ALLOWED_HEADERS: "authorization,content-type,x-request-id,x-client-type,x-tenant-id"
 
   EGRESS_ALLOWED_HOSTS: ""
 
