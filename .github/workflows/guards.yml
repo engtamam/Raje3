@@ -115,6 +115,15 @@ jobs:
       - name: every internal route requires the internal token
         run: python3 ci/check_an_internal_route_forgets_the_token.py
 
+      # THE INTERNAL TOKEN PROVES *A* CALLER MAY REACH THE ROUTE; IT SAYS NOTHING ABOUT WHETHER
+      # THE TENANT IT'S ACTING ON MAY STILL BE TALKED TO. Three real gaps found the same shape:
+      # whatsapp-assistant's Flow booking route, its inbound consent gate, and its coexistence
+      # poller each touched a real send or a real write for a tenant before ever asking
+      # `container.licence`/`self._licence` — the one check `core/licence.py::ToggleGatedLicence`
+      # requires everywhere so OFF reads exactly like never-subscribed.
+      - name: no tenant-effecting whatsapp-assistant entrypoint skips the licence gate
+        run: python3 ci/check_a_tenant_effecting_entrypoint_skips_the_licence_gate.py
+
       # `tenant` on an internal route is a plain body field, never a verified claim. A route this
       # gate CAN read (an inline `json={...}` literal) and reads as posted with exactly one tenant,
       # ever, has never had its isolation demonstrated by its own suite — found six real, provable
