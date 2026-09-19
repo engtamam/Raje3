@@ -12,6 +12,10 @@ docstring on the change) — a reward a WhatsApp customer wants now rides on a R
 `intended_reward_id` (bookings-service's own field) and is only ever spent by `operations` at
 attend() time, the exact same "intent, not immediate redemption" design bookings/console already
 uses. This module only ever READS a customer's real offers now; it never spends anything.
+
+NO APPROVAL FILTERING HERE EITHER — loyalty's own manager-approval control was removed entirely
+(a free-text label with no real staff verification, 2026-09-19); every reward it returns is
+already whatever this customer may actually be offered.
 """
 from __future__ import annotations
 
@@ -81,18 +85,17 @@ class HttpPointsSummary:
     async def redeemable_offer(self, *, tenant: str, subject_ref: str) -> dict[str, Any] | None:
         bal = await self._balance(tenant, subject_ref)
         rewards = bal.get("rewards") or []
-        affordable = [r for r in rewards if not r.get("needs_approval")]
-        if not affordable:
+        if not rewards:
             return None
-        r = affordable[0]
+        r = rewards[0]
         return {"reward_id": r.get("id", ""), "reward_name": r.get("name", ""),
                "points": bal.get("points")}
 
     async def offers(self, *, tenant: str, subject_ref: str) -> list[dict[str, Any]]:
-        """EVERY real, affordable-without-approval offer this customer personally holds today,
-        with the SAME real points cost and expiry loyalty's own portal balance route returns —
-        not a trimmed "one suggestion", so a per-turn context block (app/core/context_builder.py)
-        can ground the assistant in this customer's own best real deals, not a generic hint.
+        """EVERY real, affordable offer this customer personally holds today, with the SAME real
+        points cost and expiry loyalty's own portal balance route returns — not a trimmed "one
+        suggestion", so a per-turn context block (app/core/context_builder.py) can ground the
+        assistant in this customer's own best real deals, not a generic hint.
 
         `expires_at` is the shop's points-expiry date (loyalty's `c.expiry.due_at`) — real, never
         invented — so the model can say "your points expire on X" truthfully or say nothing about
@@ -104,7 +107,7 @@ class HttpPointsSummary:
         return [{"reward_id": r.get("id", ""), "reward_name": r.get("name", ""),
                 "points_cost": r.get("cost", 0), "points_balance": bal.get("points", 0),
                 "expires_at": expires_at}
-               for r in rewards if not r.get("needs_approval")]
+               for r in rewards]
 
     async def points_and_gap(self, *, tenant: str, subject_ref: str) -> dict[str, int]:
         """`points` — the real current balance. `to_next_reward` — how many MORE points until the
