@@ -43,6 +43,7 @@ def create_app() -> FastAPI:
     settings.assert_llm_config_ok()
     settings.assert_consent_config_ok()
     settings.assert_licence_config_ok()
+    settings.assert_connector_config_ok()
     configure_logging(settings.SERVICE_NAME, settings.ENV, settings.LOG_LEVEL)
     logger = get_logger("app.main")
 
@@ -179,6 +180,12 @@ def create_app() -> FastAPI:
     # dependencies to mean anything, and testing that path is what surfaced the missing include.
     app.include_router(v1_router)
     app.include_router(operator_router)
+    # NOT MOUNTED AT ALL when unset — degrade to "the feature does not exist", never to "an
+    # externally-reachable router with an empty required secret". See config.py's own note on
+    # CONNECTOR_API_TOKEN and app/api/v1/connectors.py's own module docstring.
+    if settings.CONNECTOR_API_TOKEN:
+        from app.api.v1.connectors import router as connectors_router
+        app.include_router(connectors_router)
 
     return app
 

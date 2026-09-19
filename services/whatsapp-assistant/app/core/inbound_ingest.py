@@ -198,6 +198,24 @@ async def outbound_allowed(container: Any, settings: Any, tenant: str, *,
     return verdict.allowed
 
 
+async def resolve_subject_ref(container: Any, settings: Any, tenant: str, from_number: str) -> str:
+    """The SAME pseudonym-or-derive resolution every caller that only has a raw phone number
+    needs — extracted 2026-09-19 so app/api/v1/connectors.py (a Meta Connector call, never a raw
+    inbound message) can resolve the identical subject_ref an ordinary conversation turn would,
+    without duplicating the derivation rule.
+
+    UNKNOWN CUSTOMER is a normal case, not an error. Rather than invent a pseudonym (which would
+    collide with a real one the day this number does become a customer), an unrecognised sender
+    is keyed on a per-number-per-tenant hash derived the same way core/pii.py derives subject_ref
+    — so it still holds a session, and a Connector call for it still resolves consistently."""
+    lookup = await container.customer_lookup.resolve(tenant, from_number)
+    subject_ref = str(lookup.get("subject_ref") or "")
+    if subject_ref:
+        return subject_ref
+    from app.core.pii import subject_ref as derive_ref
+    return derive_ref(settings.PII_SALT or "dev-salt", tenant, from_number)
+
+
 async def ingest_inbound_message(
     *, container: Any, logger: Any, settings: Any, auditor: Any,
     tenant: str, wamid: str, from_number: str, kind: str, text: str, reply_id: str,
@@ -239,15 +257,7 @@ async def ingest_inbound_message(
             return outcome
 
     try:
-        lookup = await container.customer_lookup.resolve(tenant, from_number)
-        subject_ref = str(lookup.get("subject_ref") or "")
-        if not subject_ref:
-            # UNKNOWN CUSTOMER. Rather than invent a pseudonym (which would collide with a real
-            # one the day this number does become a customer), the conversation is keyed on a
-            # per-number-per-tenant hash derived the same way core/pii.py derives subject_ref, so
-            # an unrecognised sender can still hold a session.
-            from app.core.pii import subject_ref as derive_ref
-            subject_ref = derive_ref(settings.PII_SALT or "dev-salt", tenant, from_number)
+        subject_ref = await resolve_subject_ref(container, settings, tenant, from_number)
 
         # Stamps this message's row (already persisted by record_if_new) with the subject_ref it
         # belongs to — the join key app/core/retention.py and app/core/erasure.py need to find and

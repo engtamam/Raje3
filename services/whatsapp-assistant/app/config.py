@@ -90,6 +90,31 @@ class Settings(BaseSettings):
             raise ValueError("INTERNAL_SERVICE_TOKEN is a placeholder — set a real secret")
         return v
 
+    # ── Connector API (app/api/v1/connectors.py) — EXTERNAL auth, never INTERNAL_SERVICE_TOKEN ────
+    # 2026-09-19: a Meta Business Agent Connector calls this service directly, over the public
+    # internet, per its own registered OpenAPI spec. This is NOT a peer inside our own fleet the
+    # way every INTERNAL_SERVICE_TOKEN caller is — a deliberately SEPARATE secret, so a leak of one
+    # never widens the other's blast radius (this token can only ever invoke the 16 read/propose
+    # tool endpoints and the confirm endpoint, none of which are internal-service operations).
+    # Empty means the router is NOT MOUNTED AT ALL (see app/main.py) — degrade to "the feature does
+    # not exist", never to "any caller with an empty header is accepted".
+    CONNECTOR_API_TOKEN: str = ""
+
+    @field_validator("CONNECTOR_API_TOKEN")
+    @classmethod
+    def _reject_connector_token_placeholder(cls, v: str) -> str:
+        lowered = v.strip().lower()
+        if lowered.startswith("placeholder") or lowered in {"changeme", "change_me"}:
+            raise ValueError("CONNECTOR_API_TOKEN is a placeholder — set a real secret")
+        return v
+
+    def assert_connector_config_ok(self) -> None:
+        if self.is_production and self.CONNECTOR_API_TOKEN and len(self.CONNECTOR_API_TOKEN) < 32:
+            raise ValueError(
+                "CONNECTOR_API_TOKEN is set but under 32 characters — the same minimum "
+                "INTERNAL_SERVICE_TOKEN enforces, for an externally-reachable secret this must "
+                "hold to at least as strictly.")
+
     # ── audit trail — where privileged actions are witnessed ─────────────────
     AUDIT_SINK_DRIVER: str = "null"          # null | http | eventbus
     AUDIT_SERVICE_URL: str = ""
