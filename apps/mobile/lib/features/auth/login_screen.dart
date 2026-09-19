@@ -255,7 +255,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       style: AppTextStyles.bodyMedium.copyWith(fontFamily: AppTextStyles.englishFont, letterSpacing: 1.2),
       decoration: AppInputDecorations.standard.copyWith(
         labelText: 'رقم الجوال',
-        hintText: '5XXXXXXXX',
+        hintText: '05XXXXXXXX',
         prefixIcon: const Icon(Icons.phone_android_rounded, color: AppColors.textMuted),
       ),
     );

@@ -143,7 +143,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             style: AppTextStyles.bodyMedium.copyWith(fontFamily: AppTextStyles.englishFont),
                             decoration: AppInputDecorations.standard.copyWith(
                               labelText: 'رقم الجوال',
-                              hintText: '5XXXXXXXX',
+                              hintText: '05XXXXXXXX',
                               prefixIcon: const Icon(Icons.phone_android_rounded, color: AppColors.textMuted),
                             ),
                             validator: Validators.validatePhone,
