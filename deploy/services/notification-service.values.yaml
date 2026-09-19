@@ -16,7 +16,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/notification-service
-  digest: "sha256:95d145b99b9dec2042db09771163f393d8712bd6566d626c7b03e5861545573a"   # v0.25.7
+  digest: "sha256:63ac58321f9a00ef45a9ba772d3c667d1c80454d38924f629c2aebfd04a500af"   # v0.25.15
 
 replicas: 1
 
@@ -225,9 +225,22 @@ env:
   # do not lose the owner's own-app activity" — with it off, a shop that chose coexistence on
   # Meta's side would have silent gaps (owner replies invisible to the AI, no history import).
   WHATSAPP_COEXISTENCE_ENABLED: "true"
-  # 2 days: a reconciliation buffer for whatsapp-assistant's catch-up poll, never an archive —
-  # see this service's own config.py note. Raise only with a real reason to keep it longer.
-  WHATSAPP_COEXISTENCE_RETENTION_DAYS: "2"
+  # 1 day: a reconciliation buffer for whatsapp-assistant's catch-up poll, never an archive — see
+  # this service's own config.py note. Lowered from the platform default of 2 for the same reason
+  # as WHATSAPP_INBOUND_RETENTION_DAYS just below: minimise how long any WhatsApp message content
+  # sits on our own servers now that this number's ordinary conversation is moving to Meta
+  # Business Agent. Raise only with a real reason to keep it longer.
+  WHATSAPP_COEXISTENCE_RETENTION_DAYS: "1"
+
+  # wa_inbound — the durable log of raw INBOUND customer messages (platform v0.25.15's own fix
+  # for a real gap: this store had no expiry, no purge, and was not covered by the compliance
+  # erasure flow before that release). Platform's own default is 30 days; lowered explicitly here
+  # (never the bare default) because this deployment is migrating its WhatsApp number's ordinary
+  # conversation to Meta Business Agent specifically to minimise how long customer message content
+  # sits on our own servers. 1 day, not 0 — this store is what lets a message survive a pod
+  # restart before the at-most-once bus delivers it (see this service's own config.py note); a
+  # day covers that reconciliation window while still purging the very next night.
+  WHATSAPP_INBOUND_RETENTION_DAYS: "1"
 
   # ── Consent gate — the other half of §8.4 ─────────────────────────────────────────────────
   # http, not null. The null gate answers UNKNOWN forever and the production boot guard REFUSES
@@ -337,6 +350,20 @@ cronJobs:
     # RESTORED (platform v0.18.2) — real support now: a RANDOM 0..jitterSeconds sleep before the
     # call. See affiliate-service.values.yaml's own note for the full history.
     jitterSeconds: 30
+  # THE OTHER HALF OF WHATSAPP_INBOUND_RETENTION_DAYS/WHATSAPP_COEXISTENCE_RETENTION_DAYS ABOVE —
+  # platform v0.25.15 added both purge routes, but repinning the code alone never runs them: its
+  # own in-repo values file lists them as its OWN cronJobs (which we do not consume, we maintain
+  # our own copy of this file), so without these two entries retention stamps expires_at and
+  # nothing ever deletes the expired rows. Same trap notify-drain's own note above already
+  # documents for this exact file, a third time. Both routes are idempotent no-ops on an empty/
+  # in-window set, so a daily sweep is safe to always ship — platform's own schedule times reused
+  # verbatim, no reason to pick different ones.
+  - name: inbound-purge
+    schedule: "37 3 * * *"
+    path: /internal/whatsapp/inbound/purge
+  - name: coexistence-purge
+    schedule: "47 3 * * *"
+    path: /internal/whatsapp/coexistence/purge
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door
