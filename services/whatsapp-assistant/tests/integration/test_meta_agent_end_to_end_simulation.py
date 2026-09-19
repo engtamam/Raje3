@@ -82,6 +82,10 @@ def test_full_happy_path_in_the_skills_own_documented_order(client):
     assert gate.recorded[-1] == ("shop1", "+966500000000", "whatsapp_ai_assistant", True)
     # The number is registered as a real contact, per this session's own requirement.
     assert spy.registered == [("shop1", "+966500000000")]
+    # A REAL compliance-service would now answer ALLOWED on the next check() — this scripted gate
+    # is a fixed script, not a stateful fake, so the test flips it explicitly to model that same
+    # real-world effect (record_consent's own write is what a later check() call would reflect).
+    gate.status = "allowed"
 
     # Step 5: consent granted -> Meta continues the SAME conversation with real tool calls.
     procedure = _post(client, "get_service_procedure", {**_BODY, "service_id": "svc_1"})
@@ -110,20 +114,10 @@ def test_full_happy_path_in_the_skills_own_documented_order(client):
 # ── 2. consent refusal path ─────────────────────────────────────────────────────────────────────
 def test_consent_refusal_path(client):
     """The Skill's own step 6: "لا تستخدم أي أداة أخرى... حتى يوافق صراحة". A compliant Meta agent
-    would never CALL another tool after a refusal — but this test proves what our OWN server does
-    if one is called anyway (a retried webhook, a bug in Meta's own agent, an attacker who skips
-    the Skill entirely and calls the Connector directly with a stolen token).
-
-    REAL GAP FOUND BUILDING THIS TEST: `_invoke()` in app/api/v1/connectors.py enforces licence,
-    then the deployment-wide tool allowlist, then held_apps — but never consults
-    `container.consent_gate` at all. A refused/never-asked customer's OTHER tool calls are NOT
-    refused by our server; enforcement of "no tool calls after refusal" lives ENTIRELY in Meta's
-    own agent obeying the pasted Skill text, with nothing on our side backing it up. This differs
-    from `core/inbound_ingest.py::_gate_consent`, which DOES block the reply path outright for a
-    DENIED/UNKNOWN verdict when our own code is still the one replying. The assertions below
-    document the REAL current behaviour (not the Skill's assumed behaviour) so a future change to
-    `_invoke()` that adds real enforcement is proven by making these assertions fail here first.
-    """
+    would never CALL another tool after a refusal — this test proves our OWN server also refuses,
+    a real backstop found missing by an earlier run of this exact test (see connectors.py's own
+    `_invoke()`, fixed same day: a DENIED/UNKNOWN-and-not-fail-open subject now refuses every tool
+    here too, matching `core/inbound_ingest.py::_gate_consent`'s own posture for the reply path)."""
     gate = _ScriptedConsentGate("denied")
     client.app.state.container.consent_gate = gate
 
@@ -138,10 +132,9 @@ def test_consent_refusal_path(client):
     for name, result in (("get_customer_points_summary", points),
                         ("list_packages", packages),
                         ("check_availability", avail)):
-        # Documents the gap: none of these are refused for consent reasons today. They succeed
-        # (licence/held_apps permitting) exactly as if consent had never been asked at all.
         assert result["status_code"] == 200, name
-        assert result["ok"] is True, (name, result)
+        assert result["ok"] is False, (name, result)
+        assert result["error"] == "consent_required", (name, result)
 
 
 # ── 3. re-consent after prior refusal ───────────────────────────────────────────────────────────
@@ -164,6 +157,8 @@ def test_re_consent_after_prior_refusal_is_never_permanent(client):
     assert granted_now == {"status_code": 200, "ok": True, "recorded": True}
     assert gate.recorded[-1] == ("shop1", "+966500000000", "whatsapp_ai_assistant", True)
     assert spy.registered == [("shop1", "+966500000000")]
+    # Same reasoning as the happy-path test: a real compliance-service would now answer ALLOWED.
+    gate.status = "allowed"
 
     # And now real tool use proceeds normally, in this later conversation.
     procedure = _post(client, "get_service_procedure", {**later, "service_id": "svc_1"})
@@ -249,6 +244,19 @@ _ALLOWED_IDENTITY_FIELD_NAMES = {
 }
 
 
+def test_allowed_consent_lets_every_operation_through(client):
+    """The other half of the backstop: ALLOWED must never be mistaken for a refusal. A real
+    consent gate answering ALLOWED (the ordinary case for a returning, already-consented
+    customer) must not add any friction the Skill doc does not itself describe."""
+    gate = _ScriptedConsentGate("allowed")
+    client.app.state.container.consent_gate = gate
+
+    for op, extra in (("get_customer_points_summary", {}), ("list_packages", {}),
+                      ("suggest_redeemable_offer", {})):
+        result = _post(client, op, {**_BODY, **extra})
+        assert result["status_code"] == 200 and result["ok"] is True, op
+
+
 def test_no_connector_request_shape_can_carry_raw_message_text():
     """Every Connector operation's own request model accepts ONLY structured identifiers — never a
     free-text field capable of carrying a customer's raw message/conversation content."""
@@ -294,6 +302,7 @@ def test_the_connector_path_never_writes_to_the_raw_message_or_conversation_coll
 
     _post(client, "check_consent", _BODY)
     _post(client, "record_consent", {**_BODY, "granted": True})
+    gate.status = "allowed"   # a real compliance-service would now answer ALLOWED, same as above
     _post(client, "get_service_procedure", {**_BODY, "service_id": "svc_1"})
     _post(client, "check_availability", {**_BODY, "service_id": "svc_1"})
     starts_at_iso = _next_open_slot(client, "shop1", "svc_1")
