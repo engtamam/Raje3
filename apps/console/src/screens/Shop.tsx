@@ -137,7 +137,16 @@ interface CustomerHitLite { id: string; phone: string; name?: string; subject_re
 // EXPORTED — the same `whatsapp_assistant.my_impact` shape `WhatsAppAssistant.tsx`'s own
 // analytics section reads, so the two screens can never disagree about what this wire shape is.
 export interface ShopImpact {
-  days: number; conversations: number; ai_bookings: number; conversion_rate: number | null;
+  days: number;
+  // THE PLATFORM-WIDE SWITCH (2026-09-19) — same field name/convention as
+  // `whatsapp_assistant.pricing_current`'s own `ai_enabled` (AiUnitsGauge.tsx et al.), echoed
+  // inline here so this screen never needs a second call just to know whether to render the
+  // `conversations` tile. `conversations`/`conversion_rate` are COST_LEDGER-sourced and come back
+  // `null` — never stale, never a fake zero — whenever this is `false`; every OTHER field here
+  // (`ai_bookings`, `avg_invoice_value_minor`, `upsell_*`) is sourced from the booking/upsell
+  // ledgers instead and is NEVER affected by this switch.
+  ai_enabled: boolean;
+  conversations: number | null; ai_bookings: number; conversion_rate: number | null;
   avg_invoice_value_minor: number | null; upsell_offered: number; upsell_accepted: number;
   upsell_acceptance_rate: number | null; truncated: boolean;
 }
@@ -1269,6 +1278,13 @@ function AIImpactCard({ session, catalog }: { session: Session; catalog: Catalog
   if (data === undefined) return <Skeleton height={140} />;
   if (data === null) return null;   // no capability on this session — nothing to show, quietly
 
+  // AI_ASSISTANT_ENABLED off (config.py, backend): `conversations`/`conversion_rate` are
+  // COST_LEDGER-sourced and come back `null` from the route while the switch is off — the
+  // conversion narrative above and the `conversations` tile below MUST NOT RENDER AT ALL then
+  // (not a greyed-out zero, not shown-then-hidden), same "absent tile simply does not render"
+  // posture `WhatsAppAssistant.tsx`'s own receipt already keeps. `ai_bookings`/
+  // `avg_invoice_value_minor`/`upsell_acceptance_rate` are untouched — never gated.
+  const aiEnabled = data.ai_enabled !== false;
   const pct = data.conversion_rate !== null ? Math.round(data.conversion_rate * 100) : null;
 
   return (
@@ -1279,7 +1295,7 @@ function AIImpactCard({ session, catalog }: { session: Session; catalog: Catalog
           <AssistantHint session={session} anchor="shop.ai_impact" />
         </h3>
       </div>
-      {pct === null ? (
+      {!aiEnabled ? null : pct === null ? (
         <p className="text-[12.5px]" style={{ color: 'var(--sh-teal-deep)' }}>
           {t('shop.ai.noData')}
         </p>
@@ -1288,8 +1304,10 @@ function AIImpactCard({ session, catalog }: { session: Session; catalog: Catalog
           {t('shop.ai.prefix')} <b dir="ltr" className="mx-0.5 inline-block text-[26px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{Math.round((data.conversion_rate as number) * 10)}</b> {t('shop.ai.suffix')}
         </p>
       )}
-      <div className="grid grid-cols-3 gap-2">
-        <Tile label={t('shop.tile.conversations')} value={String(data.conversations)} tone="teal" session={session} />
+      <div className={aiEnabled ? 'grid grid-cols-3 gap-2' : 'grid grid-cols-2 gap-2'}>
+        {aiEnabled ? (
+          <Tile label={t('shop.tile.conversations')} value={String(data.conversations)} tone="teal" session={session} />
+        ) : null}
         <Tile label={t('shop.tile.avgInvoice')} value={data.avg_invoice_value_minor !== null ? riyalsLabel(data.avg_invoice_value_minor) : '—'} tone="teal"
              empty={data.avg_invoice_value_minor === null} hint={data.avg_invoice_value_minor === null ? t('shop.ai.avgInvoiceHint') : undefined} />
         <Tile label={t('shop.tile.upsellAcceptance')}

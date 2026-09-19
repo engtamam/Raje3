@@ -138,9 +138,23 @@ def test_ai_enabled_reflects_the_platform_switch_when_off(shop_auth):
     """The platform-wide kill switch (2026-09-19) — every console surface that shows AI-unit
     balance/pricing reads this same route, so this is the one place the console learns to hide
     all of them, without a per-shop repair needed to flip it back on."""
-    client = _make_app(AI_ASSISTANT_ENABLED="false")
-    body = client.get(PATH, headers=shop_auth).json()
-    assert body["ai_enabled"] is False
+    # MUST RESTORE `os.environ` AFTERWARDS — unlike the `client` fixture above, this test builds
+    # its own app with `AI_ASSISTANT_ENABLED=false` directly via `_make_app`, which does
+    # `os.environ.update(...)` with no teardown of its own; without the try/finally here that
+    # leaks into every OTHER test file run afterward in the same process (a real bug this session
+    # found: it silently poisoned pricing_report.py's own gate once that gate started reading
+    # this same setting).
+    saved = dict(os.environ)
+    try:
+        client = _make_app(AI_ASSISTANT_ENABLED="false")
+        body = client.get(PATH, headers=shop_auth).json()
+        assert body["ai_enabled"] is False
+    finally:
+        os.environ.clear()
+        os.environ.update(saved)
+        from app.config import get_settings
+
+        get_settings.cache_clear()
 
 
 def test_a_landed_ai_unit_rate_change_is_reflected_here(client, shop_auth):

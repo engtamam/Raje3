@@ -82,6 +82,7 @@ async def test_shop_impact_composes_all_three_reports_scoped_to_one_tenant_only(
                        package_catalog=packages, tenant=TENANT_A, created_by="whatsapp-assistant",
                        days=30, now=now)
 
+    assert rep.ai_enabled is True
     assert rep.conversations == 2                 # only shop-a's own two, not shop-b's
     assert rep.ai_bookings == 1                    # only shop-a's own booking
     assert rep.conversion_rate == 0.5               # 1 booking / 2 conversations
@@ -111,3 +112,53 @@ async def test_shop_impact_conversion_rate_is_none_not_zero_with_no_conversation
     assert rep.conversion_rate is None
     assert rep.avg_invoice_value_minor is None
     assert rep.upsell_acceptance_rate is None
+
+
+@pytest.mark.anyio
+async def test_shop_impact_ai_disabled_hides_conversations_but_keeps_the_other_ledger_free_fields():
+    """AI_ASSISTANT_ENABLED=False: `conversations`/`conversion_rate` (COST_LEDGER-sourced) must
+    come back None — not stale, not zero — while `ai_bookings`/`avg_invoice_value_minor`/
+    `upsell_acceptance_rate` (booking/upsell-ledger sourced, unaffected by the AI switch — Meta's
+    own Connector calls hit the same write path) keep working exactly as before."""
+    store = MemoryDataStore()
+    now = int(time.time())
+
+    # A conversation exists in COST_LEDGER — if the gate were only "hide after computing", this
+    # would still show up as 1. It must not.
+    await _seed_cost_row(store, tenant=TENANT_A, subject_ref="s1", at=now - 10)
+    await _seed_upsell_row(store, proposal_id="p1", tenant=TENANT_A, outcome="accepted", at=now - 10)
+
+    bookings = [{"id": "b1", "tenant": TENANT_A, "branch_id": "br1", "status": "attended",
+                "service_ids": ["svc1"], "package_id": "", "price_override_minor": None,
+                "created": now - 10}]
+    actor_report = _StubActorReport(bookings)
+    services = _StubCatalog([{"id": "svc1", "price_minor": 5000}])
+    packages = _StubCatalog([])
+
+    rep = await report(datastore=store, actor_report=actor_report, service_catalog=services,
+                       package_catalog=packages, tenant=TENANT_A, created_by="whatsapp-assistant",
+                       days=30, now=now, ai_enabled=False)
+
+    assert rep.ai_enabled is False
+    assert rep.conversations is None            # never the stale/leftover 1
+    assert rep.conversion_rate is None           # would divide by the gated-off `conversations`
+    # UNTOUCHED — same real numbers as if the switch were on:
+    assert rep.ai_bookings == 1
+    assert rep.avg_invoice_value_minor == 5000
+    assert rep.upsell_offered == 1
+    assert rep.upsell_accepted == 1
+    assert rep.upsell_acceptance_rate == 1.0
+
+
+@pytest.mark.anyio
+async def test_shop_impact_ai_enabled_defaults_true_and_matches_pre_gate_behaviour():
+    store = MemoryDataStore()
+    now = int(time.time())
+    await _seed_cost_row(store, tenant=TENANT_A, subject_ref="s1", at=now - 10)
+
+    rep = await report(datastore=store, actor_report=_StubActorReport([]),
+                       service_catalog=_StubCatalog([]), package_catalog=_StubCatalog([]),
+                       tenant=TENANT_A, created_by="whatsapp-assistant", days=30, now=now)
+
+    assert rep.ai_enabled is True
+    assert rep.conversations == 1

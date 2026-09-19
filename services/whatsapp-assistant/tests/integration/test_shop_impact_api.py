@@ -107,10 +107,55 @@ def test_a_platform_operator_token_with_no_tenant_is_refused_not_computed_empty(
 def test_an_empty_shop_gets_an_honest_zero_report(client, shop_auth):
     body = client.get(PATH, headers=shop_auth).json()
     assert body == {
-        "days": 30, "conversations": 0, "ai_bookings": 0, "conversion_rate": None,
-        "avg_invoice_value_minor": None, "upsell_offered": 0, "upsell_accepted": 0,
-        "upsell_acceptance_rate": None, "truncated": False,
+        "days": 30, "ai_enabled": True, "conversations": 0, "ai_bookings": 0,
+        "conversion_rate": None, "avg_invoice_value_minor": None, "upsell_offered": 0,
+        "upsell_accepted": 0, "upsell_acceptance_rate": None, "truncated": False,
     }
+
+
+def test_ai_disabled_hides_conversations_but_keeps_ai_bookings_and_upsell(client, shop_auth):
+    """AI_ASSISTANT_ENABLED=False: `conversations`/`conversion_rate` must come back None, never a
+    stale or zero number — while `ai_bookings`/`avg_invoice_value_minor`/`upsell_acceptance_rate`
+    (not COST_LEDGER-sourced) are unaffected."""
+    import os
+
+    container = client.app.state.container
+    now = int(time.time())
+
+    async def _seed():
+        import uuid
+
+        from app.core.models import COST_LEDGER
+        await container.datastore.put(COST_LEDGER, f"t1:{now}:{uuid.uuid4().hex[:8]}", {
+            "tenant": "t1", "subject_ref": "s1", "at": now - 5,
+            "input_tokens": 100, "output_tokens": 50})
+
+    import asyncio
+    asyncio.run(_seed())
+
+    container.booking_actor_report = _StubActorReport([
+        {"id": "b1", "tenant": "t1", "branch_id": "br1", "status": "attended",
+         "service_ids": ["svc1"], "package_id": "", "price_override_minor": None,
+         "created": now - 5},
+    ])
+    container.service_catalog = _StubCatalog([{"id": "svc1", "price_minor": 9000}])
+    container.package_catalog = _StubCatalog([])
+
+    from app.config import get_settings
+
+    os.environ["AI_ASSISTANT_ENABLED"] = "false"
+    get_settings.cache_clear()
+    try:
+        body = client.get(PATH, headers=shop_auth).json()
+    finally:
+        os.environ.pop("AI_ASSISTANT_ENABLED", None)
+        get_settings.cache_clear()
+
+    assert body["ai_enabled"] is False
+    assert body["conversations"] is None
+    assert body["conversion_rate"] is None
+    assert body["ai_bookings"] == 1
+    assert body["avg_invoice_value_minor"] == 9000
 
 
 def test_two_tenants_never_mix_in_this_shops_own_report(client, shop_auth):

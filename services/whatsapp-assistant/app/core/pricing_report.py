@@ -31,27 +31,37 @@ _MAX_ROWS = 50_000
 @dataclass(frozen=True)
 class UsageReport:
     days: int
-    calls: int                 # real LLM calls = real assistant replies sent
-    conversations: int         # distinct subject_ref seen in the window
-    input_tokens: int
-    output_tokens: int
+    ai_enabled: bool           # AI_ASSISTANT_ENABLED at read time — see report()'s own note. When
+                                # False every field below is None/False, NEVER a stale or zero
+                                # number a caller could mistake for "genuinely zero conversations".
+    calls: int | None                 # real LLM calls = real assistant replies sent
+    conversations: int | None         # distinct subject_ref seen in the window
+    input_tokens: int | None
+    output_tokens: int | None
     truncated: bool            # _MAX_ROWS was hit — the numbers below are a floor, not exact
 
     @property
-    def avg_input_tokens_per_call(self) -> float:
+    def avg_input_tokens_per_call(self) -> float | None:
+        if self.calls is None:
+            return None
         return round(self.input_tokens / self.calls, 1) if self.calls else 0.0
 
     @property
-    def avg_output_tokens_per_call(self) -> float:
+    def avg_output_tokens_per_call(self) -> float | None:
+        if self.calls is None:
+            return None
         return round(self.output_tokens / self.calls, 1) if self.calls else 0.0
 
     @property
-    def avg_calls_per_conversation(self) -> float:
+    def avg_calls_per_conversation(self) -> float | None:
+        if self.calls is None:
+            return None
         return round(self.calls / self.conversations, 1) if self.conversations else 0.0
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "days": self.days, "calls": self.calls, "conversations": self.conversations,
+            "days": self.days, "ai_enabled": self.ai_enabled,
+            "calls": self.calls, "conversations": self.conversations,
             "input_tokens": self.input_tokens, "output_tokens": self.output_tokens,
             "avg_input_tokens_per_call": self.avg_input_tokens_per_call,
             "avg_output_tokens_per_call": self.avg_output_tokens_per_call,
@@ -60,7 +70,8 @@ class UsageReport:
         }
 
 
-async def report(store: Any, *, days: int, now: int, tenant: str | None = None) -> UsageReport:
+async def report(store: Any, *, days: int, now: int, tenant: str | None = None,
+                 ai_enabled: bool = True) -> UsageReport:
     """Real calls/conversations/tokens over the trailing `days`, straight off COST_LEDGER.
 
     `find()` on this port needs a non-empty membership `where` (never a `>=`/`<=` range, and never
@@ -73,7 +84,17 @@ async def report(store: Any, *, days: int, now: int, tenant: str | None = None) 
     `tenant=None` keeps the platform-wide aggregate (this module's own docstring). A real value
     filters to that one shop's own rows BEFORE the window/truncation math below, so `truncated`
     still means what it says for whichever scope was actually asked for.
-    """
+
+    `ai_enabled=False` (config.py::AI_ASSISTANT_ENABLED, the platform kill switch) skips the
+    COST_LEDGER read ENTIRELY — not "read then hide": once the switch is off this collection stops
+    growing, so every number here would freeze at whatever it was the moment it flipped, which a
+    caller could easily mistake for a genuine (accurate, current) answer. Every caller of this
+    module must pass the real switch value explicitly — there is no way to ask this module for the
+    switch's own state, by design (see config.py for the one place that owns it)."""
+    if not ai_enabled:
+        return UsageReport(days=days, ai_enabled=False, calls=None, conversations=None,
+                           input_tokens=None, output_tokens=None, truncated=False)
+
     since = now - days * 86_400
     rows = await store.scan_all(COST_LEDGER, limit=_MAX_ROWS)
     scoped = rows if tenant is None else [r for r in (rows or []) if r.get("tenant") == tenant]
@@ -85,6 +106,6 @@ async def report(store: Any, *, days: int, now: int, tenant: str | None = None) 
     output_tokens = sum(int(r.get("output_tokens") or 0) for r in windowed)
 
     return UsageReport(
-        days=days, calls=calls, conversations=conversations,
+        days=days, ai_enabled=True, calls=calls, conversations=conversations,
         input_tokens=input_tokens, output_tokens=output_tokens,
         truncated=len(rows or []) >= _MAX_ROWS)

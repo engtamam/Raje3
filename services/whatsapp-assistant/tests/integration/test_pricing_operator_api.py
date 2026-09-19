@@ -93,9 +93,38 @@ def test_schedule_needs_the_capability(client, reader_auth):
 def test_report_on_an_empty_ledger_is_honestly_zero(client, operator_auth):
     body = client.get(f"{PREFIX}/pricing/report", headers=operator_auth).json()
     assert body == {
-        "days": 30, "calls": 0, "conversations": 0, "input_tokens": 0, "output_tokens": 0,
-        "avg_input_tokens_per_call": 0.0, "avg_output_tokens_per_call": 0.0,
+        "days": 30, "ai_enabled": True, "calls": 0, "conversations": 0, "input_tokens": 0,
+        "output_tokens": 0, "avg_input_tokens_per_call": 0.0, "avg_output_tokens_per_call": 0.0,
         "avg_calls_per_conversation": 0.0, "truncated": False,
+    }
+
+
+def test_report_is_null_not_computed_when_ai_assistant_disabled(monkeypatch, client, operator_auth):
+    """AI_ASSISTANT_ENABLED=False must skip the COST_LEDGER read entirely — a real behavioural
+    check, not just a response-shape one: seed a row that WOULD show up if the switch were on, then
+    prove it never gets counted (and every ledger-sourced field comes back None, not 0)."""
+    container = client.app.state.container
+    now = int(__import__("time").time())
+    import asyncio
+    asyncio.run(_seed_cost_row(container.datastore, tenant="shop-a", subject_ref="s1",
+                               input_tokens=100, output_tokens=50, at=now - 10))
+
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("AI_ASSISTANT_ENABLED", "false")
+    get_settings.cache_clear()
+    try:
+        body = client.get(f"{PREFIX}/pricing/report", headers=operator_auth).json()
+    finally:
+        monkeypatch.delenv("AI_ASSISTANT_ENABLED", raising=False)
+        get_settings.cache_clear()
+
+    assert body == {
+        "days": 30, "ai_enabled": False, "calls": None, "conversations": None,
+        "input_tokens": None, "output_tokens": None, "avg_input_tokens_per_call": None,
+        "avg_output_tokens_per_call": None, "avg_calls_per_conversation": None,
+        "truncated": False,
     }
 
 
