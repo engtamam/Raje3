@@ -1317,3 +1317,22 @@ jobs:
       # repo would catch it, only a colour that looks slightly off to whoever notices first.
       - name: "'@base-ui' always resolves to our own copy, never to platform/"
         run: python3 ci/check_base_ui_alias_never_points_at_platform.py
+
+      # Six safety gates adopted from base-services' own tools/ci/ (their platform-wide security
+      # hardening pass), run here against our own code with the same rules. Each already found and
+      # fixed real findings on first run in this repo (money-float: 9 SAR-only sites annotated;
+      # aesgcm-aad: 28 seal/open call sites across secret_store.py/backup.py/onboarding.py bound to
+      # their own row identity). cas-create, timing-compare, open-redirect and ssrf-egress passed
+      # clean from the start; wiring them here keeps them from silently drifting back into failure.
+      - name: a cas-updated row was cas-created
+        run: python3 ci/check_a_cas_updated_row_was_cas_created.py
+      - name: money crosses a gateway as a float
+        run: python3 ci/check_money_crosses_a_gateway_as_a_float.py
+      - name: a secret comparison is constant-time
+        run: python3 ci/check_a_secret_comparison_is_constant_time.py
+      - name: an AEAD seal binds its own identity
+        run: python3 ci/check_an_aead_seal_binds_its_own_identity.py
+      - name: a redirect target is not taken raw
+        run: python3 ci/check_a_redirect_target_is_not_taken_raw.py
+      - name: an egress fetch is SSRF-guarded
+        run: python3 ci/check_an_egress_fetch_is_ssrf_guarded.py
