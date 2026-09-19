@@ -23,6 +23,11 @@ SECURITY POSTURE — DELIBERATELY THE SAME AS THE LLM-DRIVEN PATH, NEVER WEAKER:
   - THE SAME re-validation-against-real-state `validate_and_render`/`execute_confirmed_proposal`
     already perform — nothing here trusts anything the caller (Meta's agent, in this case) claims
     about availability, balances, or ownership any more than the LLM path ever did.
+  - A REAL, SERVER-SIDE CONSENT BACKSTOP (`_invoke()`'s own check, added after this session's own
+    end-to-end simulator found it missing) — "no tool after refusal" (the Skill's own step 6) is
+    never enforced ONLY by trusting Meta's hosted agent to follow the pasted instructions; a
+    DENIED/UNKNOWN-and-not-fail-open subject refuses every tool here too, same posture as
+    `core/inbound_ingest.py::_gate_consent` already holds for the reply path.
 
 THE ONE GENUINELY OPEN QUESTION (documented honestly, not guessed at): Meta's real per-call payload
 shape for identifying WHICH shop/customer/conversation a Connector invocation is for is not yet
@@ -125,6 +130,29 @@ async def _invoke(request: Request, *, tool: str, ctx: _ConnectorBase,
     # MORE THAN THE LLM PATH CAN, only ever the same or less.
     if tool not in settings.llm_tool_allowlist:
         return _refuse("tool_not_available_on_this_deployment")
+
+    # THE SERVER-SIDE CONSENT BACKSTOP — found missing by this session's own end-to-end simulator:
+    # without this, "no tool use after refusal" (the Skill's own step 6) was enforced ENTIRELY by
+    # trusting Meta's hosted agent to follow the pasted instructions, with zero check on our side —
+    # a customer who refused (or was never asked) could still have every tool run successfully if
+    # Meta's agent hallucinated or simply ignored the Skill. Same posture as the reference
+    # implementation for the reply path (core/inbound_ingest.py::_gate_consent): DENIED always
+    # refuses here too (never final — the very next check_consent call re-asks, exactly like a new
+    # inbound message would); UNKNOWN follows the SAME CONSENT_POLICY_ON_UNKNOWN this deployment
+    # already committed to for the reply path, never a second, different default invented here.
+    # `container.consent_gate is None` means the port is not wired at all — the same "None = no
+    # gating" convention every other optional peer in this service already holds.
+    if container.consent_gate is not None:
+        try:
+            verdict = await container.consent_gate.check(
+                tenant=ctx.tenant, subject=ctx.from_number, purpose=settings.CONSENT_PURPOSE)
+        except Exception:                                              # noqa: BLE001
+            verdict = None
+        status = getattr(verdict, "status", UNKNOWN) if verdict is not None else UNKNOWN
+        if status == DENIED:
+            return _refuse("consent_required")
+        if status == UNKNOWN and settings.CONSENT_POLICY_ON_UNKNOWN != "fail_open":
+            return _refuse("consent_required")
 
     held: frozenset[str] | None = None
     if container.held_apps is not None:
