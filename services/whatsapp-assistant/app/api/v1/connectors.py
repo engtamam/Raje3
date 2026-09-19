@@ -46,6 +46,7 @@ from pydantic import BaseModel, Field
 from app.config import Settings, get_settings
 from app.core import tools as T
 from app.core.inbound_ingest import resolve_subject_ref
+from app.ports.consent_gate import ALLOWED, DENIED, UNKNOWN
 
 router = APIRouter(prefix="/api/v1/connectors", tags=["connectors"])
 
@@ -343,3 +344,75 @@ async def confirm_proposal(body: ConfirmProposalIn, request: Request) -> dict:
     except T.ToolValidationError as exc:
         return _refuse(str(exc))
     return {"ok": True, "result": result}
+
+
+# ── consent — the two operations Meta's own hosted agent (not our code) must call on every FIRST
+# contact now that ordinary conversation runs entirely inside Meta Business Agent (owner decision,
+# 2026-09-19; see this file's own module docstring on the plug-and-play contract, and
+# core/inbound_ingest.py::_gate_consent — the reference implementation of this EXACT logic for the
+# path where OUR code still replies). These are NOT one of the 16 `core/tools.py` tools — consent
+# is its own port (app/ports/consent_gate.py), never `_TOOL_HANDLERS`-registered, so they do not go
+# through `_invoke()`'s tool-dispatch/held_apps narrowing above. They DO get the same licence check
+# every other route here makes first — an unsubscribed shop's Connector calls are refused across
+# the board, consent included — see `confirm_proposal` just above for the same shape.
+class CheckConsentIn(_ConnectorBase):
+    pass
+
+
+@router.post("/check_consent", dependencies=[Depends(require_connector_token)])
+async def check_consent(body: CheckConsentIn, request: Request) -> dict:
+    container = request.app.state.container
+    settings = get_settings()
+    if container.licence is not None and not await container.licence.allowed(body.tenant):
+        return _refuse("not_subscribed")
+
+    try:
+        verdict = await container.consent_gate.check(
+            tenant=body.tenant, subject=body.from_number, purpose=settings.CONSENT_PURPOSE)
+    except Exception as exc:                                          # noqa: BLE001
+        # NEVER RAISES — same defensive posture as every other operation in this file. Meta's
+        # agent gets an honest "unknown" rather than a 500 it has no instruction for.
+        return {"ok": True, "status": UNKNOWN, "reason": f"consent_gate_error: {exc}"[:200]}
+
+    status_map = {ALLOWED: "allowed", DENIED: "denied", UNKNOWN: "unknown"}
+    return {"ok": True, "status": status_map.get(verdict.status, "unknown"),
+            "reason": verdict.reason}
+
+
+class RecordConsentIn(_ConnectorBase):
+    granted: bool
+
+
+@router.post("/record_consent", dependencies=[Depends(require_connector_token)])
+async def record_consent(body: RecordConsentIn, request: Request) -> dict:
+    container = request.app.state.container
+    settings = get_settings()
+    if container.licence is not None and not await container.licence.allowed(body.tenant):
+        return _refuse("not_subscribed")
+
+    try:
+        recorded = await container.consent_gate.record(
+            tenant=body.tenant, subject=body.from_number, purpose=settings.CONSENT_PURPOSE,
+            granted=body.granted)
+    except Exception:                                                 # noqa: BLE001
+        # A failed record() call, per the port's own contract, returns False rather than throwing —
+        # this is the belt-and-braces case of an adapter that broke that contract; surfaced the
+        # same honest way, never pretended success.
+        recorded = False
+
+    # "نسجل رقم كل عميل يوافق ضروري" — owner's own requirement, 2026-09-19: a GRANTED consent must
+    # also register this number as a real جهات الاتصال row, the SAME mechanism
+    # core/conversation.py's own turn-building already uses on a stranger's first message
+    # (`self._customer_lookup.register(tenant, from_number)`, core/conversation.py ~L872) — reused
+    # here verbatim, never reinvented. `register()` itself reads this tenant's own opt-in flag
+    # fresh every call and is a no-op for a tenant that never turned auto-registration on — this
+    # call never overrides that, the consent recording above happens regardless either way.
+    # Best-effort, exactly like every other side-effect in this file: a customer-lookup peer being
+    # briefly unreachable must never turn a successfully recorded consent answer into an error.
+    if body.granted and container.customer_lookup is not None:
+        try:
+            await container.customer_lookup.register(body.tenant, body.from_number)
+        except Exception:                                              # noqa: BLE001
+            pass
+
+    return {"ok": True, "recorded": recorded}
