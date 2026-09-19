@@ -34,12 +34,19 @@ let prefsCalls: Record<string, unknown>[] = [];
 let sallaInstallCalls = 0;
 let sallaDisconnectCalls = 0;
 let sallaConnected = false;
+// Two-tier coupon access (2026-09-19): `operations.coupons_page` is the strong-only gate for the
+// whole screen. Every test above assumes it is present (an owner/manager viewing); the one test
+// below flips it off to prove a weak-tier holder reaching this route directly sees nothing.
+let pageActionPresent = true;
 
 vi.mock('../catalog', async (importOriginal) => {
   const real = await importOriginal<typeof import('../catalog')>();
   return {
     ...real,
-    action: (_c: unknown, id: string) => ({ id, label: id, method: 'GET', path: `/${id}` }),
+    action: (_c: unknown, id: string) => {
+      if (id === 'operations.coupons_page' && !pageActionPresent) return undefined;
+      return { id, label: id, method: 'GET', path: `/${id}` };
+    },
     call: async (_s: unknown, a: { id: string }, params?: Record<string, unknown>) => {
       if (a.id === 'operations.coupon_stats') return STATS;
       if (a.id === 'operations.coupon_history') return HISTORY;
@@ -86,6 +93,7 @@ function render(ui: ReactElement) {
 afterEach(() => {
   cleanup(); grantCalls = []; prefsCalls = [];
   sallaInstallCalls = 0; sallaDisconnectCalls = 0; sallaConnected = false;
+  pageActionPresent = true;
 });
 
 describe('«تحالف استراتيجي»', () => {
@@ -93,6 +101,12 @@ describe('«تحالف استراتيجي»', () => {
     render(<CouponsScreen session={SESSION} catalog={catalog} />);
     await waitFor(() => expect(screen.getByText('20%')).toBeTruthy());
     expect(screen.getByText('كوّن تحالفاً')).toBeTruthy();
+  });
+
+  it('renders nothing for a weak-tier caller reaching the route directly (no operations.coupons_page)', () => {
+    pageActionPresent = false;
+    const { container } = render(<CouponsScreen session={SESSION} catalog={catalog} />);
+    expect(container.textContent).toBe('');
   });
 
   it('shows the log tab by default, with a real refusal reason', async () => {

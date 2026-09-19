@@ -153,7 +153,8 @@
         "loyalty.read",
         "insights.read",
         "compliance.self",
-        "identity.self"
+        "identity.self",
+        "operations.grant_coupon"
       ]
     },
     {
@@ -166,7 +167,6 @@
         "operations.record",
         "search.read",
         "operations.read",
-        "operations.grant_coupon_direct",
         "operations.mobile_requests_manage",
         "operations.mobile_requests_execute",
         "operations.grant_coupon",

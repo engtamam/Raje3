@@ -115,6 +115,13 @@ NOT_FOR_A_SCREEN: dict[str, str] = {
     # but building it means wiring a picker into an ALREADY-SHIPPED search screen, a materially
     # bigger task than the other two turned out to be. Owner's call: not now.
     "affiliates.sectors": "deferred — the lead-search screen exists but has no sector picker yet",
+
+    # two-tier coupon access (owner decision, 2026-09-19): nav.ts's `coupons` section requires this
+    # id purely to gate on the STRONG capability, now that `operations.grant_coupon`'s own
+    # capability was loosened so weak-tier roles can submit from the visit screen. It has no route
+    # of its own and no screen calls it directly — its only job is to exist in the catalogue (or
+    # not) for a given role.
+    "operations.coupons_page": "nav-only gate for the standalone coupons page, no call of its own",
 }
 
 
