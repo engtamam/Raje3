@@ -84,8 +84,6 @@ registerOperatorStrings({
     'points.general.label': 'نقاط لكل زيارة (عام)',
     'points.general.hint': 'كل خدمة بلا رقم خاص تأخذ هذا الرقم.',
 
-    'points.threshold.label': 'مكافأة تحتاج اعتماد المدير من',
-    'points.threshold.hint': 'أي مكافأة بهذه النقاط فأكثر تحتاج اسم المدير عند الاستبدال. 0 يعني لا اعتماد.',
 
     'points.group.title': 'نقاط مجموعة',
     'points.group.said': 'تسري على كل خدمة في المجموعة لم تُخصَّص وحدها.',
@@ -169,8 +167,6 @@ registerOperatorStrings({
     'points.general.label': 'Points per visit (general)',
     'points.general.hint': 'Every service with no number of its own takes this one.',
 
-    'points.threshold.label': 'A reward needs manager approval from',
-    'points.threshold.hint': 'Any reward at this many points or more needs the manager’s name at redemption. 0 means no approval.',
 
     'points.group.title': 'Group points',
     'points.group.said': 'Applies to every service in the group that hasn’t been customized on its own.',
@@ -254,8 +250,6 @@ registerOperatorStrings({
     'points.general.label': 'ہر وزٹ پر پوائنٹس (عمومی)',
     'points.general.hint': 'ہر وہ خدمت جس کا اپنا نمبر نہیں یہی نمبر لیتی ہے۔',
 
-    'points.threshold.label': 'مکافات کو مینیجر کی منظوری چاہیے اس سے',
-    'points.threshold.hint': 'اس تعداد یا اس سے زیادہ پوائنٹس والی کسی بھی مکافات کو تبادلے پر مینیجر کا نام چاہیے۔ 0 کا مطلب کوئی منظوری نہیں۔',
 
     'points.group.title': 'گروپ کے پوائنٹس',
     'points.group.said': 'گروپ کی ہر اس خدمت پر لاگو ہوتا ہے جو الگ سے مخصوص نہیں کی گئی۔',
@@ -339,8 +333,6 @@ registerOperatorStrings({
     'points.general.label': 'Maki na kowace ziyara (na gama gari)',
     'points.general.hint': 'Kowace sabis da ba ta da lambar kanta tana ɗaukar wannan lambar.',
 
-    'points.threshold.label': 'Lada na buƙatar amincewar manaja daga',
-    'points.threshold.hint': 'Duk wata lada da ke da wannan maki ko fiye tana buƙatar sunan manaja lokacin musanya. 0 yana nufin babu amincewa.',
 
     'points.group.title': 'Makin rukuni',
     'points.group.said': 'Yana shafar kowace sabis a cikin rukuni da ba a keɓance ita kaɗai ba.',
@@ -424,8 +416,6 @@ registerOperatorStrings({
     'points.general.label': 'Puntos kada visit (general)',
     'points.general.hint': 'Kukunin ng bawat serbisyong walang sariling numero ang numerong ito.',
 
-    'points.threshold.label': 'Kailangan ng approval ng manager ang reward mula sa',
-    'points.threshold.hint': 'Anumang reward na may ganitong puntos pataas ay nangangailangan ng pangalan ng manager sa redemption. 0 ay walang approval.',
 
     'points.group.title': 'Puntos ng grupo',
     'points.group.said': 'Nalalapat sa bawat serbisyo sa grupo na hindi pa na-customize nang mag-isa.',
@@ -509,8 +499,6 @@ registerOperatorStrings({
     'points.general.label': 'প্রতি ভিজিটে পয়েন্ট (সাধারণ)',
     'points.general.hint': 'নিজস্ব সংখ্যা নেই এমন প্রতিটি সেবা এই সংখ্যাটিই নেবে।',
 
-    'points.threshold.label': 'এই পয়েন্ট থেকে পুরস্কারে ম্যানেজারের অনুমোদন লাগবে',
-    'points.threshold.hint': 'এই পয়েন্ট বা তার বেশি যেকোনো পুরস্কারে রিডিমের সময় ম্যানেজারের নাম লাগবে। 0 মানে কোনো অনুমোদন লাগবে না।',
 
     'points.group.title': 'গ্রুপ পয়েন্ট',
     'points.group.said': 'গ্রুপের প্রতিটি সেবার ওপর প্রযোজ্য যা আলাদাভাবে নির্ধারণ করা হয়নি।',

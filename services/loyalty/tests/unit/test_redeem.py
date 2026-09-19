@@ -130,26 +130,6 @@ def test_the_same_key_twice_spends_once():
     assert run(ledger.balance(T, S)).points == 300
 
 
-def test_a_reward_above_the_threshold_needs_a_manager():
-    _, ledger, rewards, red = build()
-    give(ledger, 900)
-    r = run(rewards.create(T, name="قص شعر", cost=800, type="item"))
-    with pytest.raises(LoyaltyError):
-        run(red.redeem(T, S, r.id, idem_key="k1", manager_threshold=500))
-    rec, _ = run(red.redeem(T, S, r.id, idem_key="k2", manager_threshold=500,
-                            approved_by="mgr-1"))
-    assert rec.approved_by == "mgr-1"
-
-
-def test_an_ordinary_reward_below_the_threshold_needs_nobody():
-    """The operator spends. A manager on every redemption is a bottleneck, so the programme dies."""
-    _, ledger, rewards, red = build()
-    give(ledger, 900)
-    r = run(rewards.create(T, name="قهوة", cost=50, type="item"))
-    _, is_new = run(red.redeem(T, S, r.id, idem_key="k1", manager_threshold=500))
-    assert is_new
-
-
 def test_a_retired_reward_cannot_be_spent():
     _, ledger, rewards, red = build()
     give(ledger, 900)
@@ -255,46 +235,6 @@ def test_the_report_names_the_outstanding_obligation_and_the_warning():
     assert rep["top_rewards"] == [("قهوة", 1)]
 
 
-def test_a_manager_approval_cannot_be_granted_by_the_person_redeeming():
-    """THE CONTROL THAT WAS A LABEL.
-
-    The check was «is this string non-empty», and the string is typed by the operator doing the
-    redeeming. So on exactly the redemptions expensive enough to have earned a threshold, the
-    approval was «type any name to continue» — granted by the person it exists to check.
-    """
-    _, ledger, rewards, red = build()
-    give(ledger, 900)
-    r = run(rewards.create(T, name="قص شعر", cost=800, type="item"))
-
-    with pytest.raises(LoyaltyError) as e:
-        run(red.redeem(T, S, r.id, idem_key="k1", manager_threshold=500,
-                       actor="سالم", approved_by="سالم"))
-
-    assert "من الشخص نفسه" in str(e.value)
-
-
-def test_the_same_name_in_a_different_case_is_still_the_same_person():
-    """«Salem» and « salem » are one man with one keyboard. A control defeated by a space is a
-    control somebody will defeat with a space."""
-    _, ledger, rewards, red = build()
-    give(ledger, 900)
-    r = run(rewards.create(T, name="قص شعر", cost=800, type="item"))
-
-    with pytest.raises(LoyaltyError):
-        run(red.redeem(T, S, r.id, idem_key="k2", manager_threshold=500,
-                       actor="Salem", approved_by=" salem "))
-
-
-def test_a_different_person_may_still_approve_it():
-    """The control must not block the thing it exists to permit."""
-    _, ledger, rewards, red = build()
-    give(ledger, 900)
-    r = run(rewards.create(T, name="قص شعر", cost=800, type="item"))
-
-    rec, _ = run(red.redeem(T, S, r.id, idem_key="k3", manager_threshold=500,
-                            actor="سالم", approved_by="فهد"))
-
-    assert rec.approved_by == "فهد"
 
 
 # ── one customer's balance, one spender at a time ──────────────────────────────────────────────

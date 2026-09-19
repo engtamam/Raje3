@@ -245,7 +245,7 @@ async def test_a_shop_with_no_programme_shows_no_points_section():
     for any shop: every key it serves has a value, so the emptiness test that guarded this was
     true for every customer of every shop and the card was shown to all of them (هـ-1)."""
     c = Composer(identity=Ident(), operations=Ops(), reminders=Rem(),
-                 loyalty=_Loyalty({"has_programme": False, "points": 0, "manager_threshold": 0,
+                 loyalty=_Loyalty({"has_programme": False, "points": 0,
                                    "rewards": [], "to_next_reward": 0, "expires_at": 0}))
     page = await c.build("t1", "sub_a")
 

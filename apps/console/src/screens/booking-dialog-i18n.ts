@@ -69,7 +69,6 @@ registerOperatorStrings({
     'bookingDialog.rewardLabel': 'جائزة يريد استبدالها (اختياري)',
     'bookingDialog.rewardHint': 'لا تُخصم نقاطه الآن — تُصرف تلقائياً عند تسجيل حضوره.',
     'bookingDialog.noneOption': 'بدون',
-    'bookingDialog.needsApproval': ' — تحتاج موافقة مشرف',
     'bookingDialog.rewardOption': '{name} ({cost})',
 
     'bookingDialog.noteLabel': 'ملاحظة (اختياري)',
@@ -147,7 +146,6 @@ registerOperatorStrings({
     'bookingDialog.rewardLabel': 'Reward they want to redeem (optional)',
     'bookingDialog.rewardHint': "Their points aren't deducted now — spent automatically once attendance is recorded.",
     'bookingDialog.noneOption': 'None',
-    'bookingDialog.needsApproval': ' — needs manager approval',
     'bookingDialog.rewardOption': '{name} ({cost})',
 
     'bookingDialog.noteLabel': 'Note (optional)',
@@ -225,7 +223,6 @@ registerOperatorStrings({
     'bookingDialog.rewardLabel': 'وہ انعام جو وہ حاصل کرنا چاہتا ہے (اختیاری)',
     'bookingDialog.rewardHint': 'اس کے پوائنٹس ابھی نہیں کٹیں گے — حاضری درج ہوتے ہی خودکار خرچ ہوں گے۔',
     'bookingDialog.noneOption': 'کوئی نہیں',
-    'bookingDialog.needsApproval': ' — مینیجر کی منظوری درکار',
     'bookingDialog.rewardOption': '{name} ({cost})',
 
     'bookingDialog.noteLabel': 'نوٹ (اختیاری)',
@@ -303,7 +300,6 @@ registerOperatorStrings({
     'bookingDialog.rewardLabel': 'Lada da yake son ya karɓa (na zaɓi)',
     'bookingDialog.rewardHint': 'Ba a cire makinsa yanzu ba — ana kashewa kai tsaye da zarar an rubuta halartarsa.',
     'bookingDialog.noneOption': 'Babu',
-    'bookingDialog.needsApproval': ' — yana buƙatar amincewar manaja',
     'bookingDialog.rewardOption': '{name} ({cost})',
 
     'bookingDialog.noteLabel': 'Bayani (na zaɓi)',
@@ -381,7 +377,6 @@ registerOperatorStrings({
     'bookingDialog.rewardLabel': 'Reward na gustong i-redeem (opsyonal)',
     'bookingDialog.rewardHint': 'Hindi pa babawasan ang points niya ngayon — awtomatikong gagastusin sa pagkatala ng pagdalo.',
     'bookingDialog.noneOption': 'Wala',
-    'bookingDialog.needsApproval': ' — kailangan ng pag-apruba ng manager',
     'bookingDialog.rewardOption': '{name} ({cost})',
 
     'bookingDialog.noteLabel': 'Tala (opsyonal)',
@@ -459,7 +454,6 @@ registerOperatorStrings({
     'bookingDialog.rewardLabel': 'যে পুরস্কার সে ব্যবহার করতে চায় (ঐচ্ছিক)',
     'bookingDialog.rewardHint': 'তার পয়েন্ট এখনই কাটা হবে না — উপস্থিতি নথিভুক্ত হওয়ার সাথে সাথেই স্বয়ংক্রিয়ভাবে খরচ হবে।',
     'bookingDialog.noneOption': 'কোনোটিই না',
-    'bookingDialog.needsApproval': ' — ম্যানেজারের অনুমোদন প্রয়োজন',
     'bookingDialog.rewardOption': '{name} ({cost})',
 
     'bookingDialog.noteLabel': 'নোট (ঐচ্ছিক)',

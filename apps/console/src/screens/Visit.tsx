@@ -293,11 +293,6 @@ export function Visit() {
   const [redeeming, setRedeeming] = useState('');
   /** The idempotency key of each redemption in flight, by (customer, reward) — see `spend`. */
   const attempts = useRef<Record<string, string>>({});
-  // THE MANAGER'S NAME, asked for only where the shop's own rule requires it. Kept as the id of
-  // the reward being approved so the box appears under that one tile and nowhere else — a field
-  // that is always on the screen is a field the counter learns to fill with anything.
-  const [approving, setApproving] = useState('');
-  const [approvedBy, setApprovedBy] = useState('');
   /**
    * WHETHER THE OPERATOR SAID THE CUSTOMER TOOK HIS OFFER.
    *
@@ -363,7 +358,7 @@ export function Visit() {
    * and the ledger's would agree today and diverge the first time a rule changes, and the number
    * the customer is told at the counter must be the one the shop is actually holding.
    */
-  const spend = useCallback(async (rewardId: string, rewardName: string, approver = '') => {
+  const spend = useCallback(async (rewardId: string, rewardName: string) => {
     if (!subject || redeeming) return;
     setRedeeming(rewardId);
     // ONE KEY PER INTENT, NOT PER PRESS (د-12).
@@ -380,11 +375,9 @@ export function Visit() {
     const idem = attempts.current[intent] ?? newIdempotencyKey();
     attempts.current[intent] = idem;
     try {
-      await redeem(session, subject, rewardId, idem, approver);
+      await redeem(session, subject, rewardId, idem);
       delete attempts.current[intent];
       setRedeemed(rewardName);
-      setApproving('');
-      setApprovedBy('');
       setBalance(await balanceFor(session, subject));
       window.setTimeout(() => setRedeemed(null), 4000);
     } catch (e) {
@@ -716,50 +709,14 @@ export function Visit() {
                         <button
                           type="button"
                           disabled={Boolean(redeeming)}
-                          onClick={() => (r.needs_approval
-                            ? setApproving(r.id === approving ? '' : r.id)
-                            : spend(r.id, r.name))}
+                          onClick={() => spend(r.id, r.name)}
                           className="flex w-full items-center justify-between gap-3 rounded-lg bg-surface-2 px-3 py-3 text-start disabled:opacity-60"
                         >
-                          <span>
-                            {r.name}
-                            {/* SAID BEFORE THE TAP, NOT AFTER IT. The service refuses this reward
-                                without a manager's name, and until this badge existed the counter
-                                found that out from an error message with the customer already
-                                holding out his hand (د-14أ). */}
-                            {r.needs_approval ? (
-                              // WARNING-TONED, NOT NEUTRAL GRAY — "this one needs a manager" is a
-                              // fact that changes what the cashier does next; it must read as a
-                              // different KIND of row before he reads a word of it, the same
-                              // colour-before-text recognition the points card above now uses.
-                              <span className="ms-2 inline-flex items-center gap-1 rounded bg-warning-soft px-1.5 py-0.5 text-xs font-medium text-warning-on-soft">
-                                {t('visit.points.needsApproval')}
-                                <AssistantHint session={session} anchor="visit.needs_approval" />
-                              </span>
-                            ) : null}
-                          </span>
+                          <span>{r.name}</span>
                           <span className="shrink-0 tabular-nums text-sm text-text-secondary">
                             {tf(t, 'visit.points.costAndRemaining', { cost: r.cost, remaining: balance.points - r.cost })}
                           </span>
                         </button>
-                        {approving === r.id ? (
-                          <div className="mt-2 flex gap-2">
-                            <input
-                              type="text"
-                              value={approvedBy}
-                              onChange={(e) => setApprovedBy(e.target.value)}
-                              placeholder={t('visit.points.approverPlaceholder')}
-                              aria-label={t('visit.points.approverPlaceholder')}
-                              className="min-w-0 flex-1 rounded-lg bg-surface-2 px-3 py-2"
-                            />
-                            <Button
-                              disabled={!approvedBy.trim() || Boolean(redeeming)}
-                              onClick={() => spend(r.id, r.name, approvedBy.trim())}
-                            >
-                              {t('visit.points.approveAndRedeem')}
-                            </Button>
-                          </div>
-                        ) : null}
                       </li>
                     ))}
                   </ul>
@@ -1009,11 +966,7 @@ export function Visit() {
                 {applying ? t('visit.applyOffer.applied') : t('visit.applyOffer.apply')}
               </Button>
             ) : null}
-            {/* THE ONE-TAP STRIP CARRIES ONLY WHAT ONE TAP CAN ACTUALLY DO. A reward above the
-                shop's threshold needs a manager's name, and there is nowhere here to type one —
-                it stays in the sheet above, which has the box. Offering it here would be a button
-                that refuses every time it is pressed. */}
-            {spendable.filter((r) => !r.needs_approval).map((r) => (
+            {spendable.map((r) => (
               <Button
                 key={r.id}
                 variant="ghost"

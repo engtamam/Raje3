@@ -1319,60 +1319,6 @@ def test_a_pack_is_still_bought_once(client):
     assert plans.subscribed and plans.subscribed[-1][2] == "once"
 
 
-# ── د-14 · the approval, across our door ───────────────────────────────────────────────────────
-
-
-def test_the_till_door_carries_the_approval_in_both_directions(client):
-    """THE OTHER HALF OF THE CHAIN. loyalty refuses a reward above the shop's threshold without a
-    manager's name — and this door had no field to carry one, and stripped the flag saying which
-    rewards need it out of `/till/customer`. So an integrated shop was offered every affordable
-    reward as available and could not satisfy the refusal from any request it was able to make.
-
-    Asserted at BOTH ends: the flag the cashier's screen reads, and the name the ledger records.
-    """
-    seen: dict = {}
-
-    class _Desk:
-        configured = True
-
-        async def balance(self, **kw):
-            return {"has_programme": True, "points": 400, "to_next_reward": 0,
-                    "manager_threshold": 100,
-                    "rewards": [{"id": "rw_big", "name": "خصم كبير", "cost": 150,
-                                 "needs_approval": True},
-                                {"id": "rw_small", "name": "خصم صغير", "cost": 20,
-                                 "needs_approval": False}]}
-
-        async def redeem(self, **kw):
-            seen.update(kw)
-            return {"transaction_ref": "rdm_1", "balance": 250}
-
-    saved = client.app.state.container.loyalty_desk
-    client.app.state.container.loyalty_desk = _Desk()
-    try:
-        h = _auth("operations.record", tenant="t_appr")
-        # A REAL CUSTOMER FIRST — the read answers `found: False` for a stranger, and a test that
-        # asserts on that answer proves nothing about the projection below it.
-        client.post("/api/v1/till/visits", headers=h, json={"visits": [
-            {"phone": "0500000051", "invoice_id": "INV-APPR", "branch_id": branches.MAIN,
-             "lines": [{"product_id": "P-1", "name": "غسيل", "qty": 1, "amount_minor": 5000}]}]})
-        got = client.get("/api/v1/till/customer?phone=0500000051", headers=h).json()
-        assert got.get("found") is True, got
-        assert got["manager_threshold"] == 100, got
-        flags = {r["id"]: r["needs_approval"] for r in got["rewards"]}
-        assert flags == {"rw_big": True, "rw_small": False}, flags
-
-        r = client.post("/api/v1/till/redeem",
-                        json={"phone": "0500000051", "reward_id": "rw_big",
-                              "branch_id": branches.MAIN,
-                              "idempotency_key": "k-appr", "approved_by": "خالد المدير"},
-                        headers=h)
-        assert r.status_code == 200, r.text
-        assert seen.get("approved_by") == "خالد المدير", seen
-    finally:
-        client.app.state.container.loyalty_desk = saved
-
-
 # ── GET /whatsapp/config — what the console needs to open the Embedded Signup popup ────────────
 class _MetaConfig:
     def __init__(self, out):
