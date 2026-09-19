@@ -11,10 +11,102 @@ reached it first.
 from __future__ import annotations
 
 import time
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Awaitable, Callable
 
 from app.core.sending_identity import split as split_sending_identity
 from app.ports.consent_gate import DENIED, UNKNOWN
+
+
+@dataclass(frozen=True)
+class GateContext:
+    """Everything a pre-AI gate needs to decide "does this message even reach the conversation
+    engine, or do I answer it myself and stop here" — deliberately the SAME small bundle every
+    gate receives, so a new gate never needs a new parameter threaded through the caller."""
+    container: Any
+    logger: Any
+    settings: Any
+    auditor: Any
+    tenant: str
+    branch_id: str
+    wamid: str
+    from_number: str
+    kind: str
+    text: str
+    reply_id: str
+
+
+# `None` = pass through to the next gate; a dict = the FINAL return value of
+# `ingest_inbound_message` itself — the gate has already sent (or deliberately withheld) whatever
+# reply this message gets, and nothing downstream (customer_lookup, the conversation engine, the
+# actual send dispatch) ever runs for it.
+GateOutcome = dict[str, Any] | None
+Gate = Callable[[GateContext], Awaitable[GateOutcome]]
+
+
+async def _gate_staff_menu(ctx: GateContext) -> GateOutcome:
+    """THE STAFF MENU (`##`) AND ITS OWN ROW TAPS — checked BEFORE the ordinary customer
+    consent-gate/conversation path, and deliberately not folded into it: this message is from the
+    SHOP'S OWN STAFF about the shop's own operational data, never a customer, so the customer
+    consent-gate question does not apply to it at all. See core/visit_trigger.py's own docstring
+    for why an unidentified sender simply falls through into the ordinary path below (returns
+    None) rather than being refused."""
+    from app.core.visit_trigger import maybe_handle_staff_menu_reply, maybe_open_staff_menu
+
+    if await maybe_open_staff_menu(
+            container=ctx.container, tenant=ctx.tenant, from_number=ctx.from_number,
+            kind=ctx.kind, text=ctx.text, idempotency_key=f"staffmenu:{ctx.wamid}"):
+        await ctx.container.inbound_store.mark_processed(ctx.tenant, ctx.wamid)
+        return {"processed": True, "reason": "staff_menu_opened"}
+    if await maybe_handle_staff_menu_reply(
+            container=ctx.container, tenant=ctx.tenant, from_number=ctx.from_number,
+            kind=ctx.kind, reply_id=ctx.reply_id, idempotency_key=f"staffmenu:{ctx.wamid}"):
+        await ctx.container.inbound_store.mark_processed(ctx.tenant, ctx.wamid)
+        return {"processed": True, "reason": "staff_menu_flow_opened"}
+    return None
+
+
+async def _gate_consent(ctx: GateContext) -> GateOutcome:
+    """THE CONSENT CHECK, WITH THE RAW NUMBER, BEFORE IT IS EVER FOLDED INTO A PSEUDONYM. The port
+    (app/ports/consent_gate.py) is explicit that a service holding only a subject_ref cannot use
+    it without defeating the pseudonymisation — so this is the one honest place left to ask: the
+    raw `from_number` is already in hand for this one call (same transient use customer_lookup
+    makes a few lines down in `ingest_inbound_message`), never persisted, and gone the moment this
+    function returns.
+
+    DENIED IS NEVER OVERRIDABLE BY POLICY — an on-record withdrawal holds regardless of
+    CONSENT_POLICY_ON_UNKNOWN, which only ever governs what happens when compliance-service could
+    not be reached at all. See config.py's own note on why UNKNOWN defaults to fail_open here."""
+    verdict = await ctx.container.consent_gate.check(
+        tenant=ctx.tenant, subject=ctx.from_number, purpose=ctx.settings.CONSENT_PURPOSE)
+    if verdict.status == DENIED or (
+            verdict.status == UNKNOWN and ctx.settings.CONSENT_POLICY_ON_UNKNOWN == "fail_closed"):
+        await ctx.container.inbound_store.mark_processed(ctx.tenant, ctx.wamid)
+        ctx.logger.info("whatsapp_consent_refused", extra={
+            "tenant": ctx.tenant, "wamid": ctx.wamid, "status": verdict.status,
+            "reason": verdict.reason})
+        # NOT CRITICAL (see auditable_actions.py's own note on this action) — best-effort, never
+        # blocks the refusal itself: the safe outcome (nothing processed) already happened.
+        try:
+            await ctx.auditor.record(
+                "whatsapp_assistant.consent_refused", actor="whatsapp-assistant",
+                resource=f"wamid:{ctx.wamid}", tenant=ctx.tenant,
+                metadata={"status": verdict.status, "reason": verdict.reason,
+                         "purpose": ctx.settings.CONSENT_PURPOSE})
+        except Exception:                                            # noqa: BLE001
+            pass
+        return {"processed": False, "reason": f"consent_{verdict.status}"}
+    return None
+
+
+# ── THE ONE REGISTRATION POINT — same plug-and-play contract as core/tools.py's `_TOOL_HANDLERS`
+# and core/conversation.py's `_PROMPT_SECTIONS`. CHEAPEST/MOST-FUNDAMENTAL FIRST (see
+# core/visit_trigger.py's own note on gate order): a gate never needs to know what ran before it,
+# only that if it returns `None`, whatever runs next gets exactly the same untouched `GateContext`.
+# Adding a gate (the customer-facing consent-REQUEST flow this list is about to grow, for one)
+# means writing one function with this same signature and adding it to this tuple, in the position
+# its own cost/precedence calls for — nothing in `ingest_inbound_message` changes.
+_GATES: tuple[Gate, ...] = (_gate_staff_menu, _gate_consent)
 
 
 async def outbound_allowed(container: Any, settings: Any, tenant: str, *,
@@ -69,51 +161,17 @@ async def ingest_inbound_message(
         # revisiting a wamid the bus already delivered, or vice versa). This IS the dedup.
         return {"processed": False, "reason": "duplicate"}
 
-    # THE STAFF MENU (`##`) AND ITS OWN ROW TAPS — checked BEFORE the ordinary customer consent-
-    # gate/conversation path below, and deliberately not folded into it: this message is from the
-    # SHOP'S OWN STAFF about the shop's own operational data, never a customer, so the customer
-    # consent-gate question does not apply to it at all. See core/visit_trigger.py's own docstring
-    # for the gate order (cheapest first) and why an unidentified sender simply falls through into
-    # the ordinary path below rather than being refused.
-    from app.core.visit_trigger import maybe_handle_staff_menu_reply, maybe_open_staff_menu
-
-    if await maybe_open_staff_menu(
-            container=container, tenant=tenant, from_number=from_number, kind=kind, text=text,
-            idempotency_key=f"staffmenu:{wamid}"):
-        await container.inbound_store.mark_processed(tenant, wamid)
-        return {"processed": True, "reason": "staff_menu_opened"}
-    if await maybe_handle_staff_menu_reply(
-            container=container, tenant=tenant, from_number=from_number, kind=kind,
-            reply_id=reply_id, idempotency_key=f"staffmenu:{wamid}"):
-        await container.inbound_store.mark_processed(tenant, wamid)
-        return {"processed": True, "reason": "staff_menu_flow_opened"}
-
-    # THE CONSENT CHECK, WITH THE RAW NUMBER, BEFORE IT IS EVER FOLDED INTO A PSEUDONYM. The port
-    # (app/ports/consent_gate.py) is explicit that a service holding only a subject_ref cannot use
-    # it without defeating the pseudonymisation — so this is the one honest place left to ask: the
-    # raw `from_number` is already in hand for this one call (same transient use customer_lookup
-    # makes a few lines down), never persisted, and gone the moment this function returns.
-    #
-    # DENIED IS NEVER OVERRIDABLE BY POLICY — an on-record withdrawal holds regardless of
-    # CONSENT_POLICY_ON_UNKNOWN, which only ever governs what happens when compliance-service could
-    # not be reached at all. See config.py's own note on why UNKNOWN defaults to fail_open here.
-    verdict = await container.consent_gate.check(
-        tenant=tenant, subject=from_number, purpose=settings.CONSENT_PURPOSE)
-    if verdict.status == DENIED or (
-            verdict.status == UNKNOWN and settings.CONSENT_POLICY_ON_UNKNOWN == "fail_closed"):
-        await container.inbound_store.mark_processed(tenant, wamid)
-        logger.info("whatsapp_consent_refused", extra={
-            "tenant": tenant, "wamid": wamid, "status": verdict.status, "reason": verdict.reason})
-        # NOT CRITICAL (see auditable_actions.py's own note on this action) — best-effort, never
-        # blocks the refusal itself: the safe outcome (nothing processed) already happened.
-        try:
-            await auditor.record("whatsapp_assistant.consent_refused", actor="whatsapp-assistant",
-                                 resource=f"wamid:{wamid}", tenant=tenant,
-                                 metadata={"status": verdict.status, "reason": verdict.reason,
-                                          "purpose": settings.CONSENT_PURPOSE})
-        except Exception:                                            # noqa: BLE001
-            pass
-        return {"processed": False, "reason": f"consent_{verdict.status}"}
+    # THE PRE-AI GATE PIPELINE — see `_GATES`'s own module-level docstring for the plug-and-play
+    # contract. Cheapest/most-fundamental first; each gate gets the exact same context and either
+    # answers this message itself (returns a final result) or hands it, untouched, to the next.
+    gate_ctx = GateContext(
+        container=container, logger=logger, settings=settings, auditor=auditor, tenant=tenant,
+        branch_id=branch_id, wamid=wamid, from_number=from_number, kind=kind, text=text,
+        reply_id=reply_id)
+    for gate in _GATES:
+        outcome = await gate(gate_ctx)
+        if outcome is not None:
+            return outcome
 
     try:
         lookup = await container.customer_lookup.resolve(tenant, from_number)
