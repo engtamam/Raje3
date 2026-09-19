@@ -6,6 +6,7 @@ import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/router/route_names.dart';
 import 'package:raje3_mobile/features/auth/login_screen.dart';
+import 'package:raje3_mobile/features/auth/signup_screen.dart';
 import 'package:raje3_mobile/features/home/home_screen.dart';
 import 'package:raje3_mobile/features/shell/main_shell.dart';
 import 'package:raje3_mobile/features/visit/visit_screen.dart';
@@ -44,6 +45,11 @@ class AppRouter {
           path: RouteNames.loginPath,
           name: RouteNames.login,
           builder: (context, state) => const LoginScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.signupPath,
+          name: RouteNames.signup,
+          builder: (context, state) => const SignupScreen(),
         ),
         ShellRoute(
           navigatorKey: _shellNavKey,
@@ -84,7 +90,8 @@ class AppRouter {
   ) {
     final authState = authProvider.state;
     final currentPath = state.uri.path;
-    final isOnAuthPage = currentPath == RouteNames.loginPath;
+    final isOnAuthPage =
+        currentPath == RouteNames.loginPath || currentPath == RouteNames.signupPath;
 
     if (authState == AuthState.initial || authState == AuthState.loading) {
       return isOnAuthPage ? null : RouteNames.loginPath;
