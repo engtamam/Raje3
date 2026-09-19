@@ -127,15 +127,25 @@ class ApiClient {
   String _url(String path) => '${ApiConstants.apiBasePath}$path';
 
   /// GET request, parsed into a single typed object.
+  ///
+  /// [absolute] — when true, [path] is sent as-is (must start with `/`)
+  /// instead of being prefixed with [ApiConstants.apiBasePath]. Needed for
+  /// the handful of real backend routes that do NOT sit under
+  /// `/api/v1/mobile` — e.g. the session catalogue (`/api/v1/app/catalog`),
+  /// staff/operator routes (`/api/v1/staff/...`) and the field-visit routes
+  /// (`/api/v1/field/...`) — these are shared across every client type, not
+  /// mobile-specific, so they keep their own real path instead of gaining a
+  /// mobile prefix that does not exist on the server.
   Future<ApiResponse<T>> get<T>(
     String path, {
     Map<String, dynamic>? queryParameters,
     T Function(Map<String, dynamic>)? fromJson,
     CancelToken? cancelToken,
+    bool absolute = false,
   }) async {
     try {
       final response = await _dio.get(
-        _url(path),
+        absolute ? path : _url(path),
         queryParameters: queryParameters,
         cancelToken: cancelToken,
       );
@@ -164,15 +174,17 @@ class ApiClient {
     }
   }
 
-  /// POST request, parsed into a single typed object.
+  /// POST request, parsed into a single typed object. See [get]'s [absolute] doc.
   Future<ApiResponse<T>> post<T>(
     String path, {
     Map<String, dynamic>? data,
     T Function(Map<String, dynamic>)? fromJson,
     CancelToken? cancelToken,
+    bool absolute = false,
   }) async {
     try {
-      final response = await _dio.post(_url(path), data: data, cancelToken: cancelToken);
+      final response =
+          await _dio.post(absolute ? path : _url(path), data: data, cancelToken: cancelToken);
       return _parseResponse<T>(response, fromJson);
     } on DioException catch (e) {
       throw _handleDioError(e);
@@ -194,15 +206,17 @@ class ApiClient {
     }
   }
 
-  /// PATCH request, parsed into a single typed object.
+  /// PATCH request, parsed into a single typed object. See [get]'s [absolute] doc.
   Future<ApiResponse<T>> patch<T>(
     String path, {
     Map<String, dynamic>? data,
     T Function(Map<String, dynamic>)? fromJson,
     CancelToken? cancelToken,
+    bool absolute = false,
   }) async {
     try {
-      final response = await _dio.patch(_url(path), data: data, cancelToken: cancelToken);
+      final response =
+          await _dio.patch(absolute ? path : _url(path), data: data, cancelToken: cancelToken);
       return _parseResponse<T>(response, fromJson);
     } on DioException catch (e) {
       throw _handleDioError(e);

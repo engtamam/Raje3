@@ -5,6 +5,7 @@ import 'package:raje3_mobile/core/network/api_client.dart';
 import 'package:raje3_mobile/core/providers/app_state_provider.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/providers/locale_provider.dart';
+import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/providers/tenant_provider.dart';
 import 'package:raje3_mobile/core/providers/theme_provider.dart';
 import 'package:raje3_mobile/core/router/app_router.dart';
@@ -67,10 +68,11 @@ class Raje3App extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeProvider(localStorage: localStorage)),
         ChangeNotifierProvider(create: (_) => LocaleProvider(localStorage: localStorage)),
         ChangeNotifierProvider(create: (_) => AppStateProvider()),
+        ChangeNotifierProvider(create: (_) => NavProvider(apiClient: apiClient)),
       ],
-      child: Consumer<AuthProvider>(
-        builder: (context, authProvider, _) {
-          final router = AppRouter.router(authProvider);
+      child: Consumer2<AuthProvider, NavProvider>(
+        builder: (context, authProvider, navProvider, _) {
+          final router = AppRouter.router(authProvider, navProvider);
           return MaterialApp.router(
             title: 'راجِع',
             debugShowCheckedModeBanner: false,

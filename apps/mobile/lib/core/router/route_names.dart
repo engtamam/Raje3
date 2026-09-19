@@ -15,8 +15,13 @@ class RouteNames {
   // ── ROUTE NAMES ──────────────────────────────────────────────────────────
   static const String login = 'login';
   static const String home = 'home';
+  static const String visit = 'visit';
 
   // ── ROUTE PATHS ───────────────────────────────────────────────────────────
   static const String loginPath = '/login';
-  static const String homePath = '/home';
+  /// Kept as an alias of the 'shop' nav section's own path so a bookmark/deep-link to
+  /// `/home` still lands somewhere real. The actual landing screen is decided at runtime by
+  /// NavProvider.landingPath, never hardcoded to this constant — see app_router.dart.
+  static const String homePath = '/shop';
+  static const String visitPath = '/visit';
 }
