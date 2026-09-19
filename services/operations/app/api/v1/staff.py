@@ -632,6 +632,36 @@ async def set_my_locale(request: Request, body: LocaleIn,
     return op.public()
 
 
+_MAX_PINNED_NAV = 4  # the mobile bottom bar shows at most 4 icons — see nav_service.dart
+
+
+class PinnedNavIn(BaseModel):
+    pinned_nav_ids: list[str] = Field(max_length=_MAX_PINNED_NAV)
+
+
+@router.patch("/operators/me/pinned-nav", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def set_my_pinned_nav(request: Request, body: PinnedNavIn,
+                            principal: Principal = Depends(_READ_OPERATORS_FOR_BOOKINGS)) -> dict:
+    """The mobile app's own bottom-bar personalisation — which of THIS operator's own visible
+    sections he wants pinned, and in what order. Same self-service shape as `/me/locale` right
+    above: found by `sub`, never by an id in the path, so nobody can touch a colleague's row
+    through this door.
+
+    NOT VALIDATED AGAINST THE CATALOGUE HERE. A pin the caller can no longer reach (a capability
+    since revoked) is filtered out client-side the same way a hidden `SECTIONS` row already is —
+    this route only stores ids, the same "store the preference, let the read-side apply today's
+    permissions" split `visible_branch_ids` already uses above.
+    """
+    tenant = _tenant(principal)
+    store = OperatorStore(request.app.state.container.datastore)
+    op = await store.get_by_person(tenant, principal.subject)
+    if op is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_OPERATOR")
+    op.pinned_nav_ids = list(dict.fromkeys(body.pinned_nav_ids))  # de-duplicate, keep order
+    await store.save(op)
+    return op.public()
+
+
 class PinVerifyIn(BaseModel):
     operator_id: str = Field(min_length=1, max_length=64)
     pin: str = Field(min_length=4, max_length=4, pattern=r"^\d{4}$")

@@ -1,0 +1,21 @@
+{
+  "@@locale": "ar",
+
+  "appName": "راجِع",
+  "@appName": { "description": "App name shown in app bar and about page" },
+
+  "ok": "موافق",
+  "cancel": "إلغاء",
+  "save": "حفظ",
+  "close": "إغلاق",
+  "back": "رجوع",
+  "next": "التالي",
+  "done": "تم",
+  "loading": "جاري التحميل...",
+  "retry": "إعادة المحاولة",
+  "error": "حدث خطأ",
+  "success": "تمت العملية بنجاح",
+  "search": "بحث",
+  "login": "تسجيل الدخول",
+  "logout": "تسجيل الخروج"
+}

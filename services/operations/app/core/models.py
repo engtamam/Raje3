@@ -541,6 +541,14 @@ class Operator:
     # because a hired operator has his OWN login (`person_id` above) and moves between devices; a
     # localStorage setting would reset every time he signs in somewhere new.
     locale: str = ""
+    # THE MOBILE APP'S OWN BOTTOM-BAR CHOICE, same "empty means inherit the default" shape as
+    # `locale` above and for the same reason: it is a per-person preference, not a per-device one
+    # (an operator moves between a shop tablet and his own phone), so it lives on his row rather
+    # than in app-local storage. Empty = no personalisation yet — the mobile shell falls back to
+    # the first N sections of `nav_sections.g.dart`'s own order (the same priority nav.ts already
+    # encodes). Ids only, never full section objects: the section list itself is generated from
+    # nav.ts and can change shape; storing ids keeps this row valid across that.
+    pinned_nav_ids: list[str] = field(default_factory=list)
 
     def public(self) -> dict[str, Any]:
         """No pin_hash. Not because it is readable, but because a hash that is never returned
@@ -565,7 +573,8 @@ class Operator:
                 # listed there is a tap that ends in a refusal he has no way to satisfy, with a
                 # customer waiting.
                 "has_pin": bool(self.pin_hash),
-                "locale": self.locale}
+                "locale": self.locale,
+                "pinned_nav_ids": list(self.pinned_nav_ids)}
 
 
 @dataclass

@@ -1,0 +1,47 @@
+name: raje3_mobile
+description: Raje3 mobile app — thin client, every screen talks to our own server directly.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+  flutter: '>=3.24.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State management
+  provider: ^6.1.1
+
+  # Navigation
+  go_router: ^14.2.0
+
+  # Network
+  dio: ^5.4.0
+
+  # Storage — secure_storage for the auth token only; shared_preferences for
+  # non-sensitive UI prefs (locale, theme, onboarding flag). NO local database:
+  # this is a thin shell, every screen re-fetches from the server.
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.2.2
+
+  # Utilities
+  intl: any
+  url_launcher: ^6.2.2
+  package_info_plus: ^8.0.0
+  device_info_plus: ^10.1.0
+
+  # Icons
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  generate: true

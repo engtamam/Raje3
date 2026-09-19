@@ -258,6 +258,8 @@ def build_manifest(
             {"path": "/api/v1/staff/operators/verify-pin", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/operators/me", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/operators/me/locale", "tier": "user", "method": "PATCH"},
+            # The mobile app's own bottom-bar personalisation — see staff.py's own docstring.
+            {"path": "/api/v1/staff/operators/me/pinned-nav", "tier": "user", "method": "PATCH"},
             # How this shop runs its branches — one number for the brand, or one per branch.
             {"path": "/api/v1/staff/shop-name", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/staff/mode", "tier": "user", "method": "GET"},
