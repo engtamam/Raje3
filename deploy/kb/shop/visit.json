@@ -16,14 +16,6 @@
     "surfaces": ["shop"]
   },
   {
-    "id": "visit.needs_approval",
-    "anchor": "visit.needs_approval",
-    "title": {"ar": "تحتاج موافقة"},
-    "body": {"ar": "هذي المكافأة كبيرة بما يكفي إن محلك يشترط موافقة مدير قبل صرفها — لازم تكتب اسم من وافق قبل ما تقدر تصرفها."},
-    "kind": "glossary",
-    "surfaces": ["shop"]
-  },
-  {
     "id": "visit.pending_queue",
     "anchor": "visit.pending_queue",
     "title": {"ar": "زيارات بانتظار الإرسال"},
