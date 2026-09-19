@@ -2,13 +2,21 @@
 //
 // PATTERN ported from the reference project's `lib/theme/flutterflow_theme.dart`
 // (a token-based AppColors/AppSpacing/AppTextStyles file) — the SHAPE only,
-// not their colours. Every value below comes from THIS product's own design
-// system instead: `ui/packages/ui/src/theme/theme.config.ts` (the web
-// console's single source of truth for the whole brand) and
-// `config/product.json`'s `brand.accent` (the one brand-owned colour, from
-// which the console derives hover/soft/on-soft tints). Semantic colours
-// (success/warning/danger/info) are copied from theme.config.ts's `light`
-// palette so a status reads the same on web and mobile.
+// not their colours.
+//
+// COLORS ARE GENERATED, NOT HAND-COPIED. `AppColors` used to be typed out
+// here as literal `Color(0xFF...)` values, copied once from theme.config.ts
+// and product.json — exactly the drift class
+// ci/check_a_hardcoded_color_does_not_shadow_a_token.py already exists to
+// catch on the web side. `AppColors` now lives in `app_colors.g.dart`,
+// produced by `scripts/gen_mobile_theme.py` from THIS product's own design
+// system: `ui/packages/ui/src/theme/theme.config.ts` (the web console's
+// single source of truth for the whole brand) and `config/product.json`'s
+// `brand.accent` (the one brand-owned colour, from which hover/soft/on-soft
+// tints are derived — same `mix()` formula as theme.config.ts's own). After
+// either source changes, re-run that script; `ci/check_mobile_theme_is_generated.py`
+// fails the build if the checked-in file and the script's current output
+// ever disagree.
 //
 // Only the LIGHT palette is ported — the console's own theme.config.ts
 // documents why light is not a default here but a requirement: "unreadable
@@ -17,63 +25,8 @@
 
 import 'package:flutter/material.dart';
 
-/// ═══════════════════════════════════════════════════════════════════════════
-/// COLORS — mirrors theme.config.ts's `Palette` interface (light appearance).
-/// ═══════════════════════════════════════════════════════════════════════════
-class AppColors {
-  // ── BRAND ACCENT — config/product.json → brand.accent.light ─────────────
-  // The ONE brand-owned colour; everything else here is the console's own
-  // derived/semantic palette. A rebrand changes only this one line (plus
-  // its console-side counterpart in product.json) — same contract as web.
-  static const Color accent = Color(0xFF7C3AED);
-  static const Color accentHover = Color(0xFF621EBD); // mix(accent, black, 0.22)
-  static const Color accentSoft = Color(0xFFF1E9FC); // mix(accent, white, 0.88)
-  static const Color accentOnSoft = Color(0xFF621EBD);
-  static const Color accentContrast = Color(0xFFFFFFFF);
-
-  // ── SURFACES — theme.config.ts `light` palette ──────────────────────────
-  static const Color surface0 = Color(0xFFFFFFFF); // page background
-  static const Color surface1 = Color(0xFFFFFFFF); // card
-  static const Color surface2 = Color(0xFFF1F1F4); // chip off-state / unselected tab
-  static const Color surface3 = Color(0xFFE4E4EA);
-
-  // ── TEXT ──────────────────────────────────────────────────────────────
-  static const Color textPrimary = Color(0xFF17171F);
-  static const Color textSecondary = Color(0xFF63636F);
-  static const Color textMuted = Color(0xFF96969F);
-
-  // ── BORDERS ───────────────────────────────────────────────────────────
-  static const Color borderSubtle = Color(0xFFE9E9EE);
-  static const Color borderStrong = Color(0xFFD3D3DC);
-
-  // ── SEMANTIC ──────────────────────────────────────────────────────────
-  static const Color success = Color(0xFF12B886);
-  static const Color successSoft = Color(0xFFDCF3EC);
-  static const Color successOnSoft = Color(0xFF0E8A64);
-
-  static const Color warning = Color(0xFFF59F00);
-  static const Color warningSoft = Color(0xFFF7ECD2);
-  static const Color warningOnSoft = Color(0xFFA0680A);
-
-  // DANGER = coral (not brick-red) — matches the console's own churn/at-risk hue.
-  static const Color danger = Color(0xFFE8590C);
-  static const Color dangerSoft = Color(0xFFFBE1DD);
-  static const Color dangerOnSoft = Color(0xFFB7412F);
-  static const Color dangerContrast = Color(0xFFFFFFFF);
-
-  static const Color info = Color(0xFF5A96DC);
-  static const Color infoSoft = Color(0xFFE3EDFA);
-  static const Color infoOnSoft = Color(0xFF2F5F8F);
-
-  static const Color overlay = Color(0x73161328); // rgb(22 19 40 / 0.45)
-
-  // Convenience aliases matching common Material naming, so widgets that
-  // expect AppColors.primary/error/white (a common pattern) keep working.
-  static const Color primary = accent;
-  static const Color error = danger;
-  static const Color white = Color(0xFFFFFFFF);
-  static const Color black = Color(0xFF000000);
-}
+import 'app_colors.g.dart';
+export 'app_colors.g.dart';
 
 /// ═══════════════════════════════════════════════════════════════════════════
 /// SCALE — mirrors theme.config.ts's `Scale` interface (radius/shadow/motion).
