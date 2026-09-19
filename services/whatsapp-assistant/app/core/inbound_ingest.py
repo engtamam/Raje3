@@ -221,17 +221,32 @@ async def ingest_inbound_message(
         # revisiting a wamid the bus already delivered, or vice versa). This IS the dedup.
         return {"processed": False, "reason": "duplicate"}
 
-    # THE PRE-AI GATE PIPELINE — see `_GATES`'s own module-level docstring for the plug-and-play
-    # contract. Cheapest/most-fundamental first; each gate gets the exact same context and either
-    # answers this message itself (returns a final result) or hands it, untouched, to the next.
-    gate_ctx = GateContext(
-        container=container, logger=logger, settings=settings, auditor=auditor, tenant=tenant,
-        branch_id=branch_id, wamid=wamid, from_number=from_number, kind=kind, text=text,
-        reply_id=reply_id)
-    for gate in _GATES:
-        outcome = await gate(gate_ctx)
-        if outcome is not None:
-            return outcome
+    # THE LICENCE CHECK — cheaper and more fundamental than any `_GATES` entry, so it runs BEFORE
+    # the gate pipeline itself, not as a gate inside it. Without this, `_gate_consent` sent a real
+    # outbound consent request and recorded a real consent decision for a toggled-off tenant, on
+    # nothing more than a stranger's first message — a customer-visible effect and a DB write
+    # `core/licence.py::ToggleGatedLicence`'s own docstring says must never happen for OFF ("OFF
+    # MUST READ EXACTLY LIKE UNSUBSCRIBED"). A DISALLOWED tenant skips `_GATES` ENTIRELY and falls
+    # through to the engine below exactly as an allowed tenant would — `conversation.py`'s own door
+    # gate (`handle_inbound_text`'s own `self._licence.allowed(tenant)` check) is what actually
+    # answers it, with the SAME `_NOT_SUBSCRIBED_TEXT` reply an unsubscribed shop already gets
+    # today; this is not a second, possibly-drifting refusal, only ONE LESS GATE standing in front
+    # of that existing one. `record_if_new`/`mark_processed` above and below are plain per-message
+    # bookkeeping, never customer-visible and never a consent decision — unaffected either way.
+    licence = getattr(container, "licence", None)
+    if licence is None or await licence.allowed(tenant):
+        # THE PRE-AI GATE PIPELINE — see `_GATES`'s own module-level docstring for the
+        # plug-and-play contract. Cheapest/most-fundamental first; each gate gets the exact same
+        # context and either answers this message itself (returns a final result) or hands it,
+        # untouched, to the next.
+        gate_ctx = GateContext(
+            container=container, logger=logger, settings=settings, auditor=auditor, tenant=tenant,
+            branch_id=branch_id, wamid=wamid, from_number=from_number, kind=kind, text=text,
+            reply_id=reply_id)
+        for gate in _GATES:
+            outcome = await gate(gate_ctx)
+            if outcome is not None:
+                return outcome
 
     try:
         subject_ref = await resolve_subject_ref(container, settings, tenant, from_number)
