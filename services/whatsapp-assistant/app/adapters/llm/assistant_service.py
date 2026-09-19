@@ -239,6 +239,32 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             "required": ["service_ids"],
         },
     },
+    "get_service_procedure": {
+        "name": "get_service_procedure",
+        "description": (
+            "Read-only: the shop's REAL ordered procedure/steps for ONE specific service — call "
+            "this whenever the customer asks what a service actually includes or how it's done "
+            "(e.g. 'how do you wash the engine bay', 'does the interior detail include seat "
+            "shampoo', 'what's included in X'), so you can answer with real operational detail "
+            "instead of guessing or staying vague. ONE service_id per call — never call this to "
+            "dump every service's steps; if the customer is comparing two services, call it "
+            "twice, once per service_id. service_id must be a real id from the shop's own "
+            "catalogue, never invented.\n\n"
+            "WHAT TO DO WITH IT: this returns plain facts (step order, step text, which steps "
+            "the shop flags as critical) — never a ready-made sentence. Turn it into a natural, "
+            "confident, professional answer that makes the service sound worth it, never a "
+            "bullet-by-bullet checklist read-out. Never invent a step beyond what it returns."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "service_id": {
+                    "type": "string",
+                    "description": "A real service id from the shop's own catalogue.",
+                },
+            },
+            "required": ["service_id"],
+        },
+    },
     "check_mobile_visit_hours": {
         "name": "check_mobile_visit_hours",
         "description": (

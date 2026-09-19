@@ -146,6 +146,7 @@ async def _invoke(request: Request, *, tool: str, ctx: _ConnectorBase,
             booking_provider=container.booking_provider, points_summary=container.points_summary,
             proposal_ttl_seconds=1800, now=now, related_services=container.related_services,
             service_catalog=container.service_catalog, package_catalog=container.package_catalog,
+            service_procedure=container.service_procedure,
             branch_id=ctx.branch_id, from_number=ctx.from_number,
             booking_history_visible=settings.BOOKING_HISTORY_VISIBLE,
             catalog_provider=container.catalog_provider, rhythm_provider=container.rhythm_provider,
@@ -265,6 +266,16 @@ async def propose_booking(body: ProposeBookingIn, request: Request) -> dict:
     return await _invoke(request, tool="propose_booking", ctx=body, args={
         "service_id": body.service_id, "package_id": body.package_id,
         "starts_at_iso": body.starts_at_iso, "reward_id": body.reward_id})
+
+
+class GetServiceProcedureIn(_ConnectorBase):
+    service_id: str = Field(min_length=1)
+
+
+@router.post("/get_service_procedure", dependencies=[Depends(require_connector_token)])
+async def get_service_procedure(body: GetServiceProcedureIn, request: Request) -> dict:
+    return await _invoke(request, tool="get_service_procedure", ctx=body,
+                         args={"service_id": body.service_id})
 
 
 class SuggestRelatedServiceIn(_ConnectorBase):

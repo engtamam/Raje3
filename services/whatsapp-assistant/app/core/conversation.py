@@ -290,6 +290,30 @@ _PROMPT_SECTIONS: tuple[PromptSection, ...] = (
             "مما اختاره العميل أصلاً — الهدف مساعدته يحصل على أكثر مقابل قيمة أعلى، لا تخفيض "
             "فاتورته. اذكر فقط الباقات وأسعارها وتواريخها كما وردت في السياق حرفيًا، ولا تخترع "
             "باقة أو تاريخًا لم يُذكر.")),
+    # THE PROCEDURE-DETAIL TOOL'S OWN PERSONA HALF — get_service_procedure (core/tools.py) returns
+    # plain facts (a service's real step order/text/critical flags); this rule governs the ONLY
+    # part that is genuinely a prompt concern: how those facts turn into a reply. The owner's own
+    # instruction was explicit that tone matters as much as the data here — a customer asking
+    # "how do you wash the engine bay" wants to hear a confident answer that makes the service
+    # sound worth it, not a technician's checklist read aloud.
+    # TAGGED feature.bookings (2026-09-19) — get_service_procedure itself is tagged the same key
+    # (core/tools.py's own _TOOL_APP_KEYS), so a tenant who never sees the tool can never reach
+    # the scenario this rule describes either; showing it anyway would be pure wasted tokens on
+    # every single turn, same reasoning as staff_preference/upsell above.
+    PromptSection(
+        name="procedure_selling",
+        description="حجوزات — تنطبق فقط بعد استخدام get_service_procedure لخدمة معيّنة.",
+        app_keys=frozenset({"feature.bookings"}),
+        instructions=(
+            "إذا استخدمت get_service_procedure لمعرفة خطوات خدمة معيّنة، لا تنقل النتيجة للعميل "
+            "كقائمة خطوات مرقّمة أو نص جاف — حوّلها لرد طبيعي واثق يشبه أسلوب بائع محترف يشرح ليش "
+            "الخدمة تستاهل، مع إبراز الشمول والعناية بلا مبالغة. مثال: بدل «الخطوات: ١. اغسل "
+            "بالماء ٢. افحص الإطارات ٣. لمّع» قل شيء مثل «الغسيل الخارجي عندنا شامل ومب بس غسيل "
+            "سطحي — نبدأ بغسل كامل بالماء، ونتأكد من فحص الإطارات، ونختم بتلميع يخلّيها لامعة». "
+            "إن كانت إحدى الخطوات أساسية (critical)، بإمكانك إبراز أهميتها كدليل على دقة المحل "
+            "(مثل «ونحرص بشكل خاص على فحص الفرامل قبل التسليم») لا كتحذير جاف. لا تخترع خطوة أو "
+            "تفصيلاً لم يرجعه لك التول، والتزم بعدد الخدمات المطلوبة فقط — لا تسرد خطوات خدمة لم "
+            "يسأل عنها العميل.")),
     # PHASE 4 OF THE PERSONALIZATION ROADMAP — the persona half of what phases 1-3 built purely as
     # infrastructure: reminders' learned rhythm (list_due_services/list_lapsed_services), the
     # unfiltered package list (list_packages), and the existing reward/related-service tools were
@@ -614,7 +638,7 @@ class ConversationEngine:
                 frustration_duplicate_messages_threshold: int = 3,
                 soft_decline_threshold: int = 2,
                 shop_identity: Any = None, service_catalog: Any = None,
-                package_catalog: Any = None,
+                package_catalog: Any = None, service_procedure: Any = None,
                 customer_lookup: Any = None, related_services: Any = None,
                 branch_directory: Any = None,
                 wallet_balance: Any = None, wallet_estimated_tokens: int = 4000,
@@ -639,6 +663,10 @@ class ConversationEngine:
         # Same None-safe optional-peer shape as every other one here — see package_catalog.py's
         # own NullPackageCatalog for the "nothing configured" default.
         self._package_catalog = package_catalog
+        # None-safe the same way — see core/service_procedure.py's own NullServiceProcedure for
+        # the "nothing configured" default (get_service_procedure then always answers "cannot
+        # look this up right now" rather than failing the turn).
+        self._service_procedure = service_procedure
         # None-safe the same way — see app/core/tools.py::validate_and_render's own
         # `catalog_provider is None` check for the "no photos to offer" degrade.
         self._catalog_provider = catalog_provider
@@ -1571,6 +1599,7 @@ class ConversationEngine:
                     points_summary=self._points, proposal_ttl_seconds=self._proposal_ttl, now=now,
                     related_services=self._related_services, service_catalog=self._catalog,
                     package_catalog=self._package_catalog,
+                    service_procedure=self._service_procedure,
                     branch_id=conv.branch_id, from_number=conv.from_number,
                     booking_history_visible=self._booking_history_visible,
                     catalog_provider=self._catalog_provider,

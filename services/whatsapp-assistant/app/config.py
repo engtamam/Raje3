@@ -271,6 +271,11 @@ class Settings(BaseSettings):
     # honestly instead of guessing.
     OPERATIONS_CATALOGUE_WITH_PRICES_PATH: str = "/internal/operations/catalogue-with-prices"
     OPERATIONS_PACKAGES_PATH: str = "/internal/operations/packages"
+    # ONE service's own ordered protocol (`Service.procedure_step_ids` resolved to real step text
+    # + severity) — the `get_service_procedure` tool's own read, called one service at a time by
+    # design (see core/service_procedure.py's own module docstring for why never the whole
+    # catalogue in one call).
+    OPERATIONS_SERVICE_PROCEDURE_PATH: str = "/internal/operations/service-procedure"
     # The mobile/on-the-go service-requests creation door (services/operations/app/api/internal.py)
     # — the one write core/tools.py's `request_mobile_visit` tool + core/conversation.py's
     # `handle_location` make together. Reuses OPERATIONS_SERVICE_URL like every other operations
@@ -519,7 +524,7 @@ class Settings(BaseSettings):
         "suggest_related_service,list_my_bookings,propose_cancel_booking,"
         "propose_reschedule_booking,suggest_services_carousel,list_packages,"
         "list_due_services,list_lapsed_services,check_mobile_visit_hours,request_mobile_visit,"
-        "check_growth_opportunities,check_active_offers")
+        "check_growth_opportunities,check_active_offers,get_service_procedure")
 
     # The three booking-management tool names — named once here so the kill-switch below and
     # core/tools.py's own dispatch never risk drifting apart on the literal strings.
