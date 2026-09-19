@@ -142,5 +142,5 @@ def build(settings: Any, *, secret_store: Any = None) -> Any:
     return HttpKnowledgeExporter(
         secret_store=secret_store,
         graph_base_url=getattr(settings, "META_GRAPH_BASE_URL", "https://graph.facebook.com"),
-        graph_version=getattr(settings, "META_GRAPH_API_VERSION", "v21.0"),
+        graph_version=getattr(settings, "META_GRAPH_API_VERSION", "v26.0"),
         timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8))

@@ -234,7 +234,12 @@ class Settings(BaseSettings):
     # (same "opt in, never silently upgrade" posture as every other optional peer in this service).
     KNOWLEDGE_EXPORT_ENABLED: bool = False
     META_GRAPH_BASE_URL: str = "https://graph.facebook.com"
-    META_GRAPH_API_VERSION: str = "v21.0"
+    # SAME VERSION AS WHATSAPP_GRAPH_BASE/WHATSAPP_ONBOARDING_GRAPH_BASE (deploy/services/
+    # notification-service.values.yaml) — a stale default here would quietly hold this one call on
+    # an old Graph version nobody chose, the exact bug that file's own note describes fixing once
+    # already (`ci/check_the_meta_versions_are_alive.py` holds those two equal; this third one has
+    # no such gate yet since it lives in a different service, but the VALUE must still agree).
+    META_GRAPH_API_VERSION: str = "v26.0"
 
     OPERATIONS_SERVICE_URL: str = ""
     # ESCALATED: no phone->customer lookup existed anywhere in operations before this service. We
