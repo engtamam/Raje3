@@ -157,6 +157,7 @@ class Container:
     engine: Any = None
     renewal_consumer: Any = None
     owner_phone: Any = None
+    knowledge_export: Any = None
     renewal_trigger: Any = None
     wallet_low_balance_trigger: Any = None
 
@@ -261,6 +262,10 @@ def build_container(settings: Settings) -> Container:
     container.customer_lookup = CL.build(settings)
     container.branch_directory = BD.build(settings)
     container.shop_identity = SI.build(settings)
+    from app.core import knowledge_export as KE
+    # secret_store passed in — see knowledge_export.py::build's own note, same reasoning as
+    # build_llm above: an operator-rotated credential must be visible through the one live store.
+    container.knowledge_export = KE.build(settings, secret_store=container.secret_store)
     container.service_catalog = SC.build(settings)
     container.package_catalog = PC.build(settings)
     # PHASE 5 — the WhatsApp Flow (structured screens) booking channel, distinct from the AI text
