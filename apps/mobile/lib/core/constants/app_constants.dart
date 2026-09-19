@@ -27,6 +27,13 @@ class AppConstants {
   /// Serialized user profile JSON (stored in secure storage).
   static const String userDataKey = 'user_data';
 
+  /// The signed-in account's tenant id (stored in secure storage). Phone-based
+  /// auth resolves to exactly one tenant per phone number — see
+  /// services/operations/app/core/signup.py's own note on why its phone index
+  /// holds one tenant per number, never a list. Set on login/signup, read on
+  /// app start so [ContextInterceptor] can scope every request immediately.
+  static const String tenantIdKey = 'tenant_id';
+
   /// Currently selected context ID (local storage).
   static const String activeContextKey = 'active_context';
 

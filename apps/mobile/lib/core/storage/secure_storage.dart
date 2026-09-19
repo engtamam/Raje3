@@ -164,7 +164,22 @@ class SecureStorage {
       delete(AppConstants.accessTokenKey),
       delete(AppConstants.refreshTokenKey),
       delete(AppConstants.tokenExpiryKey),
+      delete(AppConstants.tenantIdKey),
     ]);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TENANT
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Get the signed-in account's tenant id.
+  Future<String?> getTenantId() async {
+    return await read(AppConstants.tenantIdKey);
+  }
+
+  /// Store the tenant id resolved at login/signup.
+  Future<void> setTenantId(String tenantId) async {
+    await write(AppConstants.tenantIdKey, tenantId);
   }
 
   // ─────────────────────────────────────────────────────────────────────────

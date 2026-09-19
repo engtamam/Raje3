@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:raje3_mobile/core/constants/app_constants.dart';
 import 'package:raje3_mobile/core/network/api_client.dart';
 import 'package:raje3_mobile/core/services/auth_service.dart';
 import 'package:raje3_mobile/core/storage/local_storage.dart';
@@ -32,16 +31,9 @@ enum AuthState {
 /// Used by the router to decide between auth and main screens,
 /// and by widgets to display user info or trigger login/logout.
 ///
-/// Setup with Provider:
-/// ```dart
-/// ChangeNotifierProvider(
-///   create: (context) => AuthProvider(
-///     apiClient: apiClient,
-///     secureStorage: secureStorage,
-///     localStorage: localStorage,
-///   ),
-/// )
-/// ```
+/// PHONE-ONLY, END TO END — see auth_service.dart's own docstring. There is
+/// no email field anywhere in this provider because there is none on the
+/// real backend doors it calls (`services/operations/app/api/v1/signup.py`).
 class AuthProvider extends ChangeNotifier {
   final ApiClient apiClient;
   final SecureStorage secureStorage;
@@ -52,6 +44,17 @@ class AuthProvider extends ChangeNotifier {
   AuthState _state = AuthState.initial;
   UserModel? _user;
   String? _error;
+  /// Stable code alongside [_error] for the ONE refusal that is a step and
+  /// not a wall — `unverified`/`otp_required`/`unverified_hold`, all of
+  /// which mean "go prove this phone number", not "this attempt failed for
+  /// good". See services/operations/app/core/signup.py's own `SignupRefused`
+  /// docstring for why the code exists at all: a screen cannot route on
+  /// Arabic sentence text that somebody will improve one day.
+  String? _errorReason;
+  /// The phone number an OTP screen should verify, when [_errorReason]
+  /// points at one. Carried here rather than re-typed by the caller so the
+  /// login/signup screen and the OTP screen agree on which number is live.
+  String? _pendingPhone;
   /// Guard flag to prevent notifyListeners after widget disposal.
   bool _disposed = false;
 
@@ -78,11 +81,6 @@ class AuthProvider extends ChangeNotifier {
     );
   }
 
-  // NOTE: the reference project also wired a PushNotificationService here
-  // (FCM token registration on login/logout). Push notifications aren't
-  // part of this infra-only pass — not excluded on principle, just not yet
-  // decided/built. Add it back the same way if/when Raje3 gets push.
-
   // ─────────────────────────────────────────────────────────────────────────
   // GETTERS
   // ─────────────────────────────────────────────────────────────────────────
@@ -102,56 +100,61 @@ class AuthProvider extends ChangeNotifier {
   /// The last error message, or null.
   String? get error => _error;
 
+  /// The stable reason code beside [error] — `unverified`, `otp_required` or
+  /// `unverified_hold` mean "take him to the code screen", never "print this
+  /// and stop". Empty/null for every other refusal.
+  String? get errorReason => _errorReason;
+
+  /// The phone number the pending OTP step (if any) applies to.
+  String? get pendingPhone => _pendingPhone;
+
   // ─────────────────────────────────────────────────────────────────────────
   // AUTO LOGIN
   // ─────────────────────────────────────────────────────────────────────────
 
   /// Attempt to restore a previous session from stored tokens.
   ///
-  /// Called once on app startup. Checks for a valid access token,
-  /// loads cached user data, and optionally refreshes the token.
-  ///
-  /// Returns `true` if auto-login succeeds.
+  /// Called once on app startup. Checks for a valid, non-expired access
+  /// token and restores the tenant scope. There is no refresh-token exchange
+  /// wired here — `/api/v1/signup/signin` mints a bare access token with no
+  /// documented expiry contract on this door yet, so a token is trusted
+  /// until the server itself answers 401 (AuthInterceptor's own force-logout
+  /// handles that moment).
   Future<bool> tryAutoLogin() async {
     _setState(AuthState.loading);
 
     try {
-      final isLoggedIn = await _authService.isLoggedIn();
-
-      if (!isLoggedIn) {
-        // Session-based auth: no refresh token mechanism.
-        // If the session expired, the user must log in again.
+      final hasToken = await secureStorage.hasAccessToken();
+      if (!hasToken) {
         _setState(AuthState.unauthenticated);
         return false;
       }
 
-      // If the user registered but never verified their phone,
-      // don't auto-login — force them through verification again.
-      final pendingVerify = await secureStorage.read(
-        AppConstants.pendingPhoneVerifyKey,
-      );
-      if (pendingVerify == 'true') {
+      final tenantId = await secureStorage.getTenantId();
+      if (tenantId == null || tenantId.isEmpty) {
+        // A token with no remembered tenant cannot scope a single request —
+        // treat it the same as no session at all rather than send requests
+        // with no X-Tenant-Id and let every one of them fail confusingly.
         await secureStorage.clearAll();
         _setState(AuthState.unauthenticated);
         return false;
       }
+      apiClient.setActiveTenantId(tenantId);
 
-      // Load cached user data
       final userDataStr = await secureStorage.getUserData();
       if (userDataStr != null && userDataStr.isNotEmpty) {
         try {
           final userJson = jsonDecode(userDataStr) as Map<String, dynamic>;
           _user = UserModel.fromJson(userJson);
         } catch (_) {
-          // Corrupted user data; will be refreshed
+          _user = UserModel(id: tenantId, phone: '');
         }
+      } else {
+        _user = UserModel(id: tenantId, phone: '');
       }
 
-      // Reset interceptor state so 401s are handled properly
       apiClient.resetAuthState();
       _setState(AuthState.authenticated);
-      // Refresh profile from server in background to get latest data
-      refreshProfile();
       return true;
     } catch (e) {
       _error = e.toString();
@@ -164,179 +167,130 @@ class AuthProvider extends ChangeNotifier {
   // LOGIN
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// Login with phone number and password.
+  /// Sign in with phone + password (+ an OTP [code], only when a previous
+  /// attempt was refused with reason `unverified` — see [errorReason]).
   ///
-  /// Returns `true` on success, `false` on failure.
-  /// On failure, the error message is available via [error].
-  Future<bool> login(String phone, String password) async {
+  /// Returns `true` on success, `false` on failure. On failure, the message
+  /// is in [error] and, when the refusal is a step rather than a wall, the
+  /// stable code is in [errorReason] with [pendingPhone] set so the screen
+  /// can route to OTP entry.
+  Future<bool> login(String phone, String password, {String code = ''}) async {
     _setState(AuthState.loading);
+    _errorReason = null;
 
-    try {
-      final response = await _authService.login(phone, password);
+    final result = await _authService.signIn(phone, password, code: code);
 
-      if (response.success && response.data != null) {
-        _user = response.data;
-        _error = null;
-
-        // Reset interceptor state so 401s are handled properly
-        apiClient.resetAuthState();
-        _setState(AuthState.authenticated);
-        return true;
-      }
-
-      _error = response.messageAr ?? response.messageEn ?? 'فشل تسجيل الدخول';
-      _setState(AuthState.error);
-      return false;
-    } catch (e) {
-      _error = _extractErrorMessage(e);
-      _setState(AuthState.error);
-      return false;
+    if (result.ok) {
+      await _persistSession(result, phone: phone);
+      _error = null;
+      apiClient.resetAuthState();
+      _setState(AuthState.authenticated);
+      return true;
     }
-  }
 
-  /// Request an OTP code for passwordless login.
-  ///
-  /// Returns `true` if the OTP was sent successfully.
-  Future<bool> requestOtp(String phone) async {
-    _setState(AuthState.loading);
-
-    try {
-      final response = await _authService.requestOtp(phone);
-
-      if (response.success) {
-        _error = null;
-        // Stay in loading state; the UI navigates to OTP entry
-        _setState(AuthState.unauthenticated);
-        return true;
-      }
-
-      _error = response.messageAr ?? response.messageEn ?? 'فشل إرسال رمز التحقق';
-      _setState(AuthState.error);
-      return false;
-    } catch (e) {
-      _error = _extractErrorMessage(e);
-      _setState(AuthState.error);
-      return false;
+    _error = result.message.isNotEmpty ? result.message : 'فشل تسجيل الدخول';
+    _errorReason = result.reason;
+    if (result.reason == 'unverified') {
+      _pendingPhone = phone;
     }
-  }
-
-  /// Verify an OTP code and complete login.
-  ///
-  /// Returns `true` on success.
-  Future<bool> verifyOtp(String phone, String otp) async {
-    _setState(AuthState.loading);
-
-    try {
-      final response = await _authService.verifyOtp(phone, otp);
-
-      if (response.success && response.data != null) {
-        _user = response.data;
-        _error = null;
-
-        // Reset interceptor state so 401s are handled properly
-        apiClient.resetAuthState();
-        _setState(AuthState.authenticated);
-        return true;
-      }
-
-      _error = response.messageAr ?? response.messageEn ?? 'رمز التحقق غير صحيح';
-      _setState(AuthState.error);
-      return false;
-    } catch (e) {
-      _error = _extractErrorMessage(e);
-      _setState(AuthState.error);
-      return false;
-    }
+    _setState(AuthState.error);
+    return false;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // REGISTER
+  // OPEN A NEW SHOP (account creation)
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// Register a new user account.
-  ///
-  /// Returns `true` on success. The user is automatically logged in.
-  Future<bool> register({
+  /// Open a brand-new shop: phone + password + shop name. On success, signs
+  /// straight in through the same door [login] uses (no second mint path —
+  /// see AuthService.openShop's own note), so a successful call here leaves
+  /// the caller fully authenticated, not merely "account created".
+  Future<bool> openShop({
     required String phone,
     required String password,
-    String? fullName,
-    String? email,
-    bool termsAccepted = false,
+    required String shopName,
+    String affiliateRef = '',
+    String code = '',
   }) async {
     _setState(AuthState.loading);
+    _errorReason = null;
 
-    try {
-      final response = await _authService.register(
-        phone: phone,
-        password: password,
-        fullName: fullName,
-        email: email,
-        termsAccepted: termsAccepted,
-      );
+    final opened = await _authService.openShop(
+      phone: phone,
+      password: password,
+      shopName: shopName,
+      affiliateRef: affiliateRef,
+      code: code,
+    );
 
-      if (response.success && response.data != null) {
-        _user = response.data;
-        _error = null;
-        // Don't authenticate yet — phone verification required first.
-        // Session is saved by AuthService._handleAuthResponse (needed for
-        // the verify_phone API call) but we stay unauthenticated until OTP.
-        // Set a flag so tryAutoLogin() won't bypass verification.
-        await secureStorage.write(
-          AppConstants.pendingPhoneVerifyKey, 'true',
-        );
-        _setState(AuthState.unauthenticated);
-        return true;
+    if (!opened.ok) {
+      _error = opened.message.isNotEmpty ? opened.message : 'فشل إنشاء الحساب';
+      _errorReason = opened.reason;
+      if (opened.reason == 'otp_required' || opened.reason == 'unverified_hold') {
+        _pendingPhone = phone;
       }
-
-      _error = response.messageAr ?? response.messageEn ?? 'فشل التسجيل';
-      _setState(AuthState.error);
-      return false;
-    } catch (e) {
-      _error = _extractErrorMessage(e);
       _setState(AuthState.error);
       return false;
     }
+
+    // THE SHOP EXISTS NOW — sign in through the ordinary door, exactly as
+    // apps/console/src/auth.ts's own `openShop()` does. A refusal here
+    // (almost always `unverified`, when the deployment requires OTP) must
+    // not read as "signup failed": the account and its trial already exist.
+    final signed = await _authService.signIn(phone, password);
+    if (!signed.ok) {
+      _error = signed.message.isNotEmpty ? signed.message : 'أُنشئ الحساب، أكّد رقمك للدخول.';
+      _errorReason = signed.reason;
+      if (signed.reason == 'unverified') {
+        _pendingPhone = phone;
+      }
+      _setState(AuthState.error);
+      return false;
+    }
+
+    await _persistSession(signed, phone: phone, shopName: shopName);
+    _error = null;
+    apiClient.resetAuthState();
+    _setState(AuthState.authenticated);
+    return true;
   }
 
-  /// Request OTP for phone verification (post-registration).
-  Future<bool> requestPhoneVerifyOtp(String phone) async {
-    try {
-      final response = await _authService.requestPhoneVerifyOtp(phone);
-      if (response.success) {
-        _error = null;
-        return true;
-      }
-      _error = response.messageAr ?? response.messageEn ?? 'فشل إرسال رمز التحقق';
-      notifyListeners();
-      return false;
-    } catch (e) {
-      _error = _extractErrorMessage(e);
+  // ─────────────────────────────────────────────────────────────────────────
+  // PROVING THE PHONE NUMBER (OTP)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Ask the server to send a verification code to [phone]. Only meaningful
+  /// once the deployment has WhatsApp/SMS delivery wired
+  /// (`SIGNUP_OTP_DELIVERABLE`) — otherwise the server refuses honestly
+  /// with reason `undeliverable` rather than pretending to have sent one.
+  Future<bool> requestCode(String phone) async {
+    final result = await _authService.requestCode(phone);
+    if (!result.ok) {
+      _error = result.message;
+      _errorReason = result.reason;
       notifyListeners();
       return false;
     }
+    _error = null;
+    notifyListeners();
+    return true;
   }
 
-  /// Verify phone OTP and complete registration flow.
-  Future<bool> verifyPhone(String phone, String otp) async {
-    try {
-      final response = await _authService.verifyPhone(phone, otp);
-      if (response.success) {
-        _error = null;
-        // Clear the pending-verification flag
-        await secureStorage.delete(AppConstants.pendingPhoneVerifyKey);
-        // Now complete authentication
-        apiClient.resetAuthState();
-        _setState(AuthState.authenticated);
-        return true;
-      }
-      _error = response.messageAr ?? response.messageEn ?? 'رمز التحقق غير صحيح';
-      notifyListeners();
-      return false;
-    } catch (e) {
-      _error = _extractErrorMessage(e);
+  /// Spend a code sent by [requestCode]. Does NOT itself sign the caller in
+  /// — the caller re-runs [login] or [openShop] afterwards with the same
+  /// phone/password, and the server no longer refuses with `unverified`.
+  Future<bool> verifyCode(String phone, String code) async {
+    final result = await _authService.verifyCode(phone, code);
+    if (!result.ok) {
+      _error = result.message;
+      _errorReason = result.reason;
       notifyListeners();
       return false;
     }
+    _error = null;
+    _errorReason = null;
+    notifyListeners();
+    return true;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -344,57 +298,27 @@ class AuthProvider extends ChangeNotifier {
   // ─────────────────────────────────────────────────────────────────────────
 
   /// Force logout without calling the backend (used when session is already expired).
-  ///
-  /// Only clears local state and redirects to login. Does NOT call auth.logout API
-  /// to avoid cascading requests when the session is already invalid.
   Future<void> forceLogout() async {
     _user = null;
     _error = null;
+    _errorReason = null;
     await secureStorage.clearAll();
     await localStorage.clearUserData();
+    apiClient.setActiveTenantId(null);
     _setState(AuthState.unauthenticated);
   }
 
-  /// Logout the current user.
-  ///
-  /// Clears all tokens, user data, and resets state to unauthenticated.
+  /// Logout the current user. There is no server-side logout route on this
+  /// door today (`signup.py` declares only sign-in/sign-up) — logout is a
+  /// purely local clear.
   Future<void> logout() async {
-    try {
-      await _authService.logout();
-    } catch (_) {
-      // Continue with local cleanup
-    } finally {
-      _user = null;
-      _error = null;
-      await localStorage.clearUserData();
-      _setState(AuthState.unauthenticated);
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // PROFILE REFRESH
-  // ─────────────────────────────────────────────────────────────────────────
-
-  /// Refresh the user profile from the server.
-  ///
-  /// Updates the locally stored user data. Does not change auth state.
-  Future<void> refreshProfile() async {
-    try {
-      final response = await apiClient.get<UserModel>(
-        '/users/me',
-        fromJson: (json) => UserModel.fromJson(json),
-      );
-
-      if (response.success && response.data != null) {
-        _user = response.data;
-        await secureStorage.setUserData(
-          jsonEncode(response.data!.toJson()),
-        );
-        notifyListeners();
-      }
-    } catch (_) {
-      // Silent failure; profile will refresh on next attempt
-    }
+    _user = null;
+    _error = null;
+    _errorReason = null;
+    await _authService.logout();
+    await localStorage.clearUserData();
+    apiClient.setActiveTenantId(null);
+    _setState(AuthState.unauthenticated);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -402,11 +326,10 @@ class AuthProvider extends ChangeNotifier {
   // ─────────────────────────────────────────────────────────────────────────
 
   /// Clear the current error message.
-  ///
-  /// Call this when the user dismisses an error dialog or navigates away.
   void clearError() {
-    if (_error != null) {
+    if (_error != null || _errorReason != null) {
       _error = null;
+      _errorReason = null;
       notifyListeners();
     }
   }
@@ -415,22 +338,29 @@ class AuthProvider extends ChangeNotifier {
   // INTERNAL
   // ─────────────────────────────────────────────────────────────────────────
 
+  /// Store the tokens and tenant a successful sign-in/signup minted, and
+  /// build the local [UserModel] — see user_model.dart's own note on why
+  /// this is built here rather than parsed off the response.
+  Future<void> _persistSession(AuthResult result, {required String phone, String? shopName}) async {
+    await secureStorage.setAccessToken(result.accessToken);
+    if (result.refreshToken.isNotEmpty) {
+      await secureStorage.setRefreshToken(result.refreshToken);
+    }
+    await secureStorage.setTenantId(result.tenant);
+    apiClient.setActiveTenantId(result.tenant);
+
+    _user = UserModel(id: result.tenant, phone: phone, fullName: shopName);
+    await secureStorage.setUserData(jsonEncode(_user!.toJson()));
+    _pendingPhone = null;
+  }
+
   /// Update the auth state and notify listeners.
   void _setState(AuthState newState) {
     if (_state != newState) {
       _state = newState;
       notifyListeners();
-    }
-  }
-
-  /// Extract a user-friendly error message from an exception.
-  String _extractErrorMessage(Object e) {
-    // Try to extract localized message from typed exceptions
-    try {
-      final dynamic ex = e;
-      return (ex.messageAr as String?) ?? (ex.messageEn as String?) ?? e.toString();
-    } catch (_) {
-      return e.toString();
+    } else {
+      notifyListeners();
     }
   }
 }
