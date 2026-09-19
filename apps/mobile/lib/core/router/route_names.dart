@@ -1,0 +1,22 @@
+/// Centralized route name and path constants for GoRouter.
+///
+/// Naming convention (kept from the reference project's own
+/// `route_names.dart` — this file is otherwise trimmed to a skeleton
+/// since Raje3's own screens aren't ported in this infra-only pass):
+///   - Route names (e.g. `home`): used with `goNamed()` / `pushNamed()`
+///   - Route paths (e.g. `homePath`): used in GoRoute `path:` definitions
+///   - Nested paths are relative (no leading `/`); top-level paths are absolute
+///
+/// Add Raje3's own routes here as screens land, following this same
+/// name/path pairing convention.
+class RouteNames {
+  RouteNames._();
+
+  // ── ROUTE NAMES ──────────────────────────────────────────────────────────
+  static const String login = 'login';
+  static const String home = 'home';
+
+  // ── ROUTE PATHS ───────────────────────────────────────────────────────────
+  static const String loginPath = '/login';
+  static const String homePath = '/home';
+}

@@ -1,0 +1,20 @@
+{
+  "@@locale": "ha",
+
+  "appName": "Raje3",
+
+  "ok": "To",
+  "cancel": "Soke",
+  "save": "Ajiye",
+  "close": "Rufe",
+  "back": "Baya",
+  "next": "Gaba",
+  "done": "An gama",
+  "loading": "Ana lodawa...",
+  "retry": "Sake gwadawa",
+  "error": "An samu kuskure",
+  "success": "An yi nasara",
+  "search": "Bincike",
+  "login": "Shiga",
+  "logout": "Fita"
+}

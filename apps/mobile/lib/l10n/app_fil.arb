@@ -1,0 +1,20 @@
+{
+  "@@locale": "fil",
+
+  "appName": "Raje3",
+
+  "ok": "OK",
+  "cancel": "Kanselahin",
+  "save": "I-save",
+  "close": "Isara",
+  "back": "Bumalik",
+  "next": "Susunod",
+  "done": "Tapos na",
+  "loading": "Naglo-load...",
+  "retry": "Subukan muli",
+  "error": "May naganap na error",
+  "success": "Matagumpay",
+  "search": "Maghanap",
+  "login": "Mag-log in",
+  "logout": "Mag-log out"
+}
