@@ -44,28 +44,6 @@ GateOutcome = dict[str, Any] | None
 Gate = Callable[[GateContext], Awaitable[GateOutcome]]
 
 
-async def _gate_staff_menu(ctx: GateContext) -> GateOutcome:
-    """THE STAFF MENU (`##`) AND ITS OWN ROW TAPS — checked BEFORE the ordinary customer
-    consent-gate/conversation path, and deliberately not folded into it: this message is from the
-    SHOP'S OWN STAFF about the shop's own operational data, never a customer, so the customer
-    consent-gate question does not apply to it at all. See core/visit_trigger.py's own docstring
-    for why an unidentified sender simply falls through into the ordinary path below (returns
-    None) rather than being refused."""
-    from app.core.visit_trigger import maybe_handle_staff_menu_reply, maybe_open_staff_menu
-
-    if await maybe_open_staff_menu(
-            container=ctx.container, tenant=ctx.tenant, from_number=ctx.from_number,
-            kind=ctx.kind, text=ctx.text, idempotency_key=f"staffmenu:{ctx.wamid}"):
-        await ctx.container.inbound_store.mark_processed(ctx.tenant, ctx.wamid)
-        return {"processed": True, "reason": "staff_menu_opened"}
-    if await maybe_handle_staff_menu_reply(
-            container=ctx.container, tenant=ctx.tenant, from_number=ctx.from_number,
-            kind=ctx.kind, reply_id=ctx.reply_id, idempotency_key=f"staffmenu:{ctx.wamid}"):
-        await ctx.container.inbound_store.mark_processed(ctx.tenant, ctx.wamid)
-        return {"processed": True, "reason": "staff_menu_flow_opened"}
-    return None
-
-
 # Fixed house copy — the explicit, first-contact service-processing consent ask (never bundled
 # with, and never a stand-in for, marketing consent, which stays its own separate purpose with its
 # own opt-in and an always-available unsubscribe — see this gate's own module docstring below).
@@ -165,13 +143,12 @@ async def _gate_consent(ctx: GateContext) -> GateOutcome:
 
 
 # ── THE ONE REGISTRATION POINT — same plug-and-play contract as core/tools.py's `_TOOL_HANDLERS`
-# and core/conversation.py's `_PROMPT_SECTIONS`. CHEAPEST/MOST-FUNDAMENTAL FIRST (see
-# core/visit_trigger.py's own note on gate order): a gate never needs to know what ran before it,
-# only that if it returns `None`, whatever runs next gets exactly the same untouched `GateContext`.
-# Adding a gate (the customer-facing consent-REQUEST flow this list is about to grow, for one)
-# means writing one function with this same signature and adding it to this tuple, in the position
-# its own cost/precedence calls for — nothing in `ingest_inbound_message` changes.
-_GATES: tuple[Gate, ...] = (_gate_staff_menu, _gate_consent)
+# and core/conversation.py's `_PROMPT_SECTIONS`. CHEAPEST/MOST-FUNDAMENTAL FIRST: a gate never
+# needs to know what ran before it, only that if it returns `None`, whatever runs next gets exactly
+# the same untouched `GateContext`. Adding a gate means writing one function with this same
+# signature and adding it to this tuple, in the position its own cost/precedence calls for —
+# nothing in `ingest_inbound_message` changes.
+_GATES: tuple[Gate, ...] = (_gate_consent,)
 
 
 async def outbound_allowed(container: Any, settings: Any, tenant: str, *,

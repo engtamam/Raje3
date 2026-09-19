@@ -94,8 +94,8 @@ class ToggleGatedLicence:
     """`allowed()`, ANDED WITH THE OWNER'S OWN KILL SWITCH (2026-09-13, operations'
     `core/ai_toggle.py`) — the entitlement and the runtime choice are two different questions, and
     this is the one place both answer as a single "yes" or "no" so every EXISTING caller of
-    `.allowed()` (conversation.py's door gate AND its second check right before the LLM call,
-    visit_trigger.py) gets the toggle enforced for free, with no call site touching it directly.
+    `.allowed()` (conversation.py's door gate AND its second check right before the LLM call)
+    gets the toggle enforced for free, with no call site touching it directly.
 
     OFF MUST READ EXACTLY LIKE UNSUBSCRIBED, not a softer state — so this wraps the real licence
     rather than living beside it: a caller holding `container.licence` cannot tell the difference

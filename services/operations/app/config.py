@@ -443,10 +443,7 @@ class Settings(BaseSettings):
     # (the rating screen moved off native Flow entirely; the report Flow's template was already
     # deleted 2026-09-13 and this was orphaned config left behind by that same deletion).
     MASTER_BOOKING_FLOW_ID: str = ""
-    # THE SAME PATTERN, A SECOND REMAINING FLOW — visit-registration over WhatsApp, minted once by
-    # deploy/seed/bootstrap-visit-flow.sh. See `MASTER_BOOKING_FLOW_ID`'s own comment above.
-    MASTER_VISIT_FLOW_ID: str = ""
-    # THE SAME PATTERN, A THIRD REMAINING FLOW — subscription renewal (deploy/seed/
+    # THE SAME PATTERN, ANOTHER REMAINING FLOW — subscription renewal (deploy/seed/
     # subscription-renewal-flow.json), minted once by
     # deploy/seed/bootstrap-subscription-renewal-flow.sh. See `MASTER_BOOKING_FLOW_ID`'s own
     # comment above; DYNAMIC like booking (needs its own endpoint_uri at connect time, below).

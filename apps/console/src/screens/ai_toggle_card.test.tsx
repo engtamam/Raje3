@@ -1,7 +1,6 @@
 /**
  * «المساعد الذكي عبر واتساب» (on/off) — the shop owner's own kill switch, separate from the
- * subscription itself. A confirm step either direction (same shape as
- * WhatsAppVisitRegistrationCard next to it on «واتساب»), and the toggle stays at its OLD value on
+ * subscription itself. A confirm step either direction, and the toggle stays at its OLD value on
  * a failed write.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';

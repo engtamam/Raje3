@@ -22,10 +22,13 @@ a hosted web page ([[task-service-procedure-checklists]] phase 2); the report Fl
 was deleted 2026-09-13 (owner's decision to drop the weekly-digest feature) but its clone-at-
 connect call in `connect.py` was accidentally left behind — found and removed alongside this
 cleanup rather than repeating that same incomplete-deletion mistake a second time. `provision()`/
-`provision_shop_flow()` below stayed generic (built for the report Flow) and both booking_flow/
-visit_flow already pass their own explicit `flow_name`/`categories`, so removing the two constants
-these functions used to default to needed no signature change — every remaining caller was already
-explicit.
+`provision_shop_flow()` below stayed generic (built for the report Flow) and `booking_flow` already
+passes its own explicit `flow_name`/`categories`, so removing the two constants these functions
+used to default to needed no signature change — every remaining caller was already explicit.
+
+VISIT-REGISTRATION FLOW REMOVED — this number's ordinary WhatsApp traffic is migrating fully to
+Meta Business Agent, which would make the whole feature permanently unreachable; retired end to
+end rather than left dead.
 """
 from __future__ import annotations
 
@@ -54,20 +57,7 @@ BOOKING_FLOW_NAME = "booking_flow"
 #: The one category Meta's fixed set has for exactly this purpose.
 BOOKING_FLOW_CATEGORIES = ["APPOINTMENT_BOOKING"]
 
-#: THE FIFTH FLOW, CLONE-PER-SHOP LIKE `booking_flow` above — visit-registration over WhatsApp, a
-#: second channel alongside the console's own شاشة تسجيل الزيارة (this session's own approved
-#: plan). Staff talking to THEIR OWN shop's number about THAT shop's own customers is exactly the
-#: same shape as `booking_flow`'s own reasoning — never `_platform`, unlike subscription_renewal.
-#: Also DYNAMIC and GENERATED (notification-service's own WHATSAPP_VISIT_DEFINITION, third
-#: BookingEngine registration under name="visit") — same "ask the running service for the JSON,
-#: never hand-author a file for a dynamic Flow" shape `deploy/seed/bootstrap-visit-flow.sh` copies
-#: from `bootstrap-booking-flow.sh` verbatim.
-VISIT_FLOW_NAME = "visit_flow"
-#: Nothing in Meta's fixed set names "an employee logs an in-person visit" — OTHER is the honest
-#: answer, same as report_flow's own category for the identical reason.
-VISIT_FLOW_CATEGORIES = ["OTHER"]
-
-#: A FOURTH FLOW — but NOT clone-per-shop like the three above (owner's decision, 2026-09-10). It
+#: ANOTHER FLOW — but NOT clone-per-shop like booking above (owner's decision, 2026-09-10). It
 #: is PLATFORM-owned: sent from OUR OWN WhatsApp number to a shop owner about THEIR bill, the same
 #: category as the `auth_otp` template (see `PLATFORM` above) — authored ONCE, on `PLATFORM`, via
 #: `HttpFlows.author_master` below, an explicit admin action
@@ -212,7 +202,7 @@ class HttpFlows:
         GENERIC, BUILT FOR MULTIPLE FLOWS SHARING THIS ONE CALL — `flow_name`/`categories` have no
         default any more (2026-09-16): they used to default to the rating Flow's own name/
         category, which silently made every OTHER caller's explicit values look optional when they
-        never were. Both remaining callers (booking_flow, visit_flow) already pass their own.
+        never were. The remaining caller (booking_flow) already passes its own.
 
         `endpoint_uri` (Phase 5) — OMITTED (never sent) unless a caller passes one. A static,
         read-only Flow never calls back to us at all, so it never needs this; the booking Flow

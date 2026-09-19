@@ -4,7 +4,7 @@ every new phone number the shop's connected WhatsApp assistant hears from become
 `Operations.ensure_customer` already is, see `api/internal.py::customer_id_by_phone`'s own
 docstring), instead of staying a conversation nobody can find again once it ends.
 
-SAME SHAPE AS `whatsapp_visit_flag.py`, DELIBERATELY — one boolean row per tenant, fails toward
+SAME SHAPE AS `vehicles.py`'s own switch, DELIBERATELY — one boolean row per tenant, fails toward
 OFF on an unreadable read (an outage must never silently widen who gets written into the customer
 book), both directions writable (a shop that turns it on and regrets it can turn it back off, no
 one-way ratchet).
@@ -13,8 +13,8 @@ WHY OFF BY DEFAULT, NOT ON THE DAY جهات الاتصال SHIPS. Registering ev
 the shop's number — a wrong number, a spam probe, someone asking a single question and never
 returning — is a real, new data-collection decision (§PDPL: every row this creates is personal
 data the shop now controls and owes an answer about), not a technical default nobody chose. The
-owner opts in explicitly, exactly the same trust decision `whatsapp_visit_flag.py` already asks
-for a different WhatsApp-side write.
+owner opts in explicitly, the same trust decision every WhatsApp-side write on this platform
+already asks for.
 """
 from __future__ import annotations
 

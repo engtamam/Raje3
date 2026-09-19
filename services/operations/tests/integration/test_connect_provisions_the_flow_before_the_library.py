@@ -59,12 +59,12 @@ def test_provision_shop_flow_is_scheduled_before_publish(client, monkeypatch):
     calls: list[str] = []
 
     async def _fake_provision(flows, tenant, master_flow_id, **_kwargs):
-        # TWO CLONE CALLS (Phase 5's booking Flow, and visit-registration over WhatsApp) — all
-        # still queued before the library publish, which is the property this test actually
-        # protects. Rating and the weekly report USED to be two more of these (2026-09-16, both
-        # removed — see core/flows.py's own module docstring). Subscription renewal is NOT one of
-        # these — it is a platform-owned Flow, authored once on our own account via an explicit
-        # admin action, never cloned at connect time (see api/v1/connect.py's own comment).
+        # ONE CLONE CALL (Phase 5's booking Flow), still queued before the library publish, which
+        # is the property this test actually protects. Rating, the weekly report, and
+        # visit-registration over WhatsApp USED to be more of these, all removed — see
+        # core/flows.py's own module docstring. Subscription renewal is NOT one of these — it is
+        # a platform-owned Flow, authored once on our own account via an explicit admin action,
+        # never cloned at connect time (see api/v1/connect.py's own comment).
         # `**_kwargs` absorbs `flow_name`/`categories`/`endpoint_uri` without caring which Flow
         # this particular call is for.
         calls.append("flow")
@@ -87,8 +87,8 @@ def test_provision_shop_flow_is_scheduled_before_publish(client, monkeypatch):
         "phone_number_id": "pn_order", "business_id": "biz_order",
     }, headers=_headers())
     assert r.status_code == 200, r.text
-    # THE ORDER IS THE ASSERTION. All three are background tasks queued during the same request;
-    # a background task added later still runs after ones added earlier (BackgroundTasks is
-    # FIFO), so this only holds if connect.py schedules BOTH Flow clones before the library
-    # publish that references them by name.
-    assert calls == ["flow", "flow", "library"], calls
+    # THE ORDER IS THE ASSERTION. Both are background tasks queued during the same request; a
+    # background task added later still runs after ones added earlier (BackgroundTasks is FIFO),
+    # so this only holds if connect.py schedules the Flow clone before the library publish that
+    # references it by name.
+    assert calls == ["flow", "library"], calls

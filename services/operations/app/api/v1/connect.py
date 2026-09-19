@@ -251,25 +251,6 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         background.add_task(provision_shop_flow, c.flows, tenant, master_booking_flow_id,
                             flow_name=BOOKING_FLOW_NAME, categories=BOOKING_FLOW_CATEGORIES,
                             endpoint_uri=booking_endpoint_uri)
-        # THE SAME CLONE-AT-CONNECT-TIME PATTERN, A FOURTH FLOW — visit-registration over WhatsApp
-        # (this session's own approved plan, deploy/seed/bootstrap-visit-flow.sh). DYNAMIC like
-        # booking (a typed phone + a multi-select service step both round-trip through this
-        # shop's own Flow endpoint), so it needs its own per-shop `endpoint_uri` too.
-        #
-        # `/visit` SUFFIX IS NOT COSMETIC — checked directly against platform's own
-        # `api/webhooks.py`: `POST /webhooks/whatsapp/flow/{tenant}` with NO handler segment
-        # defaults `handler_name="booking"` (the three-route family there: bare, `/{tenant}`, and
-        # `/{tenant}/{handler}`). Reusing `booking_endpoint_uri` verbatim here would have silently
-        # routed every visit Flow request to the BOOKING engine instead of `visit` — a real bug
-        # caught by reading the platform route before wiring this, not by guessing the URL shape.
-        from app.core.flows import VISIT_FLOW_CATEGORIES, VISIT_FLOW_NAME
-        master_visit_flow_id = await rc.get(
-            tenant="", key="MASTER_VISIT_FLOW_ID", default=s.MASTER_VISIT_FLOW_ID)
-        visit_endpoint_uri = (f"{s.PUBLIC_BASE_URL}/webhooks/whatsapp/flow/{tenant}/visit"
-                              if s.PUBLIC_BASE_URL else "")
-        background.add_task(provision_shop_flow, c.flows, tenant, master_visit_flow_id,
-                            flow_name=VISIT_FLOW_NAME, categories=VISIT_FLOW_CATEGORIES,
-                            endpoint_uri=visit_endpoint_uri)
         # SUBSCRIPTION RENEWAL IS DELIBERATELY NOT CLONED HERE (owner's decision, 2026-09-10) —
         # unlike rating/report/booking above, it is a PLATFORM-owned Flow (sent from OUR OWN
         # WhatsApp number to a shop owner about THEIR bill, same category as the `auth_otp`
