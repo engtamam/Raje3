@@ -182,3 +182,48 @@ def test_listing_shows_hints_and_never_values():
     infos = run(st.list_info(tenant="acme"))
     assert {i.name for i in infos} == {"a", "b"}
     assert SECRET not in repr(infos)
+
+
+# ── the AAD upgrade path (2026-09-19) — a blob sealed before AAD binding must still decrypt ─────
+def test_a_legacy_no_aad_blob_still_decrypts_after_the_upgrade():
+    """The exact incident this exists to prevent: identity-service's own signing key, sealed
+    before AAD binding shipped, orphaned on upgrade (base-services v0.25.6). A row written the OLD
+    way (associated_data=None, same shape _seal used before this file added _aad) must still open."""
+    import base64
+    import os
+
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    st = _store()
+    key = st._key  # the same scrypt-derived key _seal/_open both use
+    iv = os.urandom(12)
+    legacy_sealed = "v1:gcm:" + base64.b64encode(
+        iv + AESGCM(key).encrypt(iv, SECRET.encode("utf-8"), None)).decode("ascii")
+    run(st._s.put("operator_secrets", "acme|k", {
+        "id": "acme|k", "tenant": "acme", "name": "k", "sealed": legacy_sealed,
+        "hint": "x", "set_at": "0", "set_by": "", "previous": "", "previous_until": "",
+    }))
+    assert run(st.get(tenant="acme", name="k")) == SECRET
+
+
+def test_a_legacy_blob_with_the_wrong_key_still_fails_loudly():
+    """The AAD upgrade must not turn a real key mismatch into a silent pass — both the AAD-bound
+    and the legacy-fallback attempt have to fail for a genuinely wrong KEK, and the loud SecretError
+    must still surface."""
+    import base64
+    import os
+
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    st_write = _store(kek="a" * 40)
+    iv = os.urandom(12)
+    legacy_sealed = "v1:gcm:" + base64.b64encode(
+        iv + AESGCM(st_write._key).encrypt(iv, SECRET.encode("utf-8"), None)).decode("ascii")
+
+    st_read = _store(kek="b" * 40)   # a different KEK entirely
+    run(st_read._s.put("operator_secrets", "acme|k", {
+        "id": "acme|k", "tenant": "acme", "name": "k", "sealed": legacy_sealed,
+        "hint": "x", "set_at": "0", "set_by": "", "previous": "", "previous_until": "",
+    }))
+    with pytest.raises(SecretError, match="KEK"):
+        run(st_read.get(tenant="acme", name="k"))
