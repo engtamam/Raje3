@@ -241,6 +241,14 @@ class Settings(BaseSettings):
     # no such gate yet since it lives in a different service, but the VALUE must still agree).
     META_GRAPH_API_VERSION: str = "v26.0"
 
+    # Full Meta Business Agent provisioning (core/meta_agent_provisioning.py) -- eligibility check
+    # through agent creation, Connector/tool registration, Skill upload, Knowledge push and enable.
+    # OFF by default and NOT wired into any connect-time flow yet: this is the orchestration
+    # function itself, reviewed and tested standalone; the one call site that fires it at
+    # whatsapp-connect time is a deliberately separate, small follow-up diff (see that module's
+    # own docstring). Flipping this alone does nothing until that call site exists.
+    META_AGENT_PROVISIONING_ENABLED: bool = False
+
     OPERATIONS_SERVICE_URL: str = ""
     # ESCALATED: no phone->customer lookup existed anywhere in operations before this service. We
     # added the narrowest possible route, /internal/operations/customer-by-phone (reusing the
