@@ -134,7 +134,7 @@
     {
       "name": "supervisor",
       "label": "مشرف وردية",
-      "description": "الميدان وعمّال ورديته وقراءة التقارير. لا حملات ولا فوترة ولا ربط واتساب — مسؤوليته الوردية التي يقف فيها.",
+      "description": "الميدان وعمّال ورديته. لا حملات ولا فوترة ولا ربط واتساب ولا لوحة محلّي — مسؤوليته الوردية التي يقف فيها.",
       "protected": false,
       "_why_no_operations_manage": "كانت عنده، وoperations.manage تعني إنشاء فرع وإنشاء موظف وتعديل كتالوج الخدمات وأسعارها — لا شيء منها من عمل مشرف وردية، ووصف الدور نفسه يقول ذلك. وأثرها كان مرئياً: قسما «خدماتي» و«فريقي» يظهران له لأن الواجهة تشتق القائمة من الصلاحيات، فتُعرض عليه شاشتان لا يملك قرارهما.",
       "capabilities": [
@@ -144,13 +144,11 @@
         "operations.mobile_requests_manage",
         "operations.mobile_requests_execute",
         "operations.grant_coupon",
-        "reminders.read",
         "analytics.read",
         "loyalty.read",
         "loyalty.redeem",
         "bookings.read",
         "bookings.write",
-        "insights.read",
         "compliance.self",
         "identity.self",
         "assistant.ask"
