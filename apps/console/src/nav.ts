@@ -257,6 +257,15 @@ export const SHOP_PATH = '/shop';
  *  product points here. */
 export const STORE_PATH = '/';
 
+/** «مساعد واتساب» — never a rail row, reached from the app launcher tile (`apps.ts`'s own
+ *  `openPath`) and from the AI-units gauge in the chrome (`AiUnitsGauge.tsx`), the same "opened
+ *  from elsewhere, not chosen from the rail" shape TEAM_PATH describes. Gated by its own AppGate
+ *  on owning `feature.whatsapp`, not by a `requires:` capability list, so `sections()` never sees
+ *  it either way — named here, in code, for the same reason TEAM_PATH and ACCOUNT_PATH are:
+ *  `check_roles.py` learns the screens a person can open from this file, and a route the router
+ *  serves and this file mentions only in prose is a route the gate cannot ask any role about. */
+export const WHATSAPP_ASSISTANT_PATH = '/whatsapp-assistant';
+
 /** A sibling of `/`, outside `<App/>` on purpose (see main.tsx) — a legal document has to render
  *  for someone who has never signed up, so it carries no `requires:` and no section row. Named
  *  here, in code, for the same reason ACCOUNT_PATH and TEAM_PATH are: `check_roles.py` learns the
