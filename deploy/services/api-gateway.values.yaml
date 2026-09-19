@@ -355,6 +355,13 @@ env:
   # only (cors_origins has no wildcard support), so it has to be the literal port flutter runs on.
   CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa,http://localhost:8767"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
+  # NOT a dev-only addition — x-client-type is a REAL header the mobile app sends on every
+  # request (apps/mobile/lib/core/network/api_client.dart, AppConfig.apiClientTypeHeader), so it
+  # belongs in the base list, not the temporary CORS_ALLOWED_ORIGINS entry above. Left off the
+  # gateway's own default (authorization,content-type,x-request-id) until now because no browser
+  # client had ever sent it — every preflight from apps/mobile 400'd with "Disallowed CORS
+  # headers" until this was added.
+  CORS_ALLOWED_HEADERS: "authorization,content-type,x-request-id,x-client-type"
 
   EGRESS_ALLOWED_HOSTS: ""
 
