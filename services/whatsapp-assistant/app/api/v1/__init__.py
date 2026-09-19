@@ -137,9 +137,12 @@ async def my_impact(request: Request, days: int = 30,
         # shop session, so refuse cleanly rather than compute a meaningless empty report.
         raise HTTPException(status.HTTP_400_BAD_REQUEST,
                             detail="no tenant on this session — this route is shop-facing only")
+    from app.config import get_settings
+
     container = request.app.state.container
     rep = await shop_impact_report(
         datastore=container.datastore, actor_report=container.booking_actor_report,
         service_catalog=container.service_catalog, package_catalog=container.package_catalog,
-        tenant=principal.tenant, created_by=ACTOR_CREATED_BY, days=days, now=int(time.time()))
+        tenant=principal.tenant, created_by=ACTOR_CREATED_BY, days=days, now=int(time.time()),
+        ai_enabled=get_settings().AI_ASSISTANT_ENABLED)
     return rep.as_dict()

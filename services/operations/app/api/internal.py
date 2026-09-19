@@ -937,6 +937,52 @@ async def internal_service_eligibility(request: Request, body: ServiceEligibilit
     return {"eligible_staff_ids": out}
 
 
+class ServiceProcedureIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    service_id: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/operations/service-procedure", dependencies=[Depends(require_internal_token)])
+async def internal_service_procedure(request: Request, body: ServiceProcedureIn) -> dict:
+    """ONE service's own ordered protocol, resolved from `Service.procedure_step_ids` to real
+    `{id, text, severity}` rows — whatsapp-assistant's `get_service_procedure` tool calls this to
+    ground a real answer ("how do you wash the engine bay", "does X include seat shampoo") instead
+    of guessing. Deliberately per-service, never the whole catalogue: same "one lookup, not a
+    firehose" shape `service-durations`/`service-eligibility` above already use for a basket, just
+    for a single id here since the caller's own tool contract is one service at a time (token cost
+    on the model side, not a limitation of this route).
+
+    ONLY ACTIVE STEPS, IN THE SERVICE'S OWN STORED ORDER — same "retired steps are silently
+    skipped, never shown" convention `export_procedure_checklist`
+    (services/operations/app/api/v1/staff.py) already established for this exact field; a step
+    unpicked from the tenant's live catalogue must not resurface here either.
+
+    A STEP ID THAT NO LONGER RESOLVES AT ALL IS SILENTLY DROPPED, never an error — same
+    `export_procedure_checklist` convention: `procedure_step_ids` is never pruned when a step is
+    retired (see `ProcedureStep`'s own docstring), so a stale reference is an ordinary, expected
+    state to filter at read time, not a caller mistake.
+
+    AN UNKNOWN SERVICE ID IS A 404 — unlike the checklist export (which merges several caller-
+    selected ids and only refuses when NONE resolve), this route always names exactly one service,
+    so there is no partial-success shape to preserve; the caller (the AI tool) already validated
+    the id against the shop's own catalogue before calling, so a 404 here means a genuinely stale
+    id, not a normal degrade.
+    """
+    c = request.app.state.container
+    svc = await ServiceStore(c.datastore).get(body.tenant, body.service_id)
+    if svc is None or not svc.active:
+        raise HTTPException(status_code=404, detail="service not found")
+    steps_by_id = await ProcedureStepStore(c.datastore).get_many(
+        body.tenant, list(svc.procedure_step_ids))
+    steps = [steps_by_id[sid] for sid in svc.procedure_step_ids
+             if sid in steps_by_id and steps_by_id[sid].active]
+    return {
+        "service_id": svc.id,
+        "service_name": svc.name,
+        "steps": [{"id": s.id, "text": s.text, "severity": s.severity} for s in steps],
+    }
+
+
 class ServicesPricedIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
 

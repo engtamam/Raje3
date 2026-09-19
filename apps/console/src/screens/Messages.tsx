@@ -51,9 +51,8 @@ import { Card } from '../rj-ui/Card';
 import { BUTTON_ELIGIBLE_GOALS, FLOW_ELIGIBLE_GOALS, Launch } from './Launch';
 import { LockedCard } from './Locked';
 import { MessagePreview } from './MessagePreview';
-import { Modal } from '../rj-ui/Modal';
 import {
-  WhatsAppTemplatePreview, type FlowJson, type WaCarouselCard, type WaTemplateData,
+  WhatsAppTemplatePreview, type FlowJson, type WaTemplateData,
 } from '../rj-ui/WhatsAppPreview';
 import { APP_ROWS, owns, type Owned } from '../apps';
 import { action, call, type Catalog } from '../catalog';
@@ -231,13 +230,13 @@ const CLASS_TONE: Record<string, 'neutral' | 'success' | 'info' | 'warning' | 'd
 
 /** THE APPROVED MOCKUP'S OWN CARD LANGUAGE — every class/section gets its own colour, carried on
  *  BOTH the icon circle and a left stripe on the card itself (`border-inline-start`, RTL-safe,
- *  same technique the queue/log rows already use), not just a badge. `offers`/`bot` are
- *  SECTION_ORDER's own two extra buckets (goal-only cards, no `CLASS_TONE` entry of their own)
+ *  same technique the queue/log rows already use), not just a badge. `offers` is
+ *  SECTION_ORDER's own extra bucket (goal-only cards, no `CLASS_TONE` entry of their own)
  *  — mapped here too, so every section this screen can ever show has a real colour, never falling
  *  back to plain grey. */
 const SECTION_TONE: Record<string, 'info' | 'success' | 'warning' | 'danger' | 'accent' | 'neutral'> = {
   service: 'info', personal: 'success', marketing: 'warning',
-  offers: 'danger', bot: 'neutral', warning: 'warning',
+  offers: 'danger', warning: 'warning',
 };
 const TONE_VAR: Record<string, string> = {
   info: 'var(--info)', success: 'var(--success)', warning: 'var(--warning)',
@@ -257,7 +256,7 @@ const TONE_DOT: Record<string, string> = {
   accent: 'bg-accent', neutral: 'bg-text-muted',
 };
 /** EACH ROW'S OWN ICON, BY THE ONE THING THAT ACTUALLY DIFFERS ACROSS THEM — the reason id, or
- *  the goal, or the bot-tool id. A single generic envelope for every one of the thirteen-plus rows
+ *  the goal. A single generic envelope for every one of the thirteen-plus rows
  *  (the previous shape) is exactly what read as "unfinished" beside the mockup's own per-row
  *  icons. Kept as a lookup, same hand-mirrored posture as `REASON_TEMPLATE_TYPE` above — a table
  *  this small drifting is a one-line fix. */
@@ -271,7 +270,7 @@ const CARD_ICON: Record<string, LucideIcon> = {
   service_offer: Tag, package_offer: Tag, safety: ShieldAlert,
 };
 function cardIcon(card: TemplateCard): LucideIcon {
-  const key = card.reason?.id ?? card.goal ?? card.key.replace(/^bot:/, '');
+  const key = card.reason?.id ?? card.goal ?? card.key;
   return CARD_ICON[key] ?? MessageSquare;
 }
 
@@ -314,17 +313,12 @@ const GOAL_TEMPLATE_TYPE: Record<string, string> = {
  *  ALSO manual yet already lived under `marketing`, so the split did not even track that
  *  consistently. The per-card badge already says «آلي»/«يدوي» (see `templateCards`'s own `tags`);
  *  a whole extra section duplicated a distinction the badge already carries. */
-// «bot» LAST ON PURPOSE — every section before it is a message this shop's own settings shaped
-// (scheduled or launched by hand); the bot's own live tool replies are a different kind of thing
-// entirely (composed fresh per conversation, never stored or edited here), so they read as an
-// appendix, not mixed in among the shop's own configured messages.
-const SECTION_ORDER = ['service', 'personal', 'marketing', 'bot'] as const;
+const SECTION_ORDER = ['service', 'personal', 'marketing'] as const;
 
 const SECTION_KEY: Record<string, string> = {
   service: 'messages.section.service',
   personal: 'messages.section.personal',
   marketing: 'messages.section.marketing',
-  bot: 'messages.section.bot',
 };
 function sectionLabel(t: (key: string) => string, section: string): string {
   return t(SECTION_KEY[section] ?? section);
@@ -372,103 +366,11 @@ const REASON_TEMPLATE_TYPE: Record<string, string> = {
 /** تفاعلي = يفتح شاشات حقيقية داخل واتساب (فلو)، لا مجرد نص يُقرأ. مأخوذة يدوياً من
  *  `operations/data/templates.seed.json`'s الفعلي (أي صف فيه `flow_button`) — نفس أسلوب
  *  `REASON_TEMPLATE_TYPE` أعلاه، جدول صغير يُحدَّث يدوياً بدل استدعاء شبكة لأجل حقيقة نادراً ما
- *  تتغيّر. القوالب المجدولة فقط — كاروسيل البوت وأدواته الحيّة أضيفت لاحقاً كبطاقات مستقلة
- *  (`BOT_TOOL_CARDS` أدناه)، ولا تعتمد على هذا الجدول أصلاً. */
+ *  تتغيّر. */
 const INTERACTIVE_TEMPLATE_TYPES = new Set([
   'mkt_offer', 'mkt_personal_occasion', 'mkt_winback',
   'svc_visit_confirmation_rating',
 ]);
-
-/**
- * أدوات المساعد الذكي — لا قالب من reminders يمثّلها: هي ردود حيّة يركّبها البوت أثناء
- * محادثة حقيقية، مو رسالة مجدولة ثابتة. وصفها هنا مأخوذ حرفياً من نفس الوصف الحقيقي اللي يُعطى
- * للذكاء الاصطناعي (`adapters/llm/assistant_service.py`'s الخاص بـ`_TOOL_SCHEMAS`)، مترجم لجملة
- * قصيرة — لا مخترعة. `check_availability` غائبة عمداً — أداة سحب بيانات داخلية لا ترسل شي بشكلها
- * الخاص (تُغذّي `propose_booking` فقط)، بالضبط الاستثناء اللي طلبه المالك: "كل اداة في ارسال مو
- * سحب بيانات".
- */
-interface BotToolCard {
-  id: string;
-  label: string;
-  when: string;
-  interactive: boolean;
-  // الحجز والتأجيل كلاهما له معاينة فلو حيّة فعلياً — `operations.whatsapp_flow_json`
-  // (notification-service v0.19.30's own `build_flow_preview_json` dispatcher) يرسم شاشات
-  // RescheduleEngine بنفس مولّد شاشات BookingEngine؛ الاختلاف الوحيد `routing_model`، والمحرّك
-  // العام (`WaFlowScreens`) لا يحتاج تمييزاً خاصاً لأيّ منهما.
-  preview: { kind: 'text'; text: string }
-    | { kind: 'carousel'; intro: string; cards: WaCarouselCard[] }
-    | { kind: 'flow'; flowName: string; intro: string };
-}
-
-/** Every bot-tool card, translated — built once per render from the active locale rather than a
- *  single hardcoded Arabic array (same move Shop.tsx's own `dayLetters`/`dayNames` make). */
-function botToolCards(t: (key: string) => string): BotToolCard[] {
-  return [
-    {
-      id: 'propose_booking', label: t('messages.bot.propose_booking.label'), interactive: true,
-      when: t('messages.bot.propose_booking.when'),
-      preview: { kind: 'flow', flowName: 'booking', intro: t('messages.bot.propose_booking.intro') },
-    },
-    {
-      id: 'suggest_services_carousel', label: t('messages.bot.suggest_services_carousel.label'), interactive: true,
-      when: t('messages.bot.suggest_services_carousel.when'),
-      preview: {
-        kind: 'carousel', intro: t('messages.bot.suggest_services_carousel.intro'),
-        cards: [
-          { id: 's1', kind: 'service', name: t('messages.bot.carousel.haircut'), priceMinor: 5000, buttonLabel: t('messages.bot.bookNowButton') },
-          { id: 's2', kind: 'service', name: t('messages.bot.carousel.beardShave'), priceMinor: 3000, buttonLabel: t('messages.bot.bookNowButton') },
-          { id: 's3', kind: 'package', name: t('messages.bot.carousel.careBundle'), priceMinor: 12000, buttonLabel: t('messages.bot.bookNowButton') },
-        ],
-      },
-    },
-    {
-      id: 'get_customer_points_summary', label: t('messages.bot.get_customer_points_summary.label'), interactive: false,
-      when: t('messages.bot.get_customer_points_summary.when'),
-      preview: { kind: 'text', text: t('messages.bot.get_customer_points_summary.text') },
-    },
-    {
-      id: 'suggest_redeemable_offer', label: t('messages.bot.suggest_redeemable_offer.label'), interactive: false,
-      when: t('messages.bot.suggest_redeemable_offer.when'),
-      preview: { kind: 'text', text: t('messages.bot.suggest_redeemable_offer.text') },
-    },
-    {
-      id: 'suggest_related_service', label: t('messages.bot.suggest_related_service.label'), interactive: false,
-      when: t('messages.bot.suggest_related_service.when'),
-      preview: { kind: 'text', text: t('messages.bot.suggest_related_service.text') },
-    },
-    {
-      id: 'list_my_bookings', label: t('messages.bot.list_my_bookings.label'), interactive: false,
-      when: t('messages.bot.list_my_bookings.when'),
-      preview: { kind: 'text', text: t('messages.bot.list_my_bookings.text') },
-    },
-    {
-      id: 'propose_cancel_booking', label: t('messages.bot.propose_cancel_booking.label'), interactive: false,
-      when: t('messages.bot.propose_cancel_booking.when'),
-      preview: { kind: 'text', text: t('messages.bot.propose_cancel_booking.text') },
-    },
-    {
-      id: 'propose_reschedule_booking', label: t('messages.bot.propose_reschedule_booking.label'), interactive: true,
-      when: t('messages.bot.propose_reschedule_booking.when'),
-      preview: { kind: 'flow', flowName: 'reschedule', intro: t('messages.bot.propose_reschedule_booking.intro') },
-    },
-    {
-      id: 'list_packages', label: t('messages.bot.list_packages.label'), interactive: false,
-      when: t('messages.bot.list_packages.when'),
-      preview: { kind: 'text', text: t('messages.bot.list_packages.text') },
-    },
-    {
-      id: 'list_due_services', label: t('messages.bot.list_due_services.label'), interactive: false,
-      when: t('messages.bot.list_due_services.when'),
-      preview: { kind: 'text', text: t('messages.bot.list_due_services.text') },
-    },
-    {
-      id: 'list_lapsed_services', label: t('messages.bot.list_lapsed_services.label'), interactive: false,
-      when: t('messages.bot.list_lapsed_services.when'),
-      preview: { kind: 'text', text: t('messages.bot.list_lapsed_services.text') },
-    },
-  ];
-}
 
 /** One entry in «القوالب» — a reason, a goal, or (for the three that are both) one card carrying
  *  both capabilities, never shown twice. */
@@ -479,11 +381,9 @@ interface TemplateCard {
   cls: string;
   clsLabel: string;
   /** 'auto' when a reason fires this without anybody pressing anything; 'manual' when it is a
-   *  goal the owner launches himself from «حملاتي»; 'bot' when it is a live AI-assistant tool
-   *  reply, never a scheduled/reminders template at all — see `BOT_TOOL_CARDS`. A card carrying
-   *  both 'auto' and 'manual' is the three shared ones — REASON_GOAL's own three; 'bot' never
-   *  combines with either. */
-  tags: ('auto' | 'manual' | 'bot')[];
+   *  goal the owner launches himself from «حملاتي». A card carrying both is the three shared
+   *  ones — REASON_GOAL's own three. */
+  tags: ('auto' | 'manual')[];
   reason?: ReasonRow;
   /** Set whenever a goal is attached — either because THIS card came from `goals` directly (a
    *  goal with no reason), or because a reason card shares one via REASON_GOAL. Used for the
@@ -492,13 +392,8 @@ interface TemplateCard {
   templateType?: string;
   lockAppId?: string;
   /** يفتح شاشات فلو حقيقية داخل واتساب، لا نص يُقرأ فقط — see `INTERACTIVE_TEMPLATE_TYPES`
-   *  (reminders' own cards) and `BOT_TOOL_CARDS` (each names its own). */
+   *  (reminders' own cards). */
   interactive: boolean;
-  /** ONLY on a bot-tool card — no `reason`/`templateType` to fetch a server preview against
-   *  (nothing is stored; the bot composes it live), so `reading.botPreview` opens
-   *  `WhatsAppTemplatePreview` directly with this local data instead of `MessagePreview`'s own
-   *  server round trip. */
-  botPreview?: BotToolCard['preview'];
 }
 
 /** THE GOAL → REASON MAP, THE OTHER DIRECTION FROM `REASON_GOAL` above — so a goal read from
@@ -533,13 +428,6 @@ export function templateCards(
       cls, clsLabel: sectionLabel(t, cls),
       tags: ['manual'], goal: g.goal, templateType,
       interactive: Boolean(templateType && INTERACTIVE_TEMPLATE_TYPES.has(templateType)),
-    });
-  }
-  for (const c of botToolCards(t)) {
-    out.push({
-      key: `bot:${c.id}`, label: c.label, when: c.when,
-      cls: 'bot', clsLabel: sectionLabel(t, 'bot'),
-      tags: ['bot'], interactive: c.interactive, botPreview: c.preview,
     });
   }
   return out;
@@ -734,50 +622,12 @@ function TodayCard({ today, session }: { today: Today; session: Session }) {
 
 /** THE TAG, IN HIS WORDS — the owner's own explicit ask: whether a card fires by itself, whether
  *  he presses it himself, or both, must be visible on the card, never buried in a modal. */
-const TAG_KEY: Record<'auto' | 'manual' | 'bot', string> = {
+const TAG_KEY: Record<'auto' | 'manual', string> = {
   auto: 'messages.tag.auto',
   manual: 'messages.tag.manual',
-  bot: 'messages.tag.bot',
 };
-function tagLabel(t: (key: string) => string, tag: 'auto' | 'manual' | 'bot'): string {
+function tagLabel(t: (key: string) => string, tag: 'auto' | 'manual'): string {
   return t(TAG_KEY[tag]);
-}
-
-/**
- * A BOT-TOOL CARD'S OWN PREVIEW — no `reminders.preview_reason`/`preview_by_type` round trip
- * (nothing is stored server-side to fetch), so this builds `WaTemplateData` locally from
- * `BOT_TOOL_CARDS`'s own sample content and hands it straight to the SAME phone-mockup engine
- * every other preview in the product uses (`WhatsAppTemplatePreview`), reused rather than a
- * fourth rendering path. `fetchFlowJson` is wired only for `kind: 'flow'` — the same
- * `operations.whatsapp_flow_json` route `MessagePreview.tsx`'s own `openFlowButton` already calls.
- */
-function BotToolPreviewModal({ session, catalog, card, preview, onClose }: {
-  session: Session; catalog: Catalog; card: TemplateCard; preview: BotToolCard['preview'];
-  onClose: () => void;
-}) {
-  const { t } = useOperatorI18n();
-  const data = preview.kind === 'carousel'
-    ? { body: preview.intro, carousel: preview.cards }
-    : preview.kind === 'flow'
-      ? { body: preview.intro, flowButton: { flowName: preview.flowName, text: t('messages.botPreviewOpen') } }
-      : { body: preview.text };
-  return (
-    <Modal open onClose={onClose} title={card.label} subtitle={card.when}>
-      <div className="flex flex-col gap-3">
-        <p className="text-xs text-text-secondary">
-          {t('messages.botPreviewApprox')}
-        </p>
-        <WhatsAppTemplatePreview
-          data={data}
-          fetchFlowJson={preview.kind === 'flow' ? (flowName) => {
-            const a = action(catalog, 'operations.whatsapp_flow_json');
-            if (!a) return Promise.reject(new Error(t('messages.noFlowPermission')));
-            return call<FlowJson>(session, a, { name: flowName });
-          } : undefined}
-        />
-      </div>
-    </Modal>
-  );
 }
 
 /**
@@ -804,7 +654,7 @@ function TemplateCardItem({ card, session, busy, onOpen, onFlip, onCrossLink, lo
   const { t } = useOperatorI18n();
   const r = card.reason;
   // THE MOCKUP'S OWN CARD LANGUAGE — a coloured left stripe and a matching tinted icon circle,
-  // by class/section. `bot` cards share `SECTION_TONE`'s own 'bot' entry same as every other row.
+  // by class/section.
   const tone = SECTION_TONE[card.cls] ?? 'neutral';
   const Icon = cardIcon(card);
   return (
@@ -1058,7 +908,7 @@ export function MessagesScreen(
   /** THE SMART FILTER — stackable chips (both together means "automated AND interactive", not
    *  either alone), on top of the section split (SECTION_ORDER) rather than instead of it — the
    *  section stays the primary organization, the filter narrows within it. */
-  type CardFilter = 'auto' | 'interactive' | 'bot';
+  type CardFilter = 'auto' | 'interactive';
   const [activeFilters, setActiveFilters] = useState<Set<CardFilter>>(new Set());
   const toggleFilter = (f: CardFilter) => setActiveFilters((prev) => {
     const next = new Set(prev);
@@ -1067,7 +917,6 @@ export function MessagesScreen(
   });
   const filteredCards = useMemo(() => cards.filter((c) =>
     (!activeFilters.has('auto') || c.tags.includes('auto'))
-    && (!activeFilters.has('bot') || c.tags.includes('bot'))
     && (!activeFilters.has('interactive') || c.interactive)), [cards, activeFilters]);
 
   /** THE RAIL'S OWN CLASS FILTER — narrows which section is shown, on top of `filteredCards`'
@@ -1344,14 +1193,6 @@ export function MessagesScreen(
                          : 'border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-2'].join(' ')}>
                 {t('messages.filter.interactiveOnly')}
               </button>
-              <button type="button" onClick={() => toggleFilter('bot')}
-                     aria-pressed={activeFilters.has('bot')}
-                     className={['rounded-pill border px-3 py-1 text-xs font-medium transition',
-                       activeFilters.has('bot')
-                         ? 'border-accent bg-accent-soft text-accent-on-soft'
-                         : 'border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-2'].join(' ')}>
-                {t('messages.filter.botOnly')}
-              </button>
               {activeFilters.size > 0 ? (
                 <button type="button" onClick={() => setActiveFilters(new Set())}
                        className="text-xs text-text-secondary underline">
@@ -1458,10 +1299,7 @@ export function MessagesScreen(
             </div>
           )}
           {reading ? (
-            reading.botPreview ? (
-              <BotToolPreviewModal session={session} catalog={catalog} card={reading}
-                                   preview={reading.botPreview} onClose={() => setReading(null)} />
-            ) : reading.reason ? (
+            reading.reason ? (
               <MessagePreview
                 session={session}
                 catalog={catalog}

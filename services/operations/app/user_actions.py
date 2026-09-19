@@ -616,10 +616,27 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "الإغلاق بـ active=false لا بالحذف — الحذف يترك زيارات السنة الماضية بلا اسم فرع.",
     },
     {
+        # Two-tier access: `grant_coupon_direct` (owner/manager) reaches this from the standalone
+        # «تحالف استراتيجي» page; `grant_coupon` alone (supervisor/operator/marketer) reaches it
+        # only from the visit-recording screen's own shortcut checkbox. Both must be able to
+        # actually submit — the weaker capability is accepted here on purpose. What keeps a
+        # weak holder off the standalone page is `operations.coupons_page` below, which gates
+        # nav.ts's `coupons` section and requires the strong capability only.
         "id": "operations.grant_coupon", "label": "امنح كوبون خصم لمحل", "method": "POST",
-        "path": "/api/v1/staff/coupons/grant", "capability": "operations.grant_coupon_direct",
+        "path": "/api/v1/staff/coupons/grant", "capability": "operations.grant_coupon",
         "group": "كوبونات",
         "help": "خصم على اشتراك محل آخر مسجّل عندنا، يُطبَّق تلقائياً عند أول تجديد قادم.",
+    },
+    {
+        # No route of its own (path/method are unused for nav-only gating — it exists purely so
+        # nav.ts's `coupons` section has a strong-only action id to require, distinct from
+        # `operations.grant_coupon` which weak-tier roles must now also hold for the visit-screen
+        # shortcut). Do not loosen this capability — it is the ONLY thing keeping supervisor,
+        # operator and marketer off the standalone «تحالف استراتيجي» page.
+        "id": "operations.coupons_page", "label": "صفحة تحالف استراتيجي", "method": "GET",
+        "path": "/api/v1/staff/coupons/grant", "capability": "operations.grant_coupon_direct",
+        "group": "كوبونات",
+        "help": "بوابة ظهور صفحة تحالف استراتيجي القائمة بذاتها، لا فعل خاص بها.",
     },
     {
         "id": "operations.coupon_history", "label": "سجل منح الكوبونات", "method": "GET",

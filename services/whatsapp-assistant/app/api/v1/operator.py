@@ -263,7 +263,8 @@ async def get_pricing_report(request: Request, days: int = 30, tenant: str = "",
     days = max(1, min(days, 365))
     container = request.app.state.container
     rep = await pricing_report(container.datastore, days=days, now=int(time.time()),
-                               tenant=(tenant or None))
+                               tenant=(tenant or None),
+                               ai_enabled=get_settings().AI_ASSISTANT_ENABLED)
     return rep.as_dict()
 
 
@@ -391,6 +392,36 @@ async def persona_preview(shop_name: str = "", owner_notes: str = "",
     included (see build_system_prompt's own docstring on why owner_notes is treated as data, not
     instructions)."""
     return {"prompt": build_system_prompt(shop_name, owner_notes)}
+
+
+@router.post("/knowledge/sync-business-info", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+async def sync_business_info(request: Request, tenant: str = "",
+                             principal: Principal = Depends(require_user)) -> dict:
+    """Push this tenant's owner_notes to Meta Business Agent's real Knowledge API, right now.
+
+    EXPLICIT, OPERATOR-TRIGGERED — NOT ON EVERY owner_notes SAVE. The write path for owner_notes
+    lives on operations' AiNotesStore (services/operations/app/core/ai_notes.py), a different
+    service with no Graph credential of its own and no reason to gain a hard dependency on Meta's
+    API being reachable just to save a text field; that route's own doctrine is "unreadable/unset
+    fails open to nothing", which is right for an LLM-prompt field and wrong for a call that
+    actually informs Meta's own agent — a failed sync must be something an operator SEES and can
+    retry, not something silently swallowed on a save that otherwise succeeded. A real-time hook
+    would also fire on every keystroke-debounced autosave the console may add later, hammering a
+    third-party API for a field an owner is still drafting. This route is the deliberate seam: the
+    owner writes his notes normally (unaffected either way), and an operator pushes them to Meta
+    when the shop is ready — same shape as /operator/secrets' own "changed here, take effect when
+    asked" surface, not a hidden side effect of a different write.
+    """
+    if not tenant:
+        return _refuse("tenant is required")
+    container = request.app.state.container
+    ctx = await container.shop_identity.resolve(tenant)
+    sent = await container.knowledge_export.export(tenant=tenant, owner_notes=ctx.ai_notes)
+    await request.app.state.auditor.record(
+        "operator.knowledge_sync", actor=_actor(principal), tenant=tenant,
+        resource="knowledge:business_info", ip=request.client.host if request.client else "",
+        metadata={"sent": sent})
+    return {"sent": sent}
 
 
 @router.get("/secrets", dependencies=[Depends(_SECRETS), Depends(rate_limit)])

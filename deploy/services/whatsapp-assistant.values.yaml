@@ -18,7 +18,7 @@ image:
   # Placeholder — set to the real digest by publish-images.sh once this service ships. A moving tag
   # is a rollback that is only a hope; every other service in this chart is pinned by digest and
   # this one should not be the exception the day it goes to production.
-  digest: "sha256:2faa7ce2918b9c38ac1593eb4bd8bfe8489db274c424f7498c7f805cfadc09d3"   # ee98796d, published by publish-images.sh
+  digest: "sha256:e403e93964e3b5ef8eaec72e0c6ca0d3a72adb1a346c6bed495357cb5ba98f33"   # 2a5893e1, published by publish-images.sh
 
 replicas: 1
 
@@ -95,7 +95,7 @@ env:
   # ToggleGatedLicence for why this reads exactly like "unsubscribed", never a softer state.
   # Meant to sit "false" for the whole window between retiring the current external AI provider
   # and wiring in whatever replaces it.
-  AI_ASSISTANT_ENABLED: "true"
+  AI_ASSISTANT_ENABLED: "false"
 
   # Same fix as insights/operations/reminders'own DATASTORE_POOL_MAX — the platform default
   # (pool_max=5) is a real ceiling under fleet-wide concurrent load, not a leak: found live,

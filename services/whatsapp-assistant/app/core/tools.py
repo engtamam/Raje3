@@ -167,6 +167,7 @@ class ToolContext:
     related_services: Any = None
     service_catalog: Any = None
     package_catalog: Any = None
+    service_procedure: Any = None
     branch_id: str = ""
     from_number: str = ""
     booking_history_visible: bool = True
@@ -445,6 +446,39 @@ async def _tool_check_growth_opportunities(ctx: ToolContext, args: dict[str, Any
     return report or "لا توجد فرصة حقيقية لرفع الفاتورة تُذكر الآن."
 
 
+async def _tool_get_service_procedure(ctx: ToolContext, args: dict[str, Any]) -> ToolResult:
+    # READ-ONLY, same posture as list_packages/suggest_related_service — no proposal, no button.
+    #
+    # ONE SERVICE AT A TIME, BY DESIGN — see core/service_procedure.py's own module docstring:
+    # the owner's explicit instruction was per-service, never the whole catalogue in one call, to
+    # keep this tool's token cost bounded. A model that wants to compare two services calls this
+    # twice; there is no batched shape offered here to accidentally reach for instead.
+    #
+    # RAW FACTS ONLY, NOT SALES COPY — this returns the real step order/text/severity exactly as
+    # the shop wrote it; turning that into a confident, natural-sounding answer is the model's own
+    # job, governed by the `procedure_selling` PromptSection (core/conversation.py), never baked
+    # into this tool's own output.
+    service_id = str(args.get("service_id") or "")
+    if not service_id:
+        raise ToolValidationError("get_service_procedure requires service_id")
+    if ctx.service_procedure is None:
+        return "لا تتوفر تفاصيل الإجراء لهذه الخدمة حاليًا."
+    procedure = await ctx.service_procedure.get(ctx.tenant, service_id)
+    if not procedure or not procedure.get("steps"):
+        return "لا تتوفر خطوات مفصّلة لهذه الخدمة حاليًا."
+    name = str(procedure.get("service_name") or service_id)
+    lines = [f"خطوات خدمة «{name}» بالترتيب:"]
+    for i, step in enumerate(procedure["steps"], start=1):
+        text = str(step.get("text") or "")
+        # CRITICAL IS THE ONLY SEVERITY WORTH SURFACING TO THE MODEL HERE — it is the one flag
+        # that is meaningfully customer-relevant (a step the shop itself treats as non-negotiable
+        # quality/safety, exactly the kind of concrete detail a confident answer should be able to
+        # lean on); "normal" carries no comparable signal and would only add noise to every line.
+        marker = " (أساسية)" if step.get("severity") == "critical" else ""
+        lines.append(f"{i}. {text}{marker}")
+    return "\n".join(lines)
+
+
 async def _tool_suggest_related_service(ctx: ToolContext, args: dict[str, Any]) -> ToolResult:
     service_id = str(args.get("service_id") or "")
     if not service_id:
@@ -709,6 +743,11 @@ _TOOL_APP_KEYS: dict[str, frozenset[str]] = {
     "list_packages": frozenset({"feature.bookings"}),
     "list_due_services": frozenset({"feature.bookings"}),
     "list_lapsed_services": frozenset({"feature.bookings"}),
+    # get_service_procedure: reads a Service's own procedure_step_ids (services/operations'
+    # console-facing services tab, "الإجراءات") — the same app that owns everything else about a
+    # service's own definition (durations, eligibility, packages) above, confirmed 2026-09-19
+    # against apps.ts::APP_ROWS.
+    "get_service_procedure": frozenset({"feature.bookings"}),
     "get_customer_points_summary": frozenset({"feature.loyalty"}),
     "suggest_redeemable_offer": frozenset({"feature.loyalty"}),
     "check_mobile_visit_hours": frozenset({"feature.mobile_requests"}),
@@ -757,6 +796,7 @@ _TOOL_HANDLERS: dict[str, ToolHandler] = {
     "list_lapsed_services": _tool_list_lapsed_services,
     "check_active_offers": _tool_check_active_offers,
     "check_growth_opportunities": _tool_check_growth_opportunities,
+    "get_service_procedure": _tool_get_service_procedure,
     "suggest_related_service": _tool_suggest_related_service,
     "suggest_services_carousel": _tool_suggest_services_carousel,
     "list_my_bookings": _tool_list_my_bookings,
@@ -772,7 +812,7 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
                               store: Any, booking_provider: Any, points_summary: Any,
                               proposal_ttl_seconds: int, now: int | None = None,
                               related_services: Any = None, service_catalog: Any = None,
-                              package_catalog: Any = None,
+                              package_catalog: Any = None, service_procedure: Any = None,
                               branch_id: str = "", from_number: str = "",
                               booking_history_visible: bool = True,
                               catalog_provider: Any = None,
@@ -802,7 +842,8 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
         tenant=tenant, subject_ref=subject_ref, conversation_id=conversation_id, store=store,
         booking_provider=booking_provider, points_summary=points_summary,
         proposal_ttl_seconds=proposal_ttl_seconds, now=now, related_services=related_services,
-        service_catalog=service_catalog, package_catalog=package_catalog, branch_id=branch_id,
+        service_catalog=service_catalog, package_catalog=package_catalog,
+        service_procedure=service_procedure, branch_id=branch_id,
         from_number=from_number, booking_history_visible=booking_history_visible,
         catalog_provider=catalog_provider, rhythm_provider=rhythm_provider,
         mobile_requests=mobile_requests, active_offers=active_offers,

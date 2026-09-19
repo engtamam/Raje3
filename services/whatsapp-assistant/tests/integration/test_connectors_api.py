@@ -143,6 +143,19 @@ def test_a_tool_tagged_to_an_app_this_tenant_does_hold_proceeds(client):
     assert resp.json()["ok"] is True
 
 
+def test_get_service_procedure_is_reachable_as_a_connector(client):
+    """Found missing during review, not written by the tool's own author: the tool existed in
+    core/tools.py and the LLM allowlist, but had no Connector route AND `_invoke` never passed
+    `service_procedure` into `ToolContext` — so Meta's own agent could never reach it, only the
+    (now-retired) LLM path could. See connectors.py's own module docstring: THE CONNECTOR SURFACE
+    MUST NEVER GRANT LESS THAN THE LLM PATH CAN."""
+    resp = client.post("/api/v1/connectors/get_service_procedure",
+                       json={**_BODY, "service_id": "svc_1"},
+                       headers={"Authorization": f"Bearer {CONNECTOR_TOKEN}"})
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+
+
 # ── a real validation refusal still reaches the caller as ok:false, not a 500 ───────────────
 def test_a_tool_validation_error_is_reported_not_raised(client):
     resp = client.post("/api/v1/connectors/suggest_related_service",

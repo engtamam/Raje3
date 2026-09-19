@@ -85,6 +85,13 @@ function monthLabel(monthKey: string, locale: string): string {
 export function CouponsScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const { t, locale } = useOperatorI18n();
 
+  // Strong-only gate for the WHOLE PAGE (owner decision, 2026-09-19: two coupon tiers). nav.ts
+  // already keeps a weak-tier holder from ever clicking here, but this screen also mounts on a
+  // directly-typed URL — and `grantAction` below is no longer a safe proxy for "may see this page"
+  // now that `operations.grant_coupon`'s own capability was loosened so the visit-screen shortcut
+  // works for weak-tier roles too. `operations.coupons_page` has no route of its own; it exists
+  // purely so this screen (and nav.ts) can still require the strong capability.
+  const pageAction = action(catalog, 'operations.coupons_page');
   const grantAction = action(catalog, 'operations.grant_coupon');
   const checkAction = action(catalog, 'operations.coupon_check');
   const historyAction = action(catalog, 'operations.coupon_history');
@@ -264,6 +271,11 @@ export function CouponsScreen({ session, catalog }: { session: Session; catalog:
     if (phoneCheck.already_granted_this_month) return { tone: 'warning' as const, text: t('coupons.grant.phoneHint.already') };
     return { tone: 'success' as const, text: t('coupons.grant.phoneHint.ok') };
   }, [phoneCheck, t]);
+
+  // A weak-tier holder reaching this route directly (nav.ts already never links him here) sees
+  // nothing — never a form whose submit would just 403, which would look like a bug rather than
+  // a boundary.
+  if (!pageAction) return null;
 
   return (
     <div className="flex flex-col gap-4 p-4">

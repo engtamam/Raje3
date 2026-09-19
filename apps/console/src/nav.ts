@@ -116,18 +116,18 @@ export const SECTIONS: Section[] = [
   // تُظهر التبويب القديم.
   { service: 'operations', id: 'rating', path: '/rating', label: 'التقييم', icon: Star, requires: ['operations.ratings'], accent: NAV_ACCENTS[4] },
   // «تحالف استراتيجي» — id/path stay `coupons` (the stored capability names and the route both
-  // key off it), only the label changed. Gated on the REAL ACTION ID `operations.grant_coupon`
-  // (found live, 2026-09-16: this used to name `operations.grant_coupon_direct` — a CAPABILITY
-  // string, never an action id of its own, same bug class `canBrowseStore` had earlier this same
-  // session — so `hasAll()` never found it and this tab was invisible to EVERY role, owner and
-  // manager included). `operations.grant_coupon` is itself gated server-side on the
-  // `operations.grant_coupon_direct` capability (user_actions.py), which is exactly the
-  // distinction this tab needs from the broader `operations.coupon_history`/`.coupon_stats`
-  // actions a plain field operator also holds (visit-linked grants only, from the visit screen
-  // itself) — the capability is enforced by the backend deciding whether to include the action
-  // in the catalogue at all, never by naming the capability string here directly.
+  // key off it), only the label changed. Gated on `operations.coupons_page` (owner decision,
+  // 2026-09-19: two separate tiers now exist for coupons — `operations.grant_coupon_direct`
+  // reaches this standalone page AND everything below, while the weaker `operations.grant_coupon`
+  // alone reaches ONLY the visit-recording screen's own shortcut checkbox, never this page). That
+  // split required decoupling: the actual grant action (`operations.grant_coupon`, POST
+  // /coupons/grant) now accepts the WEAK capability too, so a supervisor/operator/marketer can
+  // really submit a grant from the visit screen rather than see a button that 403s — which means
+  // `operations.grant_coupon`'s presence in the catalogue can no longer be used to gate THIS page.
+  // `operations.coupons_page` is a nav-only action id with no route of its own, declared purely to
+  // still require the strong capability (user_actions.py has the full note).
   { service: 'operations', id: 'coupons', path: '/coupons', label: 'تحالف استراتيجي', icon: Handshake,
-   requires: ['operations.grant_coupon'], accent: NAV_ACCENTS[10] },
+   requires: ['operations.coupons_page'], accent: NAV_ACCENTS[10] },
   // «خدمات متنقلة» — a real sold app now (Phase 4, feature.mobile_requests); the row itself still
   // gates on the review queue's own list action (real per ci/check_ui_actions.py — an action id
   // the catalogue actually declares, never the bare capability string), and MobileRequestsRoute's
@@ -256,6 +256,15 @@ export const SHOP_PATH = '/shop';
  *  Named once, so no screen builds the address out of a literal — every «أضِفه» button in the
  *  product points here. */
 export const STORE_PATH = '/';
+
+/** «مساعد واتساب» — never a rail row, reached from the app launcher tile (`apps.ts`'s own
+ *  `openPath`) and from the AI-units gauge in the chrome (`AiUnitsGauge.tsx`), the same "opened
+ *  from elsewhere, not chosen from the rail" shape TEAM_PATH describes. Gated by its own AppGate
+ *  on owning `feature.whatsapp`, not by a `requires:` capability list, so `sections()` never sees
+ *  it either way — named here, in code, for the same reason TEAM_PATH and ACCOUNT_PATH are:
+ *  `check_roles.py` learns the screens a person can open from this file, and a route the router
+ *  serves and this file mentions only in prose is a route the gate cannot ask any role about. */
+export const WHATSAPP_ASSISTANT_PATH = '/whatsapp-assistant';
 
 /** A sibling of `/`, outside `<App/>` on purpose (see main.tsx) — a legal document has to render
  *  for someone who has never signed up, so it carries no `requires:` and no section row. Named

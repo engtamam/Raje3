@@ -142,6 +142,7 @@ class Container:
     shop_identity: Any = None
     service_catalog: Any = None
     package_catalog: Any = None
+    service_procedure: Any = None
     booking_actor_report: Any = None
     catalog_provider: Any = None
     rhythm_provider: Any = None
@@ -157,6 +158,7 @@ class Container:
     engine: Any = None
     renewal_consumer: Any = None
     owner_phone: Any = None
+    knowledge_export: Any = None
     renewal_trigger: Any = None
     wallet_low_balance_trigger: Any = None
 
@@ -222,6 +224,7 @@ def build_container(settings: Settings) -> Container:
     from app.core import points as P
     from app.core import service_catalog as SC
     from app.core import package_catalog as PC
+    from app.core import service_procedure as SP
     from app.core import booking_actor_report as BAR
     from app.core import rhythm_provider as RP
     from app.core import related_services as RS
@@ -261,8 +264,13 @@ def build_container(settings: Settings) -> Container:
     container.customer_lookup = CL.build(settings)
     container.branch_directory = BD.build(settings)
     container.shop_identity = SI.build(settings)
+    from app.core import knowledge_export as KE
+    # secret_store passed in — see knowledge_export.py::build's own note, same reasoning as
+    # build_llm above: an operator-rotated credential must be visible through the one live store.
+    container.knowledge_export = KE.build(settings, secret_store=container.secret_store)
     container.service_catalog = SC.build(settings)
     container.package_catalog = PC.build(settings)
+    container.service_procedure = SP.build(settings)
     # PHASE 5 — the WhatsApp Flow (structured screens) booking channel, distinct from the AI text
     # channel's own BOOKING_PROVIDER_DRIVER above. Requires "real" (reuses the exact same
     # RealBookingProvider instance, never a second policy) — fails fast on a config that turns
@@ -385,6 +393,7 @@ def build_container(settings: Settings) -> Container:
         store=container.datastore, llm=container.llm, booking_provider=container.booking_provider,
         points_summary=container.points_summary, shop_identity=container.shop_identity,
         service_catalog=container.service_catalog, package_catalog=container.package_catalog,
+        service_procedure=container.service_procedure,
         customer_lookup=container.customer_lookup,
         branch_directory=container.branch_directory,
         related_services=container.related_services, wallet_balance=container.wallet_balance,

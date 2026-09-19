@@ -147,8 +147,14 @@ export function WhatsAppAssistant({ session, catalog, owned }: {
             absence-means-absence posture every other read in this product already keeps. */}
         {impact ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatTile icon={MessageCircle} value={String(impact.conversations)}
-                     label={t('shop.tile.conversations')} />
+            {/* AI_ASSISTANT_ENABLED off (backend): `conversations` is COST_LEDGER-sourced and
+                comes back `null` while the switch is off — this tile does not render at all then
+                (never greyed-out, never shown-then-hidden), same absence-means-absence posture the
+                rest of this receipt already keeps. The other three tiles are untouched. */}
+            {impact.ai_enabled !== false ? (
+              <StatTile icon={MessageCircle} value={String(impact.conversations)}
+                       label={t('shop.tile.conversations')} />
+            ) : null}
             <StatTile icon={TrendingUp} value={String(impact.ai_bookings)}
                      label={t('whatsappAssistant.stat.aiBookings')} />
             <StatTile icon={Sparkles} value={impact.avg_invoice_value_minor != null ? riyalsLabel(impact.avg_invoice_value_minor, t) : '—'}
