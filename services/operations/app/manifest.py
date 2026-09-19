@@ -169,20 +169,12 @@ def build_manifest(
             # bookings' booking->visit gateway (§4): the ONE way an attended booking becomes a
             # real Visit — record_visit() itself, resolved by customer_id instead of phone.
             {"path": "/internal/operations/visits/from-customer", "tier": "internal", "method": "POST"},
-            # whatsapp-assistant's own visit-registration Flow (تسجيل الزيارة عبر واتساب, a second
-            # channel alongside the console): record_visit() resolved by phone, operator_id already
-            # proven one hop earlier by a verified WhatsApp sender number — see api/internal.py's
-            # own docstring on this route.
-            {"path": "/internal/operations/visits/from-whatsapp", "tier": "internal", "method": "POST"},
             # whatsapp-assistant's own creation door for a mobile/on-the-go service request —
             # starts PENDING, never a Visit by itself (core/mobile_requests.py's own docstring).
             {"path": "/internal/operations/mobile-requests", "tier": "internal", "method": "POST"},
             # Read by whatsapp-assistant before it ever proposes request_mobile_visit — the shop's
             # own real working hours, so the customer is asked for a time that will be accepted.
             {"path": "/internal/operations/mobile-visit-hours", "tier": "internal", "method": "GET"},
-            # Read before the Flow ever opens — see core/whatsapp_visit_flag.py's own docstring.
-            {"path": "/internal/operations/whatsapp-visit-registration", "tier": "internal",
-             "method": "GET"},
             # Read by whatsapp-assistant before every auto-registration attempt — see
             # core/whatsapp_auto_register.py's own docstring.
             {"path": "/internal/operations/whatsapp-auto-register", "tier": "internal",
@@ -192,10 +184,6 @@ def build_manifest(
             # insights' own lead-conversion indicator — see internal_customer_conversion's own
             # docstring and CustomerStore.conversion_by_source's.
             {"path": "/internal/operations/customer-conversion", "tier": "internal",
-             "method": "GET"},
-            # WhatsApp-sender-to-operator resolution's second half — see
-            # internal_operator_by_person's own docstring.
-            {"path": "/internal/operations/operator-by-person", "tier": "internal",
              "method": "GET"},
             # bookings' one way to carry the pseudonym every peer already needs (§5, §6.5): the
             # DSAR fan-out target and the event this service's own reminders/campaigns key on.
@@ -276,10 +264,6 @@ def build_manifest(
             {"path": "/api/v1/staff/mode", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/staff/vehicles", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/vehicles", "tier": "user", "method": "PUT"},
-            # Owner opt-in for visit-registration over WhatsApp — see
-            # core/whatsapp_visit_flag.py's own docstring.
-            {"path": "/api/v1/staff/whatsapp-visit-registration", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/staff/whatsapp-visit-registration", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/staff/whatsapp-auto-register", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/whatsapp-auto-register", "tier": "user", "method": "PUT"},
             # What the owner told the WhatsApp AI assistant about his own shop — see ai_notes.py.

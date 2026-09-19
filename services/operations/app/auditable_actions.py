@@ -288,25 +288,11 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "shop_vehicles",
     },
     {
-        # The owner's own security decision — see core/whatsapp_visit_flag.py's own docstring on
-        # why a wider WhatsApp-based attribution surface stays off until he opts in explicitly.
-        # CRITICAL, unlike the vehicles switch next door: this widens who may record a visit under
-        # a real staff attribution, not just what a screen shows.
-        "action": "shop.whatsapp_visit_registration_changed",
-        "source": "admin",
-        "critical": True,
-        "resource": "shop_whatsapp_visit_registration",
-        "why": "who widened (or narrowed) the shop's own visit-attribution surface to include "
-              "any staff member's own WhatsApp number, and when — the fact an owner disputing an "
-              "unfamiliar visit would need first.",
-    },
-    {
         # Fixed 2026-09-12 — found undeclared by ci/check_audit_actions.py (the route itself
-        # already emitted it; this was a missing declaration, not a missing audit call). Same
-        # posture as shop.whatsapp_visit_registration_changed right above: the owner's own
-        # security/data-collection decision — see core/whatsapp_auto_register.py's own docstring
-        # on why this defaults off. CRITICAL for the same reason: it widens who gets written into
-        # the customer book, not just what a screen shows.
+        # already emitted it; this was a missing declaration, not a missing audit call). The
+        # owner's own security/data-collection decision — see core/whatsapp_auto_register.py's
+        # own docstring on why this defaults off. CRITICAL: it widens who gets written into the
+        # customer book, not just what a screen shows.
         "action": "shop.whatsapp_auto_register_changed",
         "source": "admin",
         "critical": True,

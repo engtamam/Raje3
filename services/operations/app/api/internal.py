@@ -34,7 +34,6 @@ from app.core.stores import (AssetStore, BranchStore, CustomerStore, OperatorSte
                              ServiceStore, TranslationStore, VisitStore, new_id)
 from app.core.operations import OperationError, RecordedVisit
 from app.core.quantities import check_quantities
-from app.core.whatsapp_visit_flag import WhatsAppVisitFlagStore
 from app.core.whatsapp_auto_register import WhatsAppAutoRegisterFlagStore
 from app.core import backup as _backup
 from app.backup_manifest import BACKUP
@@ -1174,33 +1173,6 @@ async def internal_visit_from_customer(request: Request, body: VisitFromCustomer
            "duplicate": recorded.duplicate}
 
 
-@router.get("/operations/operator-by-person", dependencies=[Depends(require_internal_token)])
-async def internal_operator_by_person(request: Request, tenant: str, person_id: str) -> dict:
-    """The operator row for WHO he actually is at identity, not a name he could type — the second
-    half of whatsapp-assistant's WhatsApp-sender-to-operator resolution (see
-    internal_visit_from_whatsapp's own docstring for the first half). `OperatorStore.get_by_person`
-    already exists for this (built for the console's own membership joins); this only exposes the
-    same read to a peer. Absent-for-both: no operator with this person_id and an unknown tenant
-    both answer 404, an IDOR-safe non-answer rather than confirming which person_id was checked."""
-    op = await OperatorStore(request.app.state.container.datastore).get_by_person(
-        tenant, person_id)
-    if op is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "OPERATOR_NOT_FOUND")
-    return {"operator_id": op.id, "name": op.name}
-
-
-@router.get("/operations/whatsapp-visit-registration",
-           dependencies=[Depends(require_internal_token)])
-async def internal_whatsapp_visit_registration_enabled(request: Request, tenant: str) -> dict:
-    """Has this tenant's owner opted in — read by whatsapp-assistant BEFORE it ever opens the
-    visit-registration Flow for an identified staff sender (see core/whatsapp_visit_flag.py's own
-    docstring for why this defaults OFF). Unreadable/unknown tenant both answer `False` — the same
-    fail-toward-off posture `WhatsAppVisitFlagStore.enabled()` itself already holds; this route
-    adds nothing beyond exposing that same read to a peer."""
-    enabled = await WhatsAppVisitFlagStore(request.app.state.container.datastore).enabled(tenant)
-    return {"tenant": tenant, "enabled": enabled}
-
-
 @router.get("/operations/whatsapp-auto-register",
            dependencies=[Depends(require_internal_token)])
 async def internal_whatsapp_auto_register_enabled(request: Request, tenant: str) -> dict:
@@ -1225,70 +1197,6 @@ async def internal_customer_conversion(request: Request, tenant: str) -> dict:
     return {"tenant": tenant, "by_source": by_source}
 
 
-class VisitFromWhatsAppIn(BaseModel):
-    tenant: str = Field(min_length=1, max_length=128)
-    phone: str = Field(min_length=3, max_length=32)
-    service_ids: list[str] = Field(min_length=1, max_length=20)
-    name: str = Field(default="", max_length=128)
-    plate: str = Field(default="", max_length=32)
-    operator_id: str = Field(default="", max_length=64)
-    branch_id: str = Field(default="", max_length=64)
-    meter: int = Field(default=0, ge=0, le=10_000_000)
-    note: str = Field(default="", max_length=1000)
-    custom_service: str = Field(default="", max_length=200)
-    idempotency_key: str = Field(min_length=1, max_length=128)
-    occurred_at: int = Field(default=0, ge=0)
-
-
-@router.post("/operations/visits/from-whatsapp", dependencies=[Depends(require_internal_token)])
-async def internal_visit_from_whatsapp(request: Request, body: VisitFromWhatsAppIn) -> dict:
-    """whatsapp-assistant's own visit-registration Flow (تسجيل الزيارة عبر واتساب, a SECOND
-    channel alongside the console — see that service's own core/flow_visit_backend.py): a staff
-    member records a visit from his own phone instead of the shop's tablet. Deliberately the
-    SAME shape as `/operations/visits/from-customer` right above — an already-trusted internal
-    peer handing `record_visit()` exactly what a real caller already resolved — not a second
-    write path, a second RESOLUTION path feeding the one write path every channel shares.
-
-    `operator_id` CARRIES NO TICKET, ON PURPOSE, UNLIKE THE CONSOLE'S OWN ROUTE
-    (`api/v1/field.py`'s `operator_ticket` check). That check exists because the CONSOLE's own
-    request body is a free string an operator's own device fills in — a decision `record_visit()`
-    cannot verify itself, so the route in front of it does before trusting `operator_id`. Here the
-    identity proof already happened, one hop earlier and by a different mechanism: whatsapp-
-    assistant only ever sets `operator_id` after matching the WhatsApp SENDER's own verified phone
-    number against this tenant's member directory (identity-service's `GET /internal/tenancy/
-    members`) and cross-referencing it against this tenant's `OperatorStore` — a phone Meta has
-    already verified is a proof at least as strong as a four-digit PIN, and PASSING A SECOND PROOF
-    THROUGH A CHANNEL THAT NEVER HAD ONE would only be theatre: nothing here could check a ticket
-    against a PIN the WhatsApp side never asked for. An `operator_id` that does not belong to this
-    tenant is caught downstream exactly like any other bad id — `record_visit()` reads the
-    `Operator` row itself and answers for whatever it actually finds.
-
-    Unresolved identity is NOT refused — same "skip is a legitimate answer" posture the console's
-    own `WhoIsSaving` sheet holds: `operator_id=""` records the visit under nobody, same as a
-    console visit whose operator declined to prove himself, rather than losing the visit entirely
-    over an attribution nobody could make.
-    """
-    c = request.app.state.container
-    try:
-        recorded = await c.operations.record_visit(
-            tenant=body.tenant, phone=body.phone, service_ids=body.service_ids, name=body.name,
-            plate=body.plate, operator_id=body.operator_id, branch_id=body.branch_id,
-            meter=body.meter, note=body.note, custom_service=body.custom_service,
-            idempotency_key=body.idempotency_key, occurred_at=body.occurred_at)
-    except OperationError as exc:
-        # RETURNED, NOT RAISED — same rule field.py's own route states three times over: a raised
-        # HTTPException's detail is stripped by the platform's own handler, and the caller here
-        # (whatsapp-assistant's Flow backend) has to relay a real reason to the confirm screen the
-        # same way field.py relays one to the counter.
-        return {"recorded": False, "reason": str(exc)}
-    # INLINE, NOT BACKGROUNDED — same reasoning as `/visits/from-customer` right above: this is one
-    # service calling another, not an operator's own five-second screen budget to protect.
-    if not recorded.visit.seamed_at:
-        await c.seams.after_visit(recorded)
-    return {"recorded": True, "visit_id": recorded.visit.id, "customer_id": recorded.customer.id,
-           "duplicate": recorded.duplicate}
-
-
 class MobileServiceRequestIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     phone: str = Field(min_length=3, max_length=32)
@@ -1306,15 +1214,14 @@ class MobileServiceRequestIn(BaseModel):
 async def internal_create_mobile_request(request: Request, body: MobileServiceRequestIn) -> dict:
     """whatsapp-assistant's own door for a mobile/on-the-go service request — see
     core/mobile_requests.py's own module docstring for the full design. Deliberately its OWN
-    route, not folded into `/visits/from-whatsapp` right above: a mobile-service request is not a
+    route, not folded into `/visits/from-customer` above: a mobile-service request is not a
     visit yet and may never become one — it starts PENDING, and only `POST /staff/mobile-
     requests/{id}/complete` (the shop's own review, api/v1/mobile_requests.py) ever creates a
     real Visit, once a human at the shop has actually looked at it.
 
-    `tenant` IN THE BODY, same posture `/visits/from-whatsapp` above already documents at length:
-    the caller (whatsapp-assistant) has already resolved which tenant this WhatsApp conversation
-    belongs to, one hop earlier, by a different mechanism than this internal tier's own shared
-    token — there is nothing left for this route itself to re-verify.
+    `tenant` IN THE BODY: the caller (whatsapp-assistant) has already resolved which tenant this
+    WhatsApp conversation belongs to, one hop earlier, by a different mechanism than this internal
+    tier's own shared token — there is nothing left for this route itself to re-verify.
     """
     c = request.app.state.container
 

@@ -10,9 +10,9 @@
  * paying for a "VIP" app deserves the receipt, not a gauge with no needle.
  *
  * EVERY CONTROL BELOW IS THE SAME REAL LOGIC `AccountPanes.tsx` ALREADY HAD — `AiToggleCard`,
- * `AiNotesCard`, `MsgWordLimitCard`, `WhatsAppVisitRegistrationCard`, `WhatsAppAutoRegisterCard`
- * are reused as-is (real actions, real state, real confirm dialogs); only the SHELL around them —
- * the hero, the section framing, the analytics — is new.
+ * `AiNotesCard`, `MsgWordLimitCard`, `WhatsAppAutoRegisterCard` are reused as-is (real actions,
+ * real state, real confirm dialogs); only the SHELL around them — the hero, the section framing,
+ * the analytics — is new.
  */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -25,7 +25,6 @@ import type { Session } from '../session';
 import { AppGate } from './Locked';
 import {
   AiNotesCard, AiToggleCard, MsgWordLimitCard, WhatsAppAutoRegisterCard,
-  WhatsAppVisitRegistrationCard,
 } from './AccountPanes';
 import type { ShopImpact } from './Shop';
 import { unitsLabel, type WalletBalance } from './Wallet';
@@ -185,11 +184,10 @@ export function WhatsAppAssistant({ session, catalog, owned }: {
 
         <SectionShell icon={Sparkles} title={t('whatsappAssistant.section.automations.title')} desc={t('whatsappAssistant.section.automations.desc')}>
           <div className="grid gap-4 lg:grid-cols-2">
-            {/* ITS OWN, SECOND ownership check inside (feature.visit/feature.contacts) — this shop
-                already proved it owns واتساب (the AppGate above), but each of these needs its own
-                app too. Silently absent rather than a locked card stacked inside this section —
-                see each card's own header note. */}
-            <WhatsAppVisitRegistrationCard session={session} catalog={catalog} owned={owned} />
+            {/* ITS OWN, SECOND ownership check inside (feature.contacts) — this shop already
+                proved it owns واتساب (the AppGate above), but this still needs its own app too.
+                Silently absent rather than a locked card stacked inside this section — see the
+                card's own header note. */}
             <WhatsAppAutoRegisterCard session={session} catalog={catalog} />
           </div>
         </SectionShell>

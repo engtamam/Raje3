@@ -149,7 +149,7 @@ def test_internal_working_hours_read_requires_the_internal_token(client):
 
 def test_internal_create_reports_a_refusal_as_200_not_a_crash(client):
     """No services chosen — MobileRequestError, returned not raised, same posture
-    /visits/from-whatsapp already documents for whatsapp-assistant's own conversation."""
+    /visits/from-customer already documents for a peer's own conversation."""
     r = client.post("/internal/operations/mobile-requests",
                     headers={"X-Internal-Token": INTERNAL_TOKEN},
                     json={"tenant": TENANT, "phone": PHONE, "service_ids": [],
