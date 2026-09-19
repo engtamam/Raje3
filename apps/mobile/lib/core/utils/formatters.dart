@@ -9,23 +9,50 @@ class Formatters {
   Formatters._(); // Prevent instantiation
 
   // ─────────────────────────────────────────────────────────────────────────
+  // DIGITS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // arabic-indic-digits: intentional — this map is what CONVERTS them to 0-9,
+  // the one legitimate reason a file may name them (see ci/check_deploy_wiring.py).
+  //
+  // intl's 'ar_SA' locale data renders Arabic-Indic digits (٠-٩) by default —
+  // this product's own rule is every number is 0-9, even inside Arabic text
+  // (same rule the web console enforces via toLocaleString('en-US'), see
+  // apps/console/src/screens/Wallet.tsx). Rather than trust an ICU numbering-
+  // system locale extension to be wired into the bundled locale data, convert
+  // the characters directly after formatting — this is correct regardless of
+  // which locale data intl ships.
+  static const Map<String, String> _arabicIndicToWestern = {
+    '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4',
+    '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9',
+  };
+
+  static String _westernDigits(String input) {
+    final buffer = StringBuffer();
+    for (final char in input.split('')) {
+      buffer.write(_arabicIndicToWestern[char] ?? char);
+    }
+    return buffer.toString();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // CURRENCY
   // ─────────────────────────────────────────────────────────────────────────
 
   /// Format a currency amount in Saudi Riyals.
   ///
-  /// Arabic: "٥٠٠٫٠٠ ر.س"
+  /// Arabic: "500.00 ر.س"
   /// English: "500.00 SAR"
   ///
   /// Examples:
   /// ```dart
-  /// Formatters.formatCurrency(500)        // "٥٠٠٫٠٠ ر.س"
+  /// Formatters.formatCurrency(500)        // "500.00 ر.س"
   /// Formatters.formatCurrency(500, locale: 'en') // "500.00 SAR"
-  /// Formatters.formatCurrency(1250.5)     // "١٬٢٥٠٫٥٠ ر.س"
+  /// Formatters.formatCurrency(1250.5)     // "1,250.50 ر.س"
   /// ```
   static String formatCurrency(double amount, {String locale = 'ar'}) {
     final formatter = NumberFormat('#,##0.00', locale == 'ar' ? 'ar_SA' : 'en');
-    final formatted = formatter.format(amount);
+    final formatted = _westernDigits(formatter.format(amount));
     final currencySymbol =
         locale == 'ar' ? AppConstants.currencyAr : AppConstants.currency;
     return '$formatted $currencySymbol';
@@ -33,11 +60,11 @@ class Formatters {
 
   /// Format currency without decimal places.
   ///
-  /// Arabic: "٥٠٠ ر.س"
+  /// Arabic: "500 ر.س"
   /// English: "500 SAR"
   static String formatCurrencyCompact(double amount, {String locale = 'ar'}) {
     final formatter = NumberFormat('#,##0', locale == 'ar' ? 'ar_SA' : 'en');
-    final formatted = formatter.format(amount);
+    final formatted = _westernDigits(formatter.format(amount));
     final currencySymbol =
         locale == 'ar' ? AppConstants.currencyAr : AppConstants.currency;
     return '$formatted $currencySymbol';
@@ -66,7 +93,7 @@ class Formatters {
   /// - 'yyyy-MM-dd' → "2026-02-21"
   /// - 'dd/MM/yyyy' → "21/02/2026"
   /// - 'EEEE, d MMMM yyyy' → "السبت, 21 فبراير 2026"
-  /// - 'h:mm a' → "٣:٣٠ م"
+  /// - 'h:mm a' → "3:30 م"
   ///
   /// Defaults to 'dd/MM/yyyy' pattern.
   static String formatDate(
@@ -75,12 +102,12 @@ class Formatters {
     String pattern = 'dd/MM/yyyy',
   }) {
     final formatter = DateFormat(pattern, locale == 'ar' ? 'ar_SA' : 'en');
-    return formatter.format(dateTime);
+    return _westernDigits(formatter.format(dateTime));
   }
 
   /// Format a DateTime as a full date string.
   ///
-  /// Arabic: "السبت, ٢١ فبراير ٢٠٢٦"
+  /// Arabic: "السبت, 21 فبراير 2026"
   /// English: "Saturday, 21 February 2026"
   static String formatDateFull(DateTime dateTime, {String locale = 'ar'}) {
     return formatDate(
@@ -92,7 +119,7 @@ class Formatters {
 
   /// Format a DateTime as a short date string.
   ///
-  /// Arabic: "٢١ فبراير"
+  /// Arabic: "21 فبراير"
   /// English: "21 Feb"
   static String formatDateShort(DateTime dateTime, {String locale = 'ar'}) {
     return formatDate(
@@ -104,7 +131,7 @@ class Formatters {
 
   /// Format a DateTime as time only.
   ///
-  /// Arabic: "٣:٣٠ م"
+  /// Arabic: "3:30 م"
   /// English: "3:30 PM"
   static String formatTime(DateTime dateTime, {String locale = 'ar'}) {
     return formatDate(dateTime, locale: locale, pattern: 'h:mm a');
@@ -112,7 +139,7 @@ class Formatters {
 
   /// Format a DateTime as date and time.
   ///
-  /// Arabic: "٢١/٠٢/٢٠٢٦ - ٣:٣٠ م"
+  /// Arabic: "21/02/2026 - 3:30 م"
   /// English: "21/02/2026 - 3:30 PM"
   static String formatDateTime(DateTime dateTime, {String locale = 'ar'}) {
     final date = formatDate(dateTime, locale: locale);
@@ -213,16 +240,16 @@ class Formatters {
 
   /// Format a number with locale-aware grouping.
   ///
-  /// Arabic: "١٬٢٥٠"
+  /// Arabic: "1,250"
   /// English: "1,250"
   static String formatNumber(num value, {String locale = 'ar'}) {
     final formatter = NumberFormat('#,##0', locale == 'ar' ? 'ar_SA' : 'en');
-    return formatter.format(value);
+    return _westernDigits(formatter.format(value));
   }
 
   /// Format a number as a decimal with specific precision.
   ///
-  /// Arabic: "٤٫٥"
+  /// Arabic: "4.5"
   /// English: "4.5"
   static String formatDecimal(
     num value, {
@@ -231,26 +258,26 @@ class Formatters {
   }) {
     final pattern = '#,##0.${'0' * decimalDigits}';
     final formatter = NumberFormat(pattern, locale == 'ar' ? 'ar_SA' : 'en');
-    return formatter.format(value);
+    return _westernDigits(formatter.format(value));
   }
 
   /// Format a number as a percentage.
   ///
-  /// Arabic: "٨٥٪"
+  /// Arabic: "85٪"
   /// English: "85%"
   static String formatPercentage(num value, {String locale = 'ar'}) {
     final formatter = NumberFormat('#,##0', locale == 'ar' ? 'ar_SA' : 'en');
-    return '${formatter.format(value)}%';
+    return '${_westernDigits(formatter.format(value))}%';
   }
 
   /// Format a number in compact form (e.g., 1.2K, 3.5M).
   ///
-  /// Arabic: "١٫٢ ألف"
+  /// Arabic: "1.2 ألف"
   /// English: "1.2K"
   static String formatCompact(num value, {String locale = 'ar'}) {
     final formatter =
         NumberFormat.compact(locale: locale == 'ar' ? 'ar_SA' : 'en');
-    return formatter.format(value);
+    return _westernDigits(formatter.format(value));
   }
 
   // ─────────────────────────────────────────────────────────────────────────

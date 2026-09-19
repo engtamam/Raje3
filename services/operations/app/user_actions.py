@@ -633,7 +633,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         # `operations.grant_coupon` which weak-tier roles must now also hold for the visit-screen
         # shortcut). Do not loosen this capability — it is the ONLY thing keeping supervisor,
         # operator and marketer off the standalone «تحالف استراتيجي» page.
-        "id": "operations.coupons_page", "label": "صفحة تحالف استراتيجي", "method": "GET",
+        "id": "operations.coupons_page", "label": "صفحة تحالف استراتيجي", "method": "POST",
         "path": "/api/v1/staff/coupons/grant", "capability": "operations.grant_coupon_direct",
         "group": "كوبونات",
         "help": "بوابة ظهور صفحة تحالف استراتيجي القائمة بذاتها، لا فعل خاص بها.",
@@ -749,6 +749,10 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
             "(api.ts's getMyLocale), same as the two routes right below it"},
     {"method": "PATCH", "path": "/api/v1/account/me/locale",
      "why": "same reasoning as the GET immediately above — setMyLocale, no capability required"},
+    {"method": "PATCH", "path": "/api/v1/staff/operators/me/pinned-nav",
+     "why": "the mobile app's own bottom-bar personalisation (apps/mobile, not the web console) — "
+            "every signed-in operator sets his own, no operations.* capability required, and there "
+            "is no console screen for it to appear on"},
     {"method": "POST", "path": "/api/v1/signup",
      "why": "it creates the account a token would come from — an action is fetched WITH a token, "
             "so a signed-in owner's control list is the one place this must never appear"},

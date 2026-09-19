@@ -350,7 +350,10 @@ env:
 
   # ── CORS ──────────────────────────────────────────────────────────────────────────────────
   # This is the origin the browser actually talks to, so this is where CORS truly matters.
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  # http://localhost:8767 is the mobile app's own flutter-run-on-chrome dev origin, needed to
+  # test the app end-to-end against this server from a browser rather than a device. Exact-match
+  # only (cors_origins has no wildcard support), so it has to be the literal port flutter runs on.
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa,http://localhost:8767"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
 
   EGRESS_ALLOWED_HOSTS: ""
