@@ -340,8 +340,10 @@ def build_container(settings: Settings) -> Container:
                                            shop_identity=container.shop_identity,
                                            ai_assistant_enabled=settings.AI_ASSISTANT_ENABLED)
     from app.core.base_entitlement import build_base_entitlement
+    from app.core.held_apps import build_held_apps
 
     container.base_entitlement = build_base_entitlement(settings)
+    container.held_apps = build_held_apps(settings)
     container.sender = build_sender(settings)
     # THE SUBSCRIPTION-RENEWAL FLOW'S OWN RECEIVE SIDE — mirrors reminders' RatingConsumer exactly
     # (see app/core/renewal_consumer.py's own docstring): a bus subscriber that turns a Flow
@@ -408,6 +410,7 @@ def build_container(settings: Settings) -> Container:
         active_offers=container.active_offers,
         licence=container.licence,
         base_entitlement=container.base_entitlement,
+        held_apps=container.held_apps,
         catalog_provider=container.catalog_provider,
         rhythm_provider=container.rhythm_provider,
         mobile_requests=container.mobile_requests,

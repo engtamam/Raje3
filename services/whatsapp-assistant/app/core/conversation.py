@@ -208,6 +208,12 @@ class PromptSection:
     # May contain the literal token "{shop_name}", resolved once at build time — never an f-string
     # captured early, so ordering here never accidentally freezes a stale shop name.
     instructions: str
+    # Real console app key(s) (apps/console/src/apps.ts::APP_ROWS) this rule needs to even make
+    # sense — empty (the default) means GENERAL: shown to every tenant who holds the base
+    # feature.whatsapp subscription alone. Same plug-and-play contract as core/tools.py's own
+    # `_TOOL_APP_KEYS` — a frozenset, not a single key, so a rule gains a second app the day it
+    # starts applying there too, by editing this one field.
+    app_keys: frozenset[str] = frozenset()
 
 
 _PROMPT_SECTIONS: tuple[PromptSection, ...] = (
@@ -246,9 +252,15 @@ _PROMPT_SECTIONS: tuple[PromptSection, ...] = (
     # sat silent until this refactor's registry made every section's presence explicit and
     # checkable. Wired in now, in its originally-intended place, right after the core behaviour
     # rules.
+    # TAGGED feature.bookings (2026-09-19) — this rule only ever makes sense for a tenant whose
+    # tools even include propose_booking/check_availability in the first place; a loyalty-only or
+    # mobile-requests-only shop can never reach the scenario it describes, so showing it there is
+    # pure wasted tokens on every single turn (real cost — see this same conversation's own
+    # discussion of per-message billing).
     PromptSection(
         name="staff_preference",
-        description="دائمة — تنطبق فقط إذا طلب العميل موظفًا معينًا بالاسم لخدمة بلا خيار إسناد.",
+        description="حجوزات — تنطبق فقط إذا طلب العميل موظفًا معينًا بالاسم لخدمة بلا خيار إسناد.",
+        app_keys=frozenset({"feature.bookings"}),
         instructions=(
             "إذا طلب العميل موظفًا معينًا بالاسم لخدمة، ولم تجد بين أدواتك خيارًا لاختيار موظف "
             "لتلك الخدمة تحديدًا، فهذا يعني أن المحل يوزّع حجوزاتها تلقائيًا بين فريقه بالتساوي. "
@@ -264,9 +276,13 @@ _PROMPT_SECTIONS: tuple[PromptSection, ...] = (
     # discipline, not a substitute for it — the model still must not invent a package, a price, or
     # a date beyond what that list already names, and must never suggest one that lowers what the
     # customer was already about to spend (which the list itself never contains anyway).
+    # TAGGED feature.bookings (2026-09-19) — packages are bookings-service data (package_catalog,
+    # confirmed 2026-09-19 against container.py's own wiring), so this rule is exactly as pointless
+    # for a non-bookings tenant as staff_preference above, same reasoning.
     PromptSection(
         name="upsell",
-        description="دائمة — تفعّل فقط عمليًا إذا وُجدت باقة حقيقية بسياق المحادثة.",
+        description="حجوزات — تفعّل فقط عمليًا إذا وُجدت باقة حقيقية بسياق المحادثة.",
+        app_keys=frozenset({"feature.bookings"}),
         instructions=(
             "إذا اختار العميل خدمات موجودة ضمن إحدى الباقات المذكورة في السياق، بإمكانك أن تقترح "
             "عليه الباقة بدلاً منها — مرة واحدة، بلطف، وبصيغة تُبرز ما يكسبه لا أنه دفع أكثر (مثل "
@@ -344,7 +360,8 @@ _PROMPT_SECTIONS: tuple[PromptSection, ...] = (
 )
 
 
-def build_system_prompt(shop_name: str, owner_notes: str = "") -> str:
+def build_system_prompt(shop_name: str, owner_notes: str = "",
+                        held_apps: frozenset[str] | None = None) -> str:
     """Compose the persona sent as the system prompt to the LLM (adapters/llm/assistant_service.py).
 
     A FUNCTION, NOT A CONSTANT: the shop's name and its owner's notes are the two things that vary
@@ -355,6 +372,12 @@ def build_system_prompt(shop_name: str, owner_notes: str = "") -> str:
 
     EVERY FIXED RULE COMES FROM `_PROMPT_SECTIONS` (see its own module-level docstring for why that
     registry, not this function, is where a rule gets added/removed/reordered).
+
+    `held_apps=None` MEANS "NO GATING" — every existing caller/test that predates this parameter
+    (or simply never wires a held-apps port) sees every section, exactly as before it existed; same
+    convention as core/tools.py's own `tools_for_held_apps`. Passed a real frozenset, a section
+    tagged with `app_keys` is included only when at least one of its keys is held — a general
+    (untagged) section is never affected either way.
 
     `owner_notes` IS THE ONE INPUT TO THIS FUNCTION THAT IS NOT OUR OWN COPY. Everything else here
     is fixed house prose; this is a shop owner's own free text, and it is treated as data throughout
@@ -368,7 +391,8 @@ def build_system_prompt(shop_name: str, owner_notes: str = "") -> str:
     """
     name = (shop_name or "").strip() or GENERIC_SHOP_LABEL
 
-    sections = [s.instructions.format(shop_name=name) for s in _PROMPT_SECTIONS]
+    sections = [s.instructions.format(shop_name=name) for s in _PROMPT_SECTIONS
+               if held_apps is None or not s.app_keys or (s.app_keys & held_apps)]
 
     # THE OWNER'S OWN CONTEXT — appended LAST, after every rule above, and only when he wrote one.
     # Redacted a second time here (see this function's own docstring) and length-capped again,
@@ -587,7 +611,7 @@ class ConversationEngine:
                 rhythm_provider: Any = None,
                 max_carousel_cards: int = 5, runtime_config: Any = None,
                 max_reply_tokens: int = 500, mobile_requests: Any = None,
-                active_offers: Any = None) -> None:
+                active_offers: Any = None, held_apps: Any = None) -> None:
         self._store = store
         self._llm = llm
         self._booking = booking_provider
@@ -701,6 +725,11 @@ class ConversationEngine:
         # "behave as a full-service tenant", same degrade-open posture as every other optional
         # peer here (`self._wallet is None`, `self._shop_identity is None`, ...).
         self._base_entitlement = base_entitlement
+        # GRANULAR SIBLING of `self._base_entitlement` — see core/held_apps.py's own docstring.
+        # None (the pre-existing test-constructor default, and every deployment that never wires
+        # BILLING_SERVICE_URL) means "no gating": T.tools_for_held_apps and build_system_prompt
+        # both treat None as "show everything", never as "holds nothing".
+        self._held_apps = held_apps
         # NOT constructor-required: app/main.py builds the Auditor AFTER build_container() (it
         # needs the container to build), so this is wired via `set_auditor` right after — see
         # app/main.py::create_app. Optional here only so pre-existing test constructors that never
@@ -1387,14 +1416,29 @@ class ConversationEngine:
             except Exception:
                 has_any_app = False
 
+        # WHICH SPECIFIC APPS THIS TENANT HOLDS — the granular sibling of `has_any_app` above; see
+        # core/held_apps.py's own docstring. None (no port wired) means "no gating", same
+        # degrade-open convention as `self._base_entitlement`. Checked live, every turn, for the
+        # same reason `has_any_app` is: a cancelled app (bookings, say) must stop offering its
+        # tools/persona rules on the very next reply, not eventually.
+        held_apps: frozenset[str] | None = None
+        if self._held_apps is not None:
+            try:
+                held_apps = await self._held_apps.held(tenant)
+            except Exception:
+                held_apps = frozenset()
+
         # A conversation already holding an unresolved proposal must not be offered a NEW
         # state-changing tool until the customer answers the one on the table — narrowing what
         # this turn may propose, per adapters/llm/assistant_service.py's per-call intersection.
         #
         # EVERY TOOL BUT PLAIN CONVERSATION IS OPERATIONS/LOYALTY DATA, so a tenant with no base
         # gets none of them — the same "no base" data isolation `_context_block` enforces, applied
-        # to what the model may even attempt rather than only what it is told.
-        allowed = self._allowed_tools if has_any_app else frozenset()
+        # to what the model may even attempt rather than only what it is told. NARROWED AGAIN by
+        # held_apps: a tenant WITH a base (any one operations/loyalty app) but who never bought,
+        # say, bookings specifically must still never be offered propose_booking.
+        allowed = (T.tools_for_held_apps(self._allowed_tools, held_apps) if has_any_app
+                  else frozenset())
         if conv.pending_proposal_id:
             allowed = frozenset(t for t in allowed
                                 if t not in ("propose_booking", "suggest_redeemable_offer",
@@ -1431,7 +1475,7 @@ class ConversationEngine:
         conv.auto_reply_turns += 1
         shop_ctx = await self._shop_context(tenant)
         owner_notes = shop_ctx.ai_notes if self._shop_notes_enabled else ""
-        system_prompt = build_system_prompt(shop_ctx.name, owner_notes)
+        system_prompt = build_system_prompt(shop_ctx.name, owner_notes, held_apps=held_apps)
         context_block = await self._context_block(tenant, subject_ref, conv.from_number, has_any_app)
 
         # THE HOLD, RIGHT BEFORE THE ONE ACTION THAT COSTS MONEY — see `_reserve_llm_hold`'s

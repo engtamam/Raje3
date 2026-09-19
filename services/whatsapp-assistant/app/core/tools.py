@@ -686,6 +686,64 @@ async def _tool_request_mobile_visit(ctx: ToolContext, args: dict[str, Any]) -> 
     return MobileLocationRequest(service_ids=service_ids, requested_time=starts_at)
 
 
+# ── WHICH APP(S) EACH TOOL BELONGS TO ───────────────────────────────────────────────────────────
+# Real console app keys (apps/console/src/apps.ts::APP_ROWS), traced 2026-09-19 to each tool's
+# ACTUAL peer/provider dependency, not guessed from its name — see
+# services/whatsapp-assistant/app/core/held_apps.py's own docstring for how this set gets checked
+# per tenant. A tool absent from this dict (or mapped to an empty frozenset) is GENERAL: available
+# to every tenant who holds the base feature.whatsapp subscription alone, never narrowed further.
+#
+# PLUG-AND-PLAY ON PURPOSE — a frozenset, not a single key: a tool tied to one app today gains a
+# second (or a third) the day another app genuinely starts reusing it, by editing this one line —
+# never the handler, never the dispatcher, never a caller. `list_due_services`/`list_lapsed_services`
+# are tagged `feature.bookings` today (their real data source is reminders' learned rhythm, but the
+# capability is documented as shared with bookings) precisely so a FUTURE app that also wants "due
+# soon"/"lapsed" suggestions can add its own key here without moving a single line of the tool
+# itself.
+_TOOL_APP_KEYS: dict[str, frozenset[str]] = {
+    "check_availability": frozenset({"feature.bookings"}),
+    "propose_booking": frozenset({"feature.bookings"}),
+    "list_my_bookings": frozenset({"feature.bookings"}),
+    "propose_cancel_booking": frozenset({"feature.bookings"}),
+    "propose_reschedule_booking": frozenset({"feature.bookings"}),
+    "list_packages": frozenset({"feature.bookings"}),
+    "list_due_services": frozenset({"feature.bookings"}),
+    "list_lapsed_services": frozenset({"feature.bookings"}),
+    "get_customer_points_summary": frozenset({"feature.loyalty"}),
+    "suggest_redeemable_offer": frozenset({"feature.loyalty"}),
+    "check_mobile_visit_hours": frozenset({"feature.mobile_requests"}),
+    "request_mobile_visit": frozenset({"feature.mobile_requests"}),
+    "check_active_offers": frozenset({"feature.campaigns"}),
+    "suggest_related_service": frozenset({"feature.insights.engine"}),
+    # check_growth_opportunities genuinely reads bookings + loyalty + insights data in one report
+    # (core/growth.py's own module docstring) — a real cross-app tool, not a guess.
+    "check_growth_opportunities": frozenset(
+        {"feature.bookings", "feature.loyalty", "feature.insights.engine"}),
+    # suggest_services_carousel: confirmed 2026-09-19 to depend ONLY on operations' own service/
+    # package catalogue (core/catalog_provider.py) — no insights dependency despite reading photo
+    # data that superficially resembles "صفقات" — genuinely general.
+}
+
+
+def tools_for_held_apps(base_tools: frozenset[str],
+                        held_apps: frozenset[str] | None) -> frozenset[str]:
+    """Narrows `base_tools` (the deployment-wide allowlist config.py already computes) to the
+    ones THIS TENANT may actually be offered: a tool tagged in `_TOOL_APP_KEYS` needs at least one
+    of its keys held; an untagged (general) tool is never narrowed by this at all.
+
+    `held_apps=None` MEANS "NO GATING APPLIED" — every existing caller/test that never wires a
+    held-apps port (core/conversation.py's own None-safe default, same convention as
+    base_entitlement.py's `has_any_app`) sees `base_tools` completely unchanged."""
+    if held_apps is None:
+        return base_tools
+
+    def _visible(tool: str) -> bool:
+        needed = _TOOL_APP_KEYS.get(tool)
+        return not needed or bool(needed & held_apps)
+
+    return frozenset(t for t in base_tools if _visible(t))
+
+
 # ── THE ONE REGISTRATION POINT ──────────────────────────────────────────────────────────────────
 # Add/remove/replace a tool by editing this dict alone — no other line in this module, and nothing
 # upstream of it, needs to change. Every value has the exact same shape: `ToolContext, args -> ToolResult`.
