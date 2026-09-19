@@ -311,6 +311,16 @@ def test_a_failed_peer_call_defaults_ai_enabled_true_too():
     assert ctx.ai_enabled is True
 
 
+def test_build_system_prompt_carries_the_staff_preference_rule():
+    """core/conversation.py::PromptSection registry fix (2026-09-19) — this rule was written for
+    the ASSIGNMENT-MODE REDESIGN PHASE 5 but never added to the assembled persona sections, so a
+    customer naming a specific staff member for an auto-assigned service got no guidance at all.
+    Regression test for the fix, not for the original feature (which had no test either — that
+    silence is exactly how the gap went unnoticed)."""
+    prompt = build_system_prompt("محل الأناقة")
+    assert "يوزّع حجوزاتها تلقائيًا" in prompt
+
+
 async def test_a_shop_identity_failure_falls_back_to_the_last_known_name_with_no_notes():
     """Never a guess at stale notes — only the name is worth carrying past a failure."""
     store = MemoryDataStore()
