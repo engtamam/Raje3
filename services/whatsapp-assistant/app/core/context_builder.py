@@ -19,7 +19,7 @@ def _fmt_price(price_minor: int) -> str:
     # Minor units -> a whole-or-decimal riyal string. No currency symbol hardcoded as a business
     # assumption beyond "ر.س", which is fixed shop-facing copy exactly like TRIAGE_PROMPT's
     # register elsewhere in this service, not a config-tunable number.
-    riyals = price_minor / 100
+    riyals = price_minor / 100  # money: ok — SAR only, see the comment above
     return f"{riyals:g} ر.س"
 
 

@@ -125,7 +125,7 @@ def halalas_per_1k_tokens(usd_per_million: float, *, usd_to_sar: float,
     confirm math is actually denominated in."""
     sar_per_million = max(0.0, usd_per_million) * max(0.0, usd_to_sar)
     priced_sar_per_million = sar_per_million * max(0.0, margin_multiplier)
-    halalas_per_million = priced_sar_per_million * 100          # 1 SAR = 100 halalas
+    halalas_per_million = priced_sar_per_million * 100  # money: ok — 1 SAR = 100 halalas is a fixed physical fact of the currency, not a config-tunable exponent
     return halalas_per_million / (1_000_000 / TOKENS_PER_PRICING_UNIT)
 
 

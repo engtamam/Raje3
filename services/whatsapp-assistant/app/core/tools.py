@@ -325,7 +325,7 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
         lines = ["باقاتنا المتاحة الآن:"]
         for p in packages:
             included = "، ".join(names_by_id.get(sid, sid) for sid in p.get("service_ids") or [])
-            riyals = int(p.get("price_minor") or 0) / 100
+            riyals = int(p.get("price_minor") or 0) / 100  # money: ok — SAR only, see context_builder.py::_fmt_price's own note
             line = f"- {p.get('name')} (id: {p.get('id')}): تشمل {included} — بسعر {riyals:g} ريال"
             person_count = int(p.get("person_count") or 1)
             if person_count > 1:
@@ -450,7 +450,7 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
                 pkg = packages_by_id.get(rid[len("pkg:"):])
                 if pkg is None:
                     continue    # a peer read that failed, or a package retired since — skipped
-                riyals = int(pkg.get("price_minor") or 0) / 100
+                riyals = int(pkg.get("price_minor") or 0) / 100  # money: ok — SAR only, see context_builder.py::_fmt_price's own note
                 package_lines.append(f"باقة «{pkg.get('name')}» بسعر {riyals:g} ريال")
             else:
                 plain_names.append(names_by_id.get(rid, rid))

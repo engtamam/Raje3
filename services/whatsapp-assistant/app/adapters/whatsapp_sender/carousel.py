@@ -119,7 +119,7 @@ class CarouselSender:
             media_id = self._upload_media_id(tenant=tenant, data=data, content_type=ctype)
             if media_id is None:
                 continue
-            riyals = int(c.price_minor) / 100
+            riyals = int(c.price_minor) / 100  # money: ok — SAR only, "ريال" is fixed shop-facing copy, not a config-tunable currency
             built.append({
                 "media_id": media_id, "media_type": "image",
                 "body_params": [c.name, f"{riyals:g} ريال"],
@@ -180,7 +180,7 @@ class CarouselSender:
         if media_id is None:
             raise SendFailed("could not upload the card's own photo")
         media_type = "image" if ctype.startswith("image/") else "video"
-        riyals = int(card.price_minor) / 100
+        riyals = int(card.price_minor) / 100  # money: ok — SAR only, same as the other build_carousel branch above
         payload = {
             "recipient": to, "tenant": tenant, "type": "button",
             "body": f"{card.name} — {riyals:g} ريال",

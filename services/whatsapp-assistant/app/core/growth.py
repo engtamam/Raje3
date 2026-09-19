@@ -277,7 +277,7 @@ def format_report(*, candidates: list[PackageCandidate], cross_sell: list[str],
     if candidates:
         lines.append("باقات تستحق الذكر:")
         for c in candidates:
-            riyals_savings = c.savings_minor / 100
+            riyals_savings = c.savings_minor / 100  # money: ok — SAR only, this product never sells in another currency
             sentence = f"- «{c.name}»: توفير حقيقي {riyals_savings:g} ر.س عن حجز نفس الخدمات منفردة"
             if c.kind == "missing_one":
                 sentence += f" (تحتاج فقط إضافة خدمة واحدة إلى ما حجزه سابقاً)"

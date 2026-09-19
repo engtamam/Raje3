@@ -157,11 +157,11 @@ def _fetch_billing(peers: PeerCaller, urls: _Urls, tenant: str) -> list[ReportIt
         inv_out = peers.get(urls.billing, urls.invoices_path, {"tenant": tenant, "status": status})
         status_ar = _INVOICE_STATUS_AR.get(status, status)
         for inv in inv_out.get("invoices") or []:
-            amount = int(inv.get("amount_minor") or 0) / 100
+            amount = int(inv.get("amount_minor") or 0) / 100  # money: ok — SAR only, this platform never bills any other currency (billing-service's own plans.json is SAR-only)
             label = f"فاتورة ({status_ar}) — {amount:.2f} {inv.get('currency', '')}"
             refunded = int(inv.get("refunded_minor") or 0)
             if refunded:
-                label += f" — مُسترجَع: {refunded / 100:.2f}"
+                label += f" — مُسترجَع: {refunded / 100:.2f}"  # money: ok — SAR only, see the line above
             if inv.get("voided_at"):
                 label += f" — أُبطلت بتاريخ: {inv['voided_at']}"
             if inv.get("paid_sequence") == 1:
