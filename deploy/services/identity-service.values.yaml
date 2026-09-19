@@ -15,14 +15,15 @@ service:
 
 image:
   repository: ghcr.io/engtamam/identity-service
-  # PINNED BACK TO v0.25.5, DELIBERATELY BEHIND THE REST OF THE FLEET (2026-09-19) — v0.25.6's
-  # AAD hardening on secret_store.py's AESGCM encrypt/decrypt changed the sealed-secret format in
-  # a way that is NOT backward compatible: the signing key sealed under the OLD (no-AAD) format
-  # raised `cryptography.exceptions.InvalidTag` on boot, every time — total identity-service
-  # outage (CrashLoopBackOff), confirmed live, rolled back within minutes. Do NOT bump this to
-  # v0.25.6 until the sister session ships a migration path for already-sealed secrets (re-seal on
-  # read, or a one-time re-encrypt pass) — bumping it back blind reproduces the exact same outage.
-  digest: "sha256:ffa8e5568782842d65890a3b6d88268f05d0fc7b35fc304cb9c92b8dcb1d8261"   # v0.25.5 — see note above, DO NOT bump to v0.25.6 yet
+  # v0.25.6 (briefly deployed 2026-09-19) took this whole service down: its AAD hardening on
+  # secret_store.py's AESGCM encrypt/decrypt changed the sealed-secret format in a way that was not
+  # backward compatible — the signing key sealed under the OLD (no-AAD) format raised
+  # `cryptography.exceptions.InvalidTag` on every boot (total CrashLoopBackOff), rolled back to
+  # v0.25.5 live within minutes. v0.25.7 fixes it properly: decrypt tries the AAD-bound path first
+  # and falls back to the legacy no-AAD format on InvalidTag, so every pre-existing sealed secret
+  # keeps working with no migration or re-entry, and the next write to each row re-seals it with
+  # the AAD. Confirmed safe by the sister session before this repin.
+  digest: "sha256:9ad2c34a8445eb71e82e02dbc34d4ea083e55178be8f74a5640eeec483480011"   # v0.25.7
 
 replicas: 1
 
