@@ -404,7 +404,7 @@ class _HomeScreenState extends State<HomeScreen>
           ),
           const SizedBox(height: AppSpacing.md),
           if (numericEntries.isEmpty)
-            Text('لا توجد بيانات كافية بعد.', style: AppTextStyles.bodySmall)
+            const Text('لا توجد بيانات كافية بعد.', style: AppTextStyles.bodySmall)
           else
             Wrap(
               spacing: AppSpacing.md,

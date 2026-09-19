@@ -104,7 +104,91 @@ class AppTextStyles {
     fontWeight: FontWeight.w400,
     color: AppColors.textSecondary,
   );
+
+  static const TextStyle displaySmall = TextStyle(
+    fontFamily: arabicFont,
+    fontSize: 26,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+  );
+
+  static const TextStyle labelMedium = TextStyle(
+    fontFamily: arabicFont,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+  );
+
+  static const TextStyle button = TextStyle(
+    fontFamily: arabicFont,
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+  );
+
+  static const TextStyle caption = TextStyle(
+    fontFamily: arabicFont,
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textMuted,
+  );
 }
+
+/// ═══════════════════════════════════════════════════════════════════════════
+/// AUTH-SCREEN CRAFT — same visual language pattern ported from the reference
+/// project's own login/register screens (elevated card, gradient primary
+/// action, filled input fields), our own tokens throughout. Kept here, not
+/// hand-repeated per screen, so every auth screen reads as one product.
+/// ═══════════════════════════════════════════════════════════════════════════
+class AppCardDecorations {
+  static BoxDecoration get elevated => BoxDecoration(
+        color: AppColors.surface1,
+        borderRadius: AppRadius.cardRadius,
+        border: Border.all(color: AppColors.borderSubtle),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.textPrimary.withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      );
+}
+
+class AppInputDecorations {
+  static InputDecoration get standard => InputDecoration(
+        filled: true,
+        fillColor: AppColors.surface2,
+        border: OutlineInputBorder(
+          borderRadius: AppRadius.standardRadius,
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: AppRadius.standardRadius,
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: AppRadius.standardRadius,
+          borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: AppRadius.standardRadius,
+          borderSide: const BorderSide(color: AppColors.danger, width: 1),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
+        labelStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+      );
+}
+
+/// One brand gradient, derived from the same accent/hover tokens
+/// `app_colors.g.dart` already generates — never a second literal colour.
+LinearGradient get appPrimaryGradient => const LinearGradient(
+      colors: [AppColors.accent, AppColors.accentHover],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
 
 /// ═══════════════════════════════════════════════════════════════════════════
 /// MATERIAL THEME

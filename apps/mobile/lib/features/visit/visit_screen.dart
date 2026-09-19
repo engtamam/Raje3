@@ -265,7 +265,7 @@ class _VisitScreenState extends State<VisitScreen>
       title: 'العميل',
       icon: Icons.person_rounded,
       children: [
-        Text('رقم جوال العميل', style: AppTextStyles.bodySmall),
+        const Text('رقم جوال العميل', style: AppTextStyles.bodySmall),
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _phoneController,
@@ -340,7 +340,7 @@ class _VisitScreenState extends State<VisitScreen>
       icon: Icons.content_cut_rounded,
       children: [
         if (_services.isEmpty)
-          Text('لا توجد خدمات بعد.', style: AppTextStyles.bodySmall)
+          const Text('لا توجد خدمات بعد.', style: AppTextStyles.bodySmall)
         else
           for (final service in _services)
             _ServiceRow(

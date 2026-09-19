@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import 'package:raje3_mobile/core/nav/nav_sections.g.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
@@ -129,9 +128,9 @@ class _NotYetOnMobile extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.surface0,
       appBar: AppBar(title: Text(section.label)),
-      body: Center(
+      body: const Center(
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: EdgeInsets.all(AppSpacing.md),
           child: Text(
             'هذه الشاشة غير متاحة على تطبيق الجوال بعد.',
             style: AppTextStyles.bodyMedium,

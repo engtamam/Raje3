@@ -90,7 +90,8 @@ class _Destination {
   const _Destination.more()
       : path = '__more__',
         label = 'المزيد',
-        icon = Icons.more_horiz;
+        icon = Icons.more_horiz,
+        isMore = true;
 }
 
 /// The rest of the operator's visible sections — a plain tappable list, opened from the "More"
