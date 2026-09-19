@@ -339,4 +339,140 @@ def test_propose_cancel_booking_is_withheld_on_the_default_config_placeholder_pr
                        json={**_BODY, "booking_id": "bkg_never_existed"},
                        headers={"Authorization": f"Bearer {CONNECTOR_TOKEN}"})
     assert resp.status_code == 200
-    assert resp.json() == {"ok": False, "error": "tool_not_available_on_this_deployment"}
+
+
+# ── check_consent / record_consent — NOT one of the 16 tools (no held_apps narrowing applies),
+# but the SAME auth + licence posture as everything else in this file. See
+# core/inbound_ingest.py::_gate_consent for the reference semantics being re-exposed here.
+class _ScriptedConsentGate:
+    """Mirrors tests/integration/test_consent_gate.py's own fake — answers whatever this test
+    wants and records exactly what it was asked/told."""
+
+    def __init__(self, status: str, reason: str = "test", record_result: bool = True):
+        self.status = status
+        self.reason = reason
+        self._record_result = record_result
+        self.asked: list[tuple[str, str, str]] = []
+        self.recorded: list[tuple[str, str, str, bool]] = []
+
+    async def check(self, *, tenant, subject, purpose):
+        from app.ports.consent_gate import ConsentVerdict
+        self.asked.append((tenant, subject, purpose))
+        return ConsentVerdict(status=self.status, reason=self.reason, purpose=purpose)
+
+    async def record(self, *, tenant, subject, purpose, granted):
+        self.recorded.append((tenant, subject, purpose, granted))
+        return self._record_result
+
+
+class _SpyCustomerLookup:
+    def __init__(self):
+        self.registered: list[tuple[str, str]] = []
+
+    async def resolve(self, tenant, phone):
+        return {"found": False, "subject_ref": "", "visit_count_90d": 0}
+
+    async def register(self, tenant, phone):
+        self.registered.append((tenant, phone))
+        return True
+
+
+def test_check_consent_requires_auth(client):
+    resp = client.post("/api/v1/connectors/check_consent", json=_BODY)
+    assert resp.status_code == 401
+
+
+def test_check_consent_wrong_token_refused(client):
+    resp = client.post("/api/v1/connectors/check_consent", json=_BODY,
+                       headers={"Authorization": "Bearer wrong-token-entirely"})
+    assert resp.status_code == 401
+
+
+def test_check_consent_refuses_when_not_subscribed():
+    saved = dict(os.environ)
+    try:
+        c = _make_client(AI_ASSISTANT_ENABLED="false")
+        resp = c.post("/api/v1/connectors/check_consent", json=_BODY,
+                      headers={"Authorization": f"Bearer {CONNECTOR_TOKEN}"})
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": False, "error": "not_subscribed"}
+    finally:
+        os.environ.clear()
+        os.environ.update(saved)
+        from app.config import get_settings
+        get_settings.cache_clear()
+
+
+@pytest.mark.parametrize("port_status,mapped", [
+    ("allowed", "allowed"), ("denied", "denied"), ("unknown", "unknown")])
+def test_check_consent_maps_all_three_statuses(client, port_status, mapped):
+    client.app.state.container.consent_gate = _ScriptedConsentGate(port_status)
+    resp = client.post("/api/v1/connectors/check_consent", json=_BODY,
+                       headers={"Authorization": f"Bearer {CONNECTOR_TOKEN}"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is True
+    assert body["status"] == mapped
+
+
+def test_record_consent_requires_auth(client):
+    resp = client.post("/api/v1/connectors/record_consent", json={**_BODY, "granted": True})
+    assert resp.status_code == 401
+
+
+def test_record_consent_missing_granted_is_422(client):
+    resp = client.post("/api/v1/connectors/record_consent", json=_BODY,
+                       headers={"Authorization": f"Bearer {CONNECTOR_TOKEN}"})
+    assert resp.status_code == 422
+
+
+def test_record_consent_refuses_when_not_subscribed():
+    saved = dict(os.environ)
+    try:
+        c = _make_client(AI_ASSISTANT_ENABLED="false")
+        resp = c.post("/api/v1/connectors/record_consent", json={**_BODY, "granted": True},
+                      headers={"Authorization": f"Bearer {CONNECTOR_TOKEN}"})
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": False, "error": "not_subscribed"}
+    finally:
+        os.environ.clear()
+        os.environ.update(saved)
+        from app.config import get_settings
+        get_settings.cache_clear()
+
+
+def test_record_consent_granted_true_registers_a_real_contact(client):
+    gate = _ScriptedConsentGate("denied")
+    spy = _SpyCustomerLookup()
+    client.app.state.container.consent_gate = gate
+    client.app.state.container.customer_lookup = spy
+    resp = client.post("/api/v1/connectors/record_consent", json={**_BODY, "granted": True},
+                       headers={"Authorization": f"Bearer {CONNECTOR_TOKEN}"})
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True, "recorded": True}
+    assert gate.recorded[0][3] is True
+    assert spy.registered == [("shop1", "+966500000000")]
+
+
+def test_record_consent_granted_false_never_registers_a_contact(client):
+    gate = _ScriptedConsentGate("denied")
+    spy = _SpyCustomerLookup()
+    client.app.state.container.consent_gate = gate
+    client.app.state.container.customer_lookup = spy
+    resp = client.post("/api/v1/connectors/record_consent", json={**_BODY, "granted": False},
+                       headers={"Authorization": f"Bearer {CONNECTOR_TOKEN}"})
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True, "recorded": True}
+    assert gate.recorded[0][3] is False
+    assert spy.registered == []
+
+
+def test_record_consent_a_failed_record_surfaces_recorded_false_not_an_exception(client):
+    gate = _ScriptedConsentGate("denied", record_result=False)
+    spy = _SpyCustomerLookup()
+    client.app.state.container.consent_gate = gate
+    client.app.state.container.customer_lookup = spy
+    resp = client.post("/api/v1/connectors/record_consent", json={**_BODY, "granted": True},
+                       headers={"Authorization": f"Bearer {CONNECTOR_TOKEN}"})
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True, "recorded": False}
