@@ -263,7 +263,8 @@ async def get_pricing_report(request: Request, days: int = 30, tenant: str = "",
     days = max(1, min(days, 365))
     container = request.app.state.container
     rep = await pricing_report(container.datastore, days=days, now=int(time.time()),
-                               tenant=(tenant or None))
+                               tenant=(tenant or None),
+                               ai_enabled=get_settings().AI_ASSISTANT_ENABLED)
     return rep.as_dict()
 
 

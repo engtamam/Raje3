@@ -31,6 +31,9 @@ const mockState = vi.hoisted(() => ({
   entitlements: ['feature.insights.engine'] as string[],
   leadConversion: undefined as Record<string, { total?: number; converted?: number }> | undefined,
   retentionValues: { return_rate: 0.42, active_customers: 30 } as Record<string, unknown>,
+  // AI_ASSISTANT_ENABLED off (backend) — overridden per-test to prove the `conversations` tile
+  // does not render at all when this comes back `false`.
+  myImpactAiEnabled: true as boolean,
   nextStep: {
     primary: {
       id: 'all_is_well', category: 'health', category_label: 'الصحة العامة',
@@ -50,7 +53,9 @@ vi.mock('../catalog', async (importOriginal) => {
     call: async (_s: unknown, a: { id: string }) => {
       if (a.id === 'whatsapp_assistant.my_impact') {
         return {
-          days: 30, conversations: 20, ai_bookings: 8, conversion_rate: 0.4,
+          days: 30, ai_enabled: mockState.myImpactAiEnabled,
+          conversations: mockState.myImpactAiEnabled ? 20 : null,
+          ai_bookings: 8, conversion_rate: mockState.myImpactAiEnabled ? 0.4 : null,
           avg_invoice_value_minor: 15000, upsell_offered: 5, upsell_accepted: 3,
           upsell_acceptance_rate: 0.6, truncated: false,
         };
@@ -98,6 +103,7 @@ afterEach(() => {
   mockState.entitlements = ['feature.insights.engine'];
   mockState.leadConversion = undefined;
   mockState.retentionValues = { return_rate: 0.42, active_customers: 30 };
+  mockState.myImpactAiEnabled = true;
   mockState.nextStep = {
     primary: {
       id: 'all_is_well', category: 'health', category_label: 'الصحة العامة',
@@ -205,6 +211,18 @@ describe('«محلّي» — one page, and the number first', () => {
     expect(screen.getByText('20')).toBeTruthy();          // conversations tile
     expect(screen.getByText('150 ريال')).toBeTruthy();     // avg_invoice_value_minor 15000 halalas
     expect(screen.getByText('60%')).toBeTruthy();          // upsell_acceptance_rate 0.6
+  });
+
+  it('AI_ASSISTANT_ENABLED off hides the conversations tile entirely but keeps the rest', async () => {
+    mockState.entitlements = ['feature.insights.engine', 'feature.whatsapp'];
+    mockState.myImpactAiEnabled = false;
+    render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
+    await waitFor(() => expect(screen.getByText(/أثر الذكاء الاصطناعي/)).toBeTruthy());
+    // Absent entirely — not a greyed-out zero, not shown-then-hidden.
+    expect(screen.queryByText('20')).toBeNull();
+    // Every OTHER field — booking/upsell-ledger sourced, never gated — still renders as before.
+    expect(screen.getByText('150 ريال')).toBeTruthy();
+    expect(screen.getByText('60%')).toBeTruthy();
   });
 
   it('an un-subscribed shop gets no AI-impact card at all — no card with nothing real to show', async () => {

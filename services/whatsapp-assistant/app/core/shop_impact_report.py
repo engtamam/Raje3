@@ -34,20 +34,34 @@ _ALL_BRANCHES = "_all"   # same sentinel every sibling report module uses
 @dataclass(frozen=True)
 class ShopImpactReport:
     days: int
-    conversations: int                      # distinct customers the AI talked to in the window
-    ai_bookings: int                        # non-cancelled bookings the AI made in the window
+    ai_enabled: bool                        # AI_ASSISTANT_ENABLED at read time — same signal
+                                             # `/assistant/pricing/current` already returns, echoed
+                                             # here inline so a screen showing this report never
+                                             # needs a second call just to know whether to render
+                                             # the `conversations` tile. See report()'s own note.
+    conversations: int | None               # distinct customers the AI talked to in the window —
+                                             # COST_LEDGER-sourced (pricing_report.py); None, not
+                                             # stale/zero, whenever `ai_enabled` is False
+    ai_bookings: int                        # non-cancelled bookings the AI made in the window —
+                                             # sourced from the booking ledger (tools.py's own
+                                             # `T.execute_confirmed_proposal`), NOT COST_LEDGER, so
+                                             # this keeps working after a Meta-handover regardless
+                                             # of the AI switch — never gated
     conversion_rate: float | None           # ai_bookings / conversations — None, never 0, if no
-                                             # conversations happened yet (nothing to divide by)
+                                             # conversations happened yet (nothing to divide by),
+                                             # AND None whenever `conversations` itself is None
+                                             # (mixes a COST_LEDGER number into its own denominator)
     avg_invoice_value_minor: int | None     # invoice_report's own honest average — None if no
-                                             # priced, attended AI booking exists yet
+                                             # priced, attended AI booking exists yet — never gated
     upsell_offered: int
     upsell_accepted: int
-    upsell_acceptance_rate: float | None
+    upsell_acceptance_rate: float | None    # upsell-ledger sourced, same as ai_bookings — never
+                                             # gated
     truncated: bool
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "days": self.days, "conversations": self.conversations,
+            "days": self.days, "ai_enabled": self.ai_enabled, "conversations": self.conversations,
             "ai_bookings": self.ai_bookings, "conversion_rate": self.conversion_rate,
             "avg_invoice_value_minor": self.avg_invoice_value_minor,
             "upsell_offered": self.upsell_offered, "upsell_accepted": self.upsell_accepted,
@@ -56,28 +70,38 @@ class ShopImpactReport:
 
 
 async def report(*, datastore: Any, actor_report: Any, service_catalog: Any, package_catalog: Any,
-                 tenant: str, created_by: str, days: int, now: int) -> ShopImpactReport:
+                 tenant: str, created_by: str, days: int, now: int,
+                 ai_enabled: bool = True) -> ShopImpactReport:
     """`tenant` is REQUIRED (no default) — deliberately, unlike the three modules this composes,
     each of which defaults to the platform-wide aggregate. There is no legitimate caller of this
     specific function that wants every shop combined; that caller belongs on the admin panel's own
-    routes instead, calling the underlying modules directly with `tenant=None`."""
+    routes instead, calling the underlying modules directly with `tenant=None`.
+
+    `ai_enabled` (config.py::AI_ASSISTANT_ENABLED, the platform kill switch) is passed straight
+    through to `pricing_report.report()`, which is the ONLY one of the three modules composed here
+    that reads COST_LEDGER — `ai_bookings`/`avg_invoice_value_minor`/`upsell_*` all come from the
+    booking/upsell ledgers instead (Meta's own Connector calls hit the same write path those read),
+    so they are computed unconditionally, switch or no switch. Only `conversations` (and anything
+    dividing BY it, i.e. `conversion_rate`) is skipped when the switch is off."""
     if not tenant:
         raise ValueError("shop_impact_report.report() requires a real tenant — never platform-wide")
 
-    usage = await _pricing.report(datastore, days=days, now=now, tenant=tenant)
+    usage = await _pricing.report(datastore, days=days, now=now, tenant=tenant,
+                                  ai_enabled=ai_enabled)
     upsell = await _upsell.report(datastore, days=days, now=now, tenant=tenant)
     invoices = await _invoice.report(actor_report, service_catalog, package_catalog,
                                      tenant=tenant, created_by=created_by, days=days, now=now)
 
     inv_all = invoices.current.get(_ALL_BRANCHES)
     ai_bookings = sum(inv_all.status_breakdown.values()) if inv_all else 0
-    conversion_rate = round(ai_bookings / usage.conversations, 4) if usage.conversations else None
+    conversion_rate = (round(ai_bookings / usage.conversations, 4)
+                       if usage.conversations else None)
 
     up_all = upsell.current.get(_ALL_BRANCHES)
 
     return ShopImpactReport(
-        days=days, conversations=usage.conversations, ai_bookings=ai_bookings,
-        conversion_rate=conversion_rate,
+        days=days, ai_enabled=ai_enabled, conversations=usage.conversations,
+        ai_bookings=ai_bookings, conversion_rate=conversion_rate,
         avg_invoice_value_minor=inv_all.avg_invoice_value_minor if inv_all else None,
         upsell_offered=up_all.offered if up_all else 0,
         upsell_accepted=up_all.accepted if up_all else 0,
