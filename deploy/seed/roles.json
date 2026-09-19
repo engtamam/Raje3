@@ -170,13 +170,11 @@
         "operations.mobile_requests_manage",
         "operations.mobile_requests_execute",
         "operations.grant_coupon",
-        "reminders.read",
         "analytics.read",
         "loyalty.read",
         "loyalty.redeem",
         "bookings.read",
         "bookings.write",
-        "insights.read",
         "compliance.self",
         "identity.self",
         "assistant.ask"
