@@ -311,3 +311,42 @@ def test_into_tenant_still_clones_a_single_tenant_archive():
     report = run(B.import_archive(dst, archive, unseal=unseal, into_tenant="acme-clone"))
     assert report["remapped"] == 3
     assert run(dst.get("widgets", "w_acme_1"))["tenant"] == "acme-clone"
+
+
+# ── the AAD upgrade path (2026-09-19) — an archive sealed before AAD binding must still restore ─
+def _legacy_export(st, tenant="", kek="backup-key", service="thing-service"):
+    """An archive shaped exactly like export()'s own output, but sealed the OLD way
+    (associated_data=None) — reproducing a real archive written before this file bound the AAD."""
+    import json as _json
+    seal, _ = B.make_sealer(kek)
+    body = _json.dumps({"service": service, "version": "1.0.0", "taken_at": "2026-07-22T00:00:00Z",
+                        "tenant": tenant, "collections": {
+                            "widgets": [run(st.get("widgets", f"w_{tenant or 'acme'}_{i}")) for i in range(3)],
+                            "catalog": [run(st.get("catalog", "c1"))],
+                        }}, separators=(",", ":"), sort_keys=True)
+    sealed = seal(body)   # no aad kwarg — the legacy, pre-AAD shape
+    return {
+        "format": B.ARCHIVE_FORMAT, "service": service, "taken_at": "2026-07-22T00:00:00Z",
+        "tenant": tenant, "row_counts": {"widgets": 3, "catalog": 1},
+        "sealed": sealed, "checksum": B._checksum(sealed),
+    }
+
+
+def test_a_legacy_no_aad_archive_still_restores_after_the_upgrade():
+    """The exact incident this exists to prevent, at the archive layer: an archive sealed before
+    AAD binding shipped must still restore with no migration needed."""
+    src = _seed(MemoryDataStore())
+    archive = _legacy_export(src)
+    _, unseal = B.make_sealer("backup-key")
+    dst = MemoryDataStore()
+    report = run(B.import_archive(dst, archive, unseal=unseal))
+    assert report["inserted"] == 4
+    assert run(dst.get("catalog", "c1"))["name"] == "Basic"
+
+
+def test_a_legacy_archive_with_the_wrong_key_still_fails_loudly():
+    src = _seed(MemoryDataStore())
+    archive = _legacy_export(src, kek="the-old-key")
+    _, wrong = B.make_sealer("a-different-key")
+    with pytest.raises(B.BackupError, match="key does not match"):
+        run(B.import_archive(MemoryDataStore(), archive, unseal=wrong))

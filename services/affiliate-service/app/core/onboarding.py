@@ -286,7 +286,7 @@ class OnboardingService:
             # same protection every other credential on this platform already gets.
             await self._store.put(
                 _PENDING_SECRET, app_row.id,
-                {"id": app_row.id, "sealed": _seal_pending_password(self._kek, password)})
+                {"id": app_row.id, "sealed": _seal_pending_password(self._kek, password, app_row.id)})
             return {"application_id": app_row.id, "status": PENDING}
         finally:
             # RELEASED HERE, NOT LEFT TO THE TTL — same reasoning `request_withdrawal`'s own
@@ -485,7 +485,7 @@ class OnboardingService:
         approval finishes; there is nobody else who needs to do anything."""
         secret = await self._store.get(_PENDING_SECRET, app_row.id)
         sealed = str((secret or {}).get("sealed") or "")
-        password = _open_pending_password(self._kek, sealed) if sealed and self._kek else ""
+        password = _open_pending_password(self._kek, sealed, app_row.id) if sealed and self._kek else ""
         if not password:
             # THE SECRET ROW IS GONE OR WAS NEVER WRITTEN. Minting a membership with no password
             # the applicant knows would hand him an account he cannot sign into — refused rather
@@ -687,23 +687,39 @@ _APPLY_LOCK_TTL_SECONDS = 20
 _PENDING_PASSWORD_SALT = b"affiliate-pending-password-v1"
 
 
-def _seal_pending_password(kek: str, password: str) -> str:
+def _seal_pending_password(kek: str, password: str, application_id: str) -> str:
     """AES-256-GCM, same primitive `secret_store.py` uses — `cryptography`'s AESGCM is a thin,
     constant-time C binding (OpenSSL), the right tool for one-shot authenticated encryption of a
-    single short string rather than anything hand-rolled."""
+    single short string rather than anything hand-rolled.
+
+    `application_id` BINDS the ciphertext to its own row (2026-09-19, safety:aesgcm-aad) — without
+    it a DB tamperer (no KEK) could copy one applicant's sealed password onto another applicant's
+    `_PENDING_SECRET` row and it would still decrypt, letting approval mint account A with
+    applicant B's chosen password. A relocated blob now fails the GCM tag.
+    """
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
     key = hashlib.scrypt(kek.encode("utf-8"), salt=_PENDING_PASSWORD_SALT, n=2**14, r=8, p=1, dklen=32)
     iv = os.urandom(12)
-    return base64.b64encode(iv + AESGCM(key).encrypt(iv, password.encode("utf-8"), None)).decode("ascii")
+    aad = f"{_PENDING_SECRET}|{application_id}".encode("utf-8")
+    return base64.b64encode(iv + AESGCM(key).encrypt(iv, password.encode("utf-8"), aad)).decode("ascii")
 
 
-def _open_pending_password(kek: str, sealed: str) -> str:
+def _open_pending_password(kek: str, sealed: str, application_id: str) -> str:
+    from cryptography.exceptions import InvalidTag
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
     key = hashlib.scrypt(kek.encode("utf-8"), salt=_PENDING_PASSWORD_SALT, n=2**14, r=8, p=1, dklen=32)
     blob = base64.b64decode(sealed)
-    return AESGCM(key).decrypt(blob[:12], blob[12:], None).decode("utf-8")
+    aad = f"{_PENDING_SECRET}|{application_id}".encode("utf-8")
+    try:
+        return AESGCM(key).decrypt(blob[:12], blob[12:], aad).decode("utf-8")
+    except InvalidTag:
+        # Legacy row sealed before AAD binding (associated_data=None): decrypt in the old no-AAD
+        # format so an upgrade never strands an application already mid-approval. A genuinely
+        # tampered/relocated blob fails this too and propagates as InvalidTag to the caller, same
+        # as before this fix existed.
+        return AESGCM(key).decrypt(blob[:12], blob[12:], None).decode("utf-8")  # aad: ok — legacy pre-AAD blob; primary decrypt above binds the AAD
 
 
 def _member_error(status: int, body: dict) -> str:
