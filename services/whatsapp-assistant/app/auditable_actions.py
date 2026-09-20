@@ -237,6 +237,30 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "would take effect, not just that it eventually did",
     },
     {
+        "action": "whatsapp_assistant.meta_agent_provisioned",
+        "source": "internal",
+        "critical": True,
+        "resource": "meta_agent",
+        "why": "the full Meta Business Agent onboarding sequence (core/meta_agent_provisioning.py) "
+               "ran to completion for a shop's freshly-connected WhatsApp number — real Graph API "
+               "state now exists on Meta's own side (an agent, a Connector, registered tools) "
+               "under this shop's identity. Critical: this is the one record that can later prove "
+               "the automated setup actually happened and succeeded, rather than a shop silently "
+               "never getting an active agent with nothing to show why",
+    },
+    {
+        "action": "whatsapp_assistant.meta_agent_provision_failed",
+        "source": "internal",
+        "critical": False,
+        "resource": "meta_agent",
+        "why": "the onboarding sequence stopped at a named step (ineligible number, a Graph call "
+               "failing, provisioning disabled) — fire-and-forget by design (never fails the "
+               "connect response itself, see connect.py's own comment), so this is the ONLY place "
+               "an operator can later see which step failed and why, to retry it. Not critical: "
+               "the safe outcome (nothing half-configured was left enabled) already holds; losing "
+               "this record on an audit-sink outage costs visibility, never safety",
+    },
+    {
         "action": "operator.pricing_schedule_cancelled",
         "source": "admin",
         "critical": False,

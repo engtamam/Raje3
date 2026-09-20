@@ -3,6 +3,7 @@
 app/core/meta_agent_provisioning.py for the 7-step sequence this route runs."""
 from __future__ import annotations
 
+from app.config import get_settings
 from tests.conftest import INTERNAL_TOKEN
 
 TENANT = "meta_provision_shop"
@@ -43,12 +44,14 @@ def test_flag_off_reports_disabled_and_never_calls_meta(client, monkeypatch):
     """META_AGENT_PROVISIONING_ENABLED off -- even WITH a credential configured, the route binds
     NullMetaAgentProvisioner (check_eligibility always False there), never a real network call."""
     monkeypatch.setenv("META_AGENT_PROVISIONING_ENABLED", "false")
+    get_settings.cache_clear()
     saved = _swap_secret_store(client, token="fake-bearer-token")
     try:
         r = client.post("/internal/whatsapp/meta-agent/provision",
                         json={"tenant": TENANT, "entity_id": ENTITY_ID}, headers=_headers())
     finally:
         _restore_secret_store(client, saved)
+        get_settings.cache_clear()
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is False
@@ -61,12 +64,14 @@ def test_flag_on_but_no_credential_fails_at_the_first_step(client, monkeypatch):
     META_WA_PHONE_NUMBER_ID secret configured -- provision_number's own first check refuses
     cleanly, never a crash, and never a real network call (no token to authenticate with)."""
     monkeypatch.setenv("META_AGENT_PROVISIONING_ENABLED", "true")
+    get_settings.cache_clear()
     saved = _swap_secret_store(client)
     try:
         r = client.post("/internal/whatsapp/meta-agent/provision",
                         json={"tenant": TENANT, "entity_id": ENTITY_ID}, headers=_headers())
     finally:
         _restore_secret_store(client, saved)
+        get_settings.cache_clear()
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is False

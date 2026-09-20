@@ -613,7 +613,8 @@ async def provision_meta_agent(request: Request, body: ProvisionMetaAgentIn) -> 
         provisioner_factory=_provisioner_factory,
         shop_identity=container.shop_identity)
     await request.app.state.auditor.record(
-        "whatsapp.meta_agent_provisioned" if result.ok else "whatsapp.meta_agent_provision_failed",
+        "whatsapp_assistant.meta_agent_provisioned" if result.ok
+        else "whatsapp_assistant.meta_agent_provision_failed",
         actor="system", tenant=body.tenant, resource=f"phone:{body.entity_id}", ip="",
         metadata={"failed_step": result.failed_step, "agent_id": result.agent_id})
     return {
