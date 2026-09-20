@@ -274,6 +274,17 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         # knowledge_export.py already uses, fresh from this exact Embedded Signup exchange — see
         # meta_agent_provisioning.py's own docstring for why that matters (no other place in the
         # code derives a tenant's phone_number_id after the fact).
+        #
+        # ALREADY SCOPED TO `feature.whatsapp` — NOT A SEPARATE CHECK NEEDED HERE. Verified live
+        # (2026-09-20, the owner's own question "shouldn't this depend on the AI assistant app?"):
+        # this whole route is gated `Depends(subscribed_write_or_whatsapp)` (top of this file),
+        # which itself requires `whatsapp_licence` — a single, non-OR check, unlike the generic
+        # `subscribed_write`. So the handler body can never run at all for a tenant that does not
+        # hold `feature.whatsapp`; adding a second read of the same licence here would just repeat
+        # a question the route dependency already answered for this exact request, never catch a
+        # real gap. Proven by test: `test_connecting_without_the_ai_assistant_app_never_schedules_
+        # the_trigger` (tests/integration/test_connect_triggers_meta_agent_provisioning.py) shows
+        # the whole route refuses with 402 before this line is ever reached.
         background.add_task(c.meta_agent_provision_trigger.trigger,
                             tenant=tenant, entity_id=body.phone_number_id)
     # THE SENTENCE AT THE END OF THE JOURNEY, and the one that used to promise sending. See

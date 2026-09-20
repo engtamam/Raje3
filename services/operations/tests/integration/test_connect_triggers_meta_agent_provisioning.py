@@ -74,6 +74,49 @@ def test_meta_agent_trigger_is_scheduled_with_the_real_entity_id(client, monkeyp
     assert calls[0]["entity_id"] == "pn_meta_agent_123"
 
 
+class _FakeWhatsappLicence:
+    def __init__(self, allowed: bool | None) -> None:
+        self._allowed = allowed
+
+    async def allowed(self, tenant: str) -> bool | None:
+        return self._allowed
+
+
+def test_connecting_without_the_ai_assistant_app_never_schedules_the_trigger(client, monkeypatch):
+    """The owner's own question, verified directly (2026-09-20): "shouldn't Meta provisioning
+    depend on the shop actually holding بوت خدمة العملاء الذكي (feature.whatsapp), not just on
+    connecting a number?" It already does — `/whatsapp/connect` itself is gated
+    `Depends(subscribed_write_or_whatsapp)`, which requires `whatsapp_licence` alone (not the
+    generic any-app OR). A tenant without it never reaches the connect handler at all, so the
+    Meta trigger can never fire for one either — the whole route refuses with 402 first. This is
+    what proves that finding, rather than adding a second, unreachable check inside the handler
+    that would only repeat a question the route dependency already answered for the same
+    request."""
+    calls: list[dict] = []
+
+    async def _fake_trigger(*, tenant, entity_id):
+        calls.append({"tenant": tenant, "entity_id": entity_id})
+        return True
+
+    import app.core.connect as connect_module
+
+    monkeypatch.setattr(connect_module, "build_exchange", lambda settings: _FakeExchange())
+    c = client.app.state.container
+    saved_trigger, saved_licence = c.meta_agent_provision_trigger.trigger, c.whatsapp_licence
+    c.meta_agent_provision_trigger.trigger = _fake_trigger
+    c.whatsapp_licence = _FakeWhatsappLicence(False)
+    try:
+        r = client.post("/api/v1/whatsapp/connect", json={
+            "event": "FINISH", "code": "a-code", "waba_id": "waba_no_ai",
+            "phone_number_id": "pn_no_ai_123", "business_id": "biz_no_ai",
+        }, headers=_headers(tenant="tnt_meta_trigger_no_ai"))
+    finally:
+        c.meta_agent_provision_trigger.trigger = saved_trigger
+        c.whatsapp_licence = saved_licence
+    assert r.status_code == 402, r.text
+    assert calls == []
+
+
 def test_a_finish_with_no_phone_number_never_schedules_the_trigger(client, monkeypatch):
     """No number, no connection recorded as connected -- see connect.py's own STATE_FINISHED_
     UNCONFIRMED branch. Provisioning a Meta agent for a number we never actually connected would
