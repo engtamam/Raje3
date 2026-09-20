@@ -15,14 +15,11 @@
  *    `AppDetailsModal.tsx`'s own extracted `RenewalControl` (the SAME confirm-step/cascade-warning
  *    component, not a second hand-copied one) — this pane never re-implements cancel/undo-cancel.
  *
- * WHAT THIS DELIBERATELY DOES NOT SHOW YET: a combined "your next renewal totals X" figure.
- * `Subscription.price_snapshot`/the plan's list price is NOT what a shop with an active coupon or
- * cross-app discount rule is actually charged — that computation exists only inside the real
- * invoice-cutting path today, with no side-effect-free preview endpoint to read it from. Showing
- * a total built from list prices alone would be a wrong number dressed as a real one; per-app
- * price is not shown here for the same reason. Flagged to base-services (2026-09-20) for a real
- * `GET .../subscriptions/renewal-preview` endpoint — wire the total in once that lands, never
- * before.
+ * 3. THE NEXT RENEWAL, TOTALLED FOR REAL — `billing.renewal_preview` (base-services v0.25.20)
+ *    reuses the exact same `_compute_renewal` the real invoice cut calls, so the total shown here
+ *    already has any coupon/cross-app discount applied — never a list-price guess. Grouped by
+ *    (gateway, currency) exactly as a consolidated invoice would cut, so two currencies are never
+ *    summed into one wrong number.
  */
 import { useEffect, useState } from 'react';
 import { Button } from '../rj-ui/Button';
@@ -35,6 +32,7 @@ import type { Subscription } from '../billingShared';
 import { useAppBilling } from '../launcher/useAppBilling';
 import { RenewalControl } from '../launcher/AppDetailsModal';
 import { CardForm } from './CardForm';
+import { riyalsLabel } from '../money';
 import type { Session } from '../session';
 import { useOperatorI18n } from '../operator-i18n';
 import './billing-status-i18n';
@@ -46,11 +44,33 @@ interface OpenInvoice {
   currency?: string;
 }
 
+interface RenewalPreviewLine {
+  subscription_id: string;
+  plan_name?: string;
+  interval?: string;
+  subtotal_minor: number;
+  discount_minor: number;
+  tax_minor: number;
+  total_minor: number;
+}
+
+interface RenewalPreviewGroup {
+  gateway: string;
+  currency: string;
+  next_charge_at: number | null;
+  lines: RenewalPreviewLine[];
+  subtotal_minor: number;
+  discount_minor: number;
+  tax_minor: number;
+  total_minor: number;
+}
+
 export function BillingStatusPane({ session, catalog }: { session: Session; catalog: Catalog }) {
   const { t } = useOperatorI18n();
   const billing = useAppBilling(session, catalog);
 
   const [subs, setSubs] = useState<Subscription[] | null | undefined>(undefined);
+  const [renewalPreview, setRenewalPreview] = useState<RenewalPreviewGroup[] | null>(null);
   const [openInvoice, setOpenInvoice] = useState<OpenInvoice | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -69,6 +89,17 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
       .catch(() => setSubs(null));
   };
   useEffect(load, [session, catalog]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // THE NEXT RENEWAL'S REAL TOTAL — read-only, never touches money; absent (no action, or a
+  // service down) simply means the section does not render, same posture as the rest of this pane.
+  useEffect(() => {
+    const a = action(catalog, 'billing.renewal_preview');
+    if (!a) { setRenewalPreview(null); return; }
+    call<{ groups: RenewalPreviewGroup[] }>(session, a)
+      .then((x) => setRenewalPreview(x.groups ?? []))
+      .catch(() => setRenewalPreview(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, catalog]);
 
   const pastDueSub = (subs ?? []).find((s) => s.status === 'past_due');
 
@@ -212,6 +243,40 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
       ) : subs === undefined ? null : (
         <p className="text-sm text-text-secondary">{t('billingStatus.allGood')}</p>
       )}
+
+      {renewalPreview && renewalPreview.length > 0 ? (
+        <div className="flex flex-col gap-3">
+          <h3 className="text-sm font-bold text-text-primary">{t('billingStatus.renewalPreview.title')}</h3>
+          {renewalPreview.map((g) => (
+            <Card key={`${g.gateway}-${g.currency}`} className="flex flex-col gap-2 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-text-secondary">
+                  {g.next_charge_at
+                    ? t('billingStatus.renewalPreview.nextChargeOn').replace(
+                        '{date}', billing.renewalDay(g.next_charge_at))
+                    : t('billingStatus.renewalPreview.noDate')}
+                </span>
+                <span className="text-sm font-bold text-text-primary">{riyalsLabel(g.total_minor, t)}</span>
+              </div>
+              <ul className="flex flex-col gap-1">
+                {g.lines.map((line) => (
+                  <li key={line.subscription_id}
+                      className="flex items-center justify-between gap-2 text-xs text-text-secondary">
+                    <span>{line.plan_name}</span>
+                    <span>{riyalsLabel(line.total_minor, t)}</span>
+                  </li>
+                ))}
+              </ul>
+              {g.discount_minor > 0 ? (
+                <p className="text-xs text-success">
+                  {t('billingStatus.renewalPreview.discountApplied').replace(
+                    '{amount}', riyalsLabel(g.discount_minor, t))}
+                </p>
+              ) : null}
+            </Card>
+          ))}
+        </div>
+      ) : null}
 
       {rows.length > 0 ? (
         <div className="flex flex-col gap-3">
