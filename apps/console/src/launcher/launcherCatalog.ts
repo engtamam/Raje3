@@ -156,7 +156,7 @@ export function myApps(catalog: Catalog, owned: Loading<Owned>): LauncherApp[] {
   return [...bought, ...byOwnership];
 }
 
-/** «كل التطبيقات (المتجر)» — the FULL catalog, whether or not this role may open it yet; the same
+/** «متجر التطبيقات» — the FULL catalog, whether or not this role may open it yet; the same
  *  data StoreRoute/PlanCards already sell from. A row with neither `section` NOR `openPath` (only
  *  الأساس, dead code) has nowhere to navigate at all and is skipped — صفقات/المساعد الذكي, whose
  *  own config lives inside an EXISTING screen rather than a rail row of its own, still get a real
