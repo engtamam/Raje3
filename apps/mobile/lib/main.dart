@@ -51,6 +51,7 @@ class Raje3App extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        Provider<LocalStorage>.value(value: localStorage),
         ChangeNotifierProvider(
           create: (_) => AuthProvider(
             apiClient: apiClient,

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:raje3_mobile/core/ai/ai_config.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/router/route_names.dart';
+import 'package:raje3_mobile/core/storage/local_storage.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/floating_mic_button.dart';
 
 /// THE FIXED BOTTOM BAR — 4 anchors that never change, plus one customizable slot. Replaces an
 /// earlier pass's catalogue-driven bar (up to 4 pinned sections + a "More" overflow tab) after
@@ -54,9 +57,22 @@ class MainShell extends StatelessWidget {
     }
     if (selectedIndex < 0) selectedIndex = 0;
 
+    // ONLY SHOWN WHEN AN AI DRIVER IS ACTUALLY BUILT IN — the same fail-closed check
+    // buildAiModel() itself uses, not a separate guessed entitlement. See
+    // FloatingMicButton's own doc comment on why this is the caller's job, not the
+    // widget's.
+    const showMicButton = AiConfig.modelDriver != 'null';
+
     return Scaffold(
       backgroundColor: surface0,
-      body: child,
+      body: showMicButton
+          ? Stack(
+              children: [
+                child,
+                FloatingMicButton(localStorage: context.read<LocalStorage>()),
+              ],
+            )
+          : child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: (index) => context.go(destinations[index].path),

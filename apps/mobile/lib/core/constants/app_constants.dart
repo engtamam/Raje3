@@ -59,6 +59,11 @@ class AppConstants {
   /// NavProvider's own doc comment.
   static const String customNavSlotKey = 'custom_nav_slot';
 
+  /// The floating AI mic button's last dragged position (local storage) —
+  /// stored as fractions of the screen width/height (0.0–1.0) so it still
+  /// lands somewhere on-screen after a rotation or a different device.
+  static const String micButtonPositionKey = 'mic_button_position';
+
   // NOTE: the reference project also kept keys here for its own streak-card
   // display settings and BLE/WiFi device pairing — those are product
   // features (gamification, hardware scanners), not reusable storage

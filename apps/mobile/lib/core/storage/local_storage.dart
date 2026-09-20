@@ -1,3 +1,5 @@
+import 'dart:ui' show Offset;
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:raje3_mobile/core/constants/app_constants.dart';
 
@@ -159,6 +161,29 @@ class LocalStorage {
   /// Set the nav section id pinned to the bottom bar's customizable slot.
   Future<bool> setCustomNavSlot(String sectionId) {
     return setString(AppConstants.customNavSlotKey, sectionId);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FLOATING MIC BUTTON POSITION
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// The floating AI mic button's last dragged position, as (dx, dy)
+  /// fractions of the screen (0.0–1.0). Null when never dragged — the
+  /// widget picks its own default (left side) in that case.
+  Offset? getMicButtonPosition() {
+    final raw = getString(AppConstants.micButtonPositionKey);
+    if (raw == null) return null;
+    final parts = raw.split(',');
+    if (parts.length != 2) return null;
+    final dx = double.tryParse(parts[0]);
+    final dy = double.tryParse(parts[1]);
+    if (dx == null || dy == null) return null;
+    return Offset(dx, dy);
+  }
+
+  /// Persist the floating AI mic button's dragged position.
+  Future<bool> setMicButtonPosition(Offset fraction) {
+    return setString(AppConstants.micButtonPositionKey, '${fraction.dx},${fraction.dy}');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
