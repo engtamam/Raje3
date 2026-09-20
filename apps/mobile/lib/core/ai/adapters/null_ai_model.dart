@@ -18,10 +18,10 @@ class NullAiModel implements AiModel {
   Stream<int> get downloadProgress => const Stream.empty();
 
   @override
-  Future<void> ensureReady() async {}
+  Future<void> ensureReady({List<AiTool> tools = const []}) async {}
 
   @override
-  Stream<String> generate(String prompt, {String systemInstruction = ''}) {
+  Stream<AiEvent> generate(String prompt, {String systemInstruction = ''}) {
     // A CALLER BUG, NOT A RUNTIME CONDITION — every real screen checks `status` before calling
     // this (see AiModel's own doc comment); the null adapter's status is always `unavailable`,
     // so reaching here means that check was skipped.

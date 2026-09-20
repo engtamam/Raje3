@@ -15,6 +15,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:raje3_mobile/core/actions/action_registry.dart';
 import 'package:raje3_mobile/core/ai/ai_model.dart';
 import 'package:raje3_mobile/core/ai/assistant_service.dart';
 import 'package:raje3_mobile/core/knowledge/kb_service.dart';
@@ -29,7 +30,7 @@ import 'package:raje3_mobile/widgets/floating_mic_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeAiModel implements AiModel {
-  StreamController<String>? controller;
+  StreamController<AiEvent>? controller;
   int askCount = 0;
 
   @override
@@ -41,16 +42,16 @@ class _FakeAiModel implements AiModel {
   @override
   Stream<int> get downloadProgress => const Stream.empty();
   @override
-  Future<void> ensureReady() async {}
+  Future<void> ensureReady({List<AiTool> tools = const []}) async {}
   @override
-  Stream<String> generate(String prompt, {String systemInstruction = ''}) {
+  Stream<AiEvent> generate(String prompt, {String systemInstruction = ''}) {
     askCount++;
     // BROADCAST, DELIBERATELY — a single-subscription StreamController's cancel() resolves via
     // a real Timer internally, which tester.pump()/pump(duration) never drives (only
     // tester.runAsync() does, and that hangs here once a repeating Ticker is active — see
     // drainAsync's own comment). A broadcast controller's cancel() is synchronous instead,
     // which is what every test in this file that cancels mid-stream actually needs.
-    final c = StreamController<String>.broadcast();
+    final c = StreamController<AiEvent>.broadcast();
     controller = c;
     return c.stream;
   }
@@ -128,6 +129,7 @@ void main() {
   late _FakeSpeechInputModel speech;
   late LocalStorage localStorage;
   late NavProvider nav;
+  late ActionRegistry actionRegistry;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -137,10 +139,12 @@ void main() {
     localStorage = LocalStorage();
     await localStorage.init();
     nav = NavProvider(apiClient: ApiClient(secureStorage: SecureStorage()), localStorage: localStorage);
+    actionRegistry = ActionRegistry();
+    await actionRegistry.init();
   });
 
   Future<void> pumpButton(WidgetTester tester) async {
-    final assistant = AssistantService(aiModel: ai, kbService: KbService());
+    final assistant = AssistantService(aiModel: ai, kbService: KbService(), actionRegistry: actionRegistry);
     await tester.pumpWidget(
       MultiProvider(
         providers: [
@@ -240,8 +244,8 @@ void main() {
     expect(ai.askCount, 1); // now "thinking"
 
     ai.controller!
-      ..add('لا ')
-      ..add('أعرف');
+      ..add(AiTextToken('لا '))
+      ..add(AiTextToken('أعرف'));
     await ai.controller!.close();
     await tester.pump(); // onDone fires → "speaking" starts
 
@@ -270,7 +274,7 @@ void main() {
     // The model answers anyway, arriving AFTER the cancel — must be discarded, not spoken. The
     // subscription is already cancelled by now, so this add()/close() reaches no listener —
     // no further real-timer wait is needed, a plain pump() is enough to let the widget settle.
-    ai.controller!.add('جواب متأخر');
+    ai.controller!.add(AiTextToken('جواب متأخر'));
     await ai.controller!.close();
     await tester.pump();
 
@@ -285,7 +289,7 @@ void main() {
     await tester.pump();
     speech.emit('سؤال', isFinal: true);
     await tester.pump();
-    ai.controller!.add('رد');
+    ai.controller!.add(AiTextToken('رد'));
     await ai.controller!.close();
     await tester.pump(); // now speaking
 

@@ -47,7 +47,9 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
     _assistant.statusStream.listen((s) {
       if (mounted) setState(() => _status = s);
     });
-    if (_status != AiModelStatus.ready) _assistant.ensureReady();
+    if (_status != AiModelStatus.ready) {
+      _assistant.ensureReady(context.read<NavProvider>().catalog);
+    }
   }
 
   @override
@@ -86,9 +88,19 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
     });
 
     _assistant.ask(question, lang: lang, catalog: catalog).listen(
-      (token) {
+      (event) {
         if (!mounted) return;
-        setState(() => turn.answer += token);
+        switch (event) {
+          case AiTextToken(:final text):
+            setState(() => turn.answer += text);
+          case AiActionProposed():
+            // NOT EXECUTED HERE, DELIBERATELY. This chat sheet only recognizes that the model
+            // proposed an action — a real executor (checking AppAction.requiresConfirmation,
+            // validating the capability again, actually navigating) is a separate, later step;
+            // see AssistantService's own doc comment. Surfaced as plain text so a proposal is
+            // never silently swallowed while that executor doesn't exist yet.
+            setState(() => turn.answer += '\n[${event.name}]');
+        }
       },
       onDone: () {
         if (mounted) setState(() => _answering = false);

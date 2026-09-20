@@ -9,8 +9,9 @@ import 'package:raje3_mobile/core/ai/ai_model.dart';
 ///
 /// ONE ADAPTER, THE PLUGIN'S OWN LIFECYCLE UNDERNEATH. [_model]/[_chat] are `flutter_gemma`'s own
 /// [InferenceModel]/[InferenceChat] — this class exists to translate ITS shape into [AiModel]'s
-/// shape (a status enum instead of exceptions bubbling up, a token stream instead of the plugin's
-/// own [TextResponse]/[FunctionCallResponse] union), never to add product logic of its own.
+/// shape (a status enum instead of exceptions bubbling up, [AiEvent] instead of the plugin's own
+/// [TextResponse]/[FunctionCallResponse] union, [AiTool] instead of its own [Tool]), never to add
+/// product logic of its own.
 class GemmaAiModel implements AiModel {
   GemmaAiModel({required String modelUrl, String token = ''})
       : _modelUrl = modelUrl,
@@ -44,7 +45,7 @@ class GemmaAiModel implements AiModel {
   }
 
   @override
-  Future<void> ensureReady() async {
+  Future<void> ensureReady({List<AiTool> tools = const []}) async {
     if (_status == AiModelStatus.ready) return;
     try {
       _setStatus(AiModelStatus.downloading);
@@ -66,7 +67,11 @@ class GemmaAiModel implements AiModel {
         maxTokens: 2048,
         preferredBackend: PreferredBackend.gpu,
       );
-      final chat = await model.createChat(modelType: ModelType.gemma4);
+      // TOOLS ARE DECLARED HERE, ONCE — see AiModel.ensureReady's own doc comment on why the
+      // plugin has no per-message tool list. [_convertTools] is the only place this file ever
+      // touches flutter_gemma's own Tool type — [AiTool] stays the port's own shape everywhere
+      // else, per ai_model.dart's own doc comment on why.
+      final chat = await model.createChat(modelType: ModelType.gemma4, tools: _convertTools(tools));
       _model = model;
       _chat = chat;
       _setStatus(AiModelStatus.ready);
@@ -77,13 +82,16 @@ class GemmaAiModel implements AiModel {
     }
   }
 
+  List<Tool> _convertTools(List<AiTool> tools) =>
+      [for (final t in tools) Tool(name: t.name, description: t.description)];
+
   @override
-  Stream<String> generate(String prompt, {String systemInstruction = ''}) {
+  Stream<AiEvent> generate(String prompt, {String systemInstruction = ''}) {
     final chat = _chat;
     if (_status != AiModelStatus.ready || chat == null) {
       throw StateError('GemmaAiModel cannot generate — check AiModel.status before calling generate().');
     }
-    final controller = StreamController<String>();
+    final controller = StreamController<AiEvent>();
     // THE MODEL NEVER SEES A BARE PROMPT — flutter_gemma's own chat has no separate
     // "system message" call, so the grounding instruction (see AssistantService's own doc
     // comment) travels as a prefix on the first user turn. Silently dropping this parameter,
@@ -93,7 +101,23 @@ class GemmaAiModel implements AiModel {
       try {
         await chat.addQueryChunk(Message.text(text: query, isUser: true));
         await for (final response in chat.generateChatResponseAsync()) {
-          if (response is TextResponse) controller.add(response.token);
+          switch (response) {
+            case TextResponse():
+              controller.add(AiTextToken(response.token));
+            case FunctionCallResponse():
+              controller.add(AiActionProposed(response.name, response.args));
+            case ParallelFunctionCallResponse(:final calls):
+              // ONE PROPOSAL AT A TIME. A caller that acts on the first action a turn proposes
+              // and re-asks for the rest is simpler and safer than one that must reconcile
+              // several proposals from a single utterance — no action registered today needs
+              // more than one call per turn anyway.
+              for (final call in calls) {
+                controller.add(AiActionProposed(call.name, call.args));
+              }
+            default:
+              // Thinking/other response kinds carry nothing the caller needs — never surfaced.
+              break;
+          }
         }
       } catch (_) {
         // A GENERATION FAILURE ENDS THE STREAM, IT DOES NOT MOVE STATUS TO error — the model

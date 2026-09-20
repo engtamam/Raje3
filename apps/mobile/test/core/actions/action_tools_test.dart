@@ -1,4 +1,4 @@
-// The connector between our own registry and flutter_gemma's Tool shape — pure translation,
+// The connector between our own registry and AiModel's own AiTool shape — pure translation,
 // verified both as a standalone function and through ActionRegistry.toolsFor()'s own real asset.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raje3_mobile/core/actions/action_model.dart';

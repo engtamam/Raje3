@@ -38,13 +38,24 @@ abstract class AiModel {
   /// no-op once it already is ready. NEVER THROWS: a failure moves [status] to
   /// [AiModelStatus.error] instead, because a failed model load must silently degrade the
   /// assistant surface, not crash whatever screen happened to open it first.
-  Future<void> ensureReady();
+  ///
+  /// [tools] IS FIXED FOR THE WHOLE SESSION, NOT PER QUESTION. The underlying runtime declares
+  /// tools once, at session creation (flutter_gemma's own `createChat(tools:)`) — there is no
+  /// per-message tool list. A caller passes every action the session may EVER propose across its
+  /// whole lifetime here; a no-op call (status already ready) keeps whatever tools the first
+  /// real call passed, so a later capability change is picked up only on the next real
+  /// [ensureReady] (e.g. after sign-out/sign-in), never silently mid-session.
+  Future<void> ensureReady({List<AiTool> tools = const []});
 
-  /// Ask the model something, streaming its answer token by token. The caller must not call this
-  /// before [status] is [AiModelStatus.ready] — see [ensureReady]; an adapter is free to throw
-  /// [StateError] if it is called too early, since that is a caller bug, not a runtime condition
-  /// a user can hit through the UI this port is meant to protect.
-  Stream<String> generate(String prompt, {String systemInstruction = ''});
+  /// Ask the model something, streaming its response as it forms — either more of a spoken/
+  /// written answer ([AiTextToken]) or a proposed action ([AiActionProposed]) the model wants
+  /// considered. NEVER EXECUTES ANYTHING ITSELF: an [AiActionProposed] is exactly that, a
+  /// proposal — the caller validates and (maybe) carries it out, per AssistantService's own doc
+  /// comment. The caller must not call this before [status] is [AiModelStatus.ready] — see
+  /// [ensureReady]; an adapter is free to throw [StateError] if it is called too early, since
+  /// that is a caller bug, not a runtime condition a user can hit through the UI this port is
+  /// meant to protect.
+  Stream<AiEvent> generate(String prompt, {String systemInstruction = ''});
 
   /// Release the model's memory — called when the assistant surface is no longer reachable at
   /// all (e.g. the session signs out), never on ordinary navigation away and back.
@@ -73,4 +84,33 @@ enum AiModelStatus {
   /// [ensureReady] failed — a corrupt download, an unsupported device, a runtime crash. The
   /// assistant surface shows this as "not available right now", never a stack trace.
   error,
+}
+
+/// One action the model may propose calling — the PORT's OWN shape, never a concrete adapter's
+/// tool type (e.g. flutter_gemma's own `Tool`) leaking past this file. [ActionRegistry] (via
+/// `actionTools()`) is the only real producer of these today; a different adapter tomorrow maps
+/// this same shape to whatever ITS runtime expects, without [ActionRegistry] ever knowing or
+/// caring which adapter is loaded.
+class AiTool {
+  final String name;
+  final String description;
+  const AiTool({required this.name, required this.description});
+}
+
+/// One piece of [AiModel.generate]'s response — never both at once for the same turn.
+sealed class AiEvent {}
+
+/// One more token of the model's own spoken/written answer.
+class AiTextToken extends AiEvent {
+  final String text;
+  AiTextToken(this.text);
+}
+
+/// The model proposes calling the tool named [name] with [args] — a PROPOSAL only. Nothing
+/// executes because of this event existing; the caller decides, per AssistantService's own doc
+/// comment on why execution is never the model's job.
+class AiActionProposed extends AiEvent {
+  final String name;
+  final Map<String, dynamic> args;
+  AiActionProposed(this.name, this.args);
 }

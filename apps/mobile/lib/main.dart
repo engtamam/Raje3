@@ -39,7 +39,11 @@ Future<void> main() async {
   final actionRegistry = ActionRegistry();
   await actionRegistry.init();
 
-  final assistantService = AssistantService(aiModel: buildAiModel(), kbService: kbService);
+  final assistantService = AssistantService(
+    aiModel: buildAiModel(),
+    kbService: kbService,
+    actionRegistry: actionRegistry,
+  );
   final ttsModel = buildTtsModel();
   final speechInputModel = buildSpeechInputModel();
 

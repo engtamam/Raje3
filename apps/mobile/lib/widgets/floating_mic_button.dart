@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:raje3_mobile/core/ai/ai_model.dart';
 import 'package:raje3_mobile/core/ai/assistant_service.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/storage/local_storage.dart';
@@ -47,7 +48,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton> with SingleTicker
 
   Offset? _fraction;
   _VoiceState _state = _VoiceState.idle;
-  StreamSubscription<String>? _answerSubscription;
+  StreamSubscription<AiEvent>? _answerSubscription;
   // GUARDS AGAINST A DOUBLE-TAP RACE: _startOrFallBack awaits isAvailable() before _state
   // leaves idle, so a second tap landing inside that window would otherwise start listening
   // twice concurrently. Reset in the same method's finally block, never left stuck true.
@@ -118,6 +119,11 @@ class _FloatingMicButtonState extends State<FloatingMicButton> with SingleTicker
         AssistantChatSheet.show(context);
         return;
       }
+      // BEST-EFFORT WARM-UP, NOT AWAITED — a real model load can take a while; firing it here
+      // lets it happen while the operator is still talking, instead of only starting once
+      // _handleRecognized needs it. _handleRecognized itself still checks status before asking,
+      // so a still-loading model degrades to idle rather than crashing on a not-ready ask().
+      unawaited(_assistant.ensureReady(context.read<NavProvider>().catalog));
       final lang = Localizations.localeOf(context).languageCode;
       setState(() => _state = _VoiceState.listening);
       await _speech.startListening(
@@ -138,11 +144,27 @@ class _FloatingMicButtonState extends State<FloatingMicButton> with SingleTicker
       setState(() => _state = _VoiceState.idle);
       return;
     }
+    if (_assistant.status != AiModelStatus.ready) {
+      // The warm-up fired in _startOrFallBack hasn't finished yet — degrade to idle rather
+      // than crash on AiModel.generate()'s own "caller must check status first" contract.
+      setState(() => _state = _VoiceState.idle);
+      return;
+    }
     setState(() => _state = _VoiceState.thinking);
     final catalog = context.read<NavProvider>().catalog;
     final buffer = StringBuffer();
     _answerSubscription = _assistant.ask(question, lang: lang, catalog: catalog).listen(
-      (token) => buffer.write(token),
+      (event) {
+        switch (event) {
+          case AiTextToken(:final text):
+            buffer.write(text);
+          case AiActionProposed():
+            // NOT EXECUTED HERE, DELIBERATELY — same as AssistantChatSheet's own handling; a
+            // real executor is a separate, later step. Spoken as plain text so a proposal is
+            // never silently swallowed while that executor doesn't exist yet.
+            buffer.write(' ${event.name}');
+        }
+      },
       onDone: () => _speakAnswer(buffer.toString(), lang),
     );
   }
