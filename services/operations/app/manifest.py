@@ -363,6 +363,7 @@ def build_manifest(
             # DECLARED ACTIONS: a route with no action behind it is a route nothing checks. The
             # subscribe path had been live and unlisted since it was written.
             {"path": "/api/v1/subscription", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/subscription/renew-now", "tier": "user", "method": "POST"},
             {"path": "/api/v1/subscription/payment", "tier": "user", "method": "GET"},
             {"path": "/api/v1/subscription/apps", "tier": "user", "method": "GET"},
             {"path": "/api/v1/subscription/apps/static-features", "tier": "user", "method": "GET"},

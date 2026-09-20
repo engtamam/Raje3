@@ -36,6 +36,10 @@ router = APIRouter(prefix="/subscription", tags=["subscription"])
 _OWNER = require_capability("billing.self")
 
 
+class RenewNowIn(BaseModel):
+    sub_id: str = Field(min_length=1, max_length=64)
+
+
 class SubscribeIn(BaseModel):
     plan_id: str = Field(min_length=1, max_length=64)
     # `once` for a one-time purchase, `month` otherwise. Passed through rather than inferred: the
@@ -140,6 +144,40 @@ async def apps_static_features(principal=Depends(require_user)) -> dict:
         "contacts": list(app_catalogue.CONTACTS_FEATURES),
         "rating": list(app_catalogue.RATING_FEATURES),
     }
+
+
+@router.post("/renew-now", dependencies=[Depends(rate_limit)])
+async def renew_now(request: Request, body: RenewNowIn, principal=Depends(_OWNER)) -> JSONResponse:
+    """Force ONE of this shop's OWN subscriptions to renew right now, ahead of its automatic
+    date, and hand back a real pay-link for the invoice it just created.
+
+    THE SAME REAL MECHANISM THE WHATSAPP RENEWAL FLOW ALREADY USES — `adapters/
+    renewal_provider.py::RenewalProvider.renew_now` (built for that Flow's own "جدد الآن"
+    heads-up button, `services/whatsapp-assistant`'s `upcoming_renewal_trigger.py`), reused
+    unchanged here rather than a second copy: the console had no path to it at all before this
+    route, even though the mechanism, the ownership check, and the pay-link creation were all
+    already real and tested. Exists because TuwaiqPay (the live gateway) has no card-on-file/
+    recurring-charge support — a shop on it needs a real way to trigger this cycle's charge
+    itself, not only wait for the daily sweep to reach its own scheduled date.
+
+    OWNERSHIP IS THE PROVIDER'S OWN JOB (see its own docstring) — this route adds nothing on
+    top, since `renew_now` already refuses a `sub_id` that is not one of `tenant`'s own,
+    checked BEFORE it ever forces a charge.
+    """
+    c = request.app.state.container
+    tenant = _tenant(principal)
+    if not tenant:
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"error": "NO_TENANT"})
+    out = await c.renewal_provider.renew_now(tenant=tenant, sub_id=body.sub_id)
+    await request.app.state.auditor.record(
+        "subscription.renewed_early" if out.get("ok") else "subscription.renew_now_refused",
+        actor=principal.subject, tenant=tenant, resource=f"subscription:{body.sub_id}",
+        ip=request.client.host if request.client else "",
+        metadata={} if out.get("ok") else {"reason": str(out.get("reason", ""))})
+    if not out.get("ok"):
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"error": "RENEW_FAILED",
+                            "message": out.get("reason", "تعذّر تجديد الاشتراك الآن.")})
+    return JSONResponse(status_code=status.HTTP_200_OK, content={"ok": True, "pay_url": out.get("ref", "")})
 
 
 @router.post("", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])

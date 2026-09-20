@@ -367,6 +367,18 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/subscription", "capability": "billing.self", "group": "حسابي",
         "help": "اختر باقتك وفعّلها. يشترط ربط واتساب قبل الاشتراك المدفوع، والتجربة معفاة.",
     },
+    {
+        # THE SAME REAL MECHANISM THE WHATSAPP RENEWAL FLOW ALREADY USES (adapters/
+        # renewal_provider.py::renew_now) — reused, never re-implemented — now reachable from
+        # the console too, not only from a WhatsApp button. Exists for TuwaiqPay (no card-on-
+        # file/recurring-charge support): a shop needs a real way to trigger a due cycle's
+        # charge itself, ahead of the daily sweep reaching its own scheduled date.
+        "id": "subscription.renew_now", "label": "تجديد مبكر", "method": "POST",
+        "path": "/api/v1/subscription/renew-now", "capability": "billing.self", "group": "حسابي",
+        "confirm": True,
+        "params": [{"name": "sub_id", "in": "body", "type": "string", "required": True}],
+        "help": "يجبر دورة فوترة هذا الاشتراك تصير الآن، ويرجّع رابط دفع حقيقي.",
+    },
     # ── the owner's own surface, moved here from admin_actions ─────────────────────────
     # api-gateway builds the establishment's app from THIS file and no other
     # (app_catalog.py, field="user_actions"). These sat in the platform console's catalogue,

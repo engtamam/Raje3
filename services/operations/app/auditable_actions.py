@@ -221,6 +221,29 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "this refusal is the only place the bad value is ever seen at all",
     },
     {
+        # `api/v1/subscription.py::renew_now` — the owner forcing a subscription's billing cycle
+        # early, via the same mechanism the WhatsApp renewal Flow already uses.
+        "action": "subscription.renewed_early",
+        "source": "admin",
+        "critical": True,
+        "resource": "plan",
+        "why": "a real charge fires the moment this runs (renewal_provider.py's own `run_cycle`) "
+               "ahead of the automatic date — same reasoning as `subscription.created`: an "
+               "unattributable early charge cannot be reconciled against an invoice, and 'why did "
+               "this renew today, not on its usual date' is the first question a billing dispute "
+               "over it would ask",
+    },
+    {
+        "action": "subscription.renew_now_refused",
+        "source": "admin",
+        "critical": False,
+        "resource": "plan",
+        "why": "same posture as `subscription.refused` above — the shop asked to renew early and "
+               "we declined (not their own subscription, already mid-cycle, billing unreachable); "
+               "without the record support is told 'I tried to renew and nothing happened' with "
+               "nothing to answer with",
+    },
+    {
         "action": "operator.created",
         "source": "admin",
         "critical": True,
