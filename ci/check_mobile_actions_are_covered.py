@@ -67,8 +67,10 @@ def main() -> int:
     failed = False
 
     for action_id, action in actions.items():
-        route = action.get("route", "")
-        if route not in routes:
+        # route is only required for scope "navigation" (enforced at parse time on the Dart
+        # side) — a "system"/"app" action legitimately has none, and has nothing to check here.
+        route = action.get("route")
+        if route is not None and route not in routes:
             failed = True
             print(f"✗ {action_id}: route '{route}' is not a route this app's router actually defines")
         kb_entry = action.get("kb_entry", "")

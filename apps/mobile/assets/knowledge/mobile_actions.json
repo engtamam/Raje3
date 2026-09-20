@@ -2,6 +2,7 @@
   "nav.visit": {
     "name": "open_visit_app",
     "description": "يفتح تطبيق تسجيل الزيارة، حيث يسجّل الموظف الخدمات اللي استلمها العميل.",
+    "scope": "navigation",
     "route": "visit",
     "kb_entry": "visit.register",
     "enabled": true,

@@ -18,6 +18,34 @@ class ActionError extends FormatException {
   ActionError(super.message);
 }
 
+/// The three tiers the owner's own structure asks for — every action belongs to exactly one:
+///
+///   [system]     — platform-level, outside any single "app" (تطبيق)'s own concept: حسابي
+///                  (account), الفوترة (billing), متجر التطبيقات (the app store) — shell
+///                  features every operator has regardless of which apps they've installed.
+///   [navigation] — opens a specific "app" (تطبيق) — this file's own `open_visit_app` is the
+///                  first of these. Always a real [AppAction.route].
+///   [app]        — acts INSIDE the app that is already open (pick a service, save a form) —
+///                  never navigates itself, so [AppAction.route] is usually absent; tied to a
+///                  KB entry scoped to that same app (e.g. `visit.register.services_grid`).
+enum ActionScope {
+  system,
+  navigation,
+  app;
+
+  static ActionScope parse(String id, dynamic raw) {
+    if (raw is! String) {
+      throw ActionError('$id: missing required field "scope" '
+          '("system" | "navigation" | "app", no default)');
+    }
+    for (final scope in ActionScope.values) {
+      if (scope.name == raw) return scope;
+    }
+    throw ActionError('$id: "scope" must be one of ${ActionScope.values.map((s) => s.name)}, '
+        'got "$raw"');
+  }
+}
+
 class AppAction {
   /// This registry's own key — also what `ci/check_mobile_actions_are_covered.py` reports by.
   final String id;
@@ -30,10 +58,15 @@ class AppAction {
   /// the model, not for a person — plain, unambiguous, one sentence.
   final String description;
 
+  /// Which tier this action belongs to — see [ActionScope] itself for what each means.
+  final ActionScope scope;
+
   /// The GoRouter route NAME this action navigates to (`context.goNamed(route)`), never a path —
   /// verified against the real router by the CI gate, so this can never point at a route that
-  /// was renamed or removed out from under it.
-  final String route;
+  /// was renamed or removed out from under it. REQUIRED when [scope] is [ActionScope.navigation]
+  /// (there is nothing to navigate to otherwise); absent for most [ActionScope.system]/[app]
+  /// actions, which act in place rather than opening a different app.
+  final String? route;
 
   /// The `mobile_kb.json` entry id this action is paired with — verified to actually exist by
   /// the same gate.
@@ -62,7 +95,8 @@ class AppAction {
     required this.id,
     required this.name,
     required this.description,
-    required this.route,
+    required this.scope,
+    this.route,
     required this.kbEntryId,
     required this.enabled,
     required this.requiresConfirmation,
@@ -78,9 +112,16 @@ class AppAction {
     if (description is! String || description.trim().isEmpty) {
       throw ActionError('$id: missing required field "description"');
     }
-    final route = json['route'];
-    if (route is! String || route.trim().isEmpty) {
-      throw ActionError('$id: missing required field "route"');
+    final scope = ActionScope.parse(id, json['scope']);
+
+    final routeRaw = json['route'];
+    if (routeRaw != null && (routeRaw is! String || routeRaw.trim().isEmpty)) {
+      throw ActionError('$id: "route" must be a non-empty string when present');
+    }
+    final route = routeRaw as String?;
+    if (scope == ActionScope.navigation && route == null) {
+      throw ActionError('$id: scope "navigation" requires a "route" — nothing to navigate to '
+          'otherwise');
     }
     final kbEntryId = json['kb_entry'];
     if (kbEntryId is! String || kbEntryId.trim().isEmpty) {
@@ -107,6 +148,7 @@ class AppAction {
       id: id,
       name: name,
       description: description,
+      scope: scope,
       route: route,
       kbEntryId: kbEntryId,
       enabled: enabled,
