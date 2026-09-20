@@ -56,6 +56,8 @@ const ALL_ACTIONS = [
   action('compliance.place_legal_hold', 'POST', '/api/v1/compliance/legal-holds'),
   action('compliance.release_legal_hold', 'POST', '/api/v1/compliance/legal-holds/{id}/release'),
   action('loyalty.platform_reconcile', 'POST', '/api/v1/loyalty/platform/reconcile'),
+  action('loyalty.platform_balance', 'GET', '/api/v1/loyalty/platform/balance'),
+  action('loyalty.platform_history', 'GET', '/api/v1/loyalty/platform/history'),
   action('operations.evidence_file', 'POST', '/api/v1/platform/evidence'),
 ];
 
@@ -266,7 +268,7 @@ describe('Consent history', () => {
     } : {});
     openPrivacyTab(FULL_CATALOG);
     fireEvent.change(screen.getAllByPlaceholderText('رقم جوال صاحب العلاقة')[0], { target: { value: '966500000000' } });
-    fireEvent.click(screen.getByText('ابحث'));
+    fireEvent.click(screen.getAllByText('ابحث')[0]);
     expect((await screen.findAllByText('تسويق')).length).toBeGreaterThan(0);
     expect(await firstMatch('ممنوحة')).toBeTruthy();
     const searchCall = calls.find((c) => c.path.includes('/consent/history'));
@@ -276,14 +278,14 @@ describe('Consent history', () => {
 
   it('the search button stays disabled with no subject typed', () => {
     openPrivacyTab(FULL_CATALOG);
-    expect((screen.getByText('ابحث') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getAllByText('ابحث')[0] as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('shows an empty-history message rather than nothing when the subject has none', async () => {
     responder = () => ({ consents: [], proofs: [] });
     openPrivacyTab(FULL_CATALOG);
     fireEvent.change(screen.getAllByPlaceholderText('رقم جوال صاحب العلاقة')[0], { target: { value: '966599999999' } });
-    fireEvent.click(screen.getByText('ابحث'));
+    fireEvent.click(screen.getAllByText('ابحث')[0]);
     expect(await firstMatch('لا موافقات مسجَّلة لهذا الرقم')).toBeTruthy();
   });
 
@@ -304,7 +306,7 @@ describe('Consent history', () => {
     };
     openPrivacyTab(FULL_CATALOG);
     fireEvent.change(screen.getAllByPlaceholderText('رقم جوال صاحب العلاقة')[0], { target: { value: '966500000000' } });
-    fireEvent.click(screen.getByText('ابحث'));
+    fireEvent.click(screen.getAllByText('ابحث')[0]);
     await screen.findByText('لا موافقات مسجَّلة لهذا الرقم');
     fireEvent.change(screen.getByPlaceholderText('الغرض (مثال: تسويق)'), { target: { value: 'دعم فني' } });
     fireEvent.click(screen.getByText('منح موافقة'));
@@ -319,7 +321,7 @@ describe('Consent history', () => {
     responder = () => ({ consents: [], proofs: [] });
     openPrivacyTab(FULL_CATALOG);
     fireEvent.change(screen.getAllByPlaceholderText('رقم جوال صاحب العلاقة')[0], { target: { value: '966500000000' } });
-    fireEvent.click(screen.getByText('ابحث'));
+    fireEvent.click(screen.getAllByText('ابحث')[0]);
     await screen.findByText('لا موافقات مسجَّلة لهذا الرقم');
     expect((screen.getByText('منح موافقة') as HTMLButtonElement).disabled).toBe(true);
   });
@@ -333,7 +335,7 @@ describe('Consent history', () => {
     };
     openPrivacyTab(FULL_CATALOG);
     fireEvent.change(screen.getAllByPlaceholderText('رقم جوال صاحب العلاقة')[0], { target: { value: '966500000000' } });
-    fireEvent.click(screen.getByText('ابحث'));
+    fireEvent.click(screen.getAllByText('ابحث')[0]);
     await firstMatch('تسويق');
     fireEvent.click(screen.getAllByText('سحب')[0]);
     // Withdraw is a destructive action too — must not fire before confirmation.
@@ -352,7 +354,7 @@ describe('Consent history', () => {
                         proofs: [] });
     openPrivacyTab(FULL_CATALOG);
     fireEvent.change(screen.getAllByPlaceholderText('رقم جوال صاحب العلاقة')[0], { target: { value: '966500000000' } });
-    fireEvent.click(screen.getByText('ابحث'));
+    fireEvent.click(screen.getAllByText('ابحث')[0]);
     await firstMatch('مسحوبة');
     expect(screen.queryByText('سحب')).toBeNull();
   });
@@ -422,7 +424,7 @@ describe('Legal holds', () => {
   });
 });
 
-describe('Loyalty reconcile', () => {
+describe('Loyalty (balance/history lookup + reconcile)', () => {
   it('is disabled until both subject_ref and reason are long enough', () => {
     openPrivacyTab(FULL_CATALOG);
     const btn = screen.getByText('أصلح الرصيد') as HTMLButtonElement;
@@ -432,8 +434,12 @@ describe('Loyalty reconcile', () => {
     expect(btn.disabled).toBe(true); // subject_ref < 8 chars, reason < 3 chars
   });
 
-  it('reconciles and shows the before/after balance after confirming', async () => {
-    responder = () => ({ before: 120, after: 95 });
+  it('reconciles and shows the real was/ledger/drift fields, not a guessed before/after shape', async () => {
+    // The REAL response shape (app/core/ledger.py::reconcile) — was/ledger/drift/repaired.
+    // An earlier pass here mocked {before, after}, a shape this route has never returned, and
+    // the assertions passed anyway because they only checked the mock, never the component's
+    // actual field access. Fixed to read the real fields end to end.
+    responder = () => ({ subject_ref: 'cust_00012345', was: 120, ledger: 95, drift: 25, repaired: true });
     openPrivacyTab(FULL_CATALOG);
     fireEvent.change(screen.getByPlaceholderText('مرجع العميل (subject_ref)'), { target: { value: 'cust_00012345' } });
     fireEvent.change(screen.getByPlaceholderText('سبب الإصلاح'), { target: { value: 'شكوى عميل' } });
@@ -447,6 +453,17 @@ describe('Loyalty reconcile', () => {
     });
     expect(await screen.findByText('120')).toBeTruthy();
     expect(await screen.findByText('95')).toBeTruthy();
+    expect(await screen.findByText('25')).toBeTruthy();
+  });
+
+  it('reports "no drift" distinctly when the balance was already correct', async () => {
+    responder = () => ({ subject_ref: 'cust_00012345', was: 50, ledger: 50, drift: 0, repaired: false });
+    openPrivacyTab(FULL_CATALOG);
+    fireEvent.change(screen.getByPlaceholderText('مرجع العميل (subject_ref)'), { target: { value: 'cust_00012345' } });
+    fireEvent.change(screen.getByPlaceholderText('سبب الإصلاح'), { target: { value: 'تحقق روتيني' } });
+    fireEvent.click(screen.getByText('أصلح الرصيد'));
+    fireEvent.click(screen.getByText('تأكيد'));
+    expect(await screen.findByText(/لا فرق يُصلَح/)).toBeTruthy();
   });
 
   it('shows the server refusal sentence rather than a silent no-op', async () => {
@@ -457,6 +474,78 @@ describe('Loyalty reconcile', () => {
     fireEvent.click(screen.getByText('أصلح الرصيد'));
     fireEvent.click(screen.getByText('تأكيد'));
     expect(await screen.findByText('لا يوجد رصيد لهذا العميل.')).toBeTruthy();
+  });
+
+  it('searching shows the real balance and history before any reconcile happens', async () => {
+    responder = (path) => {
+      if (path.includes('/platform/balance')) return { points: 340 };
+      if (path.includes('/platform/history')) return { entries: [
+        { id: 'e1', tenant: 't1', subject_ref: 'cust_00012345', delta: 50, reason: 'earn',
+          source: 'v1', actor: '', branch_id: '', balance_after: 340, note: '', created_at: 0 },
+        { id: 'e2', tenant: 't1', subject_ref: 'cust_00012345', delta: -10, reason: 'redeem',
+          source: 'r1', actor: 'op-1', branch_id: '', balance_after: 290, note: '', created_at: 0 },
+      ] };
+      return {};
+    };
+    openPrivacyTab(FULL_CATALOG);
+    fireEvent.change(screen.getByPlaceholderText('مرجع العميل (subject_ref)'), { target: { value: 'cust_00012345' } });
+    fireEvent.click(screen.getAllByText('ابحث')[1]);
+    // "340" appears both in the KPI card AND in the history table's balance_after column for the
+    // first entry — findAllByText, not the singular form, same reason every Table assertion in
+    // this file already needs it.
+    expect((await screen.findAllByText('340')).length).toBeGreaterThan(0);
+    expect(await firstMatch('كسب')).toBeTruthy();
+    expect(await firstMatch('استبدال')).toBeTruthy();
+    const balCall = calls.find((c) => c.path.includes('/platform/balance'));
+    expect(balCall?.path).toContain('tenant=t1');
+    expect(balCall?.path).toContain('subject_ref=cust_00012345');
+    // No reconcile ever fired just from searching.
+    expect(calls.find((c) => c.path === '/api/v1/loyalty/platform/reconcile')).toBeUndefined();
+  });
+
+  it('an unknown subject reads as a real, visible zero balance with an empty history', async () => {
+    responder = (path) => {
+      if (path.includes('/platform/balance')) return { points: 0 };
+      if (path.includes('/platform/history')) return { entries: [] };
+      return {};
+    };
+    openPrivacyTab(FULL_CATALOG);
+    fireEvent.change(screen.getByPlaceholderText('مرجع العميل (subject_ref)'), { target: { value: 'cust_neverseen1' } });
+    fireEvent.click(screen.getAllByText('ابحث')[1]);
+    expect(await screen.findByText('0')).toBeTruthy();
+    expect(await screen.findByText('لا حركات نقاط لهذا العميل')).toBeTruthy();
+  });
+
+  it('a failed balance read reports the failure, not a stale or blank number', async () => {
+    responder = (path) => (path.includes('/platform/balance') ? new Error('boom') : { entries: [] });
+    openPrivacyTab(FULL_CATALOG);
+    fireEvent.change(screen.getByPlaceholderText('مرجع العميل (subject_ref)'), { target: { value: 'cust_00012345' } });
+    fireEvent.click(screen.getAllByText('ابحث')[1]);
+    expect(await screen.findByText('تعذّرت قراءة الرصيد.')).toBeTruthy();
+  });
+
+  it('a reconcile after a search refreshes the balance shown', async () => {
+    let points = 100;
+    responder = (path) => {
+      if (path === '/api/v1/loyalty/platform/reconcile') { points = 130; return {
+        subject_ref: 'cust_00012345', was: 100, ledger: 130, drift: 30, repaired: true }; }
+      if (path.includes('/platform/balance')) return { points };
+      if (path.includes('/platform/history')) return { entries: [] };
+      return {};
+    };
+    openPrivacyTab(FULL_CATALOG);
+    fireEvent.change(screen.getByPlaceholderText('مرجع العميل (subject_ref)'), { target: { value: 'cust_00012345' } });
+    fireEvent.click(screen.getAllByText('ابحث')[1]);
+    expect(await screen.findByText('100')).toBeTruthy();
+    fireEvent.change(screen.getByPlaceholderText('سبب الإصلاح'), { target: { value: 'فرق ظاهر' } });
+    fireEvent.click(screen.getByText('أصلح الرصيد'));
+    fireEvent.click(screen.getByText('تأكيد'));
+    await waitFor(() => expect(screen.queryAllByText('130').length).toBeGreaterThan(0));
+  });
+
+  it('hides the whole section politely when none of the three loyalty actions is in the catalog', () => {
+    openPrivacyTab(catalogWith([]));
+    expect(screen.queryByPlaceholderText('مرجع العميل (subject_ref)')).toBeNull();
   });
 });
 

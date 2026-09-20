@@ -748,7 +748,7 @@ function PrivacySupportTab({ session, tenant, catalog }: {
       <DsarSection session={session} tenant={tenant} catalog={catalog} />
       <ConsentSection session={session} tenant={tenant} catalog={catalog} />
       <LegalHoldsSection session={session} tenant={tenant} catalog={catalog} />
-      <LoyaltyReconcileSection session={session} tenant={tenant} catalog={catalog} />
+      <LoyaltySection session={session} tenant={tenant} catalog={catalog} />
       <EvidenceFileSection session={session} tenant={tenant} catalog={catalog} />
     </div>
   );
@@ -1121,30 +1121,75 @@ function LegalHoldsSection({ session, tenant, catalog }: {
   );
 }
 
-/** إصلاح رصيد نقاط عميل — يعيد حساب رصيده من سجل حركاته الفعلي، ويعرض القديم والجديد. */
-function LoyaltyReconcileSection({ session, tenant, catalog }: {
+interface LoyaltyEntryRow {
+  id: string; tenant: string; subject_ref: string; delta: number; reason: string;
+  source: string; actor: string; branch_id: string; balance_after: number;
+  note: string; created_at: number;
+}
+
+const LOYALTY_REASON_LABEL: Record<string, string> = {
+  earn: 'كسب', redeem: 'استبدال', expire: 'انتهاء صلاحية', adjust: 'تعديل يدوي',
+};
+
+/** نقاط الولاء — رصيد وسجل حركات عميل معيّن (بصلاحية منصة، لأي منشأة)، وإصلاح الرصيد من نفس
+ *  المكان بدل ما يُصلَح بالعمى. */
+function LoyaltySection({ session, tenant, catalog }: {
   session: AdminSession; tenant: Tenant; catalog: AdminCatalog;
 }) {
   const [subjectRef, setSubjectRef] = useState('');
+  const [asked, setAsked] = useState('');
+  const [balance, setBalance] = useState<{ points: number } | 'loading' | 'failed' | null>(null);
+  const [entries, setEntries] = useState<LoyaltyEntryRow[]>([]);
   const [reason, setReason] = useState('');
   const [arm, setArm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const [result, setResult] = useState<{ before?: number; after?: number } | null>(null);
+  // THE REAL RESPONSE SHAPE — `app/core/ledger.py::reconcile()`, verified against the actual
+  // route rather than guessed: `was` is the balance BEFORE the repair, `ledger` is the recomputed
+  // truth it was replaced with (or left at, if they already agreed), `repaired` says whether
+  // anything was actually wrong. An earlier pass here read `before`/`after`, fields this route has
+  // never returned — the result silently showed "—" for both on every real call. Caught before
+  // shipping any further.
+  const [result, setResult] = useState<
+    { subject_ref: string; ledger: number; was: number; drift: number; repaired: boolean } | null
+  >(null);
 
-  const action = findCustomerAction(catalog, 'loyalty.platform_reconcile');
+  const balanceAction = findCustomerAction(catalog, 'loyalty.platform_balance');
+  const historyAction = findCustomerAction(catalog, 'loyalty.platform_history');
+  const reconcileAction = findCustomerAction(catalog, 'loyalty.platform_reconcile');
   const ready = subjectRef.trim().length >= 8 && reason.trim().length >= 3;
 
+  const search = () => {
+    if (!subjectRef.trim()) return;
+    const ref = subjectRef.trim();
+    setAsked(ref); setResult(null); setErr('');
+    if (balanceAction) {
+      setBalance('loading');
+      req<{ points: number }>(
+        `${balanceAction.path}?tenant=${encodeURIComponent(tenant.id)}&subject_ref=${encodeURIComponent(ref)}`,
+        'GET', undefined, session.access_token)
+        .then(setBalance).catch(() => setBalance('failed'));
+    }
+    if (historyAction) {
+      req<{ entries: LoyaltyEntryRow[] }>(
+        `${historyAction.path}?tenant=${encodeURIComponent(tenant.id)}&subject_ref=${encodeURIComponent(ref)}&limit=25`,
+        'GET', undefined, session.access_token)
+        .then((r) => setEntries(r.entries ?? [])).catch(() => setEntries([]));
+    }
+  };
+
   const reconcile = async () => {
-    if (!action || !ready) return;
+    if (!reconcileAction || !ready) return;
     setBusy(true); setErr(''); setResult(null);
     try {
-      const out = await req<{ before?: number; after?: number }>(
-        action.path, 'POST',
+      const out = await req<
+        { subject_ref: string; ledger: number; was: number; drift: number; repaired: boolean }
+      >(reconcileAction.path, 'POST',
         { tenant: tenant.id, subject_ref: subjectRef.trim(), reason: reason.trim() },
         session.access_token);
       setResult(out);
       setArm(false);
+      if (asked === subjectRef.trim()) search();
     } catch (e) {
       setErr(errMsg(e));
     } finally {
@@ -1152,27 +1197,71 @@ function LoyaltyReconcileSection({ session, tenant, catalog }: {
     }
   };
 
+  const columns: TableColumn<LoyaltyEntryRow>[] = [
+    { key: 'reason', header: 'الحركة', render: (e) => LOYALTY_REASON_LABEL[e.reason] ?? e.reason },
+    { key: 'delta', header: 'التغيير', render: (e) => (
+      <span dir="ltr" className={e.delta >= 0 ? 'text-success font-mono' : 'text-danger font-mono'}>
+        {e.delta >= 0 ? `+${e.delta}` : e.delta}
+      </span>
+    ) },
+    { key: 'balance_after', header: 'الرصيد بعدها', hideOnCard: true, render: (e) => <span dir="ltr" className="font-mono">{e.balance_after}</span> },
+    { key: 'note', header: 'ملاحظة', render: (e) => e.note || '—' },
+    { key: 'created_at', header: 'الوقت', render: (e) => unixDate(e.created_at) },
+  ];
+
+  if (!balanceAction && !historyAction && !reconcileAction) {
+    return (
+      <div className="flex flex-col gap-3">
+        <SectionHeader icon={<RefreshCw size={18} />} title="نقاط الولاء" />
+        <p className="text-sm text-text-secondary">لا صلاحية.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3">
-      <SectionHeader icon={<RefreshCw size={18} />} title="إصلاح رصيد نقاط عميل" />
-      {!action ? <p className="text-sm text-text-secondary">لا صلاحية.</p> : (
+      <SectionHeader icon={<RefreshCw size={18} />} title="نقاط الولاء" />
+      <div className="flex flex-wrap items-center gap-2">
+        <Input value={subjectRef} onChange={(e) => setSubjectRef(e.target.value)}
+              placeholder="مرجع العميل (subject_ref)" className="w-48" aria-label="مرجع العميل" />
+        {balanceAction || historyAction ? (
+          <Button size="sm" variant="outline" disabled={!subjectRef.trim()} onClick={search}>ابحث</Button>
+        ) : null}
+      </div>
+      {asked ? (
         <>
-          <div className="flex flex-wrap items-end gap-2">
-            <Input value={subjectRef} onChange={(e) => setSubjectRef(e.target.value)}
-                  placeholder="مرجع العميل (subject_ref)" className="w-48" aria-label="مرجع العميل" />
-            <Input value={reason} onChange={(e) => setReason(e.target.value)}
-                  placeholder="سبب الإصلاح" className="w-48" aria-label="السبب" />
-            <Button size="sm" disabled={!ready} onClick={() => setArm(true)}>أصلح الرصيد</Button>
-          </div>
-          {err ? <p role="alert" className="text-danger text-sm">{err}</p> : null}
-          {result ? (
-            <p className="text-sm text-text-secondary">
-              كان <span dir="ltr" className="font-mono">{result.before ?? '—'}</span>، وصار{' '}
-              <span dir="ltr" className="font-mono">{result.after ?? '—'}</span>.
-            </p>
+          {balance === 'loading' ? <p className="text-sm text-text-secondary">جارٍ التحميل…</p> : null}
+          {balance === 'failed' ? <p role="alert" className="text-danger text-sm">تعذّرت قراءة الرصيد.</p> : null}
+          {balance && balance !== 'loading' && balance !== 'failed' ? (
+            <KpiCard icon={<RefreshCw size={18} />} label="الرصيد الحالي" value={balance.points} tone="accent" />
+          ) : null}
+          {historyAction ? (
+            <Table columns={columns} rows={entries} getRowId={(e) => e.id}
+                  emptyTitle="لا حركات نقاط لهذا العميل" failedTitle="تعذّرت قراءة السجل" />
           ) : null}
         </>
-      )}
+      ) : null}
+      {reconcileAction ? (
+        <div className="flex flex-wrap items-end gap-2 border-t border-border-subtle pt-3">
+          <Input value={reason} onChange={(e) => setReason(e.target.value)}
+                placeholder="سبب الإصلاح" className="w-48" aria-label="السبب" />
+          <Button size="sm" disabled={!ready} onClick={() => setArm(true)}>أصلح الرصيد</Button>
+        </div>
+      ) : null}
+      {err ? <p role="alert" className="text-danger text-sm">{err}</p> : null}
+      {result ? (
+        <p className="text-sm text-text-secondary">
+          {result.repaired ? (
+            <>
+              كان <span dir="ltr" className="font-mono">{result.was}</span>، وصار{' '}
+              <span dir="ltr" className="font-mono">{result.ledger}</span> — الفرق كان{' '}
+              <span dir="ltr" className="font-mono">{result.drift}</span> نقطة.
+            </>
+          ) : (
+            <>الرصيد كان صحيحًا أصلاً (<span dir="ltr" className="font-mono">{result.ledger}</span>) — لا فرق يُصلَح.</>
+          )}
+        </p>
+      ) : null}
       <ConfirmDialog open={arm} onClose={() => setArm(false)} onConfirm={() => void reconcile()}
                     title="إصلاح الرصيد" danger busy={busy}
                     body="سيُعاد حساب الرصيد من سجل الحركات الفعلي ويُستبدَل الرقم الحالي به.">
