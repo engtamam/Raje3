@@ -19,7 +19,8 @@ from app.api.auth import require_user
 from app.api.authz import require_capability
 from app.config import get_settings
 from app.core import apps as app_catalogue
-from app.core.subscribe import held_keys, is_base, may_add, may_subscribe
+from app.core.apps import requires_whatsapp_connection
+from app.core.subscribe import granted_keys, held_keys, is_base, may_add, may_subscribe
 
 from app.api.ratelimit import rate_limit
 from app.api.subscribed import no_subscription_needed, subscribed_write
@@ -264,16 +265,26 @@ async def subscribe(request: Request, body: SubscribeIn,
     # token on a PAID plan is not "pay later"; it is the press of a button with no money behind
     # it, and the plan must not start on it — `free` is the one exception, decided by price, not
     # by the caller's own claim.
-    decision = may_subscribe(connected=connected, trial_days=trial_days,
-                             paid=bool(body.payment_token) or free)
+    decision = may_subscribe(
+        connected=connected, trial_days=trial_days, paid=bool(body.payment_token) or free,
+        requires_connection=requires_whatsapp_connection(granted_keys(plan_limits)))
     if not decision.allowed:
         # RETURNED, NEVER RAISED. The platform's error handler strips an HTTPException's detail,
-        # so a raised refusal arrives as a bare 402 and the sentence telling him what to do — the
-        # only useful part — is thrown away.
+        # so a raised refusal arrives as a bare status code and the sentence telling him what to
+        # do — the only useful part — is thrown away.
         await request.app.state.auditor.record(
-            "subscription.refused", actor=principal.subject, tenant=tenant,
-            resource=f"plan:{body.plan_id}",
+            "subscription.whatsapp_connection_required" if decision.redirect_screen
+            else "subscription.refused",
+            actor=principal.subject, tenant=tenant, resource=f"plan:{body.plan_id}",
             ip=request.client.host if request.client else "")
+        if decision.redirect_screen:
+            # A DIFFERENT REFUSAL THAN "NOT PAID" — 409, not 402: nothing is wrong with his
+            # payment, the plan itself cannot be delivered yet. `redirect_screen` lets the
+            # console jump straight to the connect screen instead of a dead-end error toast.
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                                content={"error": "WHATSAPP_CONNECTION_REQUIRED",
+                                         "message": decision.reason,
+                                         "redirect_screen": decision.redirect_screen})
         return JSONResponse(status_code=status.HTTP_402_PAYMENT_REQUIRED,
                             content={"error": "PAYMENT_REQUIRED",
                                      "message": decision.reason})

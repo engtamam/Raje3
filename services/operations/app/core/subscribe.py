@@ -72,6 +72,11 @@ class Decision:
     # which is why a NO happened: a screen that shows a notice as a failure teaches an owner his
     # payment did not go through, and a screen that swallows it teaches him nothing at all.
     notice: str = ""
+    # WHERE TO SEND HIM, when the reason he was refused has a single obvious next screen — set
+    # only alongside a WhatsApp-connection refusal today (apps.py's own `screen` value for
+    # feature.whatsapp, "connect"). Empty for every other refusal; a screen with nothing to jump
+    # to just reads `reason` and stops there.
+    redirect_screen: str = ""
 
 
 def held_keys(subscriptions: list[dict[str, Any]] | None) -> set[str]:
@@ -229,20 +234,33 @@ def may_add(*, plan_limits: dict[str, Any] | None, held: set[str]) -> Decision:
     return Decision(True)
 
 
-def may_subscribe(*, connected: bool, trial_days: int, paid: bool = True) -> Decision:
+def may_subscribe(*, connected: bool, trial_days: int, paid: bool = True,
+                  requires_connection: bool = False) -> Decision:
     """Whether this subscription may proceed, and what is still owed if it does.
 
-    `connected`   does this establishment have a WhatsApp account attached?
-    `trial_days`  the plan's trial length. Non-zero means he is not paying yet.
-    `paid`        did money actually change hands — a gateway charge that succeeded — OR is this
-                  plan's own resolved price 0 (api/v1/subscription.py computes `paid = paid or
-                  price_minor == 0` at the call site, so this function stays a pure boolean and
-                  need not know about prices at all)? A SAR 0 plan owes nothing to have started,
-                  same as a trial — the difference is a trial ends and this never charges.
+    `connected`           does this establishment have a WhatsApp account attached?
+    `trial_days`          the plan's trial length. Non-zero means he is not paying yet.
+    `paid`                did money actually change hands — a gateway charge that succeeded — OR is
+                          this plan's own resolved price 0 (api/v1/subscription.py computes
+                          `paid = paid or price_minor == 0` at the call site, so this function
+                          stays a pure boolean and need not know about prices at all)? A SAR 0 plan
+                          owes nothing to have started, same as a trial — the difference is a
+                          trial ends and this never charges.
+    `requires_connection` does THIS candidate plan grant an app that cannot be delivered at all
+                          without a connected number (`apps.py::requires_whatsapp_connection`)?
+                          When true this OVERRIDES both the trial and the notice-only paths below
+                          — a trial of an undeliverable app proves nothing, and a paid one is not
+                          "deferred delivery", it is selling nothing (see apps.py's own note).
 
     PURE, so the rule can be read and tested without a cluster. Everything around it is plumbing;
     this is the decision.
     """
+    if requires_connection and not connected:
+        return Decision(
+            False,
+            reason="هذا التطبيق يعتمد بالكامل على واتساب الأعمال — اربط رقمك أولاً حتى يعمل.",
+            redirect_screen="connect")
+
     if trial_days > 0:
         # THE TRIAL TAKES NOTHING AND OWES NOTHING. He is evaluating, not buying.
         return Decision(True)

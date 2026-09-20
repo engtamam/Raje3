@@ -85,6 +85,70 @@ def test_the_decision_is_pure_and_readable():
     assert isinstance(may_subscribe(connected=True, trial_days=0), Decision)
 
 
+# ── requires_connection: the three apps that ARE the WhatsApp channel, not a feature riding it ──
+def test_requires_connection_refuses_outright_when_not_connected():
+    """The owner's own distinction (2026-09-20): connecting is a next step for most apps, but an
+    app whose entire product IS a WhatsApp message cannot be sold undelivered — no notice, a
+    real refusal, before any money moves."""
+    d = may_subscribe(connected=False, trial_days=0, requires_connection=True)
+    assert d.allowed is False
+    assert "واتساب" in d.reason
+
+
+def test_requires_connection_names_the_connect_screen():
+    d = may_subscribe(connected=False, trial_days=0, requires_connection=True)
+    assert d.redirect_screen == "connect"
+
+
+def test_requires_connection_overrides_the_trial_too():
+    """A free trial of something that cannot be delivered proves nothing — this refuses even
+    with trial_days set, unlike every other app's trial exemption above."""
+    d = may_subscribe(connected=False, trial_days=14, requires_connection=True)
+    assert d.allowed is False
+
+
+def test_requires_connection_overrides_a_free_plan_too():
+    d = may_subscribe(connected=False, trial_days=0, paid=True, requires_connection=True)
+    assert d.allowed is False
+
+
+def test_requires_connection_with_a_real_connection_goes_through_normally():
+    """Connected -- the rule has nothing left to say; behaves exactly like any other app."""
+    d = may_subscribe(connected=True, trial_days=0, requires_connection=True)
+    assert d.allowed is True
+    assert d.notice == ""
+    assert d.redirect_screen == ""
+
+
+def test_requires_connection_false_is_the_untouched_default():
+    """Every existing call site (and every test above this one) passes no `requires_connection`
+    at all -- confirms the parameter's default keeps their exact prior behaviour."""
+    assert may_subscribe(connected=False, trial_days=0).redirect_screen == ""
+
+
+def test_requires_connection_takes_priority_over_an_unpaid_refusal():
+    """Both are true (unconnected AND no token) -- the connection refusal is the one returned,
+    since it is checked first. Locks the priority down explicitly so it cannot silently flip."""
+    d = may_subscribe(connected=False, trial_days=0, paid=False, requires_connection=True)
+    assert d.allowed is False
+    assert d.redirect_screen == "connect"
+    assert "لم يكتمل الدفع" not in d.reason
+
+
+def test_requires_connection_true_but_connected_still_refuses_an_unpaid_plan():
+    """Connected clears the WhatsApp-specific refusal, but the ordinary payment rule still
+    applies underneath it -- requires_connection is not a blanket bypass of every other check."""
+    d = may_subscribe(connected=True, trial_days=0, paid=False, requires_connection=True)
+    assert d.allowed is False
+    assert "لم يكتمل الدفع" in d.reason
+    assert d.redirect_screen == ""
+
+
+def test_requires_connection_default_is_false_when_omitted_entirely():
+    d = may_subscribe(connected=False, trial_days=14)
+    assert d.allowed is True   # the trial exemption still applies, untouched
+
+
 def test_the_word_the_price_list_mandates_is_a_grant_not_a_dropped_key() -> None:
     """ج-4 · the writer says `unlimited`, and this reader could only read -1.
 

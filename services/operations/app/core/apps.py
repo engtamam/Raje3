@@ -347,6 +347,32 @@ APPS: tuple[dict[str, Any], ...] = (
 
 KEYS: tuple[str, ...] = tuple(a["key"] for a in APPS)
 
+# ── apps that cannot be DELIVERED at all without a connected WhatsApp number ──────────────────
+#
+# THE DISTINCTION FROM EVERY OTHER APP (see subscribe.py's own long note on why connecting is a
+# NEXT STEP, never a gate). That reasoning holds for an app whose value survives an unconnected
+# week — the field screen, the customers, the points, the indicators all work from the first
+# minute. It does NOT hold for an app whose entire product IS a WhatsApp message: a campaign send
+# with nowhere to send, a rating request nobody receives, an AI assistant with no channel to
+# assist on. Selling one of these three unconnected is not "deferred delivery", it is selling
+# nothing — the owner's own distinction (2026-09-20).
+#
+# `feature.whatsapp`   — بوت خدمة العملاء الذكي, IS the WhatsApp channel.
+# `feature.rating`     — رسالة التقييم تصل عبر واتساب فقط، لا قناة بديلة اليوم.
+# `feature.campaigns`  — الحملات ترسل رسائل واتساب تسويقية، هذا هو المنتج بالكامل.
+#
+# A NEW APP DECLARES ITSELF HERE, ONE LINE, THE SAME PASS IT SHIPS — never inferred from its name
+# or screen, so the set stays exactly what someone actually decided rather than what looked right.
+REQUIRES_WHATSAPP_KEYS: frozenset[str] = frozenset({
+    "feature.whatsapp", "feature.rating", "feature.campaigns",
+})
+
+
+def requires_whatsapp_connection(keys: set[str] | frozenset[str]) -> bool:
+    """Does buying (or already holding) any of these feature keys need a connected number to be
+    worth anything at all?"""
+    return bool(keys & REQUIRES_WHATSAPP_KEYS)
+
 
 def licence_attr(key: str) -> str:
     """The `container` attribute a key's own `feature_licence.py` licence is wired under.

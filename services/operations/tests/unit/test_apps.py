@@ -338,3 +338,68 @@ def test_an_already_canceled_row_is_never_named():
          "limits_snapshot": {"plan.requires_any": {"kind": "list", "list": ["feature.visit"]}}},
     ]
     assert orphaned_dependents(rows, held=set()) == []
+
+
+# ── requires_whatsapp_connection: apps that ARE a WhatsApp message, not a feature riding one ────
+def test_exactly_the_three_declared_apps_require_a_connection():
+    from app.core.apps import REQUIRES_WHATSAPP_KEYS
+
+    assert REQUIRES_WHATSAPP_KEYS == frozenset(
+        {"feature.whatsapp", "feature.rating", "feature.campaigns"})
+
+
+def test_a_plan_granting_one_of_the_three_requires_connection():
+    from app.core.apps import requires_whatsapp_connection
+
+    assert requires_whatsapp_connection({"feature.campaigns"}) is True
+    assert requires_whatsapp_connection({"feature.rating"}) is True
+    assert requires_whatsapp_connection({"feature.whatsapp"}) is True
+
+
+def test_every_other_app_does_not_require_connection():
+    from app.core.apps import requires_whatsapp_connection
+
+    for key in ("feature.loyalty", "feature.insights.engine", "feature.bookings",
+                "feature.visit", "feature.contacts", "feature.coupons",
+                "feature.mobile_requests"):
+        assert requires_whatsapp_connection({key}) is False, key
+
+
+def test_a_mixed_set_with_at_least_one_qualifying_key_requires_connection():
+    from app.core.apps import requires_whatsapp_connection
+
+    assert requires_whatsapp_connection({"feature.loyalty", "feature.rating"}) is True
+
+
+def test_an_empty_set_does_not_require_connection():
+    from app.core.apps import requires_whatsapp_connection
+
+    assert requires_whatsapp_connection(set()) is False
+
+
+def test_every_requiring_key_is_a_real_declared_app():
+    """A key in REQUIRES_WHATSAPP_KEYS that is not in KEYS would silently gate nothing — this
+    proves the set only ever names rows that actually exist in the catalogue."""
+    from app.core.apps import KEYS, REQUIRES_WHATSAPP_KEYS
+
+    assert REQUIRES_WHATSAPP_KEYS <= set(KEYS)
+
+
+def test_a_non_feature_key_never_qualifies():
+    from app.core.apps import requires_whatsapp_connection
+
+    assert requires_whatsapp_connection({"plan.standalone", "plan.requires_any"}) is False
+
+
+def test_requires_whatsapp_connection_accepts_a_plain_set_or_a_frozenset():
+    from app.core.apps import requires_whatsapp_connection
+
+    assert requires_whatsapp_connection(set(["feature.rating"])) is True
+    assert requires_whatsapp_connection(frozenset(["feature.rating"])) is True
+
+
+def test_all_three_together_still_just_requires_connection_once():
+    from app.core.apps import requires_whatsapp_connection
+
+    assert requires_whatsapp_connection(
+        {"feature.whatsapp", "feature.rating", "feature.campaigns"}) is True

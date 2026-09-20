@@ -199,6 +199,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "moment are both there",
     },
     {
+        "action": "subscription.whatsapp_connection_required",
+        "source": "admin",
+        "critical": False,
+        "resource": "plan",
+        "why": "an owner tried to buy an app that cannot be delivered at all without a connected "
+               "WhatsApp number (feature.whatsapp, feature.rating, feature.campaigns — see "
+               "apps.py::REQUIRES_WHATSAPP_KEYS) and was refused before any money moved. Same "
+               "posture as `subscription.refused` — a decision of ours about somebody's money —",
+    },
+    {
         # A duplicate-purchase attempt is the same kind of fact as `subscription.refused` right
         # above it — a decision of ours about somebody's money — and it was the one refusal in
         # this route with no row at all (fixed 2026-09-12, a real gap a QA audit found).

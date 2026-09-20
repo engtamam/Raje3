@@ -322,6 +322,120 @@ def test_a_paid_subscription_without_whatsapp_goes_through_and_says_what_is_left
     assert plans.subscribed == [("t1", "plan_x", "month")]
 
 
+# ── the three apps that ARE a WhatsApp message: refused outright, unconnected, before any money
+# moves (the owner's own distinction, 2026-09-20 — see apps.py::REQUIRES_WHATSAPP_KEYS) ──────────
+def test_campaigns_is_refused_unconnected_with_a_redirect_to_connect(client):
+    plans = _wire(client, connected=False, trial=0,
+                  limits={"feature.campaigns": {"limit": "unlimited"}})
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_campaigns",
+                                                   "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 409
+    body = r.json()
+    assert body["error"] == "WHATSAPP_CONNECTION_REQUIRED"
+    assert body["redirect_screen"] == "connect"
+    assert "واتساب" in body["message"]
+    assert plans.subscribed == [], "nothing may reach billing for an undeliverable app"
+
+
+def test_rating_is_refused_unconnected(client):
+    plans = _wire(client, connected=False, trial=0,
+                  limits={"feature.rating": {"limit": "unlimited"}})
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_rating",
+                                                   "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 409
+    assert r.json()["error"] == "WHATSAPP_CONNECTION_REQUIRED"
+    assert plans.subscribed == []
+
+
+def test_the_assistant_itself_is_refused_unconnected(client):
+    plans = _wire(client, connected=False, trial=0,
+                  limits={"feature.whatsapp": {"limit": "unlimited"}})
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_whatsapp",
+                                                   "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 409
+    assert r.json()["error"] == "WHATSAPP_CONNECTION_REQUIRED"
+    assert plans.subscribed == []
+
+
+def test_a_free_trial_of_campaigns_is_still_refused_unconnected(client):
+    """A free trial of something undeliverable proves nothing — refused just like a paid plan,
+    unlike every OTHER app's trial (see test_a_trial_subscribes_without_any_connection below)."""
+    plans = _wire(client, connected=False, trial=14,
+                  limits={"feature.campaigns": {"limit": "unlimited"}})
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_campaigns"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 409
+    assert plans.subscribed == []
+
+
+def test_campaigns_subscribes_normally_once_connected(client):
+    plans = _wire(client, connected=True, trial=0,
+                  limits={"feature.campaigns": {"limit": "unlimited"}})
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_campaigns",
+                                                   "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 201, r.text
+    assert r.json().get("notice", "") == ""
+    assert plans.subscribed == [("t1", "plan_campaigns", "month")]
+
+
+def test_a_bundle_granting_one_requiring_key_alongside_others_is_still_refused(client):
+    """A plan whose limits carry BOTH a requiring key and a non-requiring one -- the requiring
+    key alone is enough to refuse the whole plan, since it cannot be delivered either way."""
+    plans = _wire(client, connected=False, trial=0,
+                  limits={"feature.loyalty": {"limit": "unlimited"},
+                          "feature.campaigns": {"limit": "unlimited"}})
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_bundle",
+                                                   "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 409
+    assert plans.subscribed == []
+
+
+def test_already_holding_it_refuses_as_already_subscribed_not_connection_required(client):
+    """The duplicate-purchase check runs BEFORE the connection check in this route -- a shop that
+    already owns feature.campaigns and tries to buy it again gets ALREADY_SUBSCRIBED, the more
+    specific and correct reason, even while unconnected."""
+    plans = _wire(client, connected=False, trial=0,
+                  limits={"feature.campaigns": {"limit": "unlimited"}})
+    plans.held = [{"limits_snapshot": {"feature.campaigns": {"limit": "unlimited"}}}]
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_campaigns",
+                                                   "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 409
+    assert r.json()["error"] == "ALREADY_SUBSCRIBED"
+    assert plans.subscribed == []
+
+
+def test_a_plan_with_a_declared_key_at_limit_zero_is_not_treated_as_granting_it(client):
+    """`limit: 0` is a declared DENY (granted_keys' own rule), not a grant -- a plan carrying
+    feature.campaigns at 0 does not trigger the connection requirement for it."""
+    plans = _wire(client, connected=False, trial=0,
+                  limits={"messages.monthly": {"limit": "unlimited"},
+                          "feature.campaigns": {"limit": 0}})
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_base_only",
+                                                   "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 201, r.text
+    assert plans.subscribed == [("t1", "plan_base_only", "month")]
+
+
+def test_an_unrelated_app_still_goes_through_unconnected_with_its_notice(client):
+    """REGRESSION GUARD — the new rule touches only the three declared keys; every other app
+    keeps the exact "pay now, connect later" behaviour this whole file otherwise tests."""
+    plans = _wire(client, connected=False, trial=0,
+                  limits={"feature.loyalty": {"limit": "unlimited"}})
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_loyalty",
+                                                   "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 201
+    assert "ربط" in r.json()["notice"]
+    assert plans.subscribed == [("t1", "plan_loyalty", "month")]
+
+
 def test_a_connected_shop_is_told_nothing_extra(client, monkeypatch):
     """A notice with nothing owed is noise, and noise is what teaches people to skip notices."""
     _wire(client, connected=True, trial=0)
