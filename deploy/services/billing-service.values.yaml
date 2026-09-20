@@ -200,14 +200,16 @@ env:
   BILLING_RENEWAL_INVOICE_MODE: "consolidated"
 
   # ── Renewal by wallet debit (billing-service v0.18.42) — for gateways with no recurring-charge
-  # support (TuwaiqPay: no card-on-file/token). Safe to enable ahead of any real use: it only
-  # applies to a subscription explicitly PINNED to payment_gateway=="wallet" (an admin action,
-  # console gateway-pinning screen) — none exist yet, so this is inert until the first one is
-  # pinned, same "declare the plumbing before the first real use" posture as
-  # STANDALONE_PLANS_ENABLED.
-  BILLING_WALLET_RENEWAL_ENABLED: "true"
-  # THE SAME `renewal` FUND declared in wallet-service's WALLET_FUNDS — a shop's own prepaid
-  # top-up toward its Raje3 bill, never the `ai_credit` fund the WhatsApp bot spends from.
+  # support (TuwaiqPay: no card-on-file/token). It only applies to a subscription explicitly
+  # PINNED to payment_gateway=="wallet" (an admin action, console gateway-pinning screen).
+  #
+  # TURNED OFF (owner's own decision, 2026-09-20): no subscription was ever pinned to it, and the
+  # owner does not want wallet-as-a-payment-method at all. `_wallet_renewal_fund` reads this flag
+  # first and returns `None` immediately when it is off, so a renewal always falls through to the
+  # real gateway regardless of any subscription's `payment_gateway` field.
+  BILLING_WALLET_RENEWAL_ENABLED: "false"
+  # Left declared (not deleted) — same "off, not gone" posture as AI_ASSISTANT_ENABLED elsewhere:
+  # if wallet-based renewal is ever reconsidered, the fund name does not need to be rediscovered.
   WALLET_RENEWAL_FUND: "renewal"
 
   # ── Invoicing ─────────────────────────────────────────────────────────────────────────────
