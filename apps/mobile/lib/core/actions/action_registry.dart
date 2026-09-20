@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:raje3_mobile/core/actions/action_model.dart';
+import 'package:raje3_mobile/core/actions/action_tools.dart';
 import 'package:raje3_mobile/models/catalog_model.dart';
 
 /// Loads `assets/knowledge/mobile_actions.json` once — the mobile mirror of [KbService]
@@ -30,6 +32,11 @@ class ActionRegistry {
   /// Every action THIS session's real, already capability-filtered [catalog] allows — never a
   /// role guessed client-side. What actually gets declared to the model as its tool list.
   Iterable<AppAction> visibleActions(Catalog catalog) => _actions.values.where((a) => _visible(a, catalog));
+
+  /// [visibleActions], converted through [actionTools] — what [AssistantService] actually hands
+  /// the model as `createChat(tools: ...)`. A caller never sees the model-facing [Tool] shape and
+  /// [AppAction] as two things to keep in sync by hand.
+  List<Tool> toolsFor(Catalog catalog) => actionTools(visibleActions(catalog));
 
   /// The action named [name] (as the model returned it in a function call), IF this session may
   /// still use it — checked again at execution time, never trusted from when the tool list was
