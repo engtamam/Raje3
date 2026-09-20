@@ -14,6 +14,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:raje3_mobile/core/actions/action_registry.dart';
 import 'package:raje3_mobile/core/ai/ai_model.dart';
@@ -143,23 +144,39 @@ void main() {
     await actionRegistry.init();
   });
 
+  // A REAL GoRouter, not a bare MaterialApp — ActionExecutor.execute() calls context.goNamed(),
+  // which throws with no GoRouter ancestor. The 'visit' route matches mobile_actions.json's own
+  // real open_visit_app entry, so a test proposing that action exercises actual navigation, not
+  // a mocked stand-in.
   Future<void> pumpButton(WidgetTester tester) async {
     final assistant = AssistantService(aiModel: ai, kbService: KbService(), actionRegistry: actionRegistry);
+    final router = GoRouter(
+      initialLocation: '/home',
+      routes: [
+        GoRoute(
+          path: '/home',
+          name: 'home',
+          builder: (context, state) => Scaffold(
+            body: Stack(children: [FloatingMicButton(localStorage: localStorage)]),
+          ),
+        ),
+        GoRoute(path: '/visit', name: 'visit', builder: (context, state) => const Scaffold(body: Text('visit screen'))),
+      ],
+    );
     await tester.pumpWidget(
       MultiProvider(
         providers: [
           ChangeNotifierProvider<NavProvider>.value(value: nav),
           Provider<AssistantService>.value(value: assistant),
+          Provider<ActionRegistry>.value(value: actionRegistry),
           Provider<TtsModel>.value(value: tts),
           Provider<SpeechInputModel>.value(value: speech),
         ],
-        child: MaterialApp(
+        child: MaterialApp.router(
           localizationsDelegates: S.localizationsDelegates,
           supportedLocales: S.supportedLocales,
           locale: const Locale('en'),
-          home: Scaffold(
-            body: Stack(children: [FloatingMicButton(localStorage: localStorage)]),
-          ),
+          routerConfig: router,
         ),
       ),
     );
@@ -255,6 +272,27 @@ void main() {
     await tts.stop(); // simulate the platform engine finishing speech
     await tester.pump();
     expect(micIcon(tester).icon, Icons.mic_rounded); // back to idle
+  });
+
+  testWidgets(
+      'a proposed action the session has no capability for never navigates and never crashes '
+      '— the button still finishes the turn normally', (tester) async {
+    await pumpButton(tester);
+    await tester.tap(find.byType(GestureDetector).first);
+    await tester.pump();
+    speech.emit('وديني لتسجيل زيارة', isFinal: true);
+    await tester.pump();
+
+    // nav's own catalog is empty in this harness — open_visit_app requires
+    // operations.record_visit, so this MUST resolve as unavailable, not run.
+    ai.controller!.add(AiActionProposed('open_visit_app', const {}));
+    await ai.controller!.close();
+    await tester.pump();
+
+    expect(find.text('visit screen'), findsNothing); // never navigated
+    await tts.stop();
+    await tester.pump();
+    expect(micIcon(tester).icon, Icons.mic_rounded); // still finished the turn cleanly
   });
 
   testWidgets(

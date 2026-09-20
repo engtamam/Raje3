@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:raje3_mobile/core/actions/action_executor.dart';
+import 'package:raje3_mobile/core/actions/action_model.dart';
+import 'package:raje3_mobile/core/actions/action_registry.dart';
 import 'package:raje3_mobile/core/ai/ai_model.dart';
 import 'package:raje3_mobile/core/ai/assistant_service.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
+import 'package:raje3_mobile/models/catalog_model.dart';
 import 'package:raje3_mobile/core/tts/tts_model.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
@@ -37,12 +41,14 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
 
   late final AssistantService _assistant;
   late final TtsModel _tts;
+  late final ActionExecutor _executor;
 
   @override
   void initState() {
     super.initState();
     _assistant = context.read<AssistantService>();
     _tts = context.read<TtsModel>();
+    _executor = ActionExecutor(registry: context.read<ActionRegistry>());
     _status = _assistant.status;
     _assistant.statusStream.listen((s) {
       if (mounted) setState(() => _status = s);
@@ -94,18 +100,40 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
           case AiTextToken(:final text):
             setState(() => turn.answer += text);
           case AiActionProposed():
-            // NOT EXECUTED HERE, DELIBERATELY. This chat sheet only recognizes that the model
-            // proposed an action — a real executor (checking AppAction.requiresConfirmation,
-            // validating the capability again, actually navigating) is a separate, later step;
-            // see AssistantService's own doc comment. Surfaced as plain text so a proposal is
-            // never silently swallowed while that executor doesn't exist yet.
-            setState(() => turn.answer += '\n[${event.name}]');
+            _handleProposedAction(turn, event, catalog);
         }
       },
       onDone: () {
         if (mounted) setState(() => _answering = false);
       },
     );
+  }
+
+  /// Resolves one proposed action against the REAL, CURRENT catalog — [_send]'s own [catalog]
+  /// snapshot can be a beat stale by the time the model actually proposes something, so this
+  /// re-reads it fresh rather than trusting the one captured when the question was first asked.
+  void _handleProposedAction(_Turn turn, AiActionProposed event, Catalog catalog) {
+    final freshCatalog = context.read<NavProvider>().catalog;
+    final decision = _executor.resolve(event, freshCatalog);
+    switch (decision) {
+      case ActionUnavailable():
+        setState(() => turn.answer += '\n${S.of(context)!.assistantActionUnavailable}');
+      case ActionRunNow(:final action):
+        _executor.execute(context, action);
+        // THE SHEET CLOSES ITSELF — an action that just navigated away is a screen the sheet's
+        // own bottom-sheet overlay would otherwise sit on top of, confusingly.
+        if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+      case ActionNeedsConfirmation(:final action):
+        setState(() => turn.pendingAction = action);
+    }
+  }
+
+  void _confirmPendingAction(_Turn turn) {
+    final action = turn.pendingAction;
+    if (action == null) return;
+    setState(() => turn.pendingAction = null);
+    _executor.execute(context, action);
+    if (Navigator.of(context).canPop()) Navigator.of(context).pop();
   }
 
   @override
@@ -198,6 +226,28 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
               ],
             ),
           ],
+          if (turn.pendingAction != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(color: AppColors.surface2, borderRadius: AppRadius.standardRadius),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(S.of(context)!.assistantConfirmActionPrompt, style: AppTextStyles.bodySmall),
+                  ),
+                  TextButton(
+                    onPressed: () => setState(() => turn.pendingAction = null),
+                    child: Text(S.of(context)!.assistantCancel),
+                  ),
+                  TextButton(
+                    onPressed: () => _confirmPendingAction(turn),
+                    child: Text(S.of(context)!.assistantConfirm),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -235,5 +285,6 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
 class _Turn {
   final String question;
   String answer;
+  AppAction? pendingAction;
   _Turn({required this.question, required this.answer});
 }

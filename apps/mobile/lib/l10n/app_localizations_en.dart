@@ -234,6 +234,18 @@ class SEn extends S {
   String get assistantStopSpeaking => 'Stop speaking';
 
   @override
+  String get assistantActionUnavailable => 'You can\'t do this right now.';
+
+  @override
+  String get assistantConfirmActionPrompt => 'Confirm this action?';
+
+  @override
+  String get assistantConfirm => 'Confirm';
+
+  @override
+  String get assistantCancel => 'Cancel';
+
+  @override
   String get authLoginSubtitle => 'Sign in to continue';
 
   @override

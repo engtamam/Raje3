@@ -206,6 +206,10 @@
   "assistantPreparing": "جاري تجهيز المساعد...",
   "assistantSpeak": "استمع للرد",
   "assistantStopSpeaking": "إيقاف الصوت",
+  "assistantActionUnavailable": "ما تقدر تسوي هذا الآن.",
+  "assistantConfirmActionPrompt": "تأكيد هذا الإجراء؟",
+  "assistantConfirm": "تأكيد",
+  "assistantCancel": "إلغاء",
   "@routerScreenNotOnMobileYet": {
     "description": "Placeholder body for a nav section the catalogue exposes but mobile has no screen for yet"
   },

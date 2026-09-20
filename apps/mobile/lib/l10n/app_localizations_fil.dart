@@ -236,6 +236,18 @@ class SFil extends S {
   String get assistantStopSpeaking => 'Itigil ang pagsasalita';
 
   @override
+  String get assistantActionUnavailable => 'Hindi mo magagawa ito ngayon.';
+
+  @override
+  String get assistantConfirmActionPrompt => 'Kumpirmahin ang aksyong ito?';
+
+  @override
+  String get assistantConfirm => 'Kumpirmahin';
+
+  @override
+  String get assistantCancel => 'Kanselahin';
+
+  @override
   String get authLoginSubtitle => 'Mag-sign in para magpatuloy';
 
   @override

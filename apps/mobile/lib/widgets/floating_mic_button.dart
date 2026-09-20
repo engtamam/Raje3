@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:raje3_mobile/core/actions/action_executor.dart';
+import 'package:raje3_mobile/core/actions/action_registry.dart';
 import 'package:raje3_mobile/core/ai/ai_model.dart';
 import 'package:raje3_mobile/core/ai/assistant_service.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
@@ -57,6 +59,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton> with SingleTicker
   late final AssistantService _assistant;
   late final TtsModel _tts;
   late final SpeechInputModel _speech;
+  late final ActionExecutor _executor;
   late final AnimationController _pulseController;
 
   @override
@@ -66,6 +69,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton> with SingleTicker
     _assistant = context.read<AssistantService>();
     _tts = context.read<TtsModel>();
     _speech = context.read<SpeechInputModel>();
+    _executor = ActionExecutor(registry: context.read<ActionRegistry>());
     _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
       ..repeat(reverse: true);
   }
@@ -159,14 +163,43 @@ class _FloatingMicButtonState extends State<FloatingMicButton> with SingleTicker
           case AiTextToken(:final text):
             buffer.write(text);
           case AiActionProposed():
-            // NOT EXECUTED HERE, DELIBERATELY — same as AssistantChatSheet's own handling; a
-            // real executor is a separate, later step. Spoken as plain text so a proposal is
-            // never silently swallowed while that executor doesn't exist yet.
-            buffer.write(' ${event.name}');
+            _handleProposedAction(event);
         }
       },
-      onDone: () => _speakAnswer(buffer.toString(), lang),
+      onDone: () {
+        // Guarded the same way _speakAnswer guards itself below — a proposed action already
+        // resolved to idle (or to opening the chat sheet) must not also speak whatever text,
+        // if any, arrived alongside it.
+        if (_state == _VoiceState.thinking) _speakAnswer(buffer.toString(), lang);
+      },
     );
+  }
+
+  /// Resolves [event] against the REAL, CURRENT catalog — never the snapshot [_handleRecognized]
+  /// captured when the question was first asked, since a capability can change mid-turn.
+  void _handleProposedAction(AiActionProposed event) {
+    if (!mounted || _state != _VoiceState.thinking) return; // cancelled meanwhile
+    final catalog = context.read<NavProvider>().catalog;
+    final decision = _executor.resolve(event, catalog);
+    switch (decision) {
+      case ActionUnavailable():
+        // Nothing executable — any text the model also sent alongside it still gets spoken
+        // once onDone fires, same as if this event had never arrived.
+        break;
+      case ActionRunNow(:final action):
+        _answerSubscription?.cancel();
+        _answerSubscription = null;
+        _executor.execute(context, action);
+        setState(() => _state = _VoiceState.idle);
+      case ActionNeedsConfirmation():
+        // NO HANDS-FREE CONFIRMATION SURFACE EXISTS on this button — a sensitive action falls
+        // back to the chat sheet, where a real tap can confirm it (AssistantChatSheet's own
+        // inline confirm/cancel row), rather than ever running without one.
+        _answerSubscription?.cancel();
+        _answerSubscription = null;
+        setState(() => _state = _VoiceState.idle);
+        AssistantChatSheet.show(context);
+    }
   }
 
   Future<void> _speakAnswer(String answer, String lang) async {

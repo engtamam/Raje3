@@ -233,6 +233,18 @@ class SHa extends S {
   String get assistantStopSpeaking => 'Dakatar da magana';
 
   @override
+  String get assistantActionUnavailable => 'Ba za ka iya yin wannan yanzu ba.';
+
+  @override
+  String get assistantConfirmActionPrompt => 'Tabbatar da wannan aikin?';
+
+  @override
+  String get assistantConfirm => 'Tabbatar';
+
+  @override
+  String get assistantCancel => 'Soke';
+
+  @override
   String get authLoginSubtitle => 'Shiga don ci gaba';
 
   @override

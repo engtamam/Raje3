@@ -233,6 +233,18 @@ class SBn extends S {
   String get assistantStopSpeaking => 'থামান';
 
   @override
+  String get assistantActionUnavailable => 'আপনি এখন এটি করতে পারবেন না।';
+
+  @override
+  String get assistantConfirmActionPrompt => 'এই কাজটি নিশ্চিত করবেন?';
+
+  @override
+  String get assistantConfirm => 'নিশ্চিত করুন';
+
+  @override
+  String get assistantCancel => 'বাতিল';
+
+  @override
   String get authLoginSubtitle => 'চালিয়ে যেতে সাইন ইন করুন';
 
   @override

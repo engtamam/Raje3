@@ -232,6 +232,18 @@ class SUr extends S {
   String get assistantStopSpeaking => 'آواز روکیں';
 
   @override
+  String get assistantActionUnavailable => 'آپ ابھی یہ نہیں کر سکتے۔';
+
+  @override
+  String get assistantConfirmActionPrompt => 'اس عمل کی تصدیق کریں؟';
+
+  @override
+  String get assistantConfirm => 'تصدیق کریں';
+
+  @override
+  String get assistantCancel => 'منسوخ کریں';
+
+  @override
   String get authLoginSubtitle => 'جاری رکھنے کے لیے سائن ان کریں';
 
   @override

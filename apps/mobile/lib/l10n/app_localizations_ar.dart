@@ -230,6 +230,18 @@ class SAr extends S {
   String get assistantStopSpeaking => 'إيقاف الصوت';
 
   @override
+  String get assistantActionUnavailable => 'ما تقدر تسوي هذا الآن.';
+
+  @override
+  String get assistantConfirmActionPrompt => 'تأكيد هذا الإجراء؟';
+
+  @override
+  String get assistantConfirm => 'تأكيد';
+
+  @override
+  String get assistantCancel => 'إلغاء';
+
+  @override
   String get authLoginSubtitle => 'سجّل دخولك للمتابعة';
 
   @override

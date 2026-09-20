@@ -513,6 +513,30 @@ abstract class S {
   /// **'إيقاف الصوت'**
   String get assistantStopSpeaking;
 
+  /// No description provided for @assistantActionUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما تقدر تسوي هذا الآن.'**
+  String get assistantActionUnavailable;
+
+  /// No description provided for @assistantConfirmActionPrompt.
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد هذا الإجراء؟'**
+  String get assistantConfirmActionPrompt;
+
+  /// No description provided for @assistantConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد'**
+  String get assistantConfirm;
+
+  /// No description provided for @assistantCancel.
+  ///
+  /// In ar, this message translates to:
+  /// **'إلغاء'**
+  String get assistantCancel;
+
   /// Subtitle under the wordmark on the login screen
   ///
   /// In ar, this message translates to:
