@@ -102,6 +102,18 @@ def create_app() -> FastAPI:
                 logger.info("platform_templates_seeded", extra=stats)
         except Exception as exc:                                            # noqa: BLE001
             logger.error("platform_template_seed_failed", extra={"error": str(exc)[:300]})
+
+        # React to billing-service's own subscription.suspended/renewed events (base-services
+        # v0.25.21+) by flipping Meta's own WhatsApp AI switch in real time — see
+        # core/meta_agent_rollout_events.py's own docstring. A failure here is logged, not fatal,
+        # same posture as the seeds above: the owner's own AI kill switch (staff.py) is unaffected.
+        try:
+            from app.core.meta_agent_rollout_events import register as register_rollout_events
+
+            await register_rollout_events(container)
+        except Exception as exc:                                            # noqa: BLE001
+            logger.error("meta_agent_rollout_events_subscribe_failed",
+                         extra={"error": str(exc)[:300]})
         yield
         await container.close()
         logger.info("shutdown", extra={"service": settings.SERVICE_NAME})
