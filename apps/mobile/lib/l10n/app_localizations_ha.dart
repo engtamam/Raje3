@@ -45,6 +45,15 @@ class SHa extends S {
   String get success => 'An yi nasara';
 
   @override
+  String get search => 'Bincike';
+
+  @override
+  String get login => 'Shiga';
+
+  @override
+  String get logout => 'Fita';
+
+  @override
   String get homeDashboardTitle => 'Allon bayanai';
 
   @override
@@ -69,7 +78,8 @@ class SHa extends S {
   String get homeStatRetrying => 'Ana sake gwadawa';
 
   @override
-  String get homeDashboardComputing => 'Ana lissafin bayanan shagonka yanzu — sabunta bayan wani lokaci.';
+  String get homeDashboardComputing =>
+      'Ana lissafin bayanan shagonka yanzu — sabunta bayan wani lokaci.';
 
   @override
   String get homeDashboardSectionTitle => 'Bayanan shago';
@@ -84,66 +94,12 @@ class SHa extends S {
   String get themeLightMode => 'Yanayin haske';
 
   @override
-  String get navAppsLabel => 'Manhajojina';
-
-  @override
-  String get navAnalyticsLabel => 'Bincike';
-
-  @override
-  String get navHomeLabel => 'Gida';
-
-  @override
-  String get navAccountLabel => 'Asusuna';
-
-  @override
-  String get appsScreenTitle => 'Manhajojina';
-
-  @override
-  String get appsScreenHint => 'Danna alamar allura don liƙa manhaja a wurin na 5 na sandar ƙasa';
-
-  @override
-  String get appsPinnedBadge => 'An liƙa a sanda';
-
-  @override
-  String get appsPinAction => 'Liƙa nan';
-
-  @override
-  String get homeLauncherEmptyTitle => 'Babu manhaja da ake da su';
-
-  @override
-  String get homeLauncherEmptyMessage => 'Tuntuɓi tallafi don kunna manhaja ga shagonka';
-
-  @override
-  String get accountScreenTitle => 'Asusuna';
-
-  @override
-  String get accountPhoneLabel => 'Lambar waya';
-
-  @override
-  String get accountLogoutAction => 'Fita';
-
-  @override
-  String get accountLogoutConfirmTitle => 'Fita';
-
-  @override
-  String get accountLogoutConfirmMessage => 'Kana son fita daga asusunka?';
-
-  @override
-  String get notificationsUnavailable => 'Sanarwa ba su samuwa tukuna';
-
-  @override
-  String get search => 'Bincike';
-
-  @override
-  String get login => 'Shiga';
-
-  @override
-  String get logout => 'Fita';
-  @override
   String get validatorFieldRequiredGeneric => 'Wannan filin yana bukata';
 
   @override
-  String validatorFieldRequiredNamed(String field) => 'Ana bukatar $field';
+  String validatorFieldRequiredNamed(String field) {
+    return 'Ana bukatar $field';
+  }
 
   @override
   String get validatorEmailRequired => 'Ana bukatar imel';
@@ -155,19 +111,23 @@ class SHa extends S {
   String get validatorPhoneRequired => 'Ana bukatar lambar waya';
 
   @override
-  String get validatorPhoneInvalid => 'Lambar waya ba daidai ba ne — dole ta fara da 05';
+  String get validatorPhoneInvalid =>
+      'Lambar waya ba daidai ba ne — dole ta fara da 05';
 
   @override
   String get validatorPasswordRequired => 'Ana bukatar kalmar sirri';
 
   @override
-  String get validatorPasswordTooShort => 'Kalmar sirri dole ta zama akalla haruffa 8';
+  String get validatorPasswordTooShort =>
+      'Kalmar sirri dole ta zama akalla haruffa 8';
 
   @override
-  String get validatorPasswordNeedsUppercase => 'Kalmar sirri dole ta ɗunshi babban harafi';
+  String get validatorPasswordNeedsUppercase =>
+      'Kalmar sirri dole ta ɗunshi babban harafi';
 
   @override
-  String get validatorPasswordNeedsLowercase => 'Kalmar sirri dole ta ɗunshi ƙaramin harafi';
+  String get validatorPasswordNeedsLowercase =>
+      'Kalmar sirri dole ta ɗunshi ƙaramin harafi';
 
   @override
   String get validatorPasswordNeedsDigit => 'Kalmar sirri dole ta ɗunshi lamba';
@@ -185,7 +145,8 @@ class SHa extends S {
   String get validatorOtpLength => 'Lambar tabbatarwa dole ta zama lambobi 6';
 
   @override
-  String get validatorOtpDigitsOnly => 'Lambar tabbatarwa dole ta ɗunshi lambobi kawai';
+  String get validatorOtpDigitsOnly =>
+      'Lambar tabbatarwa dole ta ɗunshi lambobi kawai';
 
   @override
   String get validatorNameRequired => 'Ana bukatar suna';
@@ -197,28 +158,39 @@ class SHa extends S {
   String get validatorNameTooLong => 'Suna bai kamata ya wuce haruffa 100 ba';
 
   @override
-  String get validatorNameInvalidChars => 'Suna yana ɗauke da haruffan da ba a yarda da su ba';
+  String get validatorNameInvalidChars =>
+      'Suna yana ɗauke da haruffan da ba a yarda da su ba';
 
   @override
   String get validatorGenericFieldName => 'Wannan filin';
 
   @override
-  String validatorMinLengthNamed(String field, int minLength) => '$field dole ya zama akalla haruffa $minLength';
+  String validatorMinLengthNamed(String field, int minLength) {
+    return '$field dole ya zama akalla haruffa $minLength';
+  }
 
   @override
-  String validatorMaxLengthNamed(String field, int maxLength) => '$field bai kamata ya wuce haruffa $maxLength ba';
+  String validatorMaxLengthNamed(String field, int maxLength) {
+    return '$field bai kamata ya wuce haruffa $maxLength ba';
+  }
 
   @override
   String get validatorGenericValueName => 'Ƙimar';
 
   @override
-  String validatorNotANumberNamed(String field) => '$field dole ya zama lamba';
+  String validatorNotANumberNamed(String field) {
+    return '$field dole ya zama lamba';
+  }
 
   @override
-  String validatorMinValueNamed(String field, String min) => '$field dole ya zama akalla $min';
+  String validatorMinValueNamed(String field, String min) {
+    return '$field dole ya zama akalla $min';
+  }
 
   @override
-  String validatorMaxValueNamed(String field, String max) => '$field bai kamata ya wuce $max ba';
+  String validatorMaxValueNamed(String field, String max) {
+    return '$field bai kamata ya wuce $max ba';
+  }
 
   @override
   String get validatorUrlRequired => 'Ana bukatar hanyar haɗi';
@@ -233,7 +205,8 @@ class SHa extends S {
   String get urlHelperOpenFailed => 'An kasa buɗe hanyar haɗin';
 
   @override
-  String get routerScreenNotOnMobileYet => 'Wannan allon ba a samu shi ba tukuna a manhajar wayar hannu.';
+  String get routerScreenNotOnMobileYet =>
+      'Wannan allon ba a samu shi ba tukuna a manhajar wayar hannu.';
 
   @override
   String get authLoginSubtitle => 'Shiga don ci gaba';
@@ -269,7 +242,9 @@ class SHa extends S {
   String get authVerifyPhoneTitle => 'Tabbatar da lambar wayar hannu';
 
   @override
-  String authVerifyCodeSentTo(String phone) => 'Mun aika lambar tabbatarwa zuwa $phone';
+  String authVerifyCodeSentTo(String phone) {
+    return 'Mun aika lambar tabbatarwa zuwa $phone';
+  }
 
   @override
   String get authVerifying => 'Ana tabbatarwa...';
@@ -290,7 +265,8 @@ class SHa extends S {
   String get authOtpIncorrectFallback => 'Lambar tabbatarwa ba daidai ba ce.';
 
   @override
-  String get visitCatalogueLoadErrorFallback => 'An kasa loda ayyuka. Ja ƙasa don sake gwadawa.';
+  String get visitCatalogueLoadErrorFallback =>
+      'An kasa loda ayyuka. Ja ƙasa don sake gwadawa.';
 
   @override
   String get visitEnterCustomerPhone => 'Shigar da lambar wayar abokin ciniki';
@@ -305,7 +281,8 @@ class SHa extends S {
   String get visitSaveErrorFallback => 'An kasa yin rikodin ziyarar.';
 
   @override
-  String get visitSaveErrorNetworkFallback => 'An kasa yin rikodin ziyarar. Duba haɗin intanet ɗinka sannan ka sake gwadawa.';
+  String get visitSaveErrorNetworkFallback =>
+      'An kasa yin rikodin ziyarar. Duba haɗin intanet ɗinka sannan ka sake gwadawa.';
 
   @override
   String get visitTitle => 'Yin rikodin ziyara';
@@ -317,7 +294,9 @@ class SHa extends S {
   String get visitCustomerPhoneFieldLabel => 'Lambar wayar abokin ciniki';
 
   @override
-  String visitKnownCustomer(String name) => 'Sanannen abokin ciniki: $name';
+  String visitKnownCustomer(String name) {
+    return 'Sanannen abokin ciniki: $name';
+  }
 
   @override
   String get visitNewCustomer => 'Sabon abokin ciniki';
@@ -333,4 +312,54 @@ class SHa extends S {
 
   @override
   String get visitSaveButtonLabel => 'Ajiye ziyarar';
+
+  @override
+  String get navAppsLabel => 'Manhajojina';
+
+  @override
+  String get navAnalyticsLabel => 'Bincike';
+
+  @override
+  String get navHomeLabel => 'Gida';
+
+  @override
+  String get navAccountLabel => 'Asusuna';
+
+  @override
+  String get appsScreenTitle => 'Manhajojina';
+
+  @override
+  String get appsScreenHint =>
+      'Danna alamar allura don liƙa manhaja a wurin na 5 na sandar ƙasa';
+
+  @override
+  String get appsPinnedBadge => 'An liƙa a sanda';
+
+  @override
+  String get appsPinAction => 'Liƙa nan';
+
+  @override
+  String get homeLauncherEmptyTitle => 'Babu manhaja da ake da su';
+
+  @override
+  String get homeLauncherEmptyMessage =>
+      'Tuntuɓi tallafi don kunna manhaja ga shagonka';
+
+  @override
+  String get accountScreenTitle => 'Asusuna';
+
+  @override
+  String get accountPhoneLabel => 'Lambar waya';
+
+  @override
+  String get accountLogoutAction => 'Fita';
+
+  @override
+  String get accountLogoutConfirmTitle => 'Fita';
+
+  @override
+  String get accountLogoutConfirmMessage => 'Kana son fita daga asusunka?';
+
+  @override
+  String get notificationsUnavailable => 'Sanarwa ba su samuwa tukuna';
 }

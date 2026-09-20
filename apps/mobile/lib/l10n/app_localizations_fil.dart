@@ -45,6 +45,15 @@ class SFil extends S {
   String get success => 'Matagumpay';
 
   @override
+  String get search => 'Maghanap';
+
+  @override
+  String get login => 'Mag-log in';
+
+  @override
+  String get logout => 'Mag-log out';
+
+  @override
   String get homeDashboardTitle => 'Dashboard';
 
   @override
@@ -54,7 +63,8 @@ class SFil extends S {
   String get homeLoadErrorTitle => 'Hindi ma-load';
 
   @override
-  String get homeLoadErrorMessage => 'Hindi na-load ang datos ngayong araw. Subukan muli.';
+  String get homeLoadErrorMessage =>
+      'Hindi na-load ang datos ngayong araw. Subukan muli.';
 
   @override
   String get homeTodaySectionTitle => 'Ngayon';
@@ -69,7 +79,8 @@ class SFil extends S {
   String get homeStatRetrying => 'Sinusubukan muli';
 
   @override
-  String get homeDashboardComputing => 'Kinukuwenta ang mga sukatan ng iyong tindahan — i-refresh mamaya.';
+  String get homeDashboardComputing =>
+      'Kinukuwenta ang mga sukatan ng iyong tindahan — i-refresh mamaya.';
 
   @override
   String get homeDashboardSectionTitle => 'Mga sukatan ng tindahan';
@@ -84,66 +95,12 @@ class SFil extends S {
   String get themeLightMode => 'Maliwanag na mode';
 
   @override
-  String get navAppsLabel => 'Mga app ko';
-
-  @override
-  String get navAnalyticsLabel => 'Analytics';
-
-  @override
-  String get navHomeLabel => 'Home';
-
-  @override
-  String get navAccountLabel => 'Account ko';
-
-  @override
-  String get appsScreenTitle => 'Mga app ko';
-
-  @override
-  String get appsScreenHint => 'Pindutin ang pin icon para i-pin ang isang app sa ika-5 slot ng ibabang bar';
-
-  @override
-  String get appsPinnedBadge => 'Naka-pin sa bar';
-
-  @override
-  String get appsPinAction => 'I-pin dito';
-
-  @override
-  String get homeLauncherEmptyTitle => 'Walang available na app';
-
-  @override
-  String get homeLauncherEmptyMessage => 'Makipag-ugnayan sa support para i-activate ang isang app para sa iyong tindahan';
-
-  @override
-  String get accountScreenTitle => 'Account ko';
-
-  @override
-  String get accountPhoneLabel => 'Numero ng telepono';
-
-  @override
-  String get accountLogoutAction => 'Mag-log out';
-
-  @override
-  String get accountLogoutConfirmTitle => 'Mag-log out';
-
-  @override
-  String get accountLogoutConfirmMessage => 'Gusto mo bang mag-log out sa iyong account?';
-
-  @override
-  String get notificationsUnavailable => 'Hindi pa available ang mga notification';
-
-  @override
-  String get search => 'Maghanap';
-
-  @override
-  String get login => 'Mag-log in';
-
-  @override
-  String get logout => 'Mag-log out';
-  @override
   String get validatorFieldRequiredGeneric => 'Kailangan ang field na ito';
 
   @override
-  String validatorFieldRequiredNamed(String field) => 'Kailangan ang $field';
+  String validatorFieldRequiredNamed(String field) {
+    return 'Kailangan ang $field';
+  }
 
   @override
   String get validatorEmailRequired => 'Kailangan ang email';
@@ -155,19 +112,23 @@ class SFil extends S {
   String get validatorPhoneRequired => 'Kailangan ang numero ng telepono';
 
   @override
-  String get validatorPhoneInvalid => 'Hindi wasto ang numero ng telepono — dapat magsimula sa 05';
+  String get validatorPhoneInvalid =>
+      'Hindi wasto ang numero ng telepono — dapat magsimula sa 05';
 
   @override
   String get validatorPasswordRequired => 'Kailangan ang password';
 
   @override
-  String get validatorPasswordTooShort => 'Ang password ay dapat may hindi bababa sa 8 na karakter';
+  String get validatorPasswordTooShort =>
+      'Ang password ay dapat may hindi bababa sa 8 na karakter';
 
   @override
-  String get validatorPasswordNeedsUppercase => 'Ang password ay dapat may malaking titik';
+  String get validatorPasswordNeedsUppercase =>
+      'Ang password ay dapat may malaking titik';
 
   @override
-  String get validatorPasswordNeedsLowercase => 'Ang password ay dapat may maliit na titik';
+  String get validatorPasswordNeedsLowercase =>
+      'Ang password ay dapat may maliit na titik';
 
   @override
   String get validatorPasswordNeedsDigit => 'Ang password ay dapat may numero';
@@ -185,40 +146,54 @@ class SFil extends S {
   String get validatorOtpLength => 'Ang verification code ay dapat 6 na digit';
 
   @override
-  String get validatorOtpDigitsOnly => 'Ang verification code ay dapat mga numero lamang';
+  String get validatorOtpDigitsOnly =>
+      'Ang verification code ay dapat mga numero lamang';
 
   @override
   String get validatorNameRequired => 'Kailangan ang pangalan';
 
   @override
-  String get validatorNameTooShort => 'Ang pangalan ay dapat may hindi bababa sa 2 na karakter';
+  String get validatorNameTooShort =>
+      'Ang pangalan ay dapat may hindi bababa sa 2 na karakter';
 
   @override
-  String get validatorNameTooLong => 'Ang pangalan ay hindi dapat lumampas sa 100 na karakter';
+  String get validatorNameTooLong =>
+      'Ang pangalan ay hindi dapat lumampas sa 100 na karakter';
 
   @override
-  String get validatorNameInvalidChars => 'Ang pangalan ay may mga karakter na hindi pinapayagan';
+  String get validatorNameInvalidChars =>
+      'Ang pangalan ay may mga karakter na hindi pinapayagan';
 
   @override
   String get validatorGenericFieldName => 'Ang field na ito';
 
   @override
-  String validatorMinLengthNamed(String field, int minLength) => 'Ang $field ay dapat may hindi bababa sa $minLength na karakter';
+  String validatorMinLengthNamed(String field, int minLength) {
+    return 'Ang $field ay dapat may hindi bababa sa $minLength na karakter';
+  }
 
   @override
-  String validatorMaxLengthNamed(String field, int maxLength) => 'Ang $field ay hindi dapat lumampas sa $maxLength na karakter';
+  String validatorMaxLengthNamed(String field, int maxLength) {
+    return 'Ang $field ay hindi dapat lumampas sa $maxLength na karakter';
+  }
 
   @override
   String get validatorGenericValueName => 'Ang halaga';
 
   @override
-  String validatorNotANumberNamed(String field) => 'Ang $field ay dapat isang numero';
+  String validatorNotANumberNamed(String field) {
+    return 'Ang $field ay dapat isang numero';
+  }
 
   @override
-  String validatorMinValueNamed(String field, String min) => 'Ang $field ay dapat hindi bababa sa $min';
+  String validatorMinValueNamed(String field, String min) {
+    return 'Ang $field ay dapat hindi bababa sa $min';
+  }
 
   @override
-  String validatorMaxValueNamed(String field, String max) => 'Ang $field ay hindi dapat lumampas sa $max';
+  String validatorMaxValueNamed(String field, String max) {
+    return 'Ang $field ay hindi dapat lumampas sa $max';
+  }
 
   @override
   String get validatorUrlRequired => 'Kailangan ang URL';
@@ -233,7 +208,8 @@ class SFil extends S {
   String get urlHelperOpenFailed => 'Hindi mabuksan ang link';
 
   @override
-  String get routerScreenNotOnMobileYet => 'Hindi pa available ang screen na ito sa mobile app.';
+  String get routerScreenNotOnMobileYet =>
+      'Hindi pa available ang screen na ito sa mobile app.';
 
   @override
   String get authLoginSubtitle => 'Mag-sign in para magpatuloy';
@@ -254,7 +230,8 @@ class SFil extends S {
   String get authOpenShopTitle => 'Pagbubukas ng bagong tindahan';
 
   @override
-  String get authSignupSubtitle => 'Tatlong hakbang lamang para buksan ang iyong tindahan';
+  String get authSignupSubtitle =>
+      'Tatlong hakbang lamang para buksan ang iyong tindahan';
 
   @override
   String get authShopNameLabel => 'Pangalan ng tindahan';
@@ -269,7 +246,9 @@ class SFil extends S {
   String get authVerifyPhoneTitle => 'I-verify ang numero ng mobile';
 
   @override
-  String authVerifyCodeSentTo(String phone) => 'Nagpadala kami ng verification code sa $phone';
+  String authVerifyCodeSentTo(String phone) {
+    return 'Nagpadala kami ng verification code sa $phone';
+  }
 
   @override
   String get authVerifying => 'Nagve-verify...';
@@ -290,10 +269,12 @@ class SFil extends S {
   String get authOtpIncorrectFallback => 'Mali ang verification code.';
 
   @override
-  String get visitCatalogueLoadErrorFallback => 'Hindi ma-load ang mga serbisyo. I-pull down para subukan muli.';
+  String get visitCatalogueLoadErrorFallback =>
+      'Hindi ma-load ang mga serbisyo. I-pull down para subukan muli.';
 
   @override
-  String get visitEnterCustomerPhone => 'Ilagay ang numero ng mobile ng customer';
+  String get visitEnterCustomerPhone =>
+      'Ilagay ang numero ng mobile ng customer';
 
   @override
   String get visitSelectAtLeastOneService => 'Pumili ng kahit isang serbisyo';
@@ -305,7 +286,8 @@ class SFil extends S {
   String get visitSaveErrorFallback => 'Hindi maitala ang pagbisita.';
 
   @override
-  String get visitSaveErrorNetworkFallback => 'Hindi maitala ang pagbisita. Suriin ang iyong koneksyon at subukan muli.';
+  String get visitSaveErrorNetworkFallback =>
+      'Hindi maitala ang pagbisita. Suriin ang iyong koneksyon at subukan muli.';
 
   @override
   String get visitTitle => 'Magtala ng pagbisita';
@@ -317,7 +299,9 @@ class SFil extends S {
   String get visitCustomerPhoneFieldLabel => 'Numero ng mobile ng customer';
 
   @override
-  String visitKnownCustomer(String name) => 'Kilalang customer: $name';
+  String visitKnownCustomer(String name) {
+    return 'Kilalang customer: $name';
+  }
 
   @override
   String get visitNewCustomer => 'Bagong customer';
@@ -333,4 +317,56 @@ class SFil extends S {
 
   @override
   String get visitSaveButtonLabel => 'I-save ang pagbisita';
+
+  @override
+  String get navAppsLabel => 'Mga app ko';
+
+  @override
+  String get navAnalyticsLabel => 'Analytics';
+
+  @override
+  String get navHomeLabel => 'Home';
+
+  @override
+  String get navAccountLabel => 'Account ko';
+
+  @override
+  String get appsScreenTitle => 'Mga app ko';
+
+  @override
+  String get appsScreenHint =>
+      'Pindutin ang pin icon para i-pin ang isang app sa ika-5 slot ng ibabang bar';
+
+  @override
+  String get appsPinnedBadge => 'Naka-pin sa bar';
+
+  @override
+  String get appsPinAction => 'I-pin dito';
+
+  @override
+  String get homeLauncherEmptyTitle => 'Walang available na app';
+
+  @override
+  String get homeLauncherEmptyMessage =>
+      'Makipag-ugnayan sa support para i-activate ang isang app para sa iyong tindahan';
+
+  @override
+  String get accountScreenTitle => 'Account ko';
+
+  @override
+  String get accountPhoneLabel => 'Numero ng telepono';
+
+  @override
+  String get accountLogoutAction => 'Mag-log out';
+
+  @override
+  String get accountLogoutConfirmTitle => 'Mag-log out';
+
+  @override
+  String get accountLogoutConfirmMessage =>
+      'Gusto mo bang mag-log out sa iyong account?';
+
+  @override
+  String get notificationsUnavailable =>
+      'Hindi pa available ang mga notification';
 }

@@ -89,9 +89,9 @@ class AccountScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          AppCard(
+          const AppCard(
             padding: 0,
-            child: const ThemeSwitchTile(),
+            child: ThemeSwitchTile(),
           ),
           const SizedBox(height: AppSpacing.lg),
           SecondaryButton(

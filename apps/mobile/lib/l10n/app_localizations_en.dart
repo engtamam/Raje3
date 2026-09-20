@@ -45,6 +45,15 @@ class SEn extends S {
   String get success => 'Success';
 
   @override
+  String get search => 'Search';
+
+  @override
+  String get login => 'Log in';
+
+  @override
+  String get logout => 'Log out';
+
+  @override
   String get homeDashboardTitle => 'Dashboard';
 
   @override
@@ -69,7 +78,8 @@ class SEn extends S {
   String get homeStatRetrying => 'Retrying';
 
   @override
-  String get homeDashboardComputing => 'Calculating your shop\'s metrics now — refresh shortly.';
+  String get homeDashboardComputing =>
+      'Calculating your shop\'s metrics now — refresh shortly.';
 
   @override
   String get homeDashboardSectionTitle => 'Shop metrics';
@@ -84,66 +94,12 @@ class SEn extends S {
   String get themeLightMode => 'Light mode';
 
   @override
-  String get navAppsLabel => 'My apps';
-
-  @override
-  String get navAnalyticsLabel => 'Analytics';
-
-  @override
-  String get navHomeLabel => 'Home';
-
-  @override
-  String get navAccountLabel => 'Account';
-
-  @override
-  String get appsScreenTitle => 'My apps';
-
-  @override
-  String get appsScreenHint => 'Tap the pin icon to pin an app to the bottom bar\'s 5th slot';
-
-  @override
-  String get appsPinnedBadge => 'Pinned to the bar';
-
-  @override
-  String get appsPinAction => 'Pin here';
-
-  @override
-  String get homeLauncherEmptyTitle => 'No apps available';
-
-  @override
-  String get homeLauncherEmptyMessage => 'Contact support to activate an app for your shop';
-
-  @override
-  String get accountScreenTitle => 'My account';
-
-  @override
-  String get accountPhoneLabel => 'Phone number';
-
-  @override
-  String get accountLogoutAction => 'Log out';
-
-  @override
-  String get accountLogoutConfirmTitle => 'Log out';
-
-  @override
-  String get accountLogoutConfirmMessage => 'Do you want to log out of your account?';
-
-  @override
-  String get notificationsUnavailable => 'Notifications aren\'t available yet';
-
-  @override
-  String get search => 'Search';
-
-  @override
-  String get login => 'Log in';
-
-  @override
-  String get logout => 'Log out';
-  @override
   String get validatorFieldRequiredGeneric => 'This field is required';
 
   @override
-  String validatorFieldRequiredNamed(String field) => '$field is required';
+  String validatorFieldRequiredNamed(String field) {
+    return '$field is required';
+  }
 
   @override
   String get validatorEmailRequired => 'Email is required';
@@ -155,19 +111,23 @@ class SEn extends S {
   String get validatorPhoneRequired => 'Phone number is required';
 
   @override
-  String get validatorPhoneInvalid => 'Invalid phone number — it must start with 05';
+  String get validatorPhoneInvalid =>
+      'Invalid phone number — it must start with 05';
 
   @override
   String get validatorPasswordRequired => 'Password is required';
 
   @override
-  String get validatorPasswordTooShort => 'Password must be at least 8 characters';
+  String get validatorPasswordTooShort =>
+      'Password must be at least 8 characters';
 
   @override
-  String get validatorPasswordNeedsUppercase => 'Password must contain an uppercase letter';
+  String get validatorPasswordNeedsUppercase =>
+      'Password must contain an uppercase letter';
 
   @override
-  String get validatorPasswordNeedsLowercase => 'Password must contain a lowercase letter';
+  String get validatorPasswordNeedsLowercase =>
+      'Password must contain a lowercase letter';
 
   @override
   String get validatorPasswordNeedsDigit => 'Password must contain a number';
@@ -185,7 +145,8 @@ class SEn extends S {
   String get validatorOtpLength => 'Verification code must be 6 digits';
 
   @override
-  String get validatorOtpDigitsOnly => 'Verification code must contain digits only';
+  String get validatorOtpDigitsOnly =>
+      'Verification code must contain digits only';
 
   @override
   String get validatorNameRequired => 'Name is required';
@@ -197,28 +158,39 @@ class SEn extends S {
   String get validatorNameTooLong => 'Name must not exceed 100 characters';
 
   @override
-  String get validatorNameInvalidChars => 'Name contains characters that are not allowed';
+  String get validatorNameInvalidChars =>
+      'Name contains characters that are not allowed';
 
   @override
   String get validatorGenericFieldName => 'This field';
 
   @override
-  String validatorMinLengthNamed(String field, int minLength) => '$field must be at least $minLength characters';
+  String validatorMinLengthNamed(String field, int minLength) {
+    return '$field must be at least $minLength characters';
+  }
 
   @override
-  String validatorMaxLengthNamed(String field, int maxLength) => '$field must not exceed $maxLength characters';
+  String validatorMaxLengthNamed(String field, int maxLength) {
+    return '$field must not exceed $maxLength characters';
+  }
 
   @override
   String get validatorGenericValueName => 'The value';
 
   @override
-  String validatorNotANumberNamed(String field) => '$field must be a number';
+  String validatorNotANumberNamed(String field) {
+    return '$field must be a number';
+  }
 
   @override
-  String validatorMinValueNamed(String field, String min) => '$field must be at least $min';
+  String validatorMinValueNamed(String field, String min) {
+    return '$field must be at least $min';
+  }
 
   @override
-  String validatorMaxValueNamed(String field, String max) => '$field must not exceed $max';
+  String validatorMaxValueNamed(String field, String max) {
+    return '$field must not exceed $max';
+  }
 
   @override
   String get validatorUrlRequired => 'URL is required';
@@ -230,10 +202,11 @@ class SEn extends S {
   String get urlHelperUnavailable => 'The link is not available';
 
   @override
-  String get urlHelperOpenFailed => 'Couldn't open the link';
+  String get urlHelperOpenFailed => 'Couldn\'t open the link';
 
   @override
-  String get routerScreenNotOnMobileYet => 'This screen isn't available on the mobile app yet.';
+  String get routerScreenNotOnMobileYet =>
+      'This screen isn\'t available on the mobile app yet.';
 
   @override
   String get authLoginSubtitle => 'Sign in to continue';
@@ -245,7 +218,7 @@ class SEn extends S {
   String get authPasswordLabel => 'Password';
 
   @override
-  String get authNoShopYetLabel => 'Don't have a shop yet?';
+  String get authNoShopYetLabel => 'Don\'t have a shop yet?';
 
   @override
   String get authOpenNewShopCta => 'Open a new shop';
@@ -269,7 +242,9 @@ class SEn extends S {
   String get authVerifyPhoneTitle => 'Verify mobile number';
 
   @override
-  String authVerifyCodeSentTo(String phone) => 'We sent a verification code to $phone';
+  String authVerifyCodeSentTo(String phone) {
+    return 'We sent a verification code to $phone';
+  }
 
   @override
   String get authVerifying => 'Verifying...';
@@ -284,16 +259,17 @@ class SEn extends S {
   String get authSendCodeCta => 'Send code';
 
   @override
-  String get authCodeSendFailedFallback => 'Couldn't send the code.';
+  String get authCodeSendFailedFallback => 'Couldn\'t send the code.';
 
   @override
   String get authOtpIncorrectFallback => 'Incorrect verification code.';
 
   @override
-  String get visitCatalogueLoadErrorFallback => 'Couldn't load the services. Pull down to retry.';
+  String get visitCatalogueLoadErrorFallback =>
+      'Couldn\'t load the services. Pull down to retry.';
 
   @override
-  String get visitEnterCustomerPhone => "Enter the customer's mobile number";
+  String get visitEnterCustomerPhone => 'Enter the customer\'s mobile number';
 
   @override
   String get visitSelectAtLeastOneService => 'Select at least one service';
@@ -302,10 +278,11 @@ class SEn extends S {
   String get visitSavedMessage => 'The visit has been recorded.';
 
   @override
-  String get visitSaveErrorFallback => 'Couldn't record the visit.';
+  String get visitSaveErrorFallback => 'Couldn\'t record the visit.';
 
   @override
-  String get visitSaveErrorNetworkFallback => 'Couldn't record the visit. Check your connection and try again.';
+  String get visitSaveErrorNetworkFallback =>
+      'Couldn\'t record the visit. Check your connection and try again.';
 
   @override
   String get visitTitle => 'Record a visit';
@@ -314,10 +291,12 @@ class SEn extends S {
   String get visitCustomerSectionTitle => 'Customer';
 
   @override
-  String get visitCustomerPhoneFieldLabel => "Customer's mobile number";
+  String get visitCustomerPhoneFieldLabel => 'Customer\'s mobile number';
 
   @override
-  String visitKnownCustomer(String name) => 'Known customer: $name';
+  String visitKnownCustomer(String name) {
+    return 'Known customer: $name';
+  }
 
   @override
   String get visitNewCustomer => 'New customer';
@@ -333,4 +312,55 @@ class SEn extends S {
 
   @override
   String get visitSaveButtonLabel => 'Save the visit';
+
+  @override
+  String get navAppsLabel => 'My apps';
+
+  @override
+  String get navAnalyticsLabel => 'Analytics';
+
+  @override
+  String get navHomeLabel => 'Home';
+
+  @override
+  String get navAccountLabel => 'Account';
+
+  @override
+  String get appsScreenTitle => 'My apps';
+
+  @override
+  String get appsScreenHint =>
+      'Tap the pin icon to pin an app to the bottom bar\'s 5th slot';
+
+  @override
+  String get appsPinnedBadge => 'Pinned to the bar';
+
+  @override
+  String get appsPinAction => 'Pin here';
+
+  @override
+  String get homeLauncherEmptyTitle => 'No apps available';
+
+  @override
+  String get homeLauncherEmptyMessage =>
+      'Contact support to activate an app for your shop';
+
+  @override
+  String get accountScreenTitle => 'My account';
+
+  @override
+  String get accountPhoneLabel => 'Phone number';
+
+  @override
+  String get accountLogoutAction => 'Log out';
+
+  @override
+  String get accountLogoutConfirmTitle => 'Log out';
+
+  @override
+  String get accountLogoutConfirmMessage =>
+      'Do you want to log out of your account?';
+
+  @override
+  String get notificationsUnavailable => 'Notifications aren\'t available yet';
 }

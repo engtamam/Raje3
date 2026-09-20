@@ -45,6 +45,15 @@ class SAr extends S {
   String get success => 'تمت العملية بنجاح';
 
   @override
+  String get search => 'بحث';
+
+  @override
+  String get login => 'تسجيل الدخول';
+
+  @override
+  String get logout => 'تسجيل الخروج';
+
+  @override
   String get homeDashboardTitle => 'لوحة التحكم';
 
   @override
@@ -69,7 +78,8 @@ class SAr extends S {
   String get homeStatRetrying => 'تعيد المحاولة';
 
   @override
-  String get homeDashboardComputing => 'أحسب مؤشرات محلك الآن — حدّث الصفحة بعد قليل';
+  String get homeDashboardComputing =>
+      'أحسب مؤشرات محلك الآن — حدّث الصفحة بعد قليل';
 
   @override
   String get homeDashboardSectionTitle => 'مؤشرات المحل';
@@ -84,66 +94,12 @@ class SAr extends S {
   String get themeLightMode => 'الوضع الفاتح';
 
   @override
-  String get navAppsLabel => 'تطبيقاتي';
-
-  @override
-  String get navAnalyticsLabel => 'التحليلات';
-
-  @override
-  String get navHomeLabel => 'الرئيسية';
-
-  @override
-  String get navAccountLabel => 'حسابي';
-
-  @override
-  String get appsScreenTitle => 'تطبيقاتي';
-
-  @override
-  String get appsScreenHint => 'اضغط على أيقونة الدبّوس لتثبيت تطبيق بالخانة الخامسة بالشريط السفلي';
-
-  @override
-  String get appsPinnedBadge => 'مثبّت بالشريط';
-
-  @override
-  String get appsPinAction => 'تثبيت هنا';
-
-  @override
-  String get homeLauncherEmptyTitle => 'لا توجد تطبيقات متاحة';
-
-  @override
-  String get homeLauncherEmptyMessage => 'تواصل مع الدعم لتفعيل تطبيق على محلّك';
-
-  @override
-  String get accountScreenTitle => 'حسابي';
-
-  @override
-  String get accountPhoneLabel => 'رقم الجوال';
-
-  @override
-  String get accountLogoutAction => 'تسجيل الخروج';
-
-  @override
-  String get accountLogoutConfirmTitle => 'تسجيل الخروج';
-
-  @override
-  String get accountLogoutConfirmMessage => 'هل تريد تسجيل الخروج من حسابك؟';
-
-  @override
-  String get notificationsUnavailable => 'الإشعارات غير متاحة بعد';
-
-  @override
-  String get search => 'بحث';
-
-  @override
-  String get login => 'تسجيل الدخول';
-
-  @override
-  String get logout => 'تسجيل الخروج';
-  @override
   String get validatorFieldRequiredGeneric => 'هذا الحقل مطلوب';
 
   @override
-  String validatorFieldRequiredNamed(String field) => '$field مطلوب';
+  String validatorFieldRequiredNamed(String field) {
+    return '$field مطلوب';
+  }
 
   @override
   String get validatorEmailRequired => 'البريد الإلكتروني مطلوب';
@@ -161,13 +117,16 @@ class SAr extends S {
   String get validatorPasswordRequired => 'كلمة المرور مطلوبة';
 
   @override
-  String get validatorPasswordTooShort => 'كلمة المرور يجب أن تكون 8 أحرف على الأقل';
+  String get validatorPasswordTooShort =>
+      'كلمة المرور يجب أن تكون 8 أحرف على الأقل';
 
   @override
-  String get validatorPasswordNeedsUppercase => 'كلمة المرور يجب أن تحتوي على حرف كبير';
+  String get validatorPasswordNeedsUppercase =>
+      'كلمة المرور يجب أن تحتوي على حرف كبير';
 
   @override
-  String get validatorPasswordNeedsLowercase => 'كلمة المرور يجب أن تحتوي على حرف صغير';
+  String get validatorPasswordNeedsLowercase =>
+      'كلمة المرور يجب أن تحتوي على حرف صغير';
 
   @override
   String get validatorPasswordNeedsDigit => 'كلمة المرور يجب أن تحتوي على رقم';
@@ -203,22 +162,32 @@ class SAr extends S {
   String get validatorGenericFieldName => 'هذا الحقل';
 
   @override
-  String validatorMinLengthNamed(String field, int minLength) => '$field يجب أن يكون $minLength أحرف على الأقل';
+  String validatorMinLengthNamed(String field, int minLength) {
+    return '$field يجب أن يكون $minLength أحرف على الأقل';
+  }
 
   @override
-  String validatorMaxLengthNamed(String field, int maxLength) => '$field يجب أن لا يتجاوز $maxLength حرف';
+  String validatorMaxLengthNamed(String field, int maxLength) {
+    return '$field يجب أن لا يتجاوز $maxLength حرف';
+  }
 
   @override
   String get validatorGenericValueName => 'القيمة';
 
   @override
-  String validatorNotANumberNamed(String field) => '$field يجب أن يكون رقم';
+  String validatorNotANumberNamed(String field) {
+    return '$field يجب أن يكون رقم';
+  }
 
   @override
-  String validatorMinValueNamed(String field, String min) => '$field يجب أن يكون $min على الأقل';
+  String validatorMinValueNamed(String field, String min) {
+    return '$field يجب أن يكون $min على الأقل';
+  }
 
   @override
-  String validatorMaxValueNamed(String field, String max) => '$field يجب أن لا يتجاوز $max';
+  String validatorMaxValueNamed(String field, String max) {
+    return '$field يجب أن لا يتجاوز $max';
+  }
 
   @override
   String get validatorUrlRequired => 'الرابط مطلوب';
@@ -233,7 +202,8 @@ class SAr extends S {
   String get urlHelperOpenFailed => 'تعذر فتح الرابط';
 
   @override
-  String get routerScreenNotOnMobileYet => 'هذه الشاشة غير متاحة على تطبيق الجوال بعد.';
+  String get routerScreenNotOnMobileYet =>
+      'هذه الشاشة غير متاحة على تطبيق الجوال بعد.';
 
   @override
   String get authLoginSubtitle => 'سجّل دخولك للمتابعة';
@@ -269,7 +239,9 @@ class SAr extends S {
   String get authVerifyPhoneTitle => 'تأكيد رقم الجوال';
 
   @override
-  String authVerifyCodeSentTo(String phone) => 'أرسلنا رمز تحقق إلى $phone';
+  String authVerifyCodeSentTo(String phone) {
+    return 'أرسلنا رمز تحقق إلى $phone';
+  }
 
   @override
   String get authVerifying => 'جارٍ التحقق...';
@@ -290,7 +262,8 @@ class SAr extends S {
   String get authOtpIncorrectFallback => 'رمز التحقق غير صحيح.';
 
   @override
-  String get visitCatalogueLoadErrorFallback => 'تعذّر تحميل الخدمات. اسحب للأسفل لإعادة المحاولة.';
+  String get visitCatalogueLoadErrorFallback =>
+      'تعذّر تحميل الخدمات. اسحب للأسفل لإعادة المحاولة.';
 
   @override
   String get visitEnterCustomerPhone => 'أدخل رقم جوال العميل';
@@ -305,7 +278,8 @@ class SAr extends S {
   String get visitSaveErrorFallback => 'تعذّر تسجيل الزيارة.';
 
   @override
-  String get visitSaveErrorNetworkFallback => 'تعذّر تسجيل الزيارة. تحقق من الاتصال وحاول مرة أخرى.';
+  String get visitSaveErrorNetworkFallback =>
+      'تعذّر تسجيل الزيارة. تحقق من الاتصال وحاول مرة أخرى.';
 
   @override
   String get visitTitle => 'تسجيل زيارة';
@@ -317,7 +291,9 @@ class SAr extends S {
   String get visitCustomerPhoneFieldLabel => 'رقم جوال العميل';
 
   @override
-  String visitKnownCustomer(String name) => 'عميل معروف: $name';
+  String visitKnownCustomer(String name) {
+    return 'عميل معروف: $name';
+  }
 
   @override
   String get visitNewCustomer => 'عميل جديد';
@@ -333,4 +309,54 @@ class SAr extends S {
 
   @override
   String get visitSaveButtonLabel => 'حفظ الزيارة';
+
+  @override
+  String get navAppsLabel => 'تطبيقاتي';
+
+  @override
+  String get navAnalyticsLabel => 'التحليلات';
+
+  @override
+  String get navHomeLabel => 'الرئيسية';
+
+  @override
+  String get navAccountLabel => 'حسابي';
+
+  @override
+  String get appsScreenTitle => 'تطبيقاتي';
+
+  @override
+  String get appsScreenHint =>
+      'اضغط على أيقونة الدبّوس لتثبيت تطبيق بالخانة الخامسة بالشريط السفلي';
+
+  @override
+  String get appsPinnedBadge => 'مثبّت بالشريط';
+
+  @override
+  String get appsPinAction => 'تثبيت هنا';
+
+  @override
+  String get homeLauncherEmptyTitle => 'لا توجد تطبيقات متاحة';
+
+  @override
+  String get homeLauncherEmptyMessage =>
+      'تواصل مع الدعم لتفعيل تطبيق على محلّك';
+
+  @override
+  String get accountScreenTitle => 'حسابي';
+
+  @override
+  String get accountPhoneLabel => 'رقم الجوال';
+
+  @override
+  String get accountLogoutAction => 'تسجيل الخروج';
+
+  @override
+  String get accountLogoutConfirmTitle => 'تسجيل الخروج';
+
+  @override
+  String get accountLogoutConfirmMessage => 'هل تريد تسجيل الخروج من حسابك؟';
+
+  @override
+  String get notificationsUnavailable => 'الإشعارات غير متاحة بعد';
 }

@@ -147,9 +147,9 @@ class _NotYetOnMobile extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.surface0,
       appBar: AppBar(title: Text(section.label)),
-      body: const Center(
+      body: Center(
         child: Padding(
-          padding: EdgeInsets.all(AppSpacing.md),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: Text(
             S.of(context)!.routerScreenNotOnMobileYet,
             style: AppTextStyles.bodyMedium,

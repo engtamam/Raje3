@@ -45,6 +45,15 @@ class SUr extends S {
   String get success => 'کامیابی سے انجام دیا گیا';
 
   @override
+  String get search => 'تلاش';
+
+  @override
+  String get login => 'لاگ ان';
+
+  @override
+  String get logout => 'لاگ آؤٹ';
+
+  @override
   String get homeDashboardTitle => 'ڈیش بورڈ';
 
   @override
@@ -54,7 +63,8 @@ class SUr extends S {
   String get homeLoadErrorTitle => 'لوڈ نہیں ہو سکا';
 
   @override
-  String get homeLoadErrorMessage => 'آج کا ڈیٹا لوڈ نہیں ہو سکا۔ دوبارہ کوشش کریں۔';
+  String get homeLoadErrorMessage =>
+      'آج کا ڈیٹا لوڈ نہیں ہو سکا۔ دوبارہ کوشش کریں۔';
 
   @override
   String get homeTodaySectionTitle => 'آج';
@@ -69,7 +79,8 @@ class SUr extends S {
   String get homeStatRetrying => 'دوبارہ کوشش';
 
   @override
-  String get homeDashboardComputing => 'آپ کی دکان کے اعداد و شمار تیار ہو رہے ہیں — تھوڑی دیر بعد صفحہ ریفریش کریں۔';
+  String get homeDashboardComputing =>
+      'آپ کی دکان کے اعداد و شمار تیار ہو رہے ہیں — تھوڑی دیر بعد صفحہ ریفریش کریں۔';
 
   @override
   String get homeDashboardSectionTitle => 'دکان کے اعداد و شمار';
@@ -84,66 +95,12 @@ class SUr extends S {
   String get themeLightMode => 'روشن موڈ';
 
   @override
-  String get navAppsLabel => 'میری ایپس';
-
-  @override
-  String get navAnalyticsLabel => 'تجزیات';
-
-  @override
-  String get navHomeLabel => 'ہوم';
-
-  @override
-  String get navAccountLabel => 'میرا اکاؤنٹ';
-
-  @override
-  String get appsScreenTitle => 'میری ایپس';
-
-  @override
-  String get appsScreenHint => 'نیچے کی پٹی کی 5ویں جگہ پر ایپ لگانے کے لیے پن آئیکن دبائیں';
-
-  @override
-  String get appsPinnedBadge => 'پٹی پر لگا ہوا';
-
-  @override
-  String get appsPinAction => 'یہاں لگائیں';
-
-  @override
-  String get homeLauncherEmptyTitle => 'کوئی ایپ دستیاب نہیں';
-
-  @override
-  String get homeLauncherEmptyMessage => 'اپنی دکان کے لیے ایپ فعال کروانے کے لیے سپورٹ سے رابطہ کریں';
-
-  @override
-  String get accountScreenTitle => 'میرا اکاؤنٹ';
-
-  @override
-  String get accountPhoneLabel => 'موبائل نمبر';
-
-  @override
-  String get accountLogoutAction => 'لاگ آؤٹ';
-
-  @override
-  String get accountLogoutConfirmTitle => 'لاگ آؤٹ';
-
-  @override
-  String get accountLogoutConfirmMessage => 'کیا آپ اپنے اکاؤنٹ سے لاگ آؤٹ کرنا چاہتے ہیں؟';
-
-  @override
-  String get notificationsUnavailable => 'اطلاعات ابھی دستیاب نہیں';
-
-  @override
-  String get search => 'تلاش';
-
-  @override
-  String get login => 'لاگ ان';
-
-  @override
-  String get logout => 'لاگ آؤٹ';
-  @override
   String get validatorFieldRequiredGeneric => 'یہ خانہ درکار ہے';
 
   @override
-  String validatorFieldRequiredNamed(String field) => '$field درکار ہے';
+  String validatorFieldRequiredNamed(String field) {
+    return '$field درکار ہے';
+  }
 
   @override
   String get validatorEmailRequired => 'ای میل درکار ہے';
@@ -155,19 +112,23 @@ class SUr extends S {
   String get validatorPhoneRequired => 'فون نمبر درکار ہے';
 
   @override
-  String get validatorPhoneInvalid => 'فون نمبر درست نہیں — یہ 05 سے شروع ہونا چاہیے';
+  String get validatorPhoneInvalid =>
+      'فون نمبر درست نہیں — یہ 05 سے شروع ہونا چاہیے';
 
   @override
   String get validatorPasswordRequired => 'پاس ورڈ درکار ہے';
 
   @override
-  String get validatorPasswordTooShort => 'پاس ورڈ کم از کم 8 حروف کا ہونا چاہیے';
+  String get validatorPasswordTooShort =>
+      'پاس ورڈ کم از کم 8 حروف کا ہونا چاہیے';
 
   @override
-  String get validatorPasswordNeedsUppercase => 'پاس ورڈ میں ایک بڑا حرف ہونا چاہیے';
+  String get validatorPasswordNeedsUppercase =>
+      'پاس ورڈ میں ایک بڑا حرف ہونا چاہیے';
 
   @override
-  String get validatorPasswordNeedsLowercase => 'پاس ورڈ میں ایک چھوٹا حرف ہونا چاہیے';
+  String get validatorPasswordNeedsLowercase =>
+      'پاس ورڈ میں ایک چھوٹا حرف ہونا چاہیے';
 
   @override
   String get validatorPasswordNeedsDigit => 'پاس ورڈ میں ایک ہندسہ ہونا چاہیے';
@@ -203,22 +164,32 @@ class SUr extends S {
   String get validatorGenericFieldName => 'یہ خانہ';
 
   @override
-  String validatorMinLengthNamed(String field, int minLength) => '$field کم از کم $minLength حروف کا ہونا چاہیے';
+  String validatorMinLengthNamed(String field, int minLength) {
+    return '$field کم از کم $minLength حروف کا ہونا چاہیے';
+  }
 
   @override
-  String validatorMaxLengthNamed(String field, int maxLength) => '$field $maxLength حروف سے زیادہ نہیں ہونا چاہیے';
+  String validatorMaxLengthNamed(String field, int maxLength) {
+    return '$field $maxLength حروف سے زیادہ نہیں ہونا چاہیے';
+  }
 
   @override
   String get validatorGenericValueName => 'قدر';
 
   @override
-  String validatorNotANumberNamed(String field) => '$field ایک عدد ہونا چاہیے';
+  String validatorNotANumberNamed(String field) {
+    return '$field ایک عدد ہونا چاہیے';
+  }
 
   @override
-  String validatorMinValueNamed(String field, String min) => '$field کم از کم $min ہونا چاہیے';
+  String validatorMinValueNamed(String field, String min) {
+    return '$field کم از کم $min ہونا چاہیے';
+  }
 
   @override
-  String validatorMaxValueNamed(String field, String max) => '$field $max سے زیادہ نہیں ہونا چاہیے';
+  String validatorMaxValueNamed(String field, String max) {
+    return '$field $max سے زیادہ نہیں ہونا چاہیے';
+  }
 
   @override
   String get validatorUrlRequired => 'لنک درکار ہے';
@@ -233,7 +204,8 @@ class SUr extends S {
   String get urlHelperOpenFailed => 'لنک کھولنا ممکن نہیں ہوا';
 
   @override
-  String get routerScreenNotOnMobileYet => 'یہ اسکرین ابھی موبائل ایپ پر دستیاب نہیں ہے۔';
+  String get routerScreenNotOnMobileYet =>
+      'یہ اسکرین ابھی موبائل ایپ پر دستیاب نہیں ہے۔';
 
   @override
   String get authLoginSubtitle => 'جاری رکھنے کے لیے سائن ان کریں';
@@ -269,7 +241,9 @@ class SUr extends S {
   String get authVerifyPhoneTitle => 'موبائل نمبر کی تصدیق';
 
   @override
-  String authVerifyCodeSentTo(String phone) => 'ہم نے $phone پر ایک تصدیقی کوڈ بھیجا ہے';
+  String authVerifyCodeSentTo(String phone) {
+    return 'ہم نے $phone پر ایک تصدیقی کوڈ بھیجا ہے';
+  }
 
   @override
   String get authVerifying => 'تصدیق ہو رہی ہے...';
@@ -290,7 +264,8 @@ class SUr extends S {
   String get authOtpIncorrectFallback => 'تصدیقی کوڈ غلط ہے۔';
 
   @override
-  String get visitCatalogueLoadErrorFallback => 'سروسز لوڈ نہیں ہو سکیں۔ دوبارہ کوشش کے لیے نیچے کھینچیں۔';
+  String get visitCatalogueLoadErrorFallback =>
+      'سروسز لوڈ نہیں ہو سکیں۔ دوبارہ کوشش کے لیے نیچے کھینچیں۔';
 
   @override
   String get visitEnterCustomerPhone => 'گاہک کا موبائل نمبر درج کریں';
@@ -305,7 +280,8 @@ class SUr extends S {
   String get visitSaveErrorFallback => 'وزٹ ریکارڈ نہیں ہو سکی۔';
 
   @override
-  String get visitSaveErrorNetworkFallback => 'وزٹ ریکارڈ نہیں ہو سکی۔ اپنا کنکشن چیک کریں اور دوبارہ کوشش کریں۔';
+  String get visitSaveErrorNetworkFallback =>
+      'وزٹ ریکارڈ نہیں ہو سکی۔ اپنا کنکشن چیک کریں اور دوبارہ کوشش کریں۔';
 
   @override
   String get visitTitle => 'وزٹ ریکارڈ کریں';
@@ -317,7 +293,9 @@ class SUr extends S {
   String get visitCustomerPhoneFieldLabel => 'گاہک کا موبائل نمبر';
 
   @override
-  String visitKnownCustomer(String name) => 'معروف گاہک: $name';
+  String visitKnownCustomer(String name) {
+    return 'معروف گاہک: $name';
+  }
 
   @override
   String get visitNewCustomer => 'نیا گاہک';
@@ -333,4 +311,55 @@ class SUr extends S {
 
   @override
   String get visitSaveButtonLabel => 'وزٹ محفوظ کریں';
+
+  @override
+  String get navAppsLabel => 'میری ایپس';
+
+  @override
+  String get navAnalyticsLabel => 'تجزیات';
+
+  @override
+  String get navHomeLabel => 'ہوم';
+
+  @override
+  String get navAccountLabel => 'میرا اکاؤنٹ';
+
+  @override
+  String get appsScreenTitle => 'میری ایپس';
+
+  @override
+  String get appsScreenHint =>
+      'نیچے کی پٹی کی 5ویں جگہ پر ایپ لگانے کے لیے پن آئیکن دبائیں';
+
+  @override
+  String get appsPinnedBadge => 'پٹی پر لگا ہوا';
+
+  @override
+  String get appsPinAction => 'یہاں لگائیں';
+
+  @override
+  String get homeLauncherEmptyTitle => 'کوئی ایپ دستیاب نہیں';
+
+  @override
+  String get homeLauncherEmptyMessage =>
+      'اپنی دکان کے لیے ایپ فعال کروانے کے لیے سپورٹ سے رابطہ کریں';
+
+  @override
+  String get accountScreenTitle => 'میرا اکاؤنٹ';
+
+  @override
+  String get accountPhoneLabel => 'موبائل نمبر';
+
+  @override
+  String get accountLogoutAction => 'لاگ آؤٹ';
+
+  @override
+  String get accountLogoutConfirmTitle => 'لاگ آؤٹ';
+
+  @override
+  String get accountLogoutConfirmMessage =>
+      'کیا آپ اپنے اکاؤنٹ سے لاگ آؤٹ کرنا چاہتے ہیں؟';
+
+  @override
+  String get notificationsUnavailable => 'اطلاعات ابھی دستیاب نہیں';
 }
