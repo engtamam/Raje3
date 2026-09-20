@@ -45,6 +45,13 @@ dependencies:
   # sent to our own servers.
   flutter_gemma: ^1.8.3
 
+  # On-device speech OUTPUT — a separate port from the AI model itself (lib/core/tts/ own
+  # doc comments): Gemma understands speech natively but never generates it, so a spoken answer
+  # needs this second, independent runtime. Wraps the PLATFORM's own TTS engine (Android/iOS) —
+  # no model to download, entirely on-device already, same "nothing leaves the device" posture
+  # as the AI port.
+  flutter_tts: ^4.2.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
