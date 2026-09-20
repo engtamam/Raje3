@@ -78,13 +78,58 @@ class SUr extends S {
   String get homeDashboardEmpty => 'ابھی کافی ڈیٹا موجود نہیں۔';
 
   @override
-  String get moreSectionsTitle => 'مزید';
-
-  @override
   String get themeDarkMode => 'تاریک موڈ';
 
   @override
   String get themeLightMode => 'روشن موڈ';
+
+  @override
+  String get navAppsLabel => 'میری ایپس';
+
+  @override
+  String get navAnalyticsLabel => 'تجزیات';
+
+  @override
+  String get navHomeLabel => 'ہوم';
+
+  @override
+  String get navAccountLabel => 'میرا اکاؤنٹ';
+
+  @override
+  String get appsScreenTitle => 'میری ایپس';
+
+  @override
+  String get appsScreenHint => 'نیچے کی پٹی کی 5ویں جگہ پر ایپ لگانے کے لیے پن آئیکن دبائیں';
+
+  @override
+  String get appsPinnedBadge => 'پٹی پر لگا ہوا';
+
+  @override
+  String get appsPinAction => 'یہاں لگائیں';
+
+  @override
+  String get homeLauncherEmptyTitle => 'کوئی ایپ دستیاب نہیں';
+
+  @override
+  String get homeLauncherEmptyMessage => 'اپنی دکان کے لیے ایپ فعال کروانے کے لیے سپورٹ سے رابطہ کریں';
+
+  @override
+  String get accountScreenTitle => 'میرا اکاؤنٹ';
+
+  @override
+  String get accountPhoneLabel => 'موبائل نمبر';
+
+  @override
+  String get accountLogoutAction => 'لاگ آؤٹ';
+
+  @override
+  String get accountLogoutConfirmTitle => 'لاگ آؤٹ';
+
+  @override
+  String get accountLogoutConfirmMessage => 'کیا آپ اپنے اکاؤنٹ سے لاگ آؤٹ کرنا چاہتے ہیں؟';
+
+  @override
+  String get notificationsUnavailable => 'اطلاعات ابھی دستیاب نہیں';
 
   @override
   String get search => 'تلاش';

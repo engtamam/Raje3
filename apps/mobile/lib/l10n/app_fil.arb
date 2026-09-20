@@ -29,7 +29,26 @@
   "homeDashboardComputing": "Kinukuwenta ang mga sukatan ng iyong tindahan — i-refresh mamaya.",
   "homeDashboardSectionTitle": "Mga sukatan ng tindahan",
   "homeDashboardEmpty": "Wala pang sapat na datos.",
-  "moreSectionsTitle": "Higit pa",
   "themeDarkMode": "Madilim na mode",
-  "themeLightMode": "Maliwanag na mode"
+  "themeLightMode": "Maliwanag na mode",
+
+  "navAppsLabel": "Mga app ko",
+  "navAnalyticsLabel": "Analytics",
+  "navHomeLabel": "Home",
+  "navAccountLabel": "Account ko",
+
+  "appsScreenTitle": "Mga app ko",
+  "appsScreenHint": "Pindutin ang pin icon para i-pin ang isang app sa ika-5 slot ng ibabang bar",
+  "appsPinnedBadge": "Naka-pin sa bar",
+  "appsPinAction": "I-pin dito",
+  "homeLauncherEmptyTitle": "Walang available na app",
+  "homeLauncherEmptyMessage": "Makipag-ugnayan sa support para i-activate ang isang app para sa iyong tindahan",
+
+  "accountScreenTitle": "Account ko",
+  "accountPhoneLabel": "Numero ng telepono",
+  "accountLogoutAction": "Mag-log out",
+  "accountLogoutConfirmTitle": "Mag-log out",
+  "accountLogoutConfirmMessage": "Gusto mo bang mag-log out sa iyong account?",
+
+  "notificationsUnavailable": "Hindi pa available ang mga notification"
 }

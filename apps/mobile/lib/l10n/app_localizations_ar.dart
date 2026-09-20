@@ -78,13 +78,58 @@ class SAr extends S {
   String get homeDashboardEmpty => 'لا توجد بيانات كافية بعد.';
 
   @override
-  String get moreSectionsTitle => 'المزيد';
-
-  @override
   String get themeDarkMode => 'الوضع الداكن';
 
   @override
   String get themeLightMode => 'الوضع الفاتح';
+
+  @override
+  String get navAppsLabel => 'تطبيقاتي';
+
+  @override
+  String get navAnalyticsLabel => 'التحليلات';
+
+  @override
+  String get navHomeLabel => 'الرئيسية';
+
+  @override
+  String get navAccountLabel => 'حسابي';
+
+  @override
+  String get appsScreenTitle => 'تطبيقاتي';
+
+  @override
+  String get appsScreenHint => 'اضغط على أيقونة الدبّوس لتثبيت تطبيق بالخانة الخامسة بالشريط السفلي';
+
+  @override
+  String get appsPinnedBadge => 'مثبّت بالشريط';
+
+  @override
+  String get appsPinAction => 'تثبيت هنا';
+
+  @override
+  String get homeLauncherEmptyTitle => 'لا توجد تطبيقات متاحة';
+
+  @override
+  String get homeLauncherEmptyMessage => 'تواصل مع الدعم لتفعيل تطبيق على محلّك';
+
+  @override
+  String get accountScreenTitle => 'حسابي';
+
+  @override
+  String get accountPhoneLabel => 'رقم الجوال';
+
+  @override
+  String get accountLogoutAction => 'تسجيل الخروج';
+
+  @override
+  String get accountLogoutConfirmTitle => 'تسجيل الخروج';
+
+  @override
+  String get accountLogoutConfirmMessage => 'هل تريد تسجيل الخروج من حسابك؟';
+
+  @override
+  String get notificationsUnavailable => 'الإشعارات غير متاحة بعد';
 
   @override
   String get search => 'بحث';

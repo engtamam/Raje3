@@ -61,19 +61,48 @@ the above compile, not ported from anywhere): `pubspec.yaml`, `Makefile`
 (reference had none), `lib/main.dart`, `lib/models/user_model.dart`,
 `lib/models/tenant_model.dart`, `lib/models/app_config_model.dart`,
 `lib/features/auth/login_screen.dart` (an explicit placeholder — a real
-screen is a later pass), `lib/features/shell/main_shell.dart` (Raje3's own
-per-operator pinned-sections nav — no reference-project equivalent, since
-their bottom bar is a fixed tab set declared at router-build time), the six
-`lib/l10n/app_*.arb` files (generic button-label strings only, in Raje3's
-real 6 locales, `ar` as the template/source language per this product's
-`locale.default`).
+screen is a later pass), the six `lib/l10n/app_*.arb` files (generic
+button-label strings only, in Raje3's real 6 locales, `ar` as the
+template/source language per this product's `locale.default`).
 
-`lib/features/home/home_screen.dart` was rebuilt on top of the component
-library above (`AppCard`/`AppAlert`/`EmptyState`/`AppLoadingIndicator`,
-`context.appColors`/`context.isDark`, `primaryGradient(dark:)`) — same
-sliver-header/stat-row/section-card shape as the reference project's own
-dashboard screen, dark-mode aware now, still reading only the two real
-endpoints this app has today.
+## Bottom-bar philosophy (2026-09-20)
+
+`lib/features/shell/main_shell.dart` was originally a per-operator
+pinned-sections nav (up to 4 pinned sections + a "More" overflow tab,
+mirroring apps/console/src/nav.ts's own `visibleSections`). The owner
+changed that philosophy after reviewing how WeChat/Grab/Careem structure
+their own bottom bars: a bar that lists installed "apps" reads as an app
+list, not a navigation bar. `MainShell` is now a FIXED 5-slot
+`NavigationBar` — تطبيقاتي, التحليلات, الرئيسية (centre), حسابي, and one
+customizable slot (default: تسجيل زيارة, changeable from "تطبيقاتي" itself)
+— and the actual catalogue-driven section list moved to two new screens:
+
+- `lib/features/home/home_screen.dart` — the fixed launcher/landing screen
+  (always `/home` now, never a dynamic first-visible-section). Its own top
+  bar (this screen only) shows the shop name, a theme toggle, support, and
+  a notifications bell (not yet backed by a real feature — taps show an
+  honest "not available yet" snackbar rather than a fake unread count).
+  **Not shown**: an employee name or shop logo — neither exists as a real
+  field in this app's models or its signup/signin doors today; adding
+  either here would be exactly the placeholder drift this codebase's own
+  conventions refuse. A real backend field is the prerequisite, not a UI
+  change.
+- `lib/features/apps/apps_screen.dart` ("تطبيقاتي") — every section the
+  catalogue makes visible, with a pin icon per row to choose the bar's
+  customizable slot.
+- `lib/features/analytics/analytics_screen.dart` — the FORMER
+  `home_screen.dart` (gradient sliver header, stat-row, dashboard cards,
+  reading `/api/v1/reminders/today` + `/api/v1/insights/dashboard`).
+  Renamed, not rewritten, when the launcher took over `home_screen.dart`'s
+  old name and route.
+- `lib/features/account/account_screen.dart` ("حسابي") — shop name, phone,
+  theme switch, logout. Same "no employee name/logo" gap noted above.
+
+The customizable slot's choice persists locally (`LocalStorage`/
+`AppConstants.customNavSlotKey`), not through the backend's
+`pinned_nav_ids` field — that field was shaped for up to 4 ids for the old
+per-section bar; repurposing it awkwardly for one id wasn't worth it here.
+See `NavProvider`'s own doc comment for the full reasoning.
 
 ## Explicitly NOT ported
 

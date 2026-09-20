@@ -29,7 +29,26 @@
   "homeDashboardComputing": "Ana lissafin bayanan shagonka yanzu — sabunta bayan wani lokaci.",
   "homeDashboardSectionTitle": "Bayanan shago",
   "homeDashboardEmpty": "Babu isassun bayanai tukuna.",
-  "moreSectionsTitle": "Kari",
   "themeDarkMode": "Yanayin duhu",
-  "themeLightMode": "Yanayin haske"
+  "themeLightMode": "Yanayin haske",
+
+  "navAppsLabel": "Manhajojina",
+  "navAnalyticsLabel": "Bincike",
+  "navHomeLabel": "Gida",
+  "navAccountLabel": "Asusuna",
+
+  "appsScreenTitle": "Manhajojina",
+  "appsScreenHint": "Danna alamar allura don liƙa manhaja a wurin na 5 na sandar ƙasa",
+  "appsPinnedBadge": "An liƙa a sanda",
+  "appsPinAction": "Liƙa nan",
+  "homeLauncherEmptyTitle": "Babu manhaja da ake da su",
+  "homeLauncherEmptyMessage": "Tuntuɓi tallafi don kunna manhaja ga shagonka",
+
+  "accountScreenTitle": "Asusuna",
+  "accountPhoneLabel": "Lambar waya",
+  "accountLogoutAction": "Fita",
+  "accountLogoutConfirmTitle": "Fita",
+  "accountLogoutConfirmMessage": "Kana son fita daga asusunka?",
+
+  "notificationsUnavailable": "Sanarwa ba su samuwa tukuna"
 }

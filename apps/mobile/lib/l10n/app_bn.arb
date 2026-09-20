@@ -29,7 +29,26 @@
   "homeDashboardComputing": "আপনার দোকানের পরিসংখ্যান গণনা হচ্ছে — কিছুক্ষণ পর রিফ্রেশ করুন।",
   "homeDashboardSectionTitle": "দোকানের পরিসংখ্যান",
   "homeDashboardEmpty": "এখনও পর্যাপ্ত তথ্য নেই।",
-  "moreSectionsTitle": "আরও",
   "themeDarkMode": "ডার্ক মোড",
-  "themeLightMode": "লাইট মোড"
+  "themeLightMode": "লাইট মোড",
+
+  "navAppsLabel": "আমার অ্যাপ",
+  "navAnalyticsLabel": "বিশ্লেষণ",
+  "navHomeLabel": "হোম",
+  "navAccountLabel": "আমার অ্যাকাউন্ট",
+
+  "appsScreenTitle": "আমার অ্যাপ",
+  "appsScreenHint": "নিচের বারের ৫ম স্থানে অ্যাপ পিন করতে পিন আইকনে চাপুন",
+  "appsPinnedBadge": "বারে পিন করা আছে",
+  "appsPinAction": "এখানে পিন করুন",
+  "homeLauncherEmptyTitle": "কোনো অ্যাপ পাওয়া যায়নি",
+  "homeLauncherEmptyMessage": "আপনার দোকানের জন্য একটি অ্যাপ চালু করতে সহায়তার সাথে যোগাযোগ করুন",
+
+  "accountScreenTitle": "আমার অ্যাকাউন্ট",
+  "accountPhoneLabel": "মোবাইল নম্বর",
+  "accountLogoutAction": "লগ আউট",
+  "accountLogoutConfirmTitle": "লগ আউট",
+  "accountLogoutConfirmMessage": "আপনি কি আপনার অ্যাকাউন্ট থেকে লগ আউট করতে চান?",
+
+  "notificationsUnavailable": "বিজ্ঞপ্তি এখনো উপলব্ধ নয়"
 }

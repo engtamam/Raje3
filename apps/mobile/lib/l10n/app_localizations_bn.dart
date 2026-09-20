@@ -78,13 +78,58 @@ class SBn extends S {
   String get homeDashboardEmpty => 'এখনও পর্যাপ্ত তথ্য নেই।';
 
   @override
-  String get moreSectionsTitle => 'আরও';
-
-  @override
   String get themeDarkMode => 'ডার্ক মোড';
 
   @override
   String get themeLightMode => 'লাইট মোড';
+
+  @override
+  String get navAppsLabel => 'আমার অ্যাপ';
+
+  @override
+  String get navAnalyticsLabel => 'বিশ্লেষণ';
+
+  @override
+  String get navHomeLabel => 'হোম';
+
+  @override
+  String get navAccountLabel => 'আমার অ্যাকাউন্ট';
+
+  @override
+  String get appsScreenTitle => 'আমার অ্যাপ';
+
+  @override
+  String get appsScreenHint => 'নিচের বারের ৫ম স্থানে অ্যাপ পিন করতে পিন আইকনে চাপুন';
+
+  @override
+  String get appsPinnedBadge => 'বারে পিন করা আছে';
+
+  @override
+  String get appsPinAction => 'এখানে পিন করুন';
+
+  @override
+  String get homeLauncherEmptyTitle => 'কোনো অ্যাপ পাওয়া যায়নি';
+
+  @override
+  String get homeLauncherEmptyMessage => 'আপনার দোকানের জন্য একটি অ্যাপ চালু করতে সহায়তার সাথে যোগাযোগ করুন';
+
+  @override
+  String get accountScreenTitle => 'আমার অ্যাকাউন্ট';
+
+  @override
+  String get accountPhoneLabel => 'মোবাইল নম্বর';
+
+  @override
+  String get accountLogoutAction => 'লগ আউট';
+
+  @override
+  String get accountLogoutConfirmTitle => 'লগ আউট';
+
+  @override
+  String get accountLogoutConfirmMessage => 'আপনি কি আপনার অ্যাকাউন্ট থেকে লগ আউট করতে চান?';
+
+  @override
+  String get notificationsUnavailable => 'বিজ্ঞপ্তি এখনো উপলব্ধ নয়';
 
   @override
   String get search => 'অনুসন্ধান';

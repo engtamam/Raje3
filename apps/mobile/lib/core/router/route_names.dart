@@ -17,6 +17,9 @@ class RouteNames {
   static const String signup = 'signup';
   static const String verifyPhone = 'verify_phone';
   static const String home = 'home';
+  static const String analytics = 'analytics';
+  static const String apps = 'apps';
+  static const String account = 'account';
   static const String visit = 'visit';
 
   // ── ROUTE PATHS ───────────────────────────────────────────────────────────
@@ -30,9 +33,15 @@ class RouteNames {
   /// AuthProvider.errorReason for the `unverified`/`otp_required`/
   /// `unverified_hold` reasons that route here.
   static const String verifyPhonePath = '/verify-phone';
-  /// Kept as an alias of the 'shop' nav section's own path so a bookmark/deep-link to
-  /// `/home` still lands somewhere real. The actual landing screen is decided at runtime by
-  /// NavProvider.landingPath, never hardcoded to this constant — see app_router.dart.
-  static const String homePath = '/shop';
+  /// The fixed launcher screen — always the landing screen once authenticated,
+  /// one of the shell's 4 fixed bottom-bar tabs (see MainShell).
+  static const String homePath = '/home';
+  /// The 'shop' nav section's own dashboard (reminders/insights) — a fixed
+  /// bottom-bar tab labelled "التحليلات", not the app's landing screen anymore.
+  static const String analyticsPath = '/shop';
+  /// "تطبيقاتي" — every section the session's catalogue makes visible, plus
+  /// the picker for the bar's one customizable slot.
+  static const String appsPath = '/apps';
+  static const String accountPath = '/account';
   static const String visitPath = '/visit';
 }

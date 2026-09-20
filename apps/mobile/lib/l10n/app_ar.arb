@@ -30,7 +30,26 @@
   "homeDashboardComputing": "أحسب مؤشرات محلك الآن — حدّث الصفحة بعد قليل",
   "homeDashboardSectionTitle": "مؤشرات المحل",
   "homeDashboardEmpty": "لا توجد بيانات كافية بعد.",
-  "moreSectionsTitle": "المزيد",
   "themeDarkMode": "الوضع الداكن",
-  "themeLightMode": "الوضع الفاتح"
+  "themeLightMode": "الوضع الفاتح",
+
+  "navAppsLabel": "تطبيقاتي",
+  "navAnalyticsLabel": "التحليلات",
+  "navHomeLabel": "الرئيسية",
+  "navAccountLabel": "حسابي",
+
+  "appsScreenTitle": "تطبيقاتي",
+  "appsScreenHint": "اضغط على أيقونة الدبّوس لتثبيت تطبيق بالخانة الخامسة بالشريط السفلي",
+  "appsPinnedBadge": "مثبّت بالشريط",
+  "appsPinAction": "تثبيت هنا",
+  "homeLauncherEmptyTitle": "لا توجد تطبيقات متاحة",
+  "homeLauncherEmptyMessage": "تواصل مع الدعم لتفعيل تطبيق على محلّك",
+
+  "accountScreenTitle": "حسابي",
+  "accountPhoneLabel": "رقم الجوال",
+  "accountLogoutAction": "تسجيل الخروج",
+  "accountLogoutConfirmTitle": "تسجيل الخروج",
+  "accountLogoutConfirmMessage": "هل تريد تسجيل الخروج من حسابك؟",
+
+  "notificationsUnavailable": "الإشعارات غير متاحة بعد"
 }

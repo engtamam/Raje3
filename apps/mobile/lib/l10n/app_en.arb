@@ -29,7 +29,26 @@
   "homeDashboardComputing": "Calculating your shop's metrics now — refresh shortly.",
   "homeDashboardSectionTitle": "Shop metrics",
   "homeDashboardEmpty": "Not enough data yet.",
-  "moreSectionsTitle": "More",
   "themeDarkMode": "Dark mode",
-  "themeLightMode": "Light mode"
+  "themeLightMode": "Light mode",
+
+  "navAppsLabel": "My apps",
+  "navAnalyticsLabel": "Analytics",
+  "navHomeLabel": "Home",
+  "navAccountLabel": "Account",
+
+  "appsScreenTitle": "My apps",
+  "appsScreenHint": "Tap the pin icon to pin an app to the bottom bar's 5th slot",
+  "appsPinnedBadge": "Pinned to the bar",
+  "appsPinAction": "Pin here",
+  "homeLauncherEmptyTitle": "No apps available",
+  "homeLauncherEmptyMessage": "Contact support to activate an app for your shop",
+
+  "accountScreenTitle": "My account",
+  "accountPhoneLabel": "Phone number",
+  "accountLogoutAction": "Log out",
+  "accountLogoutConfirmTitle": "Log out",
+  "accountLogoutConfirmMessage": "Do you want to log out of your account?",
+
+  "notificationsUnavailable": "Notifications aren't available yet"
 }

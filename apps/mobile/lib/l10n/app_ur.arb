@@ -29,7 +29,26 @@
   "homeDashboardComputing": "آپ کی دکان کے اعداد و شمار تیار ہو رہے ہیں — تھوڑی دیر بعد صفحہ ریفریش کریں۔",
   "homeDashboardSectionTitle": "دکان کے اعداد و شمار",
   "homeDashboardEmpty": "ابھی کافی ڈیٹا موجود نہیں۔",
-  "moreSectionsTitle": "مزید",
   "themeDarkMode": "تاریک موڈ",
-  "themeLightMode": "روشن موڈ"
+  "themeLightMode": "روشن موڈ",
+
+  "navAppsLabel": "میری ایپس",
+  "navAnalyticsLabel": "تجزیات",
+  "navHomeLabel": "ہوم",
+  "navAccountLabel": "میرا اکاؤنٹ",
+
+  "appsScreenTitle": "میری ایپس",
+  "appsScreenHint": "نیچے کی پٹی کی 5ویں جگہ پر ایپ لگانے کے لیے پن آئیکن دبائیں",
+  "appsPinnedBadge": "پٹی پر لگا ہوا",
+  "appsPinAction": "یہاں لگائیں",
+  "homeLauncherEmptyTitle": "کوئی ایپ دستیاب نہیں",
+  "homeLauncherEmptyMessage": "اپنی دکان کے لیے ایپ فعال کروانے کے لیے سپورٹ سے رابطہ کریں",
+
+  "accountScreenTitle": "میرا اکاؤنٹ",
+  "accountPhoneLabel": "موبائل نمبر",
+  "accountLogoutAction": "لاگ آؤٹ",
+  "accountLogoutConfirmTitle": "لاگ آؤٹ",
+  "accountLogoutConfirmMessage": "کیا آپ اپنے اکاؤنٹ سے لاگ آؤٹ کرنا چاہتے ہیں؟",
+
+  "notificationsUnavailable": "اطلاعات ابھی دستیاب نہیں"
 }

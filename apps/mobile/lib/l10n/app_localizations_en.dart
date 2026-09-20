@@ -78,13 +78,58 @@ class SEn extends S {
   String get homeDashboardEmpty => 'Not enough data yet.';
 
   @override
-  String get moreSectionsTitle => 'More';
-
-  @override
   String get themeDarkMode => 'Dark mode';
 
   @override
   String get themeLightMode => 'Light mode';
+
+  @override
+  String get navAppsLabel => 'My apps';
+
+  @override
+  String get navAnalyticsLabel => 'Analytics';
+
+  @override
+  String get navHomeLabel => 'Home';
+
+  @override
+  String get navAccountLabel => 'Account';
+
+  @override
+  String get appsScreenTitle => 'My apps';
+
+  @override
+  String get appsScreenHint => 'Tap the pin icon to pin an app to the bottom bar\'s 5th slot';
+
+  @override
+  String get appsPinnedBadge => 'Pinned to the bar';
+
+  @override
+  String get appsPinAction => 'Pin here';
+
+  @override
+  String get homeLauncherEmptyTitle => 'No apps available';
+
+  @override
+  String get homeLauncherEmptyMessage => 'Contact support to activate an app for your shop';
+
+  @override
+  String get accountScreenTitle => 'My account';
+
+  @override
+  String get accountPhoneLabel => 'Phone number';
+
+  @override
+  String get accountLogoutAction => 'Log out';
+
+  @override
+  String get accountLogoutConfirmTitle => 'Log out';
+
+  @override
+  String get accountLogoutConfirmMessage => 'Do you want to log out of your account?';
+
+  @override
+  String get notificationsUnavailable => 'Notifications aren\'t available yet';
 
   @override
   String get search => 'Search';

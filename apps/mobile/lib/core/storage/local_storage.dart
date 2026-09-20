@@ -147,6 +147,21 @@ class LocalStorage {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // CUSTOM NAV SLOT
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// The nav section id pinned to the bottom bar's one customizable slot.
+  /// Defaults to 'visit' when unset.
+  String getCustomNavSlot() {
+    return getString(AppConstants.customNavSlotKey) ?? 'visit';
+  }
+
+  /// Set the nav section id pinned to the bottom bar's customizable slot.
+  Future<bool> setCustomNavSlot(String sectionId) {
+    return setString(AppConstants.customNavSlotKey, sectionId);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // ONBOARDING
   // ─────────────────────────────────────────────────────────────────────────
 

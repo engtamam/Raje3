@@ -78,13 +78,58 @@ class SFil extends S {
   String get homeDashboardEmpty => 'Wala pang sapat na datos.';
 
   @override
-  String get moreSectionsTitle => 'Higit pa';
-
-  @override
   String get themeDarkMode => 'Madilim na mode';
 
   @override
   String get themeLightMode => 'Maliwanag na mode';
+
+  @override
+  String get navAppsLabel => 'Mga app ko';
+
+  @override
+  String get navAnalyticsLabel => 'Analytics';
+
+  @override
+  String get navHomeLabel => 'Home';
+
+  @override
+  String get navAccountLabel => 'Account ko';
+
+  @override
+  String get appsScreenTitle => 'Mga app ko';
+
+  @override
+  String get appsScreenHint => 'Pindutin ang pin icon para i-pin ang isang app sa ika-5 slot ng ibabang bar';
+
+  @override
+  String get appsPinnedBadge => 'Naka-pin sa bar';
+
+  @override
+  String get appsPinAction => 'I-pin dito';
+
+  @override
+  String get homeLauncherEmptyTitle => 'Walang available na app';
+
+  @override
+  String get homeLauncherEmptyMessage => 'Makipag-ugnayan sa support para i-activate ang isang app para sa iyong tindahan';
+
+  @override
+  String get accountScreenTitle => 'Account ko';
+
+  @override
+  String get accountPhoneLabel => 'Numero ng telepono';
+
+  @override
+  String get accountLogoutAction => 'Mag-log out';
+
+  @override
+  String get accountLogoutConfirmTitle => 'Mag-log out';
+
+  @override
+  String get accountLogoutConfirmMessage => 'Gusto mo bang mag-log out sa iyong account?';
+
+  @override
+  String get notificationsUnavailable => 'Hindi pa available ang mga notification';
 
   @override
   String get search => 'Maghanap';

@@ -243,12 +243,6 @@ abstract class S {
   /// **'لا توجد بيانات كافية بعد.'**
   String get homeDashboardEmpty;
 
-  /// No description provided for @moreSectionsTitle.
-  ///
-  /// In ar, this message translates to:
-  /// **'المزيد'**
-  String get moreSectionsTitle;
-
   /// No description provided for @themeDarkMode.
   ///
   /// In ar, this message translates to:
@@ -260,6 +254,102 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'الوضع الفاتح'**
   String get themeLightMode;
+
+  /// No description provided for @navAppsLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'تطبيقاتي'**
+  String get navAppsLabel;
+
+  /// No description provided for @navAnalyticsLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'التحليلات'**
+  String get navAnalyticsLabel;
+
+  /// No description provided for @navHomeLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'الرئيسية'**
+  String get navHomeLabel;
+
+  /// No description provided for @navAccountLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'حسابي'**
+  String get navAccountLabel;
+
+  /// No description provided for @appsScreenTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تطبيقاتي'**
+  String get appsScreenTitle;
+
+  /// No description provided for @appsScreenHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'اضغط على أيقونة الدبّوس لتثبيت تطبيق بالخانة الخامسة بالشريط السفلي'**
+  String get appsScreenHint;
+
+  /// No description provided for @appsPinnedBadge.
+  ///
+  /// In ar, this message translates to:
+  /// **'مثبّت بالشريط'**
+  String get appsPinnedBadge;
+
+  /// No description provided for @appsPinAction.
+  ///
+  /// In ar, this message translates to:
+  /// **'تثبيت هنا'**
+  String get appsPinAction;
+
+  /// No description provided for @homeLauncherEmptyTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد تطبيقات متاحة'**
+  String get homeLauncherEmptyTitle;
+
+  /// No description provided for @homeLauncherEmptyMessage.
+  ///
+  /// In ar, this message translates to:
+  /// **'تواصل مع الدعم لتفعيل تطبيق على محلّك'**
+  String get homeLauncherEmptyMessage;
+
+  /// No description provided for @accountScreenTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'حسابي'**
+  String get accountScreenTitle;
+
+  /// No description provided for @accountPhoneLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم الجوال'**
+  String get accountPhoneLabel;
+
+  /// No description provided for @accountLogoutAction.
+  ///
+  /// In ar, this message translates to:
+  /// **'تسجيل الخروج'**
+  String get accountLogoutAction;
+
+  /// No description provided for @accountLogoutConfirmTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تسجيل الخروج'**
+  String get accountLogoutConfirmTitle;
+
+  /// No description provided for @accountLogoutConfirmMessage.
+  ///
+  /// In ar, this message translates to:
+  /// **'هل تريد تسجيل الخروج من حسابك؟'**
+  String get accountLogoutConfirmMessage;
+
+  /// No description provided for @notificationsUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإشعارات غير متاحة بعد'**
+  String get notificationsUnavailable;
 
   /// No description provided for @search.
   ///
