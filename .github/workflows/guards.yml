@@ -1393,3 +1393,9 @@ jobs:
       # the same two-way discipline one layer up from check_mobile_kb_anchors_are_covered.py.
       - name: every mobile assistant action is covered in both directions
         run: python3 ci/check_mobile_actions_are_covered.py
+
+      # check_mobile_kb_anchors_are_covered.py only polices an anchor someone already added —
+      # this one catches a NEW button/field that never got a KbAnchor in the first place, the
+      # owner's own explicit ask: "كل شاشة أو عنصر في شاشة لازم له KB".
+      - name: every interactive widget on a mobile screen is anchored
+        run: python3 ci/check_mobile_screen_actions_are_anchored.py
