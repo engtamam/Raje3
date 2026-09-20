@@ -21,6 +21,7 @@ import 'package:raje3_mobile/core/router/route_names.dart';
 import 'package:raje3_mobile/core/utils/validators.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/kb_hint_button.dart';
 
 class VerifyPhoneScreen extends StatefulWidget {
@@ -134,7 +135,9 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                TextFormField(
+                KbAnchor(
+                  id: 'auth.verify_phone.code_field',
+                  child: TextFormField(
                   controller: _codeController,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
@@ -146,6 +149,7 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
                     border: OutlineInputBorder(),
                   ),
                   validator: (v) => Validators.validateOtp(v)?.text(context),
+                  ),
                 ),
                 if (_localError != null) ...[
                   const SizedBox(height: AppSpacing.sm),
@@ -156,14 +160,20 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
                   ),
                 ],
                 const SizedBox(height: AppSpacing.lg),
-                ElevatedButton(
+                KbAnchor(
+                  id: 'auth.verify_phone.confirm_button',
+                  child: ElevatedButton(
                   onPressed: _busy ? null : _submit,
                   child: Text(_busy ? S.of(context)!.authVerifying : S.of(context)!.authConfirmCta),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                TextButton(
+                KbAnchor(
+                  id: 'auth.verify_phone.resend_code',
+                  child: TextButton(
                   onPressed: _busy ? null : _sendCode,
                   child: Text(_codeRequested ? S.of(context)!.authResendCodeCta : S.of(context)!.authSendCodeCta),
+                  ),
                 ),
               ],
             ),

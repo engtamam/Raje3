@@ -24,6 +24,8 @@ import 'package:raje3_mobile/core/utils/validators.dart';
 import 'package:raje3_mobile/features/auth/verify_phone_screen.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/kb_anchor.dart';
+import 'package:raje3_mobile/widgets/kb_hint_button.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -120,6 +122,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                     builder: (context, _) => Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        const Align(
+                          alignment: AlignmentDirectional.topEnd,
+                          child: KbHintButton(anchor: 'auth.login'),
+                        ),
                         const SizedBox(height: AppSpacing.xxl),
                         _buildLogo(),
                         const SizedBox(height: AppSpacing.xl),
@@ -241,7 +247,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   }
 
   Widget _buildPhoneField() {
-    return TextFormField(
+    return KbAnchor(
+      id: 'auth.login.phone_field',
+      child: TextFormField(
       controller: _phoneController,
       keyboardType: TextInputType.phone,
       textInputAction: TextInputAction.next,
@@ -259,11 +267,14 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         hintText: '05XXXXXXXX',
         prefixIcon: const Icon(Icons.phone_android_rounded, color: AppColors.textMuted),
       ),
+      ),
     );
   }
 
   Widget _buildPasswordField(AuthProvider auth) {
-    return TextFormField(
+    return KbAnchor(
+      id: 'auth.login.password_field',
+      child: TextFormField(
       controller: _passwordController,
       focusNode: _passwordFocus,
       obscureText: _obscure,
@@ -280,12 +291,15 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
           onPressed: () => setState(() => _obscure = !_obscure),
         ),
       ),
+      ),
     );
   }
 
   Widget _buildSubmitButton(AuthProvider auth) {
     final busy = _submitting || auth.isLoading;
-    return AnimatedContainer(
+    return KbAnchor(
+      id: 'auth.login.submit',
+      child: AnimatedContainer(
       duration: AppMotion.base,
       height: 52,
       decoration: BoxDecoration(
@@ -325,6 +339,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -346,7 +361,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
-            SizedBox(
+            KbAnchor(
+              id: 'auth.login.open_shop_cta',
+              child: SizedBox(
               width: double.infinity,
               height: 48,
               child: OutlinedButton.icon(
@@ -359,6 +376,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                   side: const BorderSide(color: AppColors.accent, width: 1.5),
                   shape: RoundedRectangleBorder(borderRadius: AppRadius.standardRadius),
                 ),
+              ),
               ),
             ),
           ],

@@ -19,6 +19,7 @@ import 'package:raje3_mobile/core/utils/validators.dart';
 import 'package:raje3_mobile/features/auth/verify_phone_screen.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/kb_hint_button.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -126,7 +127,9 @@ class _SignupScreenState extends State<SignupScreen> {
                               auth.errorReason != 'otp_required') ...[
                             _buildErrorBanner(auth),
                           ],
-                          TextFormField(
+                          KbAnchor(
+                            id: 'auth.signup.shop_name_field',
+                            child: TextFormField(
                             controller: _shopNameController,
                             textInputAction: TextInputAction.next,
                             style: AppTextStyles.bodyMedium,
@@ -136,9 +139,12 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
                             validator: (v) => Validators.validateRequired(v,
                                 fieldName: S.of(context)!.authShopNameLabel)?.text(context),
+                            ),
                           ),
                           const SizedBox(height: AppSpacing.md),
-                          TextFormField(
+                          KbAnchor(
+                            id: 'auth.signup.phone_field',
+                            child: TextFormField(
                             controller: _phoneController,
                             keyboardType: TextInputType.phone,
                             textInputAction: TextInputAction.next,
@@ -151,9 +157,12 @@ class _SignupScreenState extends State<SignupScreen> {
                               prefixIcon: const Icon(Icons.phone_android_rounded, color: AppColors.textMuted),
                             ),
                             validator: (v) => Validators.validatePhone(v)?.text(context),
+                            ),
                           ),
                           const SizedBox(height: AppSpacing.md),
-                          TextFormField(
+                          KbAnchor(
+                            id: 'auth.signup.password_field',
+                            child: TextFormField(
                             controller: _passwordController,
                             obscureText: _obscure,
                             textInputAction: TextInputAction.next,
@@ -168,9 +177,12 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             validator: (v) => Validators.validatePassword(v)?.text(context),
+                            ),
                           ),
                           const SizedBox(height: AppSpacing.md),
-                          TextFormField(
+                          KbAnchor(
+                            id: 'auth.signup.confirm_password_field',
+                            child: TextFormField(
                             controller: _confirmController,
                             obscureText: _obscure,
                             textInputAction: TextInputAction.done,
@@ -182,6 +194,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
                             validator: (v) =>
                                 Validators.validateConfirmPassword(v, _passwordController.text)?.text(context),
+                            ),
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           _buildSubmitButton(auth),
@@ -190,10 +203,13 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  TextButton(
+                  KbAnchor(
+                    id: 'auth.signup.already_have_shop_cta',
+                    child: TextButton(
                     onPressed: auth.isLoading ? null : () => context.goNamed(RouteNames.login),
                     child: Text(S.of(context)!.authAlreadyHaveShopCta,
                         style: AppTextStyles.labelMedium.copyWith(color: AppColors.accent)),
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
                 ],
@@ -232,7 +248,9 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Widget _buildSubmitButton(AuthProvider auth) {
     final busy = _submitting || auth.isLoading;
-    return Container(
+    return KbAnchor(
+      id: 'auth.signup.submit',
+      child: Container(
       height: 52,
       decoration: BoxDecoration(
         gradient: busy
@@ -270,6 +288,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
           ),
         ),
+      ),
       ),
     );
   }

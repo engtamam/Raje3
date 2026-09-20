@@ -8,6 +8,7 @@ import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/utils/validators.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/kb_hint_button.dart';
 
 /// «تسجيل زيارة» — this is the screen an operator opens dozens of times a
@@ -397,7 +398,9 @@ class _VisitScreenState extends State<VisitScreen>
   //    jump between separate boxes while he is mid-lookup. ────────────────
 
   Widget _buildPhoneCard() {
-    return Container(
+    return KbAnchor(
+      id: 'visit.register.phone_field',
+      child: Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: AppCardDecorations.elevated,
@@ -446,6 +449,7 @@ class _VisitScreenState extends State<VisitScreen>
                 : (_lookedUp ? _buildCustomerBadge() : const SizedBox(width: double.infinity)),
           ),
         ],
+      ),
       ),
     );
   }
@@ -541,7 +545,9 @@ class _VisitScreenState extends State<VisitScreen>
   // ── Services — one-tap chips, not a checklist ────────────────────────────
 
   Widget _buildServicesGrid() {
-    return Column(
+    return KbAnchor(
+      id: 'visit.register.services_grid',
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -567,13 +573,16 @@ class _VisitScreenState extends State<VisitScreen>
             ],
           ),
       ],
+      ),
     );
   }
 
   // ── Note — collapsed until asked for ─────────────────────────────────────
 
   Widget _buildNoteToggle() {
-    return AnimatedSize(
+    return KbAnchor(
+      id: 'visit.register.note_field',
+      child: AnimatedSize(
       duration: AppMotion.base,
       curve: Curves.easeOut,
       alignment: Alignment.topCenter,
@@ -632,13 +641,16 @@ class _VisitScreenState extends State<VisitScreen>
                 style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
               ),
             ),
+      ),
     );
   }
 
   // ── Bottom bar ────────────────────────────────────────────────────────────
 
   Widget _buildBottomBar() {
-    return Container(
+    return KbAnchor(
+      id: 'visit.register.save_button',
+      child: Container(
       padding: EdgeInsets.fromLTRB(
         AppSpacing.md,
         AppSpacing.sm,
@@ -691,6 +703,7 @@ class _VisitScreenState extends State<VisitScreen>
             ),
           ),
         ),
+      ),
       ),
     );
   }

@@ -185,6 +185,13 @@ jobs:
       - name: no operator screen carries a raw, unlocalized Arabic string
         run: python3 ci/check_operator_screen_localized.py --all
 
+      # FOUND LIVE (2026-09-20): the cart showed «كوبونات» beside a tile reading «تحالف
+      # استراتيجي» for the identical app — one surface read the billing plan's raw, never-renamed
+      # `name`, another read apps.ts's own owner-facing name. appDisplayName(plan) is the one
+      # lookup every surface now shares; this is what keeps the next screen from re-introducing it.
+      - name: every plan/subscription name shown to an owner goes through appDisplayName
+        run: python3 ci/check_app_display_name_is_not_bypassed.py
+
       # AND AN ERROR IS NOT AN ANSWER. Every HTTP helper here returns `(status, body)` and hands
       # back an EMPTY body when the peer failed — so `if status >= 400 or not out.get("allowed")`
       # read that emptiness as a decision. billing returned 500 and the subscriber was told
@@ -1373,3 +1380,10 @@ jobs:
       # to be clean.
       - name: no migrated mobile screen carries a raw, unlocalized Arabic string
         run: python3 ci/check_mobile_screen_localized.py --all
+
+      # Every KbAnchor/KbHintButton wired into a mobile screen must have a matching
+      # assets/knowledge/mobile_kb.json entry, and every KB entry's anchor must still be
+      # referenced by some widget — drift in either direction fails here, the same shape
+      # check_app_display_name_is_not_bypassed.py already polices for plan display names.
+      - name: every mobile KB anchor is covered in both directions
+        run: python3 ci/check_mobile_kb_anchors_are_covered.py

@@ -8,6 +8,31 @@
     "kind": "screen",
     "anchor": "auth.login"
   },
+  "auth.login.phone_field": {
+    "title": { "ar": "رقم الجوال", "en": "Phone number" },
+    "body": { "ar": "رقم جوالك المسجّل بالحساب.", "en": "Your account's registered phone number." },
+    "kind": "field",
+    "anchor": "auth.login.phone_field"
+  },
+  "auth.login.password_field": {
+    "title": { "ar": "كلمة المرور", "en": "Password" },
+    "body": { "ar": "كلمة مرور حسابك.", "en": "Your account's password." },
+    "kind": "field",
+    "anchor": "auth.login.password_field"
+  },
+  "auth.login.submit": {
+    "title": { "ar": "تسجيل الدخول", "en": "Sign in" },
+    "body": { "ar": "يدخلك لحسابك.", "en": "Signs you into your account." },
+    "kind": "action",
+    "anchor": "auth.login.submit"
+  },
+  "auth.login.open_shop_cta": {
+    "title": { "ar": "فتح محل جديد", "en": "Open a new shop" },
+    "body": { "ar": "ينقلك لشاشة فتح محل جديد.", "en": "Takes you to the open-a-shop screen." },
+    "kind": "action",
+    "anchor": "auth.login.open_shop_cta"
+  },
+
   "auth.signup": {
     "title": { "ar": "فتح محل جديد", "en": "Open a new shop" },
     "body": {
@@ -17,6 +42,43 @@
     "kind": "screen",
     "anchor": "auth.signup"
   },
+  "auth.signup.shop_name_field": {
+    "title": { "ar": "اسم المحل", "en": "Shop name" },
+    "body": { "ar": "اسم المحل كما يظهر لعملائك.", "en": "The shop name shown to your customers." },
+    "kind": "field",
+    "anchor": "auth.signup.shop_name_field"
+  },
+  "auth.signup.phone_field": {
+    "title": { "ar": "رقم الجوال", "en": "Phone number" },
+    "body": { "ar": "رقم الجوال اللي بيصير هوية الحساب.", "en": "The phone number that becomes the account's identity." },
+    "kind": "field",
+    "anchor": "auth.signup.phone_field"
+  },
+  "auth.signup.password_field": {
+    "title": { "ar": "كلمة المرور", "en": "Password" },
+    "body": { "ar": "كلمة مرور الحساب الجديد.", "en": "The new account's password." },
+    "kind": "field",
+    "anchor": "auth.signup.password_field"
+  },
+  "auth.signup.confirm_password_field": {
+    "title": { "ar": "تأكيد كلمة المرور", "en": "Confirm password" },
+    "body": { "ar": "أعد كتابة نفس كلمة المرور.", "en": "Re-type the same password." },
+    "kind": "field",
+    "anchor": "auth.signup.confirm_password_field"
+  },
+  "auth.signup.submit": {
+    "title": { "ar": "فتح المحل", "en": "Open the shop" },
+    "body": { "ar": "ينشئ الحساب والمحل.", "en": "Creates the account and the shop." },
+    "kind": "action",
+    "anchor": "auth.signup.submit"
+  },
+  "auth.signup.already_have_shop_cta": {
+    "title": { "ar": "عندك محل؟", "en": "Already have a shop?" },
+    "body": { "ar": "ينقلك لشاشة تسجيل الدخول.", "en": "Takes you to the sign-in screen." },
+    "kind": "action",
+    "anchor": "auth.signup.already_have_shop_cta"
+  },
+
   "auth.verify_phone": {
     "title": { "ar": "تأكيد رقم الجوال", "en": "Verify your phone number" },
     "body": {
@@ -26,6 +88,25 @@
     "kind": "screen",
     "anchor": "auth.verify_phone"
   },
+  "auth.verify_phone.code_field": {
+    "title": { "ar": "رمز التحقق", "en": "Verification code" },
+    "body": { "ar": "الرمز المكوّن من 6 أرقام.", "en": "The 6-digit code." },
+    "kind": "field",
+    "anchor": "auth.verify_phone.code_field"
+  },
+  "auth.verify_phone.confirm_button": {
+    "title": { "ar": "تأكيد", "en": "Confirm" },
+    "body": { "ar": "يتحقق من الرمز ويكمل الدخول.", "en": "Verifies the code and continues sign-in." },
+    "kind": "action",
+    "anchor": "auth.verify_phone.confirm_button"
+  },
+  "auth.verify_phone.resend_code": {
+    "title": { "ar": "إعادة إرسال الرمز", "en": "Resend the code" },
+    "body": { "ar": "يرسل رمز تحقق جديد.", "en": "Sends a new verification code." },
+    "kind": "action",
+    "anchor": "auth.verify_phone.resend_code"
+  },
+
   "visit.register": {
     "title": { "ar": "تسجيل زيارة", "en": "Register a visit" },
     "body": {
@@ -34,6 +115,34 @@
     },
     "kind": "screen",
     "anchor": "visit.register",
+    "requires": ["operations.record_visit"]
+  },
+  "visit.register.phone_field": {
+    "title": { "ar": "رقم جوال العميل", "en": "Customer's phone number" },
+    "body": { "ar": "يبحث عن العميل تلقائياً وأنت تكتب.", "en": "Searches for the customer automatically as you type." },
+    "kind": "field",
+    "anchor": "visit.register.phone_field",
+    "requires": ["operations.record_visit"]
+  },
+  "visit.register.services_grid": {
+    "title": { "ar": "الخدمات", "en": "Services" },
+    "body": { "ar": "اضغط على كل خدمة تبغى تسجّلها. تقدر تغيّر الكمية بالضغط +/-.", "en": "Tap each service to register it. Change the quantity with +/-." },
+    "kind": "field",
+    "anchor": "visit.register.services_grid",
+    "requires": ["operations.record_visit"]
+  },
+  "visit.register.note_field": {
+    "title": { "ar": "ملاحظة", "en": "Note" },
+    "body": { "ar": "ملاحظة اختيارية عن الزيارة.", "en": "An optional note about the visit." },
+    "kind": "field",
+    "anchor": "visit.register.note_field",
+    "requires": ["operations.record_visit"]
+  },
+  "visit.register.save_button": {
+    "title": { "ar": "حفظ", "en": "Save" },
+    "body": { "ar": "يسجّل الزيارة. يفعل بعد اختيار خدمة وحدة على الأقل.", "en": "Records the visit. Active once at least one service is selected." },
+    "kind": "action",
+    "anchor": "visit.register.save_button",
     "requires": ["operations.record_visit"]
   }
 }
