@@ -54,7 +54,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Sequence
 from app.adapters import internal_http
 
 
@@ -77,6 +77,11 @@ class Decision:
     # feature.whatsapp, "connect"). Empty for every other refusal; a screen with nothing to jump
     # to just reads `reason` and stops there.
     redirect_screen: str = ""
+    # WHICH CART LINE THIS REFUSAL IS ABOUT — set only by `may_add_bundle()`, so a cart screen can
+    # highlight the one broken item instead of showing a bundle-wide message with nowhere to
+    # point. Empty for every Decision returned by any other function in this module, `may_add`
+    # included (a single purchase has no "which line" to name).
+    failed_plan_id: str = ""
 
 
 def held_keys(subscriptions: list[dict[str, Any]] | None) -> set[str]:
@@ -218,20 +223,94 @@ def may_add(*, plan_limits: dict[str, Any] | None, held: set[str]) -> Decision:
     Capacity packs are deliberately NOT covered by that rule — buying a second seat pack is how a
     shop gets twenty more seats, and refusing it would be refusing the sale.
 
+    A THIN WRAPPER OVER `may_add_bundle()` NOW (2026-09-20, owner's own instruction to unify a
+    single "buy now" purchase and a multi-item cart checkout behind ONE rule, so the two paths can
+    never quietly drift apart) — a single-item bundle. `plan_id=""` because nothing here can name
+    which cart line failed; `Decision.failed_plan_id` is bundle-only and stays empty either way.
+
     PURE, like `may_subscribe` above: the rule can be read and tested without a cluster.
     """
-    grants = granted_keys(plan_limits)
+    return may_add_bundle(items=[BundleItem(plan_id="", plan_limits=plan_limits)], held=held)
 
-    dependency = requires_any(plan_limits)
-    if dependency and not (set(dependency) & held):
-        names = " أو ".join(_REQUIRES_ANY_LABELS.get(k, k) for k in dependency)
-        return Decision(False, reason=f"هذا التطبيق يحتاج تفعيل {names} أولاً.")
 
-    already = sorted(grants & held)
-    if already:
-        return Decision(False, reason="هذا التطبيق مفعّل في اشتراكك بالفعل.")
+def may_add_bundle(*, items: Sequence[BundleItem], held: set[str]) -> Decision:
+    """May this establishment buy this WHOLE cart together, given what it already holds?
+
+    ALL-OR-NOTHING, BEFORE ANYTHING IS CHARGED — see api/v1/subscription.py::checkout. A cart
+    exists for exactly one reason: an app that `plan.requires_any` gates could until now only be
+    bought AFTER its dependency was already a separate, earlier purchase — so a shop that wanted
+    both had to complete two checkouts, in a fixed order, or be refused. A dependency and the app
+    that needs it may now travel in the SAME cart: each item's `requires_any` is checked against
+    `held` UNION every OTHER item's own granted keys in this cart, not `held` alone.
+
+    "OTHER" IS EXACT, NOT "EVERYTHING BUT THIS ONE'S OWN INDEX" — an item's own grants are
+    subtracted from the pool it may satisfy its dependency from (`bundle_grants - grants`), so a
+    plan could never satisfy its own prerequisite by carrying the same key it requires. No real
+    plan does this today; the rule stays correct regardless of what plans.json says.
+
+    A DUPLICATE IS REFUSED TWO WAYS: the same `plan_id` listed twice (a cart-building bug, not a
+    real request), and two DIFFERENT plan_ids that would grant an OVERLAPPING feature key (e.g. a
+    future second variant of one app) — both catch the exact defect `may_add`'s own "an app bought
+    twice" rule catches for a single purchase, extended across a cart's own lines.
+
+    AN UNREADABLE ITEM REFUSES THE WHOLE CART, never silently drops that one line — the caller
+    (api/v1/subscription.py::checkout) must not charge for three items because the fourth's plan
+    row could not be read.
+
+    ORDER MATTERS FOR WHICH REASON COMES BACK, not for correctness: items are walked in the order
+    given, and the first violation found is the one refusal returned — same posture as `may_add`
+    itself, which checks a dependency before a duplicate for the identical reason (a plan that is
+    BOTH already held AND missing an (unrelated) dependency should never happen in real data, but
+    if it did, naming the dependency first is the more actionable message).
+
+    PURE, like `may_add`/`may_subscribe`: the rule can be read and tested without a cluster.
+    """
+    if not items:
+        return Decision(False, reason="السلة فارغة.")
+
+    seen_ids: set[str] = set()
+    for item in items:
+        if item.plan_limits is None:
+            return Decision(False, reason="تعذّر قراءة أحد التطبيقات بالسلة. أعد المحاولة.",
+                            failed_plan_id=item.plan_id)
+        if item.plan_id and item.plan_id in seen_ids:
+            return Decision(False, reason="لا يمكن إضافة نفس التطبيق للسلة أكثر من مرة.",
+                            failed_plan_id=item.plan_id)
+        seen_ids.add(item.plan_id)
+
+    grants_by_item = [granted_keys(item.plan_limits) for item in items]
+    bundle_grants: set[str] = set()
+    for g in grants_by_item:
+        bundle_grants |= g
+
+    seen_keys: set[str] = set()
+    for item, grants in zip(items, grants_by_item):
+        dependency = requires_any(item.plan_limits)
+        others_grants = bundle_grants - grants
+        if dependency and not (set(dependency) & (held | others_grants)):
+            names = " أو ".join(_REQUIRES_ANY_LABELS.get(k, k) for k in dependency)
+            return Decision(False, reason=f"هذا التطبيق يحتاج تفعيل {names} أولاً.",
+                            failed_plan_id=item.plan_id)
+
+        if grants & held:
+            return Decision(False, reason="هذا التطبيق مفعّل في اشتراكك بالفعل.",
+                            failed_plan_id=item.plan_id)
+        if grants & seen_keys:
+            return Decision(False, reason="هذا التطبيق يمنح ميزة مكررة مع تطبيق آخر بالسلة.",
+                            failed_plan_id=item.plan_id)
+        seen_keys |= grants
 
     return Decision(True)
+
+
+@dataclass(frozen=True)
+class BundleItem:
+    """One cart line — the CANDIDATE plan being checked, not yet bought. `plan_id` is used only
+    to name which line a refusal is about (`Decision.failed_plan_id`) and to catch a literal
+    repeat within the same cart; the purchase rule itself is decided entirely from `plan_limits`,
+    same as `may_add`'s own single-plan signature."""
+    plan_id: str
+    plan_limits: dict[str, Any] | None
 
 
 def may_subscribe(*, connected: bool, trial_days: int, paid: bool = True,

@@ -11,6 +11,8 @@ prices nothing, and stores no subscription. Everything about money stays where i
 """
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -20,7 +22,9 @@ from app.api.authz import require_capability
 from app.config import get_settings
 from app.core import apps as app_catalogue
 from app.core.apps import requires_whatsapp_connection
-from app.core.subscribe import granted_keys, held_keys, is_base, may_add, may_subscribe
+from app.core.subscribe import (
+    BundleItem, granted_keys, held_keys, is_base, may_add, may_add_bundle, may_subscribe,
+)
 
 from app.api.ratelimit import rate_limit
 from app.api.subscribed import no_subscription_needed, subscribed_write
@@ -49,6 +53,19 @@ class SubscribeIn(BaseModel):
     interval: str = Field(default="month", max_length=16)
     # WHAT THE GATEWAY'S FORM HANDED THE BROWSER — a single-use reference to a card we never see.
     # Absent on a trial, required on anything paid: see may_subscribe.
+    payment_token: str = Field(default="", max_length=256)
+
+
+class CheckoutItemIn(BaseModel):
+    plan_id: str = Field(min_length=1, max_length=64)
+    interval: str = Field(default="month", max_length=16)
+
+
+class CheckoutIn(BaseModel):
+    # 20 IS A SANITY CAP, NOT A PRODUCT LIMIT — no real cart approaches this; it exists so a
+    # malformed or abusive request cannot make this route fan out into dozens of billing-service
+    # calls in one request.
+    items: list[CheckoutItemIn] = Field(min_length=1, max_length=20)
     payment_token: str = Field(default="", max_length=256)
 
 
@@ -346,3 +363,190 @@ async def subscribe(request: Request, body: SubscribeIn,
     if decision.notice:
         out = {**out, "notice": decision.notice}
     return JSONResponse(status_code=status.HTTP_201_CREATED, content=out)
+
+
+@router.post("/checkout", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
+async def checkout(request: Request, body: CheckoutIn, principal=Depends(_OWNER)) -> JSONResponse:
+    """Buy several apps together, one cart, one confirmation — the answer to a dependency that
+    `may_add`'s single-purchase rule could never satisfy on its own: نقاطي needs تسجيل زيارة/
+    الحجوزات first, and until this route existed a shop holding neither had to complete a whole
+    separate purchase for one of them before it could even attempt نقاطي.
+
+    NOT ONE MERGED INVOICE — billing-service (the platform's, not ours) creates one invoice per
+    `subscribe()` call, and we do not own that code (see the feature request sent to base-services
+    2026-09-20 asking for a real multi-plan invoice). Until that lands, this route validates the
+    WHOLE cart together — see `may_add_bundle`'s own docstring — then charges each item with
+    billing-service's existing single-plan route, in the order given, so the USER experience is
+    already "add to cart, one checkout"; only the invoice count behind it is not yet what "واحدة"
+    literally promises.
+
+    AND THAT IS EXACTLY WHY AT MOST ONE ITEM MAY ACTUALLY NEED A CHARGE. `payment_token` is a
+    single-use gateway reference (see `HttpPlans.subscribe`'s own docstring) — charging it twice
+    is not "the same cart, two invoices", it is very likely a SECOND charge attempt against an
+    already-spent token, which the gateway would refuse in a way this route cannot predict or
+    safely paper over. So a cart with more than one genuinely-paid item (not free, not on a
+    trial) is refused OUTRIGHT, before anything is validated further, with a message telling the
+    shop to check out its one paid item and add the rest (free/trial) alongside it instead.
+
+    ALL VALIDATION HAPPENS BEFORE ANY CHARGE. The bundle rule, then every item's own
+    `may_subscribe` gate (connection/trial/interval), are checked for the WHOLE cart first — a
+    cart that will fail its third item never charges its first two. Once execution starts, a
+    single-use token and a live gateway mean a mid-cart failure cannot be undone by this route
+    (no automatic refund, no automatic cancel-what-already-succeeded) — so execution stops at the
+    first failure and the response says exactly which items went through and which did not,
+    rather than guessing at a rollback billing-service itself does not offer.
+    """
+    c = request.app.state.container
+    tenant = _tenant(principal)
+    if not tenant:
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"error": "NO_TENANT"})
+
+    plan_ids = [i.plan_id for i in body.items]
+
+    rows = await c.billing_plans.subscriptions(tenant)
+    if rows is None:
+        # SAME POSTURE AS THE SINGLE-PURCHASE ROUTE ABOVE (ز-2): failing OPEN here would mean
+        # validating a cart against an unknown `held` set and possibly charging for a duplicate —
+        # a real riyal amount, recoverable only by noticing it. Failing closed costs one retry.
+        await request.app.state.auditor.record(
+            "subscription.gate_unreadable", actor=getattr(principal, "subject", ""), tenant=tenant,
+            resource="checkout", ip=request.client.host if request.client else "")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"error": "SUBSCRIPTION_UNAVAILABLE",
+                     "message": "تعذّر التحقق من اشتراكك الحالي. أعد المحاولة بعد قليل — "
+                                "لم يُخصم شيء."})
+    held = held_keys(rows)
+
+    # EVERY PLAN READ CONCURRENTLY — the same single `/plans` read each individual `limits()` call
+    # already makes under the hood; fetching them one at a time here would just serialise N
+    # network round trips this route does not need to serialise.
+    limits_list = await asyncio.gather(*(c.billing_plans.limits(pid) for pid in plan_ids))
+
+    if any(lim is None for lim in limits_list):
+        # SAME POSTURE AS THE SINGLE-PURCHASE ROUTE ABOVE — an unreadable PLAN (not just an
+        # unreadable subscriptions list) is an outage there (503), never a validation refusal
+        # (409). `may_add_bundle`'s own None-guard exists for its unit tests and stays as a
+        # defensive second layer; the route itself must not let a checkout reach it this way.
+        await request.app.state.auditor.record(
+            "subscription.gate_unreadable", actor=getattr(principal, "subject", ""), tenant=tenant,
+            resource="checkout", ip=request.client.host if request.client else "")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"error": "SUBSCRIPTION_UNAVAILABLE",
+                     "message": "تعذّر قراءة أحد التطبيقات بالسلة. أعد المحاولة بعد قليل — "
+                                "لم يُخصم شيء."})
+
+    bundle_decision = may_add_bundle(
+        items=[BundleItem(plan_id=pid, plan_limits=lim) for pid, lim in zip(plan_ids, limits_list)],
+        held=held)
+    if not bundle_decision.allowed:
+        await request.app.state.auditor.record(
+            "subscription.checkout_refused", actor=getattr(principal, "subject", ""), tenant=tenant,
+            resource=f"plan:{bundle_decision.failed_plan_id}" if bundle_decision.failed_plan_id
+                     else "checkout",
+            ip=request.client.host if request.client else "")
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                            content={"error": "CHECKOUT_REFUSED",
+                                     "message": bundle_decision.reason,
+                                     "plan_id": bundle_decision.failed_plan_id})
+
+    # ── PER-ITEM may_subscribe — connection/trial/interval, same rule as a single purchase ──────
+    connected = await c.connections.connected(tenant)
+    checks: list[tuple[CheckoutItemIn, dict, bool, str]] = []  # (item, limits, free, notice)
+    charge_count = 0
+    for checkout_item, limits in zip(body.items, limits_list):
+        if checkout_item.interval not in BILLING_INTERVALS:
+            await request.app.state.auditor.record(
+                "subscription.bad_interval", actor=getattr(principal, "subject", ""), tenant=tenant,
+                resource=f"plan:{checkout_item.plan_id}",
+                ip=request.client.host if request.client else "")
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_INTERVAL",
+                                         "message": "مدة الاشتراك غير صحيحة.",
+                                         "plan_id": checkout_item.plan_id})
+        if checkout_item.interval == "once" and is_base(limits):
+            await request.app.state.auditor.record(
+                "subscription.bad_interval", actor=getattr(principal, "subject", ""), tenant=tenant,
+                resource=f"plan:{checkout_item.plan_id}",
+                ip=request.client.host if request.client else "")
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_INTERVAL",
+                                         "message": "هذه الباقة تُجدَّد شهرياً ولا تُشترى مرة واحدة.",
+                                         "plan_id": checkout_item.plan_id})
+
+        trial_days = await c.billing_plans.trial_days(checkout_item.plan_id)
+        price_minor = await c.billing_plans.amount_minor(checkout_item.plan_id)
+        free = price_minor == 0
+
+        item_decision = may_subscribe(
+            connected=connected, trial_days=trial_days,
+            paid=bool(body.payment_token) or free,
+            requires_connection=requires_whatsapp_connection(granted_keys(limits)))
+        if not item_decision.allowed:
+            await request.app.state.auditor.record(
+                "subscription.whatsapp_connection_required" if item_decision.redirect_screen
+                else "subscription.refused",
+                actor=principal.subject, tenant=tenant, resource=f"plan:{checkout_item.plan_id}",
+                ip=request.client.host if request.client else "")
+            if item_decision.redirect_screen:
+                return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                                    content={"error": "WHATSAPP_CONNECTION_REQUIRED",
+                                             "message": item_decision.reason,
+                                             "redirect_screen": item_decision.redirect_screen,
+                                             "plan_id": checkout_item.plan_id})
+            return JSONResponse(status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                                content={"error": "PAYMENT_REQUIRED",
+                                         "message": item_decision.reason,
+                                         "plan_id": checkout_item.plan_id})
+
+        needs_charge = not free and trial_days <= 0
+        if needs_charge:
+            charge_count += 1
+        checks.append((checkout_item, limits, free, item_decision.notice))
+
+    if charge_count > 1:
+        # THE ONE LIMIT THIS ROUTE ADDS ON TOP OF may_add_bundle — see this route's own docstring
+        # for why a single-use payment_token cannot safely cover more than one real charge yet.
+        await request.app.state.auditor.record(
+            "subscription.checkout_multi_charge_unsupported",
+            actor=getattr(principal, "subject", ""), tenant=tenant, resource="checkout",
+            ip=request.client.host if request.client else "")
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"error": "MULTI_CHARGE_UNSUPPORTED",
+                     "message": "لا يمكن حالياً شراء أكثر من تطبيق مدفوع فعلياً بعملية واحدة. "
+                                "أكمل الشراء بتطبيق مدفوع واحد بالسلة، والتطبيقات المجانية أو "
+                                "التجريبية معه ستُفعَّل بنفس العملية."})
+
+    # ── EXECUTE — sequential, in the order submitted, stop at the first failure ─────────────────
+    results: list[dict] = []
+    for checkout_item, limits, free, _notice in checks:
+        interval = "once" if free and not is_base(limits) else checkout_item.interval
+        status_code, out = await c.billing_plans.subscribe(
+            tenant=tenant, plan_id=checkout_item.plan_id, interval=interval,
+            payment_token=body.payment_token)
+        ok = status_code < 400
+        results.append({"plan_id": checkout_item.plan_id, "ok": ok, "status": status_code,
+                        "detail": out if not ok else None})
+        if not ok:
+            break
+
+    all_ok = all(r["ok"] for r in results) and len(results) == len(checks)
+    await request.app.state.auditor.record(
+        "subscription.checkout_completed" if all_ok else "subscription.checkout_partial",
+        actor=principal.subject, tenant=tenant, resource="checkout",
+        ip=request.client.host if request.client else "",
+        metadata={} if all_ok else {"results": results})
+
+    content: dict = {"items": results}
+    if all_ok:
+        # ONE NOTICE, NOT N — every item's own `may_subscribe` decision was checked against the
+        # SAME `connected` answer, so at most one distinct notice can ever appear across the
+        # whole cart; the first non-empty one (if any) is the one sentence the shop reads.
+        notice = next((n for _i, _l, _f, n in checks if n), "")
+        if notice:
+            content["notice"] = notice
+    return JSONResponse(
+        status_code=status.HTTP_200_OK if all_ok else status.HTTP_207_MULTI_STATUS,
+        content=content)
