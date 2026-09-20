@@ -40,6 +40,13 @@ SCREENS = [
     "apps/mobile/lib/features/home/home_screen.dart",
     "apps/mobile/lib/features/shell/main_shell.dart",
     "apps/mobile/lib/widgets/app_widgets.dart",
+    "apps/mobile/lib/features/auth/login_screen.dart",
+    "apps/mobile/lib/features/auth/signup_screen.dart",
+    "apps/mobile/lib/features/auth/verify_phone_screen.dart",
+    "apps/mobile/lib/features/visit/visit_screen.dart",
+    "apps/mobile/lib/core/utils/url_helper.dart",
+    "apps/mobile/lib/core/utils/snackbar_helper.dart",
+    "apps/mobile/lib/core/router/app_router.dart",
 ]
 
 ARABIC = re.compile(r"[؀-ۿ]")

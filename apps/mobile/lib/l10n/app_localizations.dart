@@ -278,6 +278,396 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'تسجيل الخروج'**
   String get logout;
+
+  /// Generic required-field validation error, no field name known
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا الحقل مطلوب'**
+  String get validatorFieldRequiredGeneric;
+
+  /// Required-field validation error naming the field
+  ///
+  /// In ar, this message translates to:
+  /// **'{field} مطلوب'**
+  String validatorFieldRequiredNamed(String field);
+
+  /// Email validation: empty value
+  ///
+  /// In ar, this message translates to:
+  /// **'البريد الإلكتروني مطلوب'**
+  String get validatorEmailRequired;
+
+  /// Email validation: malformed value
+  ///
+  /// In ar, this message translates to:
+  /// **'البريد الإلكتروني غير صالح'**
+  String get validatorEmailInvalid;
+
+  /// Phone validation: empty value
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم الهاتف مطلوب'**
+  String get validatorPhoneRequired;
+
+  /// Phone validation: not a valid Saudi mobile number
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم الهاتف غير صالح - يجب أن يبدأ بـ 05'**
+  String get validatorPhoneInvalid;
+
+  /// Password validation: empty value
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمة المرور مطلوبة'**
+  String get validatorPasswordRequired;
+
+  /// Password validation: below minimum length
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمة المرور يجب أن تكون 8 أحرف على الأقل'**
+  String get validatorPasswordTooShort;
+
+  /// Password validation: missing uppercase letter
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمة المرور يجب أن تحتوي على حرف كبير'**
+  String get validatorPasswordNeedsUppercase;
+
+  /// Password validation: missing lowercase letter
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمة المرور يجب أن تحتوي على حرف صغير'**
+  String get validatorPasswordNeedsLowercase;
+
+  /// Password validation: missing a digit
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمة المرور يجب أن تحتوي على رقم'**
+  String get validatorPasswordNeedsDigit;
+
+  /// Field-name label used both as a form label and as the fieldName passed into validateRequired for the confirm-password field
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد كلمة المرور'**
+  String get validatorConfirmPasswordFieldName;
+
+  /// Confirm-password validation: values differ
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمة المرور غير متطابقة'**
+  String get validatorPasswordMismatch;
+
+  /// OTP validation: empty value
+  ///
+  /// In ar, this message translates to:
+  /// **'رمز التحقق مطلوب'**
+  String get validatorOtpRequired;
+
+  /// OTP validation: wrong digit count
+  ///
+  /// In ar, this message translates to:
+  /// **'رمز التحقق يجب أن يكون 6 أرقام'**
+  String get validatorOtpLength;
+
+  /// OTP validation: contains non-digit characters
+  ///
+  /// In ar, this message translates to:
+  /// **'رمز التحقق يجب أن يحتوي على أرقام فقط'**
+  String get validatorOtpDigitsOnly;
+
+  /// Name validation: empty value
+  ///
+  /// In ar, this message translates to:
+  /// **'الاسم مطلوب'**
+  String get validatorNameRequired;
+
+  /// Name validation: below minimum length
+  ///
+  /// In ar, this message translates to:
+  /// **'الاسم يجب أن يكون حرفين على الأقل'**
+  String get validatorNameTooShort;
+
+  /// Name validation: above maximum length
+  ///
+  /// In ar, this message translates to:
+  /// **'الاسم يجب أن لا يتجاوز 100 حرف'**
+  String get validatorNameTooLong;
+
+  /// Name validation: disallowed characters
+  ///
+  /// In ar, this message translates to:
+  /// **'الاسم يحتوي على أحرف غير مسموحة'**
+  String get validatorNameInvalidChars;
+
+  /// Fallback field-name used inside other validator messages when no fieldName was given
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا الحقل'**
+  String get validatorGenericFieldName;
+
+  /// Minimum-length validation error naming the field and the minimum
+  ///
+  /// In ar, this message translates to:
+  /// **'{field} يجب أن يكون {minLength} أحرف على الأقل'**
+  String validatorMinLengthNamed(String field, int minLength);
+
+  /// Maximum-length validation error naming the field and the maximum
+  ///
+  /// In ar, this message translates to:
+  /// **'{field} يجب أن لا يتجاوز {maxLength} حرف'**
+  String validatorMaxLengthNamed(String field, int maxLength);
+
+  /// Fallback subject name for numeric-range validation messages
+  ///
+  /// In ar, this message translates to:
+  /// **'القيمة'**
+  String get validatorGenericValueName;
+
+  /// Numeric validation error naming the field
+  ///
+  /// In ar, this message translates to:
+  /// **'{field} يجب أن يكون رقم'**
+  String validatorNotANumberNamed(String field);
+
+  /// Numeric-range validation error: below minimum
+  ///
+  /// In ar, this message translates to:
+  /// **'{field} يجب أن يكون {min} على الأقل'**
+  String validatorMinValueNamed(String field, String min);
+
+  /// Numeric-range validation error: above maximum
+  ///
+  /// In ar, this message translates to:
+  /// **'{field} يجب أن لا يتجاوز {max}'**
+  String validatorMaxValueNamed(String field, String max);
+
+  /// URL validation: empty value
+  ///
+  /// In ar, this message translates to:
+  /// **'الرابط مطلوب'**
+  String get validatorUrlRequired;
+
+  /// URL validation: malformed value
+  ///
+  /// In ar, this message translates to:
+  /// **'الرابط غير صالح'**
+  String get validatorUrlInvalid;
+
+  /// Snackbar shown when openUrl is called with no URL
+  ///
+  /// In ar, this message translates to:
+  /// **'الرابط غير متوفر'**
+  String get urlHelperUnavailable;
+
+  /// Snackbar shown when launching a URL throws
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذر فتح الرابط'**
+  String get urlHelperOpenFailed;
+
+  /// Placeholder body for a nav section the catalogue exposes but mobile has no screen for yet
+  ///
+  /// In ar, this message translates to:
+  /// **'هذه الشاشة غير متاحة على تطبيق الجوال بعد.'**
+  String get routerScreenNotOnMobileYet;
+
+  /// Subtitle under the wordmark on the login screen
+  ///
+  /// In ar, this message translates to:
+  /// **'سجّل دخولك للمتابعة'**
+  String get authLoginSubtitle;
+
+  /// Mobile-number field label, used on login and signup
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم الجوال'**
+  String get authPhoneLabel;
+
+  /// Password field label, used on login and signup, and as the fieldName passed to validateRequired
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمة المرور'**
+  String get authPasswordLabel;
+
+  /// Divider label above the open-a-new-shop button on login
+  ///
+  /// In ar, this message translates to:
+  /// **'ليس لديك محل؟'**
+  String get authNoShopYetLabel;
+
+  /// Button label on login that opens signup
+  ///
+  /// In ar, this message translates to:
+  /// **'افتح محلاً جديداً'**
+  String get authOpenNewShopCta;
+
+  /// Signup screen app bar title
+  ///
+  /// In ar, this message translates to:
+  /// **'فتح محل جديد'**
+  String get authOpenShopTitle;
+
+  /// Subtitle under the wordmark on signup
+  ///
+  /// In ar, this message translates to:
+  /// **'ثلاث خطوات فقط لفتح محلك'**
+  String get authSignupSubtitle;
+
+  /// Shop-name field label on signup
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم المحل'**
+  String get authShopNameLabel;
+
+  /// Button label on signup that goes back to login
+  ///
+  /// In ar, this message translates to:
+  /// **'لديك محل بالفعل؟ سجّل الدخول'**
+  String get authAlreadyHaveShopCta;
+
+  /// Signup submit-button label
+  ///
+  /// In ar, this message translates to:
+  /// **'فتح المحل'**
+  String get authOpenShopCta;
+
+  /// Verify-phone screen app bar title
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد رقم الجوال'**
+  String get authVerifyPhoneTitle;
+
+  /// Tells the user a code was sent to their phone number
+  ///
+  /// In ar, this message translates to:
+  /// **'أرسلنا رمز تحقق إلى {phone}'**
+  String authVerifyCodeSentTo(String phone);
+
+  /// Busy-state label on the verify-code submit button
+  ///
+  /// In ar, this message translates to:
+  /// **'جارٍ التحقق...'**
+  String get authVerifying;
+
+  /// Verify-code submit-button label
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد'**
+  String get authConfirmCta;
+
+  /// Resend-code button label, shown after a code was already requested
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة إرسال الرمز'**
+  String get authResendCodeCta;
+
+  /// Send-code button label, shown before a code has been requested
+  ///
+  /// In ar, this message translates to:
+  /// **'إرسال الرمز'**
+  String get authSendCodeCta;
+
+  /// Fallback message when requesting an OTP code fails with no server message
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر إرسال الرمز.'**
+  String get authCodeSendFailedFallback;
+
+  /// Fallback message when OTP verification fails with no server message
+  ///
+  /// In ar, this message translates to:
+  /// **'رمز التحقق غير صحيح.'**
+  String get authOtpIncorrectFallback;
+
+  /// Shown when the visit screen's service catalogue fails to load
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تحميل الخدمات. اسحب للأسفل لإعادة المحاولة.'**
+  String get visitCatalogueLoadErrorFallback;
+
+  /// Inline validation message when saving a visit with no customer phone entered
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل رقم جوال العميل'**
+  String get visitEnterCustomerPhone;
+
+  /// Inline validation message when saving a visit with no service selected
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر خدمة واحدة على الأقل'**
+  String get visitSelectAtLeastOneService;
+
+  /// Success message after a visit is recorded
+  ///
+  /// In ar, this message translates to:
+  /// **'تم تسجيل الزيارة.'**
+  String get visitSavedMessage;
+
+  /// Fallback message when saving a visit is refused with no server reason
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تسجيل الزيارة.'**
+  String get visitSaveErrorFallback;
+
+  /// Message when saving a visit fails with a network/Dio exception
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تسجيل الزيارة. تحقق من الاتصال وحاول مرة أخرى.'**
+  String get visitSaveErrorNetworkFallback;
+
+  /// Visit-recording screen app bar title
+  ///
+  /// In ar, this message translates to:
+  /// **'تسجيل زيارة'**
+  String get visitTitle;
+
+  /// Section title for the customer-lookup card
+  ///
+  /// In ar, this message translates to:
+  /// **'العميل'**
+  String get visitCustomerSectionTitle;
+
+  /// Label above the customer phone-lookup field
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم جوال العميل'**
+  String get visitCustomerPhoneFieldLabel;
+
+  /// Shown after a phone lookup matches an existing customer
+  ///
+  /// In ar, this message translates to:
+  /// **'عميل معروف: {name}'**
+  String visitKnownCustomer(String name);
+
+  /// Shown after a phone lookup finds no existing customer
+  ///
+  /// In ar, this message translates to:
+  /// **'عميل جديد'**
+  String get visitNewCustomer;
+
+  /// Section title for the service-selection card
+  ///
+  /// In ar, this message translates to:
+  /// **'الخدمات'**
+  String get visitServicesSectionTitle;
+
+  /// Shown when the shop's catalogue has no services
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد خدمات بعد.'**
+  String get visitNoServicesYet;
+
+  /// Section title for the optional note field
+  ///
+  /// In ar, this message translates to:
+  /// **'ملاحظة (اختياري)'**
+  String get visitNoteSectionTitle;
+
+  /// Bottom-bar save button on the visit screen
+  ///
+  /// In ar, this message translates to:
+  /// **'حفظ الزيارة'**
+  String get visitSaveButtonLabel;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

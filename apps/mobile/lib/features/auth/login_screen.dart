@@ -22,6 +22,7 @@ import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/router/route_names.dart';
 import 'package:raje3_mobile/core/utils/validators.dart';
 import 'package:raje3_mobile/features/auth/verify_phone_screen.dart';
+import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -153,9 +154,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       opacity: _logoAnim.value.clamp(0.0, 1.0),
       child: Transform.scale(
         scale: 0.85 + (_logoAnim.value * 0.15),
-        child: const Text(
-          'راجِع',
-          style: TextStyle(
+        child: Text(
+          S.of(context)!.appName,
+          style: const TextStyle(
             fontFamily: AppTextStyles.arabicFont,
             fontWeight: FontWeight.w800,
             fontSize: 40,
@@ -172,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       opacity: _titleAnim.value,
       child: Transform.translate(
         offset: Offset(0, 20 * (1 - _titleAnim.value)),
-        child: const Text('سجّل دخولك للمتابعة', style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
+        child: Text(S.of(context)!.authLoginSubtitle, style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
       ),
     );
   }
@@ -251,10 +252,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         LengthLimitingTextInputFormatter(15),
       ],
       onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
-      validator: Validators.validatePhone,
+      validator: (v) => Validators.validatePhone(v)?.text(context),
       style: AppTextStyles.bodyMedium.copyWith(fontFamily: AppTextStyles.englishFont, letterSpacing: 1.2),
       decoration: AppInputDecorations.standard.copyWith(
-        labelText: 'رقم الجوال',
+        labelText: S.of(context)!.authPhoneLabel,
         hintText: '05XXXXXXXX',
         prefixIcon: const Icon(Icons.phone_android_rounded, color: AppColors.textMuted),
       ),
@@ -268,10 +269,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       obscureText: _obscure,
       textInputAction: TextInputAction.done,
       onFieldSubmitted: (_) => _submit(auth),
-      validator: (v) => Validators.validateRequired(v, fieldName: 'كلمة المرور'),
+      validator: (v) => Validators.validateRequired(v, fieldName: S.of(context)!.authPasswordLabel)?.text(context),
       style: AppTextStyles.bodyMedium.copyWith(fontFamily: AppTextStyles.englishFont),
       decoration: AppInputDecorations.standard.copyWith(
-        labelText: 'كلمة المرور',
+        labelText: S.of(context)!.authPasswordLabel,
         prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.textMuted),
         suffixIcon: IconButton(
           icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
@@ -317,7 +318,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                     children: [
                       const Icon(Icons.login_rounded, color: AppColors.accentContrast, size: 20),
                       const SizedBox(width: AppSpacing.sm),
-                      Text('تسجيل الدخول',
+                      Text(S.of(context)!.login,
                           style: AppTextStyles.button.copyWith(color: AppColors.accentContrast, fontSize: 16)),
                     ],
                   ),
@@ -337,9 +338,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             Row(
               children: [
                 Expanded(child: Container(height: 1, color: AppColors.borderSubtle)),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                  child: Text('ليس لديك محل؟', style: AppTextStyles.caption),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  child: Text(S.of(context)!.authNoShopYetLabel, style: AppTextStyles.caption),
                 ),
                 Expanded(child: Container(height: 1, color: AppColors.borderSubtle)),
               ],
@@ -351,7 +352,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
               child: OutlinedButton.icon(
                 onPressed: () => context.pushNamed(RouteNames.signup),
                 icon: const Icon(Icons.storefront_outlined, size: 20),
-                label: Text('افتح محلاً جديداً', style: AppTextStyles.button.copyWith(color: AppColors.accent, fontSize: 15)),
+                label: Text(S.of(context)!.authOpenNewShopCta,
+                    style: AppTextStyles.button.copyWith(color: AppColors.accent, fontSize: 15)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.accent,
                   side: const BorderSide(color: AppColors.accent, width: 1.5),

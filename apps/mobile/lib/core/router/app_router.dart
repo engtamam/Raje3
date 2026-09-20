@@ -9,6 +9,7 @@ import 'package:raje3_mobile/features/auth/signup_screen.dart';
 import 'package:raje3_mobile/features/home/home_screen.dart';
 import 'package:raje3_mobile/features/shell/main_shell.dart';
 import 'package:raje3_mobile/features/visit/visit_screen.dart';
+import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 
 /// App router configuration.
@@ -132,7 +133,7 @@ class _NotYetOnMobile extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.all(AppSpacing.md),
           child: Text(
-            'هذه الشاشة غير متاحة على تطبيق الجوال بعد.',
+            S.of(context)!.routerScreenNotOnMobileYet,
             style: AppTextStyles.bodyMedium,
             textAlign: TextAlign.center,
           ),

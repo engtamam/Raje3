@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
+import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 
 /// «تسجيل زيارة» — copied from the reference project's
@@ -89,7 +90,7 @@ class _VisitScreenState extends State<VisitScreen>
     } on DioException {
       if (!mounted) return;
       setState(() {
-        _catalogueError = 'تعذّر تحميل الخدمات. اسحب للأسفل لإعادة المحاولة.';
+        _catalogueError = S.of(context)!.visitCatalogueLoadErrorFallback;
         _loadingCatalogue = false;
       });
     }
@@ -147,8 +148,9 @@ class _VisitScreenState extends State<VisitScreen>
     final phone = _phoneController.text.trim();
     if (phone.length < 3 || _selected.isEmpty) {
       setState(() {
-        _saveError =
-            phone.length < 3 ? 'أدخل رقم جوال العميل' : 'اختر خدمة واحدة على الأقل';
+        _saveError = phone.length < 3
+            ? S.of(context)!.visitEnterCustomerPhone
+            : S.of(context)!.visitSelectAtLeastOneService;
       });
       return;
     }
@@ -175,7 +177,7 @@ class _VisitScreenState extends State<VisitScreen>
       if (recorded) {
         setState(() {
           _saving = false;
-          _savedMessage = 'تم تسجيل الزيارة.';
+          _savedMessage = S.of(context)!.visitSavedMessage;
           _selected.clear();
           _phoneController.clear();
           _noteController.clear();
@@ -186,14 +188,14 @@ class _VisitScreenState extends State<VisitScreen>
         final reason = body is Map<String, dynamic> ? body['reason'] as String? : null;
         setState(() {
           _saving = false;
-          _saveError = reason ?? 'تعذّر تسجيل الزيارة.';
+          _saveError = reason ?? S.of(context)!.visitSaveErrorFallback;
         });
       }
     } on DioException {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _saveError = 'تعذّر تسجيل الزيارة. تحقق من الاتصال وحاول مرة أخرى.';
+        _saveError = S.of(context)!.visitSaveErrorNetworkFallback;
       });
     }
   }
@@ -202,7 +204,7 @@ class _VisitScreenState extends State<VisitScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface0,
-      appBar: AppBar(title: const Text('تسجيل زيارة')),
+      appBar: AppBar(title: Text(S.of(context)!.visitTitle)),
       body: _loadingCatalogue
           ? const Center(child: CircularProgressIndicator())
           : _catalogueError != null
@@ -262,10 +264,10 @@ class _VisitScreenState extends State<VisitScreen>
 
   Widget _buildCustomerSection() {
     return _buildSection(
-      title: 'العميل',
+      title: S.of(context)!.visitCustomerSectionTitle,
       icon: Icons.person_rounded,
       children: [
-        const Text('رقم جوال العميل', style: AppTextStyles.bodySmall),
+        Text(S.of(context)!.visitCustomerPhoneFieldLabel, style: AppTextStyles.bodySmall),
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _phoneController,
@@ -321,8 +323,8 @@ class _VisitScreenState extends State<VisitScreen>
               const SizedBox(width: AppSpacing.xs),
               Text(
                 _customerName != null && _customerName!.isNotEmpty
-                    ? 'عميل معروف: $_customerName'
-                    : 'عميل جديد',
+                    ? S.of(context)!.visitKnownCustomer(_customerName!)
+                    : S.of(context)!.visitNewCustomer,
                 style: AppTextStyles.bodySmall,
               ),
             ],
@@ -336,11 +338,11 @@ class _VisitScreenState extends State<VisitScreen>
 
   Widget _buildServicesSection() {
     return _buildSection(
-      title: 'الخدمات',
+      title: S.of(context)!.visitServicesSectionTitle,
       icon: Icons.content_cut_rounded,
       children: [
         if (_services.isEmpty)
-          const Text('لا توجد خدمات بعد.', style: AppTextStyles.bodySmall)
+          Text(S.of(context)!.visitNoServicesYet, style: AppTextStyles.bodySmall)
         else
           for (final service in _services)
             _ServiceRow(
@@ -357,7 +359,7 @@ class _VisitScreenState extends State<VisitScreen>
 
   Widget _buildNoteSection() {
     return _buildSection(
-      title: 'ملاحظة (اختياري)',
+      title: S.of(context)!.visitNoteSectionTitle,
       icon: Icons.note_rounded,
       children: [
         TextField(
@@ -417,7 +419,7 @@ class _VisitScreenState extends State<VisitScreen>
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentContrast),
                 )
-              : const Text('حفظ الزيارة'),
+              : Text(S.of(context)!.visitSaveButtonLabel),
         ),
       ),
     );
@@ -527,7 +529,7 @@ class _RetryBody extends StatelessWidget {
           children: [
             Text(message, style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
             const SizedBox(height: AppSpacing.md),
-            OutlinedButton(onPressed: onRetry, child: const Text('إعادة المحاولة')),
+            OutlinedButton(onPressed: onRetry, child: Text(S.of(context)!.retry)),
           ],
         ),
       ),

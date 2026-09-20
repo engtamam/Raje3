@@ -19,6 +19,7 @@ import 'package:provider/provider.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/router/route_names.dart';
 import 'package:raje3_mobile/core/utils/validators.dart';
+import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 
 class VerifyPhoneScreen extends StatefulWidget {
@@ -70,7 +71,7 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
     setState(() {
       _busy = false;
       _codeRequested = ok;
-      _localError = ok ? null : (auth.error ?? 'تعذّر إرسال الرمز.');
+      _localError = ok ? null : (auth.error ?? S.of(context)!.authCodeSendFailedFallback);
     });
   }
 
@@ -87,7 +88,7 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
     if (!verified) {
       setState(() {
         _busy = false;
-        _localError = auth.error ?? 'رمز التحقق غير صحيح.';
+        _localError = auth.error ?? S.of(context)!.authOtpIncorrectFallback;
       });
       return;
     }
@@ -114,7 +115,7 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface0,
-      appBar: AppBar(title: const Text('تأكيد رقم الجوال')),
+      appBar: AppBar(title: Text(S.of(context)!.authVerifyPhoneTitle)),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -124,7 +125,7 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'أرسلنا رمز تحقق إلى ${widget.phone}',
+                  S.of(context)!.authVerifyCodeSentTo(widget.phone),
                   style: AppTextStyles.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
@@ -140,7 +141,7 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
                     hintText: '000000',
                     border: OutlineInputBorder(),
                   ),
-                  validator: Validators.validateOtp,
+                  validator: (v) => Validators.validateOtp(v)?.text(context),
                 ),
                 if (_localError != null) ...[
                   const SizedBox(height: AppSpacing.sm),
@@ -153,12 +154,12 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
                 const SizedBox(height: AppSpacing.lg),
                 ElevatedButton(
                   onPressed: _busy ? null : _submit,
-                  child: Text(_busy ? 'جارٍ التحقق...' : 'تأكيد'),
+                  child: Text(_busy ? S.of(context)!.authVerifying : S.of(context)!.authConfirmCta),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 TextButton(
                   onPressed: _busy ? null : _sendCode,
-                  child: Text(_codeRequested ? 'إعادة إرسال الرمز' : 'إرسال الرمز'),
+                  child: Text(_codeRequested ? S.of(context)!.authResendCodeCta : S.of(context)!.authSendCodeCta),
                 ),
               ],
             ),
