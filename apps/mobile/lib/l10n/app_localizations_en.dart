@@ -212,6 +212,22 @@ class SEn extends S {
   String get kbHintNoEntry => 'No explanation for this yet.';
 
   @override
+  String get assistantChatTitle => 'Assistant';
+
+  @override
+  String get assistantInputHint => 'Type your question...';
+
+  @override
+  String get assistantSend => 'Send';
+
+  @override
+  String get assistantUnavailable =>
+      'The assistant is not available right now.';
+
+  @override
+  String get assistantPreparing => 'Preparing the assistant...';
+
+  @override
   String get authLoginSubtitle => 'Sign in to continue';
 
   @override

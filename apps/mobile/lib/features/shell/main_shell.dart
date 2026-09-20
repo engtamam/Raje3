@@ -7,6 +7,7 @@ import 'package:raje3_mobile/core/router/route_names.dart';
 import 'package:raje3_mobile/core/storage/local_storage.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/assistant_chat_sheet.dart';
 import 'package:raje3_mobile/widgets/floating_mic_button.dart';
 
 /// THE FIXED BOTTOM BAR — 4 anchors that never change, plus one customizable slot. Replaces an
@@ -69,7 +70,10 @@ class MainShell extends StatelessWidget {
           ? Stack(
               children: [
                 child,
-                FloatingMicButton(localStorage: context.read<LocalStorage>()),
+                FloatingMicButton(
+                  localStorage: context.read<LocalStorage>(),
+                  onTap: () => AssistantChatSheet.show(context),
+                ),
               ],
             )
           : child,

@@ -471,6 +471,36 @@ abstract class S {
   /// **'ما فيه شرح لهذا بعد.'**
   String get kbHintNoEntry;
 
+  /// No description provided for @assistantChatTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'المساعد'**
+  String get assistantChatTitle;
+
+  /// No description provided for @assistantInputHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'اكتب سؤالك...'**
+  String get assistantInputHint;
+
+  /// No description provided for @assistantSend.
+  ///
+  /// In ar, this message translates to:
+  /// **'إرسال'**
+  String get assistantSend;
+
+  /// No description provided for @assistantUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'المساعد غير متاح حالياً.'**
+  String get assistantUnavailable;
+
+  /// No description provided for @assistantPreparing.
+  ///
+  /// In ar, this message translates to:
+  /// **'جاري تجهيز المساعد...'**
+  String get assistantPreparing;
+
   /// Subtitle under the wordmark on the login screen
   ///
   /// In ar, this message translates to:

@@ -79,9 +79,14 @@ class GemmaAiModel implements AiModel {
       throw StateError('GemmaAiModel cannot generate — check AiModel.status before calling generate().');
     }
     final controller = StreamController<String>();
+    // THE MODEL NEVER SEES A BARE PROMPT — flutter_gemma's own chat has no separate
+    // "system message" call, so the grounding instruction (see AssistantService's own doc
+    // comment) travels as a prefix on the first user turn. Silently dropping this parameter,
+    // as an earlier pass of this file did, would answer every question ungrounded.
+    final query = systemInstruction.isEmpty ? prompt : '$systemInstruction\n\n$prompt';
     () async {
       try {
-        await chat.addQueryChunk(Message.text(text: prompt, isUser: true));
+        await chat.addQueryChunk(Message.text(text: query, isUser: true));
         await for (final response in chat.generateChatResponseAsync()) {
           if (response is TextResponse) controller.add(response.token);
         }

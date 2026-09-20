@@ -209,6 +209,21 @@ class SAr extends S {
   String get kbHintNoEntry => 'ما فيه شرح لهذا بعد.';
 
   @override
+  String get assistantChatTitle => 'المساعد';
+
+  @override
+  String get assistantInputHint => 'اكتب سؤالك...';
+
+  @override
+  String get assistantSend => 'إرسال';
+
+  @override
+  String get assistantUnavailable => 'المساعد غير متاح حالياً.';
+
+  @override
+  String get assistantPreparing => 'جاري تجهيز المساعد...';
+
+  @override
   String get authLoginSubtitle => 'سجّل دخولك للمتابعة';
 
   @override

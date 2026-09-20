@@ -212,6 +212,21 @@ class SBn extends S {
   String get kbHintNoEntry => 'এখনও এর জন্য কোনো ব্যাখ্যা নেই।';
 
   @override
+  String get assistantChatTitle => 'সহায়ক';
+
+  @override
+  String get assistantInputHint => 'আপনার প্রশ্ন লিখুন...';
+
+  @override
+  String get assistantSend => 'পাঠান';
+
+  @override
+  String get assistantUnavailable => 'সহায়ক এখন উপলব্ধ নেই।';
+
+  @override
+  String get assistantPreparing => 'সহায়ক প্রস্তুত হচ্ছে...';
+
+  @override
   String get authLoginSubtitle => 'চালিয়ে যেতে সাইন ইন করুন';
 
   @override

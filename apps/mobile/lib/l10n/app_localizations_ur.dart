@@ -211,6 +211,21 @@ class SUr extends S {
   String get kbHintNoEntry => 'ابھی اس کی کوئی وضاحت موجود نہیں ہے۔';
 
   @override
+  String get assistantChatTitle => 'معاون';
+
+  @override
+  String get assistantInputHint => 'اپنا سوال لکھیں...';
+
+  @override
+  String get assistantSend => 'بھیجیں';
+
+  @override
+  String get assistantUnavailable => 'معاون ابھی دستیاب نہیں ہے۔';
+
+  @override
+  String get assistantPreparing => 'معاون تیار کیا جا رہا ہے...';
+
+  @override
   String get authLoginSubtitle => 'جاری رکھنے کے لیے سائن ان کریں';
 
   @override

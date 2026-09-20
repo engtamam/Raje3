@@ -215,6 +215,21 @@ class SFil extends S {
   String get kbHintNoEntry => 'Wala pang paliwanag para dito.';
 
   @override
+  String get assistantChatTitle => 'Katulong';
+
+  @override
+  String get assistantInputHint => 'I-type ang iyong tanong...';
+
+  @override
+  String get assistantSend => 'Ipadala';
+
+  @override
+  String get assistantUnavailable => 'Hindi available ang katulong ngayon.';
+
+  @override
+  String get assistantPreparing => 'Inihahanda ang katulong...';
+
+  @override
   String get authLoginSubtitle => 'Mag-sign in para magpatuloy';
 
   @override

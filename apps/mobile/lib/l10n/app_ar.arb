@@ -199,6 +199,11 @@
   },
   "routerScreenNotOnMobileYet": "هذه الشاشة غير متاحة على تطبيق الجوال بعد.",
   "kbHintNoEntry": "ما فيه شرح لهذا بعد.",
+  "assistantChatTitle": "المساعد",
+  "assistantInputHint": "اكتب سؤالك...",
+  "assistantSend": "إرسال",
+  "assistantUnavailable": "المساعد غير متاح حالياً.",
+  "assistantPreparing": "جاري تجهيز المساعد...",
   "@routerScreenNotOnMobileYet": {
     "description": "Placeholder body for a nav section the catalogue exposes but mobile has no screen for yet"
   },

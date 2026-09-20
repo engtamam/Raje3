@@ -212,6 +212,21 @@ class SHa extends S {
   String get kbHintNoEntry => 'Babu bayani game da wannan tukuna.';
 
   @override
+  String get assistantChatTitle => 'Mataimaki';
+
+  @override
+  String get assistantInputHint => 'Rubuta tambayarka...';
+
+  @override
+  String get assistantSend => 'Aika';
+
+  @override
+  String get assistantUnavailable => 'Mataimaki ba ya samuwa a yanzu.';
+
+  @override
+  String get assistantPreparing => 'Ana shirya mataimaki...';
+
+  @override
   String get authLoginSubtitle => 'Shiga don ci gaba';
 
   @override

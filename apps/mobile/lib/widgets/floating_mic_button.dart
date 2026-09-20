@@ -11,10 +11,10 @@ import 'package:raje3_mobile/theme/app_theme.dart';
 /// [LocalStorage.setMicButtonPosition] as a screen-fraction (not raw pixels), so it reopens where
 /// it was left even after a rotation or on a different device.
 ///
-/// NOT WIRED TO THE ASSISTANT YET. onTap is a placeholder until the on-device AI model and its
-/// entitlement gate are connected — see AiConfig/buildAiModel(). Showing this button at all is
-/// already gated by the caller (only when the AI driver is actually built in), so there is no
-/// second "is this feature even on" check inside the widget itself.
+/// WIRED TO [AssistantChatSheet] BY THE CALLER (MainShell) — this widget never imports the
+/// assistant itself, it only fires [onTap]. Showing this button at all is already gated by the
+/// caller (only when the AI driver is actually built in), so there is no second "is this feature
+/// even on" check inside the widget itself.
 class FloatingMicButton extends StatefulWidget {
   final LocalStorage localStorage;
   final VoidCallback? onTap;
