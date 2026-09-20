@@ -1,67 +1,68 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:raje3_mobile/core/nav/nav_sections.g.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
+import 'package:raje3_mobile/core/router/route_names.dart';
+import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 
-/// The app's personalised bottom navigation bar.
+/// THE FIXED BOTTOM BAR — 4 anchors that never change, plus one customizable slot. Replaces an
+/// earlier pass's catalogue-driven bar (up to 4 pinned sections + a "More" overflow tab) after
+/// the owner changed the underlying philosophy: a bottom bar that lists installed "apps" reads
+/// as an app list, not a navigation bar. Every super-app case study researched for this pass
+/// (WeChat, Grab, Careem) keeps its bar to a handful of FIXED anchors and surfaces the actual
+/// services from the home screen's own launcher grid ([HomeScreen]) and a dedicated apps screen
+/// ([AppsScreen], "تطبيقاتي") instead. See NavProvider's own doc comment for the full reasoning.
 ///
-/// Shows up to [kMaxPinnedNav] of the operator's own pinned sections. When the catalogue makes
-/// more sections visible than fit in the bar, a trailing "More" tab opens [MoreSectionsScreen]
-/// listing the rest. A session with 0 or 1 visible section gets no bottom bar at all — a bare
-/// [Scaffold] around [child], never a broken/empty tab strip.
+/// Order (right to left in an RTL layout — see MainShell's own destinations list, which is
+/// built left-to-right and rendered mirrored by the framework): تطبيقاتي, التحليلات, الرئيسية
+/// (centre), حسابي, and the one customizable slot (default: تسجيل زيارة).
 ///
-/// This does NOT use go_router's StatefulShellRoute — the section list is only known after the
-/// catalogue loads (async, per-session), so the tab set cannot be declared at router-build time
-/// the way the placeholder single-tab shell was. Instead this wraps whatever screen the router
-/// already navigated to, and tab taps just `context.go` to that section's real path — simpler,
-/// and correct for a bar whose contents change per operator and per session.
+/// "التحليلات" is the one fixed slot that is STILL capability-gated — it is really the 'shop'
+/// nav section (`requires: ['reminders.today', 'insights.dashboard']`) wearing a fixed-tab
+/// costume, not a truly universal anchor like الرئيسية/حسابي/تطبيقاتي. An account whose
+/// catalogue does not make 'shop' visible (a role with neither capability) never sees the tab
+/// at all — showing it and letting AnalyticsScreen fail to load would be worse than omitting it.
 class MainShell extends StatelessWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context)!;
     final nav = context.watch<NavProvider>();
-    final pinned = nav.pinnedSections;
-    final hasOverflow = nav.overflowSections.isNotEmpty;
+    final surface0 = context.isDark ? AppDarkColors.surface0 : AppColors.surface0;
 
-    // 0 or 1 visible section: no chrome at all — a bar with one destination (or none) is not a
-    // navigation control, it is decoration that invites a confused tap.
-    if (pinned.length + (hasOverflow ? 1 : 0) < 2) {
-      return Scaffold(backgroundColor: AppColors.surface0, body: child);
-    }
+    final customSlot = nav.customSlotSection;
+    final hasAnalytics = nav.visibleSections.any((section) => section.id == 'shop');
+    final destinations = <_Destination>[
+      _Destination(path: RouteNames.appsPath, label: s.navAppsLabel, icon: Icons.apps_rounded),
+      if (hasAnalytics)
+        _Destination(
+            path: RouteNames.analyticsPath, label: s.navAnalyticsLabel, icon: Icons.trending_up),
+      _Destination(path: RouteNames.homePath, label: s.navHomeLabel, icon: Icons.home_rounded),
+      _Destination(
+          path: RouteNames.accountPath, label: s.navAccountLabel, icon: Icons.person_rounded),
+      if (customSlot != null)
+        _Destination(path: customSlot.path, label: customSlot.label, icon: customSlot.icon),
+    ];
 
     final currentPath = GoRouterState.of(context).uri.path;
-    final destinations = <_Destination>[
-      for (final section in pinned) _Destination.section(section),
-      if (hasOverflow) const _Destination.more(),
-    ];
     var selectedIndex = destinations.indexWhere((d) => d.path == currentPath);
+    if (selectedIndex < 0) {
+      selectedIndex = destinations.indexWhere((d) => d.path == RouteNames.homePath);
+    }
     if (selectedIndex < 0) selectedIndex = 0;
 
     return Scaffold(
-      backgroundColor: AppColors.surface0,
+      backgroundColor: surface0,
       body: child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
-        onDestinationSelected: (index) {
-          final dest = destinations[index];
-          if (dest.isMore) {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const MoreSectionsScreen()),
-            );
-            return;
-          }
-          context.go(dest.path);
-        },
+        onDestinationSelected: (index) => context.go(destinations[index].path),
         destinations: [
           for (final dest in destinations)
-            NavigationDestination(
-              icon: Icon(dest.icon),
-              label: dest.label,
-            ),
+            NavigationDestination(icon: Icon(dest.icon), label: dest.label),
         ],
       ),
     );
@@ -72,55 +73,6 @@ class _Destination {
   final String path;
   final String label;
   final IconData icon;
-  final bool isMore;
 
-  const _Destination({
-    required this.path,
-    required this.label,
-    required this.icon,
-    this.isMore = false,
-  });
-
-  factory _Destination.section(NavSectionDef section) => _Destination(
-        path: section.path,
-        label: section.label,
-        icon: section.icon,
-      );
-
-  const _Destination.more()
-      : path = '__more__',
-        label = 'المزيد',
-        icon = Icons.more_horiz,
-        isMore = true;
-}
-
-/// The rest of the operator's visible sections — a plain tappable list, opened from the "More"
-/// tab. Navigates via the same real routes as the bottom bar itself.
-class MoreSectionsScreen extends StatelessWidget {
-  const MoreSectionsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final sections = context.watch<NavProvider>().overflowSections;
-    return Scaffold(
-      backgroundColor: AppColors.surface0,
-      appBar: AppBar(title: const Text('المزيد')),
-      body: ListView.separated(
-        itemCount: sections.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final section = sections[index];
-          return ListTile(
-            leading: Icon(section.icon, color: AppColors.accent),
-            title: Text(section.label, style: AppTextStyles.bodyMedium),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).pop();
-              context.go(section.path);
-            },
-          );
-        },
-      ),
-    );
-  }
+  const _Destination({required this.path, required this.label, required this.icon});
 }

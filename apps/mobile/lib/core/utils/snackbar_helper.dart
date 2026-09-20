@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 
 /// Helper class for showing themed snackbar notifications.
@@ -255,7 +256,7 @@ class SnackbarHelper {
       margin: const EdgeInsets.all(AppSpacing.md),
       action: action ??
           SnackBarAction(
-            label: 'إغلاق',
+            label: S.of(context)!.close,
             textColor: AppColors.white.withValues(alpha: 0.9),
             onPressed: () {
               ScaffoldMessenger.of(context).hideCurrentSnackBar();

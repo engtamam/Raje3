@@ -17,6 +17,7 @@ import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/router/route_names.dart';
 import 'package:raje3_mobile/core/utils/validators.dart';
 import 'package:raje3_mobile/features/auth/verify_phone_screen.dart';
+import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -79,7 +80,7 @@ class _SignupScreenState extends State<SignupScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.surface0,
         elevation: 0,
-        title: const Text('فتح محل جديد', style: AppTextStyles.headlineSmall),
+        title: Text(S.of(context)!.authOpenShopTitle, style: AppTextStyles.headlineSmall),
       ),
       body: SafeArea(
         child: GestureDetector(
@@ -97,9 +98,9 @@ class _SignupScreenState extends State<SignupScreen> {
                   // the brand accent colour, the kasra always written. One edit to
                   // the brand (the name, the accent colour) changes this and the
                   // website together, since both read from the same real sources.
-                  const Text(
-                    'راجِع',
-                    style: TextStyle(
+                  Text(
+                    S.of(context)!.appName,
+                    style: const TextStyle(
                       fontFamily: AppTextStyles.arabicFont,
                       fontWeight: FontWeight.w800,
                       fontSize: 40,
@@ -108,7 +109,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  const Text('ثلاث خطوات فقط لفتح محلك', style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
+                  Text(S.of(context)!.authSignupSubtitle, style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
                   const SizedBox(height: AppSpacing.xl),
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.lg),
@@ -128,10 +129,11 @@ class _SignupScreenState extends State<SignupScreen> {
                             textInputAction: TextInputAction.next,
                             style: AppTextStyles.bodyMedium,
                             decoration: AppInputDecorations.standard.copyWith(
-                              labelText: 'اسم المحل',
+                              labelText: S.of(context)!.authShopNameLabel,
                               prefixIcon: const Icon(Icons.storefront_outlined, color: AppColors.textMuted),
                             ),
-                            validator: (v) => Validators.validateRequired(v, fieldName: 'اسم المحل'),
+                            validator: (v) => Validators.validateRequired(v,
+                                fieldName: S.of(context)!.authShopNameLabel)?.text(context),
                           ),
                           const SizedBox(height: AppSpacing.md),
                           TextFormField(
@@ -142,11 +144,11 @@ class _SignupScreenState extends State<SignupScreen> {
                             textAlign: TextAlign.left,
                             style: AppTextStyles.bodyMedium.copyWith(fontFamily: AppTextStyles.englishFont),
                             decoration: AppInputDecorations.standard.copyWith(
-                              labelText: 'رقم الجوال',
+                              labelText: S.of(context)!.authPhoneLabel,
                               hintText: '05XXXXXXXX',
                               prefixIcon: const Icon(Icons.phone_android_rounded, color: AppColors.textMuted),
                             ),
-                            validator: Validators.validatePhone,
+                            validator: (v) => Validators.validatePhone(v)?.text(context),
                           ),
                           const SizedBox(height: AppSpacing.md),
                           TextFormField(
@@ -155,7 +157,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             textInputAction: TextInputAction.next,
                             style: AppTextStyles.bodyMedium.copyWith(fontFamily: AppTextStyles.englishFont),
                             decoration: AppInputDecorations.standard.copyWith(
-                              labelText: 'كلمة المرور',
+                              labelText: S.of(context)!.authPasswordLabel,
                               prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.textMuted),
                               suffixIcon: IconButton(
                                 icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
@@ -163,7 +165,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                 onPressed: () => setState(() => _obscure = !_obscure),
                               ),
                             ),
-                            validator: Validators.validatePassword,
+                            validator: (v) => Validators.validatePassword(v)?.text(context),
                           ),
                           const SizedBox(height: AppSpacing.md),
                           TextFormField(
@@ -173,10 +175,11 @@ class _SignupScreenState extends State<SignupScreen> {
                             onFieldSubmitted: (_) => _submit(auth),
                             style: AppTextStyles.bodyMedium.copyWith(fontFamily: AppTextStyles.englishFont),
                             decoration: AppInputDecorations.standard.copyWith(
-                              labelText: 'تأكيد كلمة المرور',
+                              labelText: S.of(context)!.validatorConfirmPasswordFieldName,
                               prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.textMuted),
                             ),
-                            validator: (v) => Validators.validateConfirmPassword(v, _passwordController.text),
+                            validator: (v) =>
+                                Validators.validateConfirmPassword(v, _passwordController.text)?.text(context),
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           _buildSubmitButton(auth),
@@ -187,7 +190,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   const SizedBox(height: AppSpacing.lg),
                   TextButton(
                     onPressed: auth.isLoading ? null : () => context.goNamed(RouteNames.login),
-                    child: Text('لديك محل بالفعل؟ سجّل الدخول',
+                    child: Text(S.of(context)!.authAlreadyHaveShopCta,
                         style: AppTextStyles.labelMedium.copyWith(color: AppColors.accent)),
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -259,7 +262,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     children: [
                       const Icon(Icons.storefront_rounded, color: AppColors.accentContrast, size: 20),
                       const SizedBox(width: AppSpacing.sm),
-                      Text('فتح المحل',
+                      Text(S.of(context)!.authOpenShopCta,
                           style: AppTextStyles.button.copyWith(color: AppColors.accentContrast, fontSize: 16)),
                     ],
                   ),

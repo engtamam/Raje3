@@ -1,9 +1,9 @@
 {
   "@@locale": "ar",
-
   "appName": "راجِع",
-  "@appName": { "description": "App name shown in app bar and about page" },
-
+  "@appName": {
+    "description": "App name shown in app bar and about page"
+  },
   "ok": "موافق",
   "cancel": "إلغاء",
   "save": "حفظ",
@@ -17,5 +17,346 @@
   "success": "تمت العملية بنجاح",
   "search": "بحث",
   "login": "تسجيل الدخول",
-  "logout": "تسجيل الخروج"
+  "logout": "تسجيل الخروج",
+  "homeDashboardTitle": "لوحة التحكم",
+  "homeShopSectionLabel": "محلّي",
+  "homeLoadErrorTitle": "تعذّر التحميل",
+  "homeLoadErrorMessage": "تعذّر تحميل بيانات اليوم. حاول مرة أخرى.",
+  "homeTodaySectionTitle": "اليوم",
+  "homeStatSent": "أُرسلت",
+  "homeStatWaiting": "في الانتظار",
+  "homeStatRetrying": "تعيد المحاولة",
+  "homeDashboardComputing": "أحسب مؤشرات محلك الآن — حدّث الصفحة بعد قليل",
+  "homeDashboardSectionTitle": "مؤشرات المحل",
+  "homeDashboardEmpty": "لا توجد بيانات كافية بعد.",
+  "themeDarkMode": "الوضع الداكن",
+  "themeLightMode": "الوضع الفاتح",
+  "validatorFieldRequiredGeneric": "هذا الحقل مطلوب",
+  "@validatorFieldRequiredGeneric": {
+    "description": "Generic required-field validation error, no field name known"
+  },
+  "validatorFieldRequiredNamed": "{field} مطلوب",
+  "@validatorFieldRequiredNamed": {
+    "description": "Required-field validation error naming the field",
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "validatorEmailRequired": "البريد الإلكتروني مطلوب",
+  "@validatorEmailRequired": {
+    "description": "Email validation: empty value"
+  },
+  "validatorEmailInvalid": "البريد الإلكتروني غير صالح",
+  "@validatorEmailInvalid": {
+    "description": "Email validation: malformed value"
+  },
+  "validatorPhoneRequired": "رقم الهاتف مطلوب",
+  "@validatorPhoneRequired": {
+    "description": "Phone validation: empty value"
+  },
+  "validatorPhoneInvalid": "رقم الهاتف غير صالح - يجب أن يبدأ بـ 05",
+  "@validatorPhoneInvalid": {
+    "description": "Phone validation: not a valid Saudi mobile number"
+  },
+  "validatorPasswordRequired": "كلمة المرور مطلوبة",
+  "@validatorPasswordRequired": {
+    "description": "Password validation: empty value"
+  },
+  "validatorPasswordTooShort": "كلمة المرور يجب أن تكون 8 أحرف على الأقل",
+  "@validatorPasswordTooShort": {
+    "description": "Password validation: below minimum length"
+  },
+  "validatorPasswordNeedsUppercase": "كلمة المرور يجب أن تحتوي على حرف كبير",
+  "@validatorPasswordNeedsUppercase": {
+    "description": "Password validation: missing uppercase letter"
+  },
+  "validatorPasswordNeedsLowercase": "كلمة المرور يجب أن تحتوي على حرف صغير",
+  "@validatorPasswordNeedsLowercase": {
+    "description": "Password validation: missing lowercase letter"
+  },
+  "validatorPasswordNeedsDigit": "كلمة المرور يجب أن تحتوي على رقم",
+  "@validatorPasswordNeedsDigit": {
+    "description": "Password validation: missing a digit"
+  },
+  "validatorConfirmPasswordFieldName": "تأكيد كلمة المرور",
+  "@validatorConfirmPasswordFieldName": {
+    "description": "Field-name label used both as a form label and as the fieldName passed into validateRequired for the confirm-password field"
+  },
+  "validatorPasswordMismatch": "كلمة المرور غير متطابقة",
+  "@validatorPasswordMismatch": {
+    "description": "Confirm-password validation: values differ"
+  },
+  "validatorOtpRequired": "رمز التحقق مطلوب",
+  "@validatorOtpRequired": {
+    "description": "OTP validation: empty value"
+  },
+  "validatorOtpLength": "رمز التحقق يجب أن يكون 6 أرقام",
+  "@validatorOtpLength": {
+    "description": "OTP validation: wrong digit count"
+  },
+  "validatorOtpDigitsOnly": "رمز التحقق يجب أن يحتوي على أرقام فقط",
+  "@validatorOtpDigitsOnly": {
+    "description": "OTP validation: contains non-digit characters"
+  },
+  "validatorNameRequired": "الاسم مطلوب",
+  "@validatorNameRequired": {
+    "description": "Name validation: empty value"
+  },
+  "validatorNameTooShort": "الاسم يجب أن يكون حرفين على الأقل",
+  "@validatorNameTooShort": {
+    "description": "Name validation: below minimum length"
+  },
+  "validatorNameTooLong": "الاسم يجب أن لا يتجاوز 100 حرف",
+  "@validatorNameTooLong": {
+    "description": "Name validation: above maximum length"
+  },
+  "validatorNameInvalidChars": "الاسم يحتوي على أحرف غير مسموحة",
+  "@validatorNameInvalidChars": {
+    "description": "Name validation: disallowed characters"
+  },
+  "validatorGenericFieldName": "هذا الحقل",
+  "@validatorGenericFieldName": {
+    "description": "Fallback field-name used inside other validator messages when no fieldName was given"
+  },
+  "validatorMinLengthNamed": "{field} يجب أن يكون {minLength} أحرف على الأقل",
+  "@validatorMinLengthNamed": {
+    "description": "Minimum-length validation error naming the field and the minimum",
+    "placeholders": {
+      "field": {
+        "type": "String"
+      },
+      "minLength": {
+        "type": "int"
+      }
+    }
+  },
+  "validatorMaxLengthNamed": "{field} يجب أن لا يتجاوز {maxLength} حرف",
+  "@validatorMaxLengthNamed": {
+    "description": "Maximum-length validation error naming the field and the maximum",
+    "placeholders": {
+      "field": {
+        "type": "String"
+      },
+      "maxLength": {
+        "type": "int"
+      }
+    }
+  },
+  "validatorGenericValueName": "القيمة",
+  "@validatorGenericValueName": {
+    "description": "Fallback subject name for numeric-range validation messages"
+  },
+  "validatorNotANumberNamed": "{field} يجب أن يكون رقم",
+  "@validatorNotANumberNamed": {
+    "description": "Numeric validation error naming the field",
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "validatorMinValueNamed": "{field} يجب أن يكون {min} على الأقل",
+  "@validatorMinValueNamed": {
+    "description": "Numeric-range validation error: below minimum",
+    "placeholders": {
+      "field": {
+        "type": "String"
+      },
+      "min": {
+        "type": "String"
+      }
+    }
+  },
+  "validatorMaxValueNamed": "{field} يجب أن لا يتجاوز {max}",
+  "@validatorMaxValueNamed": {
+    "description": "Numeric-range validation error: above maximum",
+    "placeholders": {
+      "field": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "validatorUrlRequired": "الرابط مطلوب",
+  "@validatorUrlRequired": {
+    "description": "URL validation: empty value"
+  },
+  "validatorUrlInvalid": "الرابط غير صالح",
+  "@validatorUrlInvalid": {
+    "description": "URL validation: malformed value"
+  },
+  "urlHelperUnavailable": "الرابط غير متوفر",
+  "@urlHelperUnavailable": {
+    "description": "Snackbar shown when openUrl is called with no URL"
+  },
+  "urlHelperOpenFailed": "تعذر فتح الرابط",
+  "@urlHelperOpenFailed": {
+    "description": "Snackbar shown when launching a URL throws"
+  },
+  "routerScreenNotOnMobileYet": "هذه الشاشة غير متاحة على تطبيق الجوال بعد.",
+  "@routerScreenNotOnMobileYet": {
+    "description": "Placeholder body for a nav section the catalogue exposes but mobile has no screen for yet"
+  },
+  "authLoginSubtitle": "سجّل دخولك للمتابعة",
+  "@authLoginSubtitle": {
+    "description": "Subtitle under the wordmark on the login screen"
+  },
+  "authPhoneLabel": "رقم الجوال",
+  "@authPhoneLabel": {
+    "description": "Mobile-number field label, used on login and signup"
+  },
+  "authPasswordLabel": "كلمة المرور",
+  "@authPasswordLabel": {
+    "description": "Password field label, used on login and signup, and as the fieldName passed to validateRequired"
+  },
+  "authNoShopYetLabel": "ليس لديك محل؟",
+  "@authNoShopYetLabel": {
+    "description": "Divider label above the open-a-new-shop button on login"
+  },
+  "authOpenNewShopCta": "افتح محلاً جديداً",
+  "@authOpenNewShopCta": {
+    "description": "Button label on login that opens signup"
+  },
+  "authOpenShopTitle": "فتح محل جديد",
+  "@authOpenShopTitle": {
+    "description": "Signup screen app bar title"
+  },
+  "authSignupSubtitle": "ثلاث خطوات فقط لفتح محلك",
+  "@authSignupSubtitle": {
+    "description": "Subtitle under the wordmark on signup"
+  },
+  "authShopNameLabel": "اسم المحل",
+  "@authShopNameLabel": {
+    "description": "Shop-name field label on signup"
+  },
+  "authAlreadyHaveShopCta": "لديك محل بالفعل؟ سجّل الدخول",
+  "@authAlreadyHaveShopCta": {
+    "description": "Button label on signup that goes back to login"
+  },
+  "authOpenShopCta": "فتح المحل",
+  "@authOpenShopCta": {
+    "description": "Signup submit-button label"
+  },
+  "authVerifyPhoneTitle": "تأكيد رقم الجوال",
+  "@authVerifyPhoneTitle": {
+    "description": "Verify-phone screen app bar title"
+  },
+  "authVerifyCodeSentTo": "أرسلنا رمز تحقق إلى {phone}",
+  "@authVerifyCodeSentTo": {
+    "description": "Tells the user a code was sent to their phone number",
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
+  "authVerifying": "جارٍ التحقق...",
+  "@authVerifying": {
+    "description": "Busy-state label on the verify-code submit button"
+  },
+  "authConfirmCta": "تأكيد",
+  "@authConfirmCta": {
+    "description": "Verify-code submit-button label"
+  },
+  "authResendCodeCta": "إعادة إرسال الرمز",
+  "@authResendCodeCta": {
+    "description": "Resend-code button label, shown after a code was already requested"
+  },
+  "authSendCodeCta": "إرسال الرمز",
+  "@authSendCodeCta": {
+    "description": "Send-code button label, shown before a code has been requested"
+  },
+  "authCodeSendFailedFallback": "تعذّر إرسال الرمز.",
+  "@authCodeSendFailedFallback": {
+    "description": "Fallback message when requesting an OTP code fails with no server message"
+  },
+  "authOtpIncorrectFallback": "رمز التحقق غير صحيح.",
+  "@authOtpIncorrectFallback": {
+    "description": "Fallback message when OTP verification fails with no server message"
+  },
+  "visitCatalogueLoadErrorFallback": "تعذّر تحميل الخدمات. اسحب للأسفل لإعادة المحاولة.",
+  "@visitCatalogueLoadErrorFallback": {
+    "description": "Shown when the visit screen's service catalogue fails to load"
+  },
+  "visitEnterCustomerPhone": "أدخل رقم جوال العميل",
+  "@visitEnterCustomerPhone": {
+    "description": "Inline validation message when saving a visit with no customer phone entered"
+  },
+  "visitSelectAtLeastOneService": "اختر خدمة واحدة على الأقل",
+  "@visitSelectAtLeastOneService": {
+    "description": "Inline validation message when saving a visit with no service selected"
+  },
+  "visitSavedMessage": "تم تسجيل الزيارة.",
+  "@visitSavedMessage": {
+    "description": "Success message after a visit is recorded"
+  },
+  "visitSaveErrorFallback": "تعذّر تسجيل الزيارة.",
+  "@visitSaveErrorFallback": {
+    "description": "Fallback message when saving a visit is refused with no server reason"
+  },
+  "visitSaveErrorNetworkFallback": "تعذّر تسجيل الزيارة. تحقق من الاتصال وحاول مرة أخرى.",
+  "@visitSaveErrorNetworkFallback": {
+    "description": "Message when saving a visit fails with a network/Dio exception"
+  },
+  "visitTitle": "تسجيل زيارة",
+  "@visitTitle": {
+    "description": "Visit-recording screen app bar title"
+  },
+  "visitCustomerSectionTitle": "العميل",
+  "@visitCustomerSectionTitle": {
+    "description": "Section title for the customer-lookup card"
+  },
+  "visitCustomerPhoneFieldLabel": "رقم جوال العميل",
+  "@visitCustomerPhoneFieldLabel": {
+    "description": "Label above the customer phone-lookup field"
+  },
+  "visitKnownCustomer": "عميل معروف: {name}",
+  "@visitKnownCustomer": {
+    "description": "Shown after a phone lookup matches an existing customer",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "visitNewCustomer": "عميل جديد",
+  "@visitNewCustomer": {
+    "description": "Shown after a phone lookup finds no existing customer"
+  },
+  "visitServicesSectionTitle": "الخدمات",
+  "@visitServicesSectionTitle": {
+    "description": "Section title for the service-selection card"
+  },
+  "visitNoServicesYet": "لا توجد خدمات بعد.",
+  "@visitNoServicesYet": {
+    "description": "Shown when the shop's catalogue has no services"
+  },
+  "visitNoteSectionTitle": "ملاحظة (اختياري)",
+  "@visitNoteSectionTitle": {
+    "description": "Section title for the optional note field"
+  },
+  "visitSaveButtonLabel": "حفظ الزيارة",
+  "@visitSaveButtonLabel": {
+    "description": "Bottom-bar save button on the visit screen"
+  },
+  "navAppsLabel": "تطبيقاتي",
+  "navAnalyticsLabel": "التحليلات",
+  "navHomeLabel": "الرئيسية",
+  "navAccountLabel": "حسابي",
+  "appsScreenTitle": "تطبيقاتي",
+  "appsScreenHint": "اضغط على أيقونة الدبّوس لتثبيت تطبيق بالخانة الخامسة بالشريط السفلي",
+  "appsPinnedBadge": "مثبّت بالشريط",
+  "appsPinAction": "تثبيت هنا",
+  "homeLauncherEmptyTitle": "لا توجد تطبيقات متاحة",
+  "homeLauncherEmptyMessage": "تواصل مع الدعم لتفعيل تطبيق على محلّك",
+  "accountScreenTitle": "حسابي",
+  "accountPhoneLabel": "رقم الجوال",
+  "accountLogoutAction": "تسجيل الخروج",
+  "accountLogoutConfirmTitle": "تسجيل الخروج",
+  "accountLogoutConfirmMessage": "هل تريد تسجيل الخروج من حسابك؟",
+  "notificationsUnavailable": "الإشعارات غير متاحة بعد"
 }

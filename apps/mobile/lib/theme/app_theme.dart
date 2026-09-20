@@ -4,24 +4,26 @@
 // (a token-based AppColors/AppSpacing/AppTextStyles file) — the SHAPE only,
 // not their colours.
 //
-// COLORS ARE GENERATED, NOT HAND-COPIED. `AppColors` used to be typed out
-// here as literal `Color(0xFF...)` values, copied once from theme.config.ts
-// and product.json — exactly the drift class
+// COLORS ARE GENERATED, NOT HAND-COPIED. `AppColors`/`AppDarkColors` used to
+// be typed out here as literal `Color(0xFF...)` values, copied once from
+// theme.config.ts and product.json — exactly the drift class
 // ci/check_a_hardcoded_color_does_not_shadow_a_token.py already exists to
-// catch on the web side. `AppColors` now lives in `app_colors.g.dart`,
-// produced by `scripts/gen_mobile_theme.py` from THIS product's own design
-// system: `ui/packages/ui/src/theme/theme.config.ts` (the web console's
-// single source of truth for the whole brand) and `config/product.json`'s
-// `brand.accent` (the one brand-owned colour, from which hover/soft/on-soft
-// tints are derived — same `mix()` formula as theme.config.ts's own). After
-// either source changes, re-run that script; `ci/check_mobile_theme_is_generated.py`
+// catch on the web side. Both now live in `app_colors.g.dart`, produced by
+// `scripts/gen_mobile_theme.py` from THIS product's own design system:
+// `ui/packages/ui/src/theme/theme.config.ts` (the web console's single
+// source of truth for the whole brand, `light` AND `dark` palettes) and
+// `config/product.json`'s `brand.accent.light`/`.dark` (the one brand-owned
+// colour per mode, from which hover/soft/on-soft tints are derived — same
+// `mix()` formula theme.config.ts itself uses). After either source
+// changes, re-run that script; `ci/check_mobile_theme_is_generated.py`
 // fails the build if the checked-in file and the script's current output
 // ever disagree.
 //
-// Only the LIGHT palette is ported — the console's own theme.config.ts
-// documents why light is not a default here but a requirement: "unreadable
-// on a tablet in an open workshop at noon". Dark mode can be added later
-// following the same token shape if the product ever needs it on mobile.
+// LIGHT DEFAULTS, DARK AVAILABLE — the console's own theme.config.ts
+// documents why light is the requirement, not merely the default:
+// "unreadable on a tablet in an open workshop at noon". `ThemeProvider`
+// persists the shop's own choice; `AppTheme.light`/`.dark` below are what it
+// switches between.
 
 import 'package:flutter/material.dart';
 
@@ -134,6 +136,46 @@ class AppTextStyles {
 }
 
 /// ═══════════════════════════════════════════════════════════════════════════
+/// SHADOWS — one place, so `AppCard`/`AppCardDecorations` and any future
+/// surface never hand-tune a second `BoxShadow` that quietly drifts from it.
+/// ═══════════════════════════════════════════════════════════════════════════
+class AppShadows {
+  static List<BoxShadow> get card => [
+        BoxShadow(
+          color: AppColors.textPrimary.withValues(alpha: 0.06),
+          blurRadius: 24,
+          offset: const Offset(0, 8),
+        ),
+      ];
+
+  /// Dark-mode card shadow uses the DARK palette's own lighter accent tint —
+  /// a light-mode shadow colour reads as nearly invisible on a dark surface.
+  static List<BoxShadow> get darkCard => [
+        BoxShadow(
+          color: AppDarkColors.accent.withValues(alpha: 0.20),
+          blurRadius: 24,
+          offset: const Offset(0, 8),
+        ),
+      ];
+
+  static List<BoxShadow> get button => [
+        BoxShadow(
+          color: AppColors.accent.withValues(alpha: 0.24),
+          blurRadius: 16,
+          offset: const Offset(0, 6),
+        ),
+      ];
+
+  static List<BoxShadow> get darkButton => [
+        BoxShadow(
+          color: AppDarkColors.accent.withValues(alpha: 0.30),
+          blurRadius: 16,
+          offset: const Offset(0, 6),
+        ),
+      ];
+}
+
+/// ═══════════════════════════════════════════════════════════════════════════
 /// AUTH-SCREEN CRAFT — same visual language pattern ported from the reference
 /// project's own login/register screens (elevated card, gradient primary
 /// action, filled input fields), our own tokens throughout. Kept here, not
@@ -144,13 +186,7 @@ class AppCardDecorations {
         color: AppColors.surface1,
         borderRadius: AppRadius.cardRadius,
         border: Border.all(color: AppColors.borderSubtle),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.textPrimary.withValues(alpha: 0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: AppShadows.card,
       );
 }
 
@@ -182,13 +218,121 @@ class AppInputDecorations {
       );
 }
 
-/// One brand gradient, derived from the same accent/hover tokens
-/// `app_colors.g.dart` already generates — never a second literal colour.
-LinearGradient get appPrimaryGradient => const LinearGradient(
-      colors: [AppColors.accent, AppColors.accentHover],
+/// One brand gradient — light or dark, so a widget asks for the gradient
+/// that matches the surface it is drawn on rather than assuming light.
+LinearGradient primaryGradient({bool dark = false}) => LinearGradient(
+      colors: dark
+          ? [AppDarkColors.accent, AppDarkColors.accentHover]
+          : [AppColors.accent, AppColors.accentHover],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
+
+/// Kept for existing call sites written before dark mode existed — always
+/// the light gradient. New code should call `primaryGradient(dark: ...)`.
+LinearGradient get appPrimaryGradient => primaryGradient();
+
+/// ═══════════════════════════════════════════════════════════════════════════
+/// THEME EXTENSION — the fields `app_widgets.dart`'s shared components read
+/// through `context.appColors`, so a component never chooses between
+/// `AppColors`/`AppDarkColors` itself; `Theme.of(context)` already resolved
+/// that the moment the app switched modes.
+/// ═══════════════════════════════════════════════════════════════════════════
+class AppThemeColors extends ThemeExtension<AppThemeColors> {
+  const AppThemeColors({
+    required this.surface,
+    required this.surfaceAlt,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.textMuted,
+    required this.borderSubtle,
+    required this.inputFill,
+    required this.inputFillDisabled,
+  });
+
+  final Color surface;
+  final Color surfaceAlt;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color textMuted;
+  final Color borderSubtle;
+  final Color inputFill;
+  final Color inputFillDisabled;
+
+  static const light = AppThemeColors(
+    surface: AppColors.surface1,
+    surfaceAlt: AppColors.surface2,
+    textPrimary: AppColors.textPrimary,
+    textSecondary: AppColors.textSecondary,
+    textMuted: AppColors.textMuted,
+    borderSubtle: AppColors.borderSubtle,
+    inputFill: AppColors.surface2,
+    inputFillDisabled: AppColors.surface3,
+  );
+
+  static const dark = AppThemeColors(
+    surface: AppDarkColors.surface1,
+    surfaceAlt: AppDarkColors.surface2,
+    textPrimary: AppDarkColors.textPrimary,
+    textSecondary: AppDarkColors.textSecondary,
+    textMuted: AppDarkColors.textMuted,
+    borderSubtle: AppDarkColors.borderSubtle,
+    inputFill: AppDarkColors.surface2,
+    inputFillDisabled: AppDarkColors.surface3,
+  );
+
+  @override
+  AppThemeColors copyWith({
+    Color? surface,
+    Color? surfaceAlt,
+    Color? textPrimary,
+    Color? textSecondary,
+    Color? textMuted,
+    Color? borderSubtle,
+    Color? inputFill,
+    Color? inputFillDisabled,
+  }) {
+    return AppThemeColors(
+      surface: surface ?? this.surface,
+      surfaceAlt: surfaceAlt ?? this.surfaceAlt,
+      textPrimary: textPrimary ?? this.textPrimary,
+      textSecondary: textSecondary ?? this.textSecondary,
+      textMuted: textMuted ?? this.textMuted,
+      borderSubtle: borderSubtle ?? this.borderSubtle,
+      inputFill: inputFill ?? this.inputFill,
+      inputFillDisabled: inputFillDisabled ?? this.inputFillDisabled,
+    );
+  }
+
+  @override
+  AppThemeColors lerp(ThemeExtension<AppThemeColors>? other, double t) {
+    if (other is! AppThemeColors) return this;
+    return AppThemeColors(
+      surface: Color.lerp(surface, other.surface, t)!,
+      surfaceAlt: Color.lerp(surfaceAlt, other.surfaceAlt, t)!,
+      textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
+      textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
+      textMuted: Color.lerp(textMuted, other.textMuted, t)!,
+      borderSubtle: Color.lerp(borderSubtle, other.borderSubtle, t)!,
+      inputFill: Color.lerp(inputFill, other.inputFill, t)!,
+      inputFillDisabled: Color.lerp(inputFillDisabled, other.inputFillDisabled, t)!,
+    );
+  }
+}
+
+/// Every screen/widget reads mode-aware colours through these three getters
+/// instead of importing `ThemeProvider` directly — `Theme.of(context)`
+/// already carries the answer once `AppTheme.light`/`.dark` are wired to
+/// `MaterialApp.theme`/`darkTheme`/`themeMode`.
+extension ContextExtension on BuildContext {
+  ThemeData get appTheme => Theme.of(this);
+  ColorScheme get colorScheme => Theme.of(this).colorScheme;
+  bool get isDark => Theme.of(this).brightness == Brightness.dark;
+
+  /// Context-aware colour set — switches between light and dark automatically.
+  AppThemeColors get appColors =>
+      Theme.of(this).extension<AppThemeColors>() ?? AppThemeColors.light;
+}
 
 /// ═══════════════════════════════════════════════════════════════════════════
 /// MATERIAL THEME
@@ -222,6 +366,37 @@ class AppTheme {
         color: AppColors.surface1,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.cardRadius),
       ),
+      extensions: const [AppThemeColors.light],
+    );
+  }
+
+  static ThemeData get dark {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: AppDarkColors.surface0,
+      colorScheme: const ColorScheme.dark(
+        primary: AppDarkColors.accent,
+        onPrimary: AppDarkColors.accentContrast,
+        primaryContainer: AppDarkColors.accentSoft,
+        onPrimaryContainer: AppDarkColors.accentOnSoft,
+        secondary: AppDarkColors.accent,
+        surface: AppDarkColors.surface1,
+        onSurface: AppDarkColors.textPrimary,
+        error: AppDarkColors.danger,
+        onError: AppDarkColors.dangerContrast,
+      ),
+      fontFamily: AppTextStyles.arabicFont,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: AppDarkColors.surface1,
+        foregroundColor: AppDarkColors.textPrimary,
+        elevation: 0,
+      ),
+      cardTheme: CardThemeData(
+        color: AppDarkColors.surface1,
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.cardRadius),
+      ),
+      extensions: const [AppThemeColors.dark],
     );
   }
 }
