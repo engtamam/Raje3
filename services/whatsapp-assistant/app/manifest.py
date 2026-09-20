@@ -63,6 +63,7 @@ def build_manifest(settings: Settings, ports: list[dict[str, str]] | None = None
             # /whatsapp/connect background task right when a number connects — see
             # app/core/meta_agent_provisioning.py for the 7-step sequence this runs.
             {"path": "/internal/whatsapp/meta-agent/provision", "tier": "internal", "method": "POST"},
+            {"path": "/internal/whatsapp/meta-agent/rollout", "tier": "internal", "method": "POST"},
             # Privacy and backup — real routes in app/api/internal.py, previously implemented but
             # left off this list, which is the exact silent gap docs/adding-a-new-app.md §3b warns
             # about: the route works, and nothing that reads the manifest can see it.

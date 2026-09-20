@@ -261,6 +261,26 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "this record on an audit-sink outage costs visibility, never safety",
     },
     {
+        "action": "whatsapp_assistant.meta_agent_rollout_enabled",
+        "source": "internal",
+        "critical": True,
+        "resource": "meta_agent",
+        "why": "Meta's own AI was switched back on for a number (owner flipped their kill switch "
+               "back on, or resubscribed to feature.whatsapp) — critical because this is the record "
+               "that a shop's customers are being auto-replied to by Meta's AI again, and when that "
+               "started being true",
+    },
+    {
+        "action": "whatsapp_assistant.meta_agent_rollout_disabled",
+        "source": "internal",
+        "critical": True,
+        "resource": "meta_agent",
+        "why": "Meta's own AI was switched off for a number — either the owner's own kill switch, "
+               "or feature.whatsapp lapsing (see operations' own rollout-sweep). Critical for the "
+               "same reason the opposite direction is: this is the provable moment customers "
+               "stopped getting an automated reply from this shop's number",
+    },
+    {
         "action": "operator.pricing_schedule_cancelled",
         "source": "admin",
         "critical": False,

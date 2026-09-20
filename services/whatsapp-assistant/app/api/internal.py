@@ -623,3 +623,54 @@ async def provision_meta_agent(request: Request, body: ProvisionMetaAgentIn) -> 
         "tool_count": len(result.tool_ids), "skill_status": result.skill_status,
         "knowledge_pushed": result.knowledge_pushed, "enabled": result.enabled,
     }
+
+
+class SetMetaAgentRolloutIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    enabled: bool
+
+
+@router.post("/whatsapp/meta-agent/rollout", dependencies=[Depends(require_internal_token)])
+async def set_meta_agent_rollout(request: Request, body: SetMetaAgentRolloutIn) -> dict:
+    """Switch Meta's own AI on or off for a tenant that already went through `provision_number`
+    once — never touches the connection or the handover mode, only the same `rollout.enabled`
+    Graph flag `provision_number`'s own `enable_agent` step sets to True at onboarding.
+
+    TWO CALLERS, BOTH IN OPERATIONS: the AI kill switch (`api/v1/staff.py::set_ai_toggle`, fires
+    the instant an owner flips it) and the entitlement sweep (`api/internal.py::
+    sweep_meta_agent_rollout`, catches `feature.whatsapp` simply lapsing with no switch touched).
+    Neither passes `entity_id` — `set_agent_rollout` reads it back from this tenant's own
+    SecretStore row, the same one `provision_number` wrote it into.
+
+    A TENANT NEVER PROVISIONED THROUGH META BUSINESS AGENT IS A NO-OP, REPORTED AS SUCH — most
+    `feature.whatsapp` shops today have no Meta Business Agent credential at all (the flag that
+    turns onboarding on is still off in production), so this is the ordinary case while that rolls
+    out, never an alarm."""
+    from app.core.meta_agent_provisioning import HttpMetaAgentProvisioner, set_agent_rollout
+
+    container = request.app.state.container
+    settings = get_settings()
+
+    if not getattr(settings, "META_AGENT_PROVISIONING_ENABLED", False):
+        return {"ok": False, "enabled": False, "error": "META_AGENT_PROVISIONING_ENABLED is off"}
+
+    def _provisioner_factory(token: str) -> HttpMetaAgentProvisioner:
+        return HttpMetaAgentProvisioner(
+            token=token,
+            graph_base_url=getattr(settings, "META_GRAPH_BASE_URL", "https://graph.facebook.com"),
+            graph_version=getattr(settings, "META_GRAPH_API_VERSION", "v26.0"),
+            connector_base_url=getattr(settings, "PUBLIC_BASE_URL", ""),
+            connector_auth_token=getattr(settings, "CONNECTOR_API_TOKEN", ""),
+            timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8))
+
+    result = await set_agent_rollout(
+        tenant=body.tenant, enabled=body.enabled,
+        secret_store=container.secret_store, settings=settings,
+        provisioner_factory=_provisioner_factory)
+    if result.ok:
+        await request.app.state.auditor.record(
+            "whatsapp_assistant.meta_agent_rollout_enabled" if body.enabled
+            else "whatsapp_assistant.meta_agent_rollout_disabled",
+            actor="system", tenant=body.tenant, resource="meta_agent", ip="",
+            metadata={"enabled": result.enabled})
+    return {"ok": result.ok, "enabled": result.enabled, "error": result.error}

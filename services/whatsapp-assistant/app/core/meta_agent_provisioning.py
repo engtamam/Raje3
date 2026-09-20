@@ -244,6 +244,9 @@ class NullMetaAgentProvisioner:
     async def enable_agent(self, entity_id: str, agent_id: str) -> bool:
         return False
 
+    async def set_rollout(self, entity_id: str, enabled: bool) -> bool:
+        return False
+
 
 class HttpMetaAgentProvisioner:
     driver = "http"
@@ -345,13 +348,40 @@ class HttpMetaAgentProvisioner:
         gating, human handoff, follow-up nudges) this module does not set yet -- left for a future
         pass, since enabling for everyone (Meta's own default when unset) is what onboarding a
         single already-connected shop's number needs.
+
+        Thin wrapper over `set_rollout` -- the two are the SAME Graph call, `True` being the one
+        onboarding itself ever needs.
+        """
+        return await self.set_rollout(entity_id, True)
+
+    async def set_rollout(self, entity_id: str, enabled: bool) -> bool:
+        """The on/off switch for Meta's OWN AI on an already-onboarded number -- same resource and
+        body shape as `enable_agent` above, `enabled=False` this time.
+
+        THIS IS WHAT "STOP THE AI, KEEP THE NUMBER" ACTUALLY MEANS. The number stays connected and
+        Meta keeps receiving its messages exactly as before -- nothing here touches handover mode
+        or webhook routing (base-services' own `WHATSAPP_DEFAULT_HANDOVER_MODE=meta` stays exactly
+        as the owner set it, deliberately, see `whatsapp-handover-default-stays-meta.md`). Only
+        Meta's own agent stops answering. Never rerouted to us: the owner was explicit that the
+        entire point of buying `feature.whatsapp` is Meta's AI itself, so a shop that stops paying
+        (or flips their own kill switch) gets silence at Meta's end, not our engine picking up the
+        slack for free. See `set_agent_rollout` below for the tenant-level orchestration.
         """
         try:
             data = await self._call(
-                "PUT", f"{entity_id}/agent_config/settings", {"rollout": {"enabled": True}})
+                "PUT", f"{entity_id}/agent_config/settings", {"rollout": {"enabled": enabled}})
         except MetaAgentProvisioningError:
             return False
         return bool((data.get("rollout") or {}).get("enabled", False))
+
+
+@dataclass
+class RolloutResult:
+    """Same never-a-bare-bool reporting discipline as `ProvisioningResult` -- `ok` is whether the
+    Graph call itself succeeded, `enabled` is what Meta actually reports back afterwards."""
+    ok: bool
+    enabled: bool = False
+    error: str = ""
 
 
 def build(settings: Any, *, secret_store: Any = None) -> Any:
@@ -463,3 +493,38 @@ async def provision_number(
 
     result.ok = True
     return result
+
+
+async def set_agent_rollout(
+    *, tenant: str, enabled: bool, secret_store: Any, settings: Any,
+    provisioner_factory: Callable[[str], Any] | None = None,
+) -> RolloutResult:
+    """Flip Meta's own AI on/off for a tenant that already went through `provision_number` once --
+    the reaction to the owner's own AI kill switch (`services/operations/app/api/v1/staff.py::
+    set_ai_toggle`) and to `feature.whatsapp` lapsing (the operations-side sweep that covers what
+    the toggle path cannot: a subscription simply running out with nobody touching any switch).
+
+    NEEDS ONLY `tenant` -- unlike `provision_number`, which is called the moment Embedded Signup
+    hands back a fresh `entity_id`, this runs long after that moment, so `entity_id` is read back
+    from the SAME SecretStore row `provision_number` itself wrote it into (`SECRET_ENTITY_ID_NAME`,
+    the identical constant `knowledge_export.py` already keys its own read by).
+
+    A TENANT THAT WAS NEVER PROVISIONED IS NOT AN ERROR WORTH ALARMING ON -- most shops holding
+    `feature.whatsapp` today have not gone through Meta Business Agent onboarding at all (the flag
+    that turns it on is still off in production), so "no credential on file" is the ordinary case
+    while this rolls out, not a bug. Reported through `ok=False` + `error`, same as every other
+    silent-skip this module already has, never raised.
+
+    NEVER RAISES, same fire-and-forget discipline as `provision_number`.
+    """
+    token = await secret_store.get(tenant=tenant, name=SECRET_TOKEN_NAME)
+    entity_id = await secret_store.get(tenant=tenant, name=SECRET_ENTITY_ID_NAME)
+    if not token or not entity_id:
+        return RolloutResult(ok=False, error="no Meta credential/entity_id configured for this tenant")
+
+    provisioner = provisioner_factory(token) if provisioner_factory else build(settings)
+    try:
+        resulting = await provisioner.set_rollout(entity_id, enabled)
+    except Exception as exc:  # noqa: BLE001 -- reported, not swallowed
+        return RolloutResult(ok=False, error=str(exc))
+    return RolloutResult(ok=True, enabled=resulting)

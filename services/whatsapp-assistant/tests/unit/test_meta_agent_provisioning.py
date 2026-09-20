@@ -16,14 +16,17 @@ from app.core.meta_agent_provisioning import (
     MetaAgentProvisioningError,
     NullMetaAgentProvisioner,
     ProvisioningResult,
+    RolloutResult,
     SECRET_AGENT_ID_NAME,
     SECRET_CONNECTOR_ID_NAME,
+    SECRET_ENTITY_ID_NAME,
     SECRET_TOKEN_NAME,
     build,
     build_tool_registration_payload,
     _consent_skill_text,
     _iter_connector_tools,
     provision_number,
+    set_agent_rollout,
 )
 
 
@@ -341,6 +344,92 @@ def test_enable_agent_false_on_error():
 def test_enable_agent_false_when_field_absent():
     with patch("urllib.request.urlopen", return_value=_Resp(b'{}')):
         assert run(_http().enable_agent("e1", "a1")) is False
+
+
+# ── set_rollout: the on/off switch, same resource as enable_agent, either direction ────────────
+
+def test_set_rollout_true_calls_the_same_confirmed_endpoint_as_enable_agent():
+    captured = {}
+
+    def _capture(req, timeout=None):
+        captured["url"] = req.full_url
+        captured["method"] = req.get_method()
+        captured["body"] = json.loads(req.data)
+        return _Resp(b'{"rollout": {"enabled": true}}')
+
+    with patch("urllib.request.urlopen", side_effect=_capture):
+        assert run(_http().set_rollout("e1", True)) is True
+    assert captured["method"] == "PUT"
+    assert captured["url"].endswith("e1/agent_config/settings")
+    assert captured["body"] == {"rollout": {"enabled": True}}
+
+
+def test_set_rollout_false_sends_false_and_reports_false_back():
+    captured = {}
+
+    def _capture(req, timeout=None):
+        captured["body"] = json.loads(req.data)
+        return _Resp(b'{"rollout": {"enabled": false}}')
+
+    with patch("urllib.request.urlopen", side_effect=_capture):
+        assert run(_http().set_rollout("e1", False)) is False
+    assert captured["body"] == {"rollout": {"enabled": False}}
+
+
+def test_set_rollout_false_on_transport_error():
+    err = urllib.error.HTTPError("url", 500, "server error", {}, None)
+    err.read = lambda: b"oops"
+    with patch("urllib.request.urlopen", side_effect=err):
+        assert run(_http().set_rollout("e1", False)) is False
+
+
+def test_null_provisioner_set_rollout_is_false():
+    assert run(NullMetaAgentProvisioner().set_rollout("e1", True)) is False
+
+
+# ── set_agent_rollout: the tenant-level orchestration ai_toggle/the entitlement sweep call ─────
+
+def test_set_agent_rollout_reads_entity_id_back_from_secret_store_and_flips_it():
+    secrets = _FakeSecrets({"t1|META_KNOWLEDGE_TOKEN": "tok",
+                            f"t1|{SECRET_ENTITY_ID_NAME}": "pn_123"})
+    seen = {}
+
+    class _FakeProvisioner:
+        async def set_rollout(self, entity_id, enabled):
+            seen["entity_id"], seen["enabled"] = entity_id, enabled
+            return enabled
+
+    result = run(set_agent_rollout(
+        tenant="t1", enabled=False, secret_store=secrets, settings=object(),
+        provisioner_factory=lambda token: _FakeProvisioner()))
+    assert isinstance(result, RolloutResult)
+    assert result.ok is True
+    assert result.enabled is False
+    assert seen == {"entity_id": "pn_123", "enabled": False}
+
+
+def test_set_agent_rollout_is_a_reported_noop_with_no_credential_on_file():
+    secrets = _FakeSecrets({})
+    result = run(set_agent_rollout(
+        tenant="t_never_provisioned", enabled=True, secret_store=secrets, settings=object(),
+        provisioner_factory=lambda token: pytest.fail("must never build a provisioner")))
+    assert result.ok is False
+    assert "no Meta credential" in result.error
+
+
+def test_set_agent_rollout_never_raises_on_a_graph_error():
+    secrets = _FakeSecrets({"t1|META_KNOWLEDGE_TOKEN": "tok",
+                            f"t1|{SECRET_ENTITY_ID_NAME}": "pn_123"})
+
+    class _FailingProvisioner:
+        async def set_rollout(self, entity_id, enabled):
+            raise MetaAgentProvisioningError("set_rollout", "boom")
+
+    result = run(set_agent_rollout(
+        tenant="t1", enabled=True, secret_store=secrets, settings=object(),
+        provisioner_factory=lambda token: _FailingProvisioner()))
+    assert result.ok is False
+    assert "boom" in result.error
 
 
 class _StepProvisioner:
