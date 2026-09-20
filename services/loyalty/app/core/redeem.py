@@ -1,15 +1,13 @@
 """Spending points — one path for the field, the panel and the till.
 
-THE OPERATOR SPENDS, NOT THE MANAGER (spec §9.5). A manager signing off every redemption is a
+THE OPERATOR SPENDS, NOT A MANAGER (spec §9.5). A manager signing off every redemption is a
 bottleneck in a busy shop, and the outcome is not a controlled programme but an unused one. The
-control is a trail rather than a gate, in three parts:
+control is a trail rather than a gate, in two parts:
 
   1. every redemption is attributed to the account that performed it (spec §3.5 — from the session;
      there is no PIN in this product),
   2. the customer gets an instant receipt (`notify.py`) — which is the real audit, because the only
-     person who reliably notices a balance being spent is the person whose balance it was,
-  3. a reward above a threshold the OWNER sets needs a manager. The threshold is his, and an owner
-     who leaves it wide open has made a choice rather than been failed by a default.
+     person who reliably notices a balance being spent is the person whose balance it was.
 
 THE SAME FUNCTION SERVES ALL THREE CHANNELS. The till's redemption (spec §9.8) and the panel
 fallback for tills that cannot be modified must produce IDENTICAL ledger entries — same shape, same
@@ -29,20 +27,6 @@ from app.core.ledger import Ledger
 from app.core.models import (REDEMPTIONS, LoyaltyError, Overdraft, Redemption, Reward)
 from app.core.rewards import Rewards
 from app.core.spend_lock import SpendLock
-
-
-def needs_approval(cost: int, manager_threshold: int) -> bool:
-    """Does this reward need a manager's name before it may be handed over?
-
-    ONE RULE, THREE READERS. The check below refuses at the moment of spending; the field screen
-    and the till both have to know BEFORE they offer the button, or the counter is offered a reward
-    it cannot deliver and the refusal arrives with the customer already holding out his hand
-    (د-14أ). Written twice, the offer and the refusal drift apart on the first change — and the
-    version that drifts is the one nobody tests, because it only shows.
-
-    A threshold of 0 means «no approval needed for anything»: the owner has not set the rule.
-    """
-    return bool(manager_threshold) and cost >= manager_threshold
 
 
 class Redeemer:
@@ -65,7 +49,6 @@ class Redeemer:
 
     async def redeem(self, tenant: str, subject_ref: str, reward_id: str, *,
                      actor: str = "", idem_key: str = "", channel: str = "field",
-                     approved_by: str = "", manager_threshold: int = 0,
                      branch_id: str = "", source: str = "") -> tuple[Redemption, bool]:
         """Spend points. Returns (redemption, is_new).
 
@@ -86,12 +69,10 @@ class Redeemer:
         async with SpendLock(self.cache, tenant, subject_ref):
             return await self._redeem_locked(
                 tenant, subject_ref, reward_id, actor=actor, idem_key=idem_key, channel=channel,
-                approved_by=approved_by, manager_threshold=manager_threshold,
                 branch_id=branch_id, source=source)
 
     async def _redeem_locked(self, tenant: str, subject_ref: str, reward_id: str, *,
-                             actor: str, idem_key: str, channel: str, approved_by: str,
-                             manager_threshold: int, branch_id: str,
+                             actor: str, idem_key: str, channel: str, branch_id: str,
                              source: str) -> tuple[Redemption, bool]:
         # RE-CHECKED INSIDE THE LOCK. The caller that lost the race above may have been waiting on
         # the winner's own idempotency key — and outside the lock this read was the stale one.
@@ -110,32 +91,13 @@ class Redeemer:
             raise Overdraft(
                 f"الرصيد {bal.points} نقطة، والمكافأة {reward.cost} — لا يكفي")
 
-        if needs_approval(reward.cost, manager_threshold):
-            if not approved_by:
-                raise LoyaltyError(
-                    f"هذه المكافأة تحتاج اعتماد المدير (الحد {manager_threshold} نقطة)")
-            # A SECOND PERSON, NOT A SECOND FIELD.
-            #
-            # The check was «is this string non-empty», and the string is typed by the person doing
-            # the redeeming. So the control read as «type any name to continue» — a manager
-            # approval that the operator grants himself, on exactly the redemptions expensive
-            # enough to have been worth a threshold.
-            #
-            # Requiring a DIFFERENT identity is the smallest thing that makes it a control rather
-            # than a label. It does not yet prove the approver is a manager — that needs the staff
-            # list from operations, and it is written down as the next step — but it does mean the
-            # person spending the points is not also the person allowing it.
-            if approved_by.strip().casefold() == (actor or "").strip().casefold():
-                raise LoyaltyError(
-                    "اعتماد المدير لا يكون من الشخص نفسه — أدخل اسم من اعتمدها.")
-
         rec = Redemption(
             tenant=tenant, subject_ref=subject_ref, reward_id=reward.id,
             # THE SNAPSHOT, not a reference. A receipt that restates itself when the menu changes
             # is not a receipt (see models.Redemption).
             reward_name=reward.name, reward_type=reward.type, cost=reward.cost,
             actor=actor, idem_key=idem_key, channel=channel, branch_id=branch_id,
-            discount_halalas=reward.discount_halalas, approved_by=approved_by)
+            discount_halalas=reward.discount_halalas)
 
         # The ledger movement is what makes it real; the redemption row is the receipt. The
         # movement is posted FIRST so a crash between the two leaves points deducted with no
@@ -217,7 +179,6 @@ def _row_to_redemption(row: dict) -> Redemption:
                    channel=row.get("channel") or "field",
                    branch_id=row.get("branch_id") or "",
                    discount_halalas=int(row.get("discount_halalas") or 0),
-                   approved_by=row.get("approved_by") or "",
                    # ABSENT MEANS NOT DONE (ز-9), which is the safe reading: rows written before
                    # this field existed get replayed once, and the far door is idempotent on
                    # `source=rec.id`, so a replay of a visit that did land is a no-op.

@@ -406,7 +406,6 @@ def build_manifest(
             {"path": "/api/v1/till/branches", "tier": "user", "method": "GET"},
             {"path": "/api/v1/till/bookings", "tier": "user", "method": "GET"},
             {"path": "/api/v1/till/bookings/{}/attend", "tier": "user", "method": "POST"},
-            {"path": "/api/v1/till/operators/verify-pin", "tier": "user", "method": "POST"},
             {"path": "/api/v1/till/rating-request", "tier": "user", "method": "POST"},
             {"path": "/api/v1/till/coupons/grant", "tier": "user", "method": "POST"},
             # ── Salla — see api/v1/salla.py's own module docstring for the install/callback split.

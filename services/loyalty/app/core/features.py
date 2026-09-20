@@ -67,17 +67,6 @@ LOYALTY_FEATURES: tuple[Feature, ...] = (
         # knowing it exists, and the operator holding the phone is the one who has to manage it.
     ),
     Feature(
-        id="loyalty.manager_approval",
-        title="يحفظ لك أرباحك من المكافآت الكبيرة",
-        detail="تحدد أنت السقف، وأي مكافأة فوقه تحتاج اعتماد مدير حقيقي قبل تسليمها",
-        icon="shield-check",
-        tone=TONE_BLUE,
-        # `needs_approval`/`Redeemer._redeem_locked` (core/redeem.py:34-45, 92-130) — a real,
-        # owner-set threshold, and a real second identity: the approver must differ from the
-        # operator doing the redeeming (case-insensitive compare), so a reward expensive enough to
-        # matter is never self-approved by whoever is handing it out.
-    ),
-    Feature(
         id="loyalty.expiry_warning",
         title="يعيد إليك عميلك في وقته",
         detail="يحذّره قبل انتهاء نقاطه بأسبوعين، فيتحول التنبيه إلى زيارة إضافية",

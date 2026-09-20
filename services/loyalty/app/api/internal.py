@@ -388,10 +388,6 @@ class EarnIn(BaseModel):
     # pydantic drops — which is the whole defect this closes.
     free: bool = False
     actor: str = ""
-    # WHO ALLOWED IT, when the reward is above the shop's threshold. Empty is the ordinary case —
-    # most redemptions are below it — and the core refuses the expensive ones without a name, and
-    # refuses a name that is the operator's own.
-    approved_by: str = ""
     # Optional, like everything else the till sends about itself. A chain's balance is one across
     # its branches (§12.2) — this does not change that; it answers WHERE, which the owner asks
     # immediately after WHO.
@@ -568,33 +564,23 @@ async def portal_balance(request: Request, tenant: str, subject_ref: str) -> dic
     catalogue = await c.rewards.list(tenant)
     affordable = await c.rewards.affordable(tenant, bal.points, catalogue=catalogue)
     all_costs = [r.cost for r in catalogue]
-    from app.api.v1.loyalty import _threshold
     from app.core.notify import to_next_reward
-    from app.core.redeem import needs_approval
-    threshold = await _threshold(c, tenant)
     return {
         # DOES THIS SHOP RUN A PROGRAMME AT ALL — asked here, because only this service can
         # answer it, and said out loud because the readers cannot infer it (هـ-1).
         #
-        # Every key below has a value for a shop that runs nothing: zero points, no rewards, a
-        # threshold of zero. So the dictionary is never empty, and portal's «show the section if
-        # we got points back» was a condition that could not be false — a customer of a car wash
-        # with no loyalty programme opened his page and read «0 نقطة», which is a shop advertising
-        # something it does not have and a balance nobody can ever spend.
+        # Every key below has a value for a shop that runs nothing: zero points, no rewards. So
+        # the dictionary is never empty, and portal's «show the section if we got points back» was
+        # a condition that could not be false — a customer of a car wash with no loyalty programme
+        # opened his page and read «0 نقطة», which is a shop advertising something it does not
+        # have and a balance nobody can ever spend.
         #
         # REWARDS ARE THE PROGRAMME. Not the licence: reads deliberately go around billing (see
         # `award` above) so a lapsed subscription never strands points a customer already holds.
         # A shop with nothing to redeem has nothing to show him, whatever it is paying for.
         "has_programme": bool(all_costs),
         "points": bal.points,
-        "manager_threshold": threshold,
-        # WHAT EACH REWARD STILL NEEDS BEFORE IT CAN BE HANDED OVER (د-14أ). Affordable is not the
-        # same question as allowed: a shop with a manager threshold has rewards the balance covers
-        # and the counter may not give away alone. Offering those as available and refusing at the
-        # tap is the worst order to discover it in — the customer is already holding out his hand.
-        # One rule, read from `core.redeem` so the offer and the refusal cannot drift.
-        "rewards": [{**r.to_dict(),
-                     "needs_approval": needs_approval(r.cost, threshold)} for r in affordable],
+        "rewards": [r.to_dict() for r in affordable],
         # Zero means "say nothing" — either he can afford everything or the shop has no rewards.
         "to_next_reward": to_next_reward(bal.points, all_costs),
         "expires_at": c.expiry.due_at(bal.to_dict()),
@@ -667,12 +653,6 @@ class TillRedeemIn(BaseModel):
     # The cashier's account, as their system holds it. Recorded AS GIVEN: their system is the
     # account system, and building a second one here would be a login nobody asked for (spec §3.5).
     actor: str = ""
-    # THE MANAGER WHO ALLOWED IT — and the route READ THIS FIELD BEFORE THE MODEL DECLARED IT.
-    # `getattr(body, "approved_by", "")` cannot fail, so the default won every time and FastAPI
-    # dropped the key a till did send, because a schema that does not declare a field does not
-    # accept it. Every reward above the shop's threshold was refused at the one door where a
-    # manager is standing right there, with no way on earth to satisfy the refusal.
-    approved_by: str = ""
     # WHICH BRANCH handed the reward over. A shop with three branches that knows who spent a
     # customer's points and not where knows half of what it asked. Optional: a till that does not
     # send it records a redemption with no branch rather than failing — the same rule visits
@@ -690,22 +670,12 @@ async def till_redeem(request: Request, body: TillRedeemIn) -> dict:
     ought to match.
     """
     c = request.app.state.container
-
-    # THE SHOP'S OWN THRESHOLD, ON THIS PATH TOO — and it was passed on neither.
-    #
-    # `manager_threshold` defaults to 0, which means «no approval needed for anything». The owner
-    # sets it on his screen, the field route reads it, and this one did not: so the counter he set
-    # the rule FOR — the integrated till, where neither he nor the customer is looking at our
-    # screen — was the one place it did not apply. A control that holds everywhere except the
-    # place it was written for is not a control.
-    from app.api.v1.loyalty import _after_redeem, _threshold
+    from app.api.v1.loyalty import _after_redeem
 
     try:
         rec, is_new = await c.redeemer.redeem(
             body.tenant, body.subject_ref, body.reward_id, actor=body.actor,
-            idem_key=body.idempotency_key, channel="till", branch_id=body.branch_id,
-            approved_by=body.approved_by,
-            manager_threshold=await _threshold(c, body.tenant))
+            idem_key=body.idempotency_key, channel="till", branch_id=body.branch_id)
     # RETURNED, NOT RAISED — and the reader here is a cashier with a customer in front of him.
     #
     # `Overdraft` says «الرصيد 30 نقطة، والمكافأة 100 — لا يكفي». Raised, the platform's handler

@@ -83,7 +83,7 @@ class LoyaltyDesk:
         return None if out is None or "_status" in out else out
 
     async def redeem(self, *, tenant: str, subject_ref: str, reward_id: str,
-                     idempotency_key: str, actor: str = "", approved_by: str = "",
+                     idempotency_key: str, actor: str = "",
                      branch_id: str = "") -> dict[str, Any] | None:
         """Hand the reward over, and answer with what the receipt must carry.
 
@@ -96,10 +96,7 @@ class LoyaltyDesk:
         # OFF THE EVENT LOOP, same reason as `balance` above.
         return await run_in_threadpool(self._call, "/internal/loyalty/redeem", body={
             "tenant": tenant, "subject_ref": subject_ref, "reward_id": reward_id,
-            "idempotency_key": idempotency_key, "actor": actor, "branch_id": branch_id,
-            # PASSED THROUGH, NEVER INVENTED HERE. It names the person who took responsibility;
-            # a default supplied by a middle layer would be a signature nobody wrote.
-            "approved_by": approved_by})
+            "idempotency_key": idempotency_key, "actor": actor, "branch_id": branch_id})
 
     async def rating_bonus(self, *, tenant: str, subject_ref: str, visit_id: str, points: int,
                            actor: str = "", branch_id: str = "") -> dict[str, Any] | None:

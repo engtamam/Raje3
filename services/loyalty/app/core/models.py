@@ -196,7 +196,6 @@ class Redemption:
     # redemption with no branch rather than failing, the same rule visits already follow.
     branch_id: str = ""
     discount_halalas: int = 0
-    approved_by: str = ""           # set when the reward was above the manager threshold
     # WHETHER THE OTHER HALF OF THE ACT HAPPENED (ز-9). A `service` reward is two things: points
     # spent, and a visit recorded so the reminder cycle restarts. The second ran in a try/except
     # that only wrote telemetry, and nothing ever replayed it — so a free wash was handed over, the
@@ -213,7 +212,7 @@ class Redemption:
             "reward_type": self.reward_type, "cost": self.cost, "actor": self.actor,
             "idem_key": self.idem_key, "channel": self.channel,
             "branch_id": self.branch_id,
-            "discount_halalas": self.discount_halalas, "approved_by": self.approved_by,
+            "discount_halalas": self.discount_halalas,
             "visit_recorded": self.visit_recorded,
             "created_at": self.created_at,
         }

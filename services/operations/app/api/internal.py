@@ -1333,11 +1333,6 @@ async def internal_booking_redeem(request: Request, body: BookingRewardRedeemIn)
     one boolean rather than parse `_status`/`_reason` itself. `subject_ref` arrives directly:
     `bookings` already stamped it on the booking at creation (§6.5), so this needs no customer
     lookup of its own — unlike the till route, which starts from a phone or a plate.
-
-    NO `approved_by` — there is nobody here to give one. A reward above the shop's manager
-    threshold is correctly refused by loyalty and stays REFUSED here too; the caller
-    (`attend()`) leaves `intended_reward_id` set on that refusal, which is its own signal to
-    redeem him by hand from the visit screen instead.
     """
     desk = getattr(request.app.state.container, "loyalty_desk", None)
     if desk is None or not desk.configured:
@@ -1349,7 +1344,7 @@ async def internal_booking_redeem(request: Request, body: BookingRewardRedeemIn)
         resource="redemption", ip=request.client.host if request.client else "")
     out = await desk.redeem(tenant=body.tenant, subject_ref=body.subject_ref,
                             reward_id=body.reward_id, idempotency_key=body.idempotency_key,
-                            actor=body.actor or "bookings", approved_by="", branch_id=branch_id)
+                            actor=body.actor or "bookings", branch_id=branch_id)
     if out is None:
         return {"ok": False, "reason": "UNAVAILABLE"}
     if "_status" in out:

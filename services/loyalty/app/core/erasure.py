@@ -18,8 +18,8 @@ its Visit rows kept):
                accounting trail. Deleting it destroyed the very aggregate the old comment claimed
                was retained.
 
-  Redemption   KEPT, subject_ref BLANKED. reward_name, cost, branch_id, approved_by, created_at —
-               a RECEIPT, by the model's own docstring ("not a reference... a receipt"). This is
+  Redemption   KEPT, subject_ref BLANKED. reward_name, cost, branch_id, created_at — a RECEIPT,
+               by the model's own docstring ("not a reference... a receipt"). This is
                exactly the record that answers a later dispute; deleting it left the platform with
                no defence against the customer's own complaint, or against a false one.
 

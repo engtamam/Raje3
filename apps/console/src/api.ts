@@ -483,19 +483,12 @@ export interface FieldReward {
   /** The service this reward IS, when it is one — «غسلة مجانية» is the wash (§9.4). The badge on
    *  the tile needs it, and the route has always sent it. */
   service_id?: string;
-  /** Whether a manager must put his name to this one before it may be handed over (spec §9.5).
-   *  Computed by loyalty from the shop's own threshold, never by this app: the offer and the
-   *  refusal have to come from the same rule, or the counter is offered a reward the tap then
-   *  refuses with the customer already holding out his hand. */
-  needs_approval?: boolean;
 }
 export interface Balance {
   points: number;
   rewards: FieldReward[];
   to_next_reward: number;
   expires_at?: number;
-  /** Points from which approval is required. 0 means the owner set no such rule. */
-  manager_threshold?: number;
 }
 
 /**
@@ -589,7 +582,6 @@ export function redeem(
    * next screen forget again, silently, and the failure would only appear on a bad connection.
    */
   idempotencyKey: string,
-  approvedBy = '',
 ): Promise<{ balance?: number; entry_id?: string; message?: string }> {
   return call(session, '/api/v1/loyalty/redeem', {
     method: 'POST',
@@ -597,11 +589,6 @@ export function redeem(
       subject_ref: subjectRef,
       reward_id: rewardId,
       idempotency_key: idempotencyKey,
-      // WHO ALLOWED IT — and no screen in this app ever sent it. loyalty refuses any reward at or
-      // above the shop's threshold without a name, so the owner who set that rule watched every
-      // expensive reward be refused with no box anywhere to type the name into. Empty on the
-      // ordinary redemption, which is most of them; the service decides whether that is allowed.
-      approved_by: approvedBy,
     }),
   });
 }

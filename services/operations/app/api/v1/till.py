@@ -442,14 +442,7 @@ async def customer_at_the_counter(request: Request, phone: str = "", plate: str 
     out["to_next_reward"] = bal.get("to_next_reward", 0)
     # ONLY WHAT HE CAN AFFORD, exactly as the field screen shows it: a list of things he cannot
     # have turns a moment of goodwill into a menu of refusals.
-    # AND WHETHER THE COUNTER MAY HAND IT OVER ALONE (د-14أ). Affordable is not the same question
-    # as allowed: a shop with a manager-approval threshold has rewards the balance covers and the
-    # cashier may not give away by himself. This projection dropped the flag loyalty computes, so
-    # the till was offered every one of them as available and met the rule only as a refusal, with
-    # the customer already holding out his hand.
-    out["manager_threshold"] = bal.get("manager_threshold", 0)
-    out["rewards"] = [{"id": r.get("id"), "name": r.get("name"), "cost": r.get("cost"),
-                       "needs_approval": bool(r.get("needs_approval"))}
+    out["rewards"] = [{"id": r.get("id"), "name": r.get("name"), "cost": r.get("cost")}
                       for r in (bal.get("rewards") or [])]
     return out
 
@@ -464,24 +457,6 @@ class TillRedeemIn(BaseModel):
     # new on every retry, and a doubled redemption spends a customer's points twice.
     idempotency_key: str = Field(min_length=1, max_length=128)
     actor: str = Field(default="", max_length=64)
-    # THE MANAGER WHO ALLOWED IT, for a reward above the shop's threshold (spec §9.5). loyalty
-    # refuses those without a name, and this door had no field to carry one — so the refusal was
-    # unsatisfiable from an integrated till no matter what their system sent.
-    #
-    # UNVERIFIED FREE TEXT, KEPT FOR BACKWARD COMPATIBILITY — any string satisfies loyalty's gate,
-    # so a till could type any name into this field with nothing to check it was actually that
-    # manager (2026-09-13/14 audits, "no real staff attribution"). `approver_operator_id` +
-    # `approver_ticket` below are the SECURE alternative: when both are sent, `approved_by` is
-    # IGNORED and the real operator's own name is used instead. Existing integrations that only
-    # ever sent this field keep working exactly as before.
-    approved_by: str = Field(default="", max_length=128)
-    # THE VERIFIED PATH (2026-09-14). `ticket` comes from `POST /till/operators/verify-pin` —
-    # proof that SOMEBODY at this counter typed THIS operator's real PIN in the last few minutes
-    # (`core/operator_ticket.py`). Requires naming which operator the ticket claims, because the
-    # ticket alone (an HMAC over tenant+operator_id+window) proves nothing without knowing which
-    # operator it was issued for.
-    approver_operator_id: str = Field(default="", max_length=64)
-    approver_ticket: str = Field(default="", max_length=300)
     # REQUIRED HERE FOR THE SAME REASON AS THE VISIT, and it must be the same answer: a redemption
     # is where the reward was actually handed over, and «استُبدلت في أيّ فرع» is half of what the
     # branch column is for. Optional on one door and required on the other would leave the two
@@ -558,28 +533,6 @@ async def redeem_at_the_counter(request: Request, body: TillRedeemIn,
                            "فروع هذا المحل."}
     branch_id = body.branch_id.strip()
 
-    # THE VERIFIED APPROVER (2026-09-14) — see `TillRedeemIn`'s own note. A ticket names WHICH
-    # operator typed a PIN in the last few minutes; the real approver's own name replaces whatever
-    # free text `approved_by` carried, so a manager-approval gate cannot be satisfied by a string
-    # nobody checked.
-    approved_by = body.approved_by
-    if body.approver_ticket:
-        from app.core import operator_ticket as OT
-        from app.core.stores import OperatorStore
-
-        settings = request.app.state.container_settings
-        if not OT.verifies(settings.PII_SALT, tenant, body.approver_operator_id,
-                           body.approver_ticket):
-            return {"ok": False, "reason": "REFUSED",
-                    "message": "تعذّر التحقق من الموظف المعتمِد — انتهت صلاحية الرمز أو هو غير "
-                              "صحيح. أعد التحقق من رمزه السري."}
-        op = await OperatorStore(request.app.state.container.datastore).get(
-            tenant, body.approver_operator_id)
-        if op is None or not op.active:
-            return {"ok": False, "reason": "REFUSED",
-                    "message": "الموظف المعتمِد غير موجود أو غير نشط بهذا المحل."}
-        approved_by = op.name or op.id
-
     # AUDITED BEFORE IT HAPPENS, like every other write a machine makes. A redemption the log
     # could not record must not occur — it is a customer's balance being spent.
     await request.app.state.auditor.record(
@@ -588,7 +541,7 @@ async def redeem_at_the_counter(request: Request, body: TillRedeemIn,
 
     out = await desk.redeem(tenant=tenant, subject_ref=c.subject_ref, reward_id=body.reward_id,
                             idempotency_key=body.idempotency_key, actor=body.actor,
-                            approved_by=approved_by, branch_id=branch_id)
+                            branch_id=branch_id)
     if out is None:
         return {"ok": False, "reason": "UNAVAILABLE", "message": "تعذّر الوصول إلى برنامج النقاط."}
     if "_status" in out:
@@ -842,54 +795,6 @@ async def status_at_the_counter(request: Request, principal: Principal = Depends
     remaining = await remaining_lookups(c.datastore, tenant, principal.subject)
     return {"feature_api": api_state, "feature_visit": visit_state,
            "lookup_allowance_remaining_today": remaining}
-
-
-# ══════════════════════════════════════════════════════════════════════════════════════════════
-#  A REAL APPROVER, NOT A FREE-TYPED NAME (2026-09-14, both audits' own recommendation).
-#
-#  approved_by on /redeem used to be any string a till chose to send — a cashier's own device
-#  could unlock an above-threshold reward by typing a manager's name with nothing to verify it was
-#  actually him. This is the till's own door into the SAME PIN mechanism the field screen already
-#  uses (api/v1/staff.py::verify_pin), under the till's own operations.record capability rather
-#  than a human's, so a till never needs a broader credential just to confirm one PIN.
-# ══════════════════════════════════════════════════════════════════════════════════════════════
-
-class TillPinVerifyIn(BaseModel):
-    operator_id: str = Field(min_length=1, max_length=64)
-    pin: str = Field(min_length=4, max_length=4, pattern=r"^\d{4}$")
-
-
-@router.post("/operators/verify-pin", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
-async def verify_pin_at_the_counter(request: Request, body: TillPinVerifyIn,
-                                    principal: Principal = Depends(_TILL)) -> Any:
-    """Confirm which real operator is approving a reward at this counter, and issue the ticket
-    /till/redeem's approver_ticket needs. Same hash, same comparison, same one-answer-for-
-    unknown-or-wrong-or-inactive discipline as the field screen's own verify-pin — see
-    core/operator_ticket.pin_hash's own note on why the two share one formula."""
-    if not principal.tenant:
-        return {"ok": False, "message": "هذا الاعتماد غير مرتبط بمنشأة."}
-    tenant = principal.tenant
-    import hmac
-
-    from app.core import operator_ticket as OT
-    from app.core.stores import OperatorStore
-
-    settings = request.app.state.container_settings
-    op = await OperatorStore(request.app.state.container.datastore).get(tenant, body.operator_id)
-    expected = op.pin_hash if op else ""
-    candidate = OT.pin_hash(settings.PII_SALT, tenant, body.operator_id, body.pin)
-    ok = bool(op) and op.active and hmac.compare_digest(expected, candidate)
-
-    if not ok:
-        await request.app.state.auditor.record(
-            "operator.pin_rejected", actor=f"till:{principal.subject}", tenant=tenant,
-            resource=f"operator:{body.operator_id}",
-            ip=request.client.host if request.client else "")
-        return {"ok": False, "message": "رمز خاطئ أو موظف غير نشط."}
-
-    return {"ok": True, "operator": {"id": op.id, "name": op.name},
-           "ticket": OT.issue(settings.PII_SALT, tenant, body.operator_id),
-           "ticket_ttl": OT.TTL_SECONDS}
 
 
 # ══════════════════════════════════════════════════════════════════════════════════════════════

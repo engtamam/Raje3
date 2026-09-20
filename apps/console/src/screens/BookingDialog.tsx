@@ -821,7 +821,7 @@ export function BookingDialog(
                   <option value="">{t('bookingDialog.noneOption')}</option>
                   {(balance?.rewards ?? []).map((r) => (
                     <option key={r.id} value={r.id}>
-                      {tf(t, 'bookingDialog.rewardOption', { name: r.name, cost: r.cost })}{r.needs_approval ? t('bookingDialog.needsApproval') : ''}
+                      {tf(t, 'bookingDialog.rewardOption', { name: r.name, cost: r.cost })}
                     </option>
                   ))}
                 </Select>

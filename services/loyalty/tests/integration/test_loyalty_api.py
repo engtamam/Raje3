@@ -104,39 +104,12 @@ def _earn(client, points=500, visit="v1", subject=S):
     return r.json()
 
 
-# ── the manager threshold, and the three states it actually has ───────────────────────────────
-def test_zero_removes_the_manager_requirement_instead_of_being_ignored(client, owner):
-    """THE DEFECT. The write was guarded by `if body.manager_threshold:`, and the field defaulted
-    to 0 — so «leave it» and «remove it» were the same value, and the truthiness test discarded
-    exactly the one that mattered. An owner who set 500 and then decided his operators should
-    redeem freely sent 0, got a 200, and read 500 back: the screen reported his change as accepted
-    while every reward over 500 kept demanding an approval no till path could supply."""
-    h = _auth("loyalty.manage")
-    r = client.put("/api/v1/loyalty/settings/general",
-                   json={"points": 10, "manager_threshold": 500}, headers=h)
-    assert r.json()["general"]["manager_threshold"] == 500
-
-    r = client.put("/api/v1/loyalty/settings/general",
-                   json={"points": 10, "manager_threshold": 0}, headers=h)
-    assert r.json()["general"]["manager_threshold"] == 0, r.text
-
-
-def test_omitting_the_threshold_leaves_it_alone(client, owner):
-    """AND THE OPPOSITE BUG IS NOT THE FIX. Writing it unconditionally would clear the threshold on
-    every request that only changes the points rule — which is most of them."""
-    h = _auth("loyalty.manage")
-    client.put("/api/v1/loyalty/settings/general",
-               json={"points": 10, "manager_threshold": 300}, headers=h)
-    r = client.put("/api/v1/loyalty/settings/general", json={"points": 20}, headers=h)
-    assert r.json()["general"]["manager_threshold"] == 300, r.text
-
-
 # ── does this shop run a programme at all (هـ-1) ───────────────────────────────────────────────
 def test_the_customer_page_read_says_whether_the_shop_runs_a_programme(client):
     """PORTAL CANNOT INFER IT, so this route has to state it.
 
-    Every key in this answer has a value for a shop that runs nothing — zero points, no rewards,
-    a threshold of zero — so the dictionary is never empty and portal's «if we got points back,
+    Every key in this answer has a value for a shop that runs nothing — zero points, no rewards —
+    so the dictionary is never empty and portal's «if we got points back,
     show the card» could not be false. A customer of a shop with no loyalty read «0 نقطة» on his
     own page: a balance nobody can spend, under a heading for a programme that does not exist."""
     r = client.get("/internal/loyalty/portal/balance",
@@ -659,69 +632,13 @@ def test_the_branch_a_visit_was_recorded_at_rides_onto_the_earn(client, owner):
                       headers=_auth("loyalty.read")).json()["points"] == 12
 
 
-# ── د-14 · the approval that could be demanded and never granted ───────────────────────────────
-
-
-def test_the_till_can_grant_the_approval_the_shop_demands(client, owner):
-    """THE DEFECT, END TO END. `/internal/loyalty/redeem` passed the approver on as
-    `getattr(body, "approved_by", "")` and `TillRedeemIn` did not declare the field — so the default
-    won every time, AND FastAPI dropped the key a till did send, because a schema that does not
-    declare a field does not accept it. Every reward at or above the shop's threshold was refused at
-    the one door where the manager is standing right there, and no request on earth could satisfy
-    the refusal.
-
-    Nothing failed on the way: `getattr` with a default cannot. The same field, spelled identically,
-    sat on `EarnIn` two hundred lines up.
-    """
-    client.put("/api/v1/loyalty/settings/general",
-               json={"points": 10, "manager_threshold": 100}, headers=owner)
-    rid = _reward(client, owner, name="خصم كبير", cost=150, type="discount",
-                  discount_halalas=20000)
-    _earn(client, points=400, visit="v-appr", subject="ref_apprcust0001")
-
-    # WITHOUT A NAME it is refused — the rule the owner set, working.
-    bare = client.post("/internal/loyalty/redeem",
-                       json={"tenant": TENANT, "subject_ref": "ref_apprcust0001",
-                             "reward_id": rid, "idempotency_key": "inv-appr-1",
-                             "actor": "cashier-1"}, headers=INTERNAL)
-    assert "اعتماد المدير" in bare.text, bare.text
-
-    # WITH ONE it goes through, and the ledger keeps who allowed it.
-    ok = client.post("/internal/loyalty/redeem",
-                     json={"tenant": TENANT, "subject_ref": "ref_apprcust0001",
-                           "reward_id": rid, "idempotency_key": "inv-appr-2",
-                           "actor": "cashier-1", "approved_by": "خالد المدير"},
-                     headers=INTERNAL)
-    assert ok.status_code == 200, ok.text
-    assert ok.json()["discount_halalas"] == 20000
-
-
-def test_the_menu_says_which_rewards_need_a_manager_before_the_tap(client, owner):
-    """د-14أ — AFFORDABLE IS NOT THE SAME QUESTION AS ALLOWED. Both balance payloads listed every
-    reward the points covered and said nothing about the threshold, so the counter offered a reward
-    it could not deliver and found out at the tap, with the customer already holding out his hand.
-    The flag is computed from the same `needs_approval` the refusal uses — written twice, the offer
-    and the refusal drift apart on the first change."""
-    client.put("/api/v1/loyalty/settings/general",
-               json={"points": 10, "manager_threshold": 100}, headers=owner)
-    big = _reward(client, owner, name="خصم كبير", cost=150, type="discount",
-                  discount_halalas=20000)
-    small = _reward(client, owner, name="خصم صغير", cost=20, type="discount",
-                    discount_halalas=1000)
+def test_the_customer_page_says_it_has_a_programme_when_rewards_exist(client, owner):
+    """AND THE OTHER HALF OF هـ-1, on the route that carries it: a shop that HAS rewards says so,
+    or a bug closing this section would close the customer's points card on everybody. Asserted on
+    the key itself and not through a default — an absent flag is the failure being tested for."""
+    _reward(client, owner, name="خصم كبير", cost=150, type="discount", discount_halalas=20000)
     _earn(client, points=400, visit="v-menu", subject="ref_menucust0001")
 
-    for got in (client.get("/api/v1/loyalty/balance/ref_menucust0001", headers=owner).json(),
-                client.get("/internal/loyalty/portal/balance",
-                           params={"tenant": TENANT, "subject_ref": "ref_menucust0001"},
-                           headers=INTERNAL).json()):
-        assert got["manager_threshold"] == 100, got
-        flags = {r["id"]: r["needs_approval"] for r in got["rewards"]}
-        assert flags[big] is True, flags
-        assert flags[small] is False, flags
-
-    # AND THE OTHER HALF OF هـ-1, on the route that carries it: a shop that HAS rewards says so,
-    # or the fix would have closed the customer's points card on everybody. Asserted on the key
-    # itself and not through a default — an absent flag is the failure being tested for.
     assert client.get("/internal/loyalty/portal/balance",
                       params={"tenant": TENANT, "subject_ref": "ref_menucust0001"},
                       headers=INTERNAL).json()["has_programme"] is True

@@ -1,11 +1,5 @@
 """The till's own self-service doors (2026-09-14, both till-integration audits' own
-recommendation): `GET /till/branches`, `GET /till/status`, `POST /till/operators/verify-pin`,
-and the verified-approver path on `/till/redeem`.
-
-WRITTEN AGAINST A REAL DATASTORE (MemoryDataStore) rather than fully mocked containers, because
-the PIN hash/ticket mechanism is exactly the kind of thing a mock could accidentally always agree
-with itself — the same reasoning `test_loyalty_desk_body.py`/`test_bookings_desk_till_gap.py`
-apply one layer down.
+recommendation): `GET /till/branches` and `GET /till/status`.
 """
 from __future__ import annotations
 
@@ -14,9 +8,8 @@ import types
 
 from app.adapters.datastore.memory import MemoryDataStore
 from app.api.v1 import till as till_routes
-from app.core import operator_ticket as OT
-from app.core.models import Branch, Operator
-from app.core.stores import BranchStore, OperatorStore
+from app.core.models import Branch
+from app.core.stores import BranchStore
 
 SALT = "s" * 32
 TENANT = "t_1"
@@ -124,138 +117,6 @@ def test_status_reports_inactive_for_a_definite_no():
     req = _request(MemoryDataStore(), api_licence=_Licence(False), visit_licence=_Licence(True))
     out = run(till_routes.status_at_the_counter(req, principal=_Principal()))
     assert out["feature_api"] == "inactive"
-
-
-# ── POST /till/operators/verify-pin ──────────────────────────────────────────────────────────
-
-def _seed_operator(store, *, active=True, pin="1234") -> Operator:
-    op = Operator(id="opr_1", tenant=TENANT, name="خالد", role="manager", active=active,
-                 pin_hash=OT.pin_hash(SALT, TENANT, "opr_1", pin))
-    run(OperatorStore(store).save(op))
-    return op
-
-
-def test_verify_pin_with_the_right_pin_issues_a_real_ticket():
-    store = MemoryDataStore()
-    _seed_operator(store)
-    req = _request(store)
-    body = till_routes.TillPinVerifyIn(operator_id="opr_1", pin="1234")
-    out = run(till_routes.verify_pin_at_the_counter(req, body, principal=_Principal()))
-    assert out["ok"] is True
-    assert out["operator"] == {"id": "opr_1", "name": "خالد"}
-    assert OT.verifies(SALT, TENANT, "opr_1", out["ticket"])
-
-
-def test_verify_pin_with_the_wrong_pin_is_refused_and_audited():
-    store = MemoryDataStore()
-    _seed_operator(store)
-    req = _request(store)
-    body = till_routes.TillPinVerifyIn(operator_id="opr_1", pin="9999")
-    out = run(till_routes.verify_pin_at_the_counter(req, body, principal=_Principal()))
-    assert out["ok"] is False
-    assert "ticket" not in out
-    assert req.app.state.auditor.calls[0][0] == "operator.pin_rejected"
-
-
-def test_verify_pin_for_an_inactive_operator_is_refused():
-    store = MemoryDataStore()
-    _seed_operator(store, active=False)
-    req = _request(store)
-    body = till_routes.TillPinVerifyIn(operator_id="opr_1", pin="1234")
-    out = run(till_routes.verify_pin_at_the_counter(req, body, principal=_Principal()))
-    assert out["ok"] is False
-
-
-def test_verify_pin_for_an_unknown_operator_answers_the_same_refusal():
-    """Same sentence for 'no such operator' and 'wrong PIN' — CWE-203/208, an enumeration
-    discipline the field screen's own verify-pin already follows."""
-    store = MemoryDataStore()
-    req = _request(store)
-    body = till_routes.TillPinVerifyIn(operator_id="opr_ghost", pin="1234")
-    out = run(till_routes.verify_pin_at_the_counter(req, body, principal=_Principal()))
-    assert out == {"ok": False, "message": "رمز خاطئ أو موظف غير نشط."}
-
-
-# ── the verified-approver path on /till/redeem ───────────────────────────────────────────────
-
-class _Desk:
-    configured = True
-
-    def __init__(self, redeem=None):
-        self._redeem = redeem
-        self.seen: dict = {}
-
-    async def redeem(self, **kw):
-        self.seen = kw
-        return self._redeem
-
-
-def _redeem_request(store, *, ops=None):
-    class _Auditor:
-        def __init__(self):
-            self.calls = []
-
-        async def record(self, action, **kw):
-            self.calls.append((action, kw))
-
-    container = types.SimpleNamespace(
-        operations=ops or _Ops(customer=_Customer()), loyalty_desk=_Desk({"transaction_ref": "x"}),
-        datastore=store, bookings_desk=None, reminders_desk=None)
-    state = types.SimpleNamespace(container=container, container_settings=_Settings(),
-                                  auditor=_Auditor())
-    return types.SimpleNamespace(app=types.SimpleNamespace(state=state), client=None)
-
-
-def test_redeem_with_a_valid_ticket_uses_the_real_operators_own_name():
-    store = MemoryDataStore()
-    _seed_operator(store)
-    req = _redeem_request(store)
-    ticket = OT.issue(SALT, TENANT, "opr_1")
-    body = till_routes.TillRedeemIn(
-        phone="0500000000", reward_id="r1", branch_id="brn-main", idempotency_key="k",
-        approved_by="اسم مزيّف لا علاقة له", approver_operator_id="opr_1",
-        approver_ticket=ticket)
-    out = run(till_routes.redeem_at_the_counter(req, body, principal=_Principal()))
-    assert out["ok"] is True
-    desk = req.app.state.container.loyalty_desk
-    assert desk.seen["approved_by"] == "خالد"      # the REAL operator's name, not the free text
-
-
-def test_redeem_with_an_invalid_ticket_is_refused_before_touching_loyalty():
-    store = MemoryDataStore()
-    _seed_operator(store)
-    req = _redeem_request(store)
-    body = till_routes.TillRedeemIn(
-        phone="0500000000", reward_id="r1", branch_id="brn-main", idempotency_key="k",
-        approver_operator_id="opr_1", approver_ticket="garbage.not.a.ticket")
-    out = run(till_routes.redeem_at_the_counter(req, body, principal=_Principal()))
-    assert out["ok"] is False and out["reason"] == "REFUSED"
-    assert req.app.state.container.loyalty_desk.seen == {}
-
-
-def test_redeem_with_a_ticket_for_an_inactive_operator_is_refused():
-    store = MemoryDataStore()
-    _seed_operator(store, active=False)
-    req = _redeem_request(store)
-    ticket = OT.issue(SALT, TENANT, "opr_1")
-    body = till_routes.TillRedeemIn(
-        phone="0500000000", reward_id="r1", branch_id="brn-main", idempotency_key="k",
-        approver_operator_id="opr_1", approver_ticket=ticket)
-    out = run(till_routes.redeem_at_the_counter(req, body, principal=_Principal()))
-    assert out["ok"] is False
-
-
-def test_redeem_with_no_ticket_still_uses_the_legacy_free_text_unchanged():
-    """Backward compatibility — an existing integration that never adopted the ticket keeps
-    working exactly as before."""
-    store = MemoryDataStore()
-    req = _redeem_request(store)
-    body = till_routes.TillRedeemIn(
-        phone="0500000000", reward_id="r1", branch_id="brn-main", idempotency_key="k",
-        approved_by="سالم")
-    out = run(till_routes.redeem_at_the_counter(req, body, principal=_Principal()))
-    assert out["ok"] is True
-    assert req.app.state.container.loyalty_desk.seen["approved_by"] == "سالم"
 
 
 # ── POST /till/rating-request ────────────────────────────────────────────────────────────────

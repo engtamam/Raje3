@@ -26,7 +26,6 @@ from app.api.ratelimit import rate_limit
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.models import REDEMPTIONS, LoyaltyError, Overdraft
 from app.core.notify import to_next_reward
-from app.core.redeem import needs_approval
 from app.core.spend_lock import SpendBusy, SpendLock
 
 router = APIRouter(prefix="/loyalty", tags=["loyalty"])
@@ -104,20 +103,10 @@ async def balance(request: Request, subject_ref: str,
     catalogue = await c.rewards.list(tenant)
     affordable = await c.rewards.affordable(tenant, bal.points, catalogue=catalogue)
     all_costs = [r.cost for r in catalogue]
-    threshold = await _threshold(c, tenant)
     return {
         "subject_ref": subject_ref,
         "points": bal.points,
-        # THE SHOP'S RULE TRAVELS WITH THE MENU, so the screen can ask for the manager's name
-        # before the tap instead of learning about the rule from a refusal.
-        "manager_threshold": threshold,
-        # WHAT EACH REWARD STILL NEEDS BEFORE IT CAN BE HANDED OVER (د-14أ). Affordable is not the
-        # same question as allowed: a shop with a manager threshold has rewards the balance covers
-        # and the counter may not give away alone. Offering those as available and refusing at the
-        # tap is the worst order to discover it in — the customer is already holding out his hand.
-        # One rule, read from `core.redeem` so the offer and the refusal cannot drift.
-        "rewards": [{**r.to_dict(),
-                     "needs_approval": needs_approval(r.cost, threshold)} for r in affordable],
+        "rewards": [r.to_dict() for r in affordable],
         # Zero means "say nothing" — either he can afford everything or the shop has no rewards.
         # "0 points to your next reward" is a sentence that means nothing to the person reading it.
         "to_next_reward": to_next_reward(bal.points, all_costs),
@@ -131,9 +120,6 @@ class RedeemIn(BaseModel):
     # REQUIRED. See the module docstring: a field phone retries, and a retry without a key is a
     # second spend the customer has a receipt for.
     idempotency_key: str = Field(min_length=4, max_length=128)
-    # Set by a manager approving a reward above the threshold (spec §9.5). Empty otherwise, and
-    # the core decides whether that is allowed — not this model.
-    approved_by: str = Field(default="", max_length=128)
     # NO BRANCH ON THE BODY. Where the spend happened is resolved from the person's own operator
     # row, exactly as the visit path resolves it (spec 12.2) — this service holds no staff list,
     # so anything a caller sent here would be written unchecked, and «أيّ فرع يصرف أكثر؟» is a
@@ -182,9 +168,7 @@ async def redeem(request: Request, body: RedeemIn,
     try:
         rec, is_new = await c.redeemer.redeem(
             tenant, body.subject_ref, body.reward_id, actor=actor,
-            idem_key=body.idempotency_key, channel="field",
-            approved_by=body.approved_by, branch_id=branch_id,
-            manager_threshold=await _threshold(c, tenant))
+            idem_key=body.idempotency_key, channel="field", branch_id=branch_id)
     except Overdraft as exc:
         # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found: the
         # write-ahead record above claimed a redemption that never actually happened (insufficient
@@ -207,11 +191,6 @@ async def redeem(request: Request, body: RedeemIn,
         # reward, which is exactly what a customer would read as being charged twice.
         await _after_redeem(c, tenant, rec, bal.points, actor)
     return {"redemption": rec.to_dict(), "balance": bal.points, "duplicate": not is_new}
-
-
-async def _threshold(c, tenant: str) -> int:
-    tree = await c.earn_settings.load(tenant)
-    return int((tree.general or {}).get("manager_threshold") or 0)
 
 
 async def _after_redeem(c, tenant: str, rec, remaining: int, actor: str) -> None:
@@ -421,17 +400,6 @@ async def update_reward(request: Request, reward_id: str, body: RewardPatch,
 # ── the earning tree (spec §9.2) ───────────────────────────────────────────────────────────────
 class GeneralIn(BaseModel):
     points: int = Field(ge=0, le=100_000)
-    # The manager-approval threshold (spec §9.5), kept at the general level because it is one
-    # number for the whole establishment rather than a per-service one.
-    #
-    # `None` MEANS «LEAVE IT», AND 0 MEANS «REMOVE THE REQUIREMENT» — two different intentions that
-    # `default=0` collapsed into one value. The write was guarded by `if body.manager_threshold:`,
-    # so an owner who set 500 and then decided his operators should redeem freely sent 0, got a
-    # 200, and saw the response echo 500 back at him: the screen reported the change as accepted
-    # while every reward over 500 kept demanding an approval. Writing it unconditionally instead
-    # would have been the opposite bug — every request that only changes `points` would silently
-    # clear the threshold. So the field carries the three states it actually has.
-    manager_threshold: int | None = Field(default=None, ge=0, le=1_000_000)
 
 
 class GroupIn(BaseModel):
@@ -479,14 +447,6 @@ async def set_general(request: Request, body: GeneralIn,
     c = request.app.state.container
     tenant = _tenant(principal)
     tree = await c.earn_settings.set_general(tenant, {"points": body.points})
-    if body.manager_threshold is not None:
-        # Stored on the same row but outside the inheriting FIELDS — it is not a per-service
-        # value, and putting it in the tree would make it inheritable, which it is not.
-        #
-        # `is not None`, never truthiness: 0 is a decision — «no reward needs approval» — and the
-        # truthiness test silently discarded exactly that one.
-        tree.general["manager_threshold"] = int(body.manager_threshold)
-        await c.earn_settings._save(tree)        # noqa: SLF001 — same module's storage shape
     return {"general": tree.general}
 
 
