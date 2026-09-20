@@ -49,6 +49,31 @@ function renewalDay(epoch: number | null | undefined): string {
 
 type DiscountInfo = { percent: number; owning_key: string };
 
+/** THE REAL PRICE OF THE CART — `billing.subscriptions/checkout/preview`'s own response shape
+ *  (base-services v0.25.26), passed straight through with no client-side arithmetic. Reuses
+ *  billing's own `_compute_renewal`, the SAME pricing the real checkout charges, so this is never
+ *  an estimate: what this shows is what the invoice will say, to the minor unit. */
+export interface CartPreviewItem {
+  plan_id: string;
+  interval: string;
+  charged_now: boolean;
+  on_trial: boolean;
+  subtotal_minor: number;
+  discount_minor: number;
+  tax_minor: number;
+  total_minor: number;
+  prorated: boolean;
+}
+
+export interface CartPreview {
+  currency: string;
+  subtotal_minor: number;
+  discount_minor: number;
+  tax_minor: number;
+  total_minor: number;
+  items: CartPreviewItem[];
+}
+
 export function useAppBilling(session: Session, catalog: Catalog) {
   const [plans, setPlans] = useState<Plan[] | null | undefined>(undefined);
   const [subs, setSubs] = useState<Subscription[] | null | undefined>(undefined);
@@ -70,6 +95,9 @@ export function useAppBilling(session: Session, catalog: Catalog) {
   const [cartNotice, setCartNotice] = useState('');
   const [cartBusy, setCartBusy] = useState(false);
   const [cartError, setCartError] = useState('');
+  const [cartPreview, setCartPreview] = useState<CartPreview | null>(null);
+  const [cartPreviewBusy, setCartPreviewBusy] = useState(false);
+  const [cartPreviewError, setCartPreviewError] = useState('');
 
   const canBrowse = action(catalog, 'billing.plans');
   const canSubscribe = action(catalog, 'subscription.activate') ?? action(catalog, 'billing.subscribe');
@@ -314,18 +342,10 @@ export function useAppBilling(session: Session, catalog: Catalog) {
     () => cart.map((id) => apps.find((p) => p.id === id)).filter((p): p is Plan => Boolean(p)),
     [cart, apps],
   );
-  /** THE LIST TOTAL — every item's own posted price, summed, nothing else. This is a REAL number
-   *  (each plan's own price, exactly as billing itself will read it), never a guess.
-   *
-   *  DELIBERATELY NOT "list minus discount": billing's own final amount also applies VAT
-   *  (`_split_tax`, honouring each plan's `includes_tax` and reverse-charge for a VAT-registered
-   *  buyer) and picks the LARGER of a coupon vs. a cross-app rule discount, never both — a
-   *  client-side "price × (1 - percent/100)" formula silently drops the tax step entirely, so it
-   *  would show a smaller number than the shop is actually charged. Money is not a place to
-   *  approximate: a real preview needs billing's own pricing function to run, which today only
-   *  exists for a tenant's EXISTING subscriptions (`renewal_preview`) — a request for the same
-   *  preview over a not-yet-purchased cart went out to base-services 2026-09-20; until it lands,
-   *  this total is captioned as "before tax/discount" rather than presented as a final figure. */
+  /** THE LIST TOTAL — every item's own posted price, summed, nothing else. Shown ONLY while
+   *  `cartPreview` has not answered yet (or could not) — the moment a real preview exists, that
+   *  number replaces this one everywhere it is displayed, because this sum knows nothing about
+   *  discount or tax. */
   const cartTotalMinor = useMemo(
     () => cartPlans.reduce((sum, p) => {
       const price = p.prices?.find((x) => x.interval === 'month') ?? p.prices?.[0];
@@ -333,6 +353,43 @@ export function useAppBilling(session: Session, catalog: Catalog) {
     }, 0),
     [cartPlans],
   );
+
+  /** THE REAL PRICE, refetched on every add/remove — `billing's own `_compute_renewal`, run over
+   *  this exact cart, read-only (creates and charges nothing). Debounced the same way the phone
+   *  keypad's own suggest call is (`Visit.tsx`): several taps in a row must not fire one request
+   *  per tap, and a request started before the latest tap must never overwrite its answer (the
+   *  `stale` guard). No `may_add_bundle` validation happens here — the preview prices whatever is
+   *  in the cart right now, purchasable or not; only `checkout` itself enforces that rule. */
+  useEffect(() => {
+    if (cart.length === 0) {
+      setCartPreview(null);
+      setCartPreviewError('');
+      setCartPreviewBusy(false);
+      return;
+    }
+    const a = action(catalog, 'subscription.checkout_preview');
+    if (!a) { setCartPreview(null); return; }
+    let stale = false;
+    setCartPreviewBusy(true);
+    const id = window.setTimeout(() => {
+      call<CartPreview>(session, a, {
+        items: cart.map((pid) => ({ plan_id: pid, interval: 'month' })),
+      })
+        .then((out) => {
+          if (stale) return;
+          setCartPreview(out);
+          setCartPreviewError('');
+        })
+        .catch((e) => {
+          if (stale) return;
+          setCartPreview(null);
+          setCartPreviewError(e instanceof Error ? e.message : 'تعذّر حساب السعر النهائي حالياً.');
+        })
+        .finally(() => { if (!stale) setCartPreviewBusy(false); });
+    }, 200);
+    return () => { stale = true; window.clearTimeout(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, session, catalog]);
 
   const checkout = () => {
     setCartError('');
@@ -371,6 +428,7 @@ export function useAppBilling(session: Session, catalog: Catalog) {
     planByKey, subByPlanId, unitsPerHalala, aiEnabled,
     capacity, capacitySubs, capacityBusyPlanId, capacityError, changeCapacityQuantity,
     cart, cartPlans, cartTotalMinor, cartNotice, cartBusy, cartError,
+    cartPreview, cartPreviewBusy, cartPreviewError,
     toggleCart, checkout, finishCheckout,
   };
 }

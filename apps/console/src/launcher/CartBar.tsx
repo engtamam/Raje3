@@ -4,23 +4,35 @@
  * `may_add_bundle` validates the whole set — a dependency and the app that needs it may now
  * travel in the same purchase). Built fresh for this pass, on `rj-ui/Card`'s own surface/shadow
  * language so it reads as part of the same product, never a bolted-on widget.
+ *
+ * THE TOTAL SHOWN HERE IS `preview` — `useAppBilling`'s own `cartPreview`, billing-service's real
+ * pre-purchase price (subtotal, savings, tax, total; base-services v0.25.26). It runs billing's
+ * own `_compute_renewal` over this exact cart, so what a shop sees before paying is what the
+ * invoice will say after — never a client-computed guess. `totalMinor` (the raw list-price sum)
+ * is shown ONLY while the preview has not answered yet, with an honest caveat that it excludes
+ * discount/tax — the owner's own standing instruction: financial figures are never approximated.
  */
 import { AnimatePresence, motion } from 'framer-motion';
 import { ShoppingBag, X } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { riyals } from '../money';
 import type { Plan } from '../billingShared';
+import type { CartPreview } from './useAppBilling';
 import { useOperatorI18n, tf } from '../operator-i18n';
 import './launcher-i18n';
 
 export function CartBar({
-  plans, totalMinor, discounts, notice, error, busy, onRemove, onCheckout,
+  plans, totalMinor, preview, previewBusy, previewError, discounts, notice, error, busy,
+  onRemove, onCheckout,
 }: {
   plans: Plan[];
-  /** THE LIST TOTAL — every item's own posted price, summed. A REAL number, not a guess; see
-   *  `useAppBilling`'s own `cartTotalMinor` for why no "after discount/tax" figure is computed
-   *  here — only billing itself can produce that number correctly. */
+  /** THE LIST TOTAL — every item's own posted price, summed. A real number, shown only as a
+   *  fallback while `preview` has not answered (or could not). */
   totalMinor: number;
+  /** THE REAL PRICE — `useAppBilling`'s own `cartPreview`. `null` while loading or unavailable. */
+  preview: CartPreview | null;
+  previewBusy: boolean;
+  previewError: string;
   /** Known discounts, keyed by plan id — shown per item as a badge ("X% off"), never folded into
    *  a computed total: the badge names a fact billing already told us; a total built from it would
    *  be an amount billing never confirmed. */
@@ -33,6 +45,7 @@ export function CartBar({
 }) {
   const { t } = useOperatorI18n();
   const hasDiscount = plans.some((p) => discounts[p.id]);
+  const shownTotal = preview ? preview.total_minor : totalMinor;
 
   return (
     <AnimatePresence>
@@ -62,11 +75,42 @@ export function CartBar({
               </div>
               <div className="flex flex-col items-end">
                 <span className="text-xs font-semibold text-text-muted">{t('launcher.cart.total')}</span>
-                <span className="text-lg font-extrabold">{riyals(totalMinor)}</span>
+                <span className="text-lg font-extrabold tabular-nums">{riyals(shownTotal)}</span>
               </div>
             </div>
 
-            {hasDiscount ? <p className="text-xs text-text-secondary">{t('launcher.cart.discountCaveat')}</p> : null}
+            {/* THE REAL BREAKDOWN — only once billing itself has answered. Every row here is a
+                field `preview` returned untouched: nothing here is computed by this component. */}
+            {preview ? (
+              <div className="flex flex-col gap-1 rounded-2xl bg-surface-2 p-3 text-xs">
+                <div className="flex items-center justify-between text-text-secondary">
+                  <span>{t('launcher.cart.subtotal')}</span>
+                  <span className="tabular-nums">{riyals(preview.subtotal_minor)}</span>
+                </div>
+                {preview.discount_minor > 0 ? (
+                  <div className="flex items-center justify-between text-success">
+                    <span>{t('launcher.cart.savings')}</span>
+                    <span className="tabular-nums">-{riyals(preview.discount_minor)}</span>
+                  </div>
+                ) : null}
+                {preview.tax_minor > 0 ? (
+                  <div className="flex items-center justify-between text-text-secondary">
+                    <span>{t('launcher.cart.tax')}</span>
+                    <span className="tabular-nums">{riyals(preview.tax_minor)}</span>
+                  </div>
+                ) : null}
+                <div className="mt-1 flex items-center justify-between border-t border-border-subtle pt-1 font-bold text-text-primary">
+                  <span>{t('launcher.cart.totalDue')}</span>
+                  <span className="tabular-nums">{riyals(preview.total_minor)}</span>
+                </div>
+              </div>
+            ) : previewBusy ? (
+              <p className="text-xs text-text-muted">{t('launcher.cart.pricingUpdating')}</p>
+            ) : previewError ? (
+              <p className="text-xs text-text-muted">{t('launcher.cart.pricingUnavailable')}</p>
+            ) : hasDiscount ? (
+              <p className="text-xs text-text-secondary">{t('launcher.cart.discountCaveat')}</p>
+            ) : null}
 
             <div className="flex flex-wrap gap-1.5">
               {plans.map((p) => (

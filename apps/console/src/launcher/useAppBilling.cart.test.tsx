@@ -36,6 +36,9 @@ const PLAN_CAMPAIGNS = {
 let checkoutCalls: unknown[] = [];
 let checkoutShouldThrow: Error | null = null;
 let heldSubs: unknown[] = [];
+let previewCalls: unknown[] = [];
+let previewResponse: unknown = null;
+let previewShouldThrow: Error | null = null;
 
 vi.mock('../catalog', async (importOriginal) => {
   const real = await importOriginal<typeof import('../catalog')>();
@@ -54,6 +57,11 @@ vi.mock('../catalog', async (importOriginal) => {
         if (checkoutShouldThrow) throw checkoutShouldThrow;
         return { notice: '' };
       }
+      if (a.id === 'subscription.checkout_preview') {
+        previewCalls.push(body);
+        if (previewShouldThrow) throw previewShouldThrow;
+        return previewResponse;
+      }
       return {};
     },
   };
@@ -67,6 +75,9 @@ afterEach(() => {
   checkoutCalls = [];
   checkoutShouldThrow = null;
   heldSubs = [];
+  previewCalls = [];
+  previewResponse = null;
+  previewShouldThrow = null;
 });
 
 async function setUp() {
@@ -133,6 +144,55 @@ describe('cartTotalMinor', () => {
     const result = await setUp();
     act(() => result.current.toggleCart(PLAN_LOYALTY)); // 9900 + free plan_visit auto-added
     expect(result.current.cartTotalMinor).toBe(9900);
+  });
+});
+
+describe('cartPreview', () => {
+  it('fetches the real preview after an item is added, debounced', async () => {
+    previewResponse = {
+      currency: 'SAR', subtotal_minor: 4900, discount_minor: 0, tax_minor: 0, total_minor: 4900,
+      items: [{ plan_id: 'plan_campaigns', interval: 'month', charged_now: true, on_trial: false,
+               subtotal_minor: 4900, discount_minor: 0, tax_minor: 0, total_minor: 4900, prorated: false }],
+    };
+    const result = await setUp();
+    act(() => result.current.toggleCart(PLAN_CAMPAIGNS));
+    await act(async () => { await new Promise((r) => setTimeout(r, 250)); });
+    expect(previewCalls).toEqual([{ items: [{ plan_id: 'plan_campaigns', interval: 'month' }] }]);
+    expect(result.current.cartPreview).toEqual(previewResponse);
+  });
+
+  it('never fetches a preview for an empty cart', async () => {
+    const result = await setUp();
+    await act(async () => { await new Promise((r) => setTimeout(r, 250)); });
+    expect(previewCalls).toEqual([]);
+    expect(result.current.cartPreview).toBeNull();
+  });
+
+  it('surfaces a friendly error and clears the preview when billing cannot price the cart', async () => {
+    previewShouldThrow = new Error('تعذّر حساب السعر.');
+    const result = await setUp();
+    act(() => result.current.toggleCart(PLAN_CAMPAIGNS));
+    await act(async () => { await new Promise((r) => setTimeout(r, 250)); });
+    expect(result.current.cartPreview).toBeNull();
+    expect(result.current.cartPreviewError).toBe('تعذّر حساب السعر.');
+    // A failed PRICE PREVIEW must never touch the cart itself — he can still check out.
+    expect(result.current.cart).toEqual(['plan_campaigns']);
+  });
+
+  it('clears the preview once checkout empties the cart', async () => {
+    previewResponse = {
+      currency: 'SAR', subtotal_minor: 4900, discount_minor: 0, tax_minor: 0, total_minor: 4900,
+      items: [],
+    };
+    const result = await setUp();
+    act(() => result.current.toggleCart(PLAN_CAMPAIGNS));
+    await act(async () => { await new Promise((r) => setTimeout(r, 250)); });
+    expect(result.current.cartPreview).not.toBeNull();
+
+    await act(async () => { await result.current.finishCheckout(['plan_campaigns'], 'tok_1'); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 250)); });
+    expect(result.current.cart).toEqual([]);
+    expect(result.current.cartPreview).toBeNull();
   });
 });
 

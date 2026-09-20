@@ -411,6 +411,9 @@ export function AppLauncher() {
         <CartBar
           plans={billing.cartPlans}
           totalMinor={billing.cartTotalMinor}
+          preview={billing.cartPreview}
+          previewBusy={billing.cartPreviewBusy}
+          previewError={billing.cartPreviewError}
           discounts={billing.discountPreviews}
           notice={billing.cartNotice}
           error={billing.cartError}
