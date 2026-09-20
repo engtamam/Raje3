@@ -30,14 +30,15 @@
  * محلية بالمتصفح على قائمة مجتزَأة، ولا سقف وهمي 50 بلا وسيلة تشوف الباقي.
  */
 import { useEffect, useState } from 'react';
-import { Activity, ArrowRight, Building2, CheckCircle2, CircleAlert, Clock, History, MessageCircle, Package, RefreshCw, Ticket, Users } from 'lucide-react';
+import { Activity, ArrowRight, Building2, CheckCircle2, CircleAlert, Clock, FileSearch, Gavel, History, MessageCircle, Package, RefreshCw, ShieldCheck, Ticket, Users } from 'lucide-react';
 import { Badge } from './../rj-ui/Badge';
 import { Segmented } from './../rj-ui/Segmented';
 import { Button } from './../rj-ui/Button';
 import { KpiCard } from './../rj-ui/KpiCard';
 import { Table, type TableColumn } from './../rj-ui/Table';
 import { Input, Select } from './../rj-ui/Field';
-import { req, type AdminSession } from './api';
+import { ConfirmDialog } from './../rj-ui/ConfirmDialog';
+import { req, AdminRefused, type AdminSession } from './api';
 import type { AdminCatalog } from './catalog';
 import { findCustomerAction, SUB_STATUS_META, type Tenant, type Subscription } from './CustomerList';
 import { StatusBadge, type DeliveryRow } from './AdminWhatsAppDiagnostics';
@@ -56,7 +57,7 @@ const INVOICE_STATUS_META: Record<Invoice['status'], { label: string; tone: 'neu
   void: { label: 'ملغاة', tone: 'neutral' },
 };
 
-type Tab = 'overview' | 'billing' | 'seats' | 'tickets' | 'whatsapp' | 'audit';
+type Tab = 'overview' | 'billing' | 'seats' | 'tickets' | 'whatsapp' | 'privacy' | 'audit';
 
 /** منذ متى معنا، بكلمات — نفس منطق `ago()` المستخدم بشاشة المحل نفسها (screens/Customer.tsx)،
  *  محلياً هنا لأن هذا الملف لا يستورد من apps/console/src/screens. */
@@ -142,6 +143,7 @@ export function CustomerDetail({ session, tenant, subscription, planNames, catal
                   { value: 'seats', label: 'الفروع والمستخدمين' },
                   { value: 'tickets', label: 'التذاكر والدعم' },
                   { value: 'whatsapp', label: 'واتساب' },
+                  { value: 'privacy', label: 'الخصوصية والدعم' },
                   { value: 'audit', label: 'السجل والتدقيق' },
                 ]} />
 
@@ -150,6 +152,7 @@ export function CustomerDetail({ session, tenant, subscription, planNames, catal
       {tab === 'seats' ? <SeatsTab session={session} tenant={tenant} catalog={catalog} /> : null}
       {tab === 'tickets' ? <TicketsTab session={session} tenant={tenant} catalog={catalog} /> : null}
       {tab === 'whatsapp' ? <WhatsAppTab session={session} tenant={tenant} catalog={catalog} /> : null}
+      {tab === 'privacy' ? <PrivacySupportTab session={session} tenant={tenant} catalog={catalog} /> : null}
       {tab === 'audit' ? <AuditTab session={session} tenant={tenant} catalog={catalog} /> : null}
     </div>
   );
@@ -691,6 +694,581 @@ function WhatsAppTab({ session, tenant, catalog }: { session: AdminSession; tena
       ) : null}
       <Table columns={columns} rows={rows} getRowId={(r) => r.id ?? `${r.recipient_masked}-${r.created}`}
             emptyTitle="لا رسائل واتساب مسجَّلة لهذا المحل" failedTitle="تعذّرت قراءة سجل واتساب" />
+    </div>
+  );
+}
+
+/** The one sentence a refused admin action carries — same idiom AdminRefused already uses
+ *  everywhere else in this panel. */
+function errMsg(e: unknown): string {
+  return e instanceof AdminRefused ? e.message : 'تعذّر إكمال الطلب. حاول مرة أخرى.';
+}
+
+interface DsarRow {
+  id: string; tenant: string; subject: string; subject_kind: string; type: string;
+  status: string; verified: boolean; targets: Record<string, boolean>;
+  refusal_reason: string; created_at: number; deadline_at: number; completed_at: number;
+}
+
+interface LegalHoldRow {
+  id: string; tenant: string; subject: string; reason: string; active: boolean;
+  placed_at: number; released_at: number;
+}
+
+interface ConsentRow {
+  tenant: string; subject: string; purpose: string; granted: boolean;
+  notice_version: string; method: string; expires_at: number; updated_at: number;
+  basis: string; consented_by: string; relation: string;
+}
+
+interface ConsentProofRow {
+  id: string; subject: string; purpose: string; action: string; at: number;
+  actor: string; basis: string;
+}
+
+function unixDate(sec: number): string {
+  return sec ? new Date(sec * 1000).toLocaleDateString('ar-SA-u-nu-latn') : '—';
+}
+
+const DSAR_STATUS_TONE: Record<string, 'neutral' | 'success' | 'danger' | 'warning'> = {
+  pending: 'warning', in_progress: 'warning', completed: 'success', refused: 'danger',
+};
+
+/**
+ * المرحلة أ — توصيل خمس مجموعات إجراءات موجودة فعلاً بالكتالوج الإداري (compliance-service،
+ * operations، loyalty) بلا أي شغل خلفي جديد: طلبات الخصوصية (DSAR)، سجل الموافقة، الحجز
+ * القانوني، إصلاح رصيد نقاط عميل، وملف الأدلة. كل مجموعة تختفي بأدب ("لا صلاحية") لو الكتالوج
+ * ما يحمل إجراءها — بلا استثناء يوقف باقي التبويب.
+ */
+function PrivacySupportTab({ session, tenant, catalog }: {
+  session: AdminSession; tenant: Tenant; catalog: AdminCatalog;
+}) {
+  return (
+    <div className="flex flex-col gap-8">
+      <DsarSection session={session} tenant={tenant} catalog={catalog} />
+      <ConsentSection session={session} tenant={tenant} catalog={catalog} />
+      <LegalHoldsSection session={session} tenant={tenant} catalog={catalog} />
+      <LoyaltyReconcileSection session={session} tenant={tenant} catalog={catalog} />
+      <EvidenceFileSection session={session} tenant={tenant} catalog={catalog} />
+    </div>
+  );
+}
+
+function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <h3 className="flex items-center gap-2 font-medium text-text-primary">
+      {icon}{title}
+    </h3>
+  );
+}
+
+/** طلبات الخصوصية (DSAR) — فتح/تحقّق/تنفيذ، وقائمة طلبات هذا المحل. */
+function DsarSection({ session, tenant, catalog }: {
+  session: AdminSession; tenant: Tenant; catalog: AdminCatalog;
+}) {
+  const [rows, setRows] = useState<DsarRow[] | 'loading' | 'failed'>('loading');
+  const [subject, setSubject] = useState('');
+  const [type, setType] = useState<'erase' | 'export'>('export');
+  const [opening, setOpening] = useState(false);
+  const [openErr, setOpenErr] = useState('');
+  const [tokens, setTokens] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [armProcess, setArmProcess] = useState<DsarRow | null>(null);
+  const [rowErr, setRowErr] = useState('');
+
+  const listAction = findCustomerAction(catalog, 'compliance.list_dsar');
+  const openAction = findCustomerAction(catalog, 'compliance.open_dsar');
+  const verifyAction = findCustomerAction(catalog, 'compliance.verify_dsar');
+  const processAction = findCustomerAction(catalog, 'compliance.process_dsar');
+
+  const load = () => {
+    if (!listAction) { setRows('failed'); return; }
+    req<{ requests: DsarRow[] }>(
+      `${listAction.path}?tenant=${encodeURIComponent(tenant.id)}`, 'GET', undefined, session.access_token)
+      .then((r) => setRows(r.requests ?? [])).catch(() => setRows('failed'));
+  };
+  useEffect(load, [tenant.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const openDsar = async () => {
+    if (!openAction || !subject.trim()) return;
+    setOpening(true); setOpenErr('');
+    try {
+      await req(openAction.path, 'POST', { tenant: tenant.id, subject: subject.trim(), type },
+                session.access_token);
+      setSubject('');
+      load();
+    } catch (e) {
+      setOpenErr(errMsg(e));
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  const verify = async (row: DsarRow) => {
+    if (!verifyAction) return;
+    const token = (tokens[row.id] ?? '').trim();
+    if (!token) return;
+    setBusyId(row.id); setRowErr('');
+    try {
+      const path = verifyAction.path.replace('{dsar_id}', encodeURIComponent(row.id));
+      await req(`${path}?token=${encodeURIComponent(token)}&tenant=${encodeURIComponent(tenant.id)}`,
+                'POST', undefined, session.access_token);
+      load();
+    } catch (e) {
+      setRowErr(errMsg(e));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const process = async (row: DsarRow) => {
+    if (!processAction) return;
+    setBusyId(row.id); setRowErr('');
+    try {
+      const path = processAction.path.replace('{dsar_id}', encodeURIComponent(row.id));
+      await req(`${path}?tenant=${encodeURIComponent(tenant.id)}`, 'POST', undefined, session.access_token);
+      setArmProcess(null);
+      load();
+    } catch (e) {
+      setRowErr(errMsg(e));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const columns: TableColumn<DsarRow>[] = [
+    { key: 'subject', header: 'صاحب الطلب', render: (d) => <span dir="ltr" className="font-mono text-text-muted">{d.subject}</span> },
+    { key: 'type', header: 'النوع', render: (d) => (d.type === 'erase' ? 'حذف' : 'اطّلاع') },
+    { key: 'status', header: 'الحالة', render: (d) => <Badge tone={DSAR_STATUS_TONE[d.status] ?? 'neutral'}>{d.status}</Badge> },
+    { key: 'verified', header: 'مؤكّد الهوية', hideOnCard: true, render: (d) => (d.verified ? 'نعم' : 'لا') },
+    { key: 'created_at', header: 'فُتح', render: (d) => unixDate(d.created_at) },
+    { key: 'deadline_at', header: 'الموعد النهائي', hideOnCard: true, render: (d) => unixDate(d.deadline_at) },
+    {
+      key: 'actions', header: 'إجراء', render: (d) => {
+        if (d.status === 'completed' || d.status === 'refused') return <span className="text-text-muted">—</span>;
+        if (!d.verified) {
+          if (!verifyAction) return <span className="text-text-muted">—</span>;
+          return (
+            <div className="flex items-center gap-1">
+              <Input value={tokens[d.id] ?? ''} placeholder="رمز التحقّق"
+                    onChange={(e) => setTokens((t) => ({ ...t, [d.id]: e.target.value }))}
+                    className="w-28" />
+              <Button size="sm" variant="outline" disabled={busyId === d.id || !(tokens[d.id] ?? '').trim()}
+                      onClick={() => void verify(d)}>تحقّق</Button>
+            </div>
+          );
+        }
+        if (!processAction) return <span className="text-text-muted">—</span>;
+        return (
+          <Button size="sm" variant="danger" disabled={busyId === d.id} onClick={() => setArmProcess(d)}>
+            نفّذ
+          </Button>
+        );
+      },
+    },
+  ];
+
+  return (
+    <div className="flex flex-col gap-3">
+      <SectionHeader icon={<FileSearch size={18} />} title="طلبات الخصوصية (DSAR)" />
+      {!listAction ? <p className="text-sm text-text-secondary">لا صلاحية.</p> : (
+        <>
+          {openAction ? (
+            <div className="flex flex-wrap items-end gap-2">
+              <Input value={subject} onChange={(e) => setSubject(e.target.value)}
+                    placeholder="رقم جوال صاحب الطلب" className="w-40" aria-label="صاحب الطلب" />
+              <Select value={type} onChange={(e) => setType(e.target.value as typeof type)}
+                     className="w-auto" aria-label="نوع الطلب">
+                <option value="export">اطّلاع</option>
+                <option value="erase">حذف</option>
+              </Select>
+              <Button size="sm" disabled={opening || !subject.trim()} onClick={() => void openDsar()}>
+                {opening ? 'جارٍ الفتح…' : 'فتح طلب جديد'}
+              </Button>
+              {openErr ? <p role="alert" className="text-danger text-sm">{openErr}</p> : null}
+            </div>
+          ) : null}
+          {rowErr ? <p role="alert" className="text-danger text-sm">{rowErr}</p> : null}
+          <Table columns={columns} rows={rows} getRowId={(d) => d.id}
+                emptyTitle="لا طلبات خصوصية لهذا المحل" failedTitle="تعذّرت قراءة الطلبات" />
+        </>
+      )}
+      <ConfirmDialog open={armProcess !== null} onClose={() => setArmProcess(null)}
+                    onConfirm={() => armProcess && void process(armProcess)}
+                    title="تنفيذ طلب الخصوصية" danger busy={busyId === armProcess?.id}
+                    body="سيُرسَل الطلب لكل الخدمات المعنية لتنفيذه فعلياً — لا تراجع بعده.">
+      </ConfirmDialog>
+    </div>
+  );
+}
+
+/** سجل الموافقة — بحث برقم صاحب العلاقة، ثم عرض المنح والسحب + نموذجا منح/سحب. */
+function ConsentSection({ session, tenant, catalog }: {
+  session: AdminSession; tenant: Tenant; catalog: AdminCatalog;
+}) {
+  const [subject, setSubject] = useState('');
+  const [asked, setAsked] = useState('');
+  const [consents, setConsents] = useState<ConsentRow[] | 'loading' | 'failed' | null>(null);
+  const [proofs, setProofs] = useState<ConsentProofRow[]>([]);
+  const [purpose, setPurpose] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [armWithdraw, setArmWithdraw] = useState<ConsentRow | null>(null);
+
+  const historyAction = findCustomerAction(catalog, 'compliance.consent_history');
+  const grantAction = findCustomerAction(catalog, 'compliance.grant_consent');
+  const withdrawAction = findCustomerAction(catalog, 'compliance.withdraw_consent');
+
+  const search = () => {
+    if (!historyAction || !subject.trim()) return;
+    setConsents('loading'); setAsked(subject.trim());
+    req<{ consents: ConsentRow[]; proofs: ConsentProofRow[] }>(
+      `${historyAction.path}?subject=${encodeURIComponent(subject.trim())}&tenant=${encodeURIComponent(tenant.id)}`,
+      'GET', undefined, session.access_token)
+      .then((r) => { setConsents(r.consents ?? []); setProofs(r.proofs ?? []); })
+      .catch(() => setConsents('failed'));
+  };
+
+  const grant = async () => {
+    if (!grantAction || !asked || !purpose.trim()) return;
+    setBusy(true); setErr('');
+    try {
+      await req(grantAction.path, 'POST', { tenant: tenant.id, subject: asked, purpose: purpose.trim() },
+                session.access_token);
+      setPurpose('');
+      search();
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const withdraw = async (row: ConsentRow) => {
+    if (!withdrawAction) return;
+    setBusy(true);
+    try {
+      await req(withdrawAction.path, 'POST', { tenant: tenant.id, subject: row.subject, purpose: row.purpose },
+                session.access_token);
+      setArmWithdraw(null);
+      search();
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const consentColumns: TableColumn<ConsentRow>[] = [
+    { key: 'purpose', header: 'الغرض' },
+    { key: 'granted', header: 'الحالة', render: (c) => <Badge tone={c.granted ? 'success' : 'danger'}>{c.granted ? 'ممنوحة' : 'مسحوبة'}</Badge> },
+    { key: 'basis', header: 'الأساس', hideOnCard: true, render: (c) => (c.basis === 'self' ? 'شخصي' : c.basis) },
+    { key: 'updated_at', header: 'آخر تحديث', render: (c) => unixDate(c.updated_at) },
+    {
+      key: 'actions', header: 'إجراء', render: (c) => (
+        !withdrawAction || !c.granted ? <span className="text-text-muted">—</span> :
+        <Button size="sm" variant="danger" onClick={() => setArmWithdraw(c)}>سحب</Button>
+      ),
+    },
+  ];
+
+  const proofColumns: TableColumn<ConsentProofRow>[] = [
+    { key: 'purpose', header: 'الغرض' },
+    { key: 'action', header: 'الفعل', render: (p) => (p.action === 'granted' ? 'منح' : 'سحب') },
+    { key: 'actor', header: 'الفاعل', hideOnCard: true, render: (p) => <span dir="ltr" className="text-text-muted">{p.actor || '—'}</span> },
+    { key: 'at', header: 'الوقت', render: (p) => unixDate(p.at) },
+  ];
+
+  return (
+    <div className="flex flex-col gap-3">
+      <SectionHeader icon={<ShieldCheck size={18} />} title="سجل الموافقة" />
+      {!historyAction ? <p className="text-sm text-text-secondary">لا صلاحية.</p> : (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input value={subject} onChange={(e) => setSubject(e.target.value)}
+                  placeholder="رقم جوال صاحب العلاقة" className="w-40" aria-label="صاحب العلاقة" />
+            <Button size="sm" variant="outline" disabled={!subject.trim()} onClick={search}>ابحث</Button>
+          </div>
+          {consents === null ? null : (
+            <>
+              {grantAction && asked ? (
+                <div className="flex flex-wrap items-end gap-2">
+                  <Input value={purpose} onChange={(e) => setPurpose(e.target.value)}
+                        placeholder="الغرض (مثال: تسويق)" className="w-40" aria-label="الغرض" />
+                  <Button size="sm" disabled={busy || !purpose.trim()} onClick={() => void grant()}>
+                    منح موافقة
+                  </Button>
+                </div>
+              ) : null}
+              {err ? <p role="alert" className="text-danger text-sm">{err}</p> : null}
+              <Table columns={consentColumns} rows={consents} getRowId={(c) => `${c.subject}-${c.purpose}`}
+                    emptyTitle="لا موافقات مسجَّلة لهذا الرقم" failedTitle="تعذّرت قراءة السجل" />
+              {proofs.length > 0 ? (
+                <div>
+                  <h4 className="mb-2 text-label text-text-muted">سجل الأحداث</h4>
+                  <Table columns={proofColumns} rows={proofs} getRowId={(p) => p.id}
+                        emptyTitle="" failedTitle="" />
+                </div>
+              ) : null}
+            </>
+          )}
+        </>
+      )}
+      <ConfirmDialog open={armWithdraw !== null} onClose={() => setArmWithdraw(null)}
+                    onConfirm={() => armWithdraw && void withdraw(armWithdraw)}
+                    title="سحب الموافقة" danger busy={busy}
+                    body={armWithdraw ? `سيُسحَب غرض «${armWithdraw.purpose}» فوراً.` : ''}>
+      </ConfirmDialog>
+    </div>
+  );
+}
+
+/** الحجز القانوني — قائمة حجوزات المحل + نموذج وضع حجز جديد + رفع الحجز. */
+function LegalHoldsSection({ session, tenant, catalog }: {
+  session: AdminSession; tenant: Tenant; catalog: AdminCatalog;
+}) {
+  const [rows, setRows] = useState<LegalHoldRow[] | 'loading' | 'failed'>('loading');
+  const [subject, setSubject] = useState('');
+  const [reason, setReason] = useState('');
+  const [placing, setPlacing] = useState(false);
+  const [err, setErr] = useState('');
+  const [armRelease, setArmRelease] = useState<LegalHoldRow | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const listAction = findCustomerAction(catalog, 'compliance.list_legal_holds');
+  const placeAction = findCustomerAction(catalog, 'compliance.place_legal_hold');
+  const releaseAction = findCustomerAction(catalog, 'compliance.release_legal_hold');
+
+  const load = () => {
+    if (!listAction) { setRows('failed'); return; }
+    req<{ holds: LegalHoldRow[] }>(
+      `${listAction.path}?tenant=${encodeURIComponent(tenant.id)}`, 'GET', undefined, session.access_token)
+      .then((r) => setRows(r.holds ?? [])).catch(() => setRows('failed'));
+  };
+  useEffect(load, [tenant.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const place = async () => {
+    if (!placeAction || !subject.trim() || !reason.trim()) return;
+    setPlacing(true); setErr('');
+    try {
+      await req(placeAction.path, 'POST', { tenant: tenant.id, subject: subject.trim(), reason: reason.trim() },
+                session.access_token);
+      setSubject(''); setReason('');
+      load();
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setPlacing(false);
+    }
+  };
+
+  const release = async (row: LegalHoldRow) => {
+    if (!releaseAction) return;
+    setBusy(true);
+    try {
+      const path = releaseAction.path.replace('{id}', encodeURIComponent(row.id));
+      await req(path, 'POST', undefined, session.access_token);
+      setArmRelease(null);
+      load();
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const columns: TableColumn<LegalHoldRow>[] = [
+    { key: 'subject', header: 'صاحب العلاقة', render: (h) => <span dir="ltr" className="font-mono text-text-muted">{h.subject}</span> },
+    { key: 'reason', header: 'السبب' },
+    { key: 'active', header: 'الحالة', render: (h) => <Badge tone={h.active ? 'warning' : 'neutral'}>{h.active ? 'قائم' : 'مرفوع'}</Badge> },
+    { key: 'placed_at', header: 'وُضع', hideOnCard: true, render: (h) => unixDate(h.placed_at) },
+    {
+      key: 'actions', header: 'إجراء', render: (h) => (
+        !releaseAction || !h.active ? <span className="text-text-muted">—</span> :
+        <Button size="sm" variant="danger" onClick={() => setArmRelease(h)}>ارفع الحجز</Button>
+      ),
+    },
+  ];
+
+  return (
+    <div className="flex flex-col gap-3">
+      <SectionHeader icon={<Gavel size={18} />} title="الحجز القانوني" />
+      {!listAction ? <p className="text-sm text-text-secondary">لا صلاحية.</p> : (
+        <>
+          {placeAction ? (
+            <div className="flex flex-wrap items-end gap-2">
+              <Input value={subject} onChange={(e) => setSubject(e.target.value)}
+                    placeholder="رقم جوال صاحب العلاقة" className="w-40" aria-label="صاحب العلاقة" />
+              <Input value={reason} onChange={(e) => setReason(e.target.value)}
+                    placeholder="سبب الحجز" className="w-48" aria-label="السبب" />
+              <Button size="sm" disabled={placing || !subject.trim() || !reason.trim()}
+                      onClick={() => void place()}>
+                {placing ? 'جارٍ الوضع…' : 'ضع حجزاً'}
+              </Button>
+            </div>
+          ) : null}
+          {err ? <p role="alert" className="text-danger text-sm">{err}</p> : null}
+          <Table columns={columns} rows={rows} getRowId={(h) => h.id}
+                emptyTitle="لا حجوزات قانونية لهذا المحل" failedTitle="تعذّرت قراءة الحجوزات" />
+        </>
+      )}
+      <ConfirmDialog open={armRelease !== null} onClose={() => setArmRelease(null)}
+                    onConfirm={() => armRelease && void release(armRelease)}
+                    title="رفع الحجز القانوني" danger busy={busy}
+                    body="سيُسمَح بحذف بيانات صاحب العلاقة عند أي طلب لاحق — تأكد أن السبب انتهى فعلاً.">
+      </ConfirmDialog>
+    </div>
+  );
+}
+
+/** إصلاح رصيد نقاط عميل — يعيد حساب رصيده من سجل حركاته الفعلي، ويعرض القديم والجديد. */
+function LoyaltyReconcileSection({ session, tenant, catalog }: {
+  session: AdminSession; tenant: Tenant; catalog: AdminCatalog;
+}) {
+  const [subjectRef, setSubjectRef] = useState('');
+  const [reason, setReason] = useState('');
+  const [arm, setArm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [result, setResult] = useState<{ before?: number; after?: number } | null>(null);
+
+  const action = findCustomerAction(catalog, 'loyalty.platform_reconcile');
+  const ready = subjectRef.trim().length >= 8 && reason.trim().length >= 3;
+
+  const reconcile = async () => {
+    if (!action || !ready) return;
+    setBusy(true); setErr(''); setResult(null);
+    try {
+      const out = await req<{ before?: number; after?: number }>(
+        action.path, 'POST',
+        { tenant: tenant.id, subject_ref: subjectRef.trim(), reason: reason.trim() },
+        session.access_token);
+      setResult(out);
+      setArm(false);
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <SectionHeader icon={<RefreshCw size={18} />} title="إصلاح رصيد نقاط عميل" />
+      {!action ? <p className="text-sm text-text-secondary">لا صلاحية.</p> : (
+        <>
+          <div className="flex flex-wrap items-end gap-2">
+            <Input value={subjectRef} onChange={(e) => setSubjectRef(e.target.value)}
+                  placeholder="مرجع العميل (subject_ref)" className="w-48" aria-label="مرجع العميل" />
+            <Input value={reason} onChange={(e) => setReason(e.target.value)}
+                  placeholder="سبب الإصلاح" className="w-48" aria-label="السبب" />
+            <Button size="sm" disabled={!ready} onClick={() => setArm(true)}>أصلح الرصيد</Button>
+          </div>
+          {err ? <p role="alert" className="text-danger text-sm">{err}</p> : null}
+          {result ? (
+            <p className="text-sm text-text-secondary">
+              كان <span dir="ltr" className="font-mono">{result.before ?? '—'}</span>، وصار{' '}
+              <span dir="ltr" className="font-mono">{result.after ?? '—'}</span>.
+            </p>
+          ) : null}
+        </>
+      )}
+      <ConfirmDialog open={arm} onClose={() => setArm(false)} onConfirm={() => void reconcile()}
+                    title="إصلاح الرصيد" danger busy={busy}
+                    body="سيُعاد حساب الرصيد من سجل الحركات الفعلي ويُستبدَل الرقم الحالي به.">
+      </ConfirmDialog>
+    </div>
+  );
+}
+
+interface EvidenceSection { status: string; records: unknown[]; count: number; reason?: string; }
+interface EvidenceFile {
+  tenant: string; since: number; until: number; generated_at: number; requested_by: string;
+  sections: Record<string, EvidenceSection>;
+}
+
+const EVIDENCE_SECTION_LABEL: Record<string, string> = {
+  privacy_requests: 'طلبات الخصوصية', consent: 'الموافقة',
+  messages: 'الرسائل', agreements: 'الموافقات القانونية',
+};
+
+/** ملف الأدلة — كل ما تحتفظ به المنصة عن هذا المحل بفترة معيّنة، لدعم شكوى. */
+function EvidenceFileSection({ session, tenant, catalog }: {
+  session: AdminSession; tenant: Tenant; catalog: AdminCatalog;
+}) {
+  const [since, setSince] = useState('');
+  const [until, setUntil] = useState('');
+  const [arm, setArm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [file, setFile] = useState<EvidenceFile | null>(null);
+
+  const action = findCustomerAction(catalog, 'operations.evidence_file');
+
+  const toUnix = (d: string): number => (d ? Math.floor(new Date(d).getTime() / 1000) : 0);
+
+  const build = async () => {
+    if (!action) return;
+    setBusy(true); setErr('');
+    try {
+      const out = await req<EvidenceFile>(
+        action.path, 'POST',
+        { tenant: tenant.id, since: toUnix(since), until: toUnix(until) },
+        session.access_token);
+      setFile(out);
+      setArm(false);
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <SectionHeader icon={<History size={18} />} title="ملف الأدلة" />
+      {!action ? <p className="text-sm text-text-secondary">لا صلاحية.</p> : (
+        <>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1 text-label text-text-secondary">
+              من
+              <Input type="date" value={since} onChange={(e) => setSince(e.target.value)} className="w-36" />
+            </label>
+            <label className="flex flex-col gap-1 text-label text-text-secondary">
+              إلى
+              <Input type="date" value={until} onChange={(e) => setUntil(e.target.value)} className="w-36" />
+            </label>
+            <Button size="sm" onClick={() => setArm(true)}>أنشئ ملف الأدلة</Button>
+          </div>
+          {err ? <p role="alert" className="text-danger text-sm">{err}</p> : null}
+          {file ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-label text-text-muted">
+                أُنشئ بواسطة <span dir="ltr">{file.requested_by}</span> — {unixDate(file.generated_at)}
+              </p>
+              {Object.entries(file.sections).map(([key, section]) => (
+                <div key={key} className="rounded-card border border-border-subtle bg-surface-2 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-medium">{EVIDENCE_SECTION_LABEL[key] ?? key}</h4>
+                    <Badge tone={section.status === 'read' ? 'success' : 'neutral'}>
+                      {section.status === 'read' ? `${section.count} سجل` : (section.reason ?? 'غير متاح')}
+                    </Badge>
+                  </div>
+                  {section.records.length > 0 ? (
+                    <pre className="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-xs text-text-secondary">
+                      {JSON.stringify(section.records, null, 2)}
+                    </pre>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </>
+      )}
+      <ConfirmDialog open={arm} onClose={() => setArm(false)} onConfirm={() => void build()}
+                    title="إنشاء ملف الأدلة" danger={false} busy={busy}
+                    body="سيُسجَّل الاطّلاع هذا باسمك — استخدمه لدعم شكوى فعلي فقط.">
+      </ConfirmDialog>
     </div>
   );
 }
