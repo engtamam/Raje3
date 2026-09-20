@@ -228,6 +228,12 @@ class SEn extends S {
   String get assistantPreparing => 'Preparing the assistant...';
 
   @override
+  String get assistantSpeak => 'Listen to the answer';
+
+  @override
+  String get assistantStopSpeaking => 'Stop speaking';
+
+  @override
   String get authLoginSubtitle => 'Sign in to continue';
 
   @override

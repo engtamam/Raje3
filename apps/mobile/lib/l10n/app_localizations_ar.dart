@@ -224,6 +224,12 @@ class SAr extends S {
   String get assistantPreparing => 'جاري تجهيز المساعد...';
 
   @override
+  String get assistantSpeak => 'استمع للرد';
+
+  @override
+  String get assistantStopSpeaking => 'إيقاف الصوت';
+
+  @override
   String get authLoginSubtitle => 'سجّل دخولك للمتابعة';
 
   @override

@@ -66,6 +66,8 @@
   "assistantSend": "Aika",
   "assistantUnavailable": "Mataimaki ba ya samuwa a yanzu.",
   "assistantPreparing": "Ana shirya mataimaki...",
+  "assistantSpeak": "Saurari amsa",
+  "assistantStopSpeaking": "Dakatar da magana",
   "authLoginSubtitle": "Shiga don ci gaba",
   "authPhoneLabel": "Lambar wayar hannu",
   "authPasswordLabel": "Kalmar sirri",

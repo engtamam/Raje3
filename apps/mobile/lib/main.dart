@@ -5,6 +5,8 @@ import 'package:raje3_mobile/core/ai/ai_container.dart';
 import 'package:raje3_mobile/core/ai/assistant_service.dart';
 import 'package:raje3_mobile/core/knowledge/kb_service.dart';
 import 'package:raje3_mobile/core/network/api_client.dart';
+import 'package:raje3_mobile/core/tts/tts_container.dart';
+import 'package:raje3_mobile/core/tts/tts_model.dart';
 import 'package:raje3_mobile/core/providers/app_state_provider.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/providers/locale_provider.dart';
@@ -32,6 +34,7 @@ Future<void> main() async {
   await kbService.init();
 
   final assistantService = AssistantService(aiModel: buildAiModel(), kbService: kbService);
+  final ttsModel = buildTtsModel();
 
   runApp(Raje3App(
     apiClient: apiClient,
@@ -40,6 +43,7 @@ Future<void> main() async {
     cacheManager: cacheManager,
     kbService: kbService,
     assistantService: assistantService,
+    ttsModel: ttsModel,
   ));
 }
 
@@ -50,6 +54,7 @@ class Raje3App extends StatelessWidget {
   final CacheManager cacheManager;
   final KbService kbService;
   final AssistantService assistantService;
+  final TtsModel ttsModel;
 
   const Raje3App({
     super.key,
@@ -59,6 +64,7 @@ class Raje3App extends StatelessWidget {
     required this.cacheManager,
     required this.kbService,
     required this.assistantService,
+    required this.ttsModel,
   });
 
   @override
@@ -68,6 +74,7 @@ class Raje3App extends StatelessWidget {
         Provider<LocalStorage>.value(value: localStorage),
         Provider<KbService>.value(value: kbService),
         Provider<AssistantService>.value(value: assistantService),
+        Provider<TtsModel>.value(value: ttsModel),
         ChangeNotifierProvider(
           create: (_) => AuthProvider(
             apiClient: apiClient,

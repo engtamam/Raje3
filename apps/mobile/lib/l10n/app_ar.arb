@@ -204,6 +204,8 @@
   "assistantSend": "إرسال",
   "assistantUnavailable": "المساعد غير متاح حالياً.",
   "assistantPreparing": "جاري تجهيز المساعد...",
+  "assistantSpeak": "استمع للرد",
+  "assistantStopSpeaking": "إيقاف الصوت",
   "@routerScreenNotOnMobileYet": {
     "description": "Placeholder body for a nav section the catalogue exposes but mobile has no screen for yet"
   },

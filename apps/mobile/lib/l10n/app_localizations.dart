@@ -501,6 +501,18 @@ abstract class S {
   /// **'جاري تجهيز المساعد...'**
   String get assistantPreparing;
 
+  /// No description provided for @assistantSpeak.
+  ///
+  /// In ar, this message translates to:
+  /// **'استمع للرد'**
+  String get assistantSpeak;
+
+  /// No description provided for @assistantStopSpeaking.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف الصوت'**
+  String get assistantStopSpeaking;
+
   /// Subtitle under the wordmark on the login screen
   ///
   /// In ar, this message translates to:

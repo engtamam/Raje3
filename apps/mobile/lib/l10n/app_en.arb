@@ -66,6 +66,8 @@
   "assistantSend": "Send",
   "assistantUnavailable": "The assistant is not available right now.",
   "assistantPreparing": "Preparing the assistant...",
+  "assistantSpeak": "Listen to the answer",
+  "assistantStopSpeaking": "Stop speaking",
   "authLoginSubtitle": "Sign in to continue",
   "authPhoneLabel": "Mobile number",
   "authPasswordLabel": "Password",

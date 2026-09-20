@@ -66,6 +66,8 @@
   "assistantSend": "بھیجیں",
   "assistantUnavailable": "معاون ابھی دستیاب نہیں ہے۔",
   "assistantPreparing": "معاون تیار کیا جا رہا ہے...",
+  "assistantSpeak": "جواب سنیں",
+  "assistantStopSpeaking": "آواز روکیں",
   "authLoginSubtitle": "جاری رکھنے کے لیے سائن ان کریں",
   "authPhoneLabel": "موبائل نمبر",
   "authPasswordLabel": "پاس ورڈ",

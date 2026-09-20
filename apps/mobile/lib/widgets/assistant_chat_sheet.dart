@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:raje3_mobile/core/ai/ai_model.dart';
 import 'package:raje3_mobile/core/ai/assistant_service.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
+import 'package:raje3_mobile/core/tts/tts_model.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 
@@ -32,13 +33,16 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
   final List<_Turn> _turns = [];
   AiModelStatus _status = AiModelStatus.unavailable;
   bool _answering = false;
+  _Turn? _speaking;
 
   late final AssistantService _assistant;
+  late final TtsModel _tts;
 
   @override
   void initState() {
     super.initState();
     _assistant = context.read<AssistantService>();
+    _tts = context.read<TtsModel>();
     _status = _assistant.status;
     _assistant.statusStream.listen((s) {
       if (mounted) setState(() => _status = s);
@@ -50,7 +54,22 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _tts.stop();
     super.dispose();
+  }
+
+  Future<void> _toggleSpeak(_Turn turn) async {
+    if (_speaking == turn) {
+      await _tts.stop();
+      if (mounted) setState(() => _speaking = null);
+      return;
+    }
+    final lang = Localizations.localeOf(context).languageCode;
+    await _tts.stop();
+    if (!mounted) return;
+    setState(() => _speaking = turn);
+    await _tts.speak(turn.answer, languageCode: lang);
+    if (mounted && _speaking == turn) setState(() => _speaking = null);
   }
 
   void _send() {
@@ -153,7 +172,19 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
           ),
           if (turn.answer.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xs),
-            Text(turn.answer, style: AppTextStyles.bodyMedium),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: Text(turn.answer, style: AppTextStyles.bodyMedium)),
+                if (!_answering || turn != _turns.last)
+                  IconButton(
+                    icon: Icon(_speaking == turn ? Icons.stop_circle_rounded : Icons.volume_up_rounded,
+                        size: 20, color: AppColors.textMuted),
+                    tooltip: _speaking == turn ? S.of(context)!.assistantStopSpeaking : S.of(context)!.assistantSpeak,
+                    onPressed: () => _toggleSpeak(turn),
+                  ),
+              ],
+            ),
           ],
         ],
       ),

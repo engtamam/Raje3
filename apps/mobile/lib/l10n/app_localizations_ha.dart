@@ -227,6 +227,12 @@ class SHa extends S {
   String get assistantPreparing => 'Ana shirya mataimaki...';
 
   @override
+  String get assistantSpeak => 'Saurari amsa';
+
+  @override
+  String get assistantStopSpeaking => 'Dakatar da magana';
+
+  @override
   String get authLoginSubtitle => 'Shiga don ci gaba';
 
   @override

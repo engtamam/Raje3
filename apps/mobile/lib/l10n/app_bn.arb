@@ -66,6 +66,8 @@
   "assistantSend": "পাঠান",
   "assistantUnavailable": "সহায়ক এখন উপলব্ধ নেই।",
   "assistantPreparing": "সহায়ক প্রস্তুত হচ্ছে...",
+  "assistantSpeak": "উত্তর শুনুন",
+  "assistantStopSpeaking": "থামান",
   "authLoginSubtitle": "চালিয়ে যেতে সাইন ইন করুন",
   "authPhoneLabel": "মোবাইল নম্বর",
   "authPasswordLabel": "পাসওয়ার্ড",

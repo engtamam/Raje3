@@ -227,6 +227,12 @@ class SBn extends S {
   String get assistantPreparing => 'সহায়ক প্রস্তুত হচ্ছে...';
 
   @override
+  String get assistantSpeak => 'উত্তর শুনুন';
+
+  @override
+  String get assistantStopSpeaking => 'থামান';
+
+  @override
   String get authLoginSubtitle => 'চালিয়ে যেতে সাইন ইন করুন';
 
   @override

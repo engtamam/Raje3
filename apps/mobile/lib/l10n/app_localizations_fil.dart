@@ -230,6 +230,12 @@ class SFil extends S {
   String get assistantPreparing => 'Inihahanda ang katulong...';
 
   @override
+  String get assistantSpeak => 'Pakinggan ang sagot';
+
+  @override
+  String get assistantStopSpeaking => 'Itigil ang pagsasalita';
+
+  @override
   String get authLoginSubtitle => 'Mag-sign in para magpatuloy';
 
   @override

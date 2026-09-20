@@ -66,6 +66,8 @@
   "assistantSend": "Ipadala",
   "assistantUnavailable": "Hindi available ang katulong ngayon.",
   "assistantPreparing": "Inihahanda ang katulong...",
+  "assistantSpeak": "Pakinggan ang sagot",
+  "assistantStopSpeaking": "Itigil ang pagsasalita",
   "authLoginSubtitle": "Mag-sign in para magpatuloy",
   "authPhoneLabel": "Numero ng mobile",
   "authPasswordLabel": "Password",
