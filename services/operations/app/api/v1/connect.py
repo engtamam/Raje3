@@ -23,7 +23,7 @@ from app.core import branches as B
 from app.core import connect
 from app.core import sending_identity as SI
 from app.core.stores import BranchStore
-from app.api.subscribed import no_subscription_needed, subscribed_write_or_whatsapp
+from app.api.subscribed import no_subscription_needed
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 
@@ -65,7 +65,7 @@ class SignupResultIn(BaseModel):
     detail: str = Field(default="", max_length=400)
 
 
-@router.post("/connect", dependencies=[Depends(subscribed_write_or_whatsapp), Depends(rate_limit)])
+@router.post("/connect", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def whatsapp_connect(request: Request, body: SignupResultIn,
                            background: BackgroundTasks, principal=Depends(_OWNER)) -> Any:
     """Receive the Embedded Signup result and act on it inside this request.
@@ -275,18 +275,21 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         # meta_agent_provisioning.py's own docstring for why that matters (no other place in the
         # code derives a tenant's phone_number_id after the fact).
         #
-        # ALREADY SCOPED TO `feature.whatsapp` — NOT A SEPARATE CHECK NEEDED HERE. Verified live
-        # (2026-09-20, the owner's own question "shouldn't this depend on the AI assistant app?"):
-        # this whole route is gated `Depends(subscribed_write_or_whatsapp)` (top of this file),
-        # which itself requires `whatsapp_licence` — a single, non-OR check, unlike the generic
-        # `subscribed_write`. So the handler body can never run at all for a tenant that does not
-        # hold `feature.whatsapp`; adding a second read of the same licence here would just repeat
-        # a question the route dependency already answered for this exact request, never catch a
-        # real gap. Proven by test: `test_connecting_without_the_ai_assistant_app_never_schedules_
-        # the_trigger` (tests/integration/test_connect_triggers_meta_agent_provisioning.py) shows
-        # the whole route refuses with 402 before this line is ever reached.
-        background.add_task(c.meta_agent_provision_trigger.trigger,
-                            tenant=tenant, entity_id=body.phone_number_id)
+        # CORRECTED, 2026-09-20 (the owner caught a real bug in the reasoning below, since fixed):
+        # this route used to be gated `Depends(subscribed_write_or_whatsapp)`, which made this
+        # comment's claim ("already scoped to feature.whatsapp, no separate check needed") true
+        # — but that gate was ITSELF wrong: this file's own header docstring says connecting
+        # "happens BEFORE a paid subscription... and during a trial when there is no subscription
+        # at all", which the `subscribed_write_or_whatsapp` dependency directly contradicted. The
+        # route is now `Depends(no_subscription_needed)`, matching that stated intent — so a
+        # shop with ZERO subscriptions can connect a number. That means THIS check is no longer
+        # redundant: it is the ONLY place left that keeps Meta provisioning scoped to shops who
+        # actually hold بوت خدمة العملاء الذكي (feature.whatsapp) — the app this whole sequence
+        # exists to replace. `False`/`None` (could not ask) both fail closed, same posture every
+        # `subscribed_write_or` gate in this product already holds.
+        if await c.whatsapp_licence.allowed(tenant):
+            background.add_task(c.meta_agent_provision_trigger.trigger,
+                                tenant=tenant, entity_id=body.phone_number_id)
     # THE SENTENCE AT THE END OF THE JOURNEY, and the one that used to promise sending. See
     # core/connect.py `sentence_for`: the connection is his, the sending is ours, and until the
     # second is open the screen says so rather than sending him off to wait for messages that
@@ -423,7 +426,7 @@ _REGISTER_SENTENCE = {
 _REGISTER_FALLBACK = "تعذّر تفعيل الإرسال الآن. حاول بعد قليل، ولا تكرّر المحاولة كثيراً."
 
 
-@router.post("/connect/register", dependencies=[Depends(subscribed_write_or_whatsapp), Depends(rate_limit)])
+@router.post("/connect/register", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def whatsapp_register(request: Request, body: RegisterIn,
                             principal=Depends(_OWNER)) -> Any:
     """Finish the connection: register the number so it can actually send.

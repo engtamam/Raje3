@@ -232,8 +232,12 @@ def test_a_shop_holding_no_whatsapp_plan_is_refused_connecting():
     assert resp.status_code == 402
 
 
-def test_connect_routes_use_the_whatsapp_dependency():
-    from app.api.subscribed import subscribed_write_or_whatsapp
+def test_connect_routes_need_no_subscription_at_all():
+    """CORRECTED 2026-09-20: connecting a WhatsApp number is not gated on any subscription —
+    this file's own header docstring says so, and `subscribed_write_or_whatsapp` on these routes
+    was a real bug (a shop with zero subscriptions could not connect). Meta provisioning itself
+    stays scoped to `feature.whatsapp` via an explicit in-body check — see connect.py."""
+    from app.api.subscribed import no_subscription_needed
     from app.api.v1.connect import router
 
     def _deps(path: str, method: str) -> set:
@@ -242,8 +246,8 @@ def test_connect_routes_use_the_whatsapp_dependency():
                 return {d.call for d in route.dependant.dependencies}
         raise AssertionError(f"{method} {path} is not on the router any more")
 
-    assert subscribed_write_or_whatsapp in _deps("/whatsapp/connect", "POST")
-    assert subscribed_write_or_whatsapp in _deps("/whatsapp/connect/register", "POST")
+    assert no_subscription_needed in _deps("/whatsapp/connect", "POST")
+    assert no_subscription_needed in _deps("/whatsapp/connect/register", "POST")
 
 
 def test_recording_a_visit_asks_the_subscription_and_erasing_a_customer_does_not():

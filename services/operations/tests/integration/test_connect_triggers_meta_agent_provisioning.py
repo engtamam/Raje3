@@ -82,16 +82,16 @@ class _FakeWhatsappLicence:
         return self._allowed
 
 
-def test_connecting_without_the_ai_assistant_app_never_schedules_the_trigger(client, monkeypatch):
-    """The owner's own question, verified directly (2026-09-20): "shouldn't Meta provisioning
-    depend on the shop actually holding بوت خدمة العملاء الذكي (feature.whatsapp), not just on
-    connecting a number?" It already does — `/whatsapp/connect` itself is gated
-    `Depends(subscribed_write_or_whatsapp)`, which requires `whatsapp_licence` alone (not the
-    generic any-app OR). A tenant without it never reaches the connect handler at all, so the
-    Meta trigger can never fire for one either — the whole route refuses with 402 first. This is
-    what proves that finding, rather than adding a second, unreachable check inside the handler
-    that would only repeat a question the route dependency already answered for the same
-    request."""
+def test_connecting_without_the_ai_assistant_app_still_connects_but_never_schedules_the_trigger(
+        client, monkeypatch):
+    """CORRECTED 2026-09-20 (the owner caught a real bug this test used to assert as correct
+    behaviour): connecting a WhatsApp number must succeed with ZERO subscriptions — this file's
+    own header docstring already said so ("connecting is not subscribing... it happens during a
+    trial when there is no subscription at all"), but the route was gated
+    `Depends(subscribed_write_or_whatsapp)`, which directly contradicted that. Fixed to
+    `Depends(no_subscription_needed)`. Meta provisioning must still never fire for a shop that
+    does not hold `feature.whatsapp` though — that app IS what the whole sequence exists to
+    replace — so the connect succeeds (200) while the trigger stays unscheduled."""
     calls: list[dict] = []
 
     async def _fake_trigger(*, tenant, entity_id):
@@ -113,7 +113,35 @@ def test_connecting_without_the_ai_assistant_app_never_schedules_the_trigger(cli
     finally:
         c.meta_agent_provision_trigger.trigger = saved_trigger
         c.whatsapp_licence = saved_licence
-    assert r.status_code == 402, r.text
+    assert r.status_code == 200, r.text
+    assert calls == []
+
+
+def test_a_licence_read_that_could_not_be_asked_fails_closed(client, monkeypatch):
+    """None ("could not ask") must never be read as "go ahead" — same fail-closed posture every
+    other `subscribed_write_or` gate in this product already holds."""
+    calls: list[dict] = []
+
+    async def _fake_trigger(*, tenant, entity_id):
+        calls.append({"tenant": tenant, "entity_id": entity_id})
+        return True
+
+    import app.core.connect as connect_module
+
+    monkeypatch.setattr(connect_module, "build_exchange", lambda settings: _FakeExchange())
+    c = client.app.state.container
+    saved_trigger, saved_licence = c.meta_agent_provision_trigger.trigger, c.whatsapp_licence
+    c.meta_agent_provision_trigger.trigger = _fake_trigger
+    c.whatsapp_licence = _FakeWhatsappLicence(None)
+    try:
+        r = client.post("/api/v1/whatsapp/connect", json={
+            "event": "FINISH", "code": "a-code", "waba_id": "waba_unreachable",
+            "phone_number_id": "pn_unreachable_123", "business_id": "biz_unreachable",
+        }, headers=_headers(tenant="tnt_meta_trigger_unreachable"))
+    finally:
+        c.meta_agent_provision_trigger.trigger = saved_trigger
+        c.whatsapp_licence = saved_licence
+    assert r.status_code == 200, r.text
     assert calls == []
 
 
