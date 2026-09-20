@@ -17,6 +17,12 @@ import 'package:raje3_mobile/theme/app_theme.dart';
 /// Order (right to left in an RTL layout — see MainShell's own destinations list, which is
 /// built left-to-right and rendered mirrored by the framework): تطبيقاتي, التحليلات, الرئيسية
 /// (centre), حسابي, and the one customizable slot (default: تسجيل زيارة).
+///
+/// "التحليلات" is the one fixed slot that is STILL capability-gated — it is really the 'shop'
+/// nav section (`requires: ['reminders.today', 'insights.dashboard']`) wearing a fixed-tab
+/// costume, not a truly universal anchor like الرئيسية/حسابي/تطبيقاتي. An account whose
+/// catalogue does not make 'shop' visible (a role with neither capability) never sees the tab
+/// at all — showing it and letting AnalyticsScreen fail to load would be worse than omitting it.
 class MainShell extends StatelessWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
@@ -28,10 +34,12 @@ class MainShell extends StatelessWidget {
     final surface0 = context.isDark ? AppDarkColors.surface0 : AppColors.surface0;
 
     final customSlot = nav.customSlotSection;
+    final hasAnalytics = nav.visibleSections.any((section) => section.id == 'shop');
     final destinations = <_Destination>[
       _Destination(path: RouteNames.appsPath, label: s.navAppsLabel, icon: Icons.apps_rounded),
-      _Destination(
-          path: RouteNames.analyticsPath, label: s.navAnalyticsLabel, icon: Icons.trending_up),
+      if (hasAnalytics)
+        _Destination(
+            path: RouteNames.analyticsPath, label: s.navAnalyticsLabel, icon: Icons.trending_up),
       _Destination(path: RouteNames.homePath, label: s.navHomeLabel, icon: Icons.home_rounded),
       _Destination(
           path: RouteNames.accountPath, label: s.navAccountLabel, icon: Icons.person_rounded),
@@ -41,7 +49,10 @@ class MainShell extends StatelessWidget {
 
     final currentPath = GoRouterState.of(context).uri.path;
     var selectedIndex = destinations.indexWhere((d) => d.path == currentPath);
-    if (selectedIndex < 0) selectedIndex = 2; // home
+    if (selectedIndex < 0) {
+      selectedIndex = destinations.indexWhere((d) => d.path == RouteNames.homePath);
+    }
+    if (selectedIndex < 0) selectedIndex = 0;
 
     return Scaffold(
       backgroundColor: surface0,
