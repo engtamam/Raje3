@@ -14,12 +14,25 @@ class AiConfig {
   static const String modelDriver = String.fromEnvironment('AI_MODEL_DRIVER', defaultValue: 'null');
 
   /// Where the 'gemma' adapter downloads the model file from — a direct, publicly-fetchable URL
-  /// to the .task/.litertlm file (LiteRT/MediaPipe format), never a Kaggle/HuggingFace PAGE.
-  /// Left empty until the model is actually hosted somewhere this app can reach without a
-  /// per-request user credential — a real decision, not yet made, so it is not guessed here.
-  static const String gemmaModelUrl = String.fromEnvironment('AI_GEMMA_MODEL_URL');
+  /// to the .litertlm file (LiteRT/MediaPipe format), never a Kaggle/HuggingFace PAGE.
+  ///
+  /// THE OWNER'S OWN DECISION (2026-09-20): point directly at the model's real HuggingFace host
+  /// rather than mirror the multi-GB file on our own storage — we do not have a paid public
+  /// object-storage/CDN subscription set up yet, and litert-community's own repo is a genuine,
+  /// ungated (`"gated": false`, confirmed via the HF API), Apache-2.0 release of Gemma 4, so a
+  /// third party is fine here in a way it would not be for anything carrying our own users' data.
+  ///
+  /// litert-community/gemma-4-E4B-it-litert-lm — E4B (the larger, more capable variant, the
+  /// owner's own choice over the smaller E2B) — the "-gpu" file, matching
+  /// GemmaAiModel.ensureReady()'s own `PreferredBackend.gpu` request; confirmed reachable via a
+  /// real HEAD request (200, content-length ~2.77GiB) before this URL was set as the default.
+  static const String gemmaModelUrl = String.fromEnvironment(
+    'AI_GEMMA_MODEL_URL',
+    defaultValue:
+        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-gpu.litertlm',
+  );
 
-  /// A bearer token for [gemmaModelUrl], if the host requires one (e.g. a gated HuggingFace
-  /// download). Empty means "no auth needed" — never a real secret checked into source.
+  /// A bearer token for [gemmaModelUrl], if the host ever requires one. Empty here because the
+  /// repo above is confirmed ungated — never a real secret checked into source regardless.
   static const String gemmaModelToken = String.fromEnvironment('AI_GEMMA_MODEL_TOKEN');
 }
