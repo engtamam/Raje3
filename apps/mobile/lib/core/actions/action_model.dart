@@ -43,12 +43,29 @@ class AppAction {
   /// [Catalog.hasAll], same rule [KbEntry.requires] already holds to.
   final List<String> requires;
 
+  /// A hard kill switch, independent of [requires] — a capability describes WHO may use an
+  /// action; this describes whether the action exists AT ALL in this build, for every session,
+  /// regardless of capability. Set to `false` to pull a misbehaving action without touching its
+  /// registry entry or the model's own tool list shape.
+  final bool enabled;
+
+  /// Whether a real tap from the OPERATOR, not the model's own output, is what actually carries
+  /// out this action. REQUIRED, never defaulted: the owner's own rule — "تأكيده هو التنفيذ
+  /// الفعلي مو الذكاء الاصطناعي" (the operator's own confirmation is the real execution, never
+  /// the model) — means every action author must consciously decide this, the same way a KB
+  /// entry cannot omit its title. `true` for anything that changes data or has a real-world
+  /// effect (a booking, a cancellation); `false` only for actions with no side effect at all —
+  /// reading data, or navigating, exactly like this file's own `navigate_to_visit`.
+  final bool requiresConfirmation;
+
   const AppAction({
     required this.id,
     required this.name,
     required this.description,
     required this.route,
     required this.kbEntryId,
+    required this.enabled,
+    required this.requiresConfirmation,
     this.requires = const [],
   });
 
@@ -69,6 +86,15 @@ class AppAction {
     if (kbEntryId is! String || kbEntryId.trim().isEmpty) {
       throw ActionError('$id: missing required field "kb_entry"');
     }
+    final enabled = json['enabled'];
+    if (enabled is! bool) {
+      throw ActionError('$id: missing required field "enabled" (true/false, no default)');
+    }
+    final requiresConfirmation = json['requires_confirmation'];
+    if (requiresConfirmation is! bool) {
+      throw ActionError('$id: missing required field "requires_confirmation" (true/false, no '
+          'default — every action must state whether a real tap, not the model, carries it out)');
+    }
 
     final requiresRaw = json['requires'];
     final requires = requiresRaw == null
@@ -83,6 +109,8 @@ class AppAction {
       description: description,
       route: route,
       kbEntryId: kbEntryId,
+      enabled: enabled,
+      requiresConfirmation: requiresConfirmation,
       requires: requires,
     );
   }

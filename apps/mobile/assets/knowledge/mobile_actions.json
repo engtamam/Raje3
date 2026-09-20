@@ -4,6 +4,8 @@
     "description": "Open the register-a-visit screen, where the operator records services a customer just received.",
     "route": "visit",
     "kb_entry": "visit.register",
+    "enabled": true,
+    "requires_confirmation": false,
     "requires": ["operations.record_visit"]
   }
 }

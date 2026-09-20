@@ -22,6 +22,7 @@ class ActionRegistry {
   }
 
   bool _visible(AppAction a, Catalog catalog) {
+    if (!a.enabled) return false;
     if (a.requires.isEmpty) return true;
     return catalog.hasAll(a.requires);
   }
