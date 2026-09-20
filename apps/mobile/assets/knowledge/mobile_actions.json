@@ -1,0 +1,9 @@
+{
+  "nav.visit": {
+    "name": "navigate_to_visit",
+    "description": "Open the register-a-visit screen, where the operator records services a customer just received.",
+    "route": "visit",
+    "kb_entry": "visit.register",
+    "requires": ["operations.record_visit"]
+  }
+}

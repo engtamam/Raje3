@@ -1387,3 +1387,9 @@ jobs:
       # check_app_display_name_is_not_bypassed.py already polices for plan display names.
       - name: every mobile KB anchor is covered in both directions
         run: python3 ci/check_mobile_kb_anchors_are_covered.py
+
+      # Every assistant ACTION points at a route/KB entry that still really exists, and every
+      # screen-level KB entry either has an action or a recorded reason it deliberately doesn't —
+      # the same two-way discipline one layer up from check_mobile_kb_anchors_are_covered.py.
+      - name: every mobile assistant action is covered in both directions
+        run: python3 ci/check_mobile_actions_are_covered.py

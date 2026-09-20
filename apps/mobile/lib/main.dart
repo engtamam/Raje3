@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:raje3_mobile/core/actions/action_registry.dart';
 import 'package:raje3_mobile/core/ai/ai_container.dart';
 import 'package:raje3_mobile/core/ai/assistant_service.dart';
 import 'package:raje3_mobile/core/knowledge/kb_service.dart';
@@ -35,6 +36,9 @@ Future<void> main() async {
   final kbService = KbService();
   await kbService.init();
 
+  final actionRegistry = ActionRegistry();
+  await actionRegistry.init();
+
   final assistantService = AssistantService(aiModel: buildAiModel(), kbService: kbService);
   final ttsModel = buildTtsModel();
   final speechInputModel = buildSpeechInputModel();
@@ -45,6 +49,7 @@ Future<void> main() async {
     localStorage: localStorage,
     cacheManager: cacheManager,
     kbService: kbService,
+    actionRegistry: actionRegistry,
     assistantService: assistantService,
     ttsModel: ttsModel,
     speechInputModel: speechInputModel,
@@ -57,6 +62,7 @@ class Raje3App extends StatelessWidget {
   final LocalStorage localStorage;
   final CacheManager cacheManager;
   final KbService kbService;
+  final ActionRegistry actionRegistry;
   final AssistantService assistantService;
   final TtsModel ttsModel;
   final SpeechInputModel speechInputModel;
@@ -68,6 +74,7 @@ class Raje3App extends StatelessWidget {
     required this.localStorage,
     required this.cacheManager,
     required this.kbService,
+    required this.actionRegistry,
     required this.assistantService,
     required this.ttsModel,
     required this.speechInputModel,
@@ -79,6 +86,7 @@ class Raje3App extends StatelessWidget {
       providers: [
         Provider<LocalStorage>.value(value: localStorage),
         Provider<KbService>.value(value: kbService),
+        Provider<ActionRegistry>.value(value: actionRegistry),
         Provider<AssistantService>.value(value: assistantService),
         Provider<TtsModel>.value(value: ttsModel),
         Provider<SpeechInputModel>.value(value: speechInputModel),

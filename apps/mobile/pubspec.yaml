@@ -68,3 +68,4 @@ flutter:
   generate: true
   assets:
     - assets/knowledge/mobile_kb.json
+    - assets/knowledge/mobile_actions.json
