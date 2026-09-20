@@ -304,6 +304,14 @@ def build_container(settings: Settings) -> Container:
         base_url=settings.WHATSAPP_ASSISTANT_SERVICE_URL,
         path=settings.WHATSAPP_UPCOMING_RENEWAL_TRIGGER_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN)
+    # Fires whatsapp-assistant's own Meta Business Agent onboarding sequence right after a
+    # number connects — see core/meta_agent_provision_trigger.py's own docstring.
+    from app.core.meta_agent_provision_trigger import MetaAgentProvisionTrigger
+
+    container.meta_agent_provision_trigger = MetaAgentProvisionTrigger(
+        base_url=settings.WHATSAPP_ASSISTANT_SERVICE_URL,
+        path=settings.WHATSAPP_META_AGENT_PROVISION_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN)
     container.search = build_search(settings)
     # THE VISIT STORE IS HANDED IN so the seams can write down that they finished (ز-7). Without
     # it nothing could tell «the after-work ran» from «the pod died before it did», and the retry

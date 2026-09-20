@@ -268,6 +268,14 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         from app.core.flows import provision_shop_flow_encryption
         background.add_task(provision_shop_flow_encryption, c.flows, tenant)
         background.add_task(publish, c.library, await c.templates.list(), tenant)
+        # Meta Business Agent full onboarding (eligibility -> create agent -> Connector/tools ->
+        # Skill -> Knowledge -> enable) — same after-the-response, never-fails-the-connection
+        # posture as the three tasks above. `body.phone_number_id` is the SAME entity_id
+        # knowledge_export.py already uses, fresh from this exact Embedded Signup exchange — see
+        # meta_agent_provisioning.py's own docstring for why that matters (no other place in the
+        # code derives a tenant's phone_number_id after the fact).
+        background.add_task(c.meta_agent_provision_trigger.trigger,
+                            tenant=tenant, entity_id=body.phone_number_id)
     # THE SENTENCE AT THE END OF THE JOURNEY, and the one that used to promise sending. See
     # core/connect.py `sentence_for`: the connection is his, the sending is ours, and until the
     # second is open the screen says so rather than sending him off to wait for messages that

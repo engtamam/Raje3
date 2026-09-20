@@ -546,3 +546,79 @@ async def whatsapp_flow_booking(body: FlowBookingIn, request: Request) -> dict:
         return await backend.reserve(tenant=body.tenant, selection=body.selection,
                                      idempotency_key=body.idempotency_key, customer=body.customer)
     raise HTTPException(status.HTTP_400_BAD_REQUEST, f"unknown op {body.op!r}")
+
+
+class ProvisionMetaAgentIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    entity_id: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/whatsapp/meta-agent/provision", dependencies=[Depends(require_internal_token)])
+async def provision_meta_agent(request: Request, body: ProvisionMetaAgentIn) -> dict:
+    """Fire the full Meta Business Agent onboarding sequence for a tenant's freshly-connected
+    WhatsApp number — called by operations' own `/whatsapp/connect` background task the moment a
+    number connects, the cross-service leg of `services/whatsapp-assistant/app/core/
+    meta_agent_provisioning.py::provision_number` (that module's own docstring already documents
+    the full 7-step sequence and why it never raises).
+
+    `entity_id` IS THE PHONE NUMBER ID Embedded Signup handed back, not the WABA id — same value
+    operations already has on hand right when a connection succeeds, so this route needs nothing
+    it isn't handed directly in the body.
+
+    NEVER 500s ON A PROVISIONING FAILURE — `provision_number` itself never raises (fire-and-forget,
+    same posture as `provision_shop_flow`), so the only way this route fails is a bug in the
+    request itself (auth, malformed tenant/entity_id), not a Meta-side problem. A caller that wants
+    to know what happened reads the response body's `ok`/`failed_step`/`error`, exactly like
+    reading `ProvisioningResult`'s own fields directly."""
+    from app.core.meta_agent_provisioning import (
+        HttpMetaAgentProvisioner, NullMetaAgentProvisioner, provision_number)
+
+    container = request.app.state.container
+    settings = get_settings()
+
+    if not getattr(settings, "META_AGENT_PROVISIONING_ENABLED", False):
+        # THE SAME GATE `build()` ALREADY ENFORCES, CHECKED HERE TOO -- this route binds its own
+        # provisioner_factory (below) rather than calling `build()`, which is the one place that
+        # gate used to live; without this check the factory would bypass it entirely and make a
+        # real Graph API call regardless of the flag.
+        null_result = await provision_number(
+            tenant=body.tenant, entity_id=body.entity_id,
+            secret_store=container.secret_store, settings=settings,
+            provisioner_factory=lambda _token: NullMetaAgentProvisioner(),
+            shop_identity=container.shop_identity)
+        return {
+            "ok": null_result.ok, "failed_step": null_result.failed_step,
+            "error": null_result.error or "META_AGENT_PROVISIONING_ENABLED is off",
+            "agent_id": "", "connector_id": "", "tool_count": 0,
+            "skill_status": "", "knowledge_pushed": False, "enabled": False,
+        }
+
+    # BUILD's OWN token="" PLACEHOLDER IS DELIBERATE (meta_agent_provisioning.py's own docstring)
+    # -- it exists for tests/callers that bind their own factory. This is that real binding: one
+    # HttpMetaAgentProvisioner per call, constructed with the tenant's ACTUAL bearer token
+    # (provision_number reads it from secret_store itself and hands it to this factory), never
+    # the empty placeholder build(settings) alone would produce.
+    def _provisioner_factory(token: str) -> HttpMetaAgentProvisioner:
+        return HttpMetaAgentProvisioner(
+            token=token,
+            graph_base_url=getattr(settings, "META_GRAPH_BASE_URL", "https://graph.facebook.com"),
+            graph_version=getattr(settings, "META_GRAPH_API_VERSION", "v26.0"),
+            connector_base_url=getattr(settings, "PUBLIC_BASE_URL", ""),
+            connector_auth_token=getattr(settings, "CONNECTOR_API_TOKEN", ""),
+            timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8))
+
+    result = await provision_number(
+        tenant=body.tenant, entity_id=body.entity_id,
+        secret_store=container.secret_store, settings=settings,
+        provisioner_factory=_provisioner_factory,
+        shop_identity=container.shop_identity)
+    await request.app.state.auditor.record(
+        "whatsapp.meta_agent_provisioned" if result.ok else "whatsapp.meta_agent_provision_failed",
+        actor="system", tenant=body.tenant, resource=f"phone:{body.entity_id}", ip="",
+        metadata={"failed_step": result.failed_step, "agent_id": result.agent_id})
+    return {
+        "ok": result.ok, "failed_step": result.failed_step, "error": result.error,
+        "agent_id": result.agent_id, "connector_id": result.connector_id,
+        "tool_count": len(result.tool_ids), "skill_status": result.skill_status,
+        "knowledge_pushed": result.knowledge_pushed, "enabled": result.enabled,
+    }

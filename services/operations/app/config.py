@@ -220,6 +220,11 @@ class Settings(BaseSettings):
     RENEWAL_HEADS_UP_WITHIN_SECONDS: int = 2 * 24 * 3600
     WHATSAPP_ASSISTANT_SERVICE_URL: str = ""  # e.g. http://whatsapp-assistant:8000
     WHATSAPP_UPCOMING_RENEWAL_TRIGGER_PATH: str = "/internal/whatsapp/upcoming-renewal/trigger"
+    # Full Meta Business Agent onboarding, fired once right after a number connects — see
+    # services/whatsapp-assistant/app/core/meta_agent_provisioning.py for the 7-step sequence.
+    # OFF by default (that service's own META_AGENT_PROVISIONING_ENABLED gate decides whether the
+    # call does anything real; this side just needs somewhere real to send it).
+    WHATSAPP_META_AGENT_PROVISION_PATH: str = "/internal/whatsapp/meta-agent/provision"
 
     # ── the programmatic link (`feature.api`) — CLOSED by product decision, 2026-09-16 ────────
     # The owner's own call: rather than sell it (a new price/plan row) or bundle it free into every
