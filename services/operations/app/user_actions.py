@@ -389,6 +389,15 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/subscription/checkout", "capability": "billing.self", "group": "حسابي",
         "help": "اشترِ عدة تطبيقات مع بعض بعملية دفع واحدة. يتحقق من كل تبعية بين التطبيقات قبل أي خصم.",
     },
+    {
+        # THE REAL PRICE, BEFORE HE PAYS — read-only, never charges. The console calls this on
+        # every cart change so the shown total is billing's own number (discount + tax + proration,
+        # `_compute_renewal`), never a client-side guess — see api/v1/subscription.py::checkout_preview.
+        "id": "subscription.checkout_preview", "label": "معاينة سعر السلة", "method": "POST",
+        "path": "/api/v1/subscription/checkout/preview", "capability": "billing.self",
+        "group": "حسابي",
+        "help": "احسب السعر الفعلي للسلة (بعد كل خصم وضريبة) قبل الدفع. لا يُنشئ ولا يخصم شيئاً.",
+    },
     # ── the owner's own surface, moved here from admin_actions ─────────────────────────
     # api-gateway builds the establishment's app from THIS file and no other
     # (app_catalog.py, field="user_actions"). These sat in the platform console's catalogue,

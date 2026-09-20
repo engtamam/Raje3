@@ -67,6 +67,10 @@ class CheckoutIn(BaseModel):
     # calls in one request.
     items: list[CheckoutItemIn] = Field(min_length=1, max_length=20)
     payment_token: str = Field(default="", max_length=256)
+    # THE CONSOLE'S OWN RETRY GUARD — a double-tap or a resent network request replays the SAME
+    # invoice instead of charging twice, exactly like `/api/v1/field/visits`'s own key. Optional:
+    # an empty key still checks out fine, it simply cannot be safely retried.
+    idempotency_key: str = Field(default="", max_length=128)
 
 
 def _tenant(p) -> str:
@@ -367,34 +371,25 @@ async def subscribe(request: Request, body: SubscribeIn,
 
 @router.post("/checkout", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def checkout(request: Request, body: CheckoutIn, principal=Depends(_OWNER)) -> JSONResponse:
-    """Buy several apps together, one cart, one confirmation — the answer to a dependency that
-    `may_add`'s single-purchase rule could never satisfy on its own: نقاطي needs تسجيل زيارة/
+    """Buy several apps together, one cart, ONE INVOICE, one charge — the answer to a dependency
+    that `may_add`'s single-purchase rule could never satisfy on its own: نقاطي needs تسجيل زيارة/
     الحجوزات first, and until this route existed a shop holding neither had to complete a whole
     separate purchase for one of them before it could even attempt نقاطي.
 
-    NOT ONE MERGED INVOICE — billing-service (the platform's, not ours) creates one invoice per
-    `subscribe()` call, and we do not own that code (see the feature request sent to base-services
-    2026-09-20 asking for a real multi-plan invoice). Until that lands, this route validates the
-    WHOLE cart together — see `may_add_bundle`'s own docstring — then charges each item with
-    billing-service's existing single-plan route, in the order given, so the USER experience is
-    already "add to cart, one checkout"; only the invoice count behind it is not yet what "واحدة"
-    literally promises.
+    A REAL ATOMIC CHECKOUT, NOT A LOOP OF SINGLE PURCHASES — billing-service shipped
+    `POST /internal/billing/subscriptions/checkout` (base-services v0.25.25, at our own
+    escalation) for exactly this: validate-all-first, then ONE invoice and ONE charge for the
+    whole cart, N subscription rows. This route's own job stays the same as ever — the product
+    rule billing must never learn (`may_add_bundle`, WhatsApp-connection gating) — but the
+    EXECUTION is now billing's own atomic primitive instead of a per-item loop we had to guard by
+    refusing more than one paid item at a time. That restriction is gone: a cart may hold as many
+    genuinely-paid apps as it likes, because there is only ever one charge attempt against the
+    token either way.
 
-    AND THAT IS EXACTLY WHY AT MOST ONE ITEM MAY ACTUALLY NEED A CHARGE. `payment_token` is a
-    single-use gateway reference (see `HttpPlans.subscribe`'s own docstring) — charging it twice
-    is not "the same cart, two invoices", it is very likely a SECOND charge attempt against an
-    already-spent token, which the gateway would refuse in a way this route cannot predict or
-    safely paper over. So a cart with more than one genuinely-paid item (not free, not on a
-    trial) is refused OUTRIGHT, before anything is validated further, with a message telling the
-    shop to check out its one paid item and add the rest (free/trial) alongside it instead.
-
-    ALL VALIDATION HAPPENS BEFORE ANY CHARGE. The bundle rule, then every item's own
-    `may_subscribe` gate (connection/trial/interval), are checked for the WHOLE cart first — a
-    cart that will fail its third item never charges its first two. Once execution starts, a
-    single-use token and a live gateway mean a mid-cart failure cannot be undone by this route
-    (no automatic refund, no automatic cancel-what-already-succeeded) — so execution stops at the
-    first failure and the response says exactly which items went through and which did not,
-    rather than guessing at a rollback billing-service itself does not offer.
+    ALL VALIDATION STILL HAPPENS BEFORE ANY CHARGE — the bundle rule, then every item's own
+    `may_subscribe` gate (connection/trial/interval) — for the exact same reason as before: a cart
+    that will fail its third item must never even reach billing for its first two. What changed is
+    what happens after: one call, one result, no partial state to report.
     """
     c = request.app.state.container
     tenant = _tenant(principal)
@@ -454,7 +449,6 @@ async def checkout(request: Request, body: CheckoutIn, principal=Depends(_OWNER)
     # ── PER-ITEM may_subscribe — connection/trial/interval, same rule as a single purchase ──────
     connected = await c.connections.connected(tenant)
     checks: list[tuple[CheckoutItemIn, dict, bool, str]] = []  # (item, limits, free, notice)
-    charge_count = 0
     for checkout_item, limits in zip(body.items, limits_list):
         if checkout_item.interval not in BILLING_INTERVALS:
             await request.app.state.auditor.record(
@@ -500,53 +494,79 @@ async def checkout(request: Request, body: CheckoutIn, principal=Depends(_OWNER)
                                          "message": item_decision.reason,
                                          "plan_id": checkout_item.plan_id})
 
-        needs_charge = not free and trial_days <= 0
-        if needs_charge:
-            charge_count += 1
         checks.append((checkout_item, limits, free, item_decision.notice))
 
-    if charge_count > 1:
-        # THE ONE LIMIT THIS ROUTE ADDS ON TOP OF may_add_bundle — see this route's own docstring
-        # for why a single-use payment_token cannot safely cover more than one real charge yet.
-        await request.app.state.auditor.record(
-            "subscription.checkout_multi_charge_unsupported",
-            actor=getattr(principal, "subject", ""), tenant=tenant, resource="checkout",
-            ip=request.client.host if request.client else "")
-        return JSONResponse(
-            status_code=status.HTTP_409_CONFLICT,
-            content={"error": "MULTI_CHARGE_UNSUPPORTED",
-                     "message": "لا يمكن حالياً شراء أكثر من تطبيق مدفوع فعلياً بعملية واحدة. "
-                                "أكمل الشراء بتطبيق مدفوع واحد بالسلة، والتطبيقات المجانية أو "
-                                "التجريبية معه ستُفعَّل بنفس العملية."})
-
-    # ── EXECUTE — sequential, in the order submitted, stop at the first failure ─────────────────
-    results: list[dict] = []
-    for checkout_item, limits, free, _notice in checks:
-        interval = "once" if free and not is_base(limits) else checkout_item.interval
-        status_code, out = await c.billing_plans.subscribe(
-            tenant=tenant, plan_id=checkout_item.plan_id, interval=interval,
-            payment_token=body.payment_token)
-        ok = status_code < 400
-        results.append({"plan_id": checkout_item.plan_id, "ok": ok, "status": status_code,
-                        "detail": out if not ok else None})
-        if not ok:
-            break
-
-    all_ok = all(r["ok"] for r in results) and len(results) == len(checks)
+    # ── EXECUTE — ONE atomic call: one invoice, one charge, for the whole cart ──────────────────
+    checkout_items = [
+        {"plan_id": checkout_item.plan_id,
+         "interval": "once" if free and not is_base(limits) else checkout_item.interval}
+        for checkout_item, limits, free, _notice in checks
+    ]
+    status_code, out = await c.billing_plans.checkout(
+        tenant=tenant, items=checkout_items, payment_token=body.payment_token,
+        idempotency_key=body.idempotency_key)
+    ok = status_code < 400 and isinstance(out, dict)
     await request.app.state.auditor.record(
-        "subscription.checkout_completed" if all_ok else "subscription.checkout_partial",
-        actor=principal.subject, tenant=tenant, resource="checkout",
+        "subscription.checkout_completed" if ok else "subscription.checkout_refused",
+        actor=principal.subject, tenant=tenant,
+        resource=f"invoice:{out.get('invoice_id') or '-'}" if ok else "checkout",
         ip=request.client.host if request.client else "",
-        metadata={} if all_ok else {"results": results})
+        metadata={} if ok else {"detail": out})
 
-    content: dict = {"items": results}
-    if all_ok:
-        # ONE NOTICE, NOT N — every item's own `may_subscribe` decision was checked against the
-        # SAME `connected` answer, so at most one distinct notice can ever appear across the
-        # whole cart; the first non-empty one (if any) is the one sentence the shop reads.
-        notice = next((n for _i, _l, _f, n in checks if n), "")
-        if notice:
-            content["notice"] = notice
-    return JSONResponse(
-        status_code=status.HTTP_200_OK if all_ok else status.HTTP_207_MULTI_STATUS,
-        content=content)
+    if not ok:
+        message = (out.get("message") or out.get("detail")) if isinstance(out, dict) else None
+        return JSONResponse(
+            status_code=status.HTTP_502_BAD_GATEWAY if status_code >= 500
+            else status.HTTP_409_CONFLICT,
+            content={"error": "CHECKOUT_FAILED",
+                     "message": message or "تعذّر إتمام الشراء. لم يُخصم شيء.",
+                     "detail": out})
+
+    content: dict = dict(out)
+    # ONE NOTICE, NOT N — every item's own `may_subscribe` decision was checked against the SAME
+    # `connected` answer, so at most one distinct notice can ever appear across the whole cart;
+    # the first non-empty one (if any) is the one sentence the shop reads.
+    notice = next((n for _i, _l, _f, n in checks if n), "")
+    if notice:
+        content["notice"] = notice
+    return JSONResponse(status_code=status.HTTP_200_OK, content=content)
+
+
+class CheckoutPreviewIn(BaseModel):
+    items: list[CheckoutItemIn] = Field(min_length=1, max_length=20)
+
+
+@router.post("/checkout/preview", dependencies=[Depends(rate_limit)])
+async def checkout_preview(request: Request, body: CheckoutPreviewIn,
+                           principal=Depends(_OWNER)) -> JSONResponse:
+    """THE REAL PRICE OF THE CART, before he pays — read-only, creates and charges nothing.
+
+    THIS IS WHY THE CART CAN SHOW A NUMBER AT ALL. A shop's own discounts can come from a coupon,
+    a cross-app relationship rule, a trial, or proration into an existing period — and the total
+    also carries VAT where this establishment's own tax configuration applies one. No client-side
+    arithmetic can reproduce that (see console's own `useAppBilling.ts` — an earlier pass tried a
+    plain "price × (1 − percent)" estimate and it was flatly wrong the moment tax entered). This
+    route asks billing-service's own `_compute_renewal` to run the SAME pricing the real checkout
+    will charge, over a cart that has not been bought yet, so what the shop sees before paying is
+    the exact figure the invoice will show after — never an estimate, never rounded differently.
+
+    NO BUNDLE VALIDATION HERE, DELIBERATELY. A live total must keep updating as items are added or
+    removed even before the cart is a legally purchasable set — refusing to price an incomplete
+    cart would blank the total at the exact moment a shop is deciding what to add next. The bundle
+    rule (`may_add_bundle`) and the WhatsApp-connection gate stay exactly where they are, on
+    `POST /checkout` itself: nothing here can ever be charged without passing both.
+    """
+    tenant = _tenant(principal)
+    if not tenant:
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"error": "NO_TENANT"})
+    c = request.app.state.container
+    items = [{"plan_id": i.plan_id, "interval": i.interval} for i in body.items]
+    status_code, out = await c.billing_plans.checkout_preview(tenant=tenant, items=items)
+    if status_code >= 400:
+        return JSONResponse(
+            status_code=status.HTTP_502_BAD_GATEWAY if status_code >= 500
+            else status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={"error": "PREVIEW_UNAVAILABLE",
+                     "message": "تعذّر حساب السعر النهائي حالياً.",
+                     "detail": out})
+    return JSONResponse(status_code=status.HTTP_200_OK, content=out)

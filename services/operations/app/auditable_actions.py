@@ -255,49 +255,25 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
     },
     {
         # api/v1/subscription.py::checkout — a whole cart refused before anything is charged
-        # (`may_add_bundle`'s own rule: a missing dependency, a duplicate, an unreadable line).
+        # (`may_add_bundle`'s own rule: a missing dependency, a duplicate, an unreadable line), OR
+        # billing-service's own atomic checkout refused the cart (bad/duplicate/held plan, mixed
+        # currency, bad interval, outage) — same event either way: nothing was charged.
         "action": "subscription.checkout_refused",
         "source": "admin",
         "critical": False,
         "resource": "plan",
-        "why": "same posture as `subscription.refused` — a decision of ours about somebody's "
-               "money, just for a cart instead of a single plan; support needs the same trail to "
-               "answer 'I tried to check out and nothing happened'",
-    },
-    {
-        # The one limit this route adds on top of `may_add_bundle` — see checkout's own docstring
-        # on why a single-use payment_token cannot safely cover more than one real charge yet.
-        "action": "subscription.checkout_multi_charge_unsupported",
-        "source": "admin",
-        "critical": False,
-        "resource": "plan",
-        "why": "a cart with more than one genuinely-paid item was refused outright rather than "
-               "risk a second charge attempt against an already-spent gateway token — worth "
-               "seeing on its own so a pattern of shops hitting this limit is visible, not folded "
-               "into the generic refusal count",
+        "why": "same posture as `subscription.refused` — a decision of ours (or billing's) about "
+               "somebody's money, just for a cart instead of a single plan; support needs the same "
+               "trail to answer 'I tried to check out and nothing happened'",
     },
     {
         "action": "subscription.checkout_completed",
         "source": "admin",
         "critical": True,
         "resource": "plan",
-        "why": "the same reason `subscription.created` is critical, multiplied: several real "
-               "subscriptions (and, for every paid one, a real charge) were created in one "
-               "request — 'who moved this shop onto these plans' is the first question a billing "
-               "dispute over any one of them would ask",
-    },
-    {
-        # Execution is sequential and stops at the first failure (no rollback of what already
-        # succeeded — see checkout's own docstring); this is the record of exactly that split.
-        "action": "subscription.checkout_partial",
-        "source": "admin",
-        "critical": True,
-        "resource": "plan",
-        "why": "some cart items were charged/created and at least one was not — the same "
-               "reconciliation stakes as `subscription.checkout_completed`, plus a real risk a "
-               "shop was billed for less than it saw a confirmation for; support needs the exact "
-               "per-item result, not just 'a checkout happened', to answer 'I was charged but "
-               "only got half of what I bought'",
+        "why": "a whole cart was charged in one atomic invoice — several real subscriptions (and a "
+               "real charge) created in one request — 'who moved this shop onto these plans' is "
+               "the first question a billing dispute over any one of them would ask",
     },
     {
         "action": "operator.created",

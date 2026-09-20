@@ -1,11 +1,14 @@
-"""POST /api/v1/subscription/checkout — buy several apps together, one confirmation.
+"""POST /api/v1/subscription/checkout — buy several apps together, one invoice, one charge.
 
 The whole reason this route exists: `may_add`'s own `plan.requires_any` gate only ever checked
 `held` — what a shop already owns from an earlier, SEPARATE purchase — so a dependency and the
 app that needs it could never be bought in one action. This route validates a whole cart together
-(`may_add_bundle`), then executes each item against billing-service's existing single-plan
-subscribe route, one at a time, stopping at the first failure — see the route's own docstring for
-why a real merged invoice needs a platform-side change this service does not own.
+(`may_add_bundle`, plus the same per-item `may_subscribe` gate a single purchase uses), then
+executes the cart in ONE atomic call to billing-service's own multi-plan checkout
+(`HttpPlans.checkout` -> `POST /internal/billing/subscriptions/checkout`, base-services v0.25.25):
+one invoice, one charge, all-or-nothing. There is no partial cart and no "at most one paid item"
+restriction any more — both existed only because this route used to loop billing's single-plan
+`subscribe` route itself; see git history for that earlier shape.
 """
 from __future__ import annotations
 
@@ -61,7 +64,11 @@ class FakePlans:
         self.held: list[dict] | None = []
         self.subscribed: list[tuple[str, str, str]] = []
         self.tokens: list[str] = []
-        self.refuse_plan_ids: set[str] = set()  # billing itself refuses these on subscribe()
+        self.checkout_calls: list[dict] = []
+        # billing-service itself refuses the WHOLE cart on checkout() when any of these plan_ids
+        # is present — the atomic route's own all-or-nothing contract, unlike the old per-item
+        # `refuse_plan_ids` that let earlier lines charge before a later one failed.
+        self.refuse_plan_ids: set[str] = set()
 
     def add(self, plan_id: str, *, limits: dict | None = None, trial: int = 0,
            amount: int | None = 9900) -> None:
@@ -81,13 +88,26 @@ class FakePlans:
     async def subscriptions(self, tenant: str):
         return self.held
 
-    async def subscribe(self, *, tenant: str, plan_id: str, interval: str = "month",
-                        payment_token: str = ""):
+    async def checkout(self, *, tenant: str, items: list[dict], payment_token: str = "",
+                       idempotency_key: str = ""):
         self.tokens.append(payment_token)
-        if plan_id in self.refuse_plan_ids:
-            return 402, {"error": "CARD_DECLINED"}
-        self.subscribed.append((tenant, plan_id, interval))
-        return 201, {"id": f"sub_{plan_id}", "tenant": tenant, "plan_id": plan_id}
+        self.checkout_calls.append({
+            "tenant": tenant, "items": list(items),
+            "payment_token": payment_token, "idempotency_key": idempotency_key,
+        })
+        if any(i["plan_id"] in self.refuse_plan_ids for i in items):
+            # ATOMIC MEANS NOTHING CHARGES — unlike the old per-item loop, a refused cart leaves
+            # no trace in `self.subscribed` at all, whichever line billing refused.
+            return 402, {"error": "CARD_DECLINED", "message": "بطاقة مرفوضة"}
+        for i in items:
+            self.subscribed.append((tenant, i["plan_id"], i["interval"]))
+        total = sum(int(self.catalog.get(i["plan_id"], {}).get("amount") or 0) for i in items)
+        return 201, {
+            "tenant": tenant, "invoice_id": "inv_1", "paid": bool(payment_token),
+            "currency": "SAR", "total_minor": total,
+            "items": [{"plan_id": i["plan_id"], "subscription_id": f"sub_{i['plan_id']}",
+                      "status": "active", "interval": i["interval"]} for i in items],
+        }
 
 
 class FakeConnections:
@@ -124,21 +144,23 @@ def _items(*plan_ids: str, interval: str = "month") -> list[dict]:
 # ── the whole reason this route exists ────────────────────────────────────────────────────────
 def test_a_dependency_and_its_app_check_out_together(client):
     """نقاطي + تسجيل زيارة, neither held before — refused by `may_add` alone, allowed here
-    because both travel in the same cart. Only one of the two is genuinely priced; the other is
-    free, so this also proves the "at most one real charge" rule does not over-refuse a cart that
-    only has one thing to actually pay for."""
+    because both travel in the same cart, in ONE atomic invoice."""
     plans = _wire(client, connected=True)
     plans.add("plan_visit", limits=VISIT, amount=0)  # free
-    plans.add("plan_loyalty", limits=LOYALTY, amount=9900)  # the one real charge
+    plans.add("plan_loyalty", limits=LOYALTY, amount=9900)  # paid
 
     r = _post(client, _items("plan_visit", "plan_loyalty"))
     assert r.status_code == 200, r.text
     body = r.json()
-    assert [i["ok"] for i in body["items"]] == [True, True]
+    assert [i["plan_id"] for i in body["items"]] == ["plan_visit", "plan_loyalty"]
+    assert body["invoice_id"] == "inv_1"
     assert plans.subscribed == [
         ("t_cart", "plan_visit", "once"),  # free, subscribed once not monthly
         ("t_cart", "plan_loyalty", "month"),
     ]
+    # ONE CALL, THE WHOLE CART — not one call per item.
+    assert len(plans.checkout_calls) == 1
+    assert plans.checkout_calls[0]["payment_token"] == "tok_1"
 
 
 def test_order_in_the_cart_does_not_matter_for_the_dependency(client):
@@ -163,6 +185,7 @@ def test_the_dependency_still_refuses_when_nothing_in_the_cart_satisfies_it(clie
     assert "تسجيل زيارة" in body["message"]
     assert body["plan_id"] == "plan_loyalty"
     assert plans.subscribed == [], "nothing may charge once the bundle itself is refused"
+    assert plans.checkout_calls == [], "billing must never even be called on a refused bundle"
 
 
 def test_a_dependency_already_held_from_an_earlier_purchase_still_works_in_a_cart(client):
@@ -196,18 +219,26 @@ def test_an_already_held_app_refuses_the_whole_cart(client):
     assert plans.subscribed == []
 
 
-# ── at most one genuinely-paid item ───────────────────────────────────────────────────────────
-def test_two_real_paid_items_are_refused_outright(client):
-    """The single-use-token limit — see the route's own docstring. Neither is free or on a
-    trial, so charging both with the same token is exactly the shape this refuses."""
+# ── the atomic invoice: several paid items together, all-or-nothing ─────────────────────────
+def test_two_real_paid_items_check_out_together_in_one_invoice(client):
+    """The old per-item loop refused this outright (a single-use token could not safely cover two
+    charge attempts). The atomic route makes only ONE charge attempt for the whole cart, so this
+    is now simply allowed."""
     plans = _wire(client, connected=True)
     plans.add("plan_visit", limits=VISIT, amount=9900)
     plans.add("plan_pro", limits=PRO, amount=9900)
 
     r = _post(client, _items("plan_visit", "plan_pro"))
-    assert r.status_code == 409, r.text
-    assert r.json()["error"] == "MULTI_CHARGE_UNSUPPORTED"
-    assert plans.subscribed == [], "neither item may charge once the cart itself is refused"
+    assert r.status_code == 200, r.text
+    assert len(plans.checkout_calls) == 1
+    assert plans.checkout_calls[0]["items"] == [
+        {"plan_id": "plan_visit", "interval": "month"},
+        {"plan_id": "plan_pro", "interval": "month"},
+    ]
+    assert plans.subscribed == [
+        ("t_cart", "plan_visit", "month"),
+        ("t_cart", "plan_pro", "month"),
+    ]
 
 
 def test_one_paid_item_with_several_free_items_is_allowed(client):
@@ -221,17 +252,6 @@ def test_one_paid_item_with_several_free_items_is_allowed(client):
     assert len(plans.subscribed) == 3
 
 
-def test_one_paid_item_with_a_trial_item_is_allowed(client):
-    """A trial needs no charge either — `trial_days > 0` counts the same as free for the
-    at-most-one-charge rule."""
-    plans = _wire(client, connected=True)
-    plans.add("plan_trial", limits=VISIT, amount=9900, trial=14)
-    plans.add("plan_pro", limits=PRO, amount=9900)
-
-    r = _post(client, _items("plan_trial", "plan_pro"))
-    assert r.status_code == 200, r.text
-
-
 def test_all_free_items_need_no_payment_token_at_all(client):
     plans = _wire(client, connected=True)
     plans.add("plan_visit", limits=VISIT, amount=0)
@@ -239,7 +259,37 @@ def test_all_free_items_need_no_payment_token_at_all(client):
 
     r = _post(client, _items("plan_visit", "plan_bookings"), payment_token="")
     assert r.status_code == 200, r.text
-    assert plans.tokens == ["", ""]
+    assert plans.tokens == [""]
+
+
+def test_billing_refusing_the_atomic_checkout_leaves_nothing_subscribed(client):
+    """The atomic contract: billing-service refuses (or fails to charge) the WHOLE cart as one
+    unit, so unlike the old per-item loop there is no first item left charged while a later one
+    fails — either the whole invoice goes through or nothing does."""
+    plans = _wire(client, connected=True)
+    plans.add("plan_visit", limits=VISIT, amount=0)
+    plans.add("plan_pro", limits=PRO, amount=9900)
+    plans.refuse_plan_ids.add("plan_pro")
+
+    r = _post(client, _items("plan_visit", "plan_pro"))
+    assert r.status_code == 409, r.text
+    assert r.json()["error"] == "CHECKOUT_FAILED"
+    assert plans.subscribed == [], "an atomic refusal must leave no line charged"
+    assert len(plans.checkout_calls) == 1, "still exactly one attempt, not one per item"
+
+
+def test_checkout_forwards_the_idempotency_key_to_billing(client):
+    """A double-tap or a resent network request must replay the same invoice — the key is
+    forwarded verbatim, never invented or dropped on this side."""
+    plans = _wire(client, connected=True)
+    plans.add("plan_pro", limits=PRO, amount=9900)
+
+    r = client.post("/api/v1/subscription/checkout",
+                    json={"items": _items("plan_pro"), "payment_token": "tok_1",
+                          "idempotency_key": "idem_abc123"},
+                    headers=_auth())
+    assert r.status_code == 200, r.text
+    assert plans.checkout_calls[0]["idempotency_key"] == "idem_abc123"
 
 
 # ── per-item may_subscribe still applies, checked before any charge ──────────────────────────
@@ -254,6 +304,7 @@ def test_a_whatsapp_only_app_refuses_the_whole_cart_unconnected(client):
     assert body["error"] == "WHATSAPP_CONNECTION_REQUIRED"
     assert body["plan_id"] == "plan_rating"
     assert plans.subscribed == [], "the connected item must not go through before the refusal"
+    assert plans.checkout_calls == []
 
 
 def test_a_paid_item_with_no_token_refuses_before_any_charge(client):
@@ -265,6 +316,7 @@ def test_a_paid_item_with_no_token_refuses_before_any_charge(client):
     assert r.status_code == 402, r.text
     assert r.json()["error"] == "PAYMENT_REQUIRED"
     assert plans.subscribed == []
+    assert plans.checkout_calls == []
 
 
 def test_an_unconnected_paying_cart_still_goes_through_with_a_notice(client):
@@ -300,39 +352,6 @@ def test_a_bad_interval_refuses_before_any_charge(client):
     assert plans.subscribed == []
 
 
-# ── partial execution failure: no rollback, honest per-item reporting ────────────────────────
-def test_a_mid_cart_billing_failure_stops_execution_and_reports_both_lines(client):
-    """billing-service itself refuses the SECOND item after the first already succeeded — this
-    route cannot undo the first (no refund, no cancel), so it reports exactly what happened."""
-    plans = _wire(client, connected=True)
-    plans.add("plan_visit", limits=VISIT, amount=0)
-    plans.add("plan_pro", limits=PRO, amount=9900)
-    plans.refuse_plan_ids.add("plan_pro")
-
-    r = _post(client, _items("plan_visit", "plan_pro"))
-    assert r.status_code == 207, r.text
-    body = r.json()
-    assert body["items"][0] == {"plan_id": "plan_visit", "ok": True, "status": 201, "detail": None}
-    assert body["items"][1]["plan_id"] == "plan_pro"
-    assert body["items"][1]["ok"] is False
-    assert body["items"][1]["status"] == 402
-    # THE FIRST ITEM DID CHARGE/CREATE — this is exactly why there is no automatic rollback here.
-    assert plans.subscribed == [("t_cart", "plan_visit", "once")]
-
-
-def test_execution_stops_at_the_first_failure_never_attempts_the_rest(client):
-    plans = _wire(client, connected=True)
-    plans.add("plan_visit", limits=VISIT, amount=0)
-    plans.add("plan_bookings", limits={"feature.bookings": {"limit": 1}}, amount=0)
-    plans.refuse_plan_ids.add("plan_visit")
-
-    r = _post(client, _items("plan_visit", "plan_bookings"))
-    assert r.status_code == 207, r.text
-    body = r.json()
-    assert len(body["items"]) == 1, "the second item must never even be attempted"
-    assert plans.subscribed == []
-
-
 # ── outages fail closed, never charge blind ───────────────────────────────────────────────────
 def test_an_unreadable_subscriptions_list_refuses_the_whole_checkout(client):
     plans = _wire(client, connected=True)
@@ -353,6 +372,21 @@ def test_an_unreadable_plan_refuses_the_whole_checkout_not_just_that_line(client
     r = _post(client, _items("plan_visit", "plan_missing"))
     assert r.status_code == 503, r.text
     assert plans.subscribed == []
+
+
+def test_a_billing_outage_on_the_atomic_call_itself_is_reported_as_a_gateway_failure(client):
+    """`HttpPlans.checkout` returns 503 when billing-service is simply unreachable — never a 409,
+    which would read as "the cart was refused" rather than "we could not even ask"."""
+    plans = _wire(client, connected=True)
+    plans.add("plan_pro", limits=PRO, amount=9900)
+
+    async def _unreachable(self, *, tenant, items, payment_token="", idempotency_key=""):
+        return 503, {"error": "BILLING_UNREACHABLE"}
+
+    plans.checkout = _unreachable.__get__(plans, FakePlans)
+    r = _post(client, _items("plan_pro"))
+    assert r.status_code == 502, r.text
+    assert r.json()["error"] == "CHECKOUT_FAILED"
 
 
 # ── request shape ──────────────────────────────────────────────────────────────────────────────
@@ -501,7 +535,7 @@ def test_a_token_signed_with_the_wrong_secret_is_refused(client):
     assert r.status_code in (401, 403)
 
 
-def test_two_different_tenants_never_cross_over_in_the_same_subscribe_calls(client):
+def test_two_different_tenants_never_cross_over_in_the_same_checkout_calls(client):
     """There is no `tenant` field anywhere on CheckoutIn -- the tenant charged is ALWAYS the
     JWT's own claim. Two carts from two different tenants must produce subscriptions each
     stamped with its own tenant, never the other's."""
@@ -517,3 +551,93 @@ def test_two_different_tenants_never_cross_over_in_the_same_subscribe_calls(clie
         ("tenant_alpha", "plan_pro", "once"),
         ("tenant_beta", "plan_pro", "once"),
     ]
+
+
+# ── the read-only price preview: never creates, never charges ────────────────────────────────
+def _post_preview(client, items, tenant="t_cart"):
+    return client.post("/api/v1/subscription/checkout/preview",
+                       json={"items": items}, headers=_auth(tenant))
+
+
+def test_preview_returns_billings_own_totals_untouched(client):
+    plans = _wire(client, connected=True)
+    plans.add("plan_pro", limits=PRO, amount=9900)
+
+    async def _preview(self, *, tenant, items):
+        return 200, {"currency": "SAR", "subtotal_minor": 9900, "discount_minor": 0,
+                    "tax_minor": 0, "total_minor": 9900,
+                    "items": [{"plan_id": "plan_pro", "interval": "month", "charged_now": True,
+                              "on_trial": False, "subtotal_minor": 9900, "discount_minor": 0,
+                              "tax_minor": 0, "total_minor": 9900, "prorated": False}]}
+
+    plans.checkout_preview = _preview.__get__(plans, FakePlans)
+    r = _post_preview(client, _items("plan_pro"))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["total_minor"] == 9900
+    assert body["items"][0]["plan_id"] == "plan_pro"
+    # NEVER CHARGES OR SUBSCRIBES ANYTHING — the whole point of a preview.
+    assert plans.subscribed == []
+    assert plans.checkout_calls == []
+
+
+def test_preview_does_not_require_a_purchasable_bundle(client):
+    """No `may_add_bundle` check on preview -- a live total must keep updating even before the
+    cart is a legally checkout-able set (see the route's own docstring)."""
+    plans = _wire(client, connected=True)
+    plans.add("plan_loyalty", limits=LOYALTY, amount=9900)  # its dependency is NOT in this cart
+
+    async def _preview(self, *, tenant, items):
+        return 200, {"currency": "SAR", "subtotal_minor": 9900, "discount_minor": 0,
+                    "tax_minor": 0, "total_minor": 9900, "items": []}
+
+    plans.checkout_preview = _preview.__get__(plans, FakePlans)
+    r = _post_preview(client, _items("plan_loyalty"))
+    assert r.status_code == 200, r.text
+
+
+def test_preview_propagates_billings_own_refusal(client):
+    plans = _wire(client, connected=True)
+
+    async def _preview(self, *, tenant, items):
+        return 422, {"error": "PLAN_NOT_FOUND"}
+
+    plans.checkout_preview = _preview.__get__(plans, FakePlans)
+    r = _post_preview(client, _items("plan_ghost"))
+    assert r.status_code == 422, r.text
+    assert r.json()["error"] == "PREVIEW_UNAVAILABLE"
+
+
+def test_preview_reports_an_outage_as_a_gateway_failure(client):
+    plans = _wire(client, connected=True)
+
+    async def _preview(self, *, tenant, items):
+        return 503, {"error": "BILLING_UNREACHABLE"}
+
+    plans.checkout_preview = _preview.__get__(plans, FakePlans)
+    r = _post_preview(client, _items("plan_pro"))
+    assert r.status_code == 502, r.text
+
+
+def test_preview_requires_billing_self_same_as_checkout(client):
+    _wire(client, connected=True)
+    now = dt.datetime.now(dt.timezone.utc)
+    tok = jwt.encode({"sub": "u1", "iss": ISS, "aud": AUD, "caps": ["operations.recent"],
+                      "tenant": "t_cart", "exp": now + dt.timedelta(minutes=5), "iat": now},
+                     SECRET, algorithm="HS256")
+    r = client.post("/api/v1/subscription/checkout/preview", json={"items": _items("plan_x")},
+                    headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 403
+
+
+def test_preview_with_no_tenant_is_refused(client):
+    _wire(client, connected=True)
+    r = client.post("/api/v1/subscription/checkout/preview", json={"items": _items("plan_x")},
+                    headers=_auth(tenant=""))
+    assert r.status_code == 403
+
+
+def test_preview_with_an_empty_cart_is_rejected_at_the_request_shape(client):
+    _wire(client, connected=True)
+    r = _post_preview(client, [])
+    assert r.status_code == 422

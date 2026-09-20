@@ -364,6 +364,7 @@ def build_manifest(
             # subscribe path had been live and unlisted since it was written.
             {"path": "/api/v1/subscription", "tier": "user", "method": "POST"},
             {"path": "/api/v1/subscription/checkout", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/subscription/checkout/preview", "tier": "user", "method": "POST"},
             {"path": "/api/v1/subscription/renew-now", "tier": "user", "method": "POST"},
             {"path": "/api/v1/subscription/payment", "tier": "user", "method": "GET"},
             {"path": "/api/v1/subscription/apps", "tier": "user", "method": "GET"},

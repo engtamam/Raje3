@@ -439,6 +439,14 @@ class NullPlans:
                         payment_token: str = "") -> tuple[int, dict]:
         return 503, {"error": "BILLING_NOT_CONFIGURED"}
 
+    async def checkout(self, *, tenant: str, items: list[dict[str, Any]],
+                       payment_token: str = "", idempotency_key: str = "") -> tuple[int, dict]:
+        return 503, {"error": "BILLING_NOT_CONFIGURED"}
+
+    async def checkout_preview(self, *, tenant: str,
+                               items: list[dict[str, Any]]) -> tuple[int, dict]:
+        return 503, {"error": "BILLING_NOT_CONFIGURED"}
+
     async def list_trial_plans(self) -> list[str]:
         return []
 
@@ -471,11 +479,14 @@ class HttpPlans:
     driver = "http"
 
     def __init__(self, *, billing_url: str, plans_path: str, subscribe_path: str,
-                 subscriptions_path: str, token: str, timeout: int = 8) -> None:
+                 subscriptions_path: str, token: str, timeout: int = 8,
+                 checkout_path: str = "", checkout_preview_path: str = "") -> None:
         base = billing_url.rstrip("/")
         self._plans = base + plans_path
         self._subscribe = base + subscribe_path
         self._subscriptions = base + subscriptions_path
+        self._checkout = base + checkout_path if checkout_path else ""
+        self._checkout_preview = base + checkout_preview_path if checkout_preview_path else ""
         self._token = token
         self._timeout = timeout
 
@@ -590,6 +601,43 @@ class HttpPlans:
         if payment_token:
             body["payment_token"] = payment_token
         status, out = self._request(self._subscribe, body)
+        return status, out if isinstance(out, dict) else {"detail": out}
+
+    async def checkout(self, *, tenant: str, items: list[dict[str, Any]],
+                       payment_token: str = "", idempotency_key: str = "") -> tuple[int, dict]:
+        """Buy several plans in ONE atomic checkout — one invoice, one charge, N subscriptions.
+
+        THE INTERNAL TWIN OF `subscribe`, NOT A SECOND CHECKOUT PATH. `api/v1/subscription.py`'s
+        own `checkout` route used to call `.subscribe()` per item in a loop before this twin
+        existed — refusing more than one genuinely-paid item, and leaving a mid-loop failure
+        partially applied. This calls billing's own atomic `.checkout()` instead: validate-all,
+        THEN charge once, so a cart of several paid apps either all arrive together or none do —
+        the same all-or-nothing guarantee `may_add_bundle` already gives the READ side, now
+        matched on the WRITE side.
+        """
+        if not self._checkout:
+            return 503, {"error": "BILLING_NOT_CONFIGURED"}
+        body: dict[str, Any] = {"tenant": tenant, "items": items}
+        if payment_token:
+            body["payment_token"] = payment_token
+        if idempotency_key:
+            body["idempotency_key"] = idempotency_key
+        status, out = self._request(self._checkout, body)
+        return status, out if isinstance(out, dict) else {"detail": out}
+
+    async def checkout_preview(self, *, tenant: str,
+                               items: list[dict[str, Any]]) -> tuple[int, dict]:
+        """The REAL price a cart will charge — read-only, creates and charges nothing.
+
+        NEVER GUESS THIS NUMBER CLIENT-SIDE. It reuses billing's own `_compute_renewal` (the same
+        pricing every subscribe/renewal/checkout runs), so what this returns is what the invoice
+        it previews will actually say — discount, VAT on the discounted net, proration, trial —
+        to the minor unit. A cart total computed here from `amount_minor` and a discount percent
+        alone would silently drop every one of those.
+        """
+        if not self._checkout_preview:
+            return 503, {"error": "BILLING_NOT_CONFIGURED"}
+        status, out = self._request(self._checkout_preview, {"tenant": tenant, "items": items})
         return status, out if isinstance(out, dict) else {"detail": out}
 
     async def list_trial_plans(self) -> list[str]:
@@ -727,5 +775,7 @@ def build_plans(settings) -> Any:
         plans_path=settings.BILLING_PLANS_PATH,
         subscribe_path=settings.BILLING_SUBSCRIBE_PATH,
         subscriptions_path=settings.BILLING_SUBSCRIPTIONS_PATH,
+        checkout_path=settings.BILLING_CHECKOUT_PATH,
+        checkout_preview_path=settings.BILLING_CHECKOUT_PREVIEW_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN,
         timeout=settings.PEER_TIMEOUT_SECONDS)
