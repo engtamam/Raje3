@@ -108,7 +108,9 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
       setState(() => _localError = auth.error);
       return;
     }
-    context.goNamed(RouteNames.home);
+    // Not actually the login screen — the router's own redirect (AppRouter._globalRedirect)
+    // sees the now-authenticated state and bounces straight to NavProvider.landingPath.
+    context.go(RouteNames.loginPath);
   }
 
   @override

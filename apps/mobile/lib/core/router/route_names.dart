@@ -15,12 +15,6 @@ class RouteNames {
   // ── ROUTE NAMES ──────────────────────────────────────────────────────────
   static const String login = 'login';
   static const String signup = 'signup';
-  static const String verifyPhone = 'verify_phone';
-  static const String home = 'home';
-  static const String analytics = 'analytics';
-  static const String apps = 'apps';
-  static const String account = 'account';
-  static const String visit = 'visit';
 
   // ── ROUTE PATHS ───────────────────────────────────────────────────────────
   static const String loginPath = '/login';
@@ -29,19 +23,12 @@ class RouteNames {
   /// (`hire`/staff invite in services/operations/app/core/signup.py) with no
   /// mobile entry point yet.
   static const String signupPath = '/signup';
-  /// Phone verification (OTP), reachable from either door — see
-  /// AuthProvider.errorReason for the `unverified`/`otp_required`/
-  /// `unverified_hold` reasons that route here.
-  static const String verifyPhonePath = '/verify-phone';
-  /// The fixed launcher screen — always the landing screen once authenticated,
-  /// one of the shell's 4 fixed bottom-bar tabs (see MainShell).
-  static const String homePath = '/home';
-  /// The 'shop' nav section's own dashboard (reminders/insights) — a fixed
-  /// bottom-bar tab labelled "التحليلات", not the app's landing screen anymore.
-  static const String analyticsPath = '/shop';
-  /// "تطبيقاتي" — every section the session's catalogue makes visible, plus
-  /// the picker for the bar's one customizable slot.
-  static const String appsPath = '/apps';
-  static const String accountPath = '/account';
-  static const String visitPath = '/visit';
+  /// Phone verification (OTP) is pushed directly via MaterialPageRoute from
+  /// login/signup (see VerifyPhoneScreen's own callers) — not a GoRouter
+  /// route, so it carries no name/path constant here.
+  ///
+  /// Every other real screen's route comes from `kNavSections` itself
+  /// (`section.path`/`section.id`, see app_router.dart) — a section not yet
+  /// built on mobile still gets a real, honest placeholder route this way,
+  /// with no separate constant needed per screen.
 }

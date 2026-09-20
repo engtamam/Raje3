@@ -123,23 +123,11 @@ abstract class S {
   /// **'إلغاء'**
   String get cancel;
 
-  /// No description provided for @save.
-  ///
-  /// In ar, this message translates to:
-  /// **'حفظ'**
-  String get save;
-
   /// No description provided for @close.
   ///
   /// In ar, this message translates to:
   /// **'إغلاق'**
   String get close;
-
-  /// No description provided for @back.
-  ///
-  /// In ar, this message translates to:
-  /// **'رجوع'**
-  String get back;
 
   /// No description provided for @next.
   ///
@@ -177,12 +165,6 @@ abstract class S {
   /// **'تمت العملية بنجاح'**
   String get success;
 
-  /// No description provided for @search.
-  ///
-  /// In ar, this message translates to:
-  /// **'بحث'**
-  String get search;
-
   /// No description provided for @login.
   ///
   /// In ar, this message translates to:
@@ -194,84 +176,6 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'تسجيل الخروج'**
   String get logout;
-
-  /// No description provided for @homeDashboardTitle.
-  ///
-  /// In ar, this message translates to:
-  /// **'لوحة التحكم'**
-  String get homeDashboardTitle;
-
-  /// No description provided for @homeShopSectionLabel.
-  ///
-  /// In ar, this message translates to:
-  /// **'محلّي'**
-  String get homeShopSectionLabel;
-
-  /// No description provided for @homeLoadErrorTitle.
-  ///
-  /// In ar, this message translates to:
-  /// **'تعذّر التحميل'**
-  String get homeLoadErrorTitle;
-
-  /// No description provided for @homeLoadErrorMessage.
-  ///
-  /// In ar, this message translates to:
-  /// **'تعذّر تحميل بيانات اليوم. حاول مرة أخرى.'**
-  String get homeLoadErrorMessage;
-
-  /// No description provided for @homeTodaySectionTitle.
-  ///
-  /// In ar, this message translates to:
-  /// **'اليوم'**
-  String get homeTodaySectionTitle;
-
-  /// No description provided for @homeStatSent.
-  ///
-  /// In ar, this message translates to:
-  /// **'أُرسلت'**
-  String get homeStatSent;
-
-  /// No description provided for @homeStatWaiting.
-  ///
-  /// In ar, this message translates to:
-  /// **'في الانتظار'**
-  String get homeStatWaiting;
-
-  /// No description provided for @homeStatRetrying.
-  ///
-  /// In ar, this message translates to:
-  /// **'تعيد المحاولة'**
-  String get homeStatRetrying;
-
-  /// No description provided for @homeDashboardComputing.
-  ///
-  /// In ar, this message translates to:
-  /// **'أحسب مؤشرات محلك الآن — حدّث الصفحة بعد قليل'**
-  String get homeDashboardComputing;
-
-  /// No description provided for @homeDashboardSectionTitle.
-  ///
-  /// In ar, this message translates to:
-  /// **'مؤشرات المحل'**
-  String get homeDashboardSectionTitle;
-
-  /// No description provided for @homeDashboardEmpty.
-  ///
-  /// In ar, this message translates to:
-  /// **'لا توجد بيانات كافية بعد.'**
-  String get homeDashboardEmpty;
-
-  /// No description provided for @themeDarkMode.
-  ///
-  /// In ar, this message translates to:
-  /// **'الوضع الداكن'**
-  String get themeDarkMode;
-
-  /// No description provided for @themeLightMode.
-  ///
-  /// In ar, this message translates to:
-  /// **'الوضع الفاتح'**
-  String get themeLightMode;
 
   /// Generic required-field validation error, no field name known
   ///
@@ -615,12 +519,6 @@ abstract class S {
   /// **'تسجيل زيارة'**
   String get visitTitle;
 
-  /// Section title for the customer-lookup card
-  ///
-  /// In ar, this message translates to:
-  /// **'العميل'**
-  String get visitCustomerSectionTitle;
-
   /// Label above the customer phone-lookup field
   ///
   /// In ar, this message translates to:
@@ -662,102 +560,6 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'حفظ الزيارة'**
   String get visitSaveButtonLabel;
-
-  /// No description provided for @navAppsLabel.
-  ///
-  /// In ar, this message translates to:
-  /// **'تطبيقاتي'**
-  String get navAppsLabel;
-
-  /// No description provided for @navAnalyticsLabel.
-  ///
-  /// In ar, this message translates to:
-  /// **'التحليلات'**
-  String get navAnalyticsLabel;
-
-  /// No description provided for @navHomeLabel.
-  ///
-  /// In ar, this message translates to:
-  /// **'الرئيسية'**
-  String get navHomeLabel;
-
-  /// No description provided for @navAccountLabel.
-  ///
-  /// In ar, this message translates to:
-  /// **'حسابي'**
-  String get navAccountLabel;
-
-  /// No description provided for @appsScreenTitle.
-  ///
-  /// In ar, this message translates to:
-  /// **'تطبيقاتي'**
-  String get appsScreenTitle;
-
-  /// No description provided for @appsScreenHint.
-  ///
-  /// In ar, this message translates to:
-  /// **'اضغط على أيقونة الدبّوس لتثبيت تطبيق بالخانة الخامسة بالشريط السفلي'**
-  String get appsScreenHint;
-
-  /// No description provided for @appsPinnedBadge.
-  ///
-  /// In ar, this message translates to:
-  /// **'مثبّت بالشريط'**
-  String get appsPinnedBadge;
-
-  /// No description provided for @appsPinAction.
-  ///
-  /// In ar, this message translates to:
-  /// **'تثبيت هنا'**
-  String get appsPinAction;
-
-  /// No description provided for @homeLauncherEmptyTitle.
-  ///
-  /// In ar, this message translates to:
-  /// **'لا توجد تطبيقات متاحة'**
-  String get homeLauncherEmptyTitle;
-
-  /// No description provided for @homeLauncherEmptyMessage.
-  ///
-  /// In ar, this message translates to:
-  /// **'تواصل مع الدعم لتفعيل تطبيق على محلّك'**
-  String get homeLauncherEmptyMessage;
-
-  /// No description provided for @accountScreenTitle.
-  ///
-  /// In ar, this message translates to:
-  /// **'حسابي'**
-  String get accountScreenTitle;
-
-  /// No description provided for @accountPhoneLabel.
-  ///
-  /// In ar, this message translates to:
-  /// **'رقم الجوال'**
-  String get accountPhoneLabel;
-
-  /// No description provided for @accountLogoutAction.
-  ///
-  /// In ar, this message translates to:
-  /// **'تسجيل الخروج'**
-  String get accountLogoutAction;
-
-  /// No description provided for @accountLogoutConfirmTitle.
-  ///
-  /// In ar, this message translates to:
-  /// **'تسجيل الخروج'**
-  String get accountLogoutConfirmTitle;
-
-  /// No description provided for @accountLogoutConfirmMessage.
-  ///
-  /// In ar, this message translates to:
-  /// **'هل تريد تسجيل الخروج من حسابك؟'**
-  String get accountLogoutConfirmMessage;
-
-  /// No description provided for @notificationsUnavailable.
-  ///
-  /// In ar, this message translates to:
-  /// **'الإشعارات غير متاحة بعد'**
-  String get notificationsUnavailable;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

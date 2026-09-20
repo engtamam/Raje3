@@ -2,77 +2,45 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
-import 'package:raje3_mobile/core/router/route_names.dart';
-import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 
-/// THE FIXED BOTTOM BAR — 4 anchors that never change, plus one customizable slot. Replaces an
-/// earlier pass's catalogue-driven bar (up to 4 pinned sections + a "More" overflow tab) after
-/// the owner changed the underlying philosophy: a bottom bar that lists installed "apps" reads
-/// as an app list, not a navigation bar. Every super-app case study researched for this pass
-/// (WeChat, Grab, Careem) keeps its bar to a handful of FIXED anchors and surfaces the actual
-/// services from the home screen's own launcher grid ([HomeScreen]) and a dedicated apps screen
-/// ([AppsScreen], "تطبيقاتي") instead. See NavProvider's own doc comment for the full reasoning.
+/// The app's own bottom navigation bar — built from whatever the session's real catalogue makes
+/// visible, in [kNavSections]'s own priority order. This is deliberately the ONLY nav shell in
+/// the app right now: the earlier fixed-5-slot bar (home/apps/account/analytics) was deleted
+/// with those same screens (owner's own instruction, 2026-09-20 — nothing half-finished stays
+/// half-finished, it gets rebuilt for real, one screen at a time), not patched to point at
+/// placeholders.
 ///
-/// Order (right to left in an RTL layout — see MainShell's own destinations list, which is
-/// built left-to-right and rendered mirrored by the framework): تطبيقاتي, التحليلات, الرئيسية
-/// (centre), حسابي, and the one customizable slot (default: تسجيل زيارة).
-///
-/// "التحليلات" is the one fixed slot that is STILL capability-gated — it is really the 'shop'
-/// nav section (`requires: ['reminders.today', 'insights.dashboard']`) wearing a fixed-tab
-/// costume, not a truly universal anchor like الرئيسية/حسابي/تطبيقاتي. An account whose
-/// catalogue does not make 'shop' visible (a role with neither capability) never sees the tab
-/// at all — showing it and letting AnalyticsScreen fail to load would be worse than omitting it.
+/// A session with 0 or 1 visible section gets no bottom bar at all — a bar with one destination
+/// (or none) is not a navigation control, it is decoration that invites a confused tap.
 class MainShell extends StatelessWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
-    final s = S.of(context)!;
     final nav = context.watch<NavProvider>();
-    final surface0 = context.isDark ? AppDarkColors.surface0 : AppColors.surface0;
+    final visible = nav.visibleSections;
 
-    final customSlot = nav.customSlotSection;
-    final hasAnalytics = nav.visibleSections.any((section) => section.id == 'shop');
-    final destinations = <_Destination>[
-      _Destination(path: RouteNames.appsPath, label: s.navAppsLabel, icon: Icons.apps_rounded),
-      if (hasAnalytics)
-        _Destination(
-            path: RouteNames.analyticsPath, label: s.navAnalyticsLabel, icon: Icons.trending_up),
-      _Destination(path: RouteNames.homePath, label: s.navHomeLabel, icon: Icons.home_rounded),
-      _Destination(
-          path: RouteNames.accountPath, label: s.navAccountLabel, icon: Icons.person_rounded),
-      if (customSlot != null)
-        _Destination(path: customSlot.path, label: customSlot.label, icon: customSlot.icon),
-    ];
+    if (visible.length < 2) {
+      return Scaffold(backgroundColor: AppColors.surface0, body: child);
+    }
 
     final currentPath = GoRouterState.of(context).uri.path;
-    var selectedIndex = destinations.indexWhere((d) => d.path == currentPath);
-    if (selectedIndex < 0) {
-      selectedIndex = destinations.indexWhere((d) => d.path == RouteNames.homePath);
-    }
+    var selectedIndex = visible.indexWhere((s) => s.path == currentPath);
     if (selectedIndex < 0) selectedIndex = 0;
 
     return Scaffold(
-      backgroundColor: surface0,
+      backgroundColor: AppColors.surface0,
       body: child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
-        onDestinationSelected: (index) => context.go(destinations[index].path),
+        onDestinationSelected: (index) => context.go(visible[index].path),
         destinations: [
-          for (final dest in destinations)
-            NavigationDestination(icon: Icon(dest.icon), label: dest.label),
+          for (final section in visible)
+            NavigationDestination(icon: Icon(section.icon), label: section.label),
         ],
       ),
     );
   }
-}
-
-class _Destination {
-  final String path;
-  final String label;
-  final IconData icon;
-
-  const _Destination({required this.path, required this.label, required this.icon});
 }

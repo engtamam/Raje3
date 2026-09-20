@@ -22,7 +22,7 @@ literal in a screen's SOURCE is caught this way regardless of which runtime bran
 the same reasoning check_operator_screen_localized.py's own header gives.
 
 Usage:
-    python ci/check_mobile_screen_localized.py apps/mobile/lib/features/home/home_screen.dart
+    python ci/check_mobile_screen_localized.py apps/mobile/lib/features/visit/visit_screen.dart
     python ci/check_mobile_screen_localized.py --all   # every file in SCREENS below
 
 Exits 1 and prints every offending line if any raw Arabic text remains; exits 0 (silent) if clean.
@@ -37,12 +37,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # Files already migrated to lib/l10n — add a path here once its migration starts.
 SCREENS = [
-    "apps/mobile/lib/features/home/home_screen.dart",
     "apps/mobile/lib/features/shell/main_shell.dart",
-    "apps/mobile/lib/widgets/app_widgets.dart",
-    "apps/mobile/lib/features/apps/apps_screen.dart",
-    "apps/mobile/lib/features/account/account_screen.dart",
-    "apps/mobile/lib/features/analytics/analytics_screen.dart",
     "apps/mobile/lib/features/auth/login_screen.dart",
     "apps/mobile/lib/features/auth/signup_screen.dart",
     "apps/mobile/lib/features/auth/verify_phone_screen.dart",

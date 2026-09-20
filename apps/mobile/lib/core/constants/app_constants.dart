@@ -52,13 +52,6 @@ class AppConstants {
   /// Timestamp of last background data sync (local storage).
   static const String lastSyncKey = 'last_sync';
 
-  /// The operator's own choice for the bottom bar's one customizable slot —
-  /// a [NavSectionDef.id] (see nav_sections.g.dart). Defaults to 'visit'
-  /// when unset; stored per-device (local storage), not per-account, since
-  /// there is no backend field for a single-slot preference — see
-  /// NavProvider's own doc comment.
-  static const String customNavSlotKey = 'custom_nav_slot';
-
   // NOTE: the reference project also kept keys here for its own streak-card
   // display settings and BLE/WiFi device pairing — those are product
   // features (gamification, hardware scanners), not reusable storage

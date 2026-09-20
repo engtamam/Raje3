@@ -4,12 +4,8 @@ import 'package:raje3_mobile/core/nav/nav_sections.g.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/router/route_names.dart';
-import 'package:raje3_mobile/features/account/account_screen.dart';
-import 'package:raje3_mobile/features/analytics/analytics_screen.dart';
-import 'package:raje3_mobile/features/apps/apps_screen.dart';
 import 'package:raje3_mobile/features/auth/login_screen.dart';
 import 'package:raje3_mobile/features/auth/signup_screen.dart';
-import 'package:raje3_mobile/features/home/home_screen.dart';
 import 'package:raje3_mobile/features/shell/main_shell.dart';
 import 'package:raje3_mobile/features/visit/visit_screen.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
@@ -17,17 +13,17 @@ import 'package:raje3_mobile/theme/app_theme.dart';
 
 /// App router configuration.
 ///
-/// THE LANDING SCREEN IS ALWAYS [RouteNames.homePath] — the fixed launcher, one of the shell's
-/// 4 fixed bottom-bar tabs. An earlier pass landed on [NavProvider]'s first-visible-section
-/// instead (mirroring apps/console/src/nav.ts's own «تسجيل زيارة lands first» comment); that
-/// dynamic-landing idea was tied to the dynamic bottom bar the owner replaced — see
-/// NavProvider's own doc comment. The launcher screen itself still reads the catalogue to build
-/// its grid, so nothing about WHICH sections are reachable changed, only where you land.
+/// ONLY ONE REAL SCREEN TODAY: تسجيل زيارة. Every other section this session's catalogue makes
+/// visible still gets a real route (below) so a capability change never leaves the app on a
+/// blank screen or a router crash — it just renders [_NotYetOnMobile] until its own screen is
+/// built. The owner's own instruction (2026-09-20): everything that was not built to a real
+/// standard is deleted rather than kept half-finished — home/apps/account/analytics are gone
+/// entirely, to be rebuilt one at a time, not patched.
 ///
-/// Every [NavSectionDef] still gets a real route below, reachable from the launcher grid or
-/// "تطبيقاتي" even when it isn't one of the bar's fixed tabs. Two of them ('shop', 'visit') have
-/// real screens; the rest render [_NotYetOnMobile] — an honest "not built here yet" state, not a
-/// silent placeholder.
+/// THE LANDING SCREEN IS [NavProvider.landingPath] — the first section the session's own
+/// catalogue makes visible, in [kNavSections]'s priority order (mirrors
+/// apps/console/src/nav.ts's own comment: «تسجيل زيارة» lands first because it needs only the
+/// one capability most operators hold, not because it is special-cased anywhere).
 class AppRouter {
   AppRouter._();
 
@@ -59,21 +55,6 @@ class AppRouter {
           navigatorKey: _shellNavKey,
           builder: (context, state, child) => MainShell(child: child),
           routes: [
-            GoRoute(
-              path: RouteNames.homePath,
-              name: RouteNames.home,
-              builder: (context, state) => const HomeScreen(),
-            ),
-            GoRoute(
-              path: RouteNames.appsPath,
-              name: RouteNames.apps,
-              builder: (context, state) => const AppsScreen(),
-            ),
-            GoRoute(
-              path: RouteNames.accountPath,
-              name: RouteNames.account,
-              builder: (context, state) => const AccountScreen(),
-            ),
             for (final section in kNavSections)
               GoRoute(
                 path: section.path,
@@ -88,8 +69,6 @@ class AppRouter {
 
   static Widget _screenFor(NavSectionDef section) {
     switch (section.id) {
-      case 'shop':
-        return const AnalyticsScreen();
       case 'visit':
         return const VisitScreen();
       default:
@@ -98,10 +77,10 @@ class AppRouter {
   }
 
   /// Auth guard, extended with the nav guard: once authenticated, a caller sitting on the login
-  /// route or on the app's own root is sent to the fixed launcher ([RouteNames.homePath]) —
-  /// never a dynamic, catalogue-dependent path (see this file's own header comment on why the
-  /// landing screen is fixed now). The catalogue load is still kicked off here so the launcher's
-  /// grid and the bar's customizable slot have real data by the time they render.
+  /// route or on the app's own root is sent to [NavProvider.landingPath] rather than a fixed
+  /// path. While the catalogue is still loading, the caller is held on login (which shows a
+  /// spinner via AuthProvider's own loading state) rather than guessing a landing screen ahead
+  /// of the data that decides it.
   static String? _globalRedirect(
     AuthProvider authProvider,
     NavProvider navProvider,
@@ -121,15 +100,16 @@ class AppRouter {
       return isOnAuthPage ? null : RouteNames.loginPath;
     }
 
-    if (navProvider.state == NavLoadState.initial) {
-      // Fire-and-forget: the redirect callback itself must stay synchronous. NavProvider
-      // notifying when the load resolves triggers GoRouter to re-evaluate via
-      // refreshListenable — the launcher/apps screens re-render with real data once it lands.
-      navProvider.load();
-    }
-
     if (isOnAuthPage) {
-      return RouteNames.homePath;
+      if (navProvider.state == NavLoadState.initial) {
+        // Fire-and-forget: the redirect callback itself must stay synchronous. NavProvider
+        // notifying when the load resolves triggers GoRouter to re-evaluate via
+        // refreshListenable, landing the user once the real answer is known.
+        navProvider.load();
+        return null;
+      }
+      final landing = navProvider.landingPath;
+      return landing ?? RouteNames.loginPath;
     }
 
     return null;

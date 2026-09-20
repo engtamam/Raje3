@@ -50,7 +50,6 @@ file's own doc comment says exactly what changed and why.
 | `lib/core/constants/api_constants.dart` | same | Replaced the four execute-pattern endpoint URLs with one `apiBasePath` |
 | `lib/theme/app_theme.dart` | `lib/theme/flutterflow_theme.dart` | **Pattern ported** (AppColors/AppSpacing/AppTextStyles/AppShadows token classes, `AppThemeColors` ThemeExtension, `ContextExtension` (`isDark`/`appColors`/`colorScheme`)) — none of their Royal-Amethyst/Metallic-Gold literal values were kept. `AppColors`/`AppDarkColors` live in the generated `app_colors.g.dart` (see below) — `app_theme.dart` imports/re-exports it and exposes `AppTheme.light`/`.dark`. |
 | `lib/theme/app_colors.g.dart` | — (generated) | **Not hand-written.** Produced by `scripts/gen_mobile_theme.py` directly from `ui/packages/ui/src/theme/theme.config.ts`'s `light` AND `dark` palettes and `config/product.json`'s `brand.accent.light`/`.dark` (`#7C3AED`/`#A78BFA`) — same `mix()` derivation theme.config.ts itself uses for hover/soft/on-soft tints, both modes. Re-run the script after either source changes; `ci/check_mobile_theme_is_generated.py` fails the build if the checked-in file drifts from the generator's current output. This is the fix for the exact drift class `ci/check_a_hardcoded_color_does_not_shadow_a_token.py` already polices on the web side. |
-| `lib/widgets/app_widgets.dart` | `lib/custom_widgets.dart` | **Ported, dark-mode aware** — PrimaryButton/SecondaryButton/AppCard/AppTextField/AppAlert/AppBadge/AppLoadingIndicator/EmptyState/ThemeSwitchTile, every colour read through `context.appColors`/`context.isDark` rather than a light-only literal. `GoldButton`/`PremiumBadge` (their subscription-tier branding) were not ported — Raje3 has no equivalent concept. |
 | `lib/core/providers/theme_provider.dart` | `lib/core/providers/theme_provider.dart` | Ported as-is — `ThemeMode` persisted via `LocalStorage.getThemeMode`/`setThemeMode` (already present), `MaterialApp.themeMode` reads it in `main.dart`. |
 | `l10n.yaml` | same | Same ARB tooling config, `preferred-supported-locales` set to Raje3's real 6 (`ar en ur ha fil bn`, from `apps/console/src/operator-i18n.tsx`) |
 | `analysis_options.yaml` | same | Untouched |
@@ -65,44 +64,30 @@ screen is a later pass), the six `lib/l10n/app_*.arb` files (generic
 button-label strings only, in Raje3's real 6 locales, `ar` as the
 template/source language per this product's `locale.default`).
 
-## Bottom-bar philosophy (2026-09-20)
+## Screens: only what is real (2026-09-20)
 
-`lib/features/shell/main_shell.dart` was originally a per-operator
-pinned-sections nav (up to 4 pinned sections + a "More" overflow tab,
-mirroring apps/console/src/nav.ts's own `visibleSections`). The owner
-changed that philosophy after reviewing how WeChat/Grab/Careem structure
-their own bottom bars: a bar that lists installed "apps" reads as an app
-list, not a navigation bar. `MainShell` is now a FIXED 5-slot
-`NavigationBar` — تطبيقاتي, التحليلات, الرئيسية (centre), حسابي, and one
-customizable slot (default: تسجيل زيارة, changeable from "تطبيقاتي" itself)
-— and the actual catalogue-driven section list moved to two new screens:
+An earlier pass built a fixed 5-slot bottom bar (تطبيقاتي / التحليلات /
+الرئيسية / حسابي + one customizable slot) with four screens behind it —
+`home_screen.dart`, `apps_screen.dart`, `analytics_screen.dart`,
+`account_screen.dart` — plus a ported dark-mode widget library
+(`lib/widgets/app_widgets.dart`). The owner's own review: none of the four
+were built to a professional standard, and a half-finished screen is worse
+than an honest placeholder. All four screens and the widget library were
+**deleted outright** rather than patched — they will be rebuilt one at a
+time, reviewed as they land, not merged as a batch again.
 
-- `lib/features/home/home_screen.dart` — the fixed launcher/landing screen
-  (always `/home` now, never a dynamic first-visible-section). Its own top
-  bar (this screen only) shows the shop name, a theme toggle, support, and
-  a notifications bell (not yet backed by a real feature — taps show an
-  honest "not available yet" snackbar rather than a fake unread count).
-  **Not shown**: an employee name or shop logo — neither exists as a real
-  field in this app's models or its signup/signin doors today; adding
-  either here would be exactly the placeholder drift this codebase's own
-  conventions refuse. A real backend field is the prerequisite, not a UI
-  change.
-- `lib/features/apps/apps_screen.dart` ("تطبيقاتي") — every section the
-  catalogue makes visible, with a pin icon per row to choose the bar's
-  customizable slot.
-- `lib/features/analytics/analytics_screen.dart` — the FORMER
-  `home_screen.dart` (gradient sliver header, stat-row, dashboard cards,
-  reading `/api/v1/reminders/today` + `/api/v1/insights/dashboard`).
-  Renamed, not rewritten, when the launcher took over `home_screen.dart`'s
-  old name and route.
-- `lib/features/account/account_screen.dart` ("حسابي") — shop name, phone,
-  theme switch, logout. Same "no employee name/logo" gap noted above.
+The only real screens today are the ones the owner explicitly signed off:
+`login_screen.dart`, `signup_screen.dart`, `verify_phone_screen.dart`, and
+`visit_screen.dart` (`lib/features/visit/`, itself rebuilt from scratch for
+a five-second entry — see that file's own header comment).
 
-The customizable slot's choice persists locally (`LocalStorage`/
-`AppConstants.customNavSlotKey`), not through the backend's
-`pinned_nav_ids` field — that field was shaped for up to 4 ids for the old
-per-section bar; repurposing it awkwardly for one id wasn't worth it here.
-See `NavProvider`'s own doc comment for the full reasoning.
+`lib/features/shell/main_shell.dart` is back to a plain catalogue-driven
+bar: every section `NavProvider.visibleSections` makes visible gets a tab,
+in `kNavSections`'s own priority order; a session with 0 or 1 visible
+section gets no bottom bar at all. The landing screen is
+`NavProvider.landingPath` — the first visible section, never a fixed path
+— so an account whose catalogue makes «تسجيل زيارة» the only real, visible
+destination lands there directly with nothing to switch between.
 
 ## Explicitly NOT ported
 
