@@ -1,9 +1,8 @@
 """Integration: /internal/whatsapp/meta-agent/rollout -- the on/off switch for Meta's OWN AI on
-a number that already went through /internal/whatsapp/meta-agent/provision once. Two operations
-callers: the owner's own AI kill switch (staff.py::set_ai_toggle, instant) and the entitlement
-sweep (api/internal.py::sweep_meta_agent_rollout, catches a lapsed subscription nobody touched a
-switch for). Neither call ever touches this file's own connection or handover mode -- see
-app/core/meta_agent_provisioning.py::set_agent_rollout's own docstring for why."""
+a number that already went through /internal/whatsapp/meta-agent/provision once. Called from
+operations by the owner's own AI kill switch (staff.py::set_ai_toggle, instant); never touches
+this file's own connection or handover mode -- see app/core/meta_agent_provisioning.py::
+set_agent_rollout's own docstring for why."""
 from __future__ import annotations
 
 import json

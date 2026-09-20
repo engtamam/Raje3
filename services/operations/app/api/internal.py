@@ -2878,48 +2878,6 @@ async def publish_template_libraries(request: Request) -> dict:
             "published": published, "failed": failed}
 
 
-@router.post("/operations/whatsapp/meta-agent/rollout-sweep",
-             dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
-async def sweep_meta_agent_rollout(request: Request) -> dict:
-    """Enforce Meta's own AI rollout flag to match truth for every connected number — driven by a
-    CronJob, never a person. Covers what neither instant trigger can: `feature.whatsapp` simply
-    lapsing with nobody touching the AI kill switch (`api/v1/staff.py::set_ai_toggle` already
-    reacts to the switch itself, the instant it flips).
-
-    IDEMPOTENT, SO A TENANT ALREADY RIGHT COSTS ONE HARMLESS EXTRA GRAPH CALL — this recomputes
-    the desired state (entitled AND the owner's own switch is on) and pushes it every pass, rather
-    than trying to track what changed since the last run. Simpler, and self-healing against a
-    missed instant trigger (a restart mid-request, a transient failure) for free.
-
-    ONE SHOP'S FAILURE IS NOT THE PASS'S — same rule as the template sweeps above. `failed` here
-    also counts the ordinary "never provisioned through Meta Business Agent onboarding" case (most
-    shops today, until that flag turns on) alongside a real transient error — telemetry carries the
-    tenant so either can be told apart later; this pass never blocks on it.
-    """
-    from app.core import ai_toggle as AT
-    from app.core.connect import ConnectionStore
-
-    c = request.app.state.container
-    store = ConnectionStore(c.datastore)
-    connections = await store.live_connections()
-    seen: set[str] = set()
-    checked = failed = 0
-    for conn in connections:
-        if not conn.tenant or conn.tenant in seen:
-            continue
-        seen.add(conn.tenant)
-        checked += 1
-        entitled = bool(await c.whatsapp_licence.allowed(conn.tenant))
-        toggle_on = await AT.AiToggleStore(c.datastore).get(conn.tenant)
-        desired = entitled and toggle_on
-        ok = await c.meta_agent_rollout_trigger.trigger(tenant=conn.tenant, enabled=desired)
-        if not ok:
-            failed += 1
-            c.telemetry.event("meta_agent_rollout_sweep_failed", tenant=conn.tenant,
-                              desired=desired)
-    return {"ok": True, "tenants": checked, "failed": failed}
-
-
 class StatementRunIn(BaseModel):
     """An OPTIONAL body — the scheduler sends none.
 

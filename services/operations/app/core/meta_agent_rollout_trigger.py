@@ -4,9 +4,12 @@ and now needs Meta's AI itself turned off (or back on), never a re-run of onboar
 change to the connection or the handover mode. See whatsapp-assistant's own `app/core/
 meta_agent_provisioning.py::set_agent_rollout` for the full reasoning.
 
-TWO CALLERS: `api/v1/staff.py::set_ai_toggle` (instant, the owner's own kill switch) and
-`api/internal.py::sweep_meta_agent_rollout` (the periodic catch-all for a subscription simply
-lapsing with nobody touching a switch)."""
+CALLER: `api/v1/staff.py::set_ai_toggle` (instant, the owner's own kill switch). A subscription
+simply lapsing with nobody touching the switch has no caller yet -- a periodic sweep was built and
+tested for that, then deliberately removed (2026-09-20, the owner's own call): billing's own
+renewal cycle only ever changes a subscription's status once a day, at a fixed cron time, so a
+sweep bought nothing a same-day reaction to a real SUBSCRIPTION_SUSPENDED event wouldn't do better
+-- that event was requested from base-services instead of rebuilding the sweep."""
 from __future__ import annotations
 
 from app.adapters import internal_http

@@ -226,8 +226,10 @@ class Settings(BaseSettings):
     # call does anything real; this side just needs somewhere real to send it).
     WHATSAPP_META_AGENT_PROVISION_PATH: str = "/internal/whatsapp/meta-agent/provision"
     # The on/off switch for a number ALREADY onboarded -- see meta_agent_rollout_trigger.py's own
-    # docstring. Fired by the AI kill switch (staff.py::set_ai_toggle) and by the entitlement sweep
-    # below, never a re-run of provisioning.
+    # docstring. Fired by the AI kill switch (staff.py::set_ai_toggle), never a re-run of
+    # provisioning. A subscription simply lapsing with nobody touching the switch is not covered
+    # yet -- flagged to base-services (2026-09-20) for a SUBSCRIPTION_SUSPENDED event to react to
+    # instead of a periodic sweep, which was tried and deliberately removed.
     WHATSAPP_META_AGENT_ROLLOUT_PATH: str = "/internal/whatsapp/meta-agent/rollout"
 
     # ── the programmatic link (`feature.api`) — CLOSED by product decision, 2026-09-16 ────────

@@ -275,9 +275,10 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "source": "internal",
         "critical": True,
         "resource": "meta_agent",
-        "why": "Meta's own AI was switched off for a number — either the owner's own kill switch, "
-               "or feature.whatsapp lapsing (see operations' own rollout-sweep). Critical for the "
-               "same reason the opposite direction is: this is the provable moment customers "
+        "why": "Meta's own AI was switched off for a number — today only the owner's own kill "
+               "switch (feature.whatsapp lapsing has no caller yet, see operations' own "
+               "meta_agent_rollout_trigger.py). Critical for the same reason the opposite "
+               "direction is: this is the provable moment customers "
                "stopped getting an automated reply from this shop's number",
     },
     {

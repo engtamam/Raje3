@@ -636,11 +636,14 @@ async def set_meta_agent_rollout(request: Request, body: SetMetaAgentRolloutIn) 
     once — never touches the connection or the handover mode, only the same `rollout.enabled`
     Graph flag `provision_number`'s own `enable_agent` step sets to True at onboarding.
 
-    TWO CALLERS, BOTH IN OPERATIONS: the AI kill switch (`api/v1/staff.py::set_ai_toggle`, fires
-    the instant an owner flips it) and the entitlement sweep (`api/internal.py::
-    sweep_meta_agent_rollout`, catches `feature.whatsapp` simply lapsing with no switch touched).
-    Neither passes `entity_id` — `set_agent_rollout` reads it back from this tenant's own
-    SecretStore row, the same one `provision_number` wrote it into.
+    CALLER, IN OPERATIONS: the AI kill switch (`api/v1/staff.py::set_ai_toggle`, fires the instant
+    an owner flips it). It never passes `entity_id` — `set_agent_rollout` reads it back from this
+    tenant's own SecretStore row, the same one `provision_number` wrote it into.
+
+    `feature.whatsapp` SIMPLY LAPSING WITH NO SWITCH TOUCHED HAS NO CALLER YET — a periodic sweep
+    was built and deliberately removed (see operations' own `meta_agent_rollout_trigger.py`
+    docstring); the real fix requested from base-services is a `SUBSCRIPTION_SUSPENDED` event to
+    react to instead.
 
     A TENANT NEVER PROVISIONED THROUGH META BUSINESS AGENT IS A NO-OP, REPORTED AS SUCH — most
     `feature.whatsapp` shops today have no Meta Business Agent credential at all (the flag that

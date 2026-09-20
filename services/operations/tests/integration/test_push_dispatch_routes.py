@@ -15,7 +15,6 @@ _ROUTES = [
     "/internal/operations/templates/sync-approvals",
     "/internal/operations/templates/publish",
     "/internal/operations/partners/statements/run",
-    "/internal/operations/whatsapp/meta-agent/rollout-sweep",
 ]
 
 

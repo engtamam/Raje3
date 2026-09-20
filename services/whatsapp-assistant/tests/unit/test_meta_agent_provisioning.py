@@ -387,7 +387,7 @@ def test_null_provisioner_set_rollout_is_false():
     assert run(NullMetaAgentProvisioner().set_rollout("e1", True)) is False
 
 
-# ── set_agent_rollout: the tenant-level orchestration ai_toggle/the entitlement sweep call ─────
+# ── set_agent_rollout: the tenant-level orchestration ai_toggle calls ──────────────────────────
 
 def test_set_agent_rollout_reads_entity_id_back_from_secret_store_and_flips_it():
     secrets = _FakeSecrets({"t1|META_KNOWLEDGE_TOKEN": "tok",
