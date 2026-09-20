@@ -26,11 +26,12 @@ class AssistantService {
 
   Future<void> ensureReady() => aiModel.ensureReady();
 
-  /// Ask the assistant [question] in [lang], grounded in every KB entry [catalog] makes visible.
-  /// The caller must check [status] is [AiModelStatus.ready] first — same rule [AiModel.generate]
-  /// itself holds to.
+  /// Ask the assistant [question] in [lang], grounded in the KB entries [catalog] makes visible
+  /// AND that [question] is actually about (see [KbService.buildKnowledgeText] on why it is not
+  /// simply every entry). The caller must check [status] is [AiModelStatus.ready] first — same
+  /// rule [AiModel.generate] itself holds to.
   Stream<String> ask(String question, {required String lang, required Catalog catalog}) {
-    final knowledge = kbService.buildKnowledgeText(lang, catalog);
+    final knowledge = kbService.buildKnowledgeText(lang, catalog, question: question);
     return aiModel.generate(question, systemInstruction: _systemPrompt(knowledge, lang));
   }
 
