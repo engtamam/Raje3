@@ -42,7 +42,7 @@ export interface AppTileData {
 }
 
 export function AppTile({
-  app, onOpen, fetchFeatures, billing,
+  app, onOpen, fetchFeatures, billing, hideDetails,
 }: {
   app: AppTileData;
   onOpen: () => void;
@@ -52,6 +52,14 @@ export function AppTile({
    *  bundled) — the details window then shows no price/subscribe row at all, same "absence is
    *  never invented" rule every other read here follows. */
   billing?: AppBillingProps;
+  /** «تطبيقاتي» ONLY (the owner's own instruction, 2026-09-20) — that shelf is pure navigation
+   *  now, never a second storefront: no price strip on the face, no "التفاصيل" button/window at
+   *  all. «متجر التطبيقات» is unchanged — every price/subscribe/cancel/feature-showcase
+   *  behaviour this tile always had stays exactly there. `AppLauncher.tsx` also withholds the
+   *  `billing` prop itself on «تطبيقاتي», so this flag only needs to additionally suppress the
+   *  "التفاصيل" entry point (a free/bundled app with no `billing` still had one, showing its
+   *  plain feature list — that must vanish too on this shelf). */
+  hideDetails?: boolean;
 }) {
   const { t } = useOperatorI18n();
   const [open, setOpen] = useState(false);
@@ -123,30 +131,34 @@ export function AppTile({
 
         {billing ? <AppPriceStrip billing={billing} /> : null}
 
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
-          className={`relative z-[2] mt-auto w-fit self-start py-1 text-sm font-bold ${app.vip ? 'text-[#f4e2a4]' : 'text-accent'}`}
-        >
-          {t('launcher.tile.details')}
-        </button>
+        {hideDetails ? null : (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+            className={`relative z-[2] mt-auto w-fit self-start py-1 text-sm font-bold ${app.vip ? 'text-[#f4e2a4]' : 'text-accent'}`}
+          >
+            {t('launcher.tile.details')}
+          </button>
+        )}
       </Card>
 
-      <AppDetailsModal
-        open={open}
-        onClose={() => setOpen(false)}
-        label={app.label}
-        what={app.what}
-        icon={Icon}
-        accent={app.accent}
-        ctaLabel={app.locked ? t('launcher.tile.addToPlan') : t('launcher.tile.open')}
-        onCta={() => { setOpen(false); onOpen(); }}
-        inlineFeatures={app.inlineFeatures}
-        featuresAction={app.featuresAction}
-        fetcher={fetchFeatures}
-        billing={billing}
-        vip={app.vip}
-      />
+      {hideDetails ? null : (
+        <AppDetailsModal
+          open={open}
+          onClose={() => setOpen(false)}
+          label={app.label}
+          what={app.what}
+          icon={Icon}
+          accent={app.accent}
+          ctaLabel={app.locked ? t('launcher.tile.addToPlan') : t('launcher.tile.open')}
+          onCta={() => { setOpen(false); onOpen(); }}
+          inlineFeatures={app.inlineFeatures}
+          featuresAction={app.featuresAction}
+          fetcher={fetchFeatures}
+          billing={billing}
+          vip={app.vip}
+        />
+      )}
     </>
   );
 }

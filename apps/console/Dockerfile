@@ -57,13 +57,16 @@ COPY apps/console/ ./
 ARG VITE_MOYASAR_PUBLISHABLE_KEY=""
 ENV VITE_MOYASAR_PUBLISHABLE_KEY=$VITE_MOYASAR_PUBLISHABLE_KEY
 # UNLIKE META/MOYASAR ABOVE, NOT AN OPERATOR CREDENTIAL — a pure feature switch with no secret
-# behind it, so it defaults ON here rather than requiring deploy/target.env to supply anything.
-# AssistantHint.tsx's own "؟" icon (per-screen help, assistant-service's by_anchor()) and
-# Support.tsx's "خدمة العملاء" chat tab — both built and tested, left dark until now because
-# nothing ever set either flag. Still overridable via VITE_ASSISTANT_*_ENABLED in
-# deploy/target.env if a build ever needs either off.
-ARG VITE_ASSISTANT_HELP_ICON_ENABLED="true"
-ARG VITE_ASSISTANT_CHAT_ENABLED="true"
+# behind it. DEFAULTS OFF (owner's own instruction, 2026-09-20): the console's AI support is
+# retired in favour of the mobile app's own on-device assistant — AssistantHint.tsx's "؟" icon
+# (per-screen help, assistant-service's by_anchor()) and Support.tsx's "خدمة العملاء" chat tab
+# stay built and tested, just dark here. This was ONCE a real live bug in the other direction:
+# an earlier comment claimed "left dark until now" while these ARGs actually defaulted to
+# "true" — every ordinary build turned both on with nothing overriding them, which is exactly
+# how an owner reports "I see the help icon live" for a feature nobody meant to ship. Still
+# overridable via VITE_ASSISTANT_*_ENABLED in deploy/target.env if a build ever needs either on.
+ARG VITE_ASSISTANT_HELP_ICON_ENABLED="false"
+ARG VITE_ASSISTANT_CHAT_ENABLED="false"
 ENV VITE_ASSISTANT_HELP_ICON_ENABLED=$VITE_ASSISTANT_HELP_ICON_ENABLED VITE_ASSISTANT_CHAT_ENABLED=$VITE_ASSISTANT_CHAT_ENABLED
 RUN npm run build
 

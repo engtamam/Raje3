@@ -317,9 +317,16 @@ export function AppLauncher() {
                 // product follows.
                 const plan = app.billingKey ? billing.planByKey[app.billingKey] : undefined;
                 const sub = plan ? billing.subByPlanId[plan.id] : undefined;
+                // «تطبيقاتي» IS PURE NAVIGATION NOW (the owner's own instruction, 2026-09-20) —
+                // no price, no "التفاصيل" window, nothing renewal-related at all belongs there
+                // any more; that shelf shows only the app itself, exactly like the sidebar rail
+                // it mirrors. Every price/subscribe/cancel/feature-showcase behaviour stays
+                // unchanged on «متجر التطبيقات» — the ONLY tab that ever sells anything.
+                const showBilling = tab === 'all';
                 return (
                   <AppTile
                     key={app.id}
+                    hideDetails={!showBilling}
                     app={{
                       id: app.id, label: app.label, what: app.what, icon: app.icon, accent: app.accent,
                       locked: app.ownedByShop === false,
@@ -336,7 +343,7 @@ export function AppLauncher() {
                     }}
                     onOpen={() => navigate(app.path)}
                     fetchFeatures={fetchFeatures}
-                    billing={plan ? {
+                    billing={showBilling && plan ? {
                       plan,
                       sellable: billing.sellableBase,
                       busy: billing.busy,
