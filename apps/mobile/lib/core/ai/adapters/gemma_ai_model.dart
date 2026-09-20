@@ -48,8 +48,13 @@ class GemmaAiModel implements AiModel {
     if (_status == AiModelStatus.ready) return;
     try {
       _setStatus(AiModelStatus.downloading);
+      // ModelType.gemma4, NOT .gemmaIt — this is item 1 of the models checklist: Gemma 4's
+      // native function-calling tokens (see ai_model.dart's own doc comment on why actions
+      // never needed a different model file, only this one flag) only activate under this
+      // model type. The file itself hasn't changed; ai_config.dart already points at a real
+      // Gemma 4 E4B build.
       await FlutterGemma.installModel(
-        modelType: ModelType.gemmaIt,
+        modelType: ModelType.gemma4,
         fileType: ModelFileType.litertlm,
       )
           .fromNetwork(_modelUrl, token: _token.isEmpty ? null : _token)
@@ -61,7 +66,7 @@ class GemmaAiModel implements AiModel {
         maxTokens: 2048,
         preferredBackend: PreferredBackend.gpu,
       );
-      final chat = await model.createChat();
+      final chat = await model.createChat(modelType: ModelType.gemma4);
       _model = model;
       _chat = chat;
       _setStatus(AiModelStatus.ready);
