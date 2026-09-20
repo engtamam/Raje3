@@ -270,6 +270,12 @@ class Settings(BaseSettings):
     # one, same rstrip pattern as everywhere else) and attach a coupon code to an EXISTING
     # subscription. See `core/coupons.py`'s own module docstring for the full design.
     BILLING_COUPON_CREATE_PATH: str = "/internal/billing/coupons"
+    # THE CART — one invoice, one charge, N subscriptions (base-services v0.25.25/v0.25.26).
+    # `checkout` actually buys; `checkout/preview` is read-only and creates/charges nothing — the
+    # real price a shop sees before paying, never a client-side guess (see subscribe.py's own
+    # `HttpPlans.checkout`/`checkout_preview` docstrings for why this pair exists at all).
+    BILLING_CHECKOUT_PATH: str = "/internal/billing/subscriptions/checkout"
+    BILLING_CHECKOUT_PREVIEW_PATH: str = "/internal/billing/subscriptions/checkout/preview"
 
     # ── the payment gateway, as the SCREEN needs to know it ───────────────────────────────────
     #

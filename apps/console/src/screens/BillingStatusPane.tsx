@@ -248,16 +248,13 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
         <div className="flex flex-col gap-3">
           <h3 className="text-sm font-bold text-text-primary">{t('billingStatus.renewalPreview.title')}</h3>
           {renewalPreview.map((g) => (
-            <Card key={`${g.gateway}-${g.currency}`} className="flex flex-col gap-2 p-4">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm text-text-secondary">
-                  {g.next_charge_at
-                    ? t('billingStatus.renewalPreview.nextChargeOn').replace(
-                        '{date}', billing.renewalDay(g.next_charge_at))
-                    : t('billingStatus.renewalPreview.noDate')}
-                </span>
-                <span className="text-sm font-bold text-text-primary">{riyalsLabel(g.total_minor, t)}</span>
-              </div>
+            <Card key={`${g.gateway}-${g.currency}`} className="flex flex-col gap-3 p-4">
+              <span className="text-sm text-text-secondary">
+                {g.next_charge_at
+                  ? t('billingStatus.renewalPreview.nextChargeOn').replace(
+                      '{date}', billing.renewalDay(g.next_charge_at))
+                  : t('billingStatus.renewalPreview.noDate')}
+              </span>
               <ul className="flex flex-col gap-1">
                 {g.lines.map((line) => (
                   <li key={line.subscription_id}
@@ -267,12 +264,32 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
                   </li>
                 ))}
               </ul>
-              {g.discount_minor > 0 ? (
-                <p className="text-xs text-success">
-                  {t('billingStatus.renewalPreview.discountApplied').replace(
-                    '{amount}', riyalsLabel(g.discount_minor, t))}
-                </p>
-              ) : null}
+              {/* THE FULL BREAKDOWN — every figure straight from `billing.renewal_preview`
+                  (`_compute_renewal`, the same function the real invoice runs), so a shop
+                  understands exactly what it will pay: list price, what it saves, and tax
+                  only when this establishment's own configuration actually applies one. */}
+              <div className="flex flex-col gap-1 rounded-2xl bg-surface-2 p-3 text-xs">
+                <div className="flex items-center justify-between text-text-secondary">
+                  <span>{t('billingStatus.renewalPreview.subtotal')}</span>
+                  <span className="tabular-nums">{riyalsLabel(g.subtotal_minor, t)}</span>
+                </div>
+                {g.discount_minor > 0 ? (
+                  <div className="flex items-center justify-between text-success">
+                    <span>{t('billingStatus.renewalPreview.savings')}</span>
+                    <span className="tabular-nums">-{riyalsLabel(g.discount_minor, t)}</span>
+                  </div>
+                ) : null}
+                {g.tax_minor > 0 ? (
+                  <div className="flex items-center justify-between text-text-secondary">
+                    <span>{t('billingStatus.renewalPreview.tax')}</span>
+                    <span className="tabular-nums">{riyalsLabel(g.tax_minor, t)}</span>
+                  </div>
+                ) : null}
+                <div className="mt-1 flex items-center justify-between border-t border-border-subtle pt-1 font-bold text-text-primary">
+                  <span>{t('billingStatus.renewalPreview.total')}</span>
+                  <span className="tabular-nums">{riyalsLabel(g.total_minor, t)}</span>
+                </div>
+              </div>
             </Card>
           ))}
         </div>

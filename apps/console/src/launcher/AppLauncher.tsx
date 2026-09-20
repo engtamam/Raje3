@@ -18,6 +18,7 @@ import { action, call } from '../catalog';
 import { useOperatorI18n, tf } from '../operator-i18n';
 import { HeroBanner, type HeroSlide } from './HeroBanner';
 import { AppTile } from './AppTile';
+import { CartBar } from './CartBar';
 import { myApps, allApps, type LauncherApp } from './launcherCatalog';
 import { useAppBilling, includedAiCreditOf } from './useAppBilling';
 import { CardForm } from '../screens/CardForm';
@@ -343,6 +344,10 @@ export function AppLauncher() {
                     }}
                     onOpen={() => navigate(app.path)}
                     fetchFeatures={fetchFeatures}
+                    inCart={showBilling && plan && app.ownedByShop === false
+                      ? billing.cart.includes(plan.id) : undefined}
+                    onToggleCart={showBilling && plan && app.ownedByShop === false
+                      ? () => billing.toggleCart(plan) : undefined}
                     billing={showBilling && plan ? {
                       plan,
                       sellable: billing.sellableBase,
@@ -402,6 +407,25 @@ export function AppLauncher() {
         </div>
       ) : null}
 
+      {tab === 'all' ? (
+        <CartBar
+          plans={billing.cartPlans}
+          totalMinor={billing.cartTotalMinor}
+          preview={billing.cartPreview}
+          previewBusy={billing.cartPreviewBusy}
+          previewError={billing.cartPreviewError}
+          discounts={billing.discountPreviews}
+          notice={billing.cartNotice}
+          error={billing.cartError}
+          busy={billing.cartBusy}
+          onRemove={(planId) => {
+            const plan = billing.cartPlans.find((p) => p.id === planId);
+            if (plan) billing.toggleCart(plan);
+          }}
+          onCheckout={billing.checkout}
+        />
+      ) : null}
+
       {billing.cardFormPending ? (
         <CardForm
           pending={billing.cardFormPending}
@@ -409,6 +433,8 @@ export function AppLauncher() {
           onToken={(token) => {
             if (billing.cardFormPending?.kind === 'subscribe') {
               void billing.finishSubscribe(billing.cardFormPending.planId, token, billing.cardFormPending.quantity ?? 1);
+            } else if (billing.cardFormPending?.kind === 'checkout') {
+              void billing.finishCheckout(billing.cardFormPending.planIds, token);
             }
           }}
         />

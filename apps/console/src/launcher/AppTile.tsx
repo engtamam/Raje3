@@ -8,7 +8,7 @@
  */
 import { useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Crown, Lock } from 'lucide-react';
+import { Check, Crown, Lock, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Card } from '../rj-ui/Card';
 import { AppDetailsModal, AppPriceStrip, type AppBillingProps } from './AppDetailsModal';
@@ -42,7 +42,7 @@ export interface AppTileData {
 }
 
 export function AppTile({
-  app, onOpen, fetchFeatures, billing, hideDetails,
+  app, onOpen, fetchFeatures, billing, hideDetails, inCart, onToggleCart,
 }: {
   app: AppTileData;
   onOpen: () => void;
@@ -60,6 +60,12 @@ export function AppTile({
    *  "التفاصيل" entry point (a free/bundled app with no `billing` still had one, showing its
    *  plain feature list — that must vanish too on this shelf). */
   hideDetails?: boolean;
+  /** THE CART TOGGLE — a THIRD press, independent of "افتح التطبيق" and "التفاصيل": a shop
+   *  browsing «متجر التطبيقات» can add several apps without opening any of their windows first.
+   *  Both absent for an app with no `billing` (nothing to add) or one already owned (nothing to
+   *  buy) — `AppLauncher.tsx` only ever passes them for a real, unowned, purchasable app. */
+  inCart?: boolean;
+  onToggleCart?: () => void;
 }) {
   const { t } = useOperatorI18n();
   const [open, setOpen] = useState(false);
@@ -131,15 +137,32 @@ export function AppTile({
 
         {billing ? <AppPriceStrip billing={billing} /> : null}
 
-        {hideDetails ? null : (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setOpen(true); }}
-            className={`relative z-[2] mt-auto w-fit self-start py-1 text-sm font-bold ${app.vip ? 'text-[#f4e2a4]' : 'text-accent'}`}
-          >
-            {t('launcher.tile.details')}
-          </button>
-        )}
+        <div className="relative z-[2] mt-auto flex items-center gap-2">
+          {hideDetails ? null : (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+              className={`w-fit py-1 text-sm font-bold ${app.vip ? 'text-[#f4e2a4]' : 'text-accent'}`}
+            >
+              {t('launcher.tile.details')}
+            </button>
+          )}
+          {onToggleCart ? (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onToggleCart(); }}
+              aria-pressed={inCart}
+              className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold transition ${
+                inCart
+                  ? (app.vip ? 'bg-[#d4af37]/25 text-[#f4e2a4]' : 'bg-accent text-accent-contrast')
+                  : 'border border-border-subtle text-text-secondary hover:border-accent hover:text-accent'
+              }`}
+            >
+              {inCart ? <Check size={13} /> : <Plus size={13} />}
+              {inCart ? t('launcher.cart.added') : t('launcher.cart.add')}
+            </button>
+          ) : null}
+        </div>
       </Card>
 
       {hideDetails ? null : (

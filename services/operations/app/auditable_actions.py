@@ -254,6 +254,28 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "nothing to answer with",
     },
     {
+        # api/v1/subscription.py::checkout — a whole cart refused before anything is charged
+        # (`may_add_bundle`'s own rule: a missing dependency, a duplicate, an unreadable line), OR
+        # billing-service's own atomic checkout refused the cart (bad/duplicate/held plan, mixed
+        # currency, bad interval, outage) — same event either way: nothing was charged.
+        "action": "subscription.checkout_refused",
+        "source": "admin",
+        "critical": False,
+        "resource": "plan",
+        "why": "same posture as `subscription.refused` — a decision of ours (or billing's) about "
+               "somebody's money, just for a cart instead of a single plan; support needs the same "
+               "trail to answer 'I tried to check out and nothing happened'",
+    },
+    {
+        "action": "subscription.checkout_completed",
+        "source": "admin",
+        "critical": True,
+        "resource": "plan",
+        "why": "a whole cart was charged in one atomic invoice — several real subscriptions (and a "
+               "real charge) created in one request — 'who moved this shop onto these plans' is "
+               "the first question a billing dispute over any one of them would ask",
+    },
+    {
         "action": "operator.created",
         "source": "admin",
         "critical": True,
