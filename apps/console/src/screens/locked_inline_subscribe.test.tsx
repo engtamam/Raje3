@@ -56,3 +56,34 @@ describe('a locked card with a live, resolvable plan buys inline', () => {
     expect(await screen.findByLabelText('الاسم كما على البطاقة')).toBeTruthy();
   });
 });
+
+describe('a locked card with NO live payment gateway still buys inline', () => {
+  it('shows the subscribe button, never the store link, when the gateway is off', async () => {
+    vi.doMock('../catalog', async (importOriginal) => {
+      const real = await importOriginal<typeof import('../catalog')>();
+      return {
+        ...real,
+        action: (_c: unknown, id: string) => ({ id, label: id, method: 'GET', path: `/${id}` }),
+        call: async (_s: unknown, a: { id: string }) => {
+          if (a.id === 'billing.plans') return { plans: [PLAN] };
+          // THE OFF GATEWAY — this is the exact server answer that used to fall this card back
+          // to the store link. It must not any more: the button stays, and the honest failure
+          // (if any) now surfaces only when the shop actually presses it.
+          if (a.id === 'subscription.payment_state') return { enabled: false, message: 'خارج الخدمة' };
+          return {};
+        },
+      };
+    });
+    const { LockedCard: LockedCardWithOffGateway } = await import('./Locked');
+    render(
+      <OperatorI18nProvider session={session}>
+        <MemoryRouter>
+          <LockedCardWithOffGateway appId="rating" session={session} catalog={catalog} owned={owned} />
+        </MemoryRouter>
+      </OperatorI18nProvider>,
+    );
+    expect(await screen.findByText('اشترك الآن')).toBeTruthy();
+    expect(screen.queryByText('أضِفه من متجر التطبيقات')).toBeNull();
+    vi.doUnmock('../catalog');
+  });
+});

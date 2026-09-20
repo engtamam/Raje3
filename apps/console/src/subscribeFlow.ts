@@ -20,10 +20,10 @@
  * (`cardForm`) — everything else (tokenising, the redirect return, the notice) this hook owns.
  */
 import { useEffect, useState } from 'react';
-import { canMintToken, confirmToken } from './payment';
+import { confirmToken } from './payment';
 import { takePending, type PendingPayment } from './pendingPayment';
 import { action, call, type Catalog } from './catalog';
-import { canBuy, appKey, type Plan } from './billingShared';
+import { appKey, type Plan } from './billingShared';
 import type { Session } from './session';
 import { useOperatorI18n } from './operator-i18n';
 import './subscribe-flow-i18n';
@@ -98,11 +98,19 @@ export function useSubscribeFlow(session: Session, catalog: Catalog) {
   const planFor = (appFeatureKey: string): Plan | undefined =>
     plans?.find((p) => appKey(p) === appFeatureKey);
 
-  /** May this exact plan be bought live, right now, from this browser — same three-fact check
-   *  `Plans.tsx`'s own `choose()` makes before ever opening the card form. */
+  /** Is there anything real to call at all — an action that exists, for a plan that resolved.
+   *
+   * DELIBERATELY DOES NOT ASK `canBuy`'s payment-readiness half (gatewayEnabled/canMintToken)
+   * ANY MORE (2026-09-20, the owner's own instruction). A locked card sits inside the very
+   * screen whose whole job is selling this app — falling back to a link that points at the
+   * screen already open is a dead end dressed as a way out, not a safeguard. The card form
+   * ALREADY handles an unready gateway gracefully: `mintPaymentToken`/`confirmToken`
+   * (`payment.ts`) return `NO_CARD_FORM` — "لن تُحسب عليك أي رسوم حتى ذلك الحين" — the instant
+   * minting is attempted, so a shop that presses "اشترك الآن" with no live gateway sees that
+   * respectful sentence at the one moment it is actually true (trying to pay), not a redirect
+   * that says nothing about why. */
   const live = (plan: Plan | undefined): boolean =>
-    Boolean(canSubscribe) && Boolean(plan)
-    && canBuy({ hasAction: true, gatewayEnabled: Boolean(pay?.enabled), canMint: canMintToken });
+    Boolean(canSubscribe) && Boolean(plan);
 
   const subscribe = (plan: Plan, quantity = 1) => {
     setError('');

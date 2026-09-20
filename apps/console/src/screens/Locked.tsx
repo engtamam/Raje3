@@ -60,10 +60,15 @@ export function LockedCard({ appId, session, catalog, owned }: {
     ? owned.apps.find((a) => a.key === row.key) : undefined;
   const plan = row.key ? flow.planFor(row.key) : undefined;
   const lockedNote = plan ? missingRequirement(plan, owned ?? null, t) : '';
-  // BUY LIVE, INLINE, RIGHT HERE — when the plan is known, buying is live (`Plans.tsx`'s own
-  // three-fact `canBuy` check, wallet/gateway/token-mint), and nothing else already needs him
-  // elsewhere first (`lockedNote`, تسجيل زيارة/الحجوزات's own prerequisite). Any of those failing
-  // falls back to the store link — never a dead button pretending to buy.
+  // BUY LIVE, INLINE, RIGHT HERE — as soon as the action exists and the plan resolved. NOT
+  // gated on whether a payment gateway/card-mint key is actually configured any more
+  // (2026-09-20): this card already sits inside the screen whose job is selling this exact
+  // app, so a "not ready yet" fallback that points right back at the same screen taught
+  // nothing and went nowhere. The card form's own mint step (`payment.ts`) already answers
+  // "not ready yet" honestly — `NO_CARD_FORM`, never a charge — at the one moment that
+  // sentence is actually true. The store link below is now reserved for the real remaining
+  // blockers: the plan itself unresolved, or a genuine prerequisite still missing
+  // (`lockedNote`, e.g. تسجيل زيارة/الحجوزات's own `requires_any`) — never a dead button.
   const canBuyHere = Boolean(plan) && !lockedNote && flow.live(plan);
   return (
     <Card className="flex flex-col gap-3 p-4">
