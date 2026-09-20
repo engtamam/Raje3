@@ -37,6 +37,14 @@ dependencies:
   # Icons
   cupertino_icons: ^1.0.8
 
+  # On-device AI (Gemma 4) — see lib/core/ai/ own README for the port/adapter
+  # design. Apache 2.0 licensed (unlike Gemma 3 and earlier's Gemma Terms of
+  # Use), which matters here: it carries no flow-down obligation onto our own
+  # shop-owner users. Everything about the model — prompt, generation, the
+  # download itself — stays entirely on the device; nothing about it is ever
+  # sent to our own servers.
+  flutter_gemma: ^1.8.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
