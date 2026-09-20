@@ -15,7 +15,7 @@ endpoint returned 200 while doing nothing (playbook §4.20).
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -636,3 +636,60 @@ async def platform_reconcile(request: Request, body: ReconcileIn,
         metadata={"was": out.get("was"), "now": out.get("ledger"),
                   "drift": out.get("drift"), "repaired": out.get("repaired")})
     return out
+
+
+# ── platform reads: the support-desk parallel to the owner's own balance/history above ────────
+#
+# WHY THESE EXIST, SEPARATE FROM `/balance/{subject_ref}` AND `/history/{subject_ref}` ABOVE.
+# Those two are `_tenant(principal)`-scoped — the caller's OWN establishment, off the token,
+# never a body or query value — which is exactly right for an owner and exactly wrong for
+# support answering "where did my points go?" about a shop that is not theirs. Same asymmetry
+# `platform_reconcile` above already carries for the WRITE side of this exact question; these
+# two are its READ side, requested alongside it (spec/plan-support-customers-screen.md's own
+# phase ج) so a support agent can see the balance and the movements BEFORE reaching for the
+# reconcile button, rather than reconciling blind.
+#
+# `platform.loyalty` GATES BOTH, same capability `platform_reconcile` already checks — reading a
+# specific customer's private ledger across every establishment is the same class of access as
+# repairing it, not a lesser one.
+@router.get("/platform/balance", dependencies=[Depends(rate_limit)])
+async def platform_balance(
+    request: Request,
+    tenant: str = Query(min_length=1, max_length=128),
+    subject_ref: str = Query(min_length=8, max_length=128),
+    principal: Principal = Depends(_PLATFORM),
+) -> dict:
+    """The same materialised total the owner's own `/balance/{subject_ref}` reads — no rewards
+    menu, no `to_next_reward`, no `manager_threshold`: those are field-screen concerns for a
+    shop actually handing out a reward at its own counter, not a support question about a
+    number. AUDITED — a platform capability reading one specific person's private ledger is
+    the same "who looked at this" question `compliance.evidence_exported` already answers for
+    the evidence file."""
+    c = request.app.state.container
+    await request.app.state.auditor.record(
+        "loyalty.platform_balance_viewed", actor=getattr(principal, "subject", ""),
+        tenant=tenant, resource=f"balance:{subject_ref}",
+        ip=request.client.host if request.client else "")
+    bal = await c.ledger.balance(tenant, subject_ref)
+    return bal.to_dict()
+
+
+@router.get("/platform/history", dependencies=[Depends(rate_limit)])
+async def platform_history(
+    request: Request,
+    tenant: str = Query(min_length=1, max_length=128),
+    subject_ref: str = Query(min_length=8, max_length=128),
+    limit: int = Query(default=25, ge=1, le=100),
+    principal: Principal = Depends(_PLATFORM),
+) -> dict:
+    """The same movement history the owner's own `/history/{subject_ref}` reads, for a shop
+    that is not the caller's own — capped at 100 like the owner's own route, same reasoning:
+    a support screen answering "what happened to my points" needs the recent movements, not
+    an unbounded ledger dump (that is what `/platform/reconcile`'s own drain is for, and it
+    never returns the rows themselves)."""
+    c = request.app.state.container
+    await request.app.state.auditor.record(
+        "loyalty.platform_history_viewed", actor=getattr(principal, "subject", ""),
+        tenant=tenant, resource=f"balance:{subject_ref}",
+        ip=request.client.host if request.client else "")
+    return {"entries": await c.ledger.history(tenant, subject_ref, limit=limit)}

@@ -175,6 +175,25 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "that is the second of the three things §8.3 promises about a repair",
     },
     {
+        "action": "loyalty.platform_balance_viewed",
+        "source": "internal",
+        "critical": False,
+        "resource": "balance",
+        "why": "the read-side companion of loyalty.reconciled — a platform capability reading one "
+               "specific customer's private ledger in an establishment that is not the caller's "
+               "own. Not critical: nothing changed, but who looked at whose balance is worth "
+               "keeping, the same posture compliance-service already holds for a cross-tenant read",
+    },
+    {
+        "action": "loyalty.platform_history_viewed",
+        "source": "internal",
+        "critical": False,
+        "resource": "balance",
+        "why": "same reasoning as loyalty.platform_balance_viewed, for the movement history "
+               "instead of the total — a support agent reading what happened to a specific "
+               "customer's points before deciding whether to reconcile anything",
+    },
+    {
         "action": "loyalty.adjusted",
         "source": "admin",
         "critical": True,

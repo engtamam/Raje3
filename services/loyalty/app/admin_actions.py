@@ -56,6 +56,25 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "help": "يعيد حساب رصيد نقاط عميل معيّن من سجل حركاته الفعلي، ويصلح أي فرق ظاهر في رصيده.",
     },
     {
+        "id": "loyalty.platform_balance", "label": "رصيد عميل (منصة)", "method": "GET",
+        "path": "/api/v1/loyalty/platform/balance", "capability": "platform.loyalty", "group": "المنصة",
+        "params": [
+            {"name": "tenant", "in": "query", "type": "string", "required": True},
+            {"name": "subject_ref", "in": "query", "type": "string", "required": True},
+        ],
+        "help": "يعرض رصيد عميل معيّن في أي منشأة، قبل أي إصلاح — نفس ما يراه صاحب المحل عن رصيده.",
+    },
+    {
+        "id": "loyalty.platform_history", "label": "سجل حركات عميل (منصة)", "method": "GET",
+        "path": "/api/v1/loyalty/platform/history", "capability": "platform.loyalty", "group": "المنصة",
+        "params": [
+            {"name": "tenant", "in": "query", "type": "string", "required": True},
+            {"name": "subject_ref", "in": "query", "type": "string", "required": True},
+            {"name": "limit", "in": "query", "type": "integer", "required": False},
+        ],
+        "help": "يعرض آخر حركات نقاط عميل معيّن في أي منشأة — كسب، استبدال، انتهاء صلاحية.",
+    },
+    {
         "id": "loyalty.ping", "label": "فحص الاتصال", "method": "GET",
         "path": "/api/v1/loyalty/admin/ping", "capability": "platform.secrets", "group": "المنصة",
         # From the generated scaffold and kept: what a client calls to confirm its token is accepted

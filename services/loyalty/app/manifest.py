@@ -124,8 +124,11 @@ def build_manifest(
             # THE APP-STORE CARD'S OWN CONTENT (app/core/features.py) — no `loyalty.*` capability,
             # deliberately: a shop deciding whether to buy this app has to read what it would get.
             {"path": "/api/v1/loyalty/features", "tier": "user", "method": "GET"},
-            # OURS: support repairing a balance for a shop that is not theirs.
+            # OURS: support repairing a balance for a shop that is not theirs, and reading its
+            # balance/history first, before deciding whether to reconcile anything.
             {"path": "/api/v1/loyalty/platform/reconcile", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/loyalty/platform/balance", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/loyalty/platform/history", "tier": "user", "method": "GET"},
             {"path": "/api/v1/loyalty/whoami", "tier": "user", "method": "GET"},
             # The operator surface: credentials and policy an operator changes after launch.
             # The operator surface: policy an operator changes after launch. The credential-
