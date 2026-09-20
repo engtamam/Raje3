@@ -32,7 +32,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: console
-          image: ghcr.io/engtamam/raje3/console@sha256:e4ad445307c82c1d737f9c0de87d9e16ba2963c117e1eb482804b42f4abd21a3   # 671f1d7c, published by publish-images.sh
+          image: ghcr.io/engtamam/raje3/console@sha256:10c87a42f917d2e72df75dd82d938f254a6754abeee38b847a7c392c459bc297   # efc26ae9, published by publish-images.sh
           ports:
             - { containerPort: 8080 }
           # "Stealth" launch mode — see apps/console/Caddyfile's own @landing_off matcher. "true"
