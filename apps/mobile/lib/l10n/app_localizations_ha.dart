@@ -209,6 +209,9 @@ class SHa extends S {
       'Wannan allon ba a samu shi ba tukuna a manhajar wayar hannu.';
 
   @override
+  String get kbHintNoEntry => 'Babu bayani game da wannan tukuna.';
+
+  @override
   String get authLoginSubtitle => 'Shiga don ci gaba';
 
   @override

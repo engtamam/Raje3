@@ -206,6 +206,9 @@ class SAr extends S {
       'هذه الشاشة غير متاحة على تطبيق الجوال بعد.';
 
   @override
+  String get kbHintNoEntry => 'ما فيه شرح لهذا بعد.';
+
+  @override
   String get authLoginSubtitle => 'سجّل دخولك للمتابعة';
 
   @override

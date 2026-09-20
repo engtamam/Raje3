@@ -208,6 +208,9 @@ class SUr extends S {
       'یہ اسکرین ابھی موبائل ایپ پر دستیاب نہیں ہے۔';
 
   @override
+  String get kbHintNoEntry => 'ابھی اس کی کوئی وضاحت موجود نہیں ہے۔';
+
+  @override
   String get authLoginSubtitle => 'جاری رکھنے کے لیے سائن ان کریں';
 
   @override

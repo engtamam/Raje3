@@ -198,6 +198,7 @@
     "description": "Snackbar shown when launching a URL throws"
   },
   "routerScreenNotOnMobileYet": "هذه الشاشة غير متاحة على تطبيق الجوال بعد.",
+  "kbHintNoEntry": "ما فيه شرح لهذا بعد.",
   "@routerScreenNotOnMobileYet": {
     "description": "Placeholder body for a nav section the catalogue exposes but mobile has no screen for yet"
   },

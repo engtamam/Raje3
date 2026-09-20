@@ -8,6 +8,7 @@ import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/utils/validators.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/kb_hint_button.dart';
 
 /// «تسجيل زيارة» — this is the screen an operator opens dozens of times a
 /// day, every time a customer leaves the counter, so its whole design is one
@@ -319,7 +320,10 @@ class _VisitScreenState extends State<VisitScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface0,
-      appBar: AppBar(title: Text(S.of(context)!.visitTitle)),
+      appBar: AppBar(
+        title: Text(S.of(context)!.visitTitle),
+        actions: const [KbHintButton(anchor: 'visit.register')],
+      ),
       body: Stack(
         children: [
           _loadingCatalogue

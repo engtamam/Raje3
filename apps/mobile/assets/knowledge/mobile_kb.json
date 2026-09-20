@@ -1,0 +1,39 @@
+{
+  "auth.login": {
+    "title": { "ar": "تسجيل الدخول", "en": "Sign in" },
+    "body": {
+      "ar": "تسجيل الدخول برقم الجوال وكلمة المرور.",
+      "en": "Sign in with your phone number and password."
+    },
+    "kind": "screen",
+    "anchor": "auth.login"
+  },
+  "auth.signup": {
+    "title": { "ar": "فتح محل جديد", "en": "Open a new shop" },
+    "body": {
+      "ar": "اسم المحل، رقم الجوال، كلمة المرور. باقي البيانات تُستكمل لاحقاً.",
+      "en": "Shop name, phone number, password. The rest of the details are added later."
+    },
+    "kind": "screen",
+    "anchor": "auth.signup"
+  },
+  "auth.verify_phone": {
+    "title": { "ar": "تأكيد رقم الجوال", "en": "Verify your phone number" },
+    "body": {
+      "ar": "أدخل رمز التحقق المُرسَل عبر واتساب أو رسالة نصية.",
+      "en": "Enter the verification code sent over WhatsApp or SMS."
+    },
+    "kind": "screen",
+    "anchor": "auth.verify_phone"
+  },
+  "visit.register": {
+    "title": { "ar": "تسجيل زيارة", "en": "Register a visit" },
+    "body": {
+      "ar": "أدخل رقم جوال العميل، اختر الخدمات، واحفظ.",
+      "en": "Enter the customer's phone number, pick the services, and save."
+    },
+    "kind": "screen",
+    "anchor": "visit.register",
+    "requires": ["operations.record_visit"]
+  }
+}

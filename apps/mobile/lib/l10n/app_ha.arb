@@ -60,6 +60,7 @@
   "urlHelperUnavailable": "Hanyar haɗin ba ta samuwa ba",
   "urlHelperOpenFailed": "An kasa buɗe hanyar haɗin",
   "routerScreenNotOnMobileYet": "Wannan allon ba a samu shi ba tukuna a manhajar wayar hannu.",
+  "kbHintNoEntry": "Babu bayani game da wannan tukuna.",
   "authLoginSubtitle": "Shiga don ci gaba",
   "authPhoneLabel": "Lambar wayar hannu",
   "authPasswordLabel": "Kalmar sirri",

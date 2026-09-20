@@ -209,6 +209,9 @@ class SBn extends S {
       'এই স্ক্রিনটি এখনও মোবাইল অ্যাপে উপলব্ধ নেই।';
 
   @override
+  String get kbHintNoEntry => 'এখনও এর জন্য কোনো ব্যাখ্যা নেই।';
+
+  @override
   String get authLoginSubtitle => 'চালিয়ে যেতে সাইন ইন করুন';
 
   @override

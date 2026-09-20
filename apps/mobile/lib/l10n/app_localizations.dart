@@ -465,6 +465,12 @@ abstract class S {
   /// **'هذه الشاشة غير متاحة على تطبيق الجوال بعد.'**
   String get routerScreenNotOnMobileYet;
 
+  /// No description provided for @kbHintNoEntry.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما فيه شرح لهذا بعد.'**
+  String get kbHintNoEntry;
+
   /// Subtitle under the wordmark on the login screen
   ///
   /// In ar, this message translates to:

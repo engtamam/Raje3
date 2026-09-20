@@ -60,6 +60,7 @@
   "urlHelperUnavailable": "The link is not available",
   "urlHelperOpenFailed": "Couldn't open the link",
   "routerScreenNotOnMobileYet": "This screen isn't available on the mobile app yet.",
+  "kbHintNoEntry": "No explanation for this yet.",
   "authLoginSubtitle": "Sign in to continue",
   "authPhoneLabel": "Mobile number",
   "authPasswordLabel": "Password",

@@ -209,6 +209,9 @@ class SEn extends S {
       'This screen isn\'t available on the mobile app yet.';
 
   @override
+  String get kbHintNoEntry => 'No explanation for this yet.';
+
+  @override
   String get authLoginSubtitle => 'Sign in to continue';
 
   @override

@@ -60,6 +60,7 @@
   "urlHelperUnavailable": "Hindi available ang link",
   "urlHelperOpenFailed": "Hindi mabuksan ang link",
   "routerScreenNotOnMobileYet": "Hindi pa available ang screen na ito sa mobile app.",
+  "kbHintNoEntry": "Wala pang paliwanag para dito.",
   "authLoginSubtitle": "Mag-sign in para magpatuloy",
   "authPhoneLabel": "Numero ng mobile",
   "authPasswordLabel": "Password",

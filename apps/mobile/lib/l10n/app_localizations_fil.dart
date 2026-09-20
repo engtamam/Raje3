@@ -212,6 +212,9 @@ class SFil extends S {
       'Hindi pa available ang screen na ito sa mobile app.';
 
   @override
+  String get kbHintNoEntry => 'Wala pang paliwanag para dito.';
+
+  @override
   String get authLoginSubtitle => 'Mag-sign in para magpatuloy';
 
   @override

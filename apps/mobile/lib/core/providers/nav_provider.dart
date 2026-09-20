@@ -58,6 +58,11 @@ class NavProvider extends ChangeNotifier {
   NavLoadState get state => _state;
   bool get isLoading => _state == NavLoadState.loading;
 
+  /// The real, already capability-filtered catalogue — the same source [visibleSections] and
+  /// [KbService]'s own visibility check both trust, so a KB entry never claims a capability this
+  /// session does not actually hold.
+  Catalog get catalog => _catalog;
+
   /// Every section this session's catalogue makes visible, in nav.ts's own priority order —
   /// mirrors `visibleSections(catalog)` EXACTLY:
   ///   visible = section.service is unreachable OR section.requires is empty OR hasAll(requires)

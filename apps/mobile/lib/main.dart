@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:raje3_mobile/core/knowledge/kb_service.dart';
 import 'package:raje3_mobile/core/network/api_client.dart';
 import 'package:raje3_mobile/core/providers/app_state_provider.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
@@ -25,11 +26,15 @@ Future<void> main() async {
   final apiClient = ApiClient(secureStorage: secureStorage);
   final cacheManager = CacheManager();
 
+  final kbService = KbService();
+  await kbService.init();
+
   runApp(Raje3App(
     apiClient: apiClient,
     secureStorage: secureStorage,
     localStorage: localStorage,
     cacheManager: cacheManager,
+    kbService: kbService,
   ));
 }
 
@@ -38,6 +43,7 @@ class Raje3App extends StatelessWidget {
   final SecureStorage secureStorage;
   final LocalStorage localStorage;
   final CacheManager cacheManager;
+  final KbService kbService;
 
   const Raje3App({
     super.key,
@@ -45,6 +51,7 @@ class Raje3App extends StatelessWidget {
     required this.secureStorage,
     required this.localStorage,
     required this.cacheManager,
+    required this.kbService,
   });
 
   @override
@@ -52,6 +59,7 @@ class Raje3App extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<LocalStorage>.value(value: localStorage),
+        Provider<KbService>.value(value: kbService),
         ChangeNotifierProvider(
           create: (_) => AuthProvider(
             apiClient: apiClient,

@@ -21,6 +21,7 @@ import 'package:raje3_mobile/core/router/route_names.dart';
 import 'package:raje3_mobile/core/utils/validators.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/kb_hint_button.dart';
 
 class VerifyPhoneScreen extends StatefulWidget {
   /// The phone number to verify, and the password to retry sign-in with once
@@ -115,7 +116,10 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface0,
-      appBar: AppBar(title: Text(S.of(context)!.authVerifyPhoneTitle)),
+      appBar: AppBar(
+        title: Text(S.of(context)!.authVerifyPhoneTitle),
+        actions: const [KbHintButton(anchor: 'auth.verify_phone')],
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.lg),

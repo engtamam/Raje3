@@ -19,6 +19,7 @@ import 'package:raje3_mobile/core/utils/validators.dart';
 import 'package:raje3_mobile/features/auth/verify_phone_screen.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/kb_hint_button.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -81,6 +82,7 @@ class _SignupScreenState extends State<SignupScreen> {
         backgroundColor: AppColors.surface0,
         elevation: 0,
         title: Text(S.of(context)!.authOpenShopTitle, style: AppTextStyles.headlineSmall),
+        actions: const [KbHintButton(anchor: 'auth.signup')],
       ),
       body: SafeArea(
         child: GestureDetector(
