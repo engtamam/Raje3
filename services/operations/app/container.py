@@ -312,6 +312,13 @@ def build_container(settings: Settings) -> Container:
         base_url=settings.WHATSAPP_ASSISTANT_SERVICE_URL,
         path=settings.WHATSAPP_META_AGENT_PROVISION_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN)
+    # The on/off switch for a number already onboarded — see core/meta_agent_rollout_trigger.py.
+    from app.core.meta_agent_rollout_trigger import MetaAgentRolloutTrigger
+
+    container.meta_agent_rollout_trigger = MetaAgentRolloutTrigger(
+        base_url=settings.WHATSAPP_ASSISTANT_SERVICE_URL,
+        path=settings.WHATSAPP_META_AGENT_ROLLOUT_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN)
     container.search = build_search(settings)
     # THE VISIT STORE IS HANDED IN so the seams can write down that they finished (ز-7). Without
     # it nothing could tell «the after-work ran» from «the pod died before it did», and the retry

@@ -99,3 +99,72 @@ def test_the_internal_shop_name_route_also_returns_ai_enabled(client):
     r2 = client.post("/internal/operations/shop-name", json={"tenant": "tnt_peer_off"},
                      headers={"X-Internal-Token": "t" * 40})
     assert r2.json()["ai_enabled"] is False
+
+
+# ── cuts Meta's own AI too, not just this service's own reply engine ──────────────────────────
+class _FakeWhatsappLicence:
+    def __init__(self, allowed: bool | None) -> None:
+        self._allowed = allowed
+
+    async def allowed(self, tenant: str) -> bool | None:
+        return self._allowed
+
+
+def test_switching_off_fires_the_meta_rollout_trigger_with_enabled_false(client):
+    calls: list[dict] = []
+
+    async def _fake_trigger(*, tenant, enabled):
+        calls.append({"tenant": tenant, "enabled": enabled})
+        return True
+
+    c = client.app.state.container
+    saved = c.meta_agent_rollout_trigger.trigger
+    c.meta_agent_rollout_trigger.trigger = _fake_trigger
+    try:
+        r = client.put(PATH, json={"enabled": False}, headers=_headers("tnt_toggle_off"))
+    finally:
+        c.meta_agent_rollout_trigger.trigger = saved
+    assert r.status_code == 200
+    assert calls == [{"tenant": "tnt_toggle_off", "enabled": False}]
+
+
+def test_switching_on_fires_the_meta_rollout_trigger_only_if_still_entitled(client):
+    calls: list[dict] = []
+
+    async def _fake_trigger(*, tenant, enabled):
+        calls.append({"tenant": tenant, "enabled": enabled})
+        return True
+
+    c = client.app.state.container
+    saved_trigger, saved_licence = c.meta_agent_rollout_trigger.trigger, c.whatsapp_licence
+    c.meta_agent_rollout_trigger.trigger = _fake_trigger
+    c.whatsapp_licence = _FakeWhatsappLicence(False)
+    try:
+        r = client.put(PATH, json={"enabled": True}, headers=_headers("tnt_toggle_on_no_app"))
+    finally:
+        c.meta_agent_rollout_trigger.trigger = saved_trigger
+        c.whatsapp_licence = saved_licence
+    assert r.status_code == 200
+    # NOT ENTITLED — flipping the switch back on must never be a backdoor into Meta's AI for a
+    # shop that does not (or no longer) holds feature.whatsapp.
+    assert calls == []
+
+
+def test_switching_on_fires_the_trigger_with_enabled_true_when_still_entitled(client):
+    calls: list[dict] = []
+
+    async def _fake_trigger(*, tenant, enabled):
+        calls.append({"tenant": tenant, "enabled": enabled})
+        return True
+
+    c = client.app.state.container
+    saved_trigger, saved_licence = c.meta_agent_rollout_trigger.trigger, c.whatsapp_licence
+    c.meta_agent_rollout_trigger.trigger = _fake_trigger
+    c.whatsapp_licence = _FakeWhatsappLicence(True)
+    try:
+        r = client.put(PATH, json={"enabled": True}, headers=_headers("tnt_toggle_on_entitled"))
+    finally:
+        c.meta_agent_rollout_trigger.trigger = saved_trigger
+        c.whatsapp_licence = saved_licence
+    assert r.status_code == 200
+    assert calls == [{"tenant": "tnt_toggle_on_entitled", "enabled": True}]

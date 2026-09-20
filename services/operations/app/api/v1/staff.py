@@ -25,7 +25,7 @@ from __future__ import annotations
 import hmac
 import time
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -978,17 +978,32 @@ class AiToggleIn(BaseModel):
 
 
 @router.put("/ai-toggle", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
-async def set_ai_toggle(request: Request, body: AiToggleIn,
+async def set_ai_toggle(request: Request, body: AiToggleIn, background: BackgroundTasks,
                         principal: Principal = Depends(_MANAGE)) -> dict:
     """Turn the WhatsApp AI assistant on or off for this establishment — `_MANAGE`, not `_READ`:
     this is the owner's own trust decision, never a plain operator's to flip. OFF closes it
     exactly as if `feature.whatsapp` had never been bought (whatsapp-assistant's own licence check
-    reads this same row) — not a softer "paused" state, and reversible either direction."""
+    reads this same row) — not a softer "paused" state, and reversible either direction.
+
+    ALSO CUTS META'S OWN AI, THE INSTANT THIS FIRES — not this route's own reply engine (that gate
+    already existed in whatsapp-assistant's `ToggleGatedLicence`); a number in Meta handover mode
+    is never touched by that gate at all, so without this a shop could switch the assistant "off"
+    here and still have Meta's AI answering its customers. OFF always disables Meta's rollout; ON
+    only re-enables it when `feature.whatsapp` is still actually held — flipping the switch back on
+    without ever having paid must not be a backdoor into Meta's AI. Fire-and-forget, same posture as
+    `meta_agent_provision_trigger` — a shop with no Meta Business Agent on file costs one harmless,
+    silently-reported no-op call."""
     tenant = _tenant(principal)
-    row = await AT.AiToggleStore(request.app.state.container.datastore).set(tenant, body.enabled)
+    c = request.app.state.container
+    row = await AT.AiToggleStore(c.datastore).set(tenant, body.enabled)
     await request.app.state.auditor.record(
         "shop.ai_toggle_changed", actor=principal.subject, tenant=tenant,
         resource="shop_ai_toggle", ip=request.client.host if request.client else "")
+    if body.enabled:
+        if await c.whatsapp_licence.allowed(tenant):
+            background.add_task(c.meta_agent_rollout_trigger.trigger, tenant=tenant, enabled=True)
+    else:
+        background.add_task(c.meta_agent_rollout_trigger.trigger, tenant=tenant, enabled=False)
     return row
 
 

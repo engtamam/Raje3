@@ -225,6 +225,10 @@ class Settings(BaseSettings):
     # OFF by default (that service's own META_AGENT_PROVISIONING_ENABLED gate decides whether the
     # call does anything real; this side just needs somewhere real to send it).
     WHATSAPP_META_AGENT_PROVISION_PATH: str = "/internal/whatsapp/meta-agent/provision"
+    # The on/off switch for a number ALREADY onboarded -- see meta_agent_rollout_trigger.py's own
+    # docstring. Fired by the AI kill switch (staff.py::set_ai_toggle) and by the entitlement sweep
+    # below, never a re-run of provisioning.
+    WHATSAPP_META_AGENT_ROLLOUT_PATH: str = "/internal/whatsapp/meta-agent/rollout"
 
     # ── the programmatic link (`feature.api`) — CLOSED by product decision, 2026-09-16 ────────
     # The owner's own call: rather than sell it (a new price/plan row) or bundle it free into every
