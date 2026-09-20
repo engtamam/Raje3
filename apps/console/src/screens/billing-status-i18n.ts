@@ -1,7 +1,9 @@
 /** `BillingStatusPane.tsx`'s own strings — same per-screen registration pattern as every other
- *  screen. Wording carried over verbatim from the retired `plans-i18n.ts` (the old شاشة الاشتراك
- *  screen)'s own past-due/update-card keys — nothing reworded, only renamed to this pane's own key
- *  namespace. */
+ *  screen. The past-due/update-card keys were carried over verbatim from the retired
+ *  `plans-i18n.ts` (the old شاشة الاشتراك screen); the pay-link and app-list keys are new
+ *  (2026-09-20 redesign) — the renewal-control wording itself (cancel/undo-cancel/confirm) is
+ *  NOT duplicated here, it reuses `launcher-i18n.ts`'s own `launcher.billing.*` keys through the
+ *  shared `RenewalControl` component. */
 import { registerOperatorStrings } from '../operator-i18n';
 
 registerOperatorStrings({
@@ -12,6 +14,15 @@ registerOperatorStrings({
     'billingStatus.updated': 'تم تحديث بطاقة الدفع.',
     'billingStatus.updateFailed': 'تعذّر تحديث البطاقة.',
     'billingStatus.allGood': 'لا يوجد ما يستدعي انتباهك — الفوترة على ما يرام.',
+    'billingStatus.payNow': 'ادفع الآن',
+    'billingStatus.openingPayLink': 'نفتح رابط الدفع…',
+    'billingStatus.payLinkFailed': 'تعذّر إنشاء رابط الدفع.',
+    'billingStatus.myApps.title': 'تطبيقاتك المشمولة',
+    'billingStatus.myApps.active': 'نشط',
+    'billingStatus.myApps.stopping': 'سيتوقف',
+    'billingStatus.renewNow': 'جدّد مبكرًا',
+    'billingStatus.renewingNow': 'يجدّد…',
+    'billingStatus.renewNowFailed': 'تعذّر تجديد الاشتراك الآن.',
   },
   en: {
     'billingStatus.pastDue': "The last charge attempt failed. Update your card so your subscription doesn't stop.",
@@ -20,6 +31,15 @@ registerOperatorStrings({
     'billingStatus.updated': 'Payment card updated.',
     'billingStatus.updateFailed': "Couldn't update the card.",
     'billingStatus.allGood': "Nothing needs your attention — billing is in good shape.",
+    'billingStatus.payNow': 'Pay now',
+    'billingStatus.openingPayLink': 'Opening payment link…',
+    'billingStatus.payLinkFailed': "Couldn't create the payment link.",
+    'billingStatus.myApps.title': 'Your subscribed apps',
+    'billingStatus.myApps.active': 'Active',
+    'billingStatus.myApps.stopping': 'Stopping',
+    'billingStatus.renewNow': 'Renew early',
+    'billingStatus.renewingNow': 'Renewing…',
+    'billingStatus.renewNowFailed': "Couldn't renew the subscription now.",
   },
   ur: {
     'billingStatus.pastDue': 'آخری ادائیگی کی کوشش ناکام ہو گئی۔ اپنا کارڈ اپڈیٹ کریں تاکہ آپ کی سبسکرپشن نہ رکے۔',
@@ -28,6 +48,15 @@ registerOperatorStrings({
     'billingStatus.updated': 'ادائیگی کارڈ اپڈیٹ ہو گیا۔',
     'billingStatus.updateFailed': 'کارڈ اپڈیٹ نہیں ہو سکا۔',
     'billingStatus.allGood': 'کسی توجہ کی ضرورت نہیں — بلنگ ٹھیک ہے۔',
+    'billingStatus.payNow': 'ابھی ادائیگی کریں',
+    'billingStatus.openingPayLink': 'ادائیگی کا لنک کھل رہا ہے…',
+    'billingStatus.payLinkFailed': 'ادائیگی کا لنک نہیں بن سکا۔',
+    'billingStatus.myApps.title': 'آپ کی سبسکرائب کردہ ایپس',
+    'billingStatus.myApps.active': 'فعال',
+    'billingStatus.myApps.stopping': 'رک جائے گا',
+    'billingStatus.renewNow': 'جلد تجدید کریں',
+    'billingStatus.renewingNow': 'تجدید ہو رہی ہے…',
+    'billingStatus.renewNowFailed': 'ابھی سبسکرپشن تجدید نہیں ہو سکی۔',
   },
   ha: {
     'billingStatus.pastDue': 'Ƙoƙarin caji na ƙarshe bai yi nasara ba. Sabunta katinka don biyan kuɗinka kada ya tsaya.',
@@ -36,6 +65,15 @@ registerOperatorStrings({
     'billingStatus.updated': 'An sabunta katin biya.',
     'billingStatus.updateFailed': 'Ba a iya sabunta katin ba.',
     'billingStatus.allGood': 'Babu abin da yake buƙatar hankalinka — biyan kuɗi na lafiya.',
+    'billingStatus.payNow': 'Biya yanzu',
+    'billingStatus.openingPayLink': 'Muna buɗe hanyar biya…',
+    'billingStatus.payLinkFailed': 'An kasa ƙirƙirar hanyar biya.',
+    'billingStatus.myApps.title': 'Manhajojinka masu biyan kuɗi',
+    'billingStatus.myApps.active': 'Yana aiki',
+    'billingStatus.myApps.stopping': 'Zai tsaya',
+    'billingStatus.renewNow': 'Sabunta da wuri',
+    'billingStatus.renewingNow': 'Ana sabuntawa…',
+    'billingStatus.renewNowFailed': 'An kasa sabunta biyan kuɗi yanzu.',
   },
   fil: {
     'billingStatus.pastDue': 'Nabigo ang huling pagsingil. I-update ang card mo para hindi huminto ang subscription mo.',
@@ -44,6 +82,15 @@ registerOperatorStrings({
     'billingStatus.updated': 'Na-update ang payment card.',
     'billingStatus.updateFailed': 'Hindi ma-update ang card.',
     'billingStatus.allGood': 'Walang kailangan ng atensyon mo — maayos ang billing.',
+    'billingStatus.payNow': 'Magbayad ngayon',
+    'billingStatus.openingPayLink': 'Binubuksan ang link ng bayad…',
+    'billingStatus.payLinkFailed': 'Hindi magawa ang link ng bayad.',
+    'billingStatus.myApps.title': 'Ang mga app mong sinusubscribe-han',
+    'billingStatus.myApps.active': 'Aktibo',
+    'billingStatus.myApps.stopping': 'Hihinto',
+    'billingStatus.renewNow': 'Maagang i-renew',
+    'billingStatus.renewingNow': 'Nire-renew…',
+    'billingStatus.renewNowFailed': 'Hindi ma-renew ang subscription ngayon.',
   },
   bn: {
     'billingStatus.pastDue': 'শেষ পেমেন্ট চেষ্টা ব্যর্থ হয়েছে। আপনার সাবস্ক্রিপশন বন্ধ না হতে আপনার কার্ড আপডেট করুন।',
@@ -52,5 +99,14 @@ registerOperatorStrings({
     'billingStatus.updated': 'পেমেন্ট কার্ড আপডেট হয়েছে।',
     'billingStatus.updateFailed': 'কার্ড আপডেট করা যায়নি।',
     'billingStatus.allGood': 'মনোযোগ দেওয়ার কিছু নেই — বিলিং ঠিক আছে।',
+    'billingStatus.payNow': 'এখনই পরিশোধ করুন',
+    'billingStatus.openingPayLink': 'পেমেন্ট লিংক খোলা হচ্ছে…',
+    'billingStatus.payLinkFailed': 'পেমেন্ট লিংক তৈরি করা যায়নি।',
+    'billingStatus.myApps.title': 'আপনার সাবস্ক্রাইব করা অ্যাপ',
+    'billingStatus.myApps.active': 'সক্রিয়',
+    'billingStatus.myApps.stopping': 'বন্ধ হবে',
+    'billingStatus.renewNow': 'আগেই নবায়ন করুন',
+    'billingStatus.renewingNow': 'নবায়ন হচ্ছে…',
+    'billingStatus.renewNowFailed': 'এখন সাবস্ক্রিপশন নবায়ন করা যায়নি।',
   },
 });

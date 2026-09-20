@@ -221,13 +221,25 @@ export function OfferChip({ percent, appName, compact }: { percent: number; appN
   );
 }
 
-/** THE PRICE/BILLING ROW — its own real element, not folded into the generic `onCta` this window
- *  already had, because owned/cancel-pending/not-yet-bought are three genuinely different rows,
- * never one button relabelled. */
-function BillingRow({ billing, label, accent }: { billing: AppBillingProps; label: string; accent: string }) {
+/** THE CANCEL/RENEW CONTROL — extracted (2026-09-20) so `BillingStatusPane.tsx`'s own app list
+ *  can show the exact same stop-renewal/undo-cancel behaviour, wording, and confirm step as this
+ *  modal, instead of a second hand-copied version that could quietly drift from this one. Only
+ *  the price/discount half of the old `BillingRow` stays here — a subscribe button and discount
+ *  badges belong to buying, which the billing screen never does. */
+export function RenewalControl({
+  cancelPending, renewsOn, canceling, onCancel, undoingCancel, onUndoCancel, cascadeNames, label,
+}: {
+  cancelPending: boolean;
+  renewsOn: string;
+  canceling: boolean;
+  onCancel?: () => void;
+  undoingCancel: boolean;
+  onUndoCancel?: () => void;
+  cascadeNames: string[];
+  label: string;
+}) {
   const { t } = useOperatorI18n();
   const [confirming, setConfirming] = useState(false);
-  const price = monthlyPriceOf(billing.plan);
 
   if (confirming) {
     return (
@@ -236,19 +248,19 @@ function BillingRow({ billing, label, accent }: { billing: AppBillingProps; labe
           {tf(t, 'launcher.billing.confirmCancelTitle', { name: label })}
         </p>
         <p className="text-xs leading-relaxed text-danger-on-soft/90">{t('launcher.billing.confirmCancelBody')}</p>
-        {billing.cascadeNames.length > 0 ? (
+        {cascadeNames.length > 0 ? (
           <p className="rounded-xl bg-white/40 p-2.5 text-xs text-danger-on-soft dark:bg-black/20">
-            {tf(t, 'launcher.billing.cascadeWarning', { names: billing.cascadeNames.join(t('launcher.listSeparator')) })}
+            {tf(t, 'launcher.billing.cascadeWarning', { names: cascadeNames.join(t('launcher.listSeparator')) })}
           </p>
         ) : null}
         <div className="flex gap-2">
           <button
             type="button"
-            disabled={billing.canceling}
-            onClick={() => { billing.onCancel?.(); setConfirming(false); }}
+            disabled={canceling}
+            onClick={() => { onCancel?.(); setConfirming(false); }}
             className="flex-1 rounded-full bg-danger py-2.5 text-sm font-bold text-danger-contrast disabled:opacity-60"
           >
-            {billing.canceling ? t('launcher.billing.stopping') : t('launcher.billing.confirmCancelConfirm')}
+            {canceling ? t('launcher.billing.stopping') : t('launcher.billing.confirmCancelConfirm')}
           </button>
           <button
             type="button"
@@ -261,6 +273,55 @@ function BillingRow({ billing, label, accent }: { billing: AppBillingProps; labe
       </div>
     );
   }
+
+  if (cancelPending) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-xs text-text-secondary">
+          {renewsOn
+            ? tf(t, 'launcher.billing.cancelPendingWithDate', { date: renewsOn })
+            : t('launcher.billing.cancelPendingNoDate')}
+        </p>
+        {onUndoCancel ? (
+          <button
+            type="button"
+            disabled={undoingCancel}
+            onClick={onUndoCancel}
+            className="rounded-full border border-border-subtle py-2.5 text-sm font-bold text-text-primary disabled:opacity-60"
+          >
+            {undoingCancel ? t('launcher.billing.undoing') : t('launcher.billing.undoCancel')}
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (onCancel) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        {renewsOn ? (
+          <p className="text-xs text-text-secondary">{tf(t, 'launcher.billing.renewsOn', { date: renewsOn })}</p>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          className="rounded-full border border-danger/40 py-2.5 text-sm font-bold text-danger"
+        >
+          {t('launcher.billing.cancelRenewal')}
+        </button>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+/** THE PRICE/BILLING ROW — its own real element, not folded into the generic `onCta` this window
+ *  already had, because owned/cancel-pending/not-yet-bought are three genuinely different rows,
+ * never one button relabelled. */
+function BillingRow({ billing, label, accent }: { billing: AppBillingProps; label: string; accent: string }) {
+  const { t } = useOperatorI18n();
+  const price = monthlyPriceOf(billing.plan);
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -289,37 +350,17 @@ function BillingRow({ billing, label, accent }: { billing: AppBillingProps; labe
         />
       ) : null}
 
-      {billing.cancelPending ? (
-        <div className="flex flex-col gap-2">
-          <p className="text-xs text-text-secondary">
-            {billing.renewsOn
-              ? tf(t, 'launcher.billing.cancelPendingWithDate', { date: billing.renewsOn })
-              : t('launcher.billing.cancelPendingNoDate')}
-          </p>
-          {billing.onUndoCancel ? (
-            <button
-              type="button"
-              disabled={billing.undoingCancel}
-              onClick={billing.onUndoCancel}
-              className="rounded-full border border-border-subtle py-2.5 text-sm font-bold text-text-primary disabled:opacity-60"
-            >
-              {billing.undoingCancel ? t('launcher.billing.undoing') : t('launcher.billing.undoCancel')}
-            </button>
-          ) : null}
-        </div>
-      ) : billing.onCancel ? (
-        <div className="flex flex-col gap-1.5">
-          {billing.renewsOn ? (
-            <p className="text-xs text-text-secondary">{tf(t, 'launcher.billing.renewsOn', { date: billing.renewsOn })}</p>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setConfirming(true)}
-            className="rounded-full border border-danger/40 py-2.5 text-sm font-bold text-danger"
-          >
-            {t('launcher.billing.cancelRenewal')}
-          </button>
-        </div>
+      {billing.cancelPending || billing.onCancel ? (
+        <RenewalControl
+          cancelPending={billing.cancelPending}
+          renewsOn={billing.renewsOn}
+          canceling={billing.canceling}
+          onCancel={billing.onCancel}
+          undoingCancel={billing.undoingCancel}
+          onUndoCancel={billing.onUndoCancel}
+          cascadeNames={billing.cascadeNames}
+          label={label}
+        />
       ) : (
         <button
           type="button"
