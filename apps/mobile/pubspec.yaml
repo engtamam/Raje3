@@ -52,6 +52,12 @@ dependencies:
   # as the AI port.
   flutter_tts: ^4.2.5
 
+  # On-device speech INPUT — wraps the platform's own speech recognizer (Android
+  # SpeechRecognizer, iOS SFSpeechRecognizer). A third, independent port from the AI model and
+  # from TTS (lib/core/voice/ own doc comments) — recognition and its failure modes (no mic
+  # permission, no recognizer installed, unsupported locale) have nothing to do with either.
+  speech_to_text: ^7.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

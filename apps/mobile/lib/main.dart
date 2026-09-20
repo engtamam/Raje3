@@ -7,6 +7,8 @@ import 'package:raje3_mobile/core/knowledge/kb_service.dart';
 import 'package:raje3_mobile/core/network/api_client.dart';
 import 'package:raje3_mobile/core/tts/tts_container.dart';
 import 'package:raje3_mobile/core/tts/tts_model.dart';
+import 'package:raje3_mobile/core/voice/speech_input_container.dart';
+import 'package:raje3_mobile/core/voice/speech_input_model.dart';
 import 'package:raje3_mobile/core/providers/app_state_provider.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/providers/locale_provider.dart';
@@ -35,6 +37,7 @@ Future<void> main() async {
 
   final assistantService = AssistantService(aiModel: buildAiModel(), kbService: kbService);
   final ttsModel = buildTtsModel();
+  final speechInputModel = buildSpeechInputModel();
 
   runApp(Raje3App(
     apiClient: apiClient,
@@ -44,6 +47,7 @@ Future<void> main() async {
     kbService: kbService,
     assistantService: assistantService,
     ttsModel: ttsModel,
+    speechInputModel: speechInputModel,
   ));
 }
 
@@ -55,6 +59,7 @@ class Raje3App extends StatelessWidget {
   final KbService kbService;
   final AssistantService assistantService;
   final TtsModel ttsModel;
+  final SpeechInputModel speechInputModel;
 
   const Raje3App({
     super.key,
@@ -65,6 +70,7 @@ class Raje3App extends StatelessWidget {
     required this.kbService,
     required this.assistantService,
     required this.ttsModel,
+    required this.speechInputModel,
   });
 
   @override
@@ -75,6 +81,7 @@ class Raje3App extends StatelessWidget {
         Provider<KbService>.value(value: kbService),
         Provider<AssistantService>.value(value: assistantService),
         Provider<TtsModel>.value(value: ttsModel),
+        Provider<SpeechInputModel>.value(value: speechInputModel),
         ChangeNotifierProvider(
           create: (_) => AuthProvider(
             apiClient: apiClient,
