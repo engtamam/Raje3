@@ -139,4 +139,198 @@ class SHa extends S {
 
   @override
   String get logout => 'Fita';
+  @override
+  String get validatorFieldRequiredGeneric => 'Wannan filin yana bukata';
+
+  @override
+  String validatorFieldRequiredNamed(String field) => 'Ana bukatar $field';
+
+  @override
+  String get validatorEmailRequired => 'Ana bukatar imel';
+
+  @override
+  String get validatorEmailInvalid => 'Adireshin imel ba daidai ba ne';
+
+  @override
+  String get validatorPhoneRequired => 'Ana bukatar lambar waya';
+
+  @override
+  String get validatorPhoneInvalid => 'Lambar waya ba daidai ba ne — dole ta fara da 05';
+
+  @override
+  String get validatorPasswordRequired => 'Ana bukatar kalmar sirri';
+
+  @override
+  String get validatorPasswordTooShort => 'Kalmar sirri dole ta zama akalla haruffa 8';
+
+  @override
+  String get validatorPasswordNeedsUppercase => 'Kalmar sirri dole ta ɗunshi babban harafi';
+
+  @override
+  String get validatorPasswordNeedsLowercase => 'Kalmar sirri dole ta ɗunshi ƙaramin harafi';
+
+  @override
+  String get validatorPasswordNeedsDigit => 'Kalmar sirri dole ta ɗunshi lamba';
+
+  @override
+  String get validatorConfirmPasswordFieldName => 'Tabbatar da kalmar sirri';
+
+  @override
+  String get validatorPasswordMismatch => 'Kalmomin sirri ba su dace ba';
+
+  @override
+  String get validatorOtpRequired => 'Ana bukatar lambar tabbatarwa';
+
+  @override
+  String get validatorOtpLength => 'Lambar tabbatarwa dole ta zama lambobi 6';
+
+  @override
+  String get validatorOtpDigitsOnly => 'Lambar tabbatarwa dole ta ɗunshi lambobi kawai';
+
+  @override
+  String get validatorNameRequired => 'Ana bukatar suna';
+
+  @override
+  String get validatorNameTooShort => 'Suna dole ya zama akalla haruffa 2';
+
+  @override
+  String get validatorNameTooLong => 'Suna bai kamata ya wuce haruffa 100 ba';
+
+  @override
+  String get validatorNameInvalidChars => 'Suna yana ɗauke da haruffan da ba a yarda da su ba';
+
+  @override
+  String get validatorGenericFieldName => 'Wannan filin';
+
+  @override
+  String validatorMinLengthNamed(String field, int minLength) => '$field dole ya zama akalla haruffa $minLength';
+
+  @override
+  String validatorMaxLengthNamed(String field, int maxLength) => '$field bai kamata ya wuce haruffa $maxLength ba';
+
+  @override
+  String get validatorGenericValueName => 'Ƙimar';
+
+  @override
+  String validatorNotANumberNamed(String field) => '$field dole ya zama lamba';
+
+  @override
+  String validatorMinValueNamed(String field, String min) => '$field dole ya zama akalla $min';
+
+  @override
+  String validatorMaxValueNamed(String field, String max) => '$field bai kamata ya wuce $max ba';
+
+  @override
+  String get validatorUrlRequired => 'Ana bukatar hanyar haɗi';
+
+  @override
+  String get validatorUrlInvalid => 'Hanyar haɗi ba daidai ba ce';
+
+  @override
+  String get urlHelperUnavailable => 'Hanyar haɗin ba ta samuwa ba';
+
+  @override
+  String get urlHelperOpenFailed => 'An kasa buɗe hanyar haɗin';
+
+  @override
+  String get routerScreenNotOnMobileYet => 'Wannan allon ba a samu shi ba tukuna a manhajar wayar hannu.';
+
+  @override
+  String get authLoginSubtitle => 'Shiga don ci gaba';
+
+  @override
+  String get authPhoneLabel => 'Lambar wayar hannu';
+
+  @override
+  String get authPasswordLabel => 'Kalmar sirri';
+
+  @override
+  String get authNoShopYetLabel => 'Ba ku da shago tukuna?';
+
+  @override
+  String get authOpenNewShopCta => 'Buɗe sabon shago';
+
+  @override
+  String get authOpenShopTitle => 'Buɗe sabon shago';
+
+  @override
+  String get authSignupSubtitle => 'Matakai uku kawai don buɗe shagonka';
+
+  @override
+  String get authShopNameLabel => 'Sunan shago';
+
+  @override
+  String get authAlreadyHaveShopCta => 'Kana da shago tuni? Shiga';
+
+  @override
+  String get authOpenShopCta => 'Buɗe shago';
+
+  @override
+  String get authVerifyPhoneTitle => 'Tabbatar da lambar wayar hannu';
+
+  @override
+  String authVerifyCodeSentTo(String phone) => 'Mun aika lambar tabbatarwa zuwa $phone';
+
+  @override
+  String get authVerifying => 'Ana tabbatarwa...';
+
+  @override
+  String get authConfirmCta => 'Tabbatar';
+
+  @override
+  String get authResendCodeCta => 'Sake aika lambar';
+
+  @override
+  String get authSendCodeCta => 'Aika lambar';
+
+  @override
+  String get authCodeSendFailedFallback => 'An kasa aika lambar.';
+
+  @override
+  String get authOtpIncorrectFallback => 'Lambar tabbatarwa ba daidai ba ce.';
+
+  @override
+  String get visitCatalogueLoadErrorFallback => 'An kasa loda ayyuka. Ja ƙasa don sake gwadawa.';
+
+  @override
+  String get visitEnterCustomerPhone => 'Shigar da lambar wayar abokin ciniki';
+
+  @override
+  String get visitSelectAtLeastOneService => 'Zaɓi aƙalla sabis ɗaya';
+
+  @override
+  String get visitSavedMessage => 'An yi rikodin ziyarar.';
+
+  @override
+  String get visitSaveErrorFallback => 'An kasa yin rikodin ziyarar.';
+
+  @override
+  String get visitSaveErrorNetworkFallback => 'An kasa yin rikodin ziyarar. Duba haɗin intanet ɗinka sannan ka sake gwadawa.';
+
+  @override
+  String get visitTitle => 'Yin rikodin ziyara';
+
+  @override
+  String get visitCustomerSectionTitle => 'Abokin ciniki';
+
+  @override
+  String get visitCustomerPhoneFieldLabel => 'Lambar wayar abokin ciniki';
+
+  @override
+  String visitKnownCustomer(String name) => 'Sanannen abokin ciniki: $name';
+
+  @override
+  String get visitNewCustomer => 'Sabon abokin ciniki';
+
+  @override
+  String get visitServicesSectionTitle => 'Ayyuka';
+
+  @override
+  String get visitNoServicesYet => 'Babu ayyuka tukuna.';
+
+  @override
+  String get visitNoteSectionTitle => 'Bayani (na son rai)';
+
+  @override
+  String get visitSaveButtonLabel => 'Ajiye ziyarar';
 }

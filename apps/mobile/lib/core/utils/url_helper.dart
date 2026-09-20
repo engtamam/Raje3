@@ -2,6 +2,7 @@
 // Also includes a template variable resolver used by the marketing module.
 
 import 'package:flutter/material.dart';
+import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Open a URL in the device's default browser.
@@ -12,7 +13,7 @@ Future<bool> openUrl(String? url, [BuildContext? context]) async {
   if (url == null || url.isEmpty) {
     if (context != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('الرابط غير متوفر')),
+        SnackBar(content: Text(S.of(context)!.urlHelperUnavailable)),
       );
     }
     return false;
@@ -26,7 +27,7 @@ Future<bool> openUrl(String? url, [BuildContext? context]) async {
   } catch (_) {
     if (context != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تعذر فتح الرابط')),
+        SnackBar(content: Text(S.of(context)!.urlHelperOpenFailed)),
       );
     }
     return false;
