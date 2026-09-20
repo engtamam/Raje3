@@ -17,7 +17,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { action, call, type Catalog } from '../catalog';
-import { appKey, canBuy, kindOf, type Plan, type Subscription } from '../billingShared';
+import { appKey, canBuy, kindOf, requiresAny, type Plan, type Subscription } from '../billingShared';
 import { canMintToken, confirmToken } from '../payment';
 import { takePending, type PendingPayment } from '../pendingPayment';
 import { riyals } from '../money';
@@ -66,6 +66,10 @@ export function useAppBilling(session: Session, catalog: Catalog) {
   const [resolvingReturn, setResolvingReturn] = useState(false);
   const [capacityBusyPlanId, setCapacityBusyPlanId] = useState('');
   const [capacityError, setCapacityError] = useState('');
+  const [cart, setCart] = useState<string[]>([]);
+  const [cartNotice, setCartNotice] = useState('');
+  const [cartBusy, setCartBusy] = useState(false);
+  const [cartError, setCartError] = useState('');
 
   const canBrowse = action(catalog, 'billing.plans');
   const canSubscribe = action(catalog, 'subscription.activate') ?? action(catalog, 'billing.subscribe');
@@ -227,13 +231,15 @@ export function useAppBilling(session: Session, catalog: Catalog) {
     const params = new URLSearchParams(window.location.search);
     const tokenId = params.get('id');
     const pending = takePending();
-    if (!tokenId || !pending || pending.kind !== 'subscribe') return;
+    if (!tokenId || !pending || (pending.kind !== 'subscribe' && pending.kind !== 'checkout')) return;
     setResolvingReturn(true);
     confirmToken(tokenId)
       .then((result) => {
         if (result.kind === 'error') { setError(result.message); return; }
         if (result.kind !== 'token') return;
-        return finishSubscribe(pending.planId, result.token, pending.quantity ?? 1);
+        return pending.kind === 'subscribe'
+          ? finishSubscribe(pending.planId, result.token, pending.quantity ?? 1)
+          : finishCheckout(pending.planIds, result.token);
       })
       .finally(() => {
         setResolvingReturn(false);
@@ -259,6 +265,103 @@ export function useAppBilling(session: Session, catalog: Catalog) {
     return m;
   }, [appSubs]);
 
+  // ── THE CART — several apps, one checkout (core/subscribe.py::may_add_bundle's own console
+  //    side) ──────────────────────────────────────────────────────────────────────────────────
+  const heldKeys = useMemo(() => {
+    const s = new Set<string>();
+    for (const sub of activeAppSubs) {
+      const p = apps.find((a) => a.id === sub.plan_id);
+      const k = p ? appKey(p) : '';
+      if (k) s.add(k);
+    }
+    return s;
+  }, [activeAppSubs, apps]);
+
+  /** Add/remove one app from the cart. ADDING an app whose own `plan.requires_any` is not
+   *  already held OR already in the cart auto-adds the first plan that grants one of those keys
+   *  — the owner's own instruction: never a text-only suggestion, the dependency travels in the
+   *  same cart. Removing an app never removes what it auto-added; the shop chose to add that one
+   *  itself, or it stays because something else in the cart still needs it. */
+  const toggleCart = (plan: Plan) => {
+    setCartError('');
+    if (cart.includes(plan.id)) {
+      setCart(cart.filter((id) => id !== plan.id));
+      setCartNotice('');
+      return;
+    }
+    const next = [...cart, plan.id];
+    let addedNotice = '';
+    const need = requiresAny(plan);
+    if (need.length) {
+      const satisfied = need.some((k) => heldKeys.has(k))
+        || next.some((id) => {
+          const p = apps.find((a) => a.id === id);
+          return p ? need.includes(appKey(p)) : false;
+        });
+      if (!satisfied) {
+        const provider = need.map((k) => planByKey[k]).find((p): p is Plan => Boolean(p));
+        if (provider) {
+          next.push(provider.id);
+          addedNotice = `أُضيف "${provider.name}" تلقائيًا لأن "${plan.name}" يحتاج إليه.`;
+        }
+      }
+    }
+    setCart(next);
+    setCartNotice(addedNotice);
+  };
+
+  const cartPlans = useMemo(
+    () => cart.map((id) => apps.find((p) => p.id === id)).filter((p): p is Plan => Boolean(p)),
+    [cart, apps],
+  );
+  /** THE LIST TOTAL — every item's own posted price, summed, nothing else. This is a REAL number
+   *  (each plan's own price, exactly as billing itself will read it), never a guess.
+   *
+   *  DELIBERATELY NOT "list minus discount": billing's own final amount also applies VAT
+   *  (`_split_tax`, honouring each plan's `includes_tax` and reverse-charge for a VAT-registered
+   *  buyer) and picks the LARGER of a coupon vs. a cross-app rule discount, never both — a
+   *  client-side "price × (1 - percent/100)" formula silently drops the tax step entirely, so it
+   *  would show a smaller number than the shop is actually charged. Money is not a place to
+   *  approximate: a real preview needs billing's own pricing function to run, which today only
+   *  exists for a tenant's EXISTING subscriptions (`renewal_preview`) — a request for the same
+   *  preview over a not-yet-purchased cart went out to base-services 2026-09-20; until it lands,
+   *  this total is captioned as "before tax/discount" rather than presented as a final figure. */
+  const cartTotalMinor = useMemo(
+    () => cartPlans.reduce((sum, p) => {
+      const price = p.prices?.find((x) => x.interval === 'month') ?? p.prices?.[0];
+      return sum + (price?.amount_minor ?? 0);
+    }, 0),
+    [cartPlans],
+  );
+
+  const checkout = () => {
+    setCartError('');
+    if (!canSubscribe || cart.length === 0) return;
+    if (!canBuy({ hasAction: true, gatewayEnabled: Boolean(pay?.enabled), canMint: canMintToken })) return;
+    setCardFormPending({ kind: 'checkout', planIds: cart });
+  };
+
+  const finishCheckout = async (planIds: string[], payment_token: string) => {
+    const a = action(catalog, 'subscription.checkout');
+    if (!a) return;
+    setCartBusy(true); setCartError('');
+    try {
+      const out = await call<{ notice?: string }>(session, a, {
+        items: planIds.map((id) => ({ plan_id: id, interval: 'month' })),
+        payment_token,
+      });
+      setNotice(out?.notice ?? '');
+      setCardFormPending(null);
+      setCart([]);
+      setCartNotice('');
+      load();
+    } catch (e) {
+      setCartError(e instanceof Error ? e.message : 'تعذّر إتمام الشراء.');
+    } finally {
+      setCartBusy(false);
+    }
+  };
+
   return {
     subs, discountPreviews, potentialDiscounts, pay, busy, error, notice,
     cancelingAppId, appCancelError, undoingAppCancelId, undoCancelError,
@@ -267,5 +370,7 @@ export function useAppBilling(session: Session, catalog: Catalog) {
     choose, finishSubscribe, cancelApp, undoCancel, cascadeTargets, renewalDay,
     planByKey, subByPlanId, unitsPerHalala, aiEnabled,
     capacity, capacitySubs, capacityBusyPlanId, capacityError, changeCapacityQuantity,
+    cart, cartPlans, cartTotalMinor, cartNotice, cartBusy, cartError,
+    toggleCart, checkout, finishCheckout,
   };
 }

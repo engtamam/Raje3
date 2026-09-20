@@ -15,7 +15,11 @@ export type PendingPayment =
   // picks a count BEFORE the card form ever opens; the redirect must come back remembering how
   // many, not just which plan, or a shop that chose 3 seats would land back subscribed to 1.
   | { kind: 'subscribe'; planId: string; quantity?: number }
-  | { kind: 'update_payment_method'; subscriptionId: string };
+  | { kind: 'update_payment_method'; subscriptionId: string }
+  // THE CART — several plan ids, one checkout. Same reason `quantity` rides along with a single
+  // subscribe: the redirect must come back remembering the WHOLE cart, or a shop that picked three
+  // apps would land back having only bought whichever one this forgot.
+  | { kind: 'checkout'; planIds: string[] };
 
 export function remember(p: PendingPayment): void {
   try {
@@ -40,6 +44,11 @@ export function takePending(): PendingPayment | null {
         : { kind: 'subscribe', planId: row.planId };
     }
     if (row.kind === 'update_payment_method' && typeof row.subscriptionId === 'string') return row;
+    if (row.kind === 'checkout' && Array.isArray(row.planIds)
+        && row.planIds.every((x): x is string => typeof x === 'string' && Boolean(x))
+        && row.planIds.length > 0) {
+      return { kind: 'checkout', planIds: row.planIds };
+    }
     return null;
   } catch {
     return null;
