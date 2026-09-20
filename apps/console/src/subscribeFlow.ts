@@ -20,6 +20,7 @@
  * (`cardForm`) — everything else (tokenising, the redirect return, the notice) this hook owns.
  */
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { confirmToken } from './payment';
 import { takePending, type PendingPayment } from './pendingPayment';
 import { action, call, type Catalog } from './catalog';
@@ -30,6 +31,7 @@ import './subscribe-flow-i18n';
 
 export function useSubscribeFlow(session: Session, catalog: Catalog) {
   const { t } = useOperatorI18n();
+  const navigate = useNavigate();
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [pay, setPay] = useState<{ enabled: boolean; message?: string } | undefined>(undefined);
   const [cardFormPending, setCardFormPending] = useState<PendingPayment | null>(null);
@@ -67,6 +69,19 @@ export function useSubscribeFlow(session: Session, catalog: Catalog) {
       setNotice(out?.notice ?? '');
       setCardFormPending(null);
     } catch (e) {
+      // AN APP THAT CANNOT BE DELIVERED AT ALL WITHOUT A CONNECTED NUMBER (apps.py::
+      // REQUIRES_WHATSAPP_KEYS) — the server refused BEFORE any money moved and named the exact
+      // next screen (`redirect_screen`, always "connect" today). Sending him to a generic error
+      // banner here would be a dead end on the very screen that sells the app; the real next step
+      // is one tap away, so this takes him there directly, with the server's own sentence carried
+      // along for `Account.tsx` to show once it lands.
+      const code = e instanceof Error ? (e as Error & { code?: string }).code : undefined;
+      if (code === 'WHATSAPP_CONNECTION_REQUIRED') {
+        setCardFormPending(null);
+        navigate('/account?tab=whatsapp',
+                { state: { notice: e instanceof Error ? e.message : '' } });
+        return;
+      }
       setError(e instanceof Error ? e.message : t('subscribeFlow.error.activate'));
     } finally {
       setBusy(false);

@@ -71,4 +71,24 @@ describe('«حسابي» — the tab that went, and where its parts landed', () 
     await screen.findByText('الفوترة');
     expect(screen.queryByText('فواتيري')).toBeNull();
   });
+
+  // ── the WhatsApp-connection-required deep link (subscribeFlow.ts's own redirect) ──────────────
+  it('?tab=whatsapp opens straight on the WhatsApp sub-tab, not «العاملون»', async () => {
+    // Proven indirectly: the `notice` banner lives ONLY inside the shopSub === 'whatsapp' branch
+    // (Account.tsx), so its presence proves that branch — not the default 'people' one — rendered.
+    render(<AccountScreen session={session} catalog={catalog} openOn="whatsapp"
+                         notice="اربط رقمك أولاً حتى يعمل هذا التطبيق." />);
+    expect(await screen.findByText('اربط رقمك أولاً حتى يعمل هذا التطبيق.')).toBeTruthy();
+  });
+
+  it('shows no notice at all on an ordinary visit to the tab', () => {
+    render(<AccountScreen session={session} catalog={catalog} openOn="whatsapp" />);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('a plain ?tab=shop visit still opens on «العاملون» by default, not WhatsApp', async () => {
+    render(<AccountScreen session={session} catalog={catalog} openOn="shop" />);
+    await screen.findByText('منشأتي');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
 });

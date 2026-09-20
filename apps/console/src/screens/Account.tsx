@@ -129,11 +129,19 @@ function tabsFor(t: (key: string) => string): { id: Pane; label: string; hint: s
 
 
 export function AccountScreen(
-  { session, catalog, openOn, owned }:
+  { session, catalog, openOn, owned, notice: incomingNotice }:
   // `openOn` IS WHERE SOMEBODY ELSE SENT HIM. The locked cards across the product say «أضِفه إلى
   // اشتراكي», and a button that lands on a page and then makes him find the right tab is a button
   // that loses half the people who pressed it. Ignored when he may not read that tab.
-  { session: Session; catalog: Catalog; openOn?: PaneLink; owned?: Loading<Owned> },
+  //
+  // `notice` IS THE ONE SENTENCE THE SUBSCRIBE ATTEMPT ITSELF ALREADY WROTE — carried through
+  // react-router's own navigation `state` (subscribeFlow.ts's own WHATSAPP_CONNECTION_REQUIRED
+  // handling), never a URL query param: it is the server's exact refusal sentence, arbitrary
+  // length and free text, not a fixed enum a query string should carry.
+  {
+    session: Session; catalog: Catalog; openOn?: PaneLink; owned?: Loading<Owned>;
+    notice?: string;
+  },
 ) {
   const { t } = useOperatorI18n();
   const TABS = tabsFor(t);
@@ -196,7 +204,12 @@ export function AccountScreen(
    *  this one, which the owner ruled out entirely regardless of level ("ممنوع اطلاقاً يطلع
    *  شريطين تحت بعض"). `TeamScreen` renders in CONTROLLED mode here (a `tab`/`onChangeTab` pair)
    *  so it draws no switcher of its own — see its own comment. */
-  const [shopSub, setShopSub] = useState<'people' | 'branches' | 'whatsapp' | 'identity'>('people');
+  // OPENS ON THE WHATSAPP SUB-TAB DIRECTLY when `openOn === 'whatsapp'` — the deep link
+  // subscribeFlow.ts's own WHATSAPP_CONNECTION_REQUIRED handling now sends (`/account?tab=
+  // whatsapp`), the one still missing half of "أضِفه إلى اشتراكي" already lands on the right TOP
+  // tab: without this it stopped one level short, on «العاملون» inside «منشأتي».
+  const [shopSub, setShopSub] = useState<'people' | 'branches' | 'whatsapp' | 'identity'>(
+    openOn === 'whatsapp' ? 'whatsapp' : 'people');
   // THE BRANCH TAB'S OWN LOCK (هـ-3, branchGate) — reported by `TeamScreen` once the branches
   // read resolves, since this file has no read of its own to compute it from. `'open'` is the
   // exact same "never lock on an unknown" default `branchGate` itself returns before that.
@@ -298,6 +311,11 @@ export function AccountScreen(
 
           {shopSub === 'whatsapp' ? (
             <div className="flex flex-col gap-6">
+              {/* THE REFUSAL SENTENCE ITSELF, CARRIED FROM THE ATTEMPT THAT SENT HIM HERE — see
+                  `notice` prop's own comment above. Absent on every ordinary visit to this tab. */}
+              {incomingNotice ? (
+                <p role="alert" className="text-sm text-warning">{incomingNotice}</p>
+              ) : null}
               {/* PER_BRANCH SHOPS GET ONE CARD A BRANCH — `ConnectByBranch` itself decides between
                   the single establishment-wide card (every shop that never left `central` mode,
                   the overwhelming default) and a list, by reading `shop_mode`; nothing here needs

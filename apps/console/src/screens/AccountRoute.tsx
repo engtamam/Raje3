@@ -1,5 +1,5 @@
 import type { ShellContext } from '../shell-context';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
 import { AccountScreen, type PaneLink } from './Account';
 import { type Loading } from '../loading';
 import type { Owned } from '../apps';
@@ -21,5 +21,10 @@ export function Account() {
   // already sent, bookmarked or printed still lands on the right screen.
   const asked = params.get('tab') ?? '';
   const openOn = (PANES as readonly string[]).includes(asked) ? (asked as PaneLink) : undefined;
-  return <AccountScreen session={session} catalog={catalog} openOn={openOn} owned={owned} />;
+  // subscribeFlow.ts's own WHATSAPP_CONNECTION_REQUIRED redirect (`navigate(..., {state:
+  // {notice}})`) — react-router `state`, never a URL param: free text, gone the moment he leaves
+  // this page, exactly like any other one-time toast.
+  const notice = (useLocation().state as { notice?: string } | null)?.notice;
+  return <AccountScreen session={session} catalog={catalog} openOn={openOn} owned={owned}
+                       notice={notice} />;
 }
