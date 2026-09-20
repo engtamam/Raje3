@@ -4,12 +4,8 @@ import 'package:raje3_mobile/core/nav/nav_sections.g.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/router/route_names.dart';
-import 'package:raje3_mobile/features/account/account_screen.dart';
-import 'package:raje3_mobile/features/analytics/analytics_screen.dart';
-import 'package:raje3_mobile/features/apps/apps_screen.dart';
 import 'package:raje3_mobile/features/auth/login_screen.dart';
 import 'package:raje3_mobile/features/auth/signup_screen.dart';
-import 'package:raje3_mobile/features/home/home_screen.dart';
 import 'package:raje3_mobile/features/shell/main_shell.dart';
 import 'package:raje3_mobile/features/visit/visit_screen.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
@@ -62,17 +58,20 @@ class AppRouter {
             GoRoute(
               path: RouteNames.homePath,
               name: RouteNames.home,
-              builder: (context, state) => const HomeScreen(),
+              builder: (context, state) =>
+                  _NotYetOnMobile(label: S.of(context)!.navHomeLabel),
             ),
             GoRoute(
               path: RouteNames.appsPath,
               name: RouteNames.apps,
-              builder: (context, state) => const AppsScreen(),
+              builder: (context, state) =>
+                  _NotYetOnMobile(label: S.of(context)!.navAppsLabel),
             ),
             GoRoute(
               path: RouteNames.accountPath,
               name: RouteNames.account,
-              builder: (context, state) => const AccountScreen(),
+              builder: (context, state) =>
+                  _NotYetOnMobile(label: S.of(context)!.navAccountLabel),
             ),
             for (final section in kNavSections)
               GoRoute(
@@ -88,12 +87,10 @@ class AppRouter {
 
   static Widget _screenFor(NavSectionDef section) {
     switch (section.id) {
-      case 'shop':
-        return const AnalyticsScreen();
       case 'visit':
         return const VisitScreen();
       default:
-        return _NotYetOnMobile(section: section);
+        return _NotYetOnMobile(label: section.label);
     }
   }
 
@@ -139,14 +136,14 @@ class AppRouter {
 /// Honest placeholder for a section the catalogue makes visible but this mobile pass has not
 /// built a real screen for yet — never silent, never a router crash, never a fabricated feature.
 class _NotYetOnMobile extends StatelessWidget {
-  final NavSectionDef section;
-  const _NotYetOnMobile({required this.section});
+  final String label;
+  const _NotYetOnMobile({required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface0,
-      appBar: AppBar(title: Text(section.label)),
+      appBar: AppBar(title: Text(label)),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),

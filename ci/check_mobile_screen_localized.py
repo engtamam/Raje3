@@ -37,12 +37,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # Files already migrated to lib/l10n — add a path here once its migration starts.
 SCREENS = [
-    "apps/mobile/lib/features/home/home_screen.dart",
     "apps/mobile/lib/features/shell/main_shell.dart",
     "apps/mobile/lib/widgets/app_widgets.dart",
-    "apps/mobile/lib/features/apps/apps_screen.dart",
-    "apps/mobile/lib/features/account/account_screen.dart",
-    "apps/mobile/lib/features/analytics/analytics_screen.dart",
     "apps/mobile/lib/features/auth/login_screen.dart",
     "apps/mobile/lib/features/auth/signup_screen.dart",
     "apps/mobile/lib/features/auth/verify_phone_screen.dart",
