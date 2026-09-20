@@ -347,6 +347,33 @@ APPS: tuple[dict[str, Any], ...] = (
 
 KEYS: tuple[str, ...] = tuple(a["key"] for a in APPS)
 
+
+def licence_attr(key: str) -> str:
+    """The `container` attribute a key's own `feature_licence.py` licence is wired under.
+
+    ONE RULE, DERIVED, NEVER HAND-COPIED A SECOND TIME. `container.py` already names every wired
+    licence by stripping the constant `"feature."` prefix and turning every remaining dot into an
+    underscore (`feature.visit` → `visit_licence`, `feature.insights.engine` →
+    `insights_engine_licence`) — this is that same rule, written once, so `api/subscribed.py`'s
+    generic "does this shop hold ANY app at all" gate can be BUILT from `KEYS` above instead of
+    carrying its own hand-typed tuple of attribute names next to it.
+
+    THE BUG THIS REPLACES. `api/subscribed.py::_ANY_APP` used to be exactly such a hand-typed
+    tuple, written the day the OR-gate first existed and never revisited when `feature.coupons`,
+    `feature.insights.engine`, and `feature.mobile_requests` each shipped as their own standalone,
+    no-prerequisite app afterward. Each of the three already had (and keeps) its own narrow,
+    door-specific entitlement check elsewhere (`core/coupons.py::granter_is_subscribed`,
+    `core/mobile_requests.py::is_subscribed`) — those were never broken. What silently drifted was
+    the ONE list of apps allowed to satisfy an ordinary shop-management write (staff, branches,
+    services, an offer redeemed): a shop paying for `feature.coupons` alone, with no other app,
+    was wrongly refused that write, because its licence's attribute name was simply never added to
+    the second list. Deriving the attribute name from `KEYS` instead of retyping it means a fourth
+    future standalone app joins this gate for free, the moment it is wired onto the container —
+    nothing in `subscribed.py` has to be remembered a second time.
+    """
+    return key.removeprefix("feature.").replace(".", "_") + "_licence"
+
+
 CANNOT_ASK = "تعذّر التحقق من اشتراكك الآن — حاول بعد قليل."
 
 

@@ -69,6 +69,9 @@ def test_the_refusal_reaches_the_caller_as_402_with_a_sentence():
         campaigns_licence = NullFeatureLicence("feature.campaigns", False)
         loyalty_licence = NullFeatureLicence("feature.loyalty", False)
         rating_licence = NullFeatureLicence("feature.rating", False)
+        insights_engine_licence = NullFeatureLicence("feature.insights.engine", False)
+        coupons_licence = NullFeatureLicence("feature.coupons", False)
+        mobile_requests_licence = NullFeatureLicence("feature.mobile_requests", False)
 
     app.state.container = _Container()
 
@@ -106,6 +109,57 @@ def test_owning_any_one_app_is_enough_for_the_generic_gate():
         campaigns_licence = NullFeatureLicence("feature.campaigns", False)
         loyalty_licence = NullFeatureLicence("feature.loyalty", False)
         rating_licence = NullFeatureLicence("feature.rating", False)
+        insights_engine_licence = NullFeatureLicence("feature.insights.engine", False)
+        coupons_licence = NullFeatureLicence("feature.coupons", False)
+        mobile_requests_licence = NullFeatureLicence("feature.mobile_requests", False)
+
+    app.state.container = _Container()
+
+    @app.post("/staff/mode", dependencies=[Depends(subscribed_write)])
+    async def _write() -> dict:
+        return {"ok": True}
+
+    from app.api.auth import Principal, require_user
+
+    app.dependency_overrides[require_user] = lambda: Principal(
+        subject="usr_1", tenant="t1", caps=frozenset({"operations.manage"}))
+
+    resp = TestClient(app).post("/staff/mode")
+    assert resp.status_code == 200, resp.text
+
+
+def test_a_shop_holding_only_coupons_is_not_wrongly_refused_the_generic_gate():
+    """`_ANY_APP` used to be a hand-typed tuple of container attribute names that stopped tracking
+    `core/apps.py::APPS` the day a new standalone app shipped without also being copied in here —
+    `feature.coupons`, `feature.insights.engine` and `feature.mobile_requests` are each a real,
+    separately-priced app with no other app required underneath it, yet none of their attribute
+    names were in the old tuple. A shop holding ONLY one of them (nothing else) would fail this
+    generic "do you own any app at all" gate on an ordinary write — staff, branches, an offer
+    redeemed — despite genuinely paying for a real app every month.
+
+    `subscribed_write`'s OR is now BUILT FROM `core/apps.py::KEYS`, the same list that decides what
+    the console renders and what `ci/check_listed_apps_are_wired.py` checks against the price
+    list — so a shop holding only `feature.coupons` reaches this test the same way a shop holding
+    only `feature.bookings` always has.
+    """
+    from fastapi import Depends, FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.api.subscribed import subscribed_write
+
+    app = FastAPI()
+
+    class _Container:
+        visit_licence = NullFeatureLicence("feature.visit", False)
+        bookings_licence = NullFeatureLicence("feature.bookings", False)
+        contacts_licence = NullFeatureLicence("feature.contacts", False)
+        whatsapp_licence = NullFeatureLicence("feature.whatsapp", False)
+        campaigns_licence = NullFeatureLicence("feature.campaigns", False)
+        loyalty_licence = NullFeatureLicence("feature.loyalty", False)
+        rating_licence = NullFeatureLicence("feature.rating", False)
+        insights_engine_licence = NullFeatureLicence("feature.insights.engine", False)
+        mobile_requests_licence = NullFeatureLicence("feature.mobile_requests", False)
+        coupons_licence = NullFeatureLicence("feature.coupons", True)   # the one that's live
 
     app.state.container = _Container()
 

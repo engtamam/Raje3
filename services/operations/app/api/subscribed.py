@@ -18,6 +18,7 @@ from __future__ import annotations
 from fastapi import Depends, HTTPException, Request, status
 
 from app.api.auth import Principal, require_user
+from app.core.apps import KEYS, licence_attr
 
 # And when we could not ask. A DIFFERENT sentence from "you have not paid" on purpose — telling a
 # paying shop it has not paid is a different wrong from telling an unpaid one the truth.
@@ -25,10 +26,18 @@ CANNOT_ASK = "تعذّر التحقق من اشتراكك الآن — حاول 
 
 # NO SINGLE BUNDLE ANY MORE (الأساس retired 2026-09-10). Ordinary shop-management writes — staff,
 # branches, services, redeeming an offer — are not any ONE app's business; they need SOME paid app,
-# whichever it is. This is every standalone app's licence attribute name, the same list
-# `container.py` wires — a future app joins by adding its own attribute here, nothing else changes.
-_ANY_APP = ("visit_licence", "bookings_licence", "contacts_licence", "whatsapp_licence",
-           "campaigns_licence", "loyalty_licence", "rating_licence")
+# whichever it is.
+#
+# DERIVED FROM `core/apps.py::KEYS`, NOT RETYPED. This used to be its own hand-typed tuple of
+# container attribute names, written the day the OR-gate first existed and never revisited when
+# `feature.coupons`, `feature.insights.engine`, and `feature.mobile_requests` each later shipped as
+# their own standalone app — a shop holding only one of those three, and nothing else, was
+# wrongly refused this generic gate because its licence's attribute name was simply never added
+# here. `KEYS` is the one place every sellable app is listed (the same list the console renders
+# and `ci/check_listed_apps_are_wired.py` checks); `licence_attr` is the one rule that turns a key
+# into the container attribute `container.py` wires it under. A future standalone app now joins
+# this gate the moment it is added to `APPS` and wired onto the container — nothing here changes.
+_ANY_APP = tuple(licence_attr(key) for key in KEYS)
 
 
 def subscribed_write_or(*licence_attrs: str, refusal: str):
