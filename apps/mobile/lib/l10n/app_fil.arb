@@ -16,5 +16,20 @@
   "success": "Matagumpay",
   "search": "Maghanap",
   "login": "Mag-log in",
-  "logout": "Mag-log out"
+  "logout": "Mag-log out",
+
+  "homeDashboardTitle": "Dashboard",
+  "homeShopSectionLabel": "Aking tindahan",
+  "homeLoadErrorTitle": "Hindi ma-load",
+  "homeLoadErrorMessage": "Hindi na-load ang datos ngayong araw. Subukan muli.",
+  "homeTodaySectionTitle": "Ngayon",
+  "homeStatSent": "Naipadala",
+  "homeStatWaiting": "Naghihintay",
+  "homeStatRetrying": "Sinusubukan muli",
+  "homeDashboardComputing": "Kinukuwenta ang mga sukatan ng iyong tindahan — i-refresh mamaya.",
+  "homeDashboardSectionTitle": "Mga sukatan ng tindahan",
+  "homeDashboardEmpty": "Wala pang sapat na datos.",
+  "moreSectionsTitle": "Higit pa",
+  "themeDarkMode": "Madilim na mode",
+  "themeLightMode": "Maliwanag na mode"
 }

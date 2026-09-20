@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:raje3_mobile/core/nav/nav_sections.g.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
+import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 
 /// The app's personalised bottom navigation bar.
@@ -27,22 +28,24 @@ class MainShell extends StatelessWidget {
     final pinned = nav.pinnedSections;
     final hasOverflow = nav.overflowSections.isNotEmpty;
 
+    final surface0 = context.isDark ? AppDarkColors.surface0 : AppColors.surface0;
+
     // 0 or 1 visible section: no chrome at all — a bar with one destination (or none) is not a
     // navigation control, it is decoration that invites a confused tap.
     if (pinned.length + (hasOverflow ? 1 : 0) < 2) {
-      return Scaffold(backgroundColor: AppColors.surface0, body: child);
+      return Scaffold(backgroundColor: surface0, body: child);
     }
 
     final currentPath = GoRouterState.of(context).uri.path;
     final destinations = <_Destination>[
       for (final section in pinned) _Destination.section(section),
-      if (hasOverflow) const _Destination.more(),
+      if (hasOverflow) _Destination.more(S.of(context)!.moreSectionsTitle),
     ];
     var selectedIndex = destinations.indexWhere((d) => d.path == currentPath);
     if (selectedIndex < 0) selectedIndex = 0;
 
     return Scaffold(
-      backgroundColor: AppColors.surface0,
+      backgroundColor: surface0,
       body: child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
@@ -87,9 +90,9 @@ class _Destination {
         icon: section.icon,
       );
 
-  const _Destination.more()
+  _Destination.more(String moreLabel)
       : path = '__more__',
-        label = 'المزيد',
+        label = moreLabel,
         icon = Icons.more_horiz,
         isMore = true;
 }
@@ -102,18 +105,25 @@ class MoreSectionsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sections = context.watch<NavProvider>().overflowSections;
+    final colors = context.appColors;
+    final accent = context.isDark ? AppDarkColors.accent : AppColors.accent;
+    final surface0 = context.isDark ? AppDarkColors.surface0 : AppColors.surface0;
+
     return Scaffold(
-      backgroundColor: AppColors.surface0,
-      appBar: AppBar(title: const Text('المزيد')),
+      backgroundColor: surface0,
+      appBar: AppBar(title: Text(S.of(context)!.moreSectionsTitle)),
       body: ListView.separated(
         itemCount: sections.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
+        separatorBuilder: (_, __) => Divider(height: 1, color: colors.borderSubtle),
         itemBuilder: (context, index) {
           final section = sections[index];
           return ListTile(
-            leading: Icon(section.icon, color: AppColors.accent),
-            title: Text(section.label, style: AppTextStyles.bodyMedium),
-            trailing: const Icon(Icons.chevron_right),
+            leading: Icon(section.icon, color: accent),
+            title: Text(
+              section.label,
+              style: AppTextStyles.bodyMedium.copyWith(color: colors.textPrimary),
+            ),
+            trailing: Icon(Icons.chevron_right, color: colors.textMuted),
             onTap: () {
               Navigator.of(context).pop();
               context.go(section.path);

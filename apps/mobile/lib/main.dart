@@ -12,6 +12,7 @@ import 'package:raje3_mobile/core/router/app_router.dart';
 import 'package:raje3_mobile/core/storage/cache_manager.dart';
 import 'package:raje3_mobile/core/storage/local_storage.dart';
 import 'package:raje3_mobile/core/storage/secure_storage.dart';
+import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 
 Future<void> main() async {
@@ -70,13 +71,18 @@ class Raje3App extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AppStateProvider()),
         ChangeNotifierProvider(create: (_) => NavProvider(apiClient: apiClient)),
       ],
-      child: Consumer2<AuthProvider, NavProvider>(
-        builder: (context, authProvider, navProvider, _) {
+      child: Consumer4<AuthProvider, NavProvider, ThemeProvider, LocaleProvider>(
+        builder: (context, authProvider, navProvider, themeProvider, localeProvider, _) {
           final router = AppRouter.router(authProvider, navProvider);
           return MaterialApp.router(
-            title: 'راجِع',
+            onGenerateTitle: (context) => S.of(context)?.appName ?? 'راجِع',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
+            darkTheme: AppTheme.dark,
+            themeMode: themeProvider.mode,
+            locale: localeProvider.locale,
+            localizationsDelegates: S.localizationsDelegates,
+            supportedLocales: S.supportedLocales,
             routerConfig: router,
           );
         },

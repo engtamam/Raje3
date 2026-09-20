@@ -16,5 +16,20 @@
   "success": "کامیابی سے انجام دیا گیا",
   "search": "تلاش",
   "login": "لاگ ان",
-  "logout": "لاگ آؤٹ"
+  "logout": "لاگ آؤٹ",
+
+  "homeDashboardTitle": "ڈیش بورڈ",
+  "homeShopSectionLabel": "میری دکان",
+  "homeLoadErrorTitle": "لوڈ نہیں ہو سکا",
+  "homeLoadErrorMessage": "آج کا ڈیٹا لوڈ نہیں ہو سکا۔ دوبارہ کوشش کریں۔",
+  "homeTodaySectionTitle": "آج",
+  "homeStatSent": "بھیجے گئے",
+  "homeStatWaiting": "انتظار میں",
+  "homeStatRetrying": "دوبارہ کوشش",
+  "homeDashboardComputing": "آپ کی دکان کے اعداد و شمار تیار ہو رہے ہیں — تھوڑی دیر بعد صفحہ ریفریش کریں۔",
+  "homeDashboardSectionTitle": "دکان کے اعداد و شمار",
+  "homeDashboardEmpty": "ابھی کافی ڈیٹا موجود نہیں۔",
+  "moreSectionsTitle": "مزید",
+  "themeDarkMode": "تاریک موڈ",
+  "themeLightMode": "روشن موڈ"
 }

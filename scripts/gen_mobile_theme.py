@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Generate apps/mobile/lib/theme/app_colors.g.dart FROM the same source of
-truth the web console already uses — config/product.json (brand.accent) and
-ui/packages/ui/src/theme/theme.config.ts (the `light` palette).
+truth the web console already uses — config/product.json (brand.accent.light/
+.dark) and ui/packages/ui/src/theme/theme.config.ts (the `light` AND `dark`
+palettes — `AppColors`/`AppDarkColors`, one generated class each).
 
 WHY A GENERATOR, NOT A HAND COPY. apps/mobile/lib/theme/app_theme.dart used
 to hand-copy every colour as a literal `Color(0xFF...)`, retyped once from
@@ -117,12 +118,15 @@ def _overlay_to_argb(value: str) -> str:
     return f"Color(0x{alpha:02X}{r:02X}{g:02X}{b:02X})"
 
 
-def _extract_light_palette() -> dict[str, str]:
+DARK_BLOCK_RE = re.compile(r"const dark: Palette = \{(.*?)\n\};", re.DOTALL)
+
+
+def _extract_palette(block_re: re.Pattern[str], label: str) -> dict[str, str]:
     text = THEME_CONFIG_TS.read_text(encoding="utf-8")
-    m = LIGHT_BLOCK_RE.search(text)
+    m = block_re.search(text)
     if not m:
         raise RuntimeError(
-            f"could not find `const light: Palette = {{ ... }}` in {THEME_CONFIG_TS} — "
+            f"could not find `const {label}: Palette = {{ ... }}` in {THEME_CONFIG_TS} — "
             "this generator needs re-pointing, not a hand-edit of its output"
         )
     values: dict[str, str] = {}
@@ -133,40 +137,35 @@ def _extract_light_palette() -> dict[str, str]:
     return values
 
 
+def _extract_light_palette() -> dict[str, str]:
+    return _extract_palette(LIGHT_BLOCK_RE, "light")
+
+
+def _extract_dark_palette() -> dict[str, str]:
+    """Only the QUOTED lines (surfaces/text/borders/success/warning/danger/info) — same
+    exclusion `_extract_light_palette` already documents: `accent`/`accent-hover`/
+    `accent-soft`/`accent-on-soft` are expression-valued (`ACCENT_DARK.*`) in theme.config.ts,
+    never quoted, so this naturally skips them too. Derived below from product.json's own
+    `brand.accent.dark`, by the exact same `ACCENT_DARK` formula theme.config.ts itself uses."""
+    return _extract_palette(DARK_BLOCK_RE, "dark")
+
+
 def _load_brand_accent() -> tuple[str, str]:
     data = json.loads(PRODUCT_JSON.read_text(encoding="utf-8"))
     accent = data["brand"]["accent"]
     return accent["light"], accent["dark"]
 
 
-def generate() -> str:
-    palette = _extract_light_palette()
-    accent_light, _accent_dark = _load_brand_accent()
-
-    accent_hex = accent_light
-    accent_hover_hex = mix(accent_light, "#000000", 0.22)
-    accent_soft_hex = mix(accent_light, "#ffffff", 0.88)
-    accent_on_soft_hex = mix(accent_light, "#000000", 0.22)
-
+def _emit_palette_class(
+    class_name: str, palette: dict[str, str],
+    accent_hex: str, accent_hover_hex: str, accent_soft_hex: str, accent_on_soft_hex: str,
+) -> list[str]:
+    """One palette class (`AppColors` or `AppDarkColors`) — same field set, same convenience
+    aliases, so a widget can switch between them without caring which one it got."""
     if "overlay" not in palette:
-        raise RuntimeError("theme.config.ts light palette is missing 'overlay' — re-check the extraction")
+        raise RuntimeError(f"theme.config.ts palette for {class_name} is missing 'overlay'")
 
-    lines: list[str] = []
-    lines.append("// GENERATED FILE — DO NOT EDIT BY HAND.")
-    lines.append("//")
-    lines.append("// Produced by scripts/gen_mobile_theme.py from:")
-    lines.append("//   - config/product.json (brand.accent)")
-    lines.append("//   - ui/packages/ui/src/theme/theme.config.ts (the `light` palette)")
-    lines.append("//")
-    lines.append("// Re-run `python scripts/gen_mobile_theme.py` after either source changes.")
-    lines.append("// ci/check_mobile_theme_is_generated.py fails the build if this file drifts")
-    lines.append("// from what the generator would currently produce.")
-    lines.append("")
-    lines.append("import 'package:flutter/material.dart';")
-    lines.append("")
-    lines.append("/// Colour tokens sourced from Raje3's own web design system —")
-    lines.append("/// see the header of this file for exactly where each value comes from.")
-    lines.append("class AppColors {")
+    lines: list[str] = [f"class {class_name} {{"]
     lines.append(f"  static const Color accent = {_dart_color(accent_hex)};")
     lines.append(f"  static const Color accentHover = {_dart_color(accent_hover_hex)};")
     lines.append(f"  static const Color accentSoft = {_dart_color(accent_soft_hex)};")
@@ -198,6 +197,47 @@ def generate() -> str:
     lines.append("  static const Color white = Color(0xFFFFFFFF);")
     lines.append("  static const Color black = Color(0xFF000000);")
     lines.append("}")
+    return lines
+
+
+def generate() -> str:
+    light = _extract_light_palette()
+    dark = _extract_dark_palette()
+    accent_light, accent_dark = _load_brand_accent()
+
+    lines: list[str] = []
+    lines.append("// GENERATED FILE — DO NOT EDIT BY HAND.")
+    lines.append("//")
+    lines.append("// Produced by scripts/gen_mobile_theme.py from:")
+    lines.append("//   - config/product.json (brand.accent.light/.dark)")
+    lines.append("//   - ui/packages/ui/src/theme/theme.config.ts (the `light` AND `dark` palettes)")
+    lines.append("//")
+    lines.append("// Re-run `python scripts/gen_mobile_theme.py` after either source changes.")
+    lines.append("// ci/check_mobile_theme_is_generated.py fails the build if this file drifts")
+    lines.append("// from what the generator would currently produce.")
+    lines.append("")
+    lines.append("import 'package:flutter/material.dart';")
+    lines.append("")
+    lines.append("/// Light-mode colour tokens sourced from Raje3's own web design system —")
+    lines.append("/// see the header of this file for exactly where each value comes from.")
+    lines.extend(_emit_palette_class(
+        "AppColors", light,
+        accent_light,
+        mix(accent_light, "#000000", 0.22),
+        mix(accent_light, "#ffffff", 0.88),
+        mix(accent_light, "#000000", 0.22),
+    ))
+    lines.append("")
+    lines.append("/// Dark-mode colour tokens — same source, the palette's own `dark` block.")
+    lines.append("/// `accent*` derived from `product.json`'s `brand.accent.dark` by the exact")
+    lines.append("/// `ACCENT_DARK` formula theme.config.ts itself uses (mix ratios kept in step).")
+    lines.extend(_emit_palette_class(
+        "AppDarkColors", dark,
+        accent_dark,
+        mix(accent_dark, "#ffffff", 0.28),
+        mix(accent_dark, "#0a0e1a", 0.80),
+        mix(accent_dark, "#ffffff", 0.40),
+    ))
     lines.append("")
     return "\n".join(lines)
 

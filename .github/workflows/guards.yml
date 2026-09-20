@@ -1354,3 +1354,22 @@ jobs:
       # generated file itself.
       - name: the mobile app's colour tokens are generated, not hand-copied
         run: python3 ci/check_mobile_theme_is_generated.py
+
+      # The same generated/hand-copied drift check_mobile_theme_is_generated.py polices for
+      # colour, for the operator's pinned bottom-nav sections.
+      - name: the mobile app's nav sections are generated, not hand-copied
+        run: python3 ci/check_mobile_nav_is_generated.py
+
+      # apps/mobile supports six locales through lib/l10n/*.arb, the same idea
+      # apps/console/src/operator-i18n.tsx already applies — found live: a complete generated
+      # six-locale system that MaterialApp.router never actually read, so S.of(context) returned
+      # null on every call. This proves the wiring, not just the generation.
+      - name: the mobile app's localization system is wired into MaterialApp
+        run: python3 ci/check_mobile_localization_is_wired.py
+
+      # And the mobile mirror of check_operator_screen_localized.py: a screen already migrated to
+      # lib/l10n must carry no raw Arabic string outside S.of(context) — an allowlist, exactly
+      # like the console gate, because most of this app predates lib/l10n and is not yet expected
+      # to be clean.
+      - name: no migrated mobile screen carries a raw, unlocalized Arabic string
+        run: python3 ci/check_mobile_screen_localized.py --all

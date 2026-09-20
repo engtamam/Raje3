@@ -16,5 +16,20 @@
   "success": "সফল হয়েছে",
   "search": "অনুসন্ধান",
   "login": "লগ ইন",
-  "logout": "লগ আউট"
+  "logout": "লগ আউট",
+
+  "homeDashboardTitle": "ড্যাশবোর্ড",
+  "homeShopSectionLabel": "আমার দোকান",
+  "homeLoadErrorTitle": "লোড করা যায়নি",
+  "homeLoadErrorMessage": "আজকের তথ্য লোড করা যায়নি। আবার চেষ্টা করুন।",
+  "homeTodaySectionTitle": "আজ",
+  "homeStatSent": "পাঠানো হয়েছে",
+  "homeStatWaiting": "অপেক্ষমাণ",
+  "homeStatRetrying": "পুনরায় চেষ্টা",
+  "homeDashboardComputing": "আপনার দোকানের পরিসংখ্যান গণনা হচ্ছে — কিছুক্ষণ পর রিফ্রেশ করুন।",
+  "homeDashboardSectionTitle": "দোকানের পরিসংখ্যান",
+  "homeDashboardEmpty": "এখনও পর্যাপ্ত তথ্য নেই।",
+  "moreSectionsTitle": "আরও",
+  "themeDarkMode": "ডার্ক মোড",
+  "themeLightMode": "লাইট মোড"
 }

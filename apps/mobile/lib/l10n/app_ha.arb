@@ -16,5 +16,20 @@
   "success": "An yi nasara",
   "search": "Bincike",
   "login": "Shiga",
-  "logout": "Fita"
+  "logout": "Fita",
+
+  "homeDashboardTitle": "Allon bayanai",
+  "homeShopSectionLabel": "Shagona",
+  "homeLoadErrorTitle": "An kasa lodawa",
+  "homeLoadErrorMessage": "An kasa loda bayanan yau. Sake gwadawa.",
+  "homeTodaySectionTitle": "Yau",
+  "homeStatSent": "An aika",
+  "homeStatWaiting": "Ana jira",
+  "homeStatRetrying": "Ana sake gwadawa",
+  "homeDashboardComputing": "Ana lissafin bayanan shagonka yanzu — sabunta bayan wani lokaci.",
+  "homeDashboardSectionTitle": "Bayanan shago",
+  "homeDashboardEmpty": "Babu isassun bayanai tukuna.",
+  "moreSectionsTitle": "Kari",
+  "themeDarkMode": "Yanayin duhu",
+  "themeLightMode": "Yanayin haske"
 }

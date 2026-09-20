@@ -17,5 +17,20 @@
   "success": "تمت العملية بنجاح",
   "search": "بحث",
   "login": "تسجيل الدخول",
-  "logout": "تسجيل الخروج"
+  "logout": "تسجيل الخروج",
+
+  "homeDashboardTitle": "لوحة التحكم",
+  "homeShopSectionLabel": "محلّي",
+  "homeLoadErrorTitle": "تعذّر التحميل",
+  "homeLoadErrorMessage": "تعذّر تحميل بيانات اليوم. حاول مرة أخرى.",
+  "homeTodaySectionTitle": "اليوم",
+  "homeStatSent": "أُرسلت",
+  "homeStatWaiting": "في الانتظار",
+  "homeStatRetrying": "تعيد المحاولة",
+  "homeDashboardComputing": "أحسب مؤشرات محلك الآن — حدّث الصفحة بعد قليل",
+  "homeDashboardSectionTitle": "مؤشرات المحل",
+  "homeDashboardEmpty": "لا توجد بيانات كافية بعد.",
+  "moreSectionsTitle": "المزيد",
+  "themeDarkMode": "الوضع الداكن",
+  "themeLightMode": "الوضع الفاتح"
 }

@@ -16,5 +16,20 @@
   "success": "Success",
   "search": "Search",
   "login": "Log in",
-  "logout": "Log out"
+  "logout": "Log out",
+
+  "homeDashboardTitle": "Dashboard",
+  "homeShopSectionLabel": "My shop",
+  "homeLoadErrorTitle": "Couldn't load",
+  "homeLoadErrorMessage": "Couldn't load today's data. Try again.",
+  "homeTodaySectionTitle": "Today",
+  "homeStatSent": "Sent",
+  "homeStatWaiting": "Waiting",
+  "homeStatRetrying": "Retrying",
+  "homeDashboardComputing": "Calculating your shop's metrics now — refresh shortly.",
+  "homeDashboardSectionTitle": "Shop metrics",
+  "homeDashboardEmpty": "Not enough data yet.",
+  "moreSectionsTitle": "More",
+  "themeDarkMode": "Dark mode",
+  "themeLightMode": "Light mode"
 }

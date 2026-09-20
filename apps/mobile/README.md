@@ -48,8 +48,10 @@ file's own doc comment says exactly what changed and why.
 | `lib/core/config/app_config.dart` | same | Kept the "phase registry" doc-comment pattern; dropped their Phase 3 (BLE/WiFi device pairing), Phase 4 (on-device TFLite/YOLO AI), Phase 5 (scan sessions) — all their product's own domain |
 | `lib/core/constants/app_constants.dart` | same | Dropped scan/cart/device-pairing keys; kept storage keys, pagination, currency/VAT region config |
 | `lib/core/constants/api_constants.dart` | same | Replaced the four execute-pattern endpoint URLs with one `apiBasePath` |
-| `lib/theme/app_theme.dart` | `lib/theme/flutterflow_theme.dart` | **Pattern only** (AppColors/AppSpacing/AppTextStyles token classes) — none of their Royal-Amethyst/Metallic-Gold literal values were kept. `AppColors` itself now lives in the generated `app_colors.g.dart` (see below) — `app_theme.dart` imports/re-exports it. |
-| `lib/theme/app_colors.g.dart` | — (generated) | **Not hand-written.** Produced by `scripts/gen_mobile_theme.py` directly from `ui/packages/ui/src/theme/theme.config.ts`'s `light` palette and `config/product.json`'s `brand.accent` (`#7C3AED`/`#A78BFA`) — same `mix()` derivation theme.config.ts itself uses for hover/soft/on-soft tints. Re-run the script after either source changes; `ci/check_mobile_theme_is_generated.py` fails the build if the checked-in file drifts from the generator's current output. This is the fix for the exact drift class `ci/check_a_hardcoded_color_does_not_shadow_a_token.py` already polices on the web side. |
+| `lib/theme/app_theme.dart` | `lib/theme/flutterflow_theme.dart` | **Pattern ported** (AppColors/AppSpacing/AppTextStyles/AppShadows token classes, `AppThemeColors` ThemeExtension, `ContextExtension` (`isDark`/`appColors`/`colorScheme`)) — none of their Royal-Amethyst/Metallic-Gold literal values were kept. `AppColors`/`AppDarkColors` live in the generated `app_colors.g.dart` (see below) — `app_theme.dart` imports/re-exports it and exposes `AppTheme.light`/`.dark`. |
+| `lib/theme/app_colors.g.dart` | — (generated) | **Not hand-written.** Produced by `scripts/gen_mobile_theme.py` directly from `ui/packages/ui/src/theme/theme.config.ts`'s `light` AND `dark` palettes and `config/product.json`'s `brand.accent.light`/`.dark` (`#7C3AED`/`#A78BFA`) — same `mix()` derivation theme.config.ts itself uses for hover/soft/on-soft tints, both modes. Re-run the script after either source changes; `ci/check_mobile_theme_is_generated.py` fails the build if the checked-in file drifts from the generator's current output. This is the fix for the exact drift class `ci/check_a_hardcoded_color_does_not_shadow_a_token.py` already polices on the web side. |
+| `lib/widgets/app_widgets.dart` | `lib/custom_widgets.dart` | **Ported, dark-mode aware** — PrimaryButton/SecondaryButton/AppCard/AppTextField/AppAlert/AppBadge/AppLoadingIndicator/EmptyState/ThemeSwitchTile, every colour read through `context.appColors`/`context.isDark` rather than a light-only literal. `GoldButton`/`PremiumBadge` (their subscription-tier branding) were not ported — Raje3 has no equivalent concept. |
+| `lib/core/providers/theme_provider.dart` | `lib/core/providers/theme_provider.dart` | Ported as-is — `ThemeMode` persisted via `LocalStorage.getThemeMode`/`setThemeMode` (already present), `MaterialApp.themeMode` reads it in `main.dart`. |
 | `l10n.yaml` | same | Same ARB tooling config, `preferred-supported-locales` set to Raje3's real 6 (`ar en ur ha fil bn`, from `apps/console/src/operator-i18n.tsx`) |
 | `analysis_options.yaml` | same | Untouched |
 | `test/security/security_critical_test.dart` | same | Kept the groups testing reusable infra (ApiResponse parsing, ApiException handling, interceptor docs); dropped groups asserting on their domain models (Order/Subscription/Scan/Business) and the execute-endpoint module/action spread risk (doesn't apply — this app isn't on that endpoint) |
@@ -58,11 +60,20 @@ file's own doc comment says exactly what changed and why.
 the above compile, not ported from anywhere): `pubspec.yaml`, `Makefile`
 (reference had none), `lib/main.dart`, `lib/models/user_model.dart`,
 `lib/models/tenant_model.dart`, `lib/models/app_config_model.dart`,
-`lib/features/auth/login_screen.dart`, `lib/features/home/home_screen.dart`
-(both explicit placeholders — real screens are a later pass), the six
+`lib/features/auth/login_screen.dart` (an explicit placeholder — a real
+screen is a later pass), `lib/features/shell/main_shell.dart` (Raje3's own
+per-operator pinned-sections nav — no reference-project equivalent, since
+their bottom bar is a fixed tab set declared at router-build time), the six
 `lib/l10n/app_*.arb` files (generic button-label strings only, in Raje3's
 real 6 locales, `ar` as the template/source language per this product's
 `locale.default`).
+
+`lib/features/home/home_screen.dart` was rebuilt on top of the component
+library above (`AppCard`/`AppAlert`/`EmptyState`/`AppLoadingIndicator`,
+`context.appColors`/`context.isDark`, `primaryGradient(dark:)`) — same
+sliver-header/stat-row/section-card shape as the reference project's own
+dashboard screen, dark-mode aware now, still reading only the two real
+endpoints this app has today.
 
 ## Explicitly NOT ported
 
