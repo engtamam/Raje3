@@ -6,15 +6,31 @@
   },
   "ok": "موافق",
   "cancel": "إلغاء",
+  "save": "حفظ",
   "close": "إغلاق",
+  "back": "رجوع",
   "next": "التالي",
   "done": "تم",
   "loading": "جاري التحميل...",
   "retry": "إعادة المحاولة",
   "error": "حدث خطأ",
   "success": "تمت العملية بنجاح",
+  "search": "بحث",
   "login": "تسجيل الدخول",
   "logout": "تسجيل الخروج",
+  "homeDashboardTitle": "لوحة التحكم",
+  "homeShopSectionLabel": "محلّي",
+  "homeLoadErrorTitle": "تعذّر التحميل",
+  "homeLoadErrorMessage": "تعذّر تحميل بيانات اليوم. حاول مرة أخرى.",
+  "homeTodaySectionTitle": "اليوم",
+  "homeStatSent": "أُرسلت",
+  "homeStatWaiting": "في الانتظار",
+  "homeStatRetrying": "تعيد المحاولة",
+  "homeDashboardComputing": "أحسب مؤشرات محلك الآن — حدّث الصفحة بعد قليل",
+  "homeDashboardSectionTitle": "مؤشرات المحل",
+  "homeDashboardEmpty": "لا توجد بيانات كافية بعد.",
+  "themeDarkMode": "الوضع الداكن",
+  "themeLightMode": "الوضع الفاتح",
   "validatorFieldRequiredGeneric": "هذا الحقل مطلوب",
   "@validatorFieldRequiredGeneric": {
     "description": "Generic required-field validation error, no field name known"
@@ -290,6 +306,10 @@
   "@visitTitle": {
     "description": "Visit-recording screen app bar title"
   },
+  "visitCustomerSectionTitle": "العميل",
+  "@visitCustomerSectionTitle": {
+    "description": "Section title for the customer-lookup card"
+  },
   "visitCustomerPhoneFieldLabel": "رقم جوال العميل",
   "@visitCustomerPhoneFieldLabel": {
     "description": "Label above the customer phone-lookup field"
@@ -322,5 +342,21 @@
   "visitSaveButtonLabel": "حفظ الزيارة",
   "@visitSaveButtonLabel": {
     "description": "Bottom-bar save button on the visit screen"
-  }
+  },
+  "navAppsLabel": "تطبيقاتي",
+  "navAnalyticsLabel": "التحليلات",
+  "navHomeLabel": "الرئيسية",
+  "navAccountLabel": "حسابي",
+  "appsScreenTitle": "تطبيقاتي",
+  "appsScreenHint": "اضغط على أيقونة الدبّوس لتثبيت تطبيق بالخانة الخامسة بالشريط السفلي",
+  "appsPinnedBadge": "مثبّت بالشريط",
+  "appsPinAction": "تثبيت هنا",
+  "homeLauncherEmptyTitle": "لا توجد تطبيقات متاحة",
+  "homeLauncherEmptyMessage": "تواصل مع الدعم لتفعيل تطبيق على محلّك",
+  "accountScreenTitle": "حسابي",
+  "accountPhoneLabel": "رقم الجوال",
+  "accountLogoutAction": "تسجيل الخروج",
+  "accountLogoutConfirmTitle": "تسجيل الخروج",
+  "accountLogoutConfirmMessage": "هل تريد تسجيل الخروج من حسابك؟",
+  "notificationsUnavailable": "الإشعارات غير متاحة بعد"
 }

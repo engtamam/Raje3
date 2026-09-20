@@ -69,7 +69,9 @@ class Raje3App extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeProvider(localStorage: localStorage)),
         ChangeNotifierProvider(create: (_) => LocaleProvider(localStorage: localStorage)),
         ChangeNotifierProvider(create: (_) => AppStateProvider()),
-        ChangeNotifierProvider(create: (_) => NavProvider(apiClient: apiClient)),
+        ChangeNotifierProvider(
+          create: (_) => NavProvider(apiClient: apiClient, localStorage: localStorage),
+        ),
       ],
       child: Consumer4<AuthProvider, NavProvider, ThemeProvider, LocaleProvider>(
         builder: (context, authProvider, navProvider, themeProvider, localeProvider, _) {
