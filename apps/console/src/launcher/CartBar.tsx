@@ -16,7 +16,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ShoppingBag, X } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { riyals } from '../money';
-import type { Plan } from '../billingShared';
+import { appDisplayName, type Plan } from '../billingShared';
 import type { CartPreview } from './useAppBilling';
 import { useOperatorI18n, tf } from '../operator-i18n';
 import './launcher-i18n';
@@ -70,7 +70,7 @@ export function CartBar({
                   {plans.length === 1 ? t('launcher.cart.itemsCount.one') : tf(t, 'launcher.cart.itemsCount.many', { n: plans.length })}
                 </span>
                 <span className="truncate text-xs text-text-secondary">
-                  {plans.map((p) => p.name).join(t('launcher.listSeparator'))}
+                  {plans.map((p) => appDisplayName(p)).join(t('launcher.listSeparator'))}
                 </span>
               </div>
               <div className="flex flex-col items-end">
@@ -115,14 +115,14 @@ export function CartBar({
             <div className="flex flex-wrap gap-1.5">
               {plans.map((p) => (
                 <span key={p.id} className="flex items-center gap-1 rounded-full bg-surface-2 py-1 ps-3 pe-1.5 text-xs font-semibold">
-                  {p.name}
+                  {appDisplayName(p)}
                   {discounts[p.id] ? (
                     <span className="text-success">{tf(t, 'launcher.cart.itemDiscount', { percent: discounts[p.id].percent })}</span>
                   ) : null}
                   <button
                     type="button"
                     onClick={() => onRemove(p.id)}
-                    aria-label={tf(t, 'launcher.cart.removeItem', { name: p.name })}
+                    aria-label={tf(t, 'launcher.cart.removeItem', { name: appDisplayName(p) })}
                     className="grid size-5 place-items-center rounded-full text-text-muted hover:bg-surface-3 hover:text-text-primary"
                   >
                     <X size={12} />

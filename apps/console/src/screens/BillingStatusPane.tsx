@@ -28,7 +28,7 @@ import { Badge } from '../rj-ui/Badge';
 import { action, call, type Catalog } from '../catalog';
 import { canMintToken, confirmToken } from '../payment';
 import { takePending } from '../pendingPayment';
-import type { Subscription } from '../billingShared';
+import { appDisplayName, type Subscription } from '../billingShared';
 import { useAppBilling } from '../launcher/useAppBilling';
 import { RenewalControl } from '../launcher/AppDetailsModal';
 import { CardForm } from './CardForm';
@@ -302,7 +302,7 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
             {rows.map(({ plan, sub }) => (
               <Card key={sub.id} className="flex flex-col gap-3 p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-bold text-text-primary">{sub.plan_name || plan.name}</span>
+                  <span className="text-sm font-bold text-text-primary">{appDisplayName(plan)}</span>
                   {sub.cancel_at_period_end ? (
                     <Badge tone="warning">{t('billingStatus.myApps.stopping')}</Badge>
                   ) : (
@@ -316,8 +316,8 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
                   onCancel={() => void billing.cancelApp(sub.id)}
                   undoingCancel={billing.undoingAppCancelId === sub.id}
                   onUndoCancel={() => void billing.undoCancel(sub.id)}
-                  cascadeNames={billing.cascadeTargets(sub.id).map((p) => p.name)}
-                  label={sub.plan_name || plan.name}
+                  cascadeNames={billing.cascadeTargets(sub.id).map((p) => appDisplayName(p))}
+                  label={appDisplayName(plan)}
                 />
                 {!sub.cancel_at_period_end && action(catalog, 'subscription.renew_now') ? (
                   <Button type="button" variant="outline" size="sm"

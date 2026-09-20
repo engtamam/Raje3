@@ -17,7 +17,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { action, call, type Catalog } from '../catalog';
-import { appKey, canBuy, kindOf, requiresAny, type Plan, type Subscription } from '../billingShared';
+import { appDisplayName, appKey, canBuy, kindOf, requiresAny, type Plan, type Subscription } from '../billingShared';
 import { canMintToken, confirmToken } from '../payment';
 import { takePending, type PendingPayment } from '../pendingPayment';
 import { riyals } from '../money';
@@ -330,7 +330,7 @@ export function useAppBilling(session: Session, catalog: Catalog) {
         const provider = need.map((k) => planByKey[k]).find((p): p is Plan => Boolean(p));
         if (provider) {
           next.push(provider.id);
-          addedNotice = `أُضيف "${provider.name}" تلقائيًا لأن "${plan.name}" يحتاج إليه.`;
+          addedNotice = `أُضيف "${appDisplayName(provider)}" تلقائيًا لأن "${appDisplayName(plan)}" يحتاج إليه.`;
         }
       }
     }

@@ -22,7 +22,7 @@ import { CartBar } from './CartBar';
 import { myApps, allApps, type LauncherApp } from './launcherCatalog';
 import { useAppBilling, includedAiCreditOf } from './useAppBilling';
 import { CardForm } from '../screens/CardForm';
-import { CapacityAddonCard, type Plan, type Subscription } from '../billingShared';
+import { appDisplayName, CapacityAddonCard, type Plan, type Subscription } from '../billingShared';
 import './launcher-i18n';
 
 /** ONE CAPACITY TILE — `Plans.tsx`'s own `CapacityAddonCard` stepper, plus the same in-place
@@ -371,7 +371,7 @@ export function AppLauncher() {
                       // feature answering nothing right now.
                       includedCreditMinor: billing.aiEnabled ? includedAiCreditOf(plan) : undefined,
                       unitsPerHalala: billing.unitsPerHalala,
-                      cascadeNames: sub ? billing.cascadeTargets(sub.id).map((p) => p.name) : [],
+                      cascadeNames: sub ? billing.cascadeTargets(sub.id).map((p) => appDisplayName(p)) : [],
                     } : undefined}
                   />
                 );

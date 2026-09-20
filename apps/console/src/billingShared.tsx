@@ -17,7 +17,7 @@ import { Minus, Plus } from 'lucide-react';
 import { Card } from './rj-ui/Card';
 import { Button } from './rj-ui/Button';
 import { isDenied, isReady, type Loading } from './loading';
-import type { Owned } from './apps';
+import { APP_ROWS, type Owned } from './apps';
 import { riyals } from './money';
 import { useOperatorI18n, tf, translate } from './operator-i18n';
 import './billing-shared-i18n';
@@ -177,6 +177,18 @@ export function appKey(plan: Plan): string {
   const on = Object.keys(limits).filter(
     (k) => k.startsWith('feature.') && (limits[k]?.limit ?? 0) !== 0);
   return on[0] ?? '';
+}
+
+/** THE REAL APP NAME — never the billing plan's own `name`. A plan row's `name` is stored data
+ *  (billing-service, keyed by its original slug — «كوبونات» for «تحالف استراتيجي», by deliberate
+ *  choice: renaming the STORED row is a data migration, not a copy edit — see apps.ts's own
+ *  `AppRow` entry for «coupons»). Every surface a shop actually reads (the launcher tile, the
+ *  discount chip, the cart, an auto-added-dependency notice) must show the SAME name, so this is
+ *  the one lookup all of them share — found live as a real bug: the cart showed «كوبونات» beside
+ *  a tile reading «تحالف استراتيجي» for the identical app. */
+export function appDisplayName(plan: Plan): string {
+  const key = appKey(plan);
+  return APP_ROWS.find((a) => a.key === key)?.name ?? plan.name;
 }
 
 /**

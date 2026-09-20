@@ -9,7 +9,7 @@
  * code is the one that goes stale the day marketing renames a row.
  */
 import { describe, expect, it } from 'vitest';
-import { appKey, canBuy, isStandalone, kindOf, type Plan } from './billingShared';
+import { appDisplayName, appKey, canBuy, isStandalone, kindOf, type Plan } from './billingShared';
 
 const plan = (name: string, limits: Record<string, { kind?: string; limit: number }>) =>
   ({ id: name, name, limits } as Plan);
@@ -80,6 +80,25 @@ describe('appKey', () => {
 
   it('is empty for capacity, which is bought again rather than owned', () => {
     expect(appKey(SEATS)).toBe('');
+  });
+});
+
+describe('appDisplayName', () => {
+  // FOUND LIVE (2026-09-20): the cart showed «كوبونات» beside a tile reading «تحالف استراتيجي»
+  // for the identical app — the tile went through apps.ts's own renamed row, the cart read the
+  // billing plan's raw, never-renamed `name` straight off the wire.
+  it('reads the owner-facing name from apps.ts, never the billing plan\'s own stored name', () => {
+    const coupons = plan('كوبونات', { 'feature.coupons': { kind: 'boolean', limit: 1 } });
+    expect(appDisplayName(coupons)).toBe('تحالف استراتيجي');
+  });
+
+  it('falls back to the plan\'s own name for a row apps.ts does not list at all', () => {
+    const notInCatalogue = plan('اسم داخلي مؤقت', { 'feature.not_a_real_app': { kind: 'boolean', limit: 1 } });
+    expect(appDisplayName(notInCatalogue)).toBe('اسم داخلي مؤقت');
+  });
+
+  it('falls back to the plan\'s own name for capacity, which has no app key to look up', () => {
+    expect(appDisplayName(SEATS)).toBe(SEATS.name);
   });
 });
 
