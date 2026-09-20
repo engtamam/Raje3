@@ -29,7 +29,7 @@ void main() {
 
   test('the real registry loads the visit-navigation action', () {
     final actions = registry.visibleActions(catalogWith(['operations.record_visit'])).toList();
-    expect(actions.map((a) => a.name), contains('navigate_to_visit'));
+    expect(actions.map((a) => a.name), contains('open_visit_app'));
   });
 
   test('an action gated by a capability the session lacks is invisible', () {
@@ -38,9 +38,9 @@ void main() {
   });
 
   test('byName only resolves an action the session may actually use', () {
-    expect(registry.byName('navigate_to_visit', Catalog.empty), isNull);
+    expect(registry.byName('open_visit_app', Catalog.empty), isNull);
     expect(
-      registry.byName('navigate_to_visit', catalogWith(['operations.record_visit'])),
+      registry.byName('open_visit_app', catalogWith(['operations.record_visit'])),
       isNotNull,
     );
   });

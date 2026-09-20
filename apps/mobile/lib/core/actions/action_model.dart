@@ -55,7 +55,7 @@ class AppAction {
   /// the model) — means every action author must consciously decide this, the same way a KB
   /// entry cannot omit its title. `true` for anything that changes data or has a real-world
   /// effect (a booking, a cancellation); `false` only for actions with no side effect at all —
-  /// reading data, or navigating, exactly like this file's own `navigate_to_visit`.
+  /// reading data, or navigating, exactly like this file's own `open_visit_app`.
   final bool requiresConfirmation;
 
   const AppAction({

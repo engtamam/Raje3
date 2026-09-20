@@ -1,7 +1,7 @@
 {
   "nav.visit": {
-    "name": "navigate_to_visit",
-    "description": "Open the register-a-visit screen, where the operator records services a customer just received.",
+    "name": "open_visit_app",
+    "description": "يفتح تطبيق تسجيل الزيارة، حيث يسجّل الموظف الخدمات اللي استلمها العميل.",
     "route": "visit",
     "kb_entry": "visit.register",
     "enabled": true,
