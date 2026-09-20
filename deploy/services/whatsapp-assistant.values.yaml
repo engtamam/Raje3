@@ -97,6 +97,18 @@ env:
   # and wiring in whatever replaces it.
   AI_ASSISTANT_ENABLED: "false"
 
+  # ── Meta Business Agent automatic onboarding (2026-09-20) ───────────────────────────────────
+  # Turned ON by the owner's own explicit instruction — no Meta developer/business sandbox
+  # account exists yet to test against, so this is currently INERT rather than untested-on-real-
+  # traffic: provision_number's own first step (services/whatsapp-assistant/app/core/
+  # meta_agent_provisioning.py) refuses immediately with "no Meta credential/entity_id
+  # configured" for every tenant, because no CONNECTOR_API_TOKEN or per-tenant
+  # META_KNOWLEDGE_TOKEN secret is set anywhere on this deployment. The flag only starts doing
+  # anything real once BOTH a real Meta credential is configured AND a shop actually connects a
+  # WhatsApp number — see MEMORY's task-meta-agent-full-automation.md for the one still-unverified
+  # step (the final "enable" call) this depends on.
+  META_AGENT_PROVISIONING_ENABLED: "true"
+
   # Same fix as insights/operations/reminders'own DATASTORE_POOL_MAX — the platform default
   # (pool_max=5) is a real ceiling under fleet-wide concurrent load, not a leak: found live,
   # every affected service returning readyz "pool exhausted (max_connections reached)" while

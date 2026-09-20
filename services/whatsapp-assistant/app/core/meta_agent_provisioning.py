@@ -13,7 +13,9 @@ reachable, otherwise carried forward from this session's own prior confirmed res
 developer-console navigation that a stateless fetch cannot follow, exactly the constraint the memory
 doc's own "needs a sandbox account to confirm fully" note already flagged. Nothing here is invented
 where the memory doc did not already carry a confirmed shape; every field below traces to a step the
-memory doc already marked confirmed, EXCEPT `enable_agent` (see its own docstring).
+memory doc already marked confirmed. `enable_agent` (step 7) was the one open exception -- CONFIRMED
+2026-09-20 in a later pass (the earlier 404 was a stale URL, not a genuinely unreachable page); see
+that method's own docstring.
 
     1. GET  /{entity_id}/agent_eligibility                              -> {"is_eligible": bool}
     2. POST /{entity_id}/agent_onboarding        {catalog_id?}          -> {"agent_id": str}
@@ -26,10 +28,13 @@ memory doc already marked confirmed, EXCEPT `enable_agent` (see its own docstrin
              skill}                                                     -> {"status": str, ...}
     6. PUT  /{entity_id}/agent_config/business_info -- reuses
              app/core/knowledge_export.py UNCHANGED, not reimplemented here.
-    7. Agent Settings enable -- see `enable_agent`'s own docstring for confidence level.
+    7. PUT  /{entity_id}/agent_config/settings  {rollout: {enabled}}  -> {"rollout": {"enabled": bool}, ...}
 
 Every call carries `X-API-Version: 2.0.0` (confirmed, same header knowledge_export.py already
 sends) in addition to the Graph API version already in the URL path.
+
+STEP 7 CONFIRMED 2026-09-20 (was a best-effort guess before this pass) -- see `enable_agent`'s own
+docstring for the source and what changed.
 
 `entity_id` THROUGHOUT THIS MODULE IS THE WHATSAPP PHONE NUMBER ID -- same entity_id
 `knowledge_export.py` already uses for step 6, not the WABA id (the memory doc's one open question
@@ -326,23 +331,27 @@ class HttpMetaAgentProvisioner:
         return await self._call("POST", f"{entity_id}/agent_config/skills", body)
 
     async def enable_agent(self, entity_id: str, agent_id: str) -> bool:
-        """BEST-EFFORT, PENDING LIVE SANDBOX VERIFICATION. Unlike steps 1-5, Meta's own Agent
-        Settings "enable" call was NOT confirmed shape-by-shape against a live reference page this
-        session (the memory doc already flags it as the one open item; a WebFetch retry this pass
-        against the Agent Settings reference page returned HTTP 404 -- the page either requires
-        console auth or has moved). The shape below is the most consistent guess GIVEN the other
-        six confirmed endpoints: a PUT against the same `{entity_id}/agent_onboarding` resource
-        step 2 created, flipping an `agent_enabled` field, matching the REST convention every other
-        confirmed step in this module already follows (create via POST to a collection, mutate via
-        PUT/GET on the same resource path). This is the one call in this module that must be
-        re-verified against a real Meta sandbox before this ever runs against production traffic.
+        """CONFIRMED 2026-09-20 against developers.facebook.com's own Agent Settings reference page
+        (developers.facebook.com/documentation/meta-business-agent/reference/onboard/agent-settings),
+        reached this pass via the quickstart page's own "Next steps" link -- the earlier 404 was
+        just a stale/wrong URL, not a genuinely unreachable or auth-gated page. This replaces the
+        prior best-effort guess (a PUT against `agent_onboarding` flipping `agent_enabled`), which
+        was both the wrong resource path and the wrong field name.
+
+        The real resource is `agent_config/settings` (a sibling of `agent_config/skills` and
+        `agent_config/business_info`, both already used above) -- a `BizAIOmniChannelSettingsRequest`
+        body whose toggle field is `rollout.enabled`, not a top-level `agent_enabled`. That request
+        shape also carries `handoff`/`followup`/`ai_audience` fields (staged-rollout audience
+        gating, human handoff, follow-up nudges) this module does not set yet -- left for a future
+        pass, since enabling for everyone (Meta's own default when unset) is what onboarding a
+        single already-connected shop's number needs.
         """
         try:
             data = await self._call(
-                "PUT", f"{entity_id}/agent_onboarding", {"agent_id": agent_id, "agent_enabled": True})
+                "PUT", f"{entity_id}/agent_config/settings", {"rollout": {"enabled": True}})
         except MetaAgentProvisioningError:
             return False
-        return bool(data.get("agent_enabled", data.get("success", False)))
+        return bool((data.get("rollout") or {}).get("enabled", False))
 
 
 def build(settings: Any, *, secret_store: Any = None) -> Any:

@@ -4,6 +4,7 @@ test_knowledge_export.py's own conventions (fake secret store, fake urlopen resp
 from __future__ import annotations
 
 import asyncio
+import json
 import urllib.error
 from unittest.mock import patch
 
@@ -306,9 +307,28 @@ def test_upload_skill_truncates_oversize_fields():
     assert len(body["skill"]) <= 20000
 
 
-def test_enable_agent_true_on_agent_enabled_field():
-    with patch("urllib.request.urlopen", return_value=_Resp(b'{"agent_enabled": true}')):
+def test_enable_agent_true_on_rollout_enabled_field():
+    with patch("urllib.request.urlopen",
+              return_value=_Resp(b'{"rollout": {"enabled": true}}')):
         assert run(_http().enable_agent("e1", "a1")) is True
+
+
+def test_enable_agent_calls_the_confirmed_settings_endpoint():
+    """PUT /{entity_id}/agent_config/settings {rollout: {enabled: true}} -- confirmed against
+    developers.facebook.com's own Agent Settings reference page, 2026-09-20."""
+    captured = {}
+
+    def _capture(req, timeout=None):
+        captured["url"] = req.full_url
+        captured["method"] = req.get_method()
+        captured["body"] = json.loads(req.data)
+        return _Resp(b'{"rollout": {"enabled": true}}')
+
+    with patch("urllib.request.urlopen", side_effect=_capture):
+        run(_http().enable_agent("e1", "a1"))
+    assert captured["method"] == "PUT"
+    assert captured["url"].endswith("e1/agent_config/settings")
+    assert captured["body"] == {"rollout": {"enabled": True}}
 
 
 def test_enable_agent_false_on_error():
