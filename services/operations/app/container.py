@@ -236,11 +236,16 @@ def build_container(settings: Settings) -> Container:
     # ordinary single-role lookup rather than failing to boot over a role nobody has provisioned yet.
     phone_search_ro = (PhoneSearchReadOnly(settings.DATASTORE_DSN_PHONE_SEARCH)
                        if settings.DATASTORE_DSN_PHONE_SEARCH else None)
+    # KEPT AS A LOCAL, NOT JUST HANDED TO `with_offer_chooser` — `core/entitlements.py`'s own
+    # `EntitlementGateway` (built below, once `referral_partnership` exists) wraps this SAME
+    # callable as its campaign source, rather than this service learning reminders' route shape a
+    # second time.
+    reminders_offer_chooser = http_chooser(reminders_url=settings.REMINDERS_SERVICE_URL,
+                                           token=settings.INTERNAL_SERVICE_TOKEN)
     container.operations = Operations(
         store=container.datastore, pii_salt=settings.PII_SALT, cache=container.cache,
         max_backdate=settings.MAX_BACKDATE_SECONDS, phone_search_ro=phone_search_ro,
-    ).with_offer_chooser(http_chooser(reminders_url=settings.REMINDERS_SERVICE_URL,
-                                      token=settings.INTERNAL_SERVICE_TOKEN))
+    ).with_offer_chooser(reminders_offer_chooser)
 
     # THE COUNTER'S DESK AT `loyalty` — what a till may ask about a customer's points, asked on
     # its behalf so its own credential never has to carry a capability over the ledger.
@@ -374,6 +379,16 @@ def build_container(settings: Settings) -> Container:
         notifier=container.inapp_notifier, authz=container.authz_desk,
         default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
     container.operations.with_referral_engine(container.referral_partnership)
+
+    # THE ONE AGGREGATION POINT `apply_offer` now consults instead of calling the reminders
+    # chooser directly — see core/entitlements.py's own module docstring for the tie-break rule
+    # (referral outranks a campaign offer) and why a future single-use-entitlement source joins
+    # here, never inside `Operations` itself.
+    from app.core.entitlements import EntitlementGateway
+
+    container.entitlement_gateway = EntitlementGateway(
+        referral_engine=container.referral_partnership, campaign_chooser=reminders_offer_chooser)
+    container.operations.with_entitlement_gateway(container.entitlement_gateway)
 
     # Salla — infrastructure only, see core/marketplaces/salla.py's own module docstring.
     from app.core.marketplaces.salla import SallaClient, SallaService

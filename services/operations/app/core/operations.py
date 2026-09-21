@@ -84,6 +84,9 @@ class Operations:
         # wires one simply has nothing to call, same posture `_choose_offer` takes before
         # `with_offer_chooser` runs.
         self._referral_engine: Any = None
+        # `core/entitlements.py::EntitlementGateway` — `None` until `with_entitlement_gateway`
+        # installs it, same posture as `_referral_engine`/`_choose_offer` above.
+        self._entitlement_gateway: Any = None
         self._customers = CustomerStore(store)
         self._assets = AssetStore(store)
         self._services = ServiceStore(store)
@@ -182,8 +185,21 @@ class Operations:
         return await self._privacy.close(tenant, request_id, by)
 
     def with_offer_chooser(self, chooser) -> "Operations":
-        """Install who decides which offer a visit applies. Set at wiring, not at import."""
+        """Install who decides which CAMPAIGN offer a visit applies. Set at wiring, not at import.
+
+        ALSO REBUILDS THE ENTITLEMENT GATEWAY, IF ONE IS ALREADY INSTALLED — a caller (container.py
+        at boot, or a test overriding the peer afterward, e.g. `test_till_offer.py`'s own fixtures)
+        that calls this a SECOND time, after `with_entitlement_gateway` already ran, must see its
+        new chooser actually take effect. Without this, `apply_offer` would keep asking the OLD
+        gateway — built with the OLD chooser baked in — and a test replacing `self._choose_offer`
+        alone would silently have no effect at all, exactly the regression a real review caught
+        here (the gateway, not the bare chooser, is what `apply_offer` reads once one exists)."""
         self._choose_offer = chooser
+        if self._entitlement_gateway is not None:
+            from app.core.entitlements import EntitlementGateway
+
+            self._entitlement_gateway = EntitlementGateway(
+                referral_engine=self._referral_engine, campaign_chooser=chooser)
         return self
 
     def with_referral_engine(self, engine) -> "Operations":
@@ -192,6 +208,22 @@ class Operations:
         built earlier than that, same reason `with_offer_chooser` above is a post-construction
         setter rather than a constructor argument that would force a build-order dependency."""
         self._referral_engine = engine
+        if self._entitlement_gateway is not None:
+            # Same rebuild `with_offer_chooser` does, symmetrically — see that method's own
+            # docstring for why a gateway already installed must see a LATER change to either of
+            # its two sources, not just the one it happened to be built from first.
+            from app.core.entitlements import EntitlementGateway
+
+            self._entitlement_gateway = EntitlementGateway(
+                referral_engine=engine, campaign_chooser=self._choose_offer)
+        return self
+
+    def with_entitlement_gateway(self, gateway) -> "Operations":
+        """Install `core/entitlements.py::EntitlementGateway` — see that module's own docstring for
+        why `apply_offer` below now asks ONE thing instead of calling `self._choose_offer` (the
+        reminders-only campaign chooser) directly. `None` until wired, same posture every other
+        setter on this class takes (`apply_offer` below refuses rather than guesses when it is)."""
+        self._entitlement_gateway = gateway
         return self
 
     async def apply_offer(self, *, tenant: str, visit_id: str,
@@ -203,13 +235,15 @@ class Operations:
         one intention, not two discounts on one invoice — «خصمان على فاتورة واحدة قرارٌ لم يتخذه
         المالك».
 
-        THE JUDGEMENT IS NOT OURS. Which offer applies depends on what was sent, its scope and its
-        expiry, all of which live in reminders. We ask, and we record what comes back — including
-        the TEXT, copied rather than referenced, because an owner reading this visit next year
-        needs what was promised and the send log may have been pruned by retention.
+        THE JUDGEMENT IS NOT OURS. Which entitlement applies — a reminders campaign offer, or a
+        referral-partnership grant (see `core/entitlements.py::EntitlementGateway`, the one
+        aggregation point this method now consults instead of a single fixed peer) — depends
+        on what each source itself knows. We ask, and we record what comes back — including the
+        TEXT, copied rather than referenced, because an owner reading this visit next year needs
+        what was promised and the source's own log may have been pruned by retention.
 
-        AND NO CHOOSER MEANS NO SPEND. A missing peer refuses rather than guesses; the alternative
-        is a discount granted because a URL was blank.
+        AND NO SOURCE MEANS NO SPEND. A missing or unreadable source refuses rather than guesses;
+        the alternative is a discount granted because a URL was blank.
         """
         # BY ID OR BY THE CLIENT'S OWN KEY, because the screen has only the latter. «تسجيل زيارة»
         # queues offline and hands the server an idempotency key; it never learns the id we mint,
@@ -240,26 +274,60 @@ class Operations:
             if v.offer_ref:
                 return {"ref": v.offer_ref, "text": v.offer_text, "used_at": v.offer_used_at,
                        "campaign_id": v.offer_campaign_id}
-            if self._choose_offer is None:
-                raise OperationError("تعذّر التحقق من العروض الآن")
+
+            from app.core.entitlements import EntitlementGateway, EntitlementPeerUnavailable
+
+            gateway = self._entitlement_gateway
+            if gateway is None:
+                if self._choose_offer is None:
+                    raise OperationError("تعذّر التحقق من العروض الآن")
+                # BACKWARD-COMPATIBLE FALLBACK — a caller that wired only `with_offer_chooser`
+                # (every existing test, and any peer that has not moved to
+                # `with_entitlement_gateway` yet) keeps working unchanged: a gateway built with a
+                # campaign chooser and no referral source behaves exactly as the old direct call
+                # did, referral simply never outranking anything because there is nothing to.
+                gateway = EntitlementGateway(referral_engine=self._referral_engine,
+                                             campaign_chooser=self._choose_offer)
+
+            # THE PHONE, FOR THE REFERRAL SOURCE ONLY — reminders' own campaign chooser has never
+            # needed it (identity + scope, by `subject_ref`), and it stays that way; only
+            # `EntitlementGateway` reads it, only to ask `ReferralPartnershipEngine.eligibility`.
+            customer = await self._customers.get(tenant, v.customer_id)
+            phone = customer.phone if customer is not None else ""
 
             try:
-                chosen = await self._choose_offer(tenant=tenant, subject_ref=subject_ref,
-                                                  service_ids=list(v.service_ids))
-            except Exception as exc:                                        # noqa: BLE001
-                # AN UNREADABLE PEER REFUSES, IT DOES NOT ANSWER «none». Applying nothing costs
-                # the customer an offer he still holds; telling the worker we could not check
+                chosen = await gateway.choose(tenant=tenant, subject_ref=subject_ref, phone=phone,
+                                              service_ids=list(v.service_ids))
+            except EntitlementPeerUnavailable as exc:
+                # AN UNREADABLE SOURCE REFUSES, IT DOES NOT ANSWER «none» — see
+                # `core/entitlements.py`'s own module docstring. Applying nothing costs the
+                # customer an entitlement he still holds; telling the worker we could not check
                 # lets him try again in a moment. The two are not the same answer and must not
                 # share a return value.
                 raise OperationError(
                     "تعذّر التحقق من العروض الآن. أعد المحاولة بعد قليل.") from exc
-            if not chosen:
+            if chosen is None:
                 return None
 
-            v.offer_ref = str(chosen.get("ref") or "")
-            v.offer_text = str(chosen.get("text") or "")
+            # THE ENTITLEMENT'S OWN SIDE EFFECT FIRST, BEFORE THE VISIT IS STAMPED — e.g.
+            # `ReferralPartnershipEngine.redeem()` for a referral-sourced grant. A failure here
+            # refuses the whole apply and a retry starts from a clean slate (`choose()` runs
+            # again); the REVERSE order (stamp first, finalize after) would let a retry after a
+            # finalize failure return the already-stamped offer WITHOUT ever retrying the
+            # finalize — a grant the customer was told he spent, that nothing ever actually
+            # redeemed. See `EntitlementGateway.finalize`'s own docstring, and `redeem()`'s own
+            # note on why it is idempotent by visit id for exactly this retry.
+            try:
+                await gateway.finalize(chosen, tenant=tenant, visit_id=v.id)
+            except Exception as exc:                                        # noqa: BLE001
+                raise OperationError(
+                    "تعذّر تفعيل العرض الآن. أعد المحاولة بعد قليل.") from exc
+
+            fields = chosen.as_offer_fields()
+            v.offer_ref = fields["ref"]
+            v.offer_text = fields["text"]
             v.offer_used_at = int(time.time())
-            v.offer_campaign_id = str(chosen.get("campaign_id") or "")
+            v.offer_campaign_id = fields["campaign_id"]
             await self._visits.save(v)
             return {"ref": v.offer_ref, "text": v.offer_text, "used_at": v.offer_used_at,
                    "campaign_id": v.offer_campaign_id}

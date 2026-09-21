@@ -1,9 +1,10 @@
 """The offer is recognised, not quoted — which is why the coupon code could be deleted at all.
 
-WHAT THIS PINS. `Operations.apply_offer` asks an injected chooser (`with_offer_chooser`, wired in
-container.py to a real HTTP call into reminders) WHICH offer this visit applies, from the tenant,
-the pseudonym and the services on the visit. Nothing a person reads aloud, nothing a person types,
-and nothing that can be misheard across a counter.
+WHAT THIS PINS. `Operations.apply_offer` asks `core/entitlements.py::EntitlementGateway` (built
+from an injected chooser and, since the referral-partnership pass, an injected referral engine too
+— see that module's own docstring) WHICH entitlement this visit applies, from the tenant, the
+pseudonym/phone and the services on the visit. Nothing a person reads aloud, nothing a person
+types, and nothing that can be misheard across a counter.
 
 WHY IT IS ASSERTED HERE. A code printed in the message was, until now, the second way to find the
 same row — and the argument for deleting it is exactly this method: the first way was already
@@ -29,7 +30,7 @@ def run(c):
 def test_the_chooser_is_asked_by_identity_and_scope_and_never_by_a_code():
     """The whole signature, read off the source rather than off a memory of it."""
     src = inspect.getsource(Operations.apply_offer)
-    assert "self._choose_offer(tenant=tenant, subject_ref=subject_ref" in src
+    assert "gateway.choose(tenant=tenant, subject_ref=subject_ref" in src
     assert "service_ids=list(v.service_ids)" in src
     for gone in ("code", "coupon"):
         assert gone not in src.lower(), (
@@ -42,9 +43,12 @@ def test_the_method_takes_no_code_argument_from_any_caller():
     assert params == {"self", "tenant", "visit_id", "subject_ref"}
 
 
-def test_no_chooser_refuses_rather_than_guessing():
+def test_no_source_at_all_refuses_rather_than_guessing():
     """A missing peer must not grant a discount because a URL was blank — asserted because the
-    coupon deletion removed the only OTHER evidence an offer ever existed."""
+    coupon deletion removed the only OTHER evidence an offer ever existed. Now two conditions
+    would let this through with nothing wired at all (no gateway installed AND no legacy chooser
+    installed) — both are pinned, since either alone silently guessing would be the same bug."""
     src = inspect.getsource(Operations.apply_offer)
-    assert 'if self._choose_offer is None:' in src
+    assert "if gateway is None:" in src
+    assert "if self._choose_offer is None:" in src
     assert 'raise OperationError("تعذّر التحقق من العروض الآن")' in src

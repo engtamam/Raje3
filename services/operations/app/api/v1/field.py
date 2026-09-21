@@ -558,7 +558,30 @@ async def customer_by_phone(request: Request, phone: str,
     # while the customer holds the message that promised it. The alternative was operations asking
     # reminders on the hot path of a five-second screen, which puts another service's latency
     # inside the one budget this product actually has.
-    return {"customer": {**c.public(), "subject_ref": c.subject_ref}}
+    payload = {**c.public(), "subject_ref": c.subject_ref}
+
+    # THE CURRENT POINTS BALANCE, PLAIN, READ-ONLY — SAME `LoyaltyDesk` PEER `till.py`'s OWN
+    # customer-lookup route already asks, same call (`balance`). A DIFFERENT, MORE LENIENT FAILURE
+    # POSTURE THAN `apply_offer`'s ON PURPOSE: this is advisory information shown beside a name, not
+    # a spend a wrong answer could double — `apply_offer`'s "an unreadable peer refuses" exists
+    # because APPLYING an unverified entitlement risks a discount nobody agreed to; simply not
+    # SHOWING a number a peer could not supply risks nothing at all. So a missing/unreachable
+    # loyalty peer, or a shop with no programme, just omits the field — never a crash, never a
+    # guessed 0 (see `till.py`'s own note beside the identical call: a customer holding 300 points
+    # told "0" is a grievance we would have handed him ourselves).
+    desk = getattr(request.app.state.container, "loyalty_desk", None)
+    if desk is not None and desk.configured and c.subject_ref:
+        try:
+            bal = await desk.balance(tenant=_tenant(principal), subject_ref=c.subject_ref)
+        except Exception:                                                      # noqa: BLE001
+            # THE PEER ITSELF THROWING, NOT JUST ANSWERING UNREACHABLE — still just an omitted
+            # field, never a 500 on a route whose whole job is showing who is standing at the
+            # counter. See the field's own comment above for the full reasoning.
+            bal = None
+        if bal is not None and bal.get("has_programme"):
+            payload["points_balance"] = bal.get("points", 0)
+
+    return {"customer": payload}
 
 
 class EnsureCustomerIn(BaseModel):

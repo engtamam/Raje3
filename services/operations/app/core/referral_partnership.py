@@ -596,13 +596,25 @@ class ReferralPartnershipEngine:
         """Called when shop B actually applies its own discount on a real visit — marks the
         BEST-MATCHING live grant used, so the KPI screen's "used vs expired unused" ratio is real.
         An already-earned grant is honoured regardless of the parent agreement's own state
-        (design doc's own explicit rule) — this method never reads `ReferralAgreement` at all."""
+        (design doc's own explicit rule) — this method never reads `ReferralAgreement` at all.
+
+        IDEMPOTENT ON `visit_id`, DELIBERATELY (added for `core/entitlements.py`'s own use from
+        `Operations.apply_offer`). `EntitlementGateway.finalize` calls this BEFORE the visit is
+        stamped, so a caller whose write timed out — but whose `redeem` in fact landed — retries
+        the WHOLE `apply_offer` flow, which calls `choose()` again and then `redeem()` again for
+        the SAME visit. Without this check, the retry would find the first grant now marked
+        redeemed and simply pick the NEXT best live one — spending a SECOND grant for one visit,
+        a real double-redemption bug a naive "just pick the best live one" would have on retry.
+        """
         canon = canonical_phone(phone, default_cc=self._cc)
         if not canon:
             return False
         now = _now()
         rows, _ = await self._s.find(
             GRANTS, {"tenant": PLATFORM, "shop_b": tenant, "customer_phone": canon}, limit=1000)
+        already = next((r for r in rows if r.get("redeemed_visit_id") == visit_id), None)
+        if already is not None:
+            return True
         live = [r for r in rows if not r.get("redeemed_at") and int(r.get("expires_at") or 0) > now]
         if not live:
             return False
