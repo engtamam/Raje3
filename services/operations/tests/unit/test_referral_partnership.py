@@ -105,7 +105,7 @@ def env():
 def _propose(engine, **overrides):
     kwargs = dict(shop_a=A, shop_b_phone=B_PHONE, operator_id="op1",
                  condition_type=CONDITION_MIN_TOTAL, condition_value="1000",
-                 discount_note="10% off next wash", grant_validity_days=3,
+                 grant_validity_days=3,
                  agreement_duration_days=90, per_period_cap=0)
     kwargs.update(overrides)
     return run(engine.propose(**kwargs))
@@ -118,7 +118,7 @@ def test_a_shop_cannot_propose_to_itself(env):
     with pytest.raises(ReferralError) as exc:
         run(engine.propose(shop_a=A, shop_b_phone="0500000000", operator_id="op1",
                            condition_type=CONDITION_MIN_TOTAL, condition_value="1000",
-                           discount_note="", grant_validity_days=3, agreement_duration_days=30))
+                           grant_validity_days=3, agreement_duration_days=30))
     assert exc.value.args[0] == SELF_PARTNER
 
 
@@ -222,10 +222,10 @@ def test_concurrent_proposals_between_the_same_two_shops_converge_on_one(env):
         return await asyncio.gather(
             engine.propose(shop_a=A, shop_b_phone=B_PHONE, operator_id="op1",
                           condition_type=CONDITION_MIN_TOTAL, condition_value="1000",
-                          discount_note="", grant_validity_days=3, agreement_duration_days=30),
+                          grant_validity_days=3, agreement_duration_days=30),
             engine.propose(shop_a=A, shop_b_phone=B_PHONE, operator_id="op2",
                           condition_type=CONDITION_MIN_TOTAL, condition_value="2000",
-                          discount_note="", grant_validity_days=3, agreement_duration_days=30),
+                          grant_validity_days=3, agreement_duration_days=30),
             return_exceptions=True)
 
     results = run(go())

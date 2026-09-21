@@ -49,6 +49,62 @@ MUTUAL CONSENT FOR EARLY CANCELLATION, SAME MECHANISM AS CREATION — a `cancel_
 other side's own `cancel_confirm` before the agreement actually ends; the ONE exception is a
 subscription pausing, which is immediate and unilateral by nature (a shop that stopped paying cannot
 be asked to "agree" to anything).
+
+THE CONCURRENCY CAP — `MAX_CONCURRENT_PARTNERSHIPS` (owner's own requirement). A shop may hold at
+most that many ACTIVE agreements AT ANY POINT IN TIME, in EITHER role (`shop_a` and `shop_b` count
+together — a shop that is `shop_a` in two and `shop_b` in one is already at three). This is a
+TIME-RANGE check, not a point-in-time count: `_would_exceed_cap` walks a sweep-line over every
+[start, end) interval a candidate would sit among (see that method's own docstring for the exact
+half-open boundary rule), so a shop already at the cap right now can still propose — and later
+accept — a new agreement whose own interval starts only after one of the existing three has
+actually ended. Checked at `propose()` (an early, TENTATIVE refusal — the real interval is not
+committed until `accept()`, so this only spares a proposal that would obviously never be
+acceptable) and, authoritatively, at `accept()` itself, which is the one moment an interval is
+truly reserved. A RENEWAL IS NOT A SEPARATE MECHANISM — the design doc's own rule is that a lapsed
+agreement needs an explicit fresh propose/accept from both sides (no silent auto-renew), so a
+renewal simply walks through `propose()`/`accept()` again like any new agreement, and is governed
+by the exact same cap check with no special-casing anywhere.
+
+GRANT TYPE — NO FREE TEXT ANYWHERE, FOR EITHER KIND (owner's own correction). What a grant actually
+IS, at CREATION time only, is one of:
+
+  * GRANT_GIFT — a SPECIFIC service from the granting shop's (`shop_b`'s) OWN real catalogue.
+  * GRANT_DISCOUNT, itself one of three CATALOGUE-DRIVEN scopes, never a typed note:
+      - "item"    — one specific service from `shop_b`'s catalogue (same shape as a gift, just
+                    discount-typed instead of handed over free).
+      - "blanket" — the whole visit, explicitly ("خصم شامل") — a real, deliberate choice, never an
+                    empty/missing field that could be mistaken for "nobody set this".
+      - "group"   — a `Package` (this codebase's own existing "named group of a shop's OWN
+                    services" concept, `core/models.py::Package` — reused rather than inventing a
+                    second grouping concept) from `shop_b`'s catalogue; the discount applies to
+                    that package's member services.
+
+EVERY service/group reference is VALIDATED against the granting shop's (`shop_b`'s) OWN catalogue
+at `propose()` time (`ServiceStore`/`PackageStore`, both tenant-scoped) — a redeemed grant must be
+attributable to something real, for that shop's own KPIs, never an arbitrary string nobody can
+reconcile. The human-readable `text` an entitlement shows (`core/entitlements.py`'s own `text`
+field) is always DERIVED at the moment it is shown, from whichever real catalogue fact backs the
+grant — a service's `.name`, a package's `.name`, or the fixed phrase for "blanket" — never
+authored, typed, or stored as its own string on the agreement.
+
+IMMUTABLE AFTER CREATION (owner's own explicit correction) — every one of these fields is decided
+ONCE, at `propose()` time, shown in full on the agreement to both parties (`ReferralAgreement.
+public()` already returns every field), and NEVER CHANGES for the life of that agreement. There is
+no update/patch method or route anywhere in this module or its API that can alter a grant's terms
+once the agreement exists — different terms are a NEW agreement (governed by the exact same
+concurrency-cap/overlap rules above), never an edit to an existing one. See
+`test_referral_partnership_cap_and_gift.py`'s own structural test proving no such code path exists.
+
+Both kinds/scopes are copied onto `ReferralGrant` at the moment each grant is created (same "copy,
+never reference" discipline this module already used before this correction), so a later catalogue
+edit or removal can never rewrite what an already-earned grant actually promised. Every kind/scope
+stays OPAQUE to `Operations.apply_offer` / `core/entitlements.py::EntitlementGateway` — only this
+module's own `eligibility()` needs to know which one it is, to derive the entitlement's `text`
+correctly; the caller keeps working completely unchanged regardless of which kind/scope it got.
+
+A FUTURE "your customer already holds an offer at [partner shop]" STAFF SCREEN AT THE GRANTING SHOP
+is explicitly DEFERRED (owner's own call) — nothing here scaffolds it; when it is built, it reads
+`eligibility()`/`public_for_beneficiary()`, both already shaped to answer it.
 """
 from __future__ import annotations
 
@@ -92,6 +148,22 @@ CONDITION_MIN_TOTAL = "min_total_minor"
 CONDITION_SERVICE_ID = "service_id"
 CONDITION_TYPES = (CONDITION_MIN_TOTAL, CONDITION_SERVICE_ID)
 
+# THE ONE NAMED CONSTANT — never a bare number repeated at each call site, so the owner changing
+# the cap later is a one-line edit, not a grep. See the module docstring's own "THE CONCURRENCY
+# CAP" section for the full rule this bounds.
+MAX_CONCURRENT_PARTNERSHIPS = 3
+
+GRANT_DISCOUNT = "discount"
+GRANT_GIFT = "gift"
+GRANT_TYPES = (GRANT_DISCOUNT, GRANT_GIFT)
+
+# THE THREE VALID SCOPES FOR A DISCOUNT GRANT — meaningless for GRANT_GIFT, required for
+# GRANT_DISCOUNT. See module docstring's own "GRANT TYPE" section.
+DISCOUNT_SCOPE_ITEM = "item"
+DISCOUNT_SCOPE_BLANKET = "blanket"
+DISCOUNT_SCOPE_GROUP = "group"
+DISCOUNT_SCOPES = (DISCOUNT_SCOPE_ITEM, DISCOUNT_SCOPE_BLANKET, DISCOUNT_SCOPE_GROUP)
+
 # ── audit event kinds — every one of these, and only these, is ever written ─────────────────────
 EV_PROPOSED = "proposed"
 EV_ACCEPTED = "accepted"
@@ -127,6 +199,14 @@ FORBIDDEN = "forbidden"
 BAD_CONDITION = "bad_condition"
 WRONG_STATE = "wrong_state"
 BILLING_UNAVAILABLE = "billing_unavailable"
+# «تجاوز الحد الأقصى للشراكات النشطة» — the owner's own exact wording for the API to show.
+OVER_CONCURRENCY_CAP = "over_concurrency_cap"
+# A referenced service (gift, or discount scope "item") does not exist, is inactive, or belongs
+# to a DIFFERENT tenant than the granting shop — all three read as this one refusal, on purpose
+# (an IDOR probe must not learn WHICH of the three is true).
+CATALOG_ITEM_NOT_FOUND = "catalog_item_not_found"
+# A referenced Package (discount scope "group") — same three-way refusal, for the group case.
+CATALOG_GROUP_NOT_FOUND = "catalog_group_not_found"
 
 
 @dataclass
@@ -136,7 +216,6 @@ class ReferralAgreement:
     shop_b: str                    # the beneficiary shop — where the discount is offered
     condition_type: str
     condition_value: str           # halalas as a string for min_total_minor, else a service id
-    discount_note: str             # shop B's OWN description of its own discount — never enforced
     grant_validity_days: int       # how long ONE customer's own eligibility lasts
     agreement_duration_days: int   # how long the AGREEMENT itself lasts
     per_period_cap: int            # 0 = unlimited grants per rolling 30-day period
@@ -154,6 +233,20 @@ class ReferralAgreement:
     paused_at: int = 0
     cancel_requested_by: str = ""
     idempotency_key: str = ""
+    # THE GRANT'S OWN TERMS — DECIDED ONCE, AT PROPOSE() TIME, IMMUTABLE FOR THE LIFE OF THIS
+    # AGREEMENT (owner's own explicit correction — see module docstring's "GRANT TYPE" section in
+    # full for the no-free-text rule and every field's exact meaning per kind/scope). No method
+    # anywhere in this module ever assigns to any of these six fields after `propose()` creates
+    # the row — different terms are a NEW agreement, never an edit to this one.
+    grant_type: str = GRANT_DISCOUNT
+    # GRANT_GIFT, or GRANT_DISCOUNT scope "item": one real service from shop_b's own catalogue.
+    gift_service_id: str = ""
+    gift_service_name: str = ""
+    # GRANT_DISCOUNT ONLY — which of the three scopes, and (for "item"/"group") which real
+    # catalogue reference backs it. "" scope on a GRANT_GIFT row is meaningless and never read.
+    discount_scope: str = ""
+    discount_group_id: str = ""
+    discount_group_name: str = ""
 
     def public(self) -> dict[str, Any]:
         return asdict(self)
@@ -171,15 +264,40 @@ class ReferralGrant:
     expires_at: int
     redeemed_at: int = 0
     redeemed_visit_id: str = ""
+    # COPIED FROM THE AGREEMENT AT GRANT-CREATION TIME, NEVER REFERENCED LATER — same "copy, not
+    # reference" discipline this product already uses elsewhere (e.g. `CouponGrant`'s own copied
+    # text), so a later catalogue edit (a service renamed/retired, a package changed) can never
+    # rewrite what an already-earned grant actually promised this customer. Same six fields as
+    # `ReferralAgreement`'s own immutable terms — see that dataclass's own docstring.
+    grant_type: str = GRANT_DISCOUNT
+    gift_service_id: str = ""
+    gift_service_name: str = ""
+    discount_scope: str = ""
+    discount_group_id: str = ""
+    discount_group_name: str = ""
 
     def public(self) -> dict[str, Any]:
         return asdict(self)
 
     def public_for_beneficiary(self) -> dict[str, Any]:
         """`shop B`'s OWN redemption screen never sees shop A's identity (design doc's privacy
-        rule) — only that this phone is eligible, and until when."""
-        return {"eligible": True, "expires_at": self.expires_at,
-               "redeemed": bool(self.redeemed_at)}
+        rule) — only that this phone is eligible, until when, and exactly WHAT it is eligible
+        for, derived from the real catalogue fact backing the grant (a gift/item names the real
+        service; a group names the real package; a blanket discount just says so)."""
+        out: dict[str, Any] = {"eligible": True, "expires_at": self.expires_at,
+                               "redeemed": bool(self.redeemed_at), "grant_type": self.grant_type}
+        if self.grant_type == GRANT_GIFT:
+            out["gift_service_id"] = self.gift_service_id
+            out["gift_service_name"] = self.gift_service_name
+        else:
+            out["discount_scope"] = self.discount_scope
+            if self.discount_scope == DISCOUNT_SCOPE_ITEM:
+                out["gift_service_id"] = self.gift_service_id
+                out["gift_service_name"] = self.gift_service_name
+            elif self.discount_scope == DISCOUNT_SCOPE_GROUP:
+                out["discount_group_id"] = self.discount_group_id
+                out["discount_group_name"] = self.discount_group_name
+        return out
 
 
 @dataclass
@@ -330,11 +448,90 @@ class ReferralPartnershipEngine:
             await self._audit(agreement.id, EV_ENDED_TERM, actor_tenant=PLATFORM)
         return agreement
 
+    # ── the concurrency cap — a time-range check, not a raw count ──────────────────────────────
+    @staticmethod
+    def _max_concurrent(intervals: list[tuple[int, int]]) -> int:
+        """The maximum number of `[start, end)` intervals ever simultaneously open, over the
+        whole set — a sweep-line, not a pairwise overlap count (which would answer a different,
+        more expensive question for no benefit here: we only ever need the PEAK).
+
+        HALF-OPEN, END EXCLUSIVE — THE DECIDED, DOCUMENTED BOUNDARY RULE. An agreement ending at
+        timestamp X and one starting at timestamp X do NOT overlap: at the instant X, the first
+        has already ended and the second has just begun, never both live at once. Implemented by
+        sorting `(time, delta)` pairs ascending — `-1` (an end) sorts before `+1` (a start) at an
+        EQUAL timestamp, so an end event is always applied before a start event landing on the
+        exact same instant, which is what makes touching endpoints not count as simultaneous.
+        """
+        events: list[tuple[int, int]] = []
+        for start, end in intervals:
+            events.append((start, 1))
+            events.append((end, -1))
+        events.sort()
+        current = 0
+        peak = 0
+        for _, delta in events:
+            current += delta
+            peak = max(peak, current)
+        return peak
+
+    async def _active_intervals(self, tenant: str) -> list[tuple[int, int]]:
+        """Every ACTIVE agreement's real `[started_at, ends_at)` where `tenant` holds EITHER role
+        — the cap counts both roles together, per the owner's own requirement. Only ACTIVE counts
+        (not PROPOSED, which reserves nothing yet — see `propose()`'s own note on why its check is
+        only a tentative courtesy; and not PAUSED/CANCEL_REQUESTED, which occupy a slot that was
+        already reserved at the ORIGINAL `accept()` and so need no second reservation now)."""
+        as_a, _ = await self._s.find(AGREEMENTS, {"tenant": PLATFORM, "shop_a": tenant,
+                                                   "status": ACTIVE}, limit=1000)
+        as_b, _ = await self._s.find(AGREEMENTS, {"tenant": PLATFORM, "shop_b": tenant,
+                                                   "status": ACTIVE}, limit=1000)
+        seen: set[str] = set()
+        out: list[tuple[int, int]] = []
+        for row in list(as_a) + list(as_b):
+            rid = str(row.get("id") or "")
+            if rid in seen:
+                continue
+            seen.add(rid)
+            out.append((int(row.get("started_at") or 0), int(row.get("ends_at") or 0)))
+        return out
+
+    async def _would_exceed_cap(self, tenant: str, candidate_start: int,
+                                candidate_end: int) -> bool:
+        intervals = await self._active_intervals(tenant)
+        intervals.append((candidate_start, candidate_end))
+        return self._max_concurrent(intervals) > MAX_CONCURRENT_PARTNERSHIPS
+
+    async def _resolve_catalog_service(self, tenant: str, service_id: str) -> "Any":
+        """One real, ACTIVE service from `tenant`'s OWN catalogue, or `None`. Used identically for
+        a GRANT_GIFT and for a GRANT_DISCOUNT scope "item" — the same real-catalogue requirement,
+        just a different label on what happens to the customer."""
+        from app.core.stores import ServiceStore
+
+        service = await ServiceStore(self._s).get(tenant, service_id)
+        return service if service is not None and service.active else None
+
+    async def _resolve_catalog_group(self, tenant: str, group_id: str) -> "Any":
+        """One real, ACTIVE `Package` — this codebase's own existing "named group of a shop's OWN
+        services" concept (`core/models.py::Package`), reused here rather than inventing a second
+        grouping concept, for GRANT_DISCOUNT scope "group"."""
+        from app.core.stores import PackageStore
+
+        package = await PackageStore(self._s).get(tenant, group_id)
+        return package if package is not None and package.active else None
+
     # ── the act itself ──────────────────────────────────────────────────────────────────────────
     async def propose(self, *, shop_a: str, shop_b_phone: str, operator_id: str,
-                      condition_type: str, condition_value: str, discount_note: str,
+                      condition_type: str, condition_value: str,
                       grant_validity_days: int, agreement_duration_days: int,
-                      per_period_cap: int = 0, idempotency_key: str = "") -> ReferralAgreement:
+                      per_period_cap: int = 0, idempotency_key: str = "",
+                      grant_type: str = GRANT_DISCOUNT,
+                      gift_service_id: str = "",
+                      # DEFAULTS TO BLANKET, NOT EMPTY — "" is never a valid stored scope (module
+                      # docstring: an explicit "all" scope, never a field that reads as unset); a
+                      # caller who does not care about scope at all still gets one deliberate,
+                      # concrete value, the same way `grant_type` already defaults to a real kind
+                      # rather than nothing.
+                      discount_scope: str = DISCOUNT_SCOPE_BLANKET,
+                      discount_group_id: str = "") -> ReferralAgreement:
         if condition_type not in CONDITION_TYPES:
             raise ReferralError(BAD_CONDITION)
         if condition_type == CONDITION_MIN_TOTAL:
@@ -364,6 +561,46 @@ class ReferralPartnershipEngine:
         if shop_b == shop_a:
             raise ReferralError(SELF_PARTNER)
 
+        # THE GRANT ITSELF — NO FREE TEXT ANYWHERE (owner's own correction). Every reference is
+        # validated against shop_b's OWN catalogue right here, never trusted as typed; `shop_b`
+        # was only just resolved above, which is why this could not happen any earlier. Decided
+        # ONCE, here, and never again — see `ReferralAgreement`'s own docstring on immutability.
+        if grant_type not in GRANT_TYPES:
+            raise ReferralError(BAD_CONDITION)
+        gift_service_name = ""
+        discount_group_name = ""
+        if grant_type == GRANT_GIFT:
+            if not gift_service_id.strip():
+                raise ReferralError(BAD_CONDITION)
+            service = await self._resolve_catalog_service(shop_b, gift_service_id)
+            if service is None:
+                raise ReferralError(CATALOG_ITEM_NOT_FOUND)
+            gift_service_name = service.name
+            discount_scope = ""
+            discount_group_id = ""
+        else:
+            if discount_scope not in DISCOUNT_SCOPES:
+                raise ReferralError(BAD_CONDITION)
+            if discount_scope == DISCOUNT_SCOPE_ITEM:
+                if not gift_service_id.strip():
+                    raise ReferralError(BAD_CONDITION)
+                service = await self._resolve_catalog_service(shop_b, gift_service_id)
+                if service is None:
+                    raise ReferralError(CATALOG_ITEM_NOT_FOUND)
+                gift_service_name = service.name
+                discount_group_id = ""
+            elif discount_scope == DISCOUNT_SCOPE_GROUP:
+                if not discount_group_id.strip():
+                    raise ReferralError(BAD_CONDITION)
+                package = await self._resolve_catalog_group(shop_b, discount_group_id)
+                if package is None:
+                    raise ReferralError(CATALOG_GROUP_NOT_FOUND)
+                discount_group_name = package.name
+                gift_service_id = ""
+            else:                                                   # DISCOUNT_SCOPE_BLANKET
+                gift_service_id = ""
+                discount_group_id = ""
+
         if idempotency_key:
             rows, _ = await self._s.find(
                 AGREEMENTS, {"tenant": PLATFORM, "shop_a": shop_a, "idempotency_key": idempotency_key},
@@ -386,21 +623,44 @@ class ReferralPartnershipEngine:
         try:
             existing, _ = await self._s.find(
                 AGREEMENTS, {"tenant": PLATFORM, "shop_a": shop_a, "shop_b": shop_b}, limit=200)
-            live = [r for r in existing if r.get("status") in (PROPOSED, ACTIVE, PAUSED,
-                                                               CANCEL_REQUESTED)]
-            if live:
-                return await self._synced(
-                    ReferralAgreement(**{k: v for k, v in live[0].items() if k != "tenant"}))
+            candidates = [r for r in existing if r.get("status") in (PROPOSED, ACTIVE, PAUSED,
+                                                                      CANCEL_REQUESTED)]
+            # SYNCED BEFORE THE DECISION, NOT AFTER — a row whose stored status still literally
+            # says "active" but whose real `ends_at` has already passed (nobody has READ it since,
+            # so `_synced` never ran) must be recognised as genuinely over HERE, or a legitimate
+            # renewal would be handed back the dead row instead of a fresh proposal. Reading it via
+            # `_synced` is exactly what a human proposing a renewal would see first on their own
+            # agreements screen — this makes `propose()` see the same truth without relying on
+            # that screen having been opened first.
+            for row in candidates:
+                synced = await self._synced(
+                    ReferralAgreement(**{k: v for k, v in row.items() if k != "tenant"}))
+                if synced.status in (PROPOSED, ACTIVE, PAUSED, CANCEL_REQUESTED):
+                    return synced
 
             now = _now()
+            # THE TENTATIVE CAP CHECK — see module docstring's "THE CONCURRENCY CAP" section for
+            # why this is a courtesy, not the authoritative gate: the real interval is not
+            # reserved until `accept()` sets `started_at`/`ends_at` for real, which is where this
+            # SAME check runs again, authoritatively. Using "now" as the candidate start is the
+            # best available estimate at propose time — a proposal sitting unanswered for days
+            # before acceptance is exactly why `accept()` must re-check with the REAL numbers.
+            candidate_end = now + agreement_duration_days * 24 * 3600
+            if (await self._would_exceed_cap(shop_a, now, candidate_end)
+                    or await self._would_exceed_cap(shop_b, now, candidate_end)):
+                raise ReferralError(OVER_CONCURRENCY_CAP)
+
             agreement = ReferralAgreement(
                 id=f"rpa_{uuid_hex()}", shop_a=shop_a, shop_b=shop_b,
                 condition_type=condition_type, condition_value=str(condition_value),
-                discount_note=discount_note[:512], grant_validity_days=grant_validity_days,
+                grant_validity_days=grant_validity_days,
                 agreement_duration_days=agreement_duration_days, per_period_cap=per_period_cap,
                 created_by=shop_a, created_by_operator=operator_id, created=now,
                 status=PROPOSED, proposal_expires_at=now + _PROPOSAL_TTL_SECONDS,
-                idempotency_key=idempotency_key)
+                idempotency_key=idempotency_key, grant_type=grant_type,
+                gift_service_id=gift_service_id, gift_service_name=gift_service_name,
+                discount_scope=discount_scope, discount_group_id=discount_group_id,
+                discount_group_name=discount_group_name)
             await self._save_agreement(agreement)
             await self._audit(agreement.id, EV_PROPOSED, actor_tenant=shop_a,
                               detail={"shop_b": shop_b})
@@ -443,9 +703,21 @@ class ReferralPartnershipEngine:
             raise ReferralError(NOT_SUBSCRIBED)
 
         now = _now()
+        candidate_end = now + agreement.agreement_duration_days * 24 * 3600
+        # THE AUTHORITATIVE CAP CHECK — this is the one moment `started_at`/`ends_at` are actually
+        # committed, so this is where the real interval is checked, for BOTH roles independently
+        # (module docstring's own "THE CONCURRENCY CAP"). `propose()`'s own check used "now" at
+        # propose time as an estimate; accepting can happen days later, so re-checking here with
+        # today's real numbers is what actually enforces the cap rather than merely gesturing at
+        # it — a shop that was under the cap when proposed but has since filled up must still be
+        # refused here.
+        if (await self._would_exceed_cap(agreement.shop_a, now, candidate_end)
+                or await self._would_exceed_cap(agreement.shop_b, now, candidate_end)):
+            raise ReferralError(OVER_CONCURRENCY_CAP)
+
         agreement.status = ACTIVE
         agreement.started_at = now
-        agreement.ends_at = now + agreement.agreement_duration_days * 24 * 3600
+        agreement.ends_at = candidate_end
         agreement.original_ends_at = agreement.ends_at
         await self._save_agreement(agreement)
         await self._audit(agreement.id, EV_ACCEPTED, actor_tenant=tenant)
@@ -569,7 +841,14 @@ class ReferralPartnershipEngine:
         grant = ReferralGrant(
             id=f"rpg_{uuid_hex()}", agreement_id=agreement.id, shop_a=agreement.shop_a,
             shop_b=agreement.shop_b, customer_phone=phone, triggering_visit_id=visit_id,
-            created=now, expires_at=now + agreement.grant_validity_days * 24 * 3600)
+            created=now, expires_at=now + agreement.grant_validity_days * 24 * 3600,
+            # COPIED FROM THE AGREEMENT NOW, NOT REFERENCED LATER — see `ReferralGrant`'s own
+            # docstring on these six fields for why.
+            grant_type=agreement.grant_type, gift_service_id=agreement.gift_service_id,
+            gift_service_name=agreement.gift_service_name,
+            discount_scope=agreement.discount_scope,
+            discount_group_id=agreement.discount_group_id,
+            discount_group_name=agreement.discount_group_name)
         await self._s.put(GRANTS, f"{PLATFORM}|{grant.id}", {"tenant": PLATFORM, **asdict(grant)})
         await self._audit(agreement.id, EV_GRANT_CREATED, actor_tenant=PLATFORM,
                           detail={"grant_id": grant.id, "triggering_visit_id": visit_id})
@@ -644,8 +923,36 @@ class ReferralPartnershipEngine:
             for r in rows:
                 mk = time.strftime("%Y-%m", time.gmtime(int(r.get("created") or 0)))
                 history[mk] = history.get(mk, 0) + 1
+            # PER REAL CATALOGUE REFERENCE — the owner's own reason for the catalogue-driven grant
+            # model existing at all ("عشان يربطها... ربحت"): a shop must be able to see which of
+            # its OWN services/packages a partnership actually moved, counted toward that shop's
+            # own numbers, never a free-text note nobody could reconcile against anything real.
+            # A GIFT and a DISCOUNT scope "item" both reference a service the same way, so they
+            # share one bucket by service id; a DISCOUNT scope "group" gets its own, by package id.
+            by_service: dict[str, dict[str, Any]] = {}
+            by_group: dict[str, dict[str, Any]] = {}
+            for r in rows:
+                sid = str(r.get("gift_service_id") or "")
+                if sid:
+                    bucket = by_service.setdefault(
+                        sid, {"service_name": r.get("gift_service_name") or "", "granted": 0,
+                             "redeemed": 0})
+                    bucket["granted"] += 1
+                    if r.get("redeemed_at"):
+                        bucket["redeemed"] += 1
+                    continue
+                gid = str(r.get("discount_group_id") or "")
+                if gid:
+                    bucket = by_group.setdefault(
+                        gid, {"group_name": r.get("discount_group_name") or "", "granted": 0,
+                             "redeemed": 0})
+                    bucket["granted"] += 1
+                    if r.get("redeemed_at"):
+                        bucket["redeemed"] += 1
             return {"referrals_sent": total, "redeemed": redeemed,
                    "expired_unused": expired_unused, "redemption_rate": redemption_rate,
-                   "by_month": dict(sorted(history.items()))}
+                   "by_month": dict(sorted(history.items())),
+                   "gift_redemptions_by_service": by_service,
+                   "discount_redemptions_by_group": by_group}
 
         return {"as_referrer": _summarise(as_a), "as_beneficiary": _summarise(as_b)}

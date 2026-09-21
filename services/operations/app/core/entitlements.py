@@ -103,12 +103,26 @@ class EntitlementGateway:
             except Exception as exc:                                          # noqa: BLE001
                 raise EntitlementPeerUnavailable(str(exc)) from exc
             if elig and elig.get("eligible"):
-                referral = Entitlement(
-                    source=SOURCE_REFERRAL, ref=f"referral:{phone}",
-                    # NEVER the referring shop's name — same privacy rule
-                    # `ReferralGrant.public_for_beneficiary` already enforces at its own source;
-                    # this text is the one an operator/customer actually sees on the visit.
-                    text="خصم شراكة إحالة نشط لهذا العميل", finalize_key=phone)
+                # NEVER the referring shop's name — same privacy rule
+                # `ReferralGrant.public_for_beneficiary` already enforces at its own source; this
+                # text is ALWAYS DERIVED from the real catalogue fact backing the grant, never
+                # authored/typed/stored text (owner's own correction — see
+                # `core/referral_partnership.py`'s own "GRANT TYPE" module-docstring section).
+                # Every kind/scope resolves to one opaque `Entitlement` shape — `apply_offer`
+                # never learns which one it got.
+                from app.core.referral_partnership import (DISCOUNT_SCOPE_BLANKET,
+                                                            DISCOUNT_SCOPE_GROUP, GRANT_GIFT)
+
+                if elig.get("grant_type") == GRANT_GIFT:
+                    text = f"هدية شراكة إحالة نشطة لهذا العميل: {elig.get('gift_service_name', '')}"
+                elif elig.get("discount_scope") == DISCOUNT_SCOPE_GROUP:
+                    text = f"خصم شراكة إحالة نشط على مجموعة: {elig.get('discount_group_name', '')}"
+                elif elig.get("discount_scope") == DISCOUNT_SCOPE_BLANKET:
+                    text = "خصم شراكة إحالة نشط — خصم شامل"
+                else:                                                   # discount, scope "item"
+                    text = f"خصم شراكة إحالة نشط على: {elig.get('gift_service_name', '')}"
+                referral = Entitlement(source=SOURCE_REFERRAL, ref=f"referral:{phone}",
+                                       text=text, finalize_key=phone)
 
         campaign: Entitlement | None = None
         if self._campaign_chooser is not None:

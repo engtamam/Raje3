@@ -2274,6 +2274,9 @@ def _referral_error(exc: ReferralError) -> HTTPException:
         "bad_condition": status.HTTP_400_BAD_REQUEST,
         "wrong_state": status.HTTP_409_CONFLICT,
         "billing_unavailable": status.HTTP_503_SERVICE_UNAVAILABLE,
+        "over_concurrency_cap": status.HTTP_409_CONFLICT,
+        "catalog_item_not_found": status.HTTP_404_NOT_FOUND,
+        "catalog_group_not_found": status.HTTP_404_NOT_FOUND,
     }
     return HTTPException(status_map.get(code, status.HTTP_400_BAD_REQUEST), code.upper())
 
@@ -2282,11 +2285,19 @@ class ProposeReferralIn(BaseModel):
     shop_b_phone: str = Field(min_length=3, max_length=32)
     condition_type: str = Field(min_length=1, max_length=32)
     condition_value: str = Field(min_length=1, max_length=64)
-    discount_note: str = Field(default="", max_length=512)
     grant_validity_days: int = Field(gt=0, le=365)
     agreement_duration_days: int = Field(gt=0, le=3650)
     per_period_cap: int = Field(default=0, ge=0)
     idempotency_key: str = Field(default="", max_length=128)
+    # NO FREE TEXT ANYWHERE — see core/referral_partnership.py's own "GRANT TYPE" module-docstring
+    # section for the full, decided-once-and-immutable shape: "gift" (gift_service_id, a real
+    # service from shop_b's own catalogue) or "discount" with discount_scope "item"
+    # (gift_service_id, same as a gift), "blanket" (nothing else), or "group" (discount_group_id,
+    # a real Package from shop_b's own catalogue).
+    grant_type: str = Field(default="discount", max_length=16)
+    gift_service_id: str = Field(default="", max_length=64)
+    discount_scope: str = Field(default="blanket", max_length=16)
+    discount_group_id: str = Field(default="", max_length=64)
 
 
 @router.post("/referral-partnership/agreements", dependencies=[Depends(rate_limit)])
@@ -2298,9 +2309,11 @@ async def propose_referral_partnership(request: Request, body: ProposeReferralIn
         agreement = await engine.propose(
             shop_a=tenant, shop_b_phone=body.shop_b_phone, operator_id=principal.subject,
             condition_type=body.condition_type, condition_value=body.condition_value,
-            discount_note=body.discount_note, grant_validity_days=body.grant_validity_days,
+            grant_validity_days=body.grant_validity_days,
             agreement_duration_days=body.agreement_duration_days,
-            per_period_cap=body.per_period_cap, idempotency_key=body.idempotency_key)
+            per_period_cap=body.per_period_cap, idempotency_key=body.idempotency_key,
+            grant_type=body.grant_type, gift_service_id=body.gift_service_id,
+            discount_scope=body.discount_scope, discount_group_id=body.discount_group_id)
     except ReferralError as exc:
         raise _referral_error(exc) from exc
     await request.app.state.auditor.record(

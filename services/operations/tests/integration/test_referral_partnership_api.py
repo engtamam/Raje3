@@ -104,8 +104,7 @@ def _propose(client: TestClient) -> str:
     resp = client.post("/api/v1/staff/referral-partnership/agreements",
                        headers=_auth("operations.manage", tenant=A),
                        json={"shop_b_phone": B_PHONE, "condition_type": "min_total_minor",
-                            "condition_value": "1000", "discount_note": "10%",
-                            "grant_validity_days": 3, "agreement_duration_days": 90})
+                            "condition_value": "1000", "grant_validity_days": 3, "agreement_duration_days": 90})
     assert resp.status_code == 200, resp.text
     return resp.json()["id"]
 
@@ -123,7 +122,7 @@ def test_a_plain_operator_cannot_propose(wired: TestClient):
     resp = wired.post("/api/v1/staff/referral-partnership/agreements",
                       headers=_auth("operations.record", tenant=A),
                       json={"shop_b_phone": B_PHONE, "condition_type": "min_total_minor",
-                           "condition_value": "1000", "discount_note": "", "grant_validity_days": 3,
+                           "condition_value": "1000", "grant_validity_days": 3,
                            "agreement_duration_days": 90})
     assert resp.status_code == 403
 
@@ -188,6 +187,6 @@ def test_a_shop_without_the_paid_feature_cannot_propose_over_http(client: TestCl
     resp = client.post("/api/v1/staff/referral-partnership/agreements",
                        headers=_auth("operations.manage", tenant=A),
                        json={"shop_b_phone": B_PHONE, "condition_type": "min_total_minor",
-                            "condition_value": "1000", "discount_note": "", "grant_validity_days": 3,
+                            "condition_value": "1000", "grant_validity_days": 3,
                             "agreement_duration_days": 90})
     assert resp.status_code == 402
