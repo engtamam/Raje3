@@ -386,6 +386,12 @@ ship_many() {
   python3 "$ROOT/ci/check_operator_i18n_coverage.py" || {
     red "operator-i18n coverage: problems found above — nothing built, nothing shipped"; return 1; }
 
+  # FOUND LIVE (2026-09-20): the cart showed «كوبونات» beside a tile reading «تحالف استراتيجي»
+  # for the identical app — appDisplayName(plan) is the one lookup every surface now shares.
+  say "app display names — no raw plan-name reads"
+  python3 "$ROOT/ci/check_app_display_name_is_not_bypassed.py" || {
+    red "app display names: raw plan-name read(s) found above — nothing built, nothing shipped"; return 1; }
+
   # ── 1. tests ────────────────────────────────────────────────────────────────────────────────
   for svc in "${ours[@]}"; do
     say "$svc · 1/4 tests"

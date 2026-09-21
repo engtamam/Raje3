@@ -217,6 +217,17 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
     .filter((r): r is { plan: typeof r.plan; sub: Subscription } =>
       Boolean(r.sub) && r.sub.status !== 'canceled');
 
+  /** THE OWNER-FACING NAME FOR A RENEWAL LINE — `line.plan_name` is the server's own snapshot
+   *  (billing's stored name, same "كوبونات" the plan row was created with), so this resolves the
+   *  same way every other surface on this screen does: subscription -> its plan -> apps.ts's own
+   *  name. Falls back to the server's snapshot only when the plan cannot be matched at all (e.g.
+   *  a plan since delisted from the catalogue), never the other way around. */
+  const lineDisplayName = (line: RenewalPreviewLine): string => {
+    const sub = (subs ?? []).find((s) => s.id === line.subscription_id);
+    const plan = sub ? Object.values(billing.planByKey).find((p) => p.id === sub.plan_id) : undefined;
+    return plan ? appDisplayName(plan) : (line.plan_name || '—');
+  };
+
   return (
     <div className="flex flex-col gap-5">
       {resolvingReturn ? <p className="text-sm text-text-secondary">{t('billingStatus.verifyingCard')}</p> : null}
@@ -259,7 +270,7 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
                 {g.lines.map((line) => (
                   <li key={line.subscription_id}
                       className="flex items-center justify-between gap-2 text-xs text-text-secondary">
-                    <span>{line.plan_name}</span>
+                    <span>{lineDisplayName(line)}</span>
                     <span>{riyalsLabel(line.total_minor, t)}</span>
                   </li>
                 ))}

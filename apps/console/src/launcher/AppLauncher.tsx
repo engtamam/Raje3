@@ -39,7 +39,7 @@ function CapacityTile({ plan, sub, billing }: {
     return (
       <div className="flex flex-col gap-2.5 rounded-card border border-danger/30 bg-danger-soft p-3">
         <p className="text-xs font-bold text-danger-on-soft">
-          {tf(t, 'launcher.capacity.confirmRemoveTitle', { name: plan.name })}
+          {tf(t, 'launcher.capacity.confirmRemoveTitle', { name: appDisplayName(plan) })}
         </p>
         <div className="flex gap-2">
           <button type="button" disabled={billing.cancelingAppId === sub.id}
