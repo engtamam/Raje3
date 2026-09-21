@@ -58,6 +58,14 @@ dependencies:
   # permission, no recognizer installed, unsupported locale) have nothing to do with either.
   speech_to_text: ^7.0.0
 
+  # Wake word ("راجِع") — a fourth, independent on-device port (lib/core/wakeword/ own doc
+  # comments). flutter_litert (LiteRT, TFLite's own current name/successor) runs the tiny
+  # trained classifier; mic_stream supplies the raw 16kHz mono PCM the hand-written audio
+  # frontend (micro_frontend.dart) needs — speech_to_text's own recognizer session has no raw
+  # PCM access, so it cannot serve this role. Both entirely on-device, same as every other port.
+  flutter_litert: ^3.9.0
+  mic_stream: ^0.7.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -69,3 +77,4 @@ flutter:
   assets:
     - assets/knowledge/mobile_kb.json
     - assets/knowledge/mobile_actions.json
+    - assets/wakeword/raje_wakeword.tflite

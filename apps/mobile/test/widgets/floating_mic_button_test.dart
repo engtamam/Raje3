@@ -26,6 +26,7 @@ import 'package:raje3_mobile/core/storage/local_storage.dart';
 import 'package:raje3_mobile/core/storage/secure_storage.dart';
 import 'package:raje3_mobile/core/tts/tts_model.dart';
 import 'package:raje3_mobile/core/voice/speech_input_model.dart';
+import 'package:raje3_mobile/core/wakeword/wake_word_model.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/widgets/floating_mic_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -122,12 +123,49 @@ class _FakeSpeechInputModel implements SpeechInputModel {
   void emit(String text, {required bool isFinal}) => _onResult?.call(text, isFinal: isFinal);
 }
 
+/// Unavailable by default — every test in this file exercises the speech-recognition path, not
+/// the wake word, and a genuinely unavailable device (no trained model asset in a test binary)
+/// is exactly what [WakeWordModel.isAvailable] should report, same as [NullWakeWordModel].
+class _FakeWakeWordModel implements WakeWordModel {
+  bool available = false;
+  bool _listening = false;
+  void Function()? _onDetected;
+
+  @override
+  String get driver => 'fake';
+  @override
+  Future<bool> isAvailable() async => available;
+  @override
+  bool get isListening => _listening;
+
+  @override
+  Future<void> start({required void Function() onDetected}) async {
+    if (!available) return;
+    _listening = true;
+    _onDetected = onDetected;
+  }
+
+  @override
+  Future<void> stop() async {
+    _listening = false;
+    _onDetected = null;
+  }
+
+  @override
+  Future<void> dispose() async {}
+
+  void detect() {
+    _onDetected?.call();
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late _FakeAiModel ai;
   late _FakeTtsModel tts;
   late _FakeSpeechInputModel speech;
+  late _FakeWakeWordModel wakeWord;
   late LocalStorage localStorage;
   late NavProvider nav;
   late ActionRegistry actionRegistry;
@@ -137,6 +175,7 @@ void main() {
     ai = _FakeAiModel();
     tts = _FakeTtsModel();
     speech = _FakeSpeechInputModel();
+    wakeWord = _FakeWakeWordModel();
     localStorage = LocalStorage();
     await localStorage.init();
     nav = NavProvider(apiClient: ApiClient(secureStorage: SecureStorage()), localStorage: localStorage);
@@ -171,6 +210,7 @@ void main() {
           Provider<ActionRegistry>.value(value: actionRegistry),
           Provider<TtsModel>.value(value: tts),
           Provider<SpeechInputModel>.value(value: speech),
+          Provider<WakeWordModel>.value(value: wakeWord),
         ],
         child: MaterialApp.router(
           localizationsDelegates: S.localizationsDelegates,
@@ -360,5 +400,39 @@ void main() {
 
     expect(topLeft.dx, closeTo(0.5 * screenSize.width, 1.0));
     expect(topLeft.dy, closeTo(0.5 * screenSize.height, 1.0));
+  });
+
+  testWidgets('an available wake word starts passive listening at idle and a detection starts the real one',
+      (tester) async {
+    wakeWord.available = true;
+    await pumpButton(tester);
+    await drainAsync(tester); // let _maybeStartWakeWord's own async gap settle
+
+    expect(wakeWord.isListening, isTrue);
+
+    wakeWord.detect();
+    await drainAsync(tester);
+
+    expect(speech.startListeningCalls, 1);
+    expect(micIcon(tester).icon, Icons.stop_rounded);
+    // NEVER TWO MIC SESSIONS AT ONCE — starting the real recognizer must have stopped the
+    // passive wake-word listener first.
+    expect(wakeWord.isListening, isFalse);
+  });
+
+  testWidgets('returning to idle re-arms the wake word', (tester) async {
+    wakeWord.available = true;
+    await pumpButton(tester);
+    await drainAsync(tester);
+
+    await tester.tap(find.byType(GestureDetector).first); // idle -> listening
+    await drainAsync(tester);
+    expect(wakeWord.isListening, isFalse);
+
+    await tester.tap(find.byType(GestureDetector).first); // listening -> idle (cancel)
+    await drainAsync(tester);
+
+    expect(micIcon(tester).icon, Icons.mic_rounded);
+    expect(wakeWord.isListening, isTrue);
   });
 }

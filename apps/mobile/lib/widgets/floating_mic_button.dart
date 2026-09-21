@@ -10,6 +10,7 @@ import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/storage/local_storage.dart';
 import 'package:raje3_mobile/core/tts/tts_model.dart';
 import 'package:raje3_mobile/core/voice/speech_input_model.dart';
+import 'package:raje3_mobile/core/wakeword/wake_word_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/assistant_chat_sheet.dart';
 
@@ -43,7 +44,8 @@ class FloatingMicButton extends StatefulWidget {
 
 enum _VoiceState { idle, listening, thinking, speaking }
 
-class _FloatingMicButtonState extends State<FloatingMicButton> with SingleTickerProviderStateMixin {
+class _FloatingMicButtonState extends State<FloatingMicButton>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const double _size = 56;
   static const double _defaultDx = 0.06;
   static const double _defaultDy = 0.62;
@@ -59,26 +61,59 @@ class _FloatingMicButtonState extends State<FloatingMicButton> with SingleTicker
   late final AssistantService _assistant;
   late final TtsModel _tts;
   late final SpeechInputModel _speech;
+  late final WakeWordModel _wakeWord;
   late final ActionExecutor _executor;
   late final AnimationController _pulseController;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fraction = widget.localStorage.getMicButtonPosition();
     _assistant = context.read<AssistantService>();
     _tts = context.read<TtsModel>();
     _speech = context.read<SpeechInputModel>();
+    _wakeWord = context.read<WakeWordModel>();
     _executor = ActionExecutor(registry: context.read<ActionRegistry>());
     _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
       ..repeat(reverse: true);
+    unawaited(_maybeStartWakeWord());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _wakeWord.dispose();
     _answerSubscription?.cancel();
     _pulseController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // NEVER LISTEN IN THE BACKGROUND — a battery and privacy requirement, not just a nicety:
+    // the wake word is only ever active while this screen is actually visible and foregrounded.
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_maybeStartWakeWord());
+    } else {
+      unawaited(_wakeWord.stop());
+    }
+  }
+
+  /// Starts passive wake-word listening when idle — never while [_speech] or [_tts] already
+  /// owns the microphone/audio session (mid-listening/thinking/speaking), and never when the
+  /// device can't run the trained model at all ([WakeWordModel.isAvailable] fails closed on a
+  /// missing asset or denied permission, same contract every other port here holds).
+  Future<void> _maybeStartWakeWord() async {
+    if (_state != _VoiceState.idle || _wakeWord.isListening) return;
+    if (!await _wakeWord.isAvailable()) return;
+    if (!mounted || _state != _VoiceState.idle) return; // still true after the async gap
+    await _wakeWord.start(onDetected: _onWakeWordDetected);
+  }
+
+  void _onWakeWordDetected() {
+    if (!mounted || _state != _VoiceState.idle) return;
+    unawaited(_startOrFallBack());
   }
 
   Future<void> _onTap() async {
@@ -90,7 +125,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton> with SingleTicker
         return;
       case _VoiceState.listening:
         await _speech.cancel();
-        if (mounted) setState(() => _state = _VoiceState.idle);
+        _goIdle();
         return;
       case _VoiceState.thinking:
         // NOT AWAITED, DELIBERATELY. cancel()'s own returned Future only signals when a
@@ -104,23 +139,37 @@ class _FloatingMicButtonState extends State<FloatingMicButton> with SingleTicker
         // before cancel() runs, so _speakAnswer may have started speaking a beat before this
         // branch finishes — stop() is a harmless no-op if nothing is speaking yet.
         await _tts.stop();
-        if (mounted) setState(() => _state = _VoiceState.idle);
+        _goIdle();
         return;
       case _VoiceState.speaking:
         await _tts.stop();
-        if (mounted) setState(() => _state = _VoiceState.idle);
+        _goIdle();
         return;
     }
+  }
+
+  /// The one place `_state` moves back to idle — always re-arms passive wake-word listening
+  /// alongside it (a no-op if the mic session it just gave up is unrelated, or if wake-word
+  /// listening isn't available on this device at all).
+  void _goIdle() {
+    if (!mounted) return;
+    setState(() => _state = _VoiceState.idle);
+    unawaited(_maybeStartWakeWord());
   }
 
   Future<void> _startOrFallBack() async {
     if (_starting) return;
     _starting = true;
     try {
+      // NEVER TWO MIC SESSIONS AT ONCE — the passive wake-word listener and the real speech
+      // recognizer both want the platform's own audio input; stopping the former before the
+      // latter opens avoids a real device rejecting the second concurrent AudioRecord session.
+      await _wakeWord.stop();
       final available = await _speech.isAvailable();
       if (!mounted) return;
       if (!available) {
         AssistantChatSheet.show(context);
+        unawaited(_maybeStartWakeWord());
         return;
       }
       // BEST-EFFORT WARM-UP, NOT AWAITED — a real model load can take a while; firing it here
@@ -145,13 +194,13 @@ class _FloatingMicButtonState extends State<FloatingMicButton> with SingleTicker
     if (!mounted || _state != _VoiceState.listening) return;
     final question = text.trim();
     if (question.isEmpty) {
-      setState(() => _state = _VoiceState.idle);
+      _goIdle();
       return;
     }
     if (_assistant.status != AiModelStatus.ready) {
       // The warm-up fired in _startOrFallBack hasn't finished yet — degrade to idle rather
       // than crash on AiModel.generate()'s own "caller must check status first" contract.
-      setState(() => _state = _VoiceState.idle);
+      _goIdle();
       return;
     }
     setState(() => _state = _VoiceState.thinking);
@@ -190,14 +239,14 @@ class _FloatingMicButtonState extends State<FloatingMicButton> with SingleTicker
         _answerSubscription?.cancel();
         _answerSubscription = null;
         _executor.execute(context, action);
-        setState(() => _state = _VoiceState.idle);
+        _goIdle();
       case ActionNeedsConfirmation():
         // NO HANDS-FREE CONFIRMATION SURFACE EXISTS on this button — a sensitive action falls
         // back to the chat sheet, where a real tap can confirm it (AssistantChatSheet's own
         // inline confirm/cancel row), rather than ever running without one.
         _answerSubscription?.cancel();
         _answerSubscription = null;
-        setState(() => _state = _VoiceState.idle);
+        _goIdle();
         AssistantChatSheet.show(context);
     }
   }
@@ -206,7 +255,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton> with SingleTicker
     if (!mounted || _state != _VoiceState.thinking) return; // cancelled meanwhile
     setState(() => _state = _VoiceState.speaking);
     await _tts.speak(answer, languageCode: lang);
-    if (mounted && _state == _VoiceState.speaking) setState(() => _state = _VoiceState.idle);
+    if (mounted && _state == _VoiceState.speaking) _goIdle();
   }
 
   @override
