@@ -271,6 +271,24 @@ COUPONS_FEATURES: tuple[dict[str, Any], ...] = (
      },
 )
 
+# SHARE OF `feature.referral_partnership` — see docs/خطة-شراكة-استراتيجية-الإحالة.md and
+# core/referral_partnership.py's own module docstring. NOT `coupons.py`: a completely different
+# feature, financially unrelated — this one never touches money, pricing, or billing at all.
+REFERRAL_PARTNERSHIP_FEATURES: tuple[dict[str, Any], ...] = (
+    {"id": "referral.brings_you_ready_customers", "title": "يجلب لك عملاء جاهزين من محل تثق به",
+     "detail": "عميل حقق شرطاً عند شريكك يصير مستحقاً لعرضك تلقائياً — بلا أي إثبات يحمله",
+     "icon": "user-plus", "tone": "violet", "shared_with": [], "owned_by": ""},
+    {"id": "referral.zero_manual_work", "title": "يكتشف الاستحقاق تلقائياً، بلا أي عمل يدوي",
+     "detail": "يمر عبر نفس نقطة تسجيل الزيارة — لا شاشة إضافية، لا سؤال العميل عن شي",
+     "icon": "check-circle", "tone": "success", "shared_with": [], "owned_by": ""},
+    {"id": "referral.you_stay_in_control", "title": "الاتفاقية بموافقتك الصريحة دائماً",
+     "detail": "لا تبدأ ولا تتوقف قبل أوانها إلا بموافقة الطرفين — أنت من يقرر شروطك",
+     "icon": "clock", "tone": "amber", "shared_with": [], "owned_by": ""},
+    {"id": "referral.real_numbers_not_guesses", "title": "أرقام حقيقية تبني عليها قرار التجديد",
+     "detail": "كم إحالة أُرسلت، كم استُخدمت فعلاً، والاتجاه عبر الوقت — لمحلك أنت فقط",
+     "icon": "trending-up", "tone": "violet", "shared_with": [], "owned_by": ""},
+)
+
 # ── the apps we sell ──────────────────────────────────────────────────────────────────────────
 #
 # THE KEY IS THE AUTHORITY, NOT THE PLAN NAME (§16.4.1). «الذكية» is a commercial word marketing
@@ -333,6 +351,16 @@ APPS: tuple[dict[str, Any], ...] = (
      "what": "خدمتك تروح لعنده هو — يطلب موعداً، تراجعه وتقرر، ثم تسجّله زيارة حقيقية بعد ما تتم "
              "فعلاً.",
      "features": list(MOBILE_REQUESTS_FEATURES)},
+    # REFERRAL PARTNERSHIP — backend-only for now (this pass). See
+    # docs/خطة-شراكة-استراتيجية-الإحالة.md and core/referral_partnership.py's own module docstring.
+    # `screen: "referral-partnership"` names the console section a LATER, UI-only pass builds —
+    # declared here now so `ci/check_listed_apps_are_wired.py` never sees this row missing once the
+    # plan is listed (same posture `feature.coupons`'s own row took, above).
+    {"key": "feature.referral_partnership", "name": "شراكة استراتيجية (إحالة عملاء)",
+     "screen": "referral-partnership",
+     "what": "عميل يحقق شرطاً عند محل تثق به يصير مستحقاً تلقائياً لعرضك — بموافقة الطرفين، بلا أي "
+             "لمسة مالية منّا.",
+     "features": list(REFERRAL_PARTNERSHIP_FEATURES)},
 )
 
 # BOTH ROWS ABOVE WERE MISSING FOR THE SAME REASON, FOUND THE SAME DAY: a plan's

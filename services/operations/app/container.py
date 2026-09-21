@@ -360,6 +360,21 @@ def build_container(settings: Settings) -> Container:
         store=container.datastore, plans=container.billing_plans,
         default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
 
+    # Referral partnership — NOT the same feature as coupons above (see that module's own module
+    # docstring, and core/referral_partnership.py's own for the full contrast). Needs
+    # `billing_plans` (just built) for its own feature-gate/pause-resume check, `authz_desk` and
+    # `inapp_notifier` (both already built above) to find and reach a proposal's own recipients.
+    # Installed onto the already-built `container.operations` via its own setter — see
+    # `Operations.with_referral_engine`'s own docstring for why this is a post-construction wire
+    # rather than a constructor argument.
+    from app.core.referral_partnership import ReferralPartnershipEngine
+
+    container.referral_partnership = ReferralPartnershipEngine(
+        store=container.datastore, plans=container.billing_plans,
+        notifier=container.inapp_notifier, authz=container.authz_desk,
+        default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
+    container.operations.with_referral_engine(container.referral_partnership)
+
     # Salla — infrastructure only, see core/marketplaces/salla.py's own module docstring.
     from app.core.marketplaces.salla import SallaClient, SallaService
 
@@ -441,6 +456,8 @@ def build_container(settings: Settings) -> Container:
     container.insights_engine_licence = build_feature_licence(settings, "feature.insights.engine")
     container.coupons_licence = build_feature_licence(settings, "feature.coupons")
     container.mobile_requests_licence = build_feature_licence(settings, "feature.mobile_requests")
+    container.referral_partnership_licence = build_feature_licence(
+        settings, "feature.referral_partnership")
     container.templates = TemplateLibrary(container.datastore)
     # The door. Built early, because a signup that cannot
     # seed a catalogue is a signup that lands the new owner on an empty «خدماتي».

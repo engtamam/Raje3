@@ -94,7 +94,8 @@
     "feature.whatsapp": "the AI assistant over WhatsApp — an AI-composed reply and AI-driven booking for this shop's customers. Standalone, no other app required first (see its own plan row's `plan.standalone` — services/operations/app/core/subscribe.py::may_add reads it)",
     "feature.contacts": "جهات الاتصال — a FREE standalone app that does one thing: it lets a shop with no other product at all resolve-or-create a customer by phone (POST /field/customers/ensure, services/operations). Carries `plan.standalone` for the same reason `feature.whatsapp` does",
     "feature.visit": "تسجيل زيارة — the visit register itself, sold as its own standalone app (services/operations/app/api/subscribed.py::subscribed_write_or_visit). Also GRANTS the reminders engine (adaptive rhythm, engagement scoring) as an included FEATURE, not a separate purchase — see services/reminders/app/api/subscribed.py::subscribed_write",
-    "feature.mobile_requests": "خدمات متنقلة — a shop whose service travels to the customer (services/operations/app/core/mobile_requests.py). Standalone (plan.standalone) — the shop's own staff can type a request in by hand from day one; the WhatsApp bot is an additional door once feature.whatsapp is also bought, never a prerequisite"
+    "feature.mobile_requests": "خدمات متنقلة — a shop whose service travels to the customer (services/operations/app/core/mobile_requests.py). Standalone (plan.standalone) — the shop's own staff can type a request in by hand from day one; the WhatsApp bot is an additional door once feature.whatsapp is also bought, never a prerequisite",
+    "feature.referral_partnership": "شراكة استراتيجية (إحالة عملاء) — cross-tenant customer-referral eligibility detection between two consenting shops (services/operations/app/core/referral_partnership.py). Standalone (plan.standalone). NEVER a billing/money feature — the discount itself is applied by the beneficiary shop however it normally does; this app only organises the relationship and detects eligibility"
   },
   "_removed": [
     "feature.roles.custom IS GONE, and its absence is the honest state. It was sold on every tier",
@@ -411,6 +412,35 @@
       "listed": true,
       "limits": {
         "feature.mobile_requests": {
+          "kind": "boolean",
+          "limit": 1
+        },
+        "plan.standalone": {
+          "kind": "boolean",
+          "limit": 1
+        }
+      }
+    },
+    {
+      "_": [
+        "REFERRAL PARTNERSHIP — a cross-tenant customer-referral engine, backend only for now",
+        "(docs/خطة-شراكة-استراتيجية-الإحالة.md). Two shops agree that a customer meeting a",
+        "condition at shop A becomes automatically eligible for a discount at shop B — NEVER a",
+        "money/billing feature (unlike «كوبونات» above, which discounts OUR OWN subscription):",
+        "shop B applies its own discount however it normally does. We only detect eligibility and",
+        "notify. See services/operations/app/core/referral_partnership.py's own module docstring.",
+        "",
+        "`plan.standalone` — same posture as كوبونات/خدمات متنقلة: no other app is required first.",
+        "",
+        "`screen: 'referral-partnership'` in core/apps.py names the console section a later,",
+        "UI-only pass wires up — ci/check_listed_apps_are_wired.py checks against it once listed."
+      ],
+      "name": "شراكة استراتيجية (إحالة عملاء)",
+      "amount": 9900,
+      "trial_days": 30,
+      "listed": true,
+      "limits": {
+        "feature.referral_partnership": {
           "kind": "boolean",
           "limit": 1
         },

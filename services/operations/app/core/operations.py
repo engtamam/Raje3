@@ -77,6 +77,13 @@ class Operations:
     def __init__(self, *, store, pii_salt: str, cache: Any = None,
                  max_backdate: int = _DEFAULT_MAX_BACKDATE_SECONDS,
                  phone_search_ro: Any = None) -> None:
+        # Cross-tenant referral-partnership eligibility detection — see
+        # core/referral_partnership.py's own module docstring for why THIS ONE call site is the
+        # single, sufficient hook for every current and future visit-recording channel. `None`
+        # until `with_referral_engine` installs it (see that method) — any test/run that never
+        # wires one simply has nothing to call, same posture `_choose_offer` takes before
+        # `with_offer_chooser` runs.
+        self._referral_engine: Any = None
         self._customers = CustomerStore(store)
         self._assets = AssetStore(store)
         self._services = ServiceStore(store)
@@ -177,6 +184,14 @@ class Operations:
     def with_offer_chooser(self, chooser) -> "Operations":
         """Install who decides which offer a visit applies. Set at wiring, not at import."""
         self._choose_offer = chooser
+        return self
+
+    def with_referral_engine(self, engine) -> "Operations":
+        """Install the referral-partnership hook. Set at wiring, not at import — `container.py`
+        needs `billing_plans` built before it can construct the engine, and `Operations` itself is
+        built earlier than that, same reason `with_offer_chooser` above is a post-construction
+        setter rather than a constructor argument that would force a build-order dependency."""
+        self._referral_engine = engine
         return self
 
     async def apply_offer(self, *, tenant: str, visit_id: str,
@@ -452,6 +467,21 @@ class Operations:
                 if moved_forward and visit.branch_id:
                     customer.last_branch_id = visit.branch_id
                 await self._customers.save(customer)
+
+        # THE REFERRAL-PARTNERSHIP HOOK — never allowed to affect this visit either way. Any
+        # failure here (a bad row, a peer outage) is swallowed at this call site, not inside the
+        # engine's own contract, so a bug in a completely different paid app can never cost a shop
+        # the one fact this product cannot survive losing: the visit itself. See
+        # core/referral_partnership.py's own module docstring for why this is the single hook every
+        # channel needs.
+        if self._referral_engine is not None:
+            try:
+                await self._referral_engine.on_visit_recorded(
+                    tenant=tenant, customer_phone=customer.phone, service_ids=list(service_ids),
+                    total_minor=int(total_minor or 0), visit_id=visit.id)
+            except Exception:                                                  # noqa: BLE001
+                pass
+
         return RecordedVisit(visit=visit, customer=customer,
                              created_customer=created_customer, duplicate=False,
                              unknown_services=unknown,

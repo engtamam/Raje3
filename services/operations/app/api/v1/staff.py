@@ -2253,3 +2253,166 @@ async def set_coupon_preferences(request: Request, body: CouponPreferencesIn,
         "coupon.preferences_set", actor=principal.subject, tenant=tenant,
         resource="coupon_preferences", ip=request.client.host if request.client else "")
     return {"visit_grant_enabled": row.visit_grant_enabled}
+
+
+# ── referral partnership — NOT the same feature as coupons above, see core/referral_partnership.py
+# ── module docstring. Owner/manager-only gate throughout (`operations.manage`), matching the
+# ── design doc's explicit "a commitment against another shop entirely" requirement — never a plain
+# ── operator capability the way `operations.grant_coupon` (a routine, per-visit act) is.
+from app.core.referral_partnership import ReferralError
+
+_REFERRAL_MANAGE = require_capability("operations.manage")
+
+
+def _referral_error(exc: ReferralError) -> HTTPException:
+    code = str(exc.args[0]) if exc.args else "error"
+    status_map = {
+        "not_found": status.HTTP_404_NOT_FOUND,
+        "forbidden": status.HTTP_403_FORBIDDEN,
+        "not_subscribed": status.HTTP_402_PAYMENT_REQUIRED,
+        "self_partner": status.HTTP_400_BAD_REQUEST,
+        "bad_condition": status.HTTP_400_BAD_REQUEST,
+        "wrong_state": status.HTTP_409_CONFLICT,
+        "billing_unavailable": status.HTTP_503_SERVICE_UNAVAILABLE,
+    }
+    return HTTPException(status_map.get(code, status.HTTP_400_BAD_REQUEST), code.upper())
+
+
+class ProposeReferralIn(BaseModel):
+    shop_b_phone: str = Field(min_length=3, max_length=32)
+    condition_type: str = Field(min_length=1, max_length=32)
+    condition_value: str = Field(min_length=1, max_length=64)
+    discount_note: str = Field(default="", max_length=512)
+    grant_validity_days: int = Field(gt=0, le=365)
+    agreement_duration_days: int = Field(gt=0, le=3650)
+    per_period_cap: int = Field(default=0, ge=0)
+    idempotency_key: str = Field(default="", max_length=128)
+
+
+@router.post("/referral-partnership/agreements", dependencies=[Depends(rate_limit)])
+async def propose_referral_partnership(request: Request, body: ProposeReferralIn,
+                                       principal: Principal = Depends(_REFERRAL_MANAGE)):
+    tenant = _tenant(principal)
+    engine = request.app.state.container.referral_partnership
+    try:
+        agreement = await engine.propose(
+            shop_a=tenant, shop_b_phone=body.shop_b_phone, operator_id=principal.subject,
+            condition_type=body.condition_type, condition_value=body.condition_value,
+            discount_note=body.discount_note, grant_validity_days=body.grant_validity_days,
+            agreement_duration_days=body.agreement_duration_days,
+            per_period_cap=body.per_period_cap, idempotency_key=body.idempotency_key)
+    except ReferralError as exc:
+        raise _referral_error(exc) from exc
+    await request.app.state.auditor.record(
+        "referral_partnership.propose", actor=principal.subject, tenant=tenant,
+        resource=f"referral_agreement:{agreement.id}",
+        ip=request.client.host if request.client else "")
+    return agreement.public()
+
+
+@router.get("/referral-partnership/agreements", dependencies=[Depends(rate_limit)])
+async def list_referral_partnerships(request: Request,
+                                     principal: Principal = Depends(_REFERRAL_MANAGE)):
+    tenant = _tenant(principal)
+    rows = await request.app.state.container.referral_partnership.agreements_for(tenant)
+    return {"agreements": [r.public() for r in rows]}
+
+
+@router.get("/referral-partnership/agreements/{agreement_id}", dependencies=[Depends(rate_limit)])
+async def get_referral_partnership(request: Request, agreement_id: str,
+                                   principal: Principal = Depends(_REFERRAL_MANAGE)):
+    tenant = _tenant(principal)
+    try:
+        agreement = await request.app.state.container.referral_partnership.get(
+            tenant, agreement_id)
+    except ReferralError as exc:
+        raise _referral_error(exc) from exc
+    return agreement.public()
+
+
+@router.post("/referral-partnership/agreements/{agreement_id}/accept",
+            dependencies=[Depends(rate_limit)])
+async def accept_referral_partnership(request: Request, agreement_id: str,
+                                      principal: Principal = Depends(_REFERRAL_MANAGE)):
+    tenant = _tenant(principal)
+    try:
+        agreement = await request.app.state.container.referral_partnership.accept(
+            tenant=tenant, agreement_id=agreement_id)
+    except ReferralError as exc:
+        raise _referral_error(exc) from exc
+    await request.app.state.auditor.record(
+        "referral_partnership.accept", actor=principal.subject, tenant=tenant,
+        resource=f"referral_agreement:{agreement_id}",
+        ip=request.client.host if request.client else "")
+    return agreement.public()
+
+
+@router.post("/referral-partnership/agreements/{agreement_id}/reject",
+            dependencies=[Depends(rate_limit)])
+async def reject_referral_partnership(request: Request, agreement_id: str,
+                                      principal: Principal = Depends(_REFERRAL_MANAGE)):
+    tenant = _tenant(principal)
+    try:
+        agreement = await request.app.state.container.referral_partnership.reject(
+            tenant=tenant, agreement_id=agreement_id)
+    except ReferralError as exc:
+        raise _referral_error(exc) from exc
+    await request.app.state.auditor.record(
+        "referral_partnership.reject", actor=principal.subject, tenant=tenant,
+        resource=f"referral_agreement:{agreement_id}",
+        ip=request.client.host if request.client else "")
+    return agreement.public()
+
+
+@router.post("/referral-partnership/agreements/{agreement_id}/cancel-request",
+            dependencies=[Depends(rate_limit)])
+async def cancel_request_referral_partnership(request: Request, agreement_id: str,
+                                              principal: Principal = Depends(_REFERRAL_MANAGE)):
+    tenant = _tenant(principal)
+    try:
+        agreement = await request.app.state.container.referral_partnership.cancel_request(
+            tenant=tenant, agreement_id=agreement_id)
+    except ReferralError as exc:
+        raise _referral_error(exc) from exc
+    await request.app.state.auditor.record(
+        "referral_partnership.cancel_request", actor=principal.subject, tenant=tenant,
+        resource=f"referral_agreement:{agreement_id}",
+        ip=request.client.host if request.client else "")
+    return agreement.public()
+
+
+@router.post("/referral-partnership/agreements/{agreement_id}/cancel-confirm",
+            dependencies=[Depends(rate_limit)])
+async def cancel_confirm_referral_partnership(request: Request, agreement_id: str,
+                                              principal: Principal = Depends(_REFERRAL_MANAGE)):
+    tenant = _tenant(principal)
+    try:
+        agreement = await request.app.state.container.referral_partnership.cancel_confirm(
+            tenant=tenant, agreement_id=agreement_id)
+    except ReferralError as exc:
+        raise _referral_error(exc) from exc
+    await request.app.state.auditor.record(
+        "referral_partnership.cancel_confirm", actor=principal.subject, tenant=tenant,
+        resource=f"referral_agreement:{agreement_id}",
+        ip=request.client.host if request.client else "")
+    return agreement.public()
+
+
+@router.get("/referral-partnership/agreements/{agreement_id}/audit-log",
+           dependencies=[Depends(rate_limit)])
+async def referral_partnership_audit_log(request: Request, agreement_id: str,
+                                         principal: Principal = Depends(_REFERRAL_MANAGE)):
+    tenant = _tenant(principal)
+    try:
+        rows = await request.app.state.container.referral_partnership.audit_log(
+            tenant, agreement_id)
+    except ReferralError as exc:
+        raise _referral_error(exc) from exc
+    return {"entries": [r.public() for r in rows]}
+
+
+@router.get("/referral-partnership/kpis", dependencies=[Depends(rate_limit)])
+async def referral_partnership_kpis(request: Request,
+                                    principal: Principal = Depends(_REFERRAL_MANAGE)):
+    tenant = _tenant(principal)
+    return await request.app.state.container.referral_partnership.kpis(tenant)

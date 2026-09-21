@@ -26,6 +26,34 @@
           "body": "Bumaba ang average rating ni $name sa $average sa 5 batay sa mga huling rating. Inirerekomenda ang pagsusuri sa kanyang performance."
         }
       }
+    },
+    {
+      "key": "operations.referral_partnership_proposed",
+      "category": "transactional",
+      "locales": {
+        "ar": {
+          "subject": "طلب شراكة استراتيجية جديد",
+          "body": "محل آخر مسجّل عندنا يقترح شراكة إحالة عملاء معك. راجع الشروط ووافق أو ارفض من شاشة الشراكات."
+        },
+        "en": {
+          "subject": "New referral partnership proposal",
+          "body": "Another shop on our platform is proposing a customer-referral partnership with you. Review the terms and approve or reject it from the partnerships screen."
+        }
+      }
+    },
+    {
+      "key": "operations.referral_partnership_cancel_requested",
+      "category": "transactional",
+      "locales": {
+        "ar": {
+          "subject": "طلب إنهاء شراكة استراتيجية",
+          "body": "الطرف الثاني بشراكة الإحالة معك طلب إنهاءها قبل موعدها. الشراكة تبقى فعّالة حتى توافق أنت."
+        },
+        "en": {
+          "subject": "Referral partnership cancellation requested",
+          "body": "Your referral partnership partner has requested early cancellation. The partnership stays active until you approve it."
+        }
+      }
     }
   ]
 }

@@ -916,6 +916,46 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "staff stopped seeing it (or started) needs to see this was a deliberate switch",
     },
     {
+        "action": "referral_partnership.propose",
+        "source": "internal",
+        "critical": False,
+        "resource": "referral_agreement",
+        "why": "a commitment against ANOTHER shop entirely — an owner reviewing his account needs "
+               "to see who on his side proposed a cross-tenant partnership, and when",
+    },
+    {
+        "action": "referral_partnership.accept",
+        "source": "internal",
+        "critical": True,
+        "resource": "referral_agreement",
+        "why": "activates a cross-tenant partnership neither side can undo unilaterally — the one "
+               "act that turns an incoming proposal into a live commitment",
+    },
+    {
+        "action": "referral_partnership.reject",
+        "source": "internal",
+        "critical": False,
+        "resource": "referral_agreement",
+        "why": "a proposed cross-tenant partnership was refused — worth explaining later if the "
+               "other shop asks why nothing ever activated",
+    },
+    {
+        "action": "referral_partnership.cancel_request",
+        "source": "internal",
+        "critical": False,
+        "resource": "referral_agreement",
+        "why": "one side asked to end an active cross-tenant partnership early — it stays active "
+               "until the other side confirms, but the request itself is a fact worth keeping",
+    },
+    {
+        "action": "referral_partnership.cancel_confirm",
+        "source": "internal",
+        "critical": True,
+        "resource": "referral_agreement",
+        "why": "the act that actually ends a cross-tenant partnership early, by mutual consent — "
+               "critical because it stops eligibility detection for both shops at once",
+    },
+    {
         "action": "salla.connected",
         "source": "internal",
         "critical": False,
