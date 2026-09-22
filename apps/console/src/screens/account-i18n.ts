@@ -34,6 +34,10 @@ registerOperatorStrings({
 
     'account.pageTitle': 'حسابي',
     'account.myBranchReadFailed': 'تعذّرت قراءة فرعك',
+    'account.editNameCta': 'تعديل الاسم',
+    'account.saveNameCta': 'حفظ',
+    'account.savingName': 'جارٍ الحفظ...',
+    'account.cancelNameCta': 'إلغاء',
     'account.tabsAriaLabel': 'أقسام حسابي',
     'account.shopSubtabsAriaLabel': 'أقسام منشأتي',
 
@@ -67,6 +71,10 @@ registerOperatorStrings({
 
     'account.pageTitle': 'My Account',
     'account.myBranchReadFailed': "Couldn't read your branch",
+    'account.editNameCta': 'Edit name',
+    'account.saveNameCta': 'Save',
+    'account.savingName': 'Saving...',
+    'account.cancelNameCta': 'Cancel',
     'account.tabsAriaLabel': 'Account sections',
     'account.shopSubtabsAriaLabel': 'My Establishment sections',
 
@@ -100,6 +108,10 @@ registerOperatorStrings({
 
     'account.pageTitle': 'میرا اکاؤنٹ',
     'account.myBranchReadFailed': 'آپ کی شاخ نہیں پڑھ سکے',
+    'account.editNameCta': 'نام میں ترمیم کریں',
+    'account.saveNameCta': 'محفوظ کریں',
+    'account.savingName': 'محفوظ ہو رہا ہے...',
+    'account.cancelNameCta': 'منسوخ کریں',
     'account.tabsAriaLabel': 'اکاؤنٹ کے حصے',
     'account.shopSubtabsAriaLabel': 'میرا ادارہ کے حصے',
 
@@ -133,6 +145,10 @@ registerOperatorStrings({
 
     'account.pageTitle': 'Asusuna',
     'account.myBranchReadFailed': 'Ba a iya karanta reshenka ba',
+    'account.editNameCta': 'Gyara suna',
+    'account.saveNameCta': 'Ajiye',
+    'account.savingName': 'Ana ajiyewa...',
+    'account.cancelNameCta': 'Soke',
     'account.tabsAriaLabel': 'Sassan asusu',
     'account.shopSubtabsAriaLabel': 'Sassan Kamfanina',
 
@@ -166,6 +182,10 @@ registerOperatorStrings({
 
     'account.pageTitle': 'Aking Account',
     'account.myBranchReadFailed': "Hindi mabasa ang branch mo",
+    'account.editNameCta': 'I-edit ang pangalan',
+    'account.saveNameCta': 'I-save',
+    'account.savingName': 'Sine-save...',
+    'account.cancelNameCta': 'Kanselahin',
     'account.tabsAriaLabel': 'Mga seksyon ng account',
     'account.shopSubtabsAriaLabel': 'Mga seksyon ng Aking Establisemento',
 
@@ -199,6 +219,10 @@ registerOperatorStrings({
 
     'account.pageTitle': 'আমার অ্যাকাউন্ট',
     'account.myBranchReadFailed': 'আপনার শাখা পড়া যায়নি',
+    'account.editNameCta': 'নাম সম্পাদনা করুন',
+    'account.saveNameCta': 'সংরক্ষণ করুন',
+    'account.savingName': 'সংরক্ষণ হচ্ছে...',
+    'account.cancelNameCta': 'বাতিল',
     'account.tabsAriaLabel': 'অ্যাকাউন্টের বিভাগসমূহ',
     'account.shopSubtabsAriaLabel': 'আমার প্রতিষ্ঠানের বিভাগসমূহ',
 

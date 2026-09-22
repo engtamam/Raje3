@@ -1,12 +1,13 @@
 import { registerOperatorStrings } from '../operator-i18n';
 
-// «تحالف استراتيجي» — keys keep the original `coupons.*` prefix (matching the backend outcome
-// codes and the module's own file/route names, e.g. `core/coupons.py`, `/staff/coupons/grant`)
-// even though nothing user-facing says the word «كوبون» any more — a key is an address, not a
-// label, and renaming it would only cost every caller a silent, unrelated diff.
+// «ولاء الشركاء» (RENAMED 2026-09-22 from «تحالف استراتيجي») — keys keep the original `coupons.*`
+// prefix (matching the backend outcome codes and the module's own file/route names, e.g.
+// `core/coupons.py`, `/staff/coupons/grant`) even though nothing user-facing says the word
+// «كوبون» any more — a key is an address, not a label, and renaming it would only cost every
+// caller a silent, unrelated diff. Only the actual DISPLAYED title below changed with the rename.
 registerOperatorStrings({
   ar: {
-    'coupons.title': 'تحالف استراتيجي',
+    'coupons.title': 'ولاء الشركاء',
     'coupons.subtitle': 'كوّن تحالفاً مع محل آخر مسجّل عندنا وامنحه امتيازاً على اشتراكه معنا',
     'coupons.cap.label': 'سقفك الحالي',
     'coupons.cap.remaining': '{n} تحالف متبقٍّ للشريحة القادمة ({p}%)',
@@ -79,7 +80,7 @@ registerOperatorStrings({
     'coupons.salla.connectError': 'تعذّر فتح صفحة الربط. حاول مرة أخرى.',
   },
   en: {
-    'coupons.title': 'Strategic Alliance',
+    'coupons.title': 'Partner Loyalty',
     'coupons.subtitle': 'Form an alliance with another registered shop and grant it a perk on its subscription with us',
     'coupons.cap.label': 'Your current cap',
     'coupons.cap.remaining': '{n} more alliance(s) to reach the next tier ({p}%)',
@@ -152,7 +153,7 @@ registerOperatorStrings({
     'coupons.salla.connectError': 'Could not open the connect page. Try again.',
   },
   ur: {
-    'coupons.title': 'اسٹریٹیجک اتحاد',
+    'coupons.title': 'پارٹنر وفاداری',
     'coupons.subtitle': 'ہمارے ہاں رجسٹرڈ کسی اور دکان کے ساتھ اتحاد بنائیں اور اسے اس کی سبسکرپشن پر مراعات دیں',
     'coupons.cap.label': 'آپ کی موجودہ حد',
     'coupons.cap.remaining': 'اگلی سطح ({p}%) تک {n} مزید اتحاد باقی',
@@ -225,7 +226,7 @@ registerOperatorStrings({
     'coupons.salla.connectError': 'منسلک کرنے کا صفحہ نہیں کھل سکا۔ دوبارہ کوشش کریں۔',
   },
   ha: {
-    'coupons.title': 'Kawancen Dabaru',
+    'coupons.title': 'Amincin Abokan Hulɗa',
     'coupons.subtitle': 'Kafa kawance da wani shago da aka yi masa rajista tare da mu, ka ba shi rangwame a kan biyan kuɗinsa',
     'coupons.cap.label': 'Iyakar ka ta yanzu',
     'coupons.cap.remaining': 'Sauran kawance {n} don kai matakin gaba ({p}%)',
@@ -298,7 +299,7 @@ registerOperatorStrings({
     'coupons.salla.connectError': 'An kasa buɗe shafin haɗi. Sake gwadawa.',
   },
   fil: {
-    'coupons.title': 'Estratehikong Alyansa',
+    'coupons.title': 'Katapatan ng Kasosyo',
     'coupons.subtitle': 'Bumuo ng alyansa sa ibang tindahang nakarehistro sa amin at bigyan ito ng benepisyo sa subscription nito',
     'coupons.cap.label': 'Kasalukuyang limitasyon mo',
     'coupons.cap.remaining': '{n} pang alyansa para makarating sa susunod na tier ({p}%)',
@@ -371,7 +372,7 @@ registerOperatorStrings({
     'coupons.salla.connectError': 'Hindi mabuksan ang connect page. Subukan muli.',
   },
   bn: {
-    'coupons.title': 'কৌশলগত জোট',
+    'coupons.title': 'অংশীদার আনুগত্য',
     'coupons.subtitle': 'আমাদের কাছে নিবন্ধিত অন্য একটি দোকানের সাথে জোট গঠন করুন এবং তার সাবস্ক্রিপশনে সুবিধা দিন',
     'coupons.cap.label': 'আপনার বর্তমান সীমা',
     'coupons.cap.remaining': 'পরবর্তী স্তরে ({p}%) পৌঁছাতে আরও {n}টি জোট বাকি',

@@ -35,7 +35,8 @@ import { action, call, type Catalog } from '../catalog';
 import { branchGate } from '../branches';
 import type { Session } from '../session';
 import { digitsOnly } from '../digits';
-import { isShortGoogleMapsLink, parseGoogleMapsLink } from '../googleMapsLink';
+import { resolveMapsShortLink } from '../api';
+import { isShortGoogleMapsLink, parseGoogleMapsLink, resolveGoogleMapsLink } from '../googleMapsLink';
 import { AssistantHint } from '../AssistantHint';
 import { useOperatorI18n, tf } from '../operator-i18n';
 import './team-i18n';
@@ -1044,10 +1045,19 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!add) return;
+    // A SHORT LINK GETS ONE MORE CHANCE, SERVER-SIDE, BEFORE THE REFUSAL BELOW — a browser cannot
+    // resolve it itself (CORS), so `resolveGoogleMapsLink` reaches for `/staff/resolve-maps-link`
+    // exactly when the sync parse above came back empty and the link IS a short one.
+    let location = parsedLocation;
+    if (!location && mapsLink.trim() && isShortGoogleMapsLink(mapsLink)) {
+      setBusy(true);
+      location = await resolveGoogleMapsLink(mapsLink, (u) => resolveMapsShortLink(session, u));
+      setBusy(false);
+    }
     // CHECKED HERE TOO, NOT ONLY ON THE SERVER. The server's own refusal (LOCATION_REQUIRED) is
     // what actually protects the data — this is only so a shop that skipped straight to "حفظ"
     // reads a specific sentence about a link instead of the generic catch-all below.
-    if (locationRequired && !parsedLocation) {
+    if (locationRequired && !location) {
       setError(mapsLink.trim()
         ? (isShortGoogleMapsLink(mapsLink)
           ? t('team.branches.shortLink')
@@ -1060,7 +1070,7 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
     try {
       await call(session, add, {
         name: name.trim(),
-        ...(parsedLocation ? { lat: parsedLocation.lat, lng: parsedLocation.lng } : {}),
+        ...(location ? { lat: location.lat, lng: location.lng } : {}),
         ...(city.trim() ? { city: city.trim() } : {}),
       });
       setName('');
@@ -1424,11 +1434,18 @@ function BranchRow({ session, branch, edit, staff, stat, onChanged }: {
       {renaming ? (
         <form
           className="flex flex-col gap-2"
-          onSubmit={(e: FormEvent) => {
+          onSubmit={async (e: FormEvent) => {
             e.preventDefault();
+            // Same server-side second chance for a short link as the add-branch form above.
+            let location = parsedLocation;
+            if (!location && mapsLink.trim() && isShortGoogleMapsLink(mapsLink)) {
+              setBusy(true);
+              location = await resolveGoogleMapsLink(mapsLink, (u) => resolveMapsShortLink(session, u));
+              setBusy(false);
+            }
             save({
               name: name.trim(),
-              ...(parsedLocation ? { lat: parsedLocation.lat, lng: parsedLocation.lng } : {}),
+              ...(location ? { lat: location.lat, lng: location.lng } : {}),
               ...(city.trim() !== (branch.city ?? '') ? { city: city.trim() } : {}),
             });
           }}

@@ -24,6 +24,8 @@ import { Button } from '../rj-ui/Button';
 import { ServiceGrid } from '../ServiceGrid';
 import { Steps } from '../Steps';
 import { newIdempotencyKey, queue, type Queued } from '../queue';
+import type { ReferralGrantAck } from '../api';
+import { ReferralGrantCelebration } from './ReferralGrantCelebration';
 import { proof } from '../operator';
 import { WhoIsSaving } from '../WhoIsSaving';
 import { isSignedIn, useSession } from '../session';
@@ -40,7 +42,7 @@ import './visit-i18n';
 /** The coupon checkbox's own scope choices — same source Coupons.tsx builds its own list from,
  *  «كوبونات» itself excluded so a grant can never target the app that grants it. */
 const COUPON_SCOPE_OPTIONS = APP_ROWS
-  .filter((a) => a.key && a.key !== 'feature.coupons')
+  .filter((a) => a.key && a.key !== 'feature.partner_loyalty')
   .map((a) => ({ value: a.key as string, label: a.name }));
 
 /**
@@ -100,7 +102,7 @@ export function Visit() {
   // data the shell already fetched once (`outlet.owned`) or one lightweight call made ONLY when
   // the first gate passes — never on the hot save path, never for the shop that does not have
   // the app at all (the overwhelming majority, today).
-  const couponAppOwned = outlet ? owns(outlet.owned, 'feature.coupons') === true : false;
+  const couponAppOwned = outlet ? owns(outlet.owned, 'feature.partner_loyalty') === true : false;
   const couponGrantAction = outlet ? action(outlet.catalog, 'operations.grant_coupon') : undefined;
   const [services, setServices] = useState<CatalogueService[] | null>([]);
   const [packages, setPackages] = useState<CataloguePackage[]>([]);
@@ -195,6 +197,13 @@ export function Visit() {
       window.removeEventListener('focus', go);
     };
   }, [session]);
+
+  // THE COUNTER'S OWN CELEBRATION MOMENT (owner's own requirement) — a SEPARATE channel from the
+  // queue's own row-state `subscribe` above (see queue.ts's own note on why): fires once, only
+  // for a grant this screen's OWN drain actually just produced, never replayed on an unrelated
+  // re-render.
+  const [celebration, setCelebration] = useState<ReferralGrantAck | null>(null);
+  useEffect(() => queue.subscribeToCelebrations(setCelebration), []);
 
   const toggle = useCallback((id: string) => {
     setChosen((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
@@ -1086,6 +1095,11 @@ export function Visit() {
     // NO PADDING AND NO BOTTOM GAP. The journey measures the room it has and fills it exactly;
     // anything this wrapper adds is height the panes cannot see and the arrows pay for.
     <main className="bg-surface-0 text-text-primary">
+      {/* PORTALS TO document.body ITSELF — its position here in the tree is irrelevant to layout,
+          only to lifecycle (unmounts with this screen, same as every other Visit-only overlay). */}
+      {celebration ? (
+        <ReferralGrantCelebration grant={celebration} onClose={() => setCelebration(null)} />
+      ) : null}
       <div className="mx-auto max-w-4xl">
         {/* NO "TODAY'S CUSTOMERS" STRIP HERE, AND IT WAS THE FIRST THING ON THE SCREEN.
             The premise was that the same car returns an hour later. It does not: the customer

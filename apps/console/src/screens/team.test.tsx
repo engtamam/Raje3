@@ -32,6 +32,14 @@ vi.mock('../catalog', async (importOriginal) => {
   };
 });
 
+// A genuinely short link resolves to nothing here — the same "server could not resolve it
+// either" outcome a real unreachable/invalid short link produces, so the existing "blocked with
+// the specific sentence" test still exercises that real refusal path deterministically.
+vi.mock('../api', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../api')>();
+  return { ...real, resolveMapsShortLink: async () => '' };
+});
+
 const { People, Branches } = await import('./Team');
 
 const SESSION = { tenant: 't1', operator: '', operatorName: '', token: 'tok' };
@@ -172,7 +180,7 @@ describe('adding a branch — location required only from the second one on', ()
     expect(body.lng).toBe(39.1728);
   });
 
-  it('a SECOND branch with a short (unparseable) link is blocked with the specific sentence', () => {
+  it('a SECOND branch with a short link the server also cannot resolve is blocked with the specific sentence', async () => {
     render(<Branches {...branchesProps} branches={ONE_BRANCH} operators={[]} limit={-1} />);
     fireEvent.click(screen.getByText('إضافة فرع'));
     fireEvent.change(document.getElementById('br-name') as HTMLInputElement,
@@ -180,7 +188,10 @@ describe('adding a branch — location required only from the second one on', ()
     fireEvent.change(document.getElementById('br-maps') as HTMLInputElement,
                      { target: { value: 'https://maps.app.goo.gl/AbCd1234' } });
     fireEvent.click(screen.getByText('حفظ'));
+    // A short link now gets one real attempt at server-side resolution before the refusal — the
+    // mocked `resolveMapsShortLink` above answers immediately with "" (unresolved), same as a
+    // real short link the server also could not follow.
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('رابط مختصر'));
     expect(calls.some((c) => c.id === 'operations.create_branch')).toBe(false);
-    expect(screen.getByRole('alert').textContent).toContain('رابط مختصر');
   });
 });

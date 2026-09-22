@@ -58,7 +58,7 @@ interface CouponStats {
 }
 
 const SCOPE_OPTIONS = APP_ROWS
-  .filter((a) => a.key && a.key !== 'feature.coupons')
+  .filter((a) => a.key && a.key !== 'feature.partner_loyalty')
   .map((a) => ({ value: a.key as string, label: a.name }));
 
 // A refusal reads as a warning, not a hard failure — the shop simply already got the better

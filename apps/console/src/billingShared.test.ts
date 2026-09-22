@@ -88,8 +88,8 @@ describe('appDisplayName', () => {
   // for the identical app — the tile went through apps.ts's own renamed row, the cart read the
   // billing plan's raw, never-renamed `name` straight off the wire.
   it('reads the owner-facing name from apps.ts, never the billing plan\'s own stored name', () => {
-    const coupons = plan('كوبونات', { 'feature.coupons': { kind: 'boolean', limit: 1 } });
-    expect(appDisplayName(coupons)).toBe('تحالف استراتيجي');
+    const coupons = plan('كوبونات', { 'feature.partner_loyalty': { kind: 'boolean', limit: 1 } });
+    expect(appDisplayName(coupons)).toBe('ولاء الشركاء');
   });
 
   it('falls back to the plan\'s own name for a row apps.ts does not list at all', () => {

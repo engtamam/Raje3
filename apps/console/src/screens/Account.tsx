@@ -22,7 +22,7 @@
  * opening this page gets a short page, never a broken one.
  */
 import { useEffect, useState } from 'react';
-import { KeyRound, MapPin, UserCog } from 'lucide-react';
+import { KeyRound, MapPin, Pencil, UserCog } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Field, Input } from '../rj-ui/Field';
 import { PageHeader } from '../rj-ui/PageHeader';
@@ -30,6 +30,7 @@ import { Card } from '../rj-ui/Card';
 import { Segmented } from '../rj-ui/Segmented';
 import { TabBar } from '../rj-ui/TabBar';
 import { action, call, type Catalog } from '../catalog';
+import { getMyName, setMyName } from '../api';
 import type { Session } from '../session';
 import { ConnectByBranch } from './Connect';
 import { DataPane, InvoicesPane, KeysPane, ShopPane } from './AccountPanes';
@@ -113,11 +114,9 @@ function tabsFor(t: (key: string) => string): { id: Pane; label: string; hint: s
     // fix screen, not a store, with nothing here explaining the two are different. Renamed to
     // «الفوترة» — what is actually behind this tab now.
     { id: 'billing', label: t('account.tab.billing.label'), hint: t('account.tab.billing.hint') },
-    // A NEW TAB, DELIBERATELY NOT A NEW RAIL SECTION — nav.ts documents "the nine sections" as a
-    // fixed architectural constant (a phone-width limit), so a wallet balance broken down by
-    // purpose lives here instead, beside the other money errand. Its own component, its own
-    // design — built independently of PlansPane's, which is slated for a full rebuild.
-    { id: 'wallet', label: t('account.tab.wallet.label'), hint: t('account.tab.wallet.hint') },
+    // «محفظتي» TAB HIDDEN (2026-09-22, owner's own call) — the wallet balance it showed has no
+    // real use left in the product; kept out of the visible tab list rather than deleted
+    // (WalletPane/Wallet.tsx, the 'wallet' Pane id) in case it earns a real purpose again.
     // THE INVOICES CAME OUT OF THE STORE AND BECAME A TAB. They were the second half of a tab
     // whose first half is a catalogue: a person arriving to buy an app scrolled past his
     // receipts, and a person arriving for a receipt scrolled past the shop. Two errands, and
@@ -167,6 +166,32 @@ export function AccountScreen(
       .then((x) => setMyBranch((x.branches?.length ?? 0) === 1 ? x.branches![0] : null))
       .catch(() => { setMyBranch(null); setMyBranchFailed(true); });
   }, [session, catalog]);
+
+  // HIS OWN NAME, WHEN HE IS NOT AN OPERATOR — `session.operatorName` already carries a real name
+  // for staff (`Operator.name`, minted straight into the token); the owner holds no Operator row
+  // at all (staff.py's own docstring) and so had no name anywhere in the product until this. Read
+  // and edited through the platform-wide, capability-free `/account/me/name` door — same reasoning
+  // `getMyLocale`/`setMyLocale` already established for the language switch (api.ts's own note).
+  const [myName, setMyNameState] = useState<string | undefined>(undefined);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [savingName, setSavingName] = useState(false);
+
+  useEffect(() => {
+    if (session.operatorName) return; // he already has a real name — nothing to fetch
+    getMyName(session).then((row) => setMyNameState(row.name || '')).catch(() => setMyNameState(''));
+  }, [session]);
+
+  async function saveName() {
+    setSavingName(true);
+    try {
+      await setMyName(session, nameDraft.trim());
+      setMyNameState(nameDraft.trim());
+      setEditingName(false);
+    } finally {
+      setSavingName(false);
+    }
+  }
 
   const tabs = TABS.filter((tab) => {
     if (tab.id === 'billing') {
@@ -242,8 +267,31 @@ export function AccountScreen(
              className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-on-soft">
           <UserCog size={20} />
         </span>
-        <div className="flex flex-col gap-0.5">
-          <span className="text-lg font-semibold">{session.operatorName || session.operator}</span>
+        <div className="flex flex-1 flex-col gap-0.5">
+          {editingName ? (
+            <div className="flex items-center gap-2">
+              <Input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)}
+                     onKeyDown={(e) => { if (e.key === 'Enter') void saveName(); }}
+                     className="h-8 max-w-56 text-sm" />
+              <Button size="sm" disabled={savingName} onClick={() => void saveName()}>
+                {savingName ? t('account.savingName') : t('account.saveNameCta')}
+              </Button>
+              <Button size="sm" variant="ghost" disabled={savingName} onClick={() => setEditingName(false)}>
+                {t('account.cancelNameCta')}
+              </Button>
+            </div>
+          ) : (
+            <span className="flex items-center gap-1.5 text-lg font-semibold">
+              {session.operatorName || myName || session.operator}
+              {!session.operatorName && myName !== undefined ? (
+                <button type="button" aria-label={t('account.editNameCta')}
+                        onClick={() => { setNameDraft(myName); setEditingName(true); }}
+                        className="grid size-6 place-items-center rounded-full text-text-secondary transition hover:bg-surface-2 hover:text-text-primary focus-ring">
+                  <Pencil size={13} aria-hidden />
+                </button>
+              ) : null}
+            </span>
+          )}
           {myBranch ? (
             <span className="flex items-center gap-1 text-sm text-text-secondary">
               <MapPin size={13} aria-hidden /> {myBranch.name || myBranch.id}
