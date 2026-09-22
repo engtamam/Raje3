@@ -59,7 +59,11 @@ def _auth(*caps: str, tenant: str, subject: str = "op1") -> dict:
 
 MANAGE = _auth
 RECORD_CAPS = ("operations.record", "operations.manage", "operations.read")
-REFERRAL_CAPS = ("operations.manage",)
+# BOTH, matching the real role bundle (deploy/seed/roles.json's own owner/manager rows) —
+# `operations.manage` for the commit-the-shop actions (propose/accept/reject/either cancel),
+# `operations.read` for the read-only ones (list/audit-log/kpis), same split `staff.py`'s own
+# `_REFERRAL_MANAGE`/`_REFERRAL_VIEW` now draws.
+REFERRAL_CAPS = ("operations.manage", "operations.read")
 
 
 @pytest.fixture
@@ -282,8 +286,8 @@ def test_full_chain_discount_blanket_scope_is_the_default(wired: TestClient):
 
 
 def test_full_chain_discount_group_scope(wired: TestClient):
-    _make_service(wired, B, "svc_g1", "خدمة ١", price_minor=2000)
-    _make_service(wired, B, "svc_g2", "خدمة ٢", price_minor=2000)
+    _make_service(wired, B, "svc_g1", "خدمة 1", price_minor=2000)
+    _make_service(wired, B, "svc_g2", "خدمة 2", price_minor=2000)
     _make_package(wired, B, "pkg_1", "باقة الشراكة", ["svc_g1", "svc_g2"])
     _propose_and_accept(wired, grant_type="discount", discount_scope="group",
                         discount_group_id="pkg_1")
@@ -522,3 +526,45 @@ def test_points_balance_appears_alongside_the_customer_lookup_at_the_granting_sh
                      headers=_auth(*RECORD_CAPS, tenant=B))
     assert resp.status_code == 200, resp.text
     assert resp.json()["customer"]["points_balance"] == 120
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+# EDGE CASE — the counter's own celebration moment: `referral_grant` on the visit response, ONLY
+# on the real visit that just created a NEW grant, never on an ordinary visit, a replay of the
+# same idempotency key, or a visit that stays below the threshold.
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+
+def test_a_qualifying_visit_surfaces_a_referral_grant_for_the_celebration_screen(wired: TestClient):
+    _make_service(wired, B, "svc_gift", "قص شعر مجاني", price_minor=4000)
+    _propose_and_accept(wired, grant_type="gift", gift_service_id="svc_gift")
+    _make_service(wired, A, "svc_a1", "غسيل خارجي", price_minor=1500)
+
+    visit = _record_visit(wired, A, phone=CUSTOMER_PHONE, service_ids=["svc_a1"], idem="e2e-cel-a")
+    grant = visit.get("referral_grant")
+    assert grant is not None, visit
+    assert grant["grant_type"] == "gift"
+    assert grant["gift_service_name"] == "قص شعر مجاني"
+    assert grant["expires_at"] > 0
+    # NO TENANT-SERVICE CONFIGURED IN THIS TEST — `fetch_tenant_name` degrades silently to "", the
+    # exact same "a missing name never blocks the celebration" posture the route's own comment
+    # states; asserted here so that posture stays true, not merely documented.
+    assert grant["partner_shop_name"] == ""
+
+
+def test_an_ordinary_visit_under_the_threshold_never_surfaces_a_grant(wired: TestClient):
+    _propose_and_accept(wired, condition_value="999999")   # threshold unreachable
+    _make_service(wired, A, "svc_a1", "خدمة أ", price_minor=1500)
+    visit = _record_visit(wired, A, phone=CUSTOMER_PHONE, service_ids=["svc_a1"], idem="e2e-cel-under")
+    assert "referral_grant" not in visit
+
+
+def test_replaying_the_same_idempotency_key_never_re_surfaces_the_grant(wired: TestClient):
+    _propose_and_accept(wired, grant_type="discount", discount_scope="blanket")
+    _make_service(wired, A, "svc_a1", "خدمة أ", price_minor=1500)
+
+    first = _record_visit(wired, A, phone=CUSTOMER_PHONE, service_ids=["svc_a1"], idem="e2e-cel-dup")
+    assert first.get("referral_grant") is not None
+
+    second = _record_visit(wired, A, phone=CUSTOMER_PHONE, service_ids=["svc_a1"], idem="e2e-cel-dup")
+    assert second["duplicate"] is True
+    assert "referral_grant" not in second

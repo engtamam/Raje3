@@ -2313,12 +2313,21 @@ async def set_coupon_preferences(request: Request, body: CouponPreferencesIn,
 
 
 # ── referral partnership — NOT the same feature as coupons above, see core/referral_partnership.py
-# ── module docstring. Owner/manager-only gate throughout (`operations.manage`), matching the
-# ── design doc's explicit "a commitment against another shop entirely" requirement — never a plain
-# ── operator capability the way `operations.grant_coupon` (a routine, per-visit act) is.
+# ── module docstring. TWO TIERS (owner's own explicit decision, 2026-09-21 — same split
+# ── `operations.grant_coupon`/`operations.grant_coupon_direct` already draws for coupons):
+# ── committing the shop to a partnership — propose/accept/reject/either cancel step — stays
+# ── `operations.manage` (owner/manager only), matching the design doc's own "a commitment against
+# ── another shop entirely" requirement, never a plain operator capability the way
+# ── `operations.grant_coupon` (a routine, per-visit act) is. READING one — the list, its audit
+# ── log, the performance KPIs — is `operations.read` instead, which `marketer` also holds
+# ── (deploy/seed/roles.json's own row for that role): "وسّع قاعدة عملائك دون ريال إعلان واحد" is
+# ── exactly a marketing metric this role should see, same reasoning `campaigns.read`/
+# ── `insights.read` already grant it visibility elsewhere — seeing performance is not the same
+# ── act as committing the shop's own services to a partner, and must not require the same key.
 from app.core.referral_partnership import ReferralError
 
 _REFERRAL_MANAGE = require_capability("operations.manage")
+_REFERRAL_VIEW = require_capability("operations.read")
 
 
 def _referral_error(exc: ReferralError) -> HTTPException:
@@ -2382,7 +2391,7 @@ async def propose_referral_partnership(request: Request, body: ProposeReferralIn
 
 @router.get("/referral-partnership/agreements", dependencies=[Depends(rate_limit)])
 async def list_referral_partnerships(request: Request,
-                                     principal: Principal = Depends(_REFERRAL_MANAGE)):
+                                     principal: Principal = Depends(_REFERRAL_VIEW)):
     tenant = _tenant(principal)
     rows = await request.app.state.container.referral_partnership.agreements_for(tenant)
     return {"agreements": [r.public() for r in rows]}
@@ -2471,7 +2480,7 @@ async def cancel_confirm_referral_partnership(request: Request, agreement_id: st
 @router.get("/referral-partnership/agreements/{agreement_id}/audit-log",
            dependencies=[Depends(rate_limit)])
 async def referral_partnership_audit_log(request: Request, agreement_id: str,
-                                         principal: Principal = Depends(_REFERRAL_MANAGE)):
+                                         principal: Principal = Depends(_REFERRAL_VIEW)):
     tenant = _tenant(principal)
     try:
         rows = await request.app.state.container.referral_partnership.audit_log(
@@ -2483,6 +2492,6 @@ async def referral_partnership_audit_log(request: Request, agreement_id: str,
 
 @router.get("/referral-partnership/kpis", dependencies=[Depends(rate_limit)])
 async def referral_partnership_kpis(request: Request,
-                                    principal: Principal = Depends(_REFERRAL_MANAGE)):
+                                    principal: Principal = Depends(_REFERRAL_VIEW)):
     tenant = _tenant(principal)
     return await request.app.state.container.referral_partnership.kpis(tenant)

@@ -108,6 +108,7 @@ is explicitly DEFERRED (owner's own call) — nothing here scaffolds it; when it
 """
 from __future__ import annotations
 
+import itertools
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -312,13 +313,31 @@ class ReferralAuditEntry:
     # call (e.g. `accept()`'s own "accepted" then "activated") can land in the same wall-clock
     # SECOND, and `DataStore.find`'s own tie-break is by ROW ID (arbitrary uuids here), not
     # insertion order — so `created` alone cannot reproduce "every transition, in the order it
-    # truly happened". Nanosecond epoch (`time.time_ns()`), not a process-local counter — this
-    # service runs as several replicas, and a counter reset per process would let two pods
-    # writing the SAME agreement's log interleave with colliding sequence numbers.
+    # truly happened". `time.time_ns()` alone was tried first and FAILED IN PRACTICE (found live):
+    # two `_audit()` calls back-to-back with no real I/O between them (`accept()`'s own "accepted"
+    # then "activated") can land on the SAME OS clock tick — Windows' `time_ns()` resolution is far
+    # coarser than a nanosecond in practice — and the id tie-break above is a random uuid, so a
+    # collision scrambles the two entries' order. `_SEQ.next()` folded into the low bits below
+    # breaks that tie deterministically, in true call order, while the time bits still dominate the
+    # value — so cross-pod entries for the same agreement still land in roughly wall-clock order,
+    # which is all a counter reset per pod could never give on its own.
     seq: int = 0
 
     def public(self) -> dict[str, Any]:
         return asdict(self)
+
+
+# Module-level, not per-engine-instance — the collision this exists for is call-to-call within one
+# process regardless of which agreement or engine object is involved, so one counter shared by the
+# whole process is what actually closes the window; `next()` on an `itertools.count()` is a single
+# C-level op and stays GIL-atomic for this purpose. Masked to 20 bits (kept well under time_ns()'s
+# own least-significant bits) so it can never overflow into, and corrupt, the time component.
+_SEQ = itertools.count()
+_SEQ_MASK = (1 << 20) - 1
+
+
+def _next_seq() -> int:
+    return (time.time_ns() << 20) | (next(_SEQ) & _SEQ_MASK)
 
 
 class ReferralPartnershipEngine:
@@ -340,7 +359,7 @@ class ReferralPartnershipEngine:
                      detail: dict[str, Any] | None = None) -> None:
         entry = ReferralAuditEntry(id=f"rpaud_{uuid_hex()}", agreement_id=agreement_id,
                                    event=event, actor_tenant=actor_tenant,
-                                   detail=detail or {}, created=_now(), seq=time.time_ns())
+                                   detail=detail or {}, created=_now(), seq=_next_seq())
         await self._s.put(AUDIT_LOG, f"{PLATFORM}|{entry.id}", {"tenant": PLATFORM, **asdict(entry)})
 
     async def audit_log(self, tenant: str, agreement_id: str, limit: int = 200
@@ -779,13 +798,21 @@ class ReferralPartnershipEngine:
 
     # ── the `record_visit()` hook — called for EVERY channel, see module docstring ──────────────
     async def on_visit_recorded(self, *, tenant: str, customer_phone: str, service_ids: list[str],
-                                total_minor: int, visit_id: str) -> None:
+                                total_minor: int, visit_id: str) -> "ReferralGrant | None":
         """`tenant` is the shop where the visit just happened — potentially shop_a for zero, one, or
         several active agreements at once. Never raises: any failure here must never be seen by the
         caller, which is why `Operations.record_visit` wraps this call itself defensively too — this
         method's own contract is simply "best effort", the same posture `InAppNotifier.send` and
         `rating_alerts.check_and_notify` already take for every non-essential side effect off the
         visit-recording hot path.
+
+        RETURNS THE GRANT THIS VISIT ACTUALLY CREATED, IF ANY — added for the counter's own
+        celebration moment (owner's own requirement: a real "you just earned a partner reward"
+        screen, fired only on a genuine new grant, never on the routine case). The RETURN VALUE is
+        an optimisation only — `Operations.record_visit` still wraps this whole call in its own
+        try/except and treats any exception as "nothing happened", so a bug in this return path can
+        at worst lose the celebration, never the visit or the grant itself (which is already
+        durably written by `_grant` before this method returns).
         """
         rows, _ = await self._s.find(AGREEMENTS, {"tenant": PLATFORM, "shop_a": tenant, "status": ACTIVE},
                                      limit=200)
@@ -796,7 +823,10 @@ class ReferralPartnershipEngine:
                 continue
             if not self._condition_met(agreement, service_ids=service_ids, total_minor=total_minor):
                 continue
-            await self._grant(agreement, customer_phone=customer_phone, visit_id=visit_id)
+            grant = await self._grant(agreement, customer_phone=customer_phone, visit_id=visit_id)
+            if grant is not None:
+                return grant
+        return None
 
     @staticmethod
     def _condition_met(agreement: ReferralAgreement, *, service_ids: list[str],
@@ -810,18 +840,20 @@ class ReferralPartnershipEngine:
         return agreement.condition_value in service_ids
 
     async def _grant(self, agreement: ReferralAgreement, *, customer_phone: str,
-                     visit_id: str) -> None:
+                     visit_id: str) -> "ReferralGrant | None":
         phone = canonical_phone(customer_phone, default_cc=self._cc)
         if not phone:
-            return
+            return None
         # IDEMPOTENT ON THE TRIGGERING VISIT — a retried `record_visit()` call (the visit's own
         # idempotency key already made record_visit itself return the SAME visit id) must never
-        # grant twice for that one visit.
+        # grant twice for that one visit. `None`, not the existing grant: a REPLAY is not a NEW
+        # grant, and the celebration screen this return value now feeds must fire once, on the
+        # visit that actually created it — never again on a retry of the same one.
         existing, _ = await self._s.find(
             GRANTS, {"tenant": PLATFORM, "agreement_id": agreement.id,
                     "triggering_visit_id": visit_id}, limit=1)
         if existing:
-            return
+            return None
 
         # THE PER-PERIOD CAP — refused silently from the visit's own point of view (a visit is never
         # affected either way), logged as its own outcome so the granting shop's KPI screen can show
@@ -835,7 +867,7 @@ class ReferralPartnershipEngine:
             if len(in_window) >= agreement.per_period_cap:
                 await self._audit(agreement.id, EV_GRANT_CAPPED, actor_tenant=PLATFORM,
                                   detail={"triggering_visit_id": visit_id})
-                return
+                return None
 
         now = _now()
         grant = ReferralGrant(
@@ -852,6 +884,7 @@ class ReferralPartnershipEngine:
         await self._s.put(GRANTS, f"{PLATFORM}|{grant.id}", {"tenant": PLATFORM, **asdict(grant)})
         await self._audit(agreement.id, EV_GRANT_CREATED, actor_tenant=PLATFORM,
                           detail={"grant_id": grant.id, "triggering_visit_id": visit_id})
+        return grant
 
     # ── shop B's own redemption check — the visit screen's own "does this phone qualify" ────────
     async def eligibility(self, tenant: str, phone: str) -> dict[str, Any] | None:

@@ -135,6 +135,46 @@ def test_propose_then_accept_over_http(wired: TestClient):
     assert resp.json()["status"] == "active"
 
 
+# ── the two-tier split (owner's own decision, 2026-09-21): a marketer (`operations.read` alone,
+# never `operations.manage` — deploy/seed/roles.json's own row for that role) may SEE a
+# partnership's list/audit-log/KPIs, exactly the marketing-relevant numbers this app produces, but
+# may never commit the shop to one or act on it — that stays owner/manager (`operations.manage`)
+# only, same reasoning `operations.grant_coupon_direct` already draws for coupons.
+def test_a_marketer_can_read_the_list_audit_log_and_kpis(wired: TestClient):
+    agreement_id = _propose(wired)
+    marketer = _auth("operations.read", tenant=A)
+
+    listed = wired.get("/api/v1/staff/referral-partnership/agreements", headers=marketer)
+    assert listed.status_code == 200, listed.text
+    assert len(listed.json()["agreements"]) == 1
+
+    audit = wired.get(f"/api/v1/staff/referral-partnership/agreements/{agreement_id}/audit-log",
+                      headers=marketer)
+    assert audit.status_code == 200, audit.text
+
+    kpis = wired.get("/api/v1/staff/referral-partnership/kpis", headers=marketer)
+    assert kpis.status_code == 200, kpis.text
+    assert "as_referrer" in kpis.json()
+
+
+def test_a_marketer_cannot_propose_accept_reject_or_cancel(wired: TestClient):
+    marketer = _auth("operations.read", tenant=A)
+    resp = wired.post("/api/v1/staff/referral-partnership/agreements", headers=marketer,
+                      json={"shop_b_phone": B_PHONE, "condition_type": "min_total_minor",
+                           "condition_value": "1000", "grant_validity_days": 3,
+                           "agreement_duration_days": 90})
+    assert resp.status_code == 403
+
+    agreement_id = _propose(wired)
+    for path, tenant in ((f"agreements/{agreement_id}/accept", B),
+                         (f"agreements/{agreement_id}/reject", B),
+                         (f"agreements/{agreement_id}/cancel-request", A),
+                         (f"agreements/{agreement_id}/cancel-confirm", B)):
+        resp = wired.post(f"/api/v1/staff/referral-partnership/{path}",
+                          headers=_auth("operations.read", tenant=tenant))
+        assert resp.status_code == 403, path
+
+
 def test_a_third_tenant_gets_404_not_someone_elses_data(wired: TestClient):
     agreement_id = _propose(wired)
     resp = wired.get(f"/api/v1/staff/referral-partnership/agreements/{agreement_id}",
@@ -144,8 +184,11 @@ def test_a_third_tenant_gets_404_not_someone_elses_data(wired: TestClient):
 
 def test_a_third_tenant_listing_sees_nothing(wired: TestClient):
     _propose(wired)
+    # `list` is now `operations.read` (the marketer-visible tier) — see staff.py's own
+    # `_REFERRAL_VIEW` note; `operations.manage` alone would 403 here, which is not what this
+    # test is about.
     resp = wired.get("/api/v1/staff/referral-partnership/agreements",
-                     headers=_auth("operations.manage", tenant=C))
+                     headers=_auth("operations.read", tenant=C))
     assert resp.status_code == 200
     assert resp.json()["agreements"] == []
 
@@ -174,7 +217,7 @@ def test_kpis_are_per_tenant_isolated_over_http(wired: TestClient):
     wired.post(f"/api/v1/staff/referral-partnership/agreements/{agreement_id}/accept",
               headers=_auth("operations.manage", tenant=B))
     resp_c = wired.get("/api/v1/staff/referral-partnership/kpis",
-                       headers=_auth("operations.manage", tenant=C))
+                       headers=_auth("operations.read", tenant=C))
     assert resp_c.status_code == 200
     assert resp_c.json()["as_referrer"]["referrals_sent"] == 0
 
