@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <title>راجِع</title>
+  <desc>THE WORDMARK ITSELF, same rule as apps/console/public/favicon.svg (no drawn icon anywhere
+  in the product since 2026-09-16) — found live: this file never existed, so Chrome's tab showed
+  Flutter's own stock template mark instead. Colours are LITERAL, not a Dart constant: a favicon is
+  fetched outside the Flutter app, so it has no access to AppColors.accent. #7C3AED is
+  config/product.json's current brand.accent.light, read directly rather than copied from
+  console's own favicon.svg (that file's #6a4cf5 is itself a stale, un-updated snapshot).</desc>
+  <rect width="32" height="32" rx="7" fill="#ffffff"/>
+  <text
+    x="16"
+    y="21"
+    text-anchor="middle"
+    font-family="Cairo, Tajawal, 'Segoe UI', Tahoma, sans-serif"
+    font-weight="800"
+    font-size="12.5"
+    fill="#7C3AED"
+  >راجِع</text>
+</svg>

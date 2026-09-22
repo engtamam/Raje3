@@ -36,6 +36,42 @@ class Formatters {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // PLATE — mirrors apps/console/src/screens/Visit.tsx::formatPlate exactly, digit for digit,
+  // so a plate typed on either screen for the same car reads the same way.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Digits (max 4, folded from Arabic-Indic first) then letters (max 3, either script,
+  /// uppercased), space-joined — "1234 ABC". Letters-only when there are no digits at all.
+  ///
+  /// FOLD BEFORE STRIPPING (same real bug console's own formatPlate fixed once): an Arabic-Indic
+  /// digit is a real digit and must never be dropped along with punctuation.
+  static String formatPlate(String raw) {
+    final folded = _westernDigits(raw);
+    final digits = folded.runes
+        .map(String.fromCharCode)
+        .where((ch) => RegExp(r'[0-9]').hasMatch(ch))
+        .take(4)
+        .join();
+    final letters = folded.runes
+        .map(String.fromCharCode)
+        .where((ch) => RegExp(r'\p{L}', unicode: true).hasMatch(ch))
+        .take(3)
+        .join()
+        .toUpperCase();
+    return letters.isNotEmpty ? '$digits $letters'.trim() : digits;
+  }
+
+  /// One letter and one digit, in any script, anywhere — the EXACT rule
+  /// `services/operations/app/core/plate.py::is_plausible` enforces server-side. Never the
+  /// stricter Saudi format: temporary, transit, Gulf and diplomatic plates are all real.
+  static bool isPlatePlausible(String plate) {
+    final folded = _westernDigits(plate);
+    final hasDigit = RegExp(r'[0-9]').hasMatch(folded);
+    final hasLetter = RegExp(r'\p{L}', unicode: true).hasMatch(folded);
+    return hasDigit && hasLetter;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // CURRENCY
   // ─────────────────────────────────────────────────────────────────────────
 

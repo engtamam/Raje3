@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raje3_mobile/core/voice/adapters/null_speech_input_model.dart';
 import 'package:raje3_mobile/core/voice/speech_input_config.dart';
-import 'package:raje3_mobile/core/voice/speech_input_container.dart';
 
 void main() {
   group('NullSpeechInputModel', () {
@@ -27,9 +26,9 @@ void main() {
   });
 
   group('buildSpeechInputModel', () {
-    test('defaults to NullSpeechInputModel with nothing configured', () {
-      expect(SpeechInputConfig.modelDriver, 'null');
-      expect(buildSpeechInputModel(), isA<NullSpeechInputModel>());
+    // THE REAL DEFAULT NOW (owner's own decision, 2026-09-21) — 'platform'.
+    test('defaults to platform driver with nothing configured', () {
+      expect(SpeechInputConfig.modelDriver, 'platform');
     });
   });
 }

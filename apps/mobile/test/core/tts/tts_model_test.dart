@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raje3_mobile/core/tts/adapters/null_tts_model.dart';
 import 'package:raje3_mobile/core/tts/tts_config.dart';
-import 'package:raje3_mobile/core/tts/tts_container.dart';
 
 void main() {
   group('NullTtsModel', () {
@@ -20,9 +19,9 @@ void main() {
   });
 
   group('buildTtsModel', () {
-    test('defaults to NullTtsModel with nothing configured', () {
-      expect(TtsConfig.modelDriver, 'null');
-      expect(buildTtsModel(), isA<NullTtsModel>());
+    // THE REAL DEFAULT NOW (owner's own decision, 2026-09-21) — 'platform'.
+    test('defaults to platform driver with nothing configured', () {
+      expect(TtsConfig.modelDriver, 'platform');
     });
   });
 }

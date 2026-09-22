@@ -1,0 +1,15 @@
+// Some legacy Flutter plugins (e.g. mic_stream 0.7.2) still call the jcenter()
+// repository method in their own android/build.gradle. That method was removed
+// from Gradle's RepositoryHandler API in Gradle 7+ (gone entirely by Gradle 9),
+// so those plugins fail to configure under this project's Gradle/AGP version.
+//
+// We cannot edit the plugin's vendored build.gradle (it lives in the pub cache
+// and gets overwritten by `flutter pub get`), so instead we add a jcenter()
+// alias to every project's repository handlers here, in the app's own root
+// build script, before the plugin subprojects' own build.gradle files run.
+// The alias just delegates to mavenCentral(), which is where jcenter's content
+// has redirected since 2021 anyway.
+allprojects { proj ->
+    proj.repositories.metaClass.jcenter = { -> proj.repositories.mavenCentral() }
+    proj.buildscript.repositories.metaClass.jcenter = { -> proj.buildscript.repositories.mavenCentral() }
+}

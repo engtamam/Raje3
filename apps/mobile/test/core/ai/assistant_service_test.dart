@@ -156,7 +156,8 @@ void main() {
       final assistant = AssistantService(aiModel: ai, kbService: KbService(), actionRegistry: actionRegistry);
       await assistant.ensureReady(Catalog.empty);
 
-      expect(ai.lastTools, isEmpty);
+      // 'nav.home' (empty `requires`) is always visible — this checks the GATED action alone.
+      expect(ai.lastTools?.map((t) => t.name), isNot(contains('open_visit_app')));
     });
   });
 }

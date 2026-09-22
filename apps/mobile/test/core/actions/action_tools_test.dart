@@ -61,7 +61,8 @@ void main() {
     test('a session without the capability gets no tools at all — never a leaked action name',
         () {
       final tools = registry.toolsFor(Catalog.empty);
-      expect(tools, isEmpty);
+      // 'nav.home' (empty `requires`) is always visible — this checks the GATED action alone.
+      expect(tools.map((t) => t.name), isNot(contains('open_visit_app')));
     });
   });
 }

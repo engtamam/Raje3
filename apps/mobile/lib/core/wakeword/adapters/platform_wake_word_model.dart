@@ -2,11 +2,16 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_litert/flutter_litert.dart';
-import 'package:mic_stream/mic_stream.dart';
+import 'package:record/record.dart';
 import 'package:raje3_mobile/core/wakeword/micro_frontend.dart';
 import 'package:raje3_mobile/core/wakeword/wake_word_model.dart';
 
-/// The real device: `mic_stream` for raw 16kHz mono PCM, [MicroFrontend] to turn it into the
+/// The real device: `record` for raw 16kHz mono PCM (SWAPPED FROM `mic_stream` — that package's
+/// own plugin code called `io.flutter.plugin.common.PluginRegistry.Registrar`, the Flutter v1
+/// embedding API removed from the engine years ago; found live the first time this app was ever
+/// built into a real APK, `mic_stream` had been silently unbuildable on Android all along. `record`
+/// is actively maintained and returns the exact same shape — a raw `Stream<Uint8List>` of 16-bit
+/// PCM bytes — so nothing below this file's own import needed to change), [MicroFrontend] to turn it into the
 /// same 40-channel features microWakeWord trained on, and `flutter_litert`'s classic
 /// `Interpreter` to run the trained classifier (`assets/wakeword/raje_wakeword.tflite`) — see
 /// this app's own wake-word training notes for the model's real, verified tensor signature:
@@ -45,6 +50,7 @@ class PlatformWakeWordModel implements WakeWordModel {
 
   Interpreter? _interpreter;
   final MicroFrontend _frontend = MicroFrontend();
+  final AudioRecorder _recorder = AudioRecorder();
   StreamSubscription<Uint8List>? _micSubscription;
   final List<Float64List> _pendingFrames = [];
   bool _listening = false;
@@ -81,11 +87,15 @@ class PlatformWakeWordModel implements WakeWordModel {
 
     late final Stream<Uint8List> mic;
     try {
-      mic = MicStream.microphone(
+      if (!await _recorder.hasPermission()) {
+        _listening = false;
+        return;
+      }
+      mic = await _recorder.startStream(const RecordConfig(
+        encoder: AudioEncoder.pcm16bits,
         sampleRate: MicroFrontend.sampleRate,
-        channelConfig: ChannelConfig.CHANNEL_IN_MONO,
-        audioFormat: AudioFormat.ENCODING_PCM_16BIT,
-      );
+        numChannels: 1,
+      ));
     } catch (_) {
       _listening = false;
       return;
@@ -100,7 +110,7 @@ class PlatformWakeWordModel implements WakeWordModel {
 
   void _onAudioChunk(Uint8List bytes, void Function() onDetected) {
     if (!_listening || _interpreter == null) return;
-    // mic_stream's own bytes are little-endian 16-bit PCM pairs — reinterpret in place, no copy.
+    // record's own bytes are little-endian 16-bit PCM pairs — reinterpret in place, no copy.
     final pcm16 = bytes.buffer.asInt16List(bytes.offsetInBytes, bytes.lengthInBytes ~/ 2);
     final frames = _frontend.process(pcm16);
     if (frames.isEmpty) return;
@@ -149,11 +159,15 @@ class PlatformWakeWordModel implements WakeWordModel {
     await _micSubscription?.cancel();
     _micSubscription = null;
     _pendingFrames.clear();
+    // record's own recorder (unlike mic_stream) stays open until told to stop explicitly —
+    // cancelling only the stream subscription above would leave the OS mic indicator lit.
+    if (await _recorder.isRecording()) await _recorder.stop();
   }
 
   @override
   Future<void> dispose() async {
     await stop();
+    await _recorder.dispose();
     _interpreter?.close();
     _interpreter = null;
   }

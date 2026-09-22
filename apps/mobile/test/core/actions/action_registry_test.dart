@@ -34,7 +34,9 @@ void main() {
 
   test('an action gated by a capability the session lacks is invisible', () {
     final actions = registry.visibleActions(Catalog.empty).toList();
-    expect(actions, isEmpty);
+    // 'nav.home' has an empty `requires` (see mobile_actions.json) — always visible, same as
+    // 'home' itself never being gated by a capability. Only the gated action is missing here.
+    expect(actions.map((a) => a.name), isNot(contains('open_visit_app')));
   });
 
   test('byName only resolves an action the session may actually use', () {

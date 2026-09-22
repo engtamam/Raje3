@@ -10,4 +10,11 @@ ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec
 ios/Pods/
 android/.gradle/
+android/.kotlin/
 android/local.properties
+
+# THE BUNDLED GEMMA MODEL — ~2.77GB, fetched at BUILD time by scripts/fetch_ai_model.sh, never
+# committed. A binary this size in git history is a permanent cost (every clone, every CI
+# checkout) independent of the "ships inside the app" product decision it serves — see
+# AiConfig.gemmaModelAssetPath's own doc comment for the full reasoning.
+assets/models/

@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:raje3_mobile/core/ai/ai_model.dart';
 
-/// Gemma 4 E4B, entirely on-device via `flutter_gemma` — the model file is downloaded once to
-/// this device's own storage and every prompt/answer after that runs locally; nothing here ever
-/// calls one of our own servers (see AiModel's own doc comment for why that matters).
+/// Gemma 4 E4B, entirely on-device via `flutter_gemma` — the model file SHIPS INSIDE THE APP
+/// PACKAGE ITSELF (owner's own explicit decision, 2026-09-22, reversing the earlier "download
+/// after install" design — see ai_config.dart's own doc comment on [AiConfig.gemmaModelAssetPath]
+/// for the full reasoning and the real size trade-off that decision accepts) — no network call is
+/// ever made to install it, and every prompt/answer after that runs locally; nothing here ever
+/// calls one of our own servers either (see AiModel's own doc comment for why that matters).
 ///
 /// ONE ADAPTER, THE PLUGIN'S OWN LIFECYCLE UNDERNEATH. [_model]/[_chat] are `flutter_gemma`'s own
 /// [InferenceModel]/[InferenceChat] — this class exists to translate ITS shape into [AiModel]'s
@@ -13,12 +16,9 @@ import 'package:raje3_mobile/core/ai/ai_model.dart';
 /// [TextResponse]/[FunctionCallResponse] union, [AiTool] instead of its own [Tool]), never to add
 /// product logic of its own.
 class GemmaAiModel implements AiModel {
-  GemmaAiModel({required String modelUrl, String token = ''})
-      : _modelUrl = modelUrl,
-        _token = token;
+  GemmaAiModel({required String modelAssetPath}) : _modelAssetPath = modelAssetPath;
 
-  final String _modelUrl;
-  final String _token;
+  final String _modelAssetPath;
 
   @override
   String get driver => 'gemma';
@@ -58,7 +58,11 @@ class GemmaAiModel implements AiModel {
         modelType: ModelType.gemma4,
         fileType: ModelFileType.litertlm,
       )
-          .fromNetwork(_modelUrl, token: _token.isEmpty ? null : _token)
+          // BUNDLED, NEVER NETWORK — see this class's own doc comment. `.install()` here is a
+          // local copy out of the app bundle into the plugin's own writable storage on first
+          // run (still worth the progress stream: a 2.77GB copy is not instant), never an HTTP
+          // request.
+          .fromAsset(_modelAssetPath)
           .withProgress((progress) => _progressController.add(progress))
           .install();
 

@@ -7,16 +7,16 @@ import 'package:raje3_mobile/core/ai/ai_model.dart';
 /// `build_plans`/`build_connections` factory (services/operations/app/core/subscribe.py and
 /// friends): a driver string picks an adapter, and nothing else in the app constructs one by hand.
 ///
-/// A HALF-CONFIGURED 'gemma' DRIVER IS STILL OFF. Choosing 'gemma' without setting
-/// [AiConfig.gemmaModelUrl] would otherwise build an adapter that can never actually download
-/// anything — worse than the null adapter, because its `status` would claim `needsDownload`
-/// forever rather than the honest `unavailable`. So this falls back to [NullAiModel] in that
-/// case, the same "half-configured must not half-work" rule [AiConfig]'s own doc comment states.
+/// NO SYNCHRONOUS "IS IT REALLY THERE" CHECK HERE, UNLIKE THE OLD URL-BASED DESIGN (an empty
+/// string was checkable in one line; a bundled asset's real presence is not — Flutter only
+/// exposes that through `rootBundle`, asynchronously). `GemmaAiModel.ensureReady()`'s own
+/// try/catch is where a genuinely missing asset (a dev who forgot scripts/fetch_ai_model.sh
+/// before `flutter run`) surfaces as `AiModelStatus.error` instead — a build-time mistake for
+/// that dev to see immediately, not a silent fallback to [NullAiModel] that would hide it.
 AiModel buildAiModel() {
   switch (AiConfig.modelDriver) {
     case 'gemma':
-      if (AiConfig.gemmaModelUrl.isEmpty) return NullAiModel();
-      return GemmaAiModel(modelUrl: AiConfig.gemmaModelUrl, token: AiConfig.gemmaModelToken);
+      return GemmaAiModel(modelAssetPath: AiConfig.gemmaModelAssetPath);
     default:
       return NullAiModel();
   }

@@ -43,6 +43,12 @@ class AppConstants {
   /// User's preferred theme mode: 'light' or 'dark' (local storage).
   static const String themeModeKey = 'theme_mode';
 
+  /// Cached answer to "does this shop hold `feature.mobile_ai_assistant`" — GET /api/v1/account/
+  /// me/mobile-ai-assistant. Read as a fallback ONLY when a fresh check could not be made (the
+  /// server's own `checked: false`, or the request itself failing) — never a substitute for
+  /// asking when asking is possible. See [AiEntitlementProvider]'s own doc comment.
+  static const String mobileAiAssistantSubscribedKey = 'mobile_ai_assistant_subscribed';
+
   /// Whether the user has completed onboarding (local storage).
   static const String onboardingCompleteKey = 'onboarding_complete';
 
