@@ -9,6 +9,7 @@ import 'package:raje3_mobile/core/utils/formatters.dart';
 import 'package:raje3_mobile/core/utils/validators.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/effects/game_effects.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/premium/active_offer_banner.dart';
 import 'package:raje3_mobile/widgets/premium/loyalty_balance_card.dart';
@@ -417,6 +418,12 @@ class _VisitScreenState extends State<VisitScreen>
       final status = response.statusCode ?? 0;
       if (status >= 200 && status < 300) {
         HapticFeedback.mediumImpact();
+        // THE COUNTER'S OWN CELEBRATION MOMENT — `celebrate`, never `pointsEarned`: this is a
+        // SPEND (points went down), so a rising "+N" here would read backwards to whoever is
+        // watching over the operator's shoulder. Fired on THIS context, before the reward row
+        // itself rebuilds under the coming setState, so the burst centres on the screen the
+        // operator is actually looking at right now.
+        if (mounted) GameEffects.celebrate(context);
         setState(() {
           _redeemedRewardName = rewardName;
           _redeemingRewardId = '';
