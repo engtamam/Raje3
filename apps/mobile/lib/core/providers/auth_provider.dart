@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -155,6 +156,7 @@ class AuthProvider extends ChangeNotifier {
 
       apiClient.resetAuthState();
       _setState(AuthState.authenticated);
+      unawaited(_refreshOwnerName());
       return true;
     } catch (e) {
       _error = e.toString();
@@ -162,6 +164,79 @@ class AuthProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  /// Fetches the account holder's own name and folds it into [_user] once it resolves — NOT
+  /// awaited by any caller, so a slow or failed read never blocks reaching the home screen; the
+  /// greeting simply keeps showing the phone number until this lands (or forever, if he never
+  /// set one). May pick up a change made from the console's own «حسابي» since this device last
+  /// signed in — this is a real fetch, never the cached copy [tryAutoLogin] restored.
+  Future<void> _refreshOwnerName() async {
+    final name = await _authService.fetchOwnerName();
+    if (name == null || _user == null) return;
+    _user = _user!.copyWith(ownerName: name);
+    await secureStorage.setUserData(jsonEncode(_user!.toJson()));
+    notifyListeners();
+  }
+
+  /// «حسابي»'s own edit — writes the account holder's name, and only updates local state once the
+  /// server confirms it actually took (never optimistic: an offline save that silently reverted
+  /// on the next launch would be a worse surprise than the extra round trip). Returns whether it
+  /// actually saved, so the screen can tell a real failure from a quiet no-op.
+  Future<bool> updateOwnerName(String name) async {
+    final trimmed = name.trim();
+    final saved = await _authService.setOwnerName(trimmed);
+    if (saved == null || _user == null) return false;
+    _user = _user!.copyWith(ownerName: saved);
+    await secureStorage.setUserData(jsonEncode(_user!.toJson()));
+    notifyListeners();
+    return true;
+  }
+
+  /// «منشأتي»'s own controls — thin passthroughs, not stored on [_user]: unlike the owner's own
+  /// name, these are a live per-request read the shop identity screen owns and refreshes itself,
+  /// never part of the cached session shape every screen reads.
+  Future<bool?> fetchTracksVehicle() => _authService.fetchTracksVehicle();
+  Future<bool?> setTracksVehicle(bool tracksVehicle) =>
+      _authService.setTracksVehicle(tracksVehicle);
+  Future<TenantIdentity?> fetchTenant() => _authService.fetchTenant();
+  Future<bool> setShopName(String name) => _authService.setShopName(name);
+  Future<bool> setBranding({
+    required Map<String, dynamic> current,
+    String? logoUrl,
+    String? accent,
+  }) =>
+      _authService.setBranding(current: current, logoUrl: logoUrl, accent: accent);
+
+  /// «الفروع» — thin passthroughs, same live-per-request shape as the shop identity controls
+  /// above.
+  Future<BranchesResult?> fetchBranches() => _authService.fetchBranches();
+  Future<BranchWriteResult> addBranch({required String name, String city = '', double? lat, double? lng}) =>
+      _authService.addBranch(name: name, city: city, lat: lat, lng: lng);
+  Future<BranchWriteResult> patchBranch(String branchId,
+          {String? name, bool? active, String? city, double? lat, double? lng}) =>
+      _authService.patchBranch(branchId, name: name, active: active, city: city, lat: lat, lng: lng);
+  Future<List<BranchTeamMember>?> fetchOperators() => _authService.fetchOperators();
+  Future<BranchConnectStatus?> fetchBranchConnectStatus(String branchId) =>
+      _authService.fetchBranchConnectStatus(branchId);
+  Future<bool> fetchIsPerBranchMode() => _authService.fetchIsPerBranchMode();
+  Future<HireResult> hireMember({
+    required String name,
+    required String phone,
+    required String password,
+    required StaffRole role,
+    required String branchId,
+  }) =>
+      _authService.hireMember(
+          name: name, phone: phone, password: password, role: role, branchId: branchId);
+  Future<ChangePasswordResult> changePassword({required String oldPassword, required String newPassword}) =>
+      _authService.changePassword(oldPassword: oldPassword, newPassword: newPassword);
+  Future<BillingOverview> fetchBillingOverview() => _authService.fetchBillingOverview();
+  Future<bool> cancelSubscription(String subscriptionId) =>
+      _authService.cancelSubscription(subscriptionId);
+  Future<bool> undoCancelSubscription(String subscriptionId) =>
+      _authService.undoCancelSubscription(subscriptionId);
+  Future<String?> invoicePayLink(String invoiceId) => _authService.invoicePayLink(invoiceId);
+  Future<List<String>> renewSubscriptionsNow() => _authService.renewSubscriptionsNow();
 
   // ─────────────────────────────────────────────────────────────────────────
   // LOGIN
@@ -185,6 +260,7 @@ class AuthProvider extends ChangeNotifier {
       _error = null;
       apiClient.resetAuthState();
       _setState(AuthState.authenticated);
+      unawaited(_refreshOwnerName());
       return true;
     }
 
@@ -209,6 +285,7 @@ class AuthProvider extends ChangeNotifier {
     required String phone,
     required String password,
     required String shopName,
+    String ownerName = '',
     String affiliateRef = '',
     String code = '',
   }) async {
@@ -219,6 +296,7 @@ class AuthProvider extends ChangeNotifier {
       phone: phone,
       password: password,
       shopName: shopName,
+      ownerName: ownerName,
       affiliateRef: affiliateRef,
       code: code,
     );
@@ -252,6 +330,7 @@ class AuthProvider extends ChangeNotifier {
     _error = null;
     apiClient.resetAuthState();
     _setState(AuthState.authenticated);
+    unawaited(_refreshOwnerName());
     return true;
   }
 

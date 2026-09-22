@@ -6,6 +6,7 @@ import 'package:raje3_mobile/core/actions/action_registry.dart';
 import 'package:raje3_mobile/core/ai/ai_model.dart';
 import 'package:raje3_mobile/core/ai/assistant_service.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
+import 'package:raje3_mobile/features/home/app_tone.dart';
 import 'package:raje3_mobile/models/catalog_model.dart';
 import 'package:raje3_mobile/core/tts/tts_model.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
@@ -228,24 +229,10 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
           ],
           if (turn.pendingAction != null) ...[
             const SizedBox(height: AppSpacing.sm),
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(color: AppColors.surface2, borderRadius: AppRadius.standardRadius),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(S.of(context)!.assistantConfirmActionPrompt, style: AppTextStyles.bodySmall),
-                  ),
-                  TextButton(
-                    onPressed: () => setState(() => turn.pendingAction = null),
-                    child: Text(S.of(context)!.assistantCancel),
-                  ),
-                  TextButton(
-                    onPressed: () => _confirmPendingAction(turn),
-                    child: Text(S.of(context)!.assistantConfirm),
-                  ),
-                ],
-              ),
+            _ActionConfirmCard(
+              action: turn.pendingAction!,
+              onCancel: () => setState(() => turn.pendingAction = null),
+              onConfirm: () => _confirmPendingAction(turn),
             ),
           ],
         ],
@@ -287,4 +274,58 @@ class _Turn {
   String answer;
   AppAction? pendingAction;
   _Turn({required this.question, required this.answer});
+}
+
+/// The card a sensitive action's confirmation actually shows — [action]'s OWN
+/// [AppAction.confirmMessage], never a generic "confirm this?" (the owner's own catch,
+/// 2026-09-22). A real tap on [onConfirm] is what carries the action out; the model's own
+/// proposal never does — see [AppAction.requiresConfirmation]'s own doc comment.
+class _ActionConfirmCard extends StatelessWidget {
+  final AppAction action;
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+
+  const _ActionConfirmCard({required this.action, required this.onCancel, required this.onConfirm});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context)!;
+    final colors = ToneColors.of(context, AppTone.warning);
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colors.soft,
+        borderRadius: AppRadius.standardRadius,
+        border: Border.all(color: colors.solid.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, size: 18, color: colors.onSoft),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(action.confirmMessage ?? '',
+                    style: AppTextStyles.bodySmall.copyWith(color: colors.onSoft, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(onPressed: onCancel, child: Text(s.assistantCancel)),
+              const SizedBox(width: AppSpacing.xs),
+              TextButton(
+                style: colors.textStyle(),
+                onPressed: onConfirm,
+                child: Text(s.assistantConfirm),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

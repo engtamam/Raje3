@@ -8,5 +8,65 @@
     "enabled": true,
     "requires_confirmation": false,
     "requires": ["operations.record_visit"]
+  },
+  "nav.home": {
+    "name": "open_home",
+    "description": "يرجّع المستخدم للشاشة الرئيسية — شبكة تطبيقاته المتاحة.",
+    "scope": "navigation",
+    "route": "home",
+    "kb_entry": "home",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
+  },
+  "nav.account": {
+    "name": "open_account",
+    "description": "يفتح شاشة «حسابي» — بيانات المالك، محله، الأمان، والفوترة.",
+    "scope": "navigation",
+    "route": "account",
+    "kb_entry": "account",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
+  },
+  "nav.shop_identity": {
+    "name": "open_shop_identity",
+    "description": "يفتح «منشأتي» — اسم المحل وشعاره ولونه، ومفتاح تتبّع المركبات.",
+    "scope": "navigation",
+    "route": "shop_identity",
+    "kb_entry": "account.shop",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
+  },
+  "nav.branches": {
+    "name": "open_branches",
+    "description": "يفتح قائمة فروع المحل.",
+    "scope": "navigation",
+    "route": "branches",
+    "kb_entry": "account.shop.branches",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
+  },
+  "nav.billing": {
+    "name": "open_billing",
+    "description": "يفتح شاشة الفوترة — حالة الاشتراك، الاستخدام، معاينة التجديد، والفواتير.",
+    "scope": "navigation",
+    "route": "billing",
+    "kb_entry": "account.billing",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
+  },
+  "nav.apps": {
+    "name": "open_apps",
+    "description": "يفتح شاشة «تطبيقاتي» — نفس الزر الموجود بالشريط السفلي، وحاليًا يعرض إنها لسا مو متوفرة على الجوال.",
+    "scope": "navigation",
+    "route": "apps",
+    "kb_entry": "apps",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
   }
 }

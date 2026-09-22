@@ -236,9 +236,6 @@ class SHa extends S {
   String get assistantActionUnavailable => 'Ba za ka iya yin wannan yanzu ba.';
 
   @override
-  String get assistantConfirmActionPrompt => 'Tabbatar da wannan aikin?';
-
-  @override
   String get assistantConfirm => 'Tabbatar';
 
   @override
@@ -267,6 +264,9 @@ class SHa extends S {
 
   @override
   String get authShopNameLabel => 'Sunan shago';
+
+  @override
+  String get authOwnerNameLabel => 'Sunanka (na son rai)';
 
   @override
   String get authAlreadyHaveShopCta => 'Kana da shago tuni? Shiga';
@@ -330,6 +330,21 @@ class SHa extends S {
   String get visitCustomerPhoneFieldLabel => 'Lambar wayar abokin ciniki';
 
   @override
+  String get visitPlateFieldLabel => 'Lambar farantin mota';
+
+  @override
+  String get visitPlateRequired =>
+      'Shigar da lambar farantin da ta dace (aƙalla harafi ɗaya da lamba ɗaya)';
+
+  @override
+  String visitKnownVehicle(String name) {
+    return 'Sanannen mota: $name';
+  }
+
+  @override
+  String get visitNewVehicle => 'Sabuwar mota';
+
+  @override
   String visitKnownCustomer(String name) {
     return 'Sanannen abokin ciniki: $name';
   }
@@ -353,13 +368,38 @@ class SHa extends S {
   String get navAppsLabel => 'Manhajojina';
 
   @override
-  String get navAnalyticsLabel => 'Bincike';
-
-  @override
   String get navHomeLabel => 'Gida';
 
   @override
   String get navAccountLabel => 'Asusuna';
+
+  @override
+  String get homeGreetingMorning => 'Ina kwana';
+
+  @override
+  String get homeGreetingEvening => 'Ina yamma';
+
+  @override
+  String homeGreetingMorningNamed(String name) {
+    return 'Ina kwana, $name';
+  }
+
+  @override
+  String homeGreetingEveningNamed(String name) {
+    return 'Ina yamma, $name';
+  }
+
+  @override
+  String get homeAppsSectionTitle => 'Aikace-aikacenka';
+
+  @override
+  String get homeFeaturedStartNow => 'Fara yanzu';
+
+  @override
+  String get homeEmptyStateTitle => 'Babu wani aiki da ake samu tukuna';
+
+  @override
+  String get homeEmptyStateBody => 'Tuntuɓi mai shago don ƙara izininka.';
 
   @override
   String get appsScreenTitle => 'Manhajojina';
@@ -398,4 +438,407 @@ class SHa extends S {
 
   @override
   String get notificationsUnavailable => 'Sanarwa ba su samuwa tukuna';
+
+  @override
+  String get notificationsTitle => 'Sanarwa';
+
+  @override
+  String get notificationsEmptyState => 'Babu sanarwa tukuna';
+
+  @override
+  String get notificationsAgoJustNow => 'Yanzu';
+
+  @override
+  String notificationsAgoMinutes(int n) {
+    return 'Mintuna $n da suka wuce';
+  }
+
+  @override
+  String notificationsAgoHours(int n) {
+    return 'Awanni $n da suka wuce';
+  }
+
+  @override
+  String get notificationsAgoYesterday => 'Jiya';
+
+  @override
+  String notificationsAgoDays(int n) {
+    return 'Kwanaki $n da suka wuce';
+  }
+
+  @override
+  String get accountPageTitle => 'Asusuna';
+
+  @override
+  String get accountLegalSectionTitle => 'Shari\'a';
+
+  @override
+  String get accountTermsRow => 'Sharuɗɗa da Ka\'idoji';
+
+  @override
+  String get accountPrivacyRow => 'Manufar Sirri';
+
+  @override
+  String get accountSignOutRow => 'Fita';
+
+  @override
+  String get accountSignOutConfirmTitle => 'Fita?';
+
+  @override
+  String get accountSignOutConfirmBody =>
+      'Za ka buƙaci shiga kuma don ci gaba.';
+
+  @override
+  String get accountSignOutCancel => 'Soke';
+
+  @override
+  String get accountSignOutConfirm => 'Fita';
+
+  @override
+  String get accountNameFieldHint => 'Sunanka';
+
+  @override
+  String get accountSaveNameFailed => 'An kasa ajiye sunan, sake gwadawa.';
+
+  @override
+  String get accountShopSectionTitle => 'Shagona';
+
+  @override
+  String get accountShopIdentityRow => 'Shagona';
+
+  @override
+  String get shopIdentityPageTitle => 'Shagona';
+
+  @override
+  String get shopIdentityVehicleTitle => 'Aiki akan motoci';
+
+  @override
+  String get shopIdentityVehicleDesc =>
+      'Yana kunna filin lambar farantin mota a allon rubuta ziyara na wannan shago.';
+
+  @override
+  String get shopIdentityVehicleSaveFailed => 'An kasa ajiyewa, sake gwadawa.';
+
+  @override
+  String get shopIdentityBrandTitle => 'Sunan shagonka da alamarsa';
+
+  @override
+  String get shopIdentityCustomerPagePreview =>
+      'Wannan shine abin da abokin cinikinka yake gani';
+
+  @override
+  String get shopIdentityNameLabel => 'Sunan shago';
+
+  @override
+  String get shopIdentityUploadLogo => 'Loda alama';
+
+  @override
+  String get shopIdentityChangeLogo => 'Canza alama';
+
+  @override
+  String get shopIdentityRemoveLogo => 'Cire';
+
+  @override
+  String get shopIdentityColorLabel => 'Launin shagonka';
+
+  @override
+  String get shopIdentityResetColor => 'Yi amfani da tsoho';
+
+  @override
+  String get shopIdentitySave => 'Ajiye';
+
+  @override
+  String get shopIdentityDefaultName => 'Shagonka';
+
+  @override
+  String get shopIdentityLogoPickFailed =>
+      'An kasa karanta hoton, gwada wani hoto.';
+
+  @override
+  String get shopIdentityInvalidColor =>
+      'Shigar da launi mai kyau, kamar #B08A3E';
+
+  @override
+  String get shopIdentitySaveFailed => 'An kasa ajiyewa, sake gwadawa.';
+
+  @override
+  String get shopIdentitySaved => 'An ajiye.';
+
+  @override
+  String get shopIdentityBranchesRow => 'Rassa';
+
+  @override
+  String get branchesPageTitle => 'Rassa';
+
+  @override
+  String get branchesAddBranch => 'Ƙara reshe';
+
+  @override
+  String get branchesActiveChip => 'Yana aiki';
+
+  @override
+  String get branchesClosedChip => 'An rufe';
+
+  @override
+  String get branchesLoadFailed =>
+      'An kasa loda rassa, ja ƙasa don sake gwadawa.';
+
+  @override
+  String get branchesLimitReached =>
+      'Tsarinka na yanzu ba ya barin ƙarin reshe.';
+
+  @override
+  String get branchesNameRequired => 'Ana bukatar sunan reshe';
+
+  @override
+  String get branchesNameLabel => 'Sunan reshe';
+
+  @override
+  String get branchesCityLabel => 'Birni';
+
+  @override
+  String get branchesLocationHint =>
+      'Manna hanyar haɗin wuri daga Google Maps (na zaɓi a reshe na farko, dole daga na biyu)';
+
+  @override
+  String get branchesMapsLinkLabel => 'Hanyar haɗin Google Maps';
+
+  @override
+  String get branchesMapsLinkInvalid =>
+      'An kasa karanta wannan hanyar haɗi — tabbatar cewa hanyar haɗin Google Maps ce.';
+
+  @override
+  String get branchesMapsLinkShort =>
+      'Manna cikakkiyar hanyar haɗin Google Maps, ba gajarta ba.';
+
+  @override
+  String get branchesLocationRequired =>
+      'Saita wurin reshe akan taswira — dole daga reshe na biyu.';
+
+  @override
+  String get branchesSaveFailed => 'An kasa ajiyewa, sake gwadawa.';
+
+  @override
+  String get branchesStatusLabel => 'Matsayin reshe';
+
+  @override
+  String get branchesMainCannotClose =>
+      'Babban reshe ba ya rufewa — za ka iya canza sunansa kawai.';
+
+  @override
+  String get branchesWhatsappTitle => 'Haɗin WhatsApp';
+
+  @override
+  String get branchesWhatsappNotStarted => 'Ba a haɗa ba tukuna';
+
+  @override
+  String get branchesWhatsappConnected => 'An haɗa kuma yana aiki';
+
+  @override
+  String get branchesWhatsappCannotSend => 'An haɗa amma akwai matsalar aikawa';
+
+  @override
+  String get branchesTeamTitle => 'Ƙungiyar reshe';
+
+  @override
+  String get branchesTeamEmpty => 'Babu memba a wannan reshe tukuna.';
+
+  @override
+  String get branchesAddMember => 'Ƙara memba';
+
+  @override
+  String get branchesMemberNameLabel => 'Sunan ma\'aikaci';
+
+  @override
+  String get branchesMemberPhoneLabel => 'Lambar wayarsa';
+
+  @override
+  String get branchesMemberPasswordLabel => 'Kalmar sirrin shigarsa';
+
+  @override
+  String get branchesMemberRoleLabel => 'Matsayi';
+
+  @override
+  String get branchesRoleOperator => 'Ma\'aikacin filin';
+
+  @override
+  String get branchesRoleSupervisor => 'Mai kula da canjin aiki';
+
+  @override
+  String get branchesRoleManager => 'Manaja';
+
+  @override
+  String get branchesSeatLimit =>
+      'Tsarinka na yanzu ba ya barin ƙarin ma\'aikaci.';
+
+  @override
+  String get branchesHireFailed => 'An kasa ƙara ma\'aikaci, sake gwadawa.';
+
+  @override
+  String get accountSecuritySectionTitle => 'Tsaro';
+
+  @override
+  String get accountChangePasswordRow => 'Canza kalmar sirri';
+
+  @override
+  String get accountChangePasswordFailed =>
+      'An kasa canza kalmar sirri, sake gwadawa.';
+
+  @override
+  String get accountChangePasswordSuccess => 'An canza kalmar sirri.';
+
+  @override
+  String get accountCurrentPasswordLabel => 'Kalmar sirri ta yanzu';
+
+  @override
+  String get accountNewPasswordLabel => 'Sabuwar kalmar sirri';
+
+  @override
+  String get accountConfirmNewPasswordLabel =>
+      'Tabbatar da sabuwar kalmar sirri';
+
+  @override
+  String get branchesIncreaseCapacity => 'Ƙara ƙarfin';
+
+  @override
+  String get accountBillingSectionTitle => 'Kuɗi';
+
+  @override
+  String get accountBillingRow => 'Biyan kuɗi da lissafin kuɗi';
+
+  @override
+  String get billingPageTitle => 'Kuɗi';
+
+  @override
+  String get billingLoadFailed =>
+      'An kasa loda bayanan kuɗi. Ja ƙasa don sake gwadawa.';
+
+  @override
+  String get billingAllGood =>
+      'Kuɗin ka yana lafiya — babu abin da ke bukatar kulawarka yanzu.';
+
+  @override
+  String get billingPastDue =>
+      'Kana da lissafin da ya wuce lokacin biya — biya don guje wa dakatar da ayyukanka.';
+
+  @override
+  String get billingUsageSectionTitle => 'Amfaninka';
+
+  @override
+  String get billingUsageStaffSeats => 'Wuraren ma\'aikata';
+
+  @override
+  String get billingUsageBranches => 'Rassa';
+
+  @override
+  String get billingUsageUnlimited => 'Babu iyaka';
+
+  @override
+  String get billingMyAppsSectionTitle => 'Aikace-aikacen da na yi biyan kuɗi';
+
+  @override
+  String get billingStatusActive => 'Aiki';
+
+  @override
+  String get billingStatusStopping => 'Zai tsaya';
+
+  @override
+  String billingRenewsOn(Object date) {
+    return 'Zai sabunta a $date';
+  }
+
+  @override
+  String get billingStopRenewal => 'Dakatar da sabuntawa';
+
+  @override
+  String get billingUndoStopRenewal => 'Soke dakatarwa';
+
+  @override
+  String get billingRenewNow => 'Sabunta yanzu';
+
+  @override
+  String get billingActionFailed =>
+      'An kasa kammala wannan aikin. Sake gwadawa.';
+
+  @override
+  String get billingRenewalPreviewSectionTitle => 'Duban sabuntawa na gaba';
+
+  @override
+  String billingRenewalPreviewNextChargeOn(Object date) {
+    return 'Karɓar kuɗi na gaba a $date';
+  }
+
+  @override
+  String get billingRenewalPreviewNoDate =>
+      'Babu ranar sabuntawa da za ta zo tukuna.';
+
+  @override
+  String get billingRenewalPreviewSubtotal => 'Jimlar farko';
+
+  @override
+  String get billingRenewalPreviewSavings => 'Ajiyayye';
+
+  @override
+  String get billingRenewalPreviewTax => 'Haraji';
+
+  @override
+  String get billingRenewalPreviewTotal => 'Jimla';
+
+  @override
+  String get billingInvoicesSectionTitle => 'Lissafin kuɗi';
+
+  @override
+  String get billingInvoicesEmpty => 'Babu lissafin kuɗi tukuna.';
+
+  @override
+  String get billingInvoiceStatusPaid => 'An biya';
+
+  @override
+  String get billingInvoiceStatusOpen => 'Ba a biya ba';
+
+  @override
+  String get billingInvoiceStatusPartiallyPaid => 'An biya wani ɓangare';
+
+  @override
+  String get billingInvoiceStatusVoid => 'An soke';
+
+  @override
+  String get billingInvoiceStatusUncollectible => 'Ba a iya karɓa ba';
+
+  @override
+  String get billingInvoiceStatusDraft => 'Zane-zane';
+
+  @override
+  String get billingPayNow => 'Biya yanzu';
+
+  @override
+  String get billingPayLinkFailed =>
+      'An kasa ƙirƙirar hanyar biya. Sake gwadawa.';
+
+  @override
+  String get billingCancelConfirmTitle => 'Dakatar da sabuntawa?';
+
+  @override
+  String get billingCancelConfirmBody =>
+      'Ayyukan za su ci gaba har zuwa ƙarshen wannan lokacin, sannan ba za su sabunta ba.';
+
+  @override
+  String get billingCancelConfirmAction => 'Dakatar da sabuntawa';
+
+  @override
+  String get visitOfferApplyLabel =>
+      'Yi amfani da wannan tayin a wannan ziyarar';
+
+  @override
+  String visitPointsRedeemCost(Object cost) {
+    return 'maki $cost';
+  }
+
+  @override
+  String visitPointsRedeemedMessage(Object name) {
+    return 'An musanya $name ✓';
+  }
+
+  @override
+  String get visitPointsRedeemFailed => 'An kasa musanyawa. Sake gwadawa.';
 }

@@ -4,12 +4,19 @@ import 'package:raje3_mobile/core/nav/nav_sections.g.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/router/route_names.dart';
+import 'package:raje3_mobile/features/account/account_screen.dart';
+import 'package:raje3_mobile/features/account/billing_screen.dart';
+import 'package:raje3_mobile/features/account/branch_detail_screen.dart';
+import 'package:raje3_mobile/features/account/branches_screen.dart';
+import 'package:raje3_mobile/features/account/shop_identity_screen.dart';
 import 'package:raje3_mobile/features/auth/login_screen.dart';
 import 'package:raje3_mobile/features/auth/signup_screen.dart';
+import 'package:raje3_mobile/features/home/home_screen.dart';
 import 'package:raje3_mobile/features/shell/main_shell.dart';
 import 'package:raje3_mobile/features/visit/visit_screen.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/kb_anchor.dart';
 
 /// App router configuration.
 ///
@@ -51,6 +58,27 @@ class AppRouter {
           name: RouteNames.signup,
           builder: (context, state) => const SignupScreen(),
         ),
+        GoRoute(
+          path: RouteNames.shopIdentityPath,
+          name: RouteNames.shopIdentity,
+          builder: (context, state) => const ShopIdentityScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.branchesPath,
+          name: RouteNames.branches,
+          builder: (context, state) => const BranchesScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.branchDetailPath,
+          name: RouteNames.branchDetail,
+          builder: (context, state) =>
+              BranchDetailScreen(branchId: state.pathParameters['branchId']!),
+        ),
+        GoRoute(
+          path: RouteNames.billingPath,
+          name: RouteNames.billing,
+          builder: (context, state) => const BillingScreen(),
+        ),
         ShellRoute(
           navigatorKey: _shellNavKey,
           builder: (context, state, child) => MainShell(child: child),
@@ -58,20 +86,20 @@ class AppRouter {
             GoRoute(
               path: RouteNames.homePath,
               name: RouteNames.home,
-              builder: (context, state) =>
-                  _NotYetOnMobile(label: S.of(context)!.navHomeLabel),
+              builder: (context, state) => const HomeScreen(),
             ),
             GoRoute(
               path: RouteNames.appsPath,
               name: RouteNames.apps,
-              builder: (context, state) =>
-                  _NotYetOnMobile(label: S.of(context)!.navAppsLabel),
+              builder: (context, state) => KbAnchor(
+                id: 'apps',
+                child: _NotYetOnMobile(label: S.of(context)!.navAppsLabel),
+              ),
             ),
             GoRoute(
               path: RouteNames.accountPath,
               name: RouteNames.account,
-              builder: (context, state) =>
-                  _NotYetOnMobile(label: S.of(context)!.navAccountLabel),
+              builder: (context, state) => const AccountScreen(),
             ),
             for (final section in kNavSections)
               GoRoute(

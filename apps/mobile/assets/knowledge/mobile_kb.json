@@ -1,6 +1,9 @@
 {
   "auth.login": {
-    "title": { "ar": "تسجيل الدخول", "en": "Sign in" },
+    "title": {
+      "ar": "تسجيل الدخول",
+      "en": "Sign in"
+    },
     "body": {
       "ar": "تسجيل الدخول برقم الجوال وكلمة المرور.",
       "en": "Sign in with your phone number and password."
@@ -9,32 +12,58 @@
     "anchor": "auth.login"
   },
   "auth.login.phone_field": {
-    "title": { "ar": "رقم الجوال", "en": "Phone number" },
-    "body": { "ar": "رقم جوالك المسجّل بالحساب.", "en": "Your account's registered phone number." },
+    "title": {
+      "ar": "رقم الجوال",
+      "en": "Phone number"
+    },
+    "body": {
+      "ar": "رقم جوالك المسجّل بالحساب.",
+      "en": "Your account's registered phone number."
+    },
     "kind": "field",
     "anchor": "auth.login.phone_field"
   },
   "auth.login.password_field": {
-    "title": { "ar": "كلمة المرور", "en": "Password" },
-    "body": { "ar": "كلمة مرور حسابك.", "en": "Your account's password." },
+    "title": {
+      "ar": "كلمة المرور",
+      "en": "Password"
+    },
+    "body": {
+      "ar": "كلمة مرور حسابك.",
+      "en": "Your account's password."
+    },
     "kind": "field",
     "anchor": "auth.login.password_field"
   },
   "auth.login.submit": {
-    "title": { "ar": "تسجيل الدخول", "en": "Sign in" },
-    "body": { "ar": "يدخلك لحسابك.", "en": "Signs you into your account." },
+    "title": {
+      "ar": "تسجيل الدخول",
+      "en": "Sign in"
+    },
+    "body": {
+      "ar": "يدخلك لحسابك.",
+      "en": "Signs you into your account."
+    },
     "kind": "action",
     "anchor": "auth.login.submit"
   },
   "auth.login.open_shop_cta": {
-    "title": { "ar": "فتح محل جديد", "en": "Open a new shop" },
-    "body": { "ar": "ينقلك لشاشة فتح محل جديد.", "en": "Takes you to the open-a-shop screen." },
+    "title": {
+      "ar": "فتح محل جديد",
+      "en": "Open a new shop"
+    },
+    "body": {
+      "ar": "ينقلك لشاشة فتح محل جديد.",
+      "en": "Takes you to the open-a-shop screen."
+    },
     "kind": "action",
     "anchor": "auth.login.open_shop_cta"
   },
-
   "auth.signup": {
-    "title": { "ar": "فتح محل جديد", "en": "Open a new shop" },
+    "title": {
+      "ar": "فتح محل جديد",
+      "en": "Open a new shop"
+    },
     "body": {
       "ar": "اسم المحل، رقم الجوال، كلمة المرور. باقي البيانات تُستكمل لاحقاً.",
       "en": "Shop name, phone number, password. The rest of the details are added later."
@@ -43,44 +72,94 @@
     "anchor": "auth.signup"
   },
   "auth.signup.shop_name_field": {
-    "title": { "ar": "اسم المحل", "en": "Shop name" },
-    "body": { "ar": "اسم المحل كما يظهر لعملائك.", "en": "The shop name shown to your customers." },
+    "title": {
+      "ar": "اسم المحل",
+      "en": "Shop name"
+    },
+    "body": {
+      "ar": "اسم المحل كما يظهر لعملائك.",
+      "en": "The shop name shown to your customers."
+    },
     "kind": "field",
     "anchor": "auth.signup.shop_name_field"
   },
+  "auth.signup.owner_name_field": {
+    "title": {
+      "ar": "اسمك",
+      "en": "Your name"
+    },
+    "body": {
+      "ar": "اختياري — يستخدم بالترحيب بك بدل رقم جوالك. تقدر تضيفه لاحقًا من حسابي بالموقع.",
+      "en": "Optional — used to greet you by name instead of your phone number. You can add it later from your account on the website."
+    },
+    "kind": "field",
+    "anchor": "auth.signup.owner_name_field"
+  },
   "auth.signup.phone_field": {
-    "title": { "ar": "رقم الجوال", "en": "Phone number" },
-    "body": { "ar": "رقم الجوال اللي بيصير هوية الحساب.", "en": "The phone number that becomes the account's identity." },
+    "title": {
+      "ar": "رقم الجوال",
+      "en": "Phone number"
+    },
+    "body": {
+      "ar": "رقم الجوال اللي بيصير هوية الحساب.",
+      "en": "The phone number that becomes the account's identity."
+    },
     "kind": "field",
     "anchor": "auth.signup.phone_field"
   },
   "auth.signup.password_field": {
-    "title": { "ar": "كلمة المرور", "en": "Password" },
-    "body": { "ar": "كلمة مرور الحساب الجديد.", "en": "The new account's password." },
+    "title": {
+      "ar": "كلمة المرور",
+      "en": "Password"
+    },
+    "body": {
+      "ar": "كلمة مرور الحساب الجديد.",
+      "en": "The new account's password."
+    },
     "kind": "field",
     "anchor": "auth.signup.password_field"
   },
   "auth.signup.confirm_password_field": {
-    "title": { "ar": "تأكيد كلمة المرور", "en": "Confirm password" },
-    "body": { "ar": "أعد كتابة نفس كلمة المرور.", "en": "Re-type the same password." },
+    "title": {
+      "ar": "تأكيد كلمة المرور",
+      "en": "Confirm password"
+    },
+    "body": {
+      "ar": "أعد كتابة نفس كلمة المرور.",
+      "en": "Re-type the same password."
+    },
     "kind": "field",
     "anchor": "auth.signup.confirm_password_field"
   },
   "auth.signup.submit": {
-    "title": { "ar": "فتح المحل", "en": "Open the shop" },
-    "body": { "ar": "ينشئ الحساب والمحل.", "en": "Creates the account and the shop." },
+    "title": {
+      "ar": "فتح المحل",
+      "en": "Open the shop"
+    },
+    "body": {
+      "ar": "ينشئ الحساب والمحل.",
+      "en": "Creates the account and the shop."
+    },
     "kind": "action",
     "anchor": "auth.signup.submit"
   },
   "auth.signup.already_have_shop_cta": {
-    "title": { "ar": "عندك محل؟", "en": "Already have a shop?" },
-    "body": { "ar": "ينقلك لشاشة تسجيل الدخول.", "en": "Takes you to the sign-in screen." },
+    "title": {
+      "ar": "عندك محل؟",
+      "en": "Already have a shop?"
+    },
+    "body": {
+      "ar": "ينقلك لشاشة تسجيل الدخول.",
+      "en": "Takes you to the sign-in screen."
+    },
     "kind": "action",
     "anchor": "auth.signup.already_have_shop_cta"
   },
-
   "auth.verify_phone": {
-    "title": { "ar": "تأكيد رقم الجوال", "en": "Verify your phone number" },
+    "title": {
+      "ar": "تأكيد رقم الجوال",
+      "en": "Verify your phone number"
+    },
     "body": {
       "ar": "أدخل رمز التحقق المُرسَل عبر واتساب أو رسالة نصية.",
       "en": "Enter the verification code sent over WhatsApp or SMS."
@@ -89,60 +168,723 @@
     "anchor": "auth.verify_phone"
   },
   "auth.verify_phone.code_field": {
-    "title": { "ar": "رمز التحقق", "en": "Verification code" },
-    "body": { "ar": "الرمز المكوّن من 6 أرقام.", "en": "The 6-digit code." },
+    "title": {
+      "ar": "رمز التحقق",
+      "en": "Verification code"
+    },
+    "body": {
+      "ar": "الرمز المكوّن من 6 أرقام.",
+      "en": "The 6-digit code."
+    },
     "kind": "field",
     "anchor": "auth.verify_phone.code_field"
   },
   "auth.verify_phone.confirm_button": {
-    "title": { "ar": "تأكيد", "en": "Confirm" },
-    "body": { "ar": "يتحقق من الرمز ويكمل الدخول.", "en": "Verifies the code and continues sign-in." },
+    "title": {
+      "ar": "تأكيد",
+      "en": "Confirm"
+    },
+    "body": {
+      "ar": "يتحقق من الرمز ويكمل الدخول.",
+      "en": "Verifies the code and continues sign-in."
+    },
     "kind": "action",
     "anchor": "auth.verify_phone.confirm_button"
   },
   "auth.verify_phone.resend_code": {
-    "title": { "ar": "إعادة إرسال الرمز", "en": "Resend the code" },
-    "body": { "ar": "يرسل رمز تحقق جديد.", "en": "Sends a new verification code." },
+    "title": {
+      "ar": "إعادة إرسال الرمز",
+      "en": "Resend the code"
+    },
+    "body": {
+      "ar": "يرسل رمز تحقق جديد.",
+      "en": "Sends a new verification code."
+    },
     "kind": "action",
     "anchor": "auth.verify_phone.resend_code"
   },
-
   "visit.register": {
-    "title": { "ar": "تسجيل زيارة", "en": "Register a visit" },
+    "title": {
+      "ar": "تسجيل زيارة",
+      "en": "Register a visit"
+    },
     "body": {
       "ar": "أدخل رقم جوال العميل، اختر الخدمات، واحفظ.",
       "en": "Enter the customer's phone number, pick the services, and save."
     },
     "kind": "screen",
     "anchor": "visit.register",
-    "requires": ["operations.record_visit"]
+    "requires": [
+      "operations.record_visit"
+    ]
   },
   "visit.register.phone_field": {
-    "title": { "ar": "رقم جوال العميل", "en": "Customer's phone number" },
-    "body": { "ar": "يبحث عن العميل تلقائياً وأنت تكتب.", "en": "Searches for the customer automatically as you type." },
+    "title": {
+      "ar": "رقم جوال العميل",
+      "en": "Customer's phone number"
+    },
+    "body": {
+      "ar": "يبحث عن العميل تلقائياً وأنت تكتب.",
+      "en": "Searches for the customer automatically as you type."
+    },
     "kind": "field",
     "anchor": "visit.register.phone_field",
-    "requires": ["operations.record_visit"]
+    "requires": [
+      "operations.record_visit"
+    ]
+  },
+  "visit.register.plate_field": {
+    "title": {
+      "ar": "رقم اللوحة",
+      "en": "Plate number"
+    },
+    "body": {
+      "ar": "يظهر فقط لو محلك يتتبع السيارات (من حسابي). يبحث عن السيارة تلقائياً وأنت تكتب، ومطلوب حرف ورقم واحد على الأقل قبل حفظ الزيارة.",
+      "en": "Shown only when your shop tracks vehicles (from Account). Searches for the vehicle automatically as you type, and needs at least one letter and one digit before the visit can be saved."
+    },
+    "kind": "field",
+    "anchor": "visit.register.plate_field",
+    "requires": [
+      "operations.record_visit"
+    ]
   },
   "visit.register.services_grid": {
-    "title": { "ar": "الخدمات", "en": "Services" },
-    "body": { "ar": "اضغط على كل خدمة تبغى تسجّلها. تقدر تغيّر الكمية بالضغط +/-.", "en": "Tap each service to register it. Change the quantity with +/-." },
+    "title": {
+      "ar": "الخدمات",
+      "en": "Services"
+    },
+    "body": {
+      "ar": "اضغط على كل خدمة تبغى تسجّلها. تقدر تغيّر الكمية بالضغط +/-.",
+      "en": "Tap each service to register it. Change the quantity with +/-."
+    },
     "kind": "field",
     "anchor": "visit.register.services_grid",
-    "requires": ["operations.record_visit"]
+    "requires": [
+      "operations.record_visit"
+    ]
+  },
+  "visit.register.offer_apply_toggle": {
+    "title": {
+      "ar": "تطبيق العرض",
+      "en": "Apply the offer"
+    },
+    "body": {
+      "ar": "مربّع اختيار — يطبّق عرض العميل الساري على هذي الزيارة بعد ما تُحفظ، أبدًا تلقائيًا.",
+      "en": "A checkbox — applies the customer's active offer to this visit after it saves, never automatically."
+    },
+    "kind": "field",
+    "anchor": "visit.register.offer_apply_toggle",
+    "requires": [
+      "operations.record_visit"
+    ]
+  },
+  "visit.register.redeem_rewards": {
+    "title": {
+      "ar": "استبدال النقاط",
+      "en": "Redeem points"
+    },
+    "body": {
+      "ar": "قائمة المكافآت اللي يقدر العميل يستبدلها الآن بنقاطه — ضغطة وحدة تستبدلها فورًا.",
+      "en": "The rewards the customer can redeem right now with his points — one tap spends them immediately."
+    },
+    "kind": "field",
+    "anchor": "visit.register.redeem_rewards",
+    "requires": [
+      "operations.record_visit"
+    ]
   },
   "visit.register.note_field": {
-    "title": { "ar": "ملاحظة", "en": "Note" },
-    "body": { "ar": "ملاحظة اختيارية عن الزيارة.", "en": "An optional note about the visit." },
+    "title": {
+      "ar": "ملاحظة",
+      "en": "Note"
+    },
+    "body": {
+      "ar": "ملاحظة اختيارية عن الزيارة.",
+      "en": "An optional note about the visit."
+    },
     "kind": "field",
     "anchor": "visit.register.note_field",
-    "requires": ["operations.record_visit"]
+    "requires": [
+      "operations.record_visit"
+    ]
   },
   "visit.register.save_button": {
-    "title": { "ar": "حفظ", "en": "Save" },
-    "body": { "ar": "يسجّل الزيارة. يفعل بعد اختيار خدمة وحدة على الأقل.", "en": "Records the visit. Active once at least one service is selected." },
+    "title": {
+      "ar": "حفظ",
+      "en": "Save"
+    },
+    "body": {
+      "ar": "يسجّل الزيارة. يفعل بعد اختيار خدمة وحدة على الأقل.",
+      "en": "Records the visit. Active once at least one service is selected."
+    },
     "kind": "action",
     "anchor": "visit.register.save_button",
-    "requires": ["operations.record_visit"]
+    "requires": [
+      "operations.record_visit"
+    ]
+  },
+  "home.notifications": {
+    "title": {
+      "ar": "الإشعارات",
+      "en": "Notifications"
+    },
+    "body": {
+      "ar": "يعرض إشعاراتك — تحديثات من أي تطبيق أو خدمة عندك.",
+      "en": "Shows your notifications — updates from any of your apps or services."
+    },
+    "kind": "action",
+    "anchor": "home.notifications"
+  },
+  "home": {
+    "title": {
+      "ar": "الرئيسية",
+      "en": "Home"
+    },
+    "body": {
+      "ar": "شبكة تطبيقاتك — تعرض فقط ما تملك صلاحيته بهذا الحساب.",
+      "en": "Your apps grid — shows only what this account has permission for."
+    },
+    "kind": "screen",
+    "anchor": "home"
+  },
+  "account": {
+    "title": {
+      "ar": "حسابي",
+      "en": "My Account"
+    },
+    "body": {
+      "ar": "اسمك، منشأتي، الشروط والخصوصية، وتسجيل الخروج.",
+      "en": "Your name, your shop, terms and privacy, and sign-out."
+    },
+    "kind": "screen",
+    "anchor": "account"
+  },
+  "account.shop": {
+    "title": {
+      "ar": "منشأتي",
+      "en": "My Shop"
+    },
+    "body": {
+      "ar": "سويتش تتبع السيارات — يفعّل حقل رقم اللوحة بتسجيل الزيارة لهذا المحل.",
+      "en": "The vehicle-tracking switch — turns on the plate field for this shop's visits."
+    },
+    "kind": "screen",
+    "anchor": "account.shop"
+  },
+  "account.shop.branches": {
+    "title": {
+      "ar": "الفروع",
+      "en": "Branches"
+    },
+    "body": {
+      "ar": "قائمة فروعك — كل فرع يفتح تفاصيله الخاصة (الموقع، ربط واتساب، فريقه).",
+      "en": "Your branches — each one opens its own detail (location, WhatsApp connection, team)."
+    },
+    "kind": "screen",
+    "anchor": "account.shop.branches"
+  },
+  "account.shop.branches.detail": {
+    "title": {
+      "ar": "تفاصيل الفرع",
+      "en": "Branch detail"
+    },
+    "body": {
+      "ar": "اسم الفرع وموقعه وحالته، ربط واتساب الخاص فيه، وفريق العمل بهذا الفرع.",
+      "en": "The branch's name, location and status, its own WhatsApp connection, and its team."
+    },
+    "kind": "screen",
+    "anchor": "account.shop.branches.detail"
+  },
+  "account.billing": {
+    "title": {
+      "ar": "الفوترة",
+      "en": "Billing"
+    },
+    "body": {
+      "ar": "حالة اشتراكك، استخدامك مقابل حدود باقتك، معاينة أقرب تجديد بسعره الحقيقي، وقائمة فواتيرك — يقدر تدفع فاتورة مفتوحة، يوقف أو يتراجع عن إيقاف تجديد تطبيق مشترك فيه، أو يجدد اشتراكه مبكرًا.",
+      "en": "Your subscription status, your usage against plan limits, a real-priced preview of your next renewal, and your invoices — pay an open invoice, stop or undo-stop renewal on a subscribed app, or renew one early."
+    },
+    "kind": "screen",
+    "anchor": "account.billing"
+  },
+  "account.identity_card": {
+    "title": {
+      "ar": "بطاقة الحساب",
+      "en": "Account card"
+    },
+    "body": {
+      "ar": "اسمك (تقدر تعدله بالضغط على القلم) ورقم جوالك.",
+      "en": "Your name (tap the pencil to edit it) and your phone number."
+    },
+    "kind": "field",
+    "anchor": "account.identity_card"
+  },
+  "account.shop_row": {
+    "title": {
+      "ar": "منشأتي",
+      "en": "My shop"
+    },
+    "body": {
+      "ar": "ينقلك لشاشة اسم محلك وشعاره ولونه، وفروعك.",
+      "en": "Takes you to your shop's name, logo, colour, and branches."
+    },
+    "kind": "action",
+    "anchor": "account.shop_row"
+  },
+  "account.billing_row": {
+    "title": {
+      "ar": "الاشتراك والفواتير",
+      "en": "Subscription & invoices"
+    },
+    "body": {
+      "ar": "ينقلك لشاشة الفوترة.",
+      "en": "Takes you to the billing screen."
+    },
+    "kind": "action",
+    "anchor": "account.billing_row"
+  },
+  "account.terms_row": {
+    "title": {
+      "ar": "الشروط والأحكام",
+      "en": "Terms & Conditions"
+    },
+    "body": {
+      "ar": "يفتح شروط وأحكام استخدام راجِع.",
+      "en": "Opens Raje3's terms of use."
+    },
+    "kind": "action",
+    "anchor": "account.terms_row"
+  },
+  "account.privacy_row": {
+    "title": {
+      "ar": "سياسة الخصوصية",
+      "en": "Privacy Policy"
+    },
+    "body": {
+      "ar": "يفتح سياسة الخصوصية.",
+      "en": "Opens the privacy policy."
+    },
+    "kind": "action",
+    "anchor": "account.privacy_row"
+  },
+  "account.change_password_row": {
+    "title": {
+      "ar": "تغيير كلمة المرور",
+      "en": "Change password"
+    },
+    "body": {
+      "ar": "يفتح نموذج تغيير كلمة مرور حسابك.",
+      "en": "Opens the form to change your account's password."
+    },
+    "kind": "action",
+    "anchor": "account.change_password_row"
+  },
+  "account.sign_out_row": {
+    "title": {
+      "ar": "تسجيل الخروج",
+      "en": "Sign out"
+    },
+    "body": {
+      "ar": "يسجّل خروجك من حسابك بعد تأكيد.",
+      "en": "Signs you out of your account, after confirming."
+    },
+    "kind": "action",
+    "anchor": "account.sign_out_row"
+  },
+  "account.change_password.current_field": {
+    "title": {
+      "ar": "كلمة المرور الحالية",
+      "en": "Current password"
+    },
+    "body": {
+      "ar": "كلمة مرورك الحالية.",
+      "en": "Your current password."
+    },
+    "kind": "field",
+    "anchor": "account.change_password.current_field"
+  },
+  "account.change_password.new_field": {
+    "title": {
+      "ar": "كلمة المرور الجديدة",
+      "en": "New password"
+    },
+    "body": {
+      "ar": "كلمة المرور الجديدة اللي تبيها.",
+      "en": "The new password you want."
+    },
+    "kind": "field",
+    "anchor": "account.change_password.new_field"
+  },
+  "account.change_password.confirm_field": {
+    "title": {
+      "ar": "تأكيد كلمة المرور الجديدة",
+      "en": "Confirm new password"
+    },
+    "body": {
+      "ar": "أعد كتابة نفس كلمة المرور الجديدة.",
+      "en": "Re-type the same new password."
+    },
+    "kind": "field",
+    "anchor": "account.change_password.confirm_field"
+  },
+  "account.change_password.submit": {
+    "title": {
+      "ar": "حفظ",
+      "en": "Save"
+    },
+    "body": {
+      "ar": "يغيّر كلمة مرورك.",
+      "en": "Changes your password."
+    },
+    "kind": "action",
+    "anchor": "account.change_password.submit"
+  },
+  "account.shop.brand_name_field": {
+    "title": {
+      "ar": "اسم المحل",
+      "en": "Shop name"
+    },
+    "body": {
+      "ar": "اسم محلك كما يظهر لعملائك.",
+      "en": "Your shop's name as your customers see it."
+    },
+    "kind": "field",
+    "anchor": "account.shop.brand_name_field"
+  },
+  "account.shop.brand_logo": {
+    "title": {
+      "ar": "شعار المحل",
+      "en": "Shop logo"
+    },
+    "body": {
+      "ar": "يرفع أو يغيّر أو يحذف شعار محلك.",
+      "en": "Uploads, changes, or removes your shop's logo."
+    },
+    "kind": "action",
+    "anchor": "account.shop.brand_logo"
+  },
+  "account.shop.brand_color_field": {
+    "title": {
+      "ar": "لون المحل",
+      "en": "Shop colour"
+    },
+    "body": {
+      "ar": "لون محلك بصيغة hex، مثل #B08A3E.",
+      "en": "Your shop's colour as a hex code, like #B08A3E."
+    },
+    "kind": "field",
+    "anchor": "account.shop.brand_color_field"
+  },
+  "account.shop.brand_save": {
+    "title": {
+      "ar": "حفظ",
+      "en": "Save"
+    },
+    "body": {
+      "ar": "يحفظ اسم المحل وشعاره ولونه.",
+      "en": "Saves the shop's name, logo, and colour."
+    },
+    "kind": "action",
+    "anchor": "account.shop.brand_save"
+  },
+  "account.shop.vehicle_toggle": {
+    "title": {
+      "ar": "العمل على المركبات",
+      "en": "Works on vehicles"
+    },
+    "body": {
+      "ar": "مفتاح يشغّل حقل رقم اللوحة بشاشة تسجيل الزيارة لهذا المحل.",
+      "en": "A switch that turns on the plate-number field on this shop's visit-recording screen."
+    },
+    "kind": "field",
+    "anchor": "account.shop.vehicle_toggle"
+  },
+  "account.shop.branches_row": {
+    "title": {
+      "ar": "الفروع",
+      "en": "Branches"
+    },
+    "body": {
+      "ar": "ينقلك لقائمة فروع محلك.",
+      "en": "Takes you to your shop's list of branches."
+    },
+    "kind": "action",
+    "anchor": "account.shop.branches_row"
+  },
+  "account.shop.branches.add_button": {
+    "title": {
+      "ar": "إضافة فرع",
+      "en": "Add branch"
+    },
+    "body": {
+      "ar": "يفتح نموذج إضافة فرع جديد.",
+      "en": "Opens the form to add a new branch."
+    },
+    "kind": "action",
+    "anchor": "account.shop.branches.add_button"
+  },
+  "account.shop.branches.branch_row": {
+    "title": {
+      "ar": "فرع",
+      "en": "A branch"
+    },
+    "body": {
+      "ar": "ينقلك لتفاصيل هذا الفرع.",
+      "en": "Takes you to this branch's details."
+    },
+    "kind": "action",
+    "anchor": "account.shop.branches.branch_row"
+  },
+  "account.shop.branches.add_sheet.name_field": {
+    "title": {
+      "ar": "اسم الفرع",
+      "en": "Branch name"
+    },
+    "body": {
+      "ar": "اسم الفرع الجديد.",
+      "en": "The new branch's name."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.add_sheet.name_field"
+  },
+  "account.shop.branches.add_sheet.city_field": {
+    "title": {
+      "ar": "المدينة",
+      "en": "City"
+    },
+    "body": {
+      "ar": "مدينة الفرع الجديد.",
+      "en": "The new branch's city."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.add_sheet.city_field"
+  },
+  "account.shop.branches.add_sheet.maps_link_field": {
+    "title": {
+      "ar": "رابط خرائط جوجل",
+      "en": "Google Maps link"
+    },
+    "body": {
+      "ar": "الصق رابط موقع الفرع من خرائط جوجل — مطلوب من الفرع الثاني فما فوق.",
+      "en": "Paste the branch's Google Maps location link — required from the second branch on."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.add_sheet.maps_link_field"
+  },
+  "account.shop.branches.add_sheet.submit": {
+    "title": {
+      "ar": "حفظ",
+      "en": "Save"
+    },
+    "body": {
+      "ar": "يضيف الفرع الجديد.",
+      "en": "Adds the new branch."
+    },
+    "kind": "action",
+    "anchor": "account.shop.branches.add_sheet.submit"
+  },
+  "account.shop.branches.detail.name_field": {
+    "title": {
+      "ar": "اسم الفرع",
+      "en": "Branch name"
+    },
+    "body": {
+      "ar": "اسم هذا الفرع.",
+      "en": "This branch's name."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.detail.name_field"
+  },
+  "account.shop.branches.detail.city_field": {
+    "title": {
+      "ar": "المدينة",
+      "en": "City"
+    },
+    "body": {
+      "ar": "مدينة هذا الفرع.",
+      "en": "This branch's city."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.detail.city_field"
+  },
+  "account.shop.branches.detail.save_button": {
+    "title": {
+      "ar": "حفظ",
+      "en": "Save"
+    },
+    "body": {
+      "ar": "يحفظ اسم الفرع ومدينته.",
+      "en": "Saves the branch's name and city."
+    },
+    "kind": "action",
+    "anchor": "account.shop.branches.detail.save_button"
+  },
+  "account.shop.branches.detail.status_toggle": {
+    "title": {
+      "ar": "حالة الفرع",
+      "en": "Branch status"
+    },
+    "body": {
+      "ar": "يفتح أو يغلق هذا الفرع — الفرع الرئيسي لا يقدر يُغلق.",
+      "en": "Opens or closes this branch — the main branch cannot be closed."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.detail.status_toggle"
+  },
+  "account.shop.branches.detail.whatsapp_card": {
+    "title": {
+      "ar": "ربط واتساب",
+      "en": "WhatsApp connection"
+    },
+    "body": {
+      "ar": "حالة ربط واتساب لهذا الفرع.",
+      "en": "This branch's WhatsApp connection status."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.detail.whatsapp_card"
+  },
+  "account.shop.branches.detail.add_member_button": {
+    "title": {
+      "ar": "إضافة عضو",
+      "en": "Add member"
+    },
+    "body": {
+      "ar": "يفتح نموذج إضافة موظف جديد لهذا الفرع.",
+      "en": "Opens the form to add a new employee to this branch."
+    },
+    "kind": "action",
+    "anchor": "account.shop.branches.detail.add_member_button"
+  },
+  "account.shop.branches.detail.add_member.name_field": {
+    "title": {
+      "ar": "اسم الموظف",
+      "en": "Employee's name"
+    },
+    "body": {
+      "ar": "اسم الموظف الجديد.",
+      "en": "The new employee's name."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.detail.add_member.name_field"
+  },
+  "account.shop.branches.detail.add_member.phone_field": {
+    "title": {
+      "ar": "رقم جوال الموظف",
+      "en": "Employee's phone number"
+    },
+    "body": {
+      "ar": "رقم جوال الموظف — يستخدمه لتسجيل دخوله.",
+      "en": "The employee's phone number — used for their own sign-in."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.detail.add_member.phone_field"
+  },
+  "account.shop.branches.detail.add_member.password_field": {
+    "title": {
+      "ar": "كلمة مرور الموظف",
+      "en": "Employee's password"
+    },
+    "body": {
+      "ar": "كلمة مرور دخول الموظف.",
+      "en": "The employee's sign-in password."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.detail.add_member.password_field"
+  },
+  "account.shop.branches.detail.add_member.role_field": {
+    "title": {
+      "ar": "الدور الوظيفي",
+      "en": "Role"
+    },
+    "body": {
+      "ar": "دور الموظف: مباشر ميداني، مشرف وردية، أو مدير.",
+      "en": "The employee's role: field operator, shift supervisor, or manager."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.detail.add_member.role_field"
+  },
+  "account.shop.branches.detail.add_member.submit": {
+    "title": {
+      "ar": "حفظ",
+      "en": "Save"
+    },
+    "body": {
+      "ar": "يضيف الموظف الجديد لهذا الفرع.",
+      "en": "Adds the new employee to this branch."
+    },
+    "kind": "action",
+    "anchor": "account.shop.branches.detail.add_member.submit"
+  },
+  "account.billing.status_hero": {
+    "title": {
+      "ar": "حالة الفوترة",
+      "en": "Billing status"
+    },
+    "body": {
+      "ar": "هل فوترتك بحالة جيدة أو فيها فاتورة متأخرة تحتاج انتباهك.",
+      "en": "Whether your billing is in good shape or has a past-due invoice needing attention."
+    },
+    "kind": "field",
+    "anchor": "account.billing.status_hero"
+  },
+  "account.billing.usage_card": {
+    "title": {
+      "ar": "استخدامك",
+      "en": "Your usage"
+    },
+    "body": {
+      "ar": "استخدامك الحالي مقابل حدود باقتك — مقاعد الموظفين والفروع.",
+      "en": "Your current usage against your plan's limits — staff seats and branches."
+    },
+    "kind": "field",
+    "anchor": "account.billing.usage_card"
+  },
+  "account.billing.subscription_card": {
+    "title": {
+      "ar": "تطبيق مشترك فيه",
+      "en": "A subscribed app"
+    },
+    "body": {
+      "ar": "حالة اشتراكك بهذا التطبيق، وتقدر توقف تجديده أو تتراجع أو تجدده مبكرًا.",
+      "en": "Your subscription status for this app — stop or undo-stop its renewal, or renew it early."
+    },
+    "kind": "field",
+    "anchor": "account.billing.subscription_card"
+  },
+  "account.billing.renewal_preview_card": {
+    "title": {
+      "ar": "معاينة التجديد القادم",
+      "en": "Next renewal preview"
+    },
+    "body": {
+      "ar": "السعر الحقيقي اللي بتدفعه بأقرب تجديد، بعد أي خصم وضريبة.",
+      "en": "The real amount you'll pay at your next renewal, after any discount and tax."
+    },
+    "kind": "field",
+    "anchor": "account.billing.renewal_preview_card"
+  },
+  "account.billing.invoice_row": {
+    "title": {
+      "ar": "فاتورة",
+      "en": "An invoice"
+    },
+    "body": {
+      "ar": "تفاصيل هذه الفاتورة، وتقدر تدفعها إذا كانت مفتوحة.",
+      "en": "This invoice's details — you can pay it if it's still open."
+    },
+    "kind": "field",
+    "anchor": "account.billing.invoice_row"
+  },
+  "apps": {
+    "title": {
+      "ar": "تطبيقاتي",
+      "en": "My apps"
+    },
+    "body": {
+      "ar": "متجر التطبيقات وإدارتها لسا مو متوفرة على الجوال — تقدر تديرها من الموقع حاليًا.",
+      "en": "The app store and app management aren't available on mobile yet — you can manage them from the website for now."
+    },
+    "kind": "screen",
+    "anchor": "apps"
   }
 }

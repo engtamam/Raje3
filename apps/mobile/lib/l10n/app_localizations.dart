@@ -519,12 +519,6 @@ abstract class S {
   /// **'ما تقدر تسوي هذا الآن.'**
   String get assistantActionUnavailable;
 
-  /// No description provided for @assistantConfirmActionPrompt.
-  ///
-  /// In ar, this message translates to:
-  /// **'تأكيد هذا الإجراء؟'**
-  String get assistantConfirmActionPrompt;
-
   /// No description provided for @assistantConfirm.
   ///
   /// In ar, this message translates to:
@@ -584,6 +578,12 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'اسم المحل'**
   String get authShopNameLabel;
+
+  /// No description provided for @authOwnerNameLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسمك (اختياري)'**
+  String get authOwnerNameLabel;
 
   /// Button label on signup that goes back to login
   ///
@@ -699,6 +699,30 @@ abstract class S {
   /// **'رقم جوال العميل'**
   String get visitCustomerPhoneFieldLabel;
 
+  /// Label above the vehicle plate field, shown only when this shop tracks vehicles
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم اللوحة'**
+  String get visitPlateFieldLabel;
+
+  /// Inline validation message when saving a visit with no plausible plate, for a shop that tracks vehicles
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل رقم لوحة صحيحاً (حرف ورقم واحد على الأقل)'**
+  String get visitPlateRequired;
+
+  /// Shown after a plate lookup matches an existing customer
+  ///
+  /// In ar, this message translates to:
+  /// **'سيارة معروفة: {name}'**
+  String visitKnownVehicle(String name);
+
+  /// Shown after a plate lookup finds no existing customer
+  ///
+  /// In ar, this message translates to:
+  /// **'سيارة جديدة'**
+  String get visitNewVehicle;
+
   /// Shown after a phone lookup matches an existing customer
   ///
   /// In ar, this message translates to:
@@ -741,12 +765,6 @@ abstract class S {
   /// **'تطبيقاتي'**
   String get navAppsLabel;
 
-  /// No description provided for @navAnalyticsLabel.
-  ///
-  /// In ar, this message translates to:
-  /// **'التحليلات'**
-  String get navAnalyticsLabel;
-
   /// No description provided for @navHomeLabel.
   ///
   /// In ar, this message translates to:
@@ -758,6 +776,54 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'حسابي'**
   String get navAccountLabel;
+
+  /// No description provided for @homeGreetingMorning.
+  ///
+  /// In ar, this message translates to:
+  /// **'صباح الخير'**
+  String get homeGreetingMorning;
+
+  /// No description provided for @homeGreetingEvening.
+  ///
+  /// In ar, this message translates to:
+  /// **'مساء الخير'**
+  String get homeGreetingEvening;
+
+  /// Morning greeting with the account holder's own name
+  ///
+  /// In ar, this message translates to:
+  /// **'صباح الخير، {name}'**
+  String homeGreetingMorningNamed(String name);
+
+  /// Evening greeting with the account holder's own name
+  ///
+  /// In ar, this message translates to:
+  /// **'مساء الخير، {name}'**
+  String homeGreetingEveningNamed(String name);
+
+  /// No description provided for @homeAppsSectionTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تطبيقاتك'**
+  String get homeAppsSectionTitle;
+
+  /// No description provided for @homeFeaturedStartNow.
+  ///
+  /// In ar, this message translates to:
+  /// **'ابدأ الآن'**
+  String get homeFeaturedStartNow;
+
+  /// No description provided for @homeEmptyStateTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد تطبيقات متاحة بعد'**
+  String get homeEmptyStateTitle;
+
+  /// No description provided for @homeEmptyStateBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'تواصل مع صاحب المحل لإضافة صلاحياتك.'**
+  String get homeEmptyStateBody;
 
   /// No description provided for @appsScreenTitle.
   ///
@@ -830,6 +896,738 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'الإشعارات غير متاحة بعد'**
   String get notificationsUnavailable;
+
+  /// No description provided for @notificationsTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإشعارات'**
+  String get notificationsTitle;
+
+  /// No description provided for @notificationsEmptyState.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد إشعارات بعد'**
+  String get notificationsEmptyState;
+
+  /// No description provided for @notificationsAgoJustNow.
+  ///
+  /// In ar, this message translates to:
+  /// **'الآن'**
+  String get notificationsAgoJustNow;
+
+  /// Minutes since a notification arrived
+  ///
+  /// In ar, this message translates to:
+  /// **'قبل {n} دقيقة'**
+  String notificationsAgoMinutes(int n);
+
+  /// Hours since a notification arrived
+  ///
+  /// In ar, this message translates to:
+  /// **'قبل {n} ساعة'**
+  String notificationsAgoHours(int n);
+
+  /// No description provided for @notificationsAgoYesterday.
+  ///
+  /// In ar, this message translates to:
+  /// **'أمس'**
+  String get notificationsAgoYesterday;
+
+  /// Days since a notification arrived
+  ///
+  /// In ar, this message translates to:
+  /// **'قبل {n} يوم'**
+  String notificationsAgoDays(int n);
+
+  /// No description provided for @accountPageTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'حسابي'**
+  String get accountPageTitle;
+
+  /// No description provided for @accountLegalSectionTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'قانوني'**
+  String get accountLegalSectionTitle;
+
+  /// No description provided for @accountTermsRow.
+  ///
+  /// In ar, this message translates to:
+  /// **'الشروط والأحكام'**
+  String get accountTermsRow;
+
+  /// No description provided for @accountPrivacyRow.
+  ///
+  /// In ar, this message translates to:
+  /// **'سياسة الخصوصية'**
+  String get accountPrivacyRow;
+
+  /// No description provided for @accountSignOutRow.
+  ///
+  /// In ar, this message translates to:
+  /// **'تسجيل الخروج'**
+  String get accountSignOutRow;
+
+  /// No description provided for @accountSignOutConfirmTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تسجيل الخروج؟'**
+  String get accountSignOutConfirmTitle;
+
+  /// No description provided for @accountSignOutConfirmBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'بتحتاج تسجّل الدخول مرة ثانية للمتابعة.'**
+  String get accountSignOutConfirmBody;
+
+  /// No description provided for @accountSignOutCancel.
+  ///
+  /// In ar, this message translates to:
+  /// **'إلغاء'**
+  String get accountSignOutCancel;
+
+  /// No description provided for @accountSignOutConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'تسجيل الخروج'**
+  String get accountSignOutConfirm;
+
+  /// No description provided for @accountNameFieldHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسمك'**
+  String get accountNameFieldHint;
+
+  /// No description provided for @accountSaveNameFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر حفظ الاسم، حاول مرة ثانية.'**
+  String get accountSaveNameFailed;
+
+  /// No description provided for @accountShopSectionTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'منشأتي'**
+  String get accountShopSectionTitle;
+
+  /// No description provided for @accountShopIdentityRow.
+  ///
+  /// In ar, this message translates to:
+  /// **'منشأتي'**
+  String get accountShopIdentityRow;
+
+  /// No description provided for @shopIdentityPageTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'منشأتي'**
+  String get shopIdentityPageTitle;
+
+  /// No description provided for @shopIdentityVehicleTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'العمل على السيارات'**
+  String get shopIdentityVehicleTitle;
+
+  /// No description provided for @shopIdentityVehicleDesc.
+  ///
+  /// In ar, this message translates to:
+  /// **'يفعّل حقل رقم اللوحة بشاشة تسجيل الزيارة لهذا المحل.'**
+  String get shopIdentityVehicleDesc;
+
+  /// No description provided for @shopIdentityVehicleSaveFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر الحفظ، حاول مرة ثانية.'**
+  String get shopIdentityVehicleSaveFailed;
+
+  /// No description provided for @shopIdentityBrandTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم محلك وشعاره'**
+  String get shopIdentityBrandTitle;
+
+  /// No description provided for @shopIdentityCustomerPagePreview.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا يظهر لعميلك'**
+  String get shopIdentityCustomerPagePreview;
+
+  /// No description provided for @shopIdentityNameLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم المحل'**
+  String get shopIdentityNameLabel;
+
+  /// No description provided for @shopIdentityUploadLogo.
+  ///
+  /// In ar, this message translates to:
+  /// **'رفع شعار'**
+  String get shopIdentityUploadLogo;
+
+  /// No description provided for @shopIdentityChangeLogo.
+  ///
+  /// In ar, this message translates to:
+  /// **'تغيير الشعار'**
+  String get shopIdentityChangeLogo;
+
+  /// No description provided for @shopIdentityRemoveLogo.
+  ///
+  /// In ar, this message translates to:
+  /// **'إزالة'**
+  String get shopIdentityRemoveLogo;
+
+  /// No description provided for @shopIdentityColorLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'لون محلك'**
+  String get shopIdentityColorLabel;
+
+  /// No description provided for @shopIdentityResetColor.
+  ///
+  /// In ar, this message translates to:
+  /// **'استخدام الافتراضي'**
+  String get shopIdentityResetColor;
+
+  /// No description provided for @shopIdentitySave.
+  ///
+  /// In ar, this message translates to:
+  /// **'حفظ'**
+  String get shopIdentitySave;
+
+  /// No description provided for @shopIdentityDefaultName.
+  ///
+  /// In ar, this message translates to:
+  /// **'محلك'**
+  String get shopIdentityDefaultName;
+
+  /// No description provided for @shopIdentityLogoPickFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر قراءة الصورة، جرّب صورة ثانية.'**
+  String get shopIdentityLogoPickFailed;
+
+  /// No description provided for @shopIdentityInvalidColor.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل لوناً صحيحاً، مثل #B08A3E'**
+  String get shopIdentityInvalidColor;
+
+  /// No description provided for @shopIdentitySaveFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر الحفظ، حاول مرة ثانية.'**
+  String get shopIdentitySaveFailed;
+
+  /// No description provided for @shopIdentitySaved.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم الحفظ.'**
+  String get shopIdentitySaved;
+
+  /// No description provided for @shopIdentityBranchesRow.
+  ///
+  /// In ar, this message translates to:
+  /// **'الفروع'**
+  String get shopIdentityBranchesRow;
+
+  /// No description provided for @branchesPageTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'الفروع'**
+  String get branchesPageTitle;
+
+  /// No description provided for @branchesAddBranch.
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة فرع'**
+  String get branchesAddBranch;
+
+  /// No description provided for @branchesActiveChip.
+  ///
+  /// In ar, this message translates to:
+  /// **'نشط'**
+  String get branchesActiveChip;
+
+  /// No description provided for @branchesClosedChip.
+  ///
+  /// In ar, this message translates to:
+  /// **'مغلق'**
+  String get branchesClosedChip;
+
+  /// No description provided for @branchesLoadFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تحميل الفروع، اسحب للأسفل لإعادة المحاولة.'**
+  String get branchesLoadFailed;
+
+  /// No description provided for @branchesLimitReached.
+  ///
+  /// In ar, this message translates to:
+  /// **'باقتك الحالية لا تسمح بإضافة فرع آخر.'**
+  String get branchesLimitReached;
+
+  /// No description provided for @branchesNameRequired.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم الفرع مطلوب'**
+  String get branchesNameRequired;
+
+  /// No description provided for @branchesNameLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم الفرع'**
+  String get branchesNameLabel;
+
+  /// No description provided for @branchesCityLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'المدينة'**
+  String get branchesCityLabel;
+
+  /// No description provided for @branchesLocationHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'الصق رابط الموقع من خرائط جوجل (اختياري بالفرع الأول، إلزامي من الفرع الثاني)'**
+  String get branchesLocationHint;
+
+  /// No description provided for @branchesMapsLinkLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'رابط خرائط جوجل'**
+  String get branchesMapsLinkLabel;
+
+  /// No description provided for @branchesMapsLinkInvalid.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر قراءة الرابط، تأكد إنه رابط من خرائط جوجل.'**
+  String get branchesMapsLinkInvalid;
+
+  /// No description provided for @branchesMapsLinkShort.
+  ///
+  /// In ar, this message translates to:
+  /// **'الصق الرابط الكامل من خرائط جوجل، لا الرابط المختصر.'**
+  String get branchesMapsLinkShort;
+
+  /// No description provided for @branchesLocationRequired.
+  ///
+  /// In ar, this message translates to:
+  /// **'حدّد موقع الفرع على الخريطة — لازم من الفرع الثاني فأكثر.'**
+  String get branchesLocationRequired;
+
+  /// No description provided for @branchesSaveFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر الحفظ، حاول مرة ثانية.'**
+  String get branchesSaveFailed;
+
+  /// No description provided for @branchesStatusLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'حالة الفرع'**
+  String get branchesStatusLabel;
+
+  /// No description provided for @branchesMainCannotClose.
+  ///
+  /// In ar, this message translates to:
+  /// **'الفرع الرئيسي لا يُغلق، يمكنك تغيير اسمه فقط.'**
+  String get branchesMainCannotClose;
+
+  /// No description provided for @branchesWhatsappTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'ربط واتساب'**
+  String get branchesWhatsappTitle;
+
+  /// No description provided for @branchesWhatsappNotStarted.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم تبدأ الربط بعد'**
+  String get branchesWhatsappNotStarted;
+
+  /// No description provided for @branchesWhatsappConnected.
+  ///
+  /// In ar, this message translates to:
+  /// **'مربوط ويعمل'**
+  String get branchesWhatsappConnected;
+
+  /// No description provided for @branchesWhatsappCannotSend.
+  ///
+  /// In ar, this message translates to:
+  /// **'مربوط لكن فيه مشكلة بالإرسال'**
+  String get branchesWhatsappCannotSend;
+
+  /// No description provided for @branchesTeamTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'فريق الفرع'**
+  String get branchesTeamTitle;
+
+  /// No description provided for @branchesTeamEmpty.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يوجد أعضاء بهذا الفرع بعد.'**
+  String get branchesTeamEmpty;
+
+  /// No description provided for @branchesAddMember.
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة عضو'**
+  String get branchesAddMember;
+
+  /// No description provided for @branchesMemberNameLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم الموظف'**
+  String get branchesMemberNameLabel;
+
+  /// No description provided for @branchesMemberPhoneLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم جواله'**
+  String get branchesMemberPhoneLabel;
+
+  /// No description provided for @branchesMemberPasswordLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمة مرور دخوله'**
+  String get branchesMemberPasswordLabel;
+
+  /// No description provided for @branchesMemberRoleLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'الصلاحية'**
+  String get branchesMemberRoleLabel;
+
+  /// No description provided for @branchesRoleOperator.
+  ///
+  /// In ar, this message translates to:
+  /// **'موظف ميداني'**
+  String get branchesRoleOperator;
+
+  /// No description provided for @branchesRoleSupervisor.
+  ///
+  /// In ar, this message translates to:
+  /// **'مشرف وردية'**
+  String get branchesRoleSupervisor;
+
+  /// No description provided for @branchesRoleManager.
+  ///
+  /// In ar, this message translates to:
+  /// **'مدير'**
+  String get branchesRoleManager;
+
+  /// No description provided for @branchesSeatLimit.
+  ///
+  /// In ar, this message translates to:
+  /// **'باقتك الحالية لا تسمح بإضافة موظف آخر.'**
+  String get branchesSeatLimit;
+
+  /// No description provided for @branchesHireFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر إضافة الموظف، حاول مرة ثانية.'**
+  String get branchesHireFailed;
+
+  /// No description provided for @accountSecuritySectionTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'الأمان'**
+  String get accountSecuritySectionTitle;
+
+  /// No description provided for @accountChangePasswordRow.
+  ///
+  /// In ar, this message translates to:
+  /// **'تغيير كلمة المرور'**
+  String get accountChangePasswordRow;
+
+  /// No description provided for @accountChangePasswordFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تغيير كلمة المرور، حاول مرة ثانية.'**
+  String get accountChangePasswordFailed;
+
+  /// No description provided for @accountChangePasswordSuccess.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم تغيير كلمة المرور.'**
+  String get accountChangePasswordSuccess;
+
+  /// No description provided for @accountCurrentPasswordLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمة المرور الحالية'**
+  String get accountCurrentPasswordLabel;
+
+  /// No description provided for @accountNewPasswordLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمة المرور الجديدة'**
+  String get accountNewPasswordLabel;
+
+  /// No description provided for @accountConfirmNewPasswordLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد كلمة المرور الجديدة'**
+  String get accountConfirmNewPasswordLabel;
+
+  /// No description provided for @branchesIncreaseCapacity.
+  ///
+  /// In ar, this message translates to:
+  /// **'زيادة السعة'**
+  String get branchesIncreaseCapacity;
+
+  /// No description provided for @accountBillingSectionTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'الفوترة'**
+  String get accountBillingSectionTitle;
+
+  /// No description provided for @accountBillingRow.
+  ///
+  /// In ar, this message translates to:
+  /// **'الاشتراك والفواتير'**
+  String get accountBillingRow;
+
+  /// No description provided for @billingPageTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'الفوترة'**
+  String get billingPageTitle;
+
+  /// No description provided for @billingLoadFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تحميل بيانات الفوترة، اسحب للأسفل للمحاولة.'**
+  String get billingLoadFailed;
+
+  /// No description provided for @billingAllGood.
+  ///
+  /// In ar, this message translates to:
+  /// **'فوترتك بحالة جيدة، لا شيء يحتاج انتباهك الآن.'**
+  String get billingAllGood;
+
+  /// No description provided for @billingPastDue.
+  ///
+  /// In ar, this message translates to:
+  /// **'عندك فاتورة متأخرة السداد — سدّدها لتفادي إيقاف خدماتك.'**
+  String get billingPastDue;
+
+  /// No description provided for @billingUsageSectionTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'استخدامك'**
+  String get billingUsageSectionTitle;
+
+  /// No description provided for @billingUsageStaffSeats.
+  ///
+  /// In ar, this message translates to:
+  /// **'مقاعد الموظفين'**
+  String get billingUsageStaffSeats;
+
+  /// No description provided for @billingUsageBranches.
+  ///
+  /// In ar, this message translates to:
+  /// **'الفروع'**
+  String get billingUsageBranches;
+
+  /// No description provided for @billingUsageUnlimited.
+  ///
+  /// In ar, this message translates to:
+  /// **'غير محدود'**
+  String get billingUsageUnlimited;
+
+  /// No description provided for @billingMyAppsSectionTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تطبيقاتي المشتركة'**
+  String get billingMyAppsSectionTitle;
+
+  /// No description provided for @billingStatusActive.
+  ///
+  /// In ar, this message translates to:
+  /// **'نشط'**
+  String get billingStatusActive;
+
+  /// No description provided for @billingStatusStopping.
+  ///
+  /// In ar, this message translates to:
+  /// **'سيتوقف التجديد'**
+  String get billingStatusStopping;
+
+  /// No description provided for @billingRenewsOn.
+  ///
+  /// In ar, this message translates to:
+  /// **'يتجدد في {date}'**
+  String billingRenewsOn(Object date);
+
+  /// No description provided for @billingStopRenewal.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف التجديد'**
+  String get billingStopRenewal;
+
+  /// No description provided for @billingUndoStopRenewal.
+  ///
+  /// In ar, this message translates to:
+  /// **'تراجع عن الإيقاف'**
+  String get billingUndoStopRenewal;
+
+  /// No description provided for @billingRenewNow.
+  ///
+  /// In ar, this message translates to:
+  /// **'جدّد الآن'**
+  String get billingRenewNow;
+
+  /// No description provided for @billingActionFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تنفيذ الطلب، حاول مرة أخرى.'**
+  String get billingActionFailed;
+
+  /// No description provided for @billingRenewalPreviewSectionTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'معاينة التجديد القادم'**
+  String get billingRenewalPreviewSectionTitle;
+
+  /// No description provided for @billingRenewalPreviewNextChargeOn.
+  ///
+  /// In ar, this message translates to:
+  /// **'أقرب خصم في {date}'**
+  String billingRenewalPreviewNextChargeOn(Object date);
+
+  /// No description provided for @billingRenewalPreviewNoDate.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يوجد تاريخ تجديد قادم بعد.'**
+  String get billingRenewalPreviewNoDate;
+
+  /// No description provided for @billingRenewalPreviewSubtotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'المجموع الفرعي'**
+  String get billingRenewalPreviewSubtotal;
+
+  /// No description provided for @billingRenewalPreviewSavings.
+  ///
+  /// In ar, this message translates to:
+  /// **'التوفير'**
+  String get billingRenewalPreviewSavings;
+
+  /// No description provided for @billingRenewalPreviewTax.
+  ///
+  /// In ar, this message translates to:
+  /// **'الضريبة'**
+  String get billingRenewalPreviewTax;
+
+  /// No description provided for @billingRenewalPreviewTotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإجمالي'**
+  String get billingRenewalPreviewTotal;
+
+  /// No description provided for @billingInvoicesSectionTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'الفواتير'**
+  String get billingInvoicesSectionTitle;
+
+  /// No description provided for @billingInvoicesEmpty.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد فواتير بعد.'**
+  String get billingInvoicesEmpty;
+
+  /// No description provided for @billingInvoiceStatusPaid.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسدّدة'**
+  String get billingInvoiceStatusPaid;
+
+  /// No description provided for @billingInvoiceStatusOpen.
+  ///
+  /// In ar, this message translates to:
+  /// **'غير مسدّدة'**
+  String get billingInvoiceStatusOpen;
+
+  /// No description provided for @billingInvoiceStatusPartiallyPaid.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسدّدة جزئيًا'**
+  String get billingInvoiceStatusPartiallyPaid;
+
+  /// No description provided for @billingInvoiceStatusVoid.
+  ///
+  /// In ar, this message translates to:
+  /// **'ملغاة'**
+  String get billingInvoiceStatusVoid;
+
+  /// No description provided for @billingInvoiceStatusUncollectible.
+  ///
+  /// In ar, this message translates to:
+  /// **'غير قابلة للتحصيل'**
+  String get billingInvoiceStatusUncollectible;
+
+  /// No description provided for @billingInvoiceStatusDraft.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسودة'**
+  String get billingInvoiceStatusDraft;
+
+  /// No description provided for @billingPayNow.
+  ///
+  /// In ar, this message translates to:
+  /// **'ادفع الآن'**
+  String get billingPayNow;
+
+  /// No description provided for @billingPayLinkFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر إنشاء رابط الدفع، حاول مرة أخرى.'**
+  String get billingPayLinkFailed;
+
+  /// No description provided for @billingCancelConfirmTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف التجديد؟'**
+  String get billingCancelConfirmTitle;
+
+  /// No description provided for @billingCancelConfirmBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'ستستمر الخدمة حتى نهاية الفترة الحالية، ثم لن تتجدد.'**
+  String get billingCancelConfirmBody;
+
+  /// No description provided for @billingCancelConfirmAction.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف التجديد'**
+  String get billingCancelConfirmAction;
+
+  /// No description provided for @visitOfferApplyLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'طبّق هذا العرض على هذي الزيارة'**
+  String get visitOfferApplyLabel;
+
+  /// No description provided for @visitPointsRedeemCost.
+  ///
+  /// In ar, this message translates to:
+  /// **'{cost} نقطة'**
+  String visitPointsRedeemCost(Object cost);
+
+  /// No description provided for @visitPointsRedeemedMessage.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم استبدال {name} ✓'**
+  String visitPointsRedeemedMessage(Object name);
+
+  /// No description provided for @visitPointsRedeemFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر الاستبدال، حاول مرة ثانية.'**
+  String get visitPointsRedeemFailed;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

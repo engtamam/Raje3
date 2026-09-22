@@ -36,9 +36,22 @@ void main() {
     });
 
     test('requires_confirmation: true is parsed for a sensitive action', () {
-      final json = _validJson()..['requires_confirmation'] = true;
+      final json = _validJson()
+        ..['requires_confirmation'] = true
+        ..['confirm_message'] = 'سيتم تنفيذ هذا الفعل.';
       final a = AppAction.fromJson('nav.visit', json);
       expect(a.requiresConfirmation, isTrue);
+      expect(a.confirmMessage, 'سيتم تنفيذ هذا الفعل.');
+    });
+
+    test('requires_confirmation: true with no confirm_message throws ActionError', () {
+      final json = _validJson()..['requires_confirmation'] = true;
+      expect(() => AppAction.fromJson('nav.visit', json), throwsA(isA<ActionError>()));
+    });
+
+    test('confirm_message set while requires_confirmation is false throws ActionError', () {
+      final json = _validJson()..['confirm_message'] = 'لن يظهر أبدًا.';
+      expect(() => AppAction.fromJson('nav.visit', json), throwsA(isA<ActionError>()));
     });
 
     for (final field in [

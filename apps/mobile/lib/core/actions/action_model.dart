@@ -91,6 +91,15 @@ class AppAction {
   /// reading data, or navigating, exactly like this file's own `open_visit_app`.
   final bool requiresConfirmation;
 
+  /// The sentence a real confirmation card shows for THIS action — never a generic "confirm this
+  /// action?" (the owner's own catch, 2026-09-22: every sensitive action needs its own wording
+  /// explaining exactly what it will do, e.g. "بتلغي اشتراك برنامج النقاط، بيوقف نهاية الفترة
+  /// الحالية", not one interchangeable prompt for all of them). REQUIRED when
+  /// [requiresConfirmation] is `true` (nothing to show otherwise defeats the whole point of a
+  /// per-action message); FORBIDDEN when `false` — a message nobody ever shows is a silent typo
+  /// waiting to be noticed, same discipline [route] already holds to for [ActionScope.navigation].
+  final String? confirmMessage;
+
   const AppAction({
     required this.id,
     required this.name,
@@ -100,6 +109,7 @@ class AppAction {
     required this.kbEntryId,
     required this.enabled,
     required this.requiresConfirmation,
+    this.confirmMessage,
     this.requires = const [],
   });
 
@@ -136,6 +146,20 @@ class AppAction {
       throw ActionError('$id: missing required field "requires_confirmation" (true/false, no '
           'default — every action must state whether a real tap, not the model, carries it out)');
     }
+    final confirmMessageRaw = json['confirm_message'];
+    if (confirmMessageRaw != null &&
+        (confirmMessageRaw is! String || confirmMessageRaw.trim().isEmpty)) {
+      throw ActionError('$id: "confirm_message" must be a non-empty string when present');
+    }
+    final confirmMessage = confirmMessageRaw as String?;
+    if (requiresConfirmation && confirmMessage == null) {
+      throw ActionError('$id: "requires_confirmation" is true but "confirm_message" is missing — '
+          'a sensitive action needs its own real wording, never a generic prompt');
+    }
+    if (!requiresConfirmation && confirmMessage != null) {
+      throw ActionError('$id: "confirm_message" is set but "requires_confirmation" is false — '
+          'it would never be shown; either set requires_confirmation to true or remove the message');
+    }
 
     final requiresRaw = json['requires'];
     final requires = requiresRaw == null
@@ -153,6 +177,7 @@ class AppAction {
       kbEntryId: kbEntryId,
       enabled: enabled,
       requiresConfirmation: requiresConfirmation,
+      confirmMessage: confirmMessage,
       requires: requires,
     );
   }

@@ -207,7 +207,6 @@
   "assistantSpeak": "استمع للرد",
   "assistantStopSpeaking": "إيقاف الصوت",
   "assistantActionUnavailable": "ما تقدر تسوي هذا الآن.",
-  "assistantConfirmActionPrompt": "تأكيد هذا الإجراء؟",
   "assistantConfirm": "تأكيد",
   "assistantCancel": "إلغاء",
   "@routerScreenNotOnMobileYet": {
@@ -242,6 +241,7 @@
     "description": "Subtitle under the wordmark on signup"
   },
   "authShopNameLabel": "اسم المحل",
+  "authOwnerNameLabel": "اسمك (اختياري)",
   "@authShopNameLabel": {
     "description": "Shop-name field label on signup"
   },
@@ -326,6 +326,27 @@
   "@visitCustomerPhoneFieldLabel": {
     "description": "Label above the customer phone-lookup field"
   },
+  "visitPlateFieldLabel": "رقم اللوحة",
+  "@visitPlateFieldLabel": {
+    "description": "Label above the vehicle plate field, shown only when this shop tracks vehicles"
+  },
+  "visitPlateRequired": "أدخل رقم لوحة صحيحاً (حرف ورقم واحد على الأقل)",
+  "@visitPlateRequired": {
+    "description": "Inline validation message when saving a visit with no plausible plate, for a shop that tracks vehicles"
+  },
+  "visitKnownVehicle": "سيارة معروفة: {name}",
+  "@visitKnownVehicle": {
+    "description": "Shown after a plate lookup matches an existing customer",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "visitNewVehicle": "سيارة جديدة",
+  "@visitNewVehicle": {
+    "description": "Shown after a plate lookup finds no existing customer"
+  },
   "visitKnownCustomer": "عميل معروف: {name}",
   "@visitKnownCustomer": {
     "description": "Shown after a phone lookup matches an existing customer",
@@ -356,9 +377,32 @@
     "description": "Bottom-bar save button on the visit screen"
   },
   "navAppsLabel": "تطبيقاتي",
-  "navAnalyticsLabel": "التحليلات",
   "navHomeLabel": "الرئيسية",
   "navAccountLabel": "حسابي",
+  "homeGreetingMorning": "صباح الخير",
+  "homeGreetingEvening": "مساء الخير",
+  "homeGreetingMorningNamed": "صباح الخير، {name}",
+  "@homeGreetingMorningNamed": {
+    "description": "Morning greeting with the account holder's own name",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeGreetingEveningNamed": "مساء الخير، {name}",
+  "@homeGreetingEveningNamed": {
+    "description": "Evening greeting with the account holder's own name",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeAppsSectionTitle": "تطبيقاتك",
+  "homeFeaturedStartNow": "ابدأ الآن",
+  "homeEmptyStateTitle": "لا توجد تطبيقات متاحة بعد",
+  "homeEmptyStateBody": "تواصل مع صاحب المحل لإضافة صلاحياتك.",
   "appsScreenTitle": "تطبيقاتي",
   "appsScreenHint": "اضغط على أيقونة الدبّوس لتثبيت تطبيق بالخانة الخامسة بالشريط السفلي",
   "appsPinnedBadge": "مثبّت بالشريط",
@@ -370,5 +414,151 @@
   "accountLogoutAction": "تسجيل الخروج",
   "accountLogoutConfirmTitle": "تسجيل الخروج",
   "accountLogoutConfirmMessage": "هل تريد تسجيل الخروج من حسابك؟",
-  "notificationsUnavailable": "الإشعارات غير متاحة بعد"
+  "notificationsUnavailable": "الإشعارات غير متاحة بعد",
+  "notificationsTitle": "الإشعارات",
+  "notificationsEmptyState": "لا توجد إشعارات بعد",
+  "notificationsAgoJustNow": "الآن",
+  "notificationsAgoMinutes": "قبل {n} دقيقة",
+  "@notificationsAgoMinutes": {
+    "description": "Minutes since a notification arrived",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "notificationsAgoHours": "قبل {n} ساعة",
+  "@notificationsAgoHours": {
+    "description": "Hours since a notification arrived",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "notificationsAgoYesterday": "أمس",
+  "notificationsAgoDays": "قبل {n} يوم",
+  "@notificationsAgoDays": {
+    "description": "Days since a notification arrived",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "accountPageTitle": "حسابي",
+  "accountLegalSectionTitle": "قانوني",
+  "accountTermsRow": "الشروط والأحكام",
+  "accountPrivacyRow": "سياسة الخصوصية",
+  "accountSignOutRow": "تسجيل الخروج",
+  "accountSignOutConfirmTitle": "تسجيل الخروج؟",
+  "accountSignOutConfirmBody": "بتحتاج تسجّل الدخول مرة ثانية للمتابعة.",
+  "accountSignOutCancel": "إلغاء",
+  "accountSignOutConfirm": "تسجيل الخروج",
+  "accountNameFieldHint": "اسمك",
+  "accountSaveNameFailed": "تعذّر حفظ الاسم، حاول مرة ثانية.",
+  "accountShopSectionTitle": "منشأتي",
+  "accountShopIdentityRow": "منشأتي",
+  "shopIdentityPageTitle": "منشأتي",
+  "shopIdentityVehicleTitle": "العمل على السيارات",
+  "shopIdentityVehicleDesc": "يفعّل حقل رقم اللوحة بشاشة تسجيل الزيارة لهذا المحل.",
+  "shopIdentityVehicleSaveFailed": "تعذّر الحفظ، حاول مرة ثانية.",
+  "shopIdentityBrandTitle": "اسم محلك وشعاره",
+  "shopIdentityCustomerPagePreview": "هذا يظهر لعميلك",
+  "shopIdentityNameLabel": "اسم المحل",
+  "shopIdentityUploadLogo": "رفع شعار",
+  "shopIdentityChangeLogo": "تغيير الشعار",
+  "shopIdentityRemoveLogo": "إزالة",
+  "shopIdentityColorLabel": "لون محلك",
+  "shopIdentityResetColor": "استخدام الافتراضي",
+  "shopIdentitySave": "حفظ",
+  "shopIdentityDefaultName": "محلك",
+  "shopIdentityLogoPickFailed": "تعذّر قراءة الصورة، جرّب صورة ثانية.",
+  "shopIdentityInvalidColor": "أدخل لوناً صحيحاً، مثل #B08A3E",
+  "shopIdentitySaveFailed": "تعذّر الحفظ، حاول مرة ثانية.",
+  "shopIdentitySaved": "تم الحفظ.",
+  "shopIdentityBranchesRow": "الفروع",
+  "branchesPageTitle": "الفروع",
+  "branchesAddBranch": "إضافة فرع",
+  "branchesActiveChip": "نشط",
+  "branchesClosedChip": "مغلق",
+  "branchesLoadFailed": "تعذّر تحميل الفروع، اسحب للأسفل لإعادة المحاولة.",
+  "branchesLimitReached": "باقتك الحالية لا تسمح بإضافة فرع آخر.",
+  "branchesNameRequired": "اسم الفرع مطلوب",
+  "branchesNameLabel": "اسم الفرع",
+  "branchesCityLabel": "المدينة",
+  "branchesLocationHint": "الصق رابط الموقع من خرائط جوجل (اختياري بالفرع الأول، إلزامي من الفرع الثاني)",
+  "branchesMapsLinkLabel": "رابط خرائط جوجل",
+  "branchesMapsLinkInvalid": "تعذّر قراءة الرابط، تأكد إنه رابط من خرائط جوجل.",
+  "branchesMapsLinkShort": "الصق الرابط الكامل من خرائط جوجل، لا الرابط المختصر.",
+  "branchesLocationRequired": "حدّد موقع الفرع على الخريطة — لازم من الفرع الثاني فأكثر.",
+  "branchesSaveFailed": "تعذّر الحفظ، حاول مرة ثانية.",
+  "branchesStatusLabel": "حالة الفرع",
+  "branchesMainCannotClose": "الفرع الرئيسي لا يُغلق، يمكنك تغيير اسمه فقط.",
+  "branchesWhatsappTitle": "ربط واتساب",
+  "branchesWhatsappNotStarted": "لم تبدأ الربط بعد",
+  "branchesWhatsappConnected": "مربوط ويعمل",
+  "branchesWhatsappCannotSend": "مربوط لكن فيه مشكلة بالإرسال",
+  "branchesTeamTitle": "فريق الفرع",
+  "branchesTeamEmpty": "لا يوجد أعضاء بهذا الفرع بعد.",
+  "branchesAddMember": "إضافة عضو",
+  "branchesMemberNameLabel": "اسم الموظف",
+  "branchesMemberPhoneLabel": "رقم جواله",
+  "branchesMemberPasswordLabel": "كلمة مرور دخوله",
+  "branchesMemberRoleLabel": "الصلاحية",
+  "branchesRoleOperator": "موظف ميداني",
+  "branchesRoleSupervisor": "مشرف وردية",
+  "branchesRoleManager": "مدير",
+  "branchesSeatLimit": "باقتك الحالية لا تسمح بإضافة موظف آخر.",
+  "branchesHireFailed": "تعذّر إضافة الموظف، حاول مرة ثانية.",
+  "accountSecuritySectionTitle": "الأمان",
+  "accountChangePasswordRow": "تغيير كلمة المرور",
+  "accountChangePasswordFailed": "تعذّر تغيير كلمة المرور، حاول مرة ثانية.",
+  "accountChangePasswordSuccess": "تم تغيير كلمة المرور.",
+  "accountCurrentPasswordLabel": "كلمة المرور الحالية",
+  "accountNewPasswordLabel": "كلمة المرور الجديدة",
+  "accountConfirmNewPasswordLabel": "تأكيد كلمة المرور الجديدة",
+  "branchesIncreaseCapacity": "زيادة السعة",
+  "accountBillingSectionTitle": "الفوترة",
+  "accountBillingRow": "الاشتراك والفواتير",
+  "billingPageTitle": "الفوترة",
+  "billingLoadFailed": "تعذّر تحميل بيانات الفوترة، اسحب للأسفل للمحاولة.",
+  "billingAllGood": "فوترتك بحالة جيدة، لا شيء يحتاج انتباهك الآن.",
+  "billingPastDue": "عندك فاتورة متأخرة السداد — سدّدها لتفادي إيقاف خدماتك.",
+  "billingUsageSectionTitle": "استخدامك",
+  "billingUsageStaffSeats": "مقاعد الموظفين",
+  "billingUsageBranches": "الفروع",
+  "billingUsageUnlimited": "غير محدود",
+  "billingMyAppsSectionTitle": "تطبيقاتي المشتركة",
+  "billingStatusActive": "نشط",
+  "billingStatusStopping": "سيتوقف التجديد",
+  "billingRenewsOn": "يتجدد في {date}",
+  "billingStopRenewal": "إيقاف التجديد",
+  "billingUndoStopRenewal": "تراجع عن الإيقاف",
+  "billingRenewNow": "جدّد الآن",
+  "billingActionFailed": "تعذّر تنفيذ الطلب، حاول مرة أخرى.",
+  "billingRenewalPreviewSectionTitle": "معاينة التجديد القادم",
+  "billingRenewalPreviewNextChargeOn": "أقرب خصم في {date}",
+  "billingRenewalPreviewNoDate": "لا يوجد تاريخ تجديد قادم بعد.",
+  "billingRenewalPreviewSubtotal": "المجموع الفرعي",
+  "billingRenewalPreviewSavings": "التوفير",
+  "billingRenewalPreviewTax": "الضريبة",
+  "billingRenewalPreviewTotal": "الإجمالي",
+  "billingInvoicesSectionTitle": "الفواتير",
+  "billingInvoicesEmpty": "لا توجد فواتير بعد.",
+  "billingInvoiceStatusPaid": "مسدّدة",
+  "billingInvoiceStatusOpen": "غير مسدّدة",
+  "billingInvoiceStatusPartiallyPaid": "مسدّدة جزئيًا",
+  "billingInvoiceStatusVoid": "ملغاة",
+  "billingInvoiceStatusUncollectible": "غير قابلة للتحصيل",
+  "billingInvoiceStatusDraft": "مسودة",
+  "billingPayNow": "ادفع الآن",
+  "billingPayLinkFailed": "تعذّر إنشاء رابط الدفع، حاول مرة أخرى.",
+  "billingCancelConfirmTitle": "إيقاف التجديد؟",
+  "billingCancelConfirmBody": "ستستمر الخدمة حتى نهاية الفترة الحالية، ثم لن تتجدد.",
+  "billingCancelConfirmAction": "إيقاف التجديد",
+  "visitOfferApplyLabel": "طبّق هذا العرض على هذي الزيارة",
+  "visitPointsRedeemCost": "{cost} نقطة",
+  "visitPointsRedeemedMessage": "تم استبدال {name} ✓",
+  "visitPointsRedeemFailed": "تعذّر الاستبدال، حاول مرة ثانية."
 }

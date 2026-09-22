@@ -25,6 +25,7 @@
 // persists the shop's own choice; `AppTheme.light`/`.dark` below are what it
 // switches between.
 
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 
 import 'app_colors.g.dart';
@@ -71,11 +72,10 @@ class AppMotion {
 /// ═══════════════════════════════════════════════════════════════════════════
 class AppTextStyles {
   // theme.config.ts pairs a heavier display face (Cairo, headings/numbers)
-  // with a lighter body face (Tajawal). Flutter apps bundle font assets
-  // separately from the web's webfont links — Raje3's own font files (if
-  // bundled) go under assets/fonts/ and get registered in pubspec.yaml;
-  // until then this falls back to the platform default, same as any
-  // unbundled fontFamily.
+  // with a lighter body face (Tajawal). These names resolve to the real
+  // Google Fonts typefaces because main.dart's GoogleFonts.cairo()/.inter()
+  // calls register them globally at startup — same fonts, same weights, as
+  // apps/console/index.html's own fonts.googleapis.com link.
   static const String arabicFont = 'Cairo';
   static const String englishFont = 'Inter';
 
@@ -366,6 +366,15 @@ class AppTheme {
         color: AppColors.surface1,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.cardRadius),
       ),
+      inputDecorationTheme: _inputDecorationTheme(
+        fill: AppColors.surface2,
+        border: AppColors.borderSubtle,
+        accent: AppColors.accent,
+        danger: AppColors.danger,
+        textSecondary: AppColors.textSecondary,
+        textMuted: AppColors.textMuted,
+      ),
+      pageTransitionsTheme: _swipeBackPageTransitions,
       extensions: const [AppThemeColors.light],
     );
   }
@@ -396,7 +405,80 @@ class AppTheme {
         color: AppDarkColors.surface1,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.cardRadius),
       ),
+      inputDecorationTheme: _inputDecorationTheme(
+        fill: AppDarkColors.surface2,
+        border: AppDarkColors.borderSubtle,
+        accent: AppDarkColors.accent,
+        danger: AppDarkColors.danger,
+        textSecondary: AppDarkColors.textSecondary,
+        textMuted: AppDarkColors.textMuted,
+      ),
+      pageTransitionsTheme: _swipeBackPageTransitions,
       extensions: const [AppThemeColors.dark],
+    );
+  }
+
+  /// EDGE SWIPE-TO-GO-BACK, ON EVERY PLATFORM — never just a tap on [AppBackButton] (the owner's
+  /// own request, 2026-09-22: "يعني مو لازم يضغط على الازرار يقدر يسحب للرجوع"). Flutter's own
+  /// default `PageTransitionsTheme` already gives this for free on real iOS (the framework's own
+  /// `CupertinoPageTransitionsBuilder` handles the gesture, RTL mirroring, and conflicts with a
+  /// horizontally-scrollable child — none of that is hand-rolled here); the gap is Android, whose
+  /// default `ZoomPageTransitionsBuilder` carries no in-app swipe gesture at all — a phone without
+  /// the OS-level gesture-nav bar (older Android, some OEM skins) would have NO swipe-back
+  /// whatsoever. Forcing the Cupertino builder for every platform closes that gap the same way —
+  /// reusing Flutter's own tested implementation, never a custom `Dismissible`/`DragGesture`
+  /// re-implementation that would have to re-solve RTL and scroll-conflict handling itself.
+  static const PageTransitionsTheme _swipeBackPageTransitions = PageTransitionsTheme(
+    builders: <TargetPlatform, PageTransitionsBuilder>{
+      TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.fuchsia: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+    },
+  );
+
+  /// EVERY TEXT FIELD IN THE APP, ONE PLACE — found live (the owner's own words): almost every
+  /// screen built a bare `InputDecoration(isDense: true, hintText: ...)` with no border/fill of
+  /// its own, so Flutter's raw Material default (a plain grey underline) is what actually shipped
+  /// everywhere except the two screens (`login_screen.dart`/`signup_screen.dart`) that happened to
+  /// apply [AppInputDecorations.standard] by hand. Setting `ThemeData.inputDecorationTheme` once
+  /// here upgrades every field across the whole app at once — the SAME reasoning
+  /// `AppInputDecorations.standard` already existed for, just applied at the one layer that
+  /// actually reaches every call site instead of the ones a screen remembered to opt into.
+  /// Craft pattern (tonal resting border, a real width-2 focus ring, a distinct error state)
+  /// ported from the reference project's own `app_theme_data.dart` — its shape, our tokens.
+  static InputDecorationTheme _inputDecorationTheme({
+    required Color fill,
+    required Color border,
+    required Color accent,
+    required Color danger,
+    required Color textSecondary,
+    required Color textMuted,
+  }) {
+    OutlineInputBorder side(Color color, {double width = 1}) => OutlineInputBorder(
+          borderRadius: AppRadius.standardRadius,
+          borderSide: BorderSide(color: color, width: width),
+        );
+    return InputDecorationTheme(
+      filled: true,
+      fillColor: fill,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.md,
+      ),
+      border: side(border),
+      enabledBorder: side(border),
+      focusedBorder: side(accent, width: 1.5),
+      errorBorder: side(danger),
+      focusedErrorBorder: side(danger, width: 1.5),
+      disabledBorder: side(border.withValues(alpha: 0.5)),
+      labelStyle: AppTextStyles.bodyMedium.copyWith(color: textSecondary),
+      hintStyle: AppTextStyles.bodyMedium.copyWith(color: textMuted),
+      errorStyle: AppTextStyles.caption.copyWith(color: danger),
+      prefixIconColor: accent,
+      suffixIconColor: textSecondary,
     );
   }
 }

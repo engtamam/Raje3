@@ -239,9 +239,6 @@ class SFil extends S {
   String get assistantActionUnavailable => 'Hindi mo magagawa ito ngayon.';
 
   @override
-  String get assistantConfirmActionPrompt => 'Kumpirmahin ang aksyong ito?';
-
-  @override
   String get assistantConfirm => 'Kumpirmahin';
 
   @override
@@ -271,6 +268,9 @@ class SFil extends S {
 
   @override
   String get authShopNameLabel => 'Pangalan ng tindahan';
+
+  @override
+  String get authOwnerNameLabel => 'Pangalan mo (opsyonal)';
 
   @override
   String get authAlreadyHaveShopCta => 'May tindahan ka na? Mag-log in';
@@ -335,6 +335,21 @@ class SFil extends S {
   String get visitCustomerPhoneFieldLabel => 'Numero ng mobile ng customer';
 
   @override
+  String get visitPlateFieldLabel => 'Numero ng plaka';
+
+  @override
+  String get visitPlateRequired =>
+      'Maglagay ng tamang plaka (kahit isang letra at isang numero)';
+
+  @override
+  String visitKnownVehicle(String name) {
+    return 'Kilalang sasakyan: $name';
+  }
+
+  @override
+  String get visitNewVehicle => 'Bagong sasakyan';
+
+  @override
   String visitKnownCustomer(String name) {
     return 'Kilalang customer: $name';
   }
@@ -358,13 +373,39 @@ class SFil extends S {
   String get navAppsLabel => 'Mga app ko';
 
   @override
-  String get navAnalyticsLabel => 'Analytics';
-
-  @override
   String get navHomeLabel => 'Home';
 
   @override
   String get navAccountLabel => 'Account ko';
+
+  @override
+  String get homeGreetingMorning => 'Magandang umaga';
+
+  @override
+  String get homeGreetingEvening => 'Magandang gabi';
+
+  @override
+  String homeGreetingMorningNamed(String name) {
+    return 'Magandang umaga, $name';
+  }
+
+  @override
+  String homeGreetingEveningNamed(String name) {
+    return 'Magandang gabi, $name';
+  }
+
+  @override
+  String get homeAppsSectionTitle => 'Mga app mo';
+
+  @override
+  String get homeFeaturedStartNow => 'Simulan na';
+
+  @override
+  String get homeEmptyStateTitle => 'Wala pang available na app';
+
+  @override
+  String get homeEmptyStateBody =>
+      'Makipag-ugnayan sa may-ari ng tindahan para idagdag ang iyong pahintulot.';
 
   @override
   String get appsScreenTitle => 'Mga app ko';
@@ -405,4 +446,410 @@ class SFil extends S {
   @override
   String get notificationsUnavailable =>
       'Hindi pa available ang mga notification';
+
+  @override
+  String get notificationsTitle => 'Mga Notification';
+
+  @override
+  String get notificationsEmptyState => 'Wala pang notification';
+
+  @override
+  String get notificationsAgoJustNow => 'Ngayon lang';
+
+  @override
+  String notificationsAgoMinutes(int n) {
+    return '${n}m ang nakalipas';
+  }
+
+  @override
+  String notificationsAgoHours(int n) {
+    return '${n}h ang nakalipas';
+  }
+
+  @override
+  String get notificationsAgoYesterday => 'Kahapon';
+
+  @override
+  String notificationsAgoDays(int n) {
+    return '${n}d ang nakalipas';
+  }
+
+  @override
+  String get accountPageTitle => 'Aking Account';
+
+  @override
+  String get accountLegalSectionTitle => 'Legal';
+
+  @override
+  String get accountTermsRow => 'Mga Tuntunin at Kundisyon';
+
+  @override
+  String get accountPrivacyRow => 'Patakaran sa Privacy';
+
+  @override
+  String get accountSignOutRow => 'Mag-sign out';
+
+  @override
+  String get accountSignOutConfirmTitle => 'Mag-sign out?';
+
+  @override
+  String get accountSignOutConfirmBody =>
+      'Kakailanganin mong mag-sign in muli para magpatuloy.';
+
+  @override
+  String get accountSignOutCancel => 'Kanselahin';
+
+  @override
+  String get accountSignOutConfirm => 'Mag-sign out';
+
+  @override
+  String get accountNameFieldHint => 'Ang iyong pangalan';
+
+  @override
+  String get accountSaveNameFailed =>
+      'Hindi na-save ang pangalan, subukan ulit.';
+
+  @override
+  String get accountShopSectionTitle => 'Aking tindahan';
+
+  @override
+  String get accountShopIdentityRow => 'Aking tindahan';
+
+  @override
+  String get shopIdentityPageTitle => 'Aking tindahan';
+
+  @override
+  String get shopIdentityVehicleTitle => 'Gumagana sa mga sasakyan';
+
+  @override
+  String get shopIdentityVehicleDesc =>
+      'Ina-on ang field ng plate number sa visit screen para sa tindahang ito.';
+
+  @override
+  String get shopIdentityVehicleSaveFailed => 'Hindi na-save, subukan ulit.';
+
+  @override
+  String get shopIdentityBrandTitle => 'Pangalan at logo ng tindahan mo';
+
+  @override
+  String get shopIdentityCustomerPagePreview =>
+      'Ito ang nakikita ng kustomer mo';
+
+  @override
+  String get shopIdentityNameLabel => 'Pangalan ng tindahan';
+
+  @override
+  String get shopIdentityUploadLogo => 'Mag-upload ng logo';
+
+  @override
+  String get shopIdentityChangeLogo => 'Palitan ang logo';
+
+  @override
+  String get shopIdentityRemoveLogo => 'Alisin';
+
+  @override
+  String get shopIdentityColorLabel => 'Kulay ng tindahan mo';
+
+  @override
+  String get shopIdentityResetColor => 'Gamitin ang default';
+
+  @override
+  String get shopIdentitySave => 'I-save';
+
+  @override
+  String get shopIdentityDefaultName => 'Ang tindahan mo';
+
+  @override
+  String get shopIdentityLogoPickFailed =>
+      'Hindi mabasa ang larawan, subukan ang iba.';
+
+  @override
+  String get shopIdentityInvalidColor =>
+      'Maglagay ng tamang kulay, tulad ng #B08A3E';
+
+  @override
+  String get shopIdentitySaveFailed => 'Hindi na-save, subukan ulit.';
+
+  @override
+  String get shopIdentitySaved => 'Na-save na.';
+
+  @override
+  String get shopIdentityBranchesRow => 'Mga Sangay';
+
+  @override
+  String get branchesPageTitle => 'Mga Sangay';
+
+  @override
+  String get branchesAddBranch => 'Magdagdag ng sangay';
+
+  @override
+  String get branchesActiveChip => 'Aktibo';
+
+  @override
+  String get branchesClosedChip => 'Sarado';
+
+  @override
+  String get branchesLoadFailed =>
+      'Hindi na-load ang mga sangay, i-pull down para subukan muli.';
+
+  @override
+  String get branchesLimitReached =>
+      'Hindi pinapayagan ng iyong kasalukuyang plano ang karagdagang sangay.';
+
+  @override
+  String get branchesNameRequired => 'Kailangan ang pangalan ng sangay';
+
+  @override
+  String get branchesNameLabel => 'Pangalan ng sangay';
+
+  @override
+  String get branchesCityLabel => 'Lungsod';
+
+  @override
+  String get branchesLocationHint =>
+      'I-paste ang link ng lokasyon mula sa Google Maps (opsyonal sa unang sangay, kailangan mula sa ikalawa)';
+
+  @override
+  String get branchesMapsLinkLabel => 'Link ng Google Maps';
+
+  @override
+  String get branchesMapsLinkInvalid =>
+      'Hindi mabasa ang link na iyon — siguraduhing link ito mula sa Google Maps.';
+
+  @override
+  String get branchesMapsLinkShort =>
+      'I-paste ang buong link ng Google Maps, hindi ang pinaikling link.';
+
+  @override
+  String get branchesLocationRequired =>
+      'Itakda ang lokasyon ng sangay sa mapa — kailangan mula sa ikalawang sangay.';
+
+  @override
+  String get branchesSaveFailed => 'Hindi na-save, subukan ulit.';
+
+  @override
+  String get branchesStatusLabel => 'Katayuan ng sangay';
+
+  @override
+  String get branchesMainCannotClose =>
+      'Hindi maaaring isara ang pangunahing sangay — pangalan lang ang maaaring baguhin.';
+
+  @override
+  String get branchesWhatsappTitle => 'Koneksyon sa WhatsApp';
+
+  @override
+  String get branchesWhatsappNotStarted => 'Hindi pa nakakonekta';
+
+  @override
+  String get branchesWhatsappConnected => 'Nakakonekta at gumagana';
+
+  @override
+  String get branchesWhatsappCannotSend =>
+      'Nakakonekta pero may isyu sa pagpapadala';
+
+  @override
+  String get branchesTeamTitle => 'Koponan ng sangay';
+
+  @override
+  String get branchesTeamEmpty => 'Wala pang miyembro sa sangay na ito.';
+
+  @override
+  String get branchesAddMember => 'Magdagdag ng miyembro';
+
+  @override
+  String get branchesMemberNameLabel => 'Pangalan ng empleyado';
+
+  @override
+  String get branchesMemberPhoneLabel => 'Numero ng telepono niya';
+
+  @override
+  String get branchesMemberPasswordLabel => 'Password niya sa pag-login';
+
+  @override
+  String get branchesMemberRoleLabel => 'Tungkulin';
+
+  @override
+  String get branchesRoleOperator => 'Field operator';
+
+  @override
+  String get branchesRoleSupervisor => 'Shift supervisor';
+
+  @override
+  String get branchesRoleManager => 'Manager';
+
+  @override
+  String get branchesSeatLimit =>
+      'Hindi pinapayagan ng iyong kasalukuyang plano ang karagdagang empleyado.';
+
+  @override
+  String get branchesHireFailed =>
+      'Hindi maidagdag ang empleyado, subukan ulit.';
+
+  @override
+  String get accountSecuritySectionTitle => 'Seguridad';
+
+  @override
+  String get accountChangePasswordRow => 'Palitan ang password';
+
+  @override
+  String get accountChangePasswordFailed =>
+      'Hindi mapalitan ang password, subukan ulit.';
+
+  @override
+  String get accountChangePasswordSuccess => 'Napalitan ang password.';
+
+  @override
+  String get accountCurrentPasswordLabel => 'Kasalukuyang password';
+
+  @override
+  String get accountNewPasswordLabel => 'Bagong password';
+
+  @override
+  String get accountConfirmNewPasswordLabel =>
+      'Kumpirmahin ang bagong password';
+
+  @override
+  String get branchesIncreaseCapacity => 'Dagdagan ang kapasidad';
+
+  @override
+  String get accountBillingSectionTitle => 'Pagsingil';
+
+  @override
+  String get accountBillingRow => 'Subscription at mga invoice';
+
+  @override
+  String get billingPageTitle => 'Pagsingil';
+
+  @override
+  String get billingLoadFailed =>
+      'Hindi na-load ang datos ng pagsingil. Hilahin pababa para subukan muli.';
+
+  @override
+  String get billingAllGood =>
+      'Maayos ang iyong billing — walang kailangang pansinin ngayon.';
+
+  @override
+  String get billingPastDue =>
+      'Mayroon kang overdue na invoice — bayaran ito para maiwasan ang pagka-pause ng iyong mga serbisyo.';
+
+  @override
+  String get billingUsageSectionTitle => 'Ang iyong paggamit';
+
+  @override
+  String get billingUsageStaffSeats => 'Upuan ng staff';
+
+  @override
+  String get billingUsageBranches => 'Mga sangay';
+
+  @override
+  String get billingUsageUnlimited => 'Walang limitasyon';
+
+  @override
+  String get billingMyAppsSectionTitle => 'Mga naka-subscribe kong app';
+
+  @override
+  String get billingStatusActive => 'Aktibo';
+
+  @override
+  String get billingStatusStopping => 'Titigil na';
+
+  @override
+  String billingRenewsOn(Object date) {
+    return 'Mare-renew sa $date';
+  }
+
+  @override
+  String get billingStopRenewal => 'Ihinto ang pag-renew';
+
+  @override
+  String get billingUndoStopRenewal => 'I-undo ang paghinto';
+
+  @override
+  String get billingRenewNow => 'I-renew ngayon';
+
+  @override
+  String get billingActionFailed =>
+      'Hindi natapos ang aksyong ito. Subukan muli.';
+
+  @override
+  String get billingRenewalPreviewSectionTitle =>
+      'Preview ng susunod na pag-renew';
+
+  @override
+  String billingRenewalPreviewNextChargeOn(Object date) {
+    return 'Susunod na sisingilin sa $date';
+  }
+
+  @override
+  String get billingRenewalPreviewNoDate =>
+      'Wala pang paparating na petsa ng pag-renew.';
+
+  @override
+  String get billingRenewalPreviewSubtotal => 'Subtotal';
+
+  @override
+  String get billingRenewalPreviewSavings => 'Naipon';
+
+  @override
+  String get billingRenewalPreviewTax => 'Buwis';
+
+  @override
+  String get billingRenewalPreviewTotal => 'Kabuuan';
+
+  @override
+  String get billingInvoicesSectionTitle => 'Mga invoice';
+
+  @override
+  String get billingInvoicesEmpty => 'Wala pang mga invoice.';
+
+  @override
+  String get billingInvoiceStatusPaid => 'Bayad na';
+
+  @override
+  String get billingInvoiceStatusOpen => 'Hindi pa bayad';
+
+  @override
+  String get billingInvoiceStatusPartiallyPaid => 'Bahagyang bayad';
+
+  @override
+  String get billingInvoiceStatusVoid => 'Nawalang-bisa';
+
+  @override
+  String get billingInvoiceStatusUncollectible => 'Hindi na makokolekta';
+
+  @override
+  String get billingInvoiceStatusDraft => 'Draft';
+
+  @override
+  String get billingPayNow => 'Magbayad ngayon';
+
+  @override
+  String get billingPayLinkFailed => 'Hindi nagawa ang pay link. Subukan muli.';
+
+  @override
+  String get billingCancelConfirmTitle => 'Ihinto ang pag-renew?';
+
+  @override
+  String get billingCancelConfirmBody =>
+      'Patuloy na gagana ang serbisyo hanggang sa katapusan ng kasalukuyang panahon, pagkatapos hindi na ito mare-renew.';
+
+  @override
+  String get billingCancelConfirmAction => 'Ihinto ang pag-renew';
+
+  @override
+  String get visitOfferApplyLabel =>
+      'Ilapat ang alok na ito sa pagbisitang ito';
+
+  @override
+  String visitPointsRedeemCost(Object cost) {
+    return '$cost puntos';
+  }
+
+  @override
+  String visitPointsRedeemedMessage(Object name) {
+    return 'Na-redeem ang $name ✓';
+  }
+
+  @override
+  String get visitPointsRedeemFailed => 'Hindi na-redeem. Subukan muli.';
 }
