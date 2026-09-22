@@ -33,6 +33,21 @@ dependencies:
   url_launcher: ^6.2.2
   package_info_plus: ^8.0.0
   device_info_plus: ^10.1.0
+  # Shop logo picker («منشأتي») — the picker's OWN `maxWidth`/`imageQuality` constrain the file to
+  # apps/console/src/screens/AccountPanes.tsx's own LOGO_PX=256 equivalent at pick time, so no
+  # separate image-processing package is needed just to shrink it before it goes inline as a data
+  # URI in `branding.logo_url` (PUT /api/v1/tenant/branding) — same field, same shape as the
+  # console's own `shrink()`.
+  image_picker: ^1.1.2
+
+  # THE REBRAND'S OWN TYPEFACES, loaded the same way the web console loads them
+  # (apps/console/index.html: fonts.googleapis.com, Cairo 600-900 + Tajawal
+  # 400-700) — without this, AppTextStyles.arabicFont/englishFont ('Cairo'/
+  # 'Inter') name fonts that were never actually bundled or loaded, so every
+  # Text using them silently fell back to the OS default font. This includes
+  # the wordmark itself (login_screen.dart's _buildLogo, BrandLoadingIndicator)
+  # — found live: it visibly did not match the console's own Cairo wordmark.
+  google_fonts: ^6.2.1
 
   # Icons
   cupertino_icons: ^1.0.8
@@ -60,11 +75,16 @@ dependencies:
 
   # Wake word ("راجِع") — a fourth, independent on-device port (lib/core/wakeword/ own doc
   # comments). flutter_litert (LiteRT, TFLite's own current name/successor) runs the tiny
-  # trained classifier; mic_stream supplies the raw 16kHz mono PCM the hand-written audio
+  # trained classifier; `record` supplies the raw 16kHz mono PCM the hand-written audio
   # frontend (micro_frontend.dart) needs — speech_to_text's own recognizer session has no raw
   # PCM access, so it cannot serve this role. Both entirely on-device, same as every other port.
+  # `record`, NOT `mic_stream` — found live, the first real Android APK build: mic_stream's own
+  # plugin code calls the Flutter v1 embedding's `PluginRegistry.Registrar`, removed from the
+  # engine years ago, so it was never actually buildable for Android despite compiling fine
+  # against the web target this app was tested against all session. `record` is actively
+  # maintained and returns the identical raw `Stream<Uint8List>` PCM shape.
   flutter_litert: ^3.9.0
-  mic_stream: ^0.7.2
+  record: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -78,3 +98,10 @@ flutter:
     - assets/knowledge/mobile_kb.json
     - assets/knowledge/mobile_actions.json
     - assets/wakeword/raje_wakeword.tflite
+    # THE GEMMA MODEL ITSELF — bundled in the app package (owner's own explicit decision,
+    # 2026-09-22; see AiConfig.gemmaModelAssetPath's own doc comment for the full reasoning and
+    # trade-off). NOT COMMITTED TO GIT (.gitignore excludes assets/models/) — run
+    # scripts/fetch_ai_model.sh BEFORE `flutter build`/`flutter run`, or this path will not exist
+    # and `flutter build` will fail with a clear "asset not found" error, on purpose (a build that
+    # silently shipped without the model would be a worse failure, discovered only on a device).
+    - assets/models/gemma-4-E4B-it-gpu.litertlm
