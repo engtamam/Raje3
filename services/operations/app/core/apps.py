@@ -338,7 +338,7 @@ APPS: tuple[dict[str, Any], ...] = (
     # section a LATER pass builds (nav.ts tab + visit-screen checkbox) — declared here now, backend
     # first, so `ci/check_listed_apps_are_wired.py` never sees this row missing once the plan is
     # listed.
-    {"key": "feature.coupons", "name": "كوبونات", "screen": "coupons",
+    {"key": "feature.partner_loyalty", "name": "ولاء الشركاء", "screen": "partner-loyalty",
      "what": "امنح محلاً آخر مسجّلاً عندنا خصماً حقيقياً على اشتراكه معنا — يُطبَّق تلقائياً عند "
              "تجديده القادم، ويقوّي علاقتك التجارية مع من تتعامل معهم.",
      "features": list(COUPONS_FEATURES)},
@@ -361,6 +361,16 @@ APPS: tuple[dict[str, Any], ...] = (
      "what": "عميل يحقق شرطاً عند محل تثق به يصير مستحقاً تلقائياً لعرضك — بموافقة الطرفين، بلا أي "
              "لمسة مالية منّا.",
      "features": list(REFERRAL_PARTNERSHIP_FEATURES)},
+    # MOBILE AI ASSISTANT — on-device (apps/mobile only, Gemma 4 via flutter_gemma), no console
+    # screen AT ALL, ever — unlike `feature.referral_partnership`'s own row above (a console UI
+    # that landed LATER), this app's whole surface lives on the phone, by design (owner's own
+    # words: "كل شي بتطبيق الجوال لانه كل شي في تطبيق الجوال"). `screen` still names a real,
+    # stable id (not a console route) purely so `ci/check_listed_apps_are_wired.py`'s own
+    # listed-row/registry-row pairing has something to match against — see plans.json's own note
+    # on this row for the full pricing story (0 today, a real subscribe/cancel plan regardless).
+    {"key": "feature.mobile_ai_assistant", "name": "المساعد الذكي (تطبيق الجوال)",
+     "screen": "mobile-ai-assistant",
+     "what": "يجاوبك ويرشدك داخل التطبيق بصوتك أو بالكتابة، فوراً وبلا انتظار."},
 )
 
 # BOTH ROWS ABOVE WERE MISSING FOR THE SAME REASON, FOUND THE SAME DAY: a plan's

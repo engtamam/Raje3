@@ -360,7 +360,7 @@ def test_every_other_app_does_not_require_connection():
     from app.core.apps import requires_whatsapp_connection
 
     for key in ("feature.loyalty", "feature.insights.engine", "feature.bookings",
-                "feature.visit", "feature.contacts", "feature.coupons",
+                "feature.visit", "feature.contacts", "feature.partner_loyalty",
                 "feature.mobile_requests"):
         assert requires_whatsapp_connection({key}) is False, key
 

@@ -461,18 +461,26 @@ def build_container(settings: Settings) -> Container:
     container.campaigns_licence = build_feature_licence(settings, "feature.campaigns")
     container.loyalty_licence = build_feature_licence(settings, "feature.loyalty")
     container.rating_licence = build_feature_licence(settings, "feature.rating")
-    # `feature.coupons`/`feature.insights.engine`/`feature.mobile_requests` — each already has its
-    # OWN narrow, door-specific entitlement check (core/coupons.py::granter_is_subscribed,
+    # `feature.partner_loyalty`/`feature.insights.engine`/`feature.mobile_requests` — each already
+    # has its OWN narrow, door-specific entitlement check (core/coupons.py::granter_is_subscribed,
     # core/mobile_requests.py::is_subscribed) for the one act that IS the point of buying it. These
     # three licences exist here ONLY so `subscribed_write`'s generic "holds ANY app" OR
     # (api/subscribed.py, built from `core/apps.py::KEYS`/`licence_attr`) can ask about them too —
     # without this row a shop paying for one of these three alone, and nothing else, was wrongly
     # refused an ordinary shop-management write.
     container.insights_engine_licence = build_feature_licence(settings, "feature.insights.engine")
-    container.coupons_licence = build_feature_licence(settings, "feature.coupons")
+    container.partner_loyalty_licence = build_feature_licence(settings, "feature.partner_loyalty")
     container.mobile_requests_licence = build_feature_licence(settings, "feature.mobile_requests")
     container.referral_partnership_licence = build_feature_licence(
         settings, "feature.referral_partnership")
+    # WITHOUT THIS, `subscribed_write`'s own generic OR-gate (app/api/subscribed.py::_ANY_APP,
+    # derived from core/apps.py::KEYS) reads `getattr(container, "mobile_ai_assistant_licence",
+    # None)` as `None` for EVERY tenant and, by that gate's own documented "an unwired licence
+    # lets the write through" rule, makes the WHOLE gate pass for EVERY shop — a real regression a
+    # real review caught the moment `feature.mobile_ai_assistant` joined `core/apps.py::APPS`
+    # without this line landing in the same change.
+    container.mobile_ai_assistant_licence = build_feature_licence(
+        settings, "feature.mobile_ai_assistant")
     container.templates = TemplateLibrary(container.datastore)
     # The door. Built early, because a signup that cannot
     # seed a catalogue is a signup that lands the new owner on an empty «خدماتي».
