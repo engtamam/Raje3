@@ -477,6 +477,17 @@ class AccountSettingsStore(_Base):
         await self._put(tenant, subject, row)
         return row
 
+    async def set_name(self, tenant: str, subject: str, name: str) -> dict[str, Any]:
+        """The account holder's own display name — same reasoning as `set_locale`: an owner has
+        no `Operator` row (the ONLY place a name existed before this), so every OTHER account
+        (an employee hired through `hire()`) already had a real name and the owner alone had
+        none anywhere in the product. Keyed by subject, same as locale, so it works for any
+        logged-in account regardless of role."""
+        row = await self.get_by_subject(tenant, subject) or {}
+        row["name"] = name
+        await self._put(tenant, subject, row)
+        return row
+
 
 class BranchStore(_Base):
     collection = BRANCHES

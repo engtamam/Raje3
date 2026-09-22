@@ -31,6 +31,11 @@ class OpenShopIn(BaseModel):
     phone: str = Field(min_length=6, max_length=32)
     password: str = Field(min_length=1, max_length=256)
     shop_name: str = Field(min_length=1, max_length=200)
+    # OPTIONAL — see core/signup.py's own NewShop.owner_name note for why this never becomes a
+    # required fourth field. Stored via AccountSettingsStore, never identity's own Person (kept
+    # off-limits from this service; see that store's own docstring for the structural reason an
+    # owner had no name anywhere until this).
+    owner_name: str = Field(default="", max_length=200)
     # Optional, read from the console's own `?aff=` link parameter — see core/signup.py's own
     # NewShop.affiliate_ref note for why this is never partner_key/partner_id.
     affiliate_ref: str = Field(default="", max_length=64)
@@ -97,7 +102,8 @@ async def open_shop(request: Request, body: OpenShopIn) -> Any:
     try:
         out = await _svc(request).open_shop_verified(NewShop(
             phone=body.phone, password=body.password,
-            shop_name=body.shop_name, affiliate_ref=body.affiliate_ref), body.code)
+            shop_name=body.shop_name, owner_name=body.owner_name,
+            affiliate_ref=body.affiliate_ref), body.code)
     except SignupRefused as exc:
         return _refused(exc)
     # NO TOKEN IN THIS RESPONSE. The account exists; the console signs in with it immediately,

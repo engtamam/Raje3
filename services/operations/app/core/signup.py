@@ -124,6 +124,10 @@ class NewShop:
     phone: str
     password: str
     shop_name: str
+    # OPTIONAL, ON PURPOSE — see this field's own write site (open_shop_verified) for why signup
+    # never gains a required fourth field over this. Empty means the greeting still reads his
+    # phone number, exactly like today, until he (or the console's own account settings) sets one.
+    owner_name: str = ""
     # WHO BROUGHT IT, and empty means we did. Stamped at creation so attribution exists before the
     # first invoice, and written ONCE — a key arriving later is recorded and changes nothing, or a
     # till company that replaced another's software six months on would inherit its commission
@@ -357,6 +361,16 @@ class SignupService:
         # (§12.2) — and the row is repairable. What it prevents is a first month of visits with no
         # place on them, which no later purchase can reconstruct.
         await self._seed_main_branch(tenant, shop_name=shop.shop_name)
+
+        # HIS OWN NAME, IF HE TYPED ONE. Optional on purpose — signup stays phone + password +
+        # shop name, three real steps, never a fourth REQUIRED field for something the greeting
+        # can live without (it falls back to his phone number, see AccountSettingsStore's own
+        # note on why an owner had no name anywhere in the product until this). Never undone on a
+        # later failure below: a name with nothing to attach to afterward is harmless, unlike the
+        # tenant/membership pair above.
+        if shop.owner_name.strip():
+            from app.core.stores import AccountSettingsStore
+            await AccountSettingsStore(self._store).set_name(tenant, person_id, shop.owner_name.strip())
 
         # HIS FREE MONTH, STARTED NOW — not left for him to find «متجر التطبيقات» and press
         # «أضِف» on every app himself first.

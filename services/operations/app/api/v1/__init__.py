@@ -90,6 +90,48 @@ async def set_my_locale(request: Request, body: LocaleIn,
     return {"locale": row["locale"]}
 
 
+class NameIn(BaseModel):
+    name: str = Field(default="", max_length=200)
+
+
+# THE ACCOUNT HOLDER'S OWN DISPLAY NAME — PLATFORM-WIDE, ANY LOGGED-IN ACCOUNT (owner included).
+#
+# FOUND LIVE: every employee `hire()` creates already carries a real name (`Operator.name`,
+# staff.py) — attribution for who recorded a visit needs one — but the owner himself has no
+# `Operator` row (see that class's own docstring) and so had no name anywhere in the product,
+# not even the one place `Operator.name` exists. Same fix as the locale route just above and for
+# the exact same structural reason: keyed by JWT subject, not by an Operator row, so it works
+# whether or not this account happens to be staffed.
+@router.get("/account/me/name", dependencies=[Depends(rate_limit)])
+async def get_my_name(request: Request, principal: Principal = Depends(require_user)) -> dict:
+    row = await AccountSettingsStore(request.app.state.container.datastore).get_by_subject(
+        principal.tenant, principal.subject)
+    return {"name": (row or {}).get("name", "")}
+
+
+@router.patch("/account/me/name", dependencies=[Depends(rate_limit)])
+async def set_my_name(request: Request, body: NameIn,
+                      principal: Principal = Depends(require_user)) -> dict:
+    row = await AccountSettingsStore(request.app.state.container.datastore).set_name(
+        principal.tenant, principal.subject, body.name.strip())
+    return {"name": row["name"]}
+
+
+# THE ONE THING apps/mobile ITSELF NEEDS TO ASK — "feature.mobile_ai_assistant" (deploy/seed/
+# plans.json's own row for this key, core/apps.py's own registry row) is a REAL, subscribe/cancel-
+# able plan, priced at 0 for now but never auto-granted — see both files' own notes. Mobile has no
+# console-style "أطلب كل تطبيقاتي دفعة وحدة" screen and no reason to hold every other app's own
+# entitlement state, so this is deliberately NARROWER than `/subscription/apps` (which needs
+# `_OWNER` and returns the whole shop's own catalogue) — `require_user` alone, one key, one
+# boolean. SAME `checked` honesty that route's own docstring states: a billing outage answers
+# `checked: false`, never a silent `False` that reads as "not subscribed" to a shop that paid.
+@router.get("/account/me/mobile-ai-assistant", dependencies=[Depends(rate_limit)])
+async def my_mobile_ai_assistant_entitlement(
+        request: Request, principal: Principal = Depends(require_user)) -> dict:
+    held, checked = await request.app.state.container.apps.held(principal.tenant)
+    return {"subscribed": "feature.mobile_ai_assistant" in held, "checked": checked}
+
+
 # Mounted on their own prefixes rather than under this one: /api/v1/field/* and /api/v1/staff/*
 # read as what they are — the shop floor and the back office — and a gateway can route or rate-limit
 # them differently without parsing paths.

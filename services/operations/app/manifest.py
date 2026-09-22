@@ -212,6 +212,9 @@ def build_manifest(
             # owner could never reach).
             {"path": "/api/v1/account/me/locale", "tier": "user", "method": "GET"},
             {"path": "/api/v1/account/me/locale", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/account/me/name", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/account/me/name", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/account/me/mobile-ai-assistant", "tier": "user", "method": "GET"},
             # ── the field screen — the product, as far as the shop floor is concerned ──────
             {"path": "/api/v1/field/visits", "tier": "user", "method": "POST"},
             {"path": "/api/v1/field/visits/{}/offer", "tier": "user", "method": "POST"},
@@ -280,6 +283,7 @@ def build_manifest(
             {"path": "/api/v1/staff/branches", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/branches", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/branches/{}", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/staff/resolve-maps-link", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/services", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/services", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/services/{}", "tier": "user", "method": "PATCH"},

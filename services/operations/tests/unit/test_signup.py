@@ -97,6 +97,37 @@ async def test_a_seeding_failure_does_not_destroy_a_working_account():
     assert not any(m == "DELETE" for m, _ in http.calls)
 
 
+@pytest.mark.anyio
+async def test_a_typed_owner_name_is_stored_against_the_seeded_person():
+    """The owner had no name anywhere in the product until this (AccountSettingsStore's own
+    note) — a name typed at signup must actually land keyed on the person seed-owner just
+    created, not silently drop."""
+    from app.core.stores import AccountSettingsStore
+
+    http = FakeHttp(_HAPPY_PATH)
+    store = FakeStore()
+    out = await build(http, store=store).open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور", owner_name="سارة"))
+
+    row = await AccountSettingsStore(store).get_by_subject(out["tenant"], "p1")
+    assert row is not None
+    assert row["name"] == "سارة"
+
+
+@pytest.mark.anyio
+async def test_no_owner_name_typed_writes_nothing():
+    """Optional means optional — a signup with no name must not create an empty row, and must
+    never touch the store at all for this field."""
+    from app.core.models import ACCOUNT_SETTINGS
+
+    http = FakeHttp(_HAPPY_PATH)
+    store = FakeStore()
+    out = await build(http, store=store).open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
+
+    assert (ACCOUNT_SETTINGS, f"{out['tenant']}|p1") not in store.rows
+
+
 # ── the affiliate stamp — who brought this shop (affiliate-service, not PartnerRegistry) ────────
 @pytest.mark.anyio
 async def test_no_affiliate_url_configured_means_no_call_at_all():

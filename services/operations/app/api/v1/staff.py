@@ -24,6 +24,9 @@ from __future__ import annotations
 
 import hmac
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
@@ -1288,6 +1291,60 @@ async def list_branches(request: Request, principal: Principal = Depends(_READ_B
     # «may he open one more» are facts about the establishment's PLAN — computing them from a
     # narrowed list would tell a one-branch manager his chain of five has room for four more.
     return {"branches": kept, "branch_limit": int(limit), "may_add_branch": bool(may_add)}
+
+
+_MAPS_SHORT_LINK_HOSTS = {"goo.gl", "maps.app.goo.gl"}
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Declines to follow — `urlopen` then raises `HTTPError` on the redirect status, which is
+    the only way urllib hands back the `Location` header without actually fetching the page it
+    points to. We want the coordinate hiding in that URL, never the page itself."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D102
+        return None
+
+
+def _resolve_maps_short_link(url: str) -> str:
+    """Follows ONE redirect hop of a Google Maps short link and returns where it landed.
+
+    A BROWSER CANNOT DO THIS ITSELF — reading a cross-origin redirect's destination is exactly
+    what CORS exists to block, so apps/console's own googleMapsLink.ts deliberately never
+    attempts it (see that file's own docstring). This route exists purely to do that one hop on
+    the console's behalf, same-origin from its own point of view.
+
+    RESTRICTED TO GOOGLE'S OWN SHORT-LINK HOSTS, NEVER AN ARBITRARY URL — an open "fetch whatever
+    URL the caller names" route is a textbook SSRF door (a caller could point it at an internal
+    service address). `goo.gl`/`maps.app.goo.gl` are the only two hosts Google actually issues
+    these short links from.
+    """
+    parsed = urllib.parse.urlparse(url)
+    host = (parsed.hostname or "").removeprefix("www.")
+    if parsed.scheme != "https" or host not in _MAPS_SHORT_LINK_HOSTS:
+        return ""
+    opener = urllib.request.build_opener(_NoRedirect)
+    try:
+        opener.open(url, timeout=5)
+        # No redirect at all — nothing further to resolve.
+        return ""
+    except urllib.error.HTTPError as exc:
+        if exc.code in (301, 302, 303, 307, 308):
+            return exc.headers.get("Location") or ""
+        return ""
+    except OSError:
+        return ""
+
+
+@router.get("/resolve-maps-link", dependencies=[Depends(rate_limit)])
+async def resolve_maps_link(request: Request, url: str,
+                            principal: Principal = Depends(_READ)) -> dict:
+    """`{"resolved_url": "..."}`, or `""` when the link was not one of ours to resolve or carried
+    no redirect. Blocking I/O (urllib, matching signup.py's own `Http` — a second HTTP idiom in
+    this codebase is a second set of timeout/error behaviour to keep in step), so it runs off the
+    event loop via `run_in_threadpool` rather than stalling every other request on this worker.
+    """
+    resolved = await run_in_threadpool(_resolve_maps_short_link, url)
+    return {"resolved_url": resolved}
 
 
 # ── the service catalogue ─────────────────────────────────────────────────────────────────────
