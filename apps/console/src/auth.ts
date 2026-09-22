@@ -27,6 +27,10 @@ export interface NewShop {
   phone: string;
   password: string;
   shopName: string;
+  // OPTIONAL — see core/signup.py's own NewShop.owner_name note for why this never becomes a
+  // required fifth value. Empty means the greeting (mobile) or account pane (here) still reads
+  // his phone number until he sets one, at signup or later from «حسابي».
+  ownerName?: string;
   affiliateRef?: string;
   // EMPTY ON A DEPLOYMENT THAT HAS NOT TURNED OTP-AT-SIGNUP ON — the backend only spends it when
   // `SIGNUP_REQUIRE_OTP` is set (services/operations `open_shop_verified`); an unset field costs
@@ -136,6 +140,7 @@ export async function openShop(shop: NewShop): Promise<OpenedShop> {
       phone: shop.phone,
       password: shop.password,
       shop_name: shop.shopName,
+      owner_name: shop.ownerName || '',
       affiliate_ref: shop.affiliateRef || '',
       code: shop.code || '',
     });

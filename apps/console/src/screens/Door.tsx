@@ -196,7 +196,8 @@ function ProveNumber(
 
 /** The full form, held across the code detour — everything `openShop` needs on the retry. */
 type OpeningShop = {
-  phone: string; password: string; shopName: string; affiliateRef: string; problem: string;
+  phone: string; password: string; shopName: string; ownerName: string; affiliateRef: string;
+  problem: string;
 };
 
 /**
@@ -227,7 +228,7 @@ function ProveNewShop(
         onVerify={async (code) => {
           onOpened(await openShop({
             phone: opening.phone, password: opening.password, shopName: opening.shopName,
-            affiliateRef: opening.affiliateRef, code,
+            ownerName: opening.ownerName, affiliateRef: opening.affiliateRef, code,
           }));
         }}
         onResend={async () => {
@@ -413,6 +414,10 @@ function NewShopPane({ onSignedIn, onWelcome }: {
   // `proving` above: that one is for an account that already exists and only sign-in refused.
   const [opening, setOpening] = useState<OpeningShop | null>(null);
   const [v, setV] = useState<Record<FieldName, string>>({ phone: '', password: '', shopName: '' });
+  // OPTIONAL, SO NOT PART OF THE VALIDATED `v`/`errs`/`FieldName` MACHINERY ABOVE — nothing about
+  // this field can ever be wrong, only present or empty. See core/signup.py's own
+  // NewShop.owner_name note for why signup never gains a required fourth field over this.
+  const [ownerName, setOwnerName] = useState('');
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
   const [agree, setAgree] = useState(false);
   const [error, setError] = useState('');
@@ -485,10 +490,12 @@ function NewShopPane({ onSignedIn, onWelcome }: {
       password: String(data.get('password') ?? '') || v.password,
       shopName: String(data.get('shopName') ?? '') || v.shopName,
     };
+    const filledOwnerName = String(data.get('ownerName') ?? '') || ownerName;
     if (filled.phone !== v.phone || filled.password !== v.password
         || filled.shopName !== v.shopName) {
       setV(filled);
     }
+    if (filledOwnerName !== ownerName) setOwnerName(filledOwnerName);
     const bad = (Object.keys(filled) as FieldName[]).find((k) => errorFor(t, k, filled[k]));
     if (bad) return;
     if (!agree) { setError(t('door.error.mustAgree')); return; }
@@ -504,6 +511,7 @@ function NewShopPane({ onSignedIn, onWelcome }: {
       // own doc comment says so); this pane used to discard that session and ask again.
       const opened = await openShop({
         phone: filled.phone, password: filled.password, shopName: filled.shopName,
+        ownerName: filledOwnerName,
         // WHICH MARKETER'S LINK HE ARRIVED ON, IF ANY — read once, silently, from `?aff=`; see
         // auth.ts's own note on why this is never a field he fills in himself.
         affiliateRef: affiliateRefFromUrl(),
@@ -523,7 +531,7 @@ function NewShopPane({ onSignedIn, onWelcome }: {
         }
         setOpening({
           phone: filled.phone, password: filled.password, shopName: filled.shopName,
-          affiliateRef: affiliateRefFromUrl(), problem,
+          ownerName: filledOwnerName, affiliateRef: affiliateRefFromUrl(), problem,
         });
         return;
       }
@@ -600,6 +608,14 @@ function NewShopPane({ onSignedIn, onWelcome }: {
             {t('door.newShop.nameIsPasswordError')}
           </p>
         ) : null}
+      </Field>
+
+      {/* OPTIONAL — no `required`, no error state, no validation. A name typed here shows up in
+          the greeting instead of his phone number; skipping it costs him nothing today and he
+          can always add it later from «حسابي». */}
+      <Field label={t('door.newShop.ownerNameLabel')} htmlFor="ownerName">
+        <Input id="ownerName" name="ownerName" value={ownerName}
+               onChange={(e) => setOwnerName(e.target.value)} autoComplete="name" />
       </Field>
 
       {/* THREE VALUES, ALL ABOUT HIM. There used to be a fourth — «نوع النشاط» — and it was the

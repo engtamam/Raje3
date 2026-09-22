@@ -35,6 +35,7 @@ registerOperatorStrings({
 
     'door.newShop.title': 'افتح محلك',
     'door.newShop.shopNameLabel': 'اسم المحل',
+    'door.newShop.ownerNameLabel': 'اسمك (اختياري)',
     'door.newShop.nameIsPasswordError': 'هذا اسم محلّك كما يظهر لعملائك، ويبدو أنه كلمة مرورك — يُرجى كتابة اسم المحل.',
     'door.newShop.busy': 'جارٍ الإنشاء…',
     'door.newShop.submit': 'ابدأ',
@@ -78,6 +79,7 @@ registerOperatorStrings({
 
     'door.newShop.title': 'Open your shop',
     'door.newShop.shopNameLabel': 'Shop name',
+    'door.newShop.ownerNameLabel': 'Your name (optional)',
     'door.newShop.nameIsPasswordError': 'This is your shop name as your customers see it, and it looks like your password — please enter the shop name.',
     'door.newShop.busy': 'Creating…',
     'door.newShop.submit': 'Start',
@@ -121,6 +123,7 @@ registerOperatorStrings({
 
     'door.newShop.title': 'اپنی دکان کھولیں',
     'door.newShop.shopNameLabel': 'دکان کا نام',
+    'door.newShop.ownerNameLabel': 'آپ کا نام (اختیاری)',
     'door.newShop.nameIsPasswordError': 'یہ آپ کی دکان کا نام ہے جو گاہک دیکھتے ہیں، اور یہ آپ کا پاس ورڈ لگتا ہے — براہ کرم دکان کا نام لکھیں۔',
     'door.newShop.busy': 'بنایا جا رہا ہے…',
     'door.newShop.submit': 'شروع کریں',
@@ -164,6 +167,7 @@ registerOperatorStrings({
 
     'door.newShop.title': 'Buɗe shagonka',
     'door.newShop.shopNameLabel': 'Sunan shago',
+    'door.newShop.ownerNameLabel': 'Sunanka (na son rai)',
     'door.newShop.nameIsPasswordError': "Wannan sunan shagonka ne kamar yadda abokan cinikinka suke gani, kuma yana kama da kalmar sirrinka — da fatan za a rubuta sunan shagon.",
     'door.newShop.busy': 'Ana ƙirƙira…',
     'door.newShop.submit': 'Fara',
@@ -207,6 +211,7 @@ registerOperatorStrings({
 
     'door.newShop.title': 'Buksan ang tindahan mo',
     'door.newShop.shopNameLabel': 'Pangalan ng tindahan',
+    'door.newShop.ownerNameLabel': 'Pangalan mo (opsyonal)',
     'door.newShop.nameIsPasswordError': 'Ito ang pangalan ng tindahan mo na nakikita ng mga customer, at mukhang ito ang password mo — pakisulat ang pangalan ng tindahan.',
     'door.newShop.busy': 'Ginagawa…',
     'door.newShop.submit': 'Simulan',
@@ -250,6 +255,7 @@ registerOperatorStrings({
 
     'door.newShop.title': 'আপনার দোকান খুলুন',
     'door.newShop.shopNameLabel': 'দোকানের নাম',
+    'door.newShop.ownerNameLabel': 'আপনার নাম (ঐচ্ছিক)',
     'door.newShop.nameIsPasswordError': 'এটি আপনার দোকানের নাম, যেভাবে আপনার গ্রাহকরা দেখে, এবং এটি আপনার পাসওয়ার্ডের মতো মনে হচ্ছে — দয়া করে দোকানের নাম লিখুন।',
     'door.newShop.busy': 'তৈরি হচ্ছে…',
     'door.newShop.submit': 'শুরু করুন',

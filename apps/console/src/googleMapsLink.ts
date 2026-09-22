@@ -45,6 +45,25 @@ export function isShortGoogleMapsLink(url: string): boolean {
   }
 }
 
+/** The full pipeline a caller actually wants: the cheap sync parse first, and only reach for the
+ *  server (via [resolver], `api.ts`'s own `resolveMapsShortLink` — this file stays free of the
+ *  network layer) when the link is a short one. Returns `null` on any failure exactly like
+ *  [parseGoogleMapsLink] does, so a caller's existing "not resolved" branch already handles it. */
+export async function resolveGoogleMapsLink(
+  url: string,
+  resolver: (url: string) => Promise<string>,
+): Promise<ParsedLocation | null> {
+  const direct = parseGoogleMapsLink(url);
+  if (direct) return direct;
+  if (!isShortGoogleMapsLink(url)) return null;
+  try {
+    const resolvedUrl = await resolver(url);
+    return resolvedUrl ? parseGoogleMapsLink(resolvedUrl) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function parseGoogleMapsLink(url: string): ParsedLocation | null {
   const trimmed = url.trim();
   if (!trimmed) return null;
