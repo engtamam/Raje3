@@ -128,10 +128,10 @@ class _RenewNowProvider:
     def __init__(self, *, result=None, raises=None):
         self._result = result
         self._raises = raises
-        self.seen: list[tuple[str, str]] = []
+        self.seen: list[str] = []
 
-    async def renew_now(self, *, tenant, sub_id):
-        self.seen.append((tenant, sub_id))
+    async def renew_now(self, *, tenant):
+        self.seen.append(tenant)
         if self._raises:
             raise self._raises
         return self._result
@@ -143,18 +143,18 @@ def _post_renew_now(client, body, token=INTERNAL_TOKEN):
 
 
 def test_renew_now_requires_the_internal_token(client):
-    r = _post_renew_now(client, {"tenant": "t1", "sub_id": "sub_1"}, token="wrong")
+    r = _post_renew_now(client, {"tenant": "t1"}, token="wrong")
     assert r.status_code == 401
 
 
 def test_renew_now_returns_the_providers_own_body(client):
-    p = _RenewNowProvider(result={"ok": True, "ref": "https://pay.raje3.sa/x"})
+    p = _RenewNowProvider(result={"ok": True, "refs": ["https://pay.raje3.sa/x"]})
     saved = _swap(client, p)
     try:
-        r = _post_renew_now(client, {"tenant": "t1", "sub_id": "sub_1"})
+        r = _post_renew_now(client, {"tenant": "t1"})
         assert r.status_code == 200
-        assert r.json() == {"ok": True, "ref": "https://pay.raje3.sa/x"}
-        assert p.seen == [("t1", "sub_1")]
+        assert r.json() == {"ok": True, "refs": ["https://pay.raje3.sa/x"]}
+        assert p.seen == ["t1"]
     finally:
         client.app.state.container.renewal_provider = saved
 
@@ -162,19 +162,19 @@ def test_renew_now_returns_the_providers_own_body(client):
 def test_renew_now_tenant_is_taken_from_the_body_never_assumed(client):
     """No principal/header carries a tenant here at all (internal tier) — the only tenant the
     provider ever sees is the one the request body itself declared."""
-    p = _RenewNowProvider(result={"ok": True, "ref": "x"})
+    p = _RenewNowProvider(result={"ok": True, "refs": ["x"]})
     saved = _swap(client, p)
     try:
-        _post_renew_now(client, {"tenant": "tnt_isolated_a", "sub_id": "sub_1"})
-        _post_renew_now(client, {"tenant": "tnt_isolated_b", "sub_id": "sub_1"})
-        assert ("tnt_isolated_a", "sub_1") in p.seen
-        assert ("tnt_isolated_b", "sub_1") in p.seen
+        _post_renew_now(client, {"tenant": "tnt_isolated_a"})
+        _post_renew_now(client, {"tenant": "tnt_isolated_b"})
+        assert "tnt_isolated_a" in p.seen
+        assert "tnt_isolated_b" in p.seen
     finally:
         client.app.state.container.renewal_provider = saved
 
 
 def test_renew_now_missing_tenant_is_422(client):
-    r = _post_renew_now(client, {"sub_id": "sub_1"})
+    r = _post_renew_now(client, {})
     assert r.status_code == 422
 
 
@@ -183,7 +183,7 @@ def test_renew_now_unavailable_provider_is_502(client):
 
     saved = _swap(client, _RenewNowProvider(raises=RenewalUnavailable("billing unreachable")))
     try:
-        r = _post_renew_now(client, {"tenant": "t1", "sub_id": "sub_1"})
+        r = _post_renew_now(client, {"tenant": "t1"})
         assert r.status_code == 502
     finally:
         client.app.state.container.renewal_provider = saved

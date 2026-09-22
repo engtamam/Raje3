@@ -51,8 +51,8 @@ class _FakeRenewalProvider:
         self._result = result
         self.calls: list[dict] = []
 
-    async def renew_now(self, *, tenant: str, sub_id: str) -> dict:
-        self.calls.append({"tenant": tenant, "sub_id": sub_id})
+    async def renew_now(self, *, tenant: str) -> dict:
+        self.calls.append({"tenant": tenant})
         return self._result
 
 
@@ -67,38 +67,33 @@ def _restore(client, saved):
     client.app.state.container.renewal_provider = saved
 
 
-def test_a_successful_early_renewal_returns_the_real_pay_url(client):
-    fake = _FakeRenewalProvider({"ok": True, "ref": "https://pay.example/tok_abc"})
+def test_a_successful_early_renewal_returns_the_real_pay_urls(client):
+    fake = _FakeRenewalProvider({"ok": True, "refs": ["https://pay.example/tok_abc",
+                                                       "https://pay.example/tok_def"]})
     saved = _swap(client, fake)
     try:
-        r = client.post("/api/v1/subscription/renew-now", json={"sub_id": "sub_1"},
-                        headers=_headers())
+        r = client.post("/api/v1/subscription/renew-now", json={}, headers=_headers())
     finally:
         _restore(client, saved)
     assert r.status_code == 200, r.text
-    assert r.json() == {"ok": True, "pay_url": "https://pay.example/tok_abc"}
+    assert r.json() == {"ok": True, "pay_urls": ["https://pay.example/tok_abc",
+                                                 "https://pay.example/tok_def"]}
     # THE REAL TENANT, FROM THE TOKEN — never trusted from the request body (there is none to
-    # trust; `renew_now` takes only `sub_id`).
-    assert fake.calls == [{"tenant": "tnt_renew_now", "sub_id": "sub_1"}]
+    # trust any more; `renew_now` takes only `tenant`, the whole group, never one sub_id).
+    assert fake.calls == [{"tenant": "tnt_renew_now"}]
 
 
 def test_a_refused_renewal_is_a_409_with_the_real_reason(client):
-    fake = _FakeRenewalProvider({"ok": False, "reason": "لا يمكن تجديد اشتراك محل آخر."})
+    fake = _FakeRenewalProvider({"ok": False, "reason": "لا يوجد اشتراك نشط يستحق تجديدًا الآن."})
     saved = _swap(client, fake)
     try:
-        r = client.post("/api/v1/subscription/renew-now", json={"sub_id": "sub_not_mine"},
-                        headers=_headers())
+        r = client.post("/api/v1/subscription/renew-now", json={}, headers=_headers())
     finally:
         _restore(client, saved)
     assert r.status_code == 409, r.text
-    assert r.json()["message"] == "لا يمكن تجديد اشتراك محل آخر."
-
-
-def test_a_missing_sub_id_is_refused_with_422(client):
-    r = client.post("/api/v1/subscription/renew-now", json={}, headers=_headers())
-    assert r.status_code == 422
+    assert r.json()["message"] == "لا يوجد اشتراك نشط يستحق تجديدًا الآن."
 
 
 def test_refuses_without_a_token(client):
-    r = client.post("/api/v1/subscription/renew-now", json={"sub_id": "sub_1"})
+    r = client.post("/api/v1/subscription/renew-now", json={})
     assert r.status_code in (401, 403)

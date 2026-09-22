@@ -68,7 +68,8 @@ def _split_early_customer(customer: str) -> tuple[str, str]:
 
 class RenewalProvider:
     def __init__(self, *, billing_url: str, identity_url: str, internal_token: str,
-                 client_id: str, client_secret: str, timeout: int = 8) -> None:
+                 client_id: str, client_secret: str, timeout: int = 8,
+                 early_window_seconds: int = 0) -> None:
         self._billing = (billing_url or "").rstrip("/")
         self._identity = (identity_url or "").rstrip("/")
         self._internal_token = internal_token
@@ -77,6 +78,15 @@ class RenewalProvider:
         self._timeout = timeout
         self._token = ""
         self._token_until = 0.0
+        # THE DOOR "جدد الآن" OPENS AT — the owner's own explicit call, 2026-09-22: the service
+        # must not renew (and charge) a subscription at all before its own renewal window opens,
+        # never a bare "any time, no guard" early-renewal. `run_cycle` itself deliberately carries
+        # no due-date guard (its own docstring: "the guard lives in the SWEEP's own `<= now`
+        # filter") — this is that guard's twin for the OWNER-TRIGGERED path, reusing the SAME
+        # window `RENEWAL_HEADS_UP_WITHIN_SECONDS` already defines for the proactive WhatsApp
+        # "your subscription renews soon" ping, so "early enough to renew" means the same thing
+        # everywhere in this product, never two different definitions of "soon".
+        self._early_window_seconds = max(0, int(early_window_seconds))
 
     @property
     def configured(self) -> bool:
@@ -244,9 +254,13 @@ class RenewalProvider:
         this exact screen. The automatic sweep is untouched either way."""
         if reward != customer:
             return {"ok": False, "reason": "الجلسة انتهت — ابدأ من جديد."}
-        early_tenant, sub_id = _split_early_customer(customer)
+        early_tenant, _sub_id = _split_early_customer(customer)
         if early_tenant:
-            return await self.renew_now(tenant=early_tenant, sub_id=sub_id)
+            # `_sub_id` (which app the heads-up ping named) is deliberately NOT passed through —
+            # `renew_now` is tenant-wide now (see its own docstring): tapping "جدد الآن" on ANY
+            # one app's heads-up ping renews the whole together-billed group, never that one app
+            # alone.
+            return await self.renew_now(tenant=early_tenant)
         real_tenant, invoice_id = _split_customer(customer)
         if not real_tenant:
             return {"ok": False, "reason": "الجلسة انتهت — ابدأ من جديد."}
@@ -261,50 +275,94 @@ class RenewalProvider:
         return {"ok": True, "ref": pay_url}
 
     # ── early, owner-initiated renewal (the WhatsApp "جدد الآن" heads-up button) ─────────────
-    async def renew_now(self, *, tenant: str, sub_id: str) -> dict[str, Any]:
-        """Force this ONE subscription's cycle early, at the OWNER'S OWN explicit request, and
-        hand back a real pay-link for the invoice it just created — never the automatic sweep,
-        which is untouched and still only fires on its own schedule (see `_run_cycle_sync`'s own
-        docstring).
+    async def renew_now(self, *, tenant: str) -> dict[str, Any]:
+        """Force EARLY renewal for the WHOLE GROUP of this shop's subscriptions that renew
+        TOGETHER — never one app on its own. The owner's own explicit call, 2026-09-22: as long as
+        an app is not cancelled, it stays inside the shop's one shared monthly billing cycle, so
+        "renew early" can only ever mean "renew everything due on that cycle", exactly what the
+        automatic sweep would do on the real date — never a single subscription pulled out of
+        sync with the rest (the real bug this replaced: the old per-`sub_id` shape forced only
+        ONE subscription's cycle, silently drifting its own renewal date away from every other
+        app the shop holds).
 
-        OWNERSHIP IS CHECKED BEFORE THE CYCLE EVER RUNS, not only after: `run_cycle` attempts a
-        real charge the moment it runs, so confirming `sub_id` is actually one of `tenant`'s own
-        subscriptions FIRST (a plain read, no side effect) is what actually prevents an unwanted
-        early charge on a different shop's subscription — checking the resulting invoice's own
-        tenant afterward (still done below too) only prevents HANDING BACK its pay-link once the
-        charge already happened, which is too late to matter."""
+        THE GROUP is every one of `tenant`'s own active, non-cancelling subscriptions that share
+        the EARLIEST current_period_end among them, compared by calendar day (not the exact
+        second) — the same "one shared billing day" `BILLING_RENEWAL_INVOICE_MODE=consolidated`
+        already bills together on the real date, read here rather than re-derived.
+
+        NO SINGLE COMBINED INVOICE — billing-service has no route that mints one (only its own
+        internal sweep's `run_consolidated_cycle` does, never exposed here); this instead forces
+        EACH member's own cycle in turn, so every one of their renewal dates stays in lock-step
+        even though each still gets its own invoice/pay-link. `refs` carries every real pay-link
+        produced, in the same order the group was billed."""
         try:
             held = await run_in_threadpool(self._tenant_subscriptions_sync, tenant)
         except RenewalUnavailable:
             return {"ok": False, "reason": "تعذّر الوصول لنظام الفوترة الآن."}
-        if not any(str(s.get("id") or "") == sub_id for s in held):
-            return {"ok": False, "reason": "لا يمكن تجديد اشتراك محل آخر."}
+        group = self._due_group(held)
+        if not group:
+            return {"ok": False, "reason": "لا يوجد اشتراك نشط يستحق تجديدًا الآن."}
+        # THE RENEWAL DOOR — same guard as before, now checked once for the WHOLE group off its
+        # shared due date (every member's own `current_period_end` is, by construction, the same
+        # calendar day) rather than per subscription.
+        if self._early_window_seconds > 0:
+            period_end = float(group[0].get("current_period_end") or 0)
+            remaining = period_end - time.time()
+            if period_end <= 0 or remaining > self._early_window_seconds:
+                return {"ok": False, "reason": "باب التجديد المبكر لسه ما فتح — يفتح قبل موعد "
+                                                "التجديد بوقت قصير."}
+        refs: list[str] = []
+        for sub in group:
+            sub_id = str(sub.get("id") or "")
+            ref = await self._renew_one(tenant=tenant, sub_id=sub_id)
+            if ref is not None:
+                refs.append(ref)
+        if not refs:
+            return {"ok": False, "reason": "تعذّر تجديد الاشتراكات الآن."}
+        return {"ok": True, "refs": refs}
+
+    @staticmethod
+    def _due_group(held: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Every ACTIVE, non-cancelling subscription sharing the EARLIEST `current_period_end`
+        among them, compared by calendar day (UTC) so a few seconds' drift between two rows
+        billed "together" never splits them into two groups. Empty when nothing is due at all."""
+        import datetime as _dt
+
+        live = [s for s in held
+               if s.get("status") == "active" and not s.get("cancel_at_period_end")
+               and float(s.get("current_period_end") or 0) > 0]
+        if not live:
+            return []
+        earliest = min(float(s["current_period_end"]) for s in live)
+        earliest_day = _dt.datetime.fromtimestamp(earliest, tz=_dt.timezone.utc).date()
+        return [s for s in live
+               if _dt.datetime.fromtimestamp(
+                   float(s["current_period_end"]), tz=_dt.timezone.utc).date() == earliest_day]
+
+    async def _renew_one(self, *, tenant: str, sub_id: str) -> str | None:
+        """Force ONE subscription's cycle and hand back its real pay-link — `None` (never raised)
+        on any refusal, so [renew_now]'s own loop can keep going for the rest of the group instead
+        of one member's failure aborting every other one."""
         try:
             inv = await run_in_threadpool(self._run_cycle_sync, sub_id)
         except RenewalUnavailable:
-            return {"ok": False, "reason": "تعذّر الوصول لنظام الفوترة الآن."}
+            return None
         if inv.get("_status"):
-            reason = {404: "الاشتراك غير موجود.",
-                     409: "هذا الاشتراك قيد التجديد بالفعل."}.get(
-                int(inv["_status"]), "تعذّر تجديد الاشتراك الآن.")
-            return {"ok": False, "reason": reason}
+            return None
         # A REAL TENANT MISMATCH — never trust the caller's own claim over the invoice billing
         # itself just created for this sub_id.
         if str(inv.get("tenant") or "") != tenant:
-            return {"ok": False, "reason": "لا يمكن تجديد اشتراك محل آخر."}
+            return None
         invoice_id = str(inv.get("id") or "")
         if not invoice_id:
-            return {"ok": False, "reason": "تعذّر تجديد الاشتراك الآن."}
+            return None
         try:
-            return await self.redeem(tenant=tenant, customer=f"{tenant}:{invoice_id}",
-                                     reward=f"{tenant}:{invoice_id}",
-                                     idempotency_key=f"renew_now:{sub_id}")
+            out = await self.redeem(tenant=tenant, customer=f"{tenant}:{invoice_id}",
+                                    reward=f"{tenant}:{invoice_id}",
+                                    idempotency_key=f"renew_now:{sub_id}")
         except RenewalUnavailable:
-            # SAME "NAMED REFUSAL, NEVER A RAISE" POSTURE AS THE run_cycle CALL ABOVE — renew_now
-            # is called from a plain WhatsApp button tap, not a Flow with its own retry snackbar,
-            # so an unreachable peer here must come back as an ordinary {"ok": False} the
-            # consumer can just relay, never an exception it has to catch a second way.
-            return {"ok": False, "reason": "تعذّر الوصول لنظام الفوترة الآن."}
+            return None
+        return str(out.get("ref") or "") if out.get("ok") else None
 
 
 class NullRenewalProvider:
@@ -322,7 +380,7 @@ class NullRenewalProvider:
                      idempotency_key: str) -> dict[str, Any]:
         raise RenewalUnavailable("renewal provider not configured")
 
-    async def renew_now(self, *, tenant: str, sub_id: str) -> dict[str, Any]:
+    async def renew_now(self, *, tenant: str) -> dict[str, Any]:
         return {"ok": False, "reason": "renewal provider not configured"}
 
 
@@ -332,5 +390,6 @@ def build_renewal_provider(settings) -> Any:
         identity_url=getattr(settings, "IDENTITY_SERVICE_URL", ""),
         internal_token=getattr(settings, "INTERNAL_SERVICE_TOKEN", ""),
         client_id=getattr(settings, "BILLING_CLIENT_ID", ""),
-        client_secret=getattr(settings, "BILLING_CLIENT_SECRET", ""))
+        client_secret=getattr(settings, "BILLING_CLIENT_SECRET", ""),
+        early_window_seconds=getattr(settings, "RENEWAL_HEADS_UP_WITHIN_SECONDS", 0))
     return p if p.configured else NullRenewalProvider()

@@ -135,26 +135,14 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
     }
   };
 
-  /** «جدّد الآن» — the SAME real early-renewal mechanism the WhatsApp renewal Flow's own "جدد
-   *  الآن" button already calls (`adapters/renewal_provider.py::renew_now`), reached here through
-   *  `subscription.renew_now` (operations' own route, added 2026-09-20 — this action never
-   *  existed on the console before). Forces THIS ONE subscription's billing cycle right now and
-   *  opens the resulting pay-link — never the automatic sweep, which fires on its own schedule
-   *  regardless. Exists because TuwaiqPay has no card-on-file/recurring-charge support: a shop on
-   *  it has no other way to pay a cycle before its sweep-scheduled date. */
-  const renewNow = async (subId: string) => {
-    const a = action(catalog, 'subscription.renew_now');
-    if (!a) return;
-    setRenewingSubId(subId); setRenewError('');
-    try {
-      const res = await call<{ pay_url?: string }>(session, a, { sub_id: subId });
-      if (res.pay_url) window.location.assign(res.pay_url);
-    } catch (e) {
-      setRenewError(e instanceof Error ? e.message : t('billingStatus.renewNowFailed'));
-    } finally {
-      setRenewingSubId('');
-    }
-  };
+  // «جدّد الآن» PULLED OUT ENTIRELY, 2026-09-22 (was here, calling `subscription.renew_now`) —
+  // a real, confirmed platform bug: this deployment runs BILLING_RENEWAL_INVOICE_MODE=consolidated
+  // (every subscribed app renews together, one invoice), but billing-service's own
+  // `POST /subscriptions/{id}/run` (what that action calls) forces ONLY the one subscription's
+  // cycle, with no awareness of its consolidated group — using it desyncs this one app's renewal
+  // date from the rest of the shop's apps. Reported to base-services, asking for a real GROUP
+  // early-renewal route (platform/services/billing-service is not ours to fix here); rebuild this
+  // against that route once it exists, never re-add the per-subscription call as-is.
 
   /** «تحديث بطاقة الدفع» — the one control that closes the involuntary-churn loop: the
    *  subscription's own dunning sweep keeps retrying the SAME stored token forever, and this is
@@ -330,13 +318,18 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
                   cascadeNames={billing.cascadeTargets(sub.id).map((p) => appDisplayName(p))}
                   label={appDisplayName(plan)}
                 />
-                {!sub.cancel_at_period_end && action(catalog, 'subscription.renew_now') ? (
-                  <Button type="button" variant="outline" size="sm"
-                          disabled={renewingSubId === sub.id}
-                          onClick={() => void renewNow(sub.id)}>
-                    {renewingSubId === sub.id ? t('billingStatus.renewingNow') : t('billingStatus.renewNow')}
-                  </Button>
-                ) : null}
+                {/* "جدّد مبكرًا" REMOVED HERE, DELIBERATELY, 2026-09-22 — a real, confirmed
+                    platform bug: this deployment runs BILLING_RENEWAL_INVOICE_MODE=consolidated
+                    (every subscribed app stays in the ONE monthly invoice as long as it is not
+                    cancelled — the owner's own confirmed policy: no per-app manual renewal at
+                    all, the sweep alone handles it), but billing-service's own
+                    `POST /subscriptions/{id}/run` (what `subscription.renew_now` called) forces
+                    ONLY the one subscription's cycle, with no awareness of its consolidated group
+                    — using it would have desynced this one app's renewal date from the rest of
+                    the shop's apps. Reported to base-services (platform/services/billing-service
+                    is not ours to fix here); a real GROUP early-renewal route would still be
+                    useful for the genuine edge case (a past-due shop with no card-on-file), but
+                    is not urgent since normal renewal needs no manual trigger at all. */}
               </Card>
             ))}
           </div>
