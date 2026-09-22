@@ -270,6 +270,25 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
           "created_customer": result.created_customer, "duplicate": result.duplicate}
     if coupon_result is not None:
         out["coupon_attempt"] = coupon_result.public()
+
+    # THE COUNTER'S OWN CELEBRATION MOMENT — `None` on every ordinary visit; a real grant only on
+    # the rare one that just made this customer eligible for a NEW partner reward (owner's own
+    # requirement: "احتفال" at the exact moment it happens, never a routine screen). The partner
+    # shop's own NAME is resolved here, best-effort — `fetch_tenant_name` degrades silently, so a
+    # tenant-service outage loses only the name, never the grant itself or the visit.
+    grant = result.new_referral_grant
+    if grant is not None:
+        from app.core.tenant_branding import fetch_tenant_name
+
+        partner_name = await fetch_tenant_name(request.app.state.container_settings, grant.shop_b)
+        out["referral_grant"] = {
+            "grant_type": grant.grant_type,
+            "gift_service_name": grant.gift_service_name,
+            "discount_scope": grant.discount_scope,
+            "discount_group_name": grant.discount_group_name,
+            "expires_at": grant.expires_at,
+            "partner_shop_name": partner_name,
+        }
     return out
 
 

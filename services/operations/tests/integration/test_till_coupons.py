@@ -97,7 +97,7 @@ def _wire_fake_billing(client: TestClient) -> _FakePlans:
 
 
 def _granter_holds_coupons_app(fake: _FakePlans) -> None:
-    fake.plan_for_key["feature.coupons"] = "plan_coupons"
+    fake.plan_for_key["feature.partner_loyalty"] = "plan_coupons"
     fake.subs[GRANTER] = [{"id": "sub_coupons", "plan": "plan_coupons", "status": "active"}]
 
 
@@ -229,7 +229,7 @@ def test_the_tenant_comes_from_the_token_there_is_no_field_for_it(client):
 # ── refused because the TILL'S OWN SHOP never bought the coupons app ───────────────────────────
 def test_a_shop_without_the_coupons_app_is_refused_before_any_billing_write(client):
     fake = _wire_fake_billing(client)
-    fake.plan_for_key["feature.coupons"] = "plan_coupons"
+    fake.plan_for_key["feature.partner_loyalty"] = "plan_coupons"
     # GRANTER holds nothing at all -> subscriptions(GRANTER) reads as an empty/False match.
     fake.subs[GRANTER] = [{"id": "sub_x", "plan": "plan_other", "status": "active"}]
     _beneficiary_holds(fake, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_b")
@@ -251,7 +251,7 @@ def test_an_unreachable_billing_lets_the_attempt_through_not_a_blanket_refusal(c
     to `grant()` itself, which has its own `BILLING_UNAVAILABLE` outcome for a real outage — a
     single health-check timeout must never refuse every till in the country outright."""
     fake = _wire_fake_billing(client)
-    fake.plan_for_key["feature.coupons"] = "plan_coupons"
+    fake.plan_for_key["feature.partner_loyalty"] = "plan_coupons"
     # No `subs[GRANTER]` entry at all -> FakePlans.subscriptions returns None (unreachable).
     _register_beneficiary(client)
 

@@ -650,7 +650,7 @@ class HttpPlans:
         "which plans get a free month," which would drift from the price list the day a plan is
         added or its trial changed.
 
-        `feature.coupons` («تحالف استراتيجي») IS EXCLUDED, DELIBERATELY (owner's own correction,
+        `feature.partner_loyalty` («ولاء الشركاء») IS EXCLUDED, DELIBERATELY (owner's own correction,
         2026-09-15: "التطبيق المفروض ما ينعطى اساسا مجانا هو يضغط يفعله"). This is the one real,
         product-level exception to the rule above, not a precedent for a second one: every other
         app is something a shop CONSUMES for its own use, and a free trial of it costs nothing
@@ -669,7 +669,7 @@ class HttpPlans:
             return []
         return [str(p.get("id") or "") for p in (out.get("plans") or [])
                if int(p.get("trial_days") or 0) > 0 and p.get("id")
-               and "feature.coupons" not in granted_keys(p.get("limits"))]
+               and "feature.partner_loyalty" not in granted_keys(p.get("limits"))]
 
     async def contacts_plan_id(self) -> str:
         """The one listed, FREE plan that grants `feature.contacts` — «جهات الاتصال»'s own id,

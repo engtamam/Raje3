@@ -61,6 +61,11 @@ class RecordedVisit:
     # it, and the man behind the wheel may not be the man whose number we hold. Carried on the
     # result rather than looked up again in `Seams`, which owns no stores by design.
     plates: list[str] = field(default_factory=list)
+    # THE COUNTER'S OWN CELEBRATION MOMENT — `None` on every ordinary visit (the overwhelming
+    # majority), a real `ReferralGrant` only on the rare visit that just made a customer eligible
+    # for a NEW partner reward. See the referral-partnership hook below for why this can never
+    # affect whether the visit itself succeeds.
+    new_referral_grant: Any = None
 
 
 def _now() -> int:
@@ -542,9 +547,10 @@ class Operations:
         # the one fact this product cannot survive losing: the visit itself. See
         # core/referral_partnership.py's own module docstring for why this is the single hook every
         # channel needs.
+        new_referral_grant = None
         if self._referral_engine is not None:
             try:
-                await self._referral_engine.on_visit_recorded(
+                new_referral_grant = await self._referral_engine.on_visit_recorded(
                     tenant=tenant, customer_phone=customer.phone, service_ids=list(service_ids),
                     total_minor=int(total_minor or 0), visit_id=visit.id)
             except Exception:                                                  # noqa: BLE001
@@ -552,6 +558,7 @@ class Operations:
 
         return RecordedVisit(visit=visit, customer=customer,
                              created_customer=created_customer, duplicate=False,
+                             new_referral_grant=new_referral_grant,
                              unknown_services=unknown,
                              # ALL OF THEM, not just this visit's. One number can hold two cars —
                              # «ممكن عندي سيارتين برقمي» — and an index written with only the plate

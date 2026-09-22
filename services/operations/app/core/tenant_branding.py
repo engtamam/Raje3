@@ -61,6 +61,39 @@ async def fetch_branding(settings: Any, tenant: str) -> Branding:
         return Branding()
 
 
+async def fetch_tenant_name(settings: Any, tenant: str) -> str:
+    """The OTHER shop's own display name — `set_shop_name`'s own docstring above: ONE name per
+    tenant, held by tenant-service's registry, `name` already in its own `TENANT_INTERNAL_FIELDS`
+    allowlist (the same peer read `fetch_branding` above already makes, just a different field).
+
+    WHY THIS IS SAFE TO SHOW ACROSS TENANTS, UNLIKE MOST CROSS-TENANT READS IN THIS PRODUCT: a
+    shop's own public name is not PII and is not the privacy boundary `core/referral_partnership.py`
+    protects — that boundary is "shop B must never learn shop A's identity while only checking
+    eligibility" (module docstring). Here the direction is the opposite and already known to the
+    caller: shop A itself, reading its OWN partnership's own `shop_b` field, asking what that
+    ALREADY-VISIBLE partner is called — the same fact shop A agreed to when it proposed the
+    partnership by that shop's own phone number.
+
+    DEGRADES SILENTLY, NEVER RAISES — same posture as `fetch_branding` above; a celebration screen
+    missing a name still shows a real gift, never crashes a visit screen over it.
+    """
+    base = (getattr(settings, "TENANT_SERVICE_URL", "") or "").rstrip("/")
+    if not base or not tenant:
+        return ""
+    try:
+        from app.core.signup import Http
+
+        http = Http(timeout=getattr(settings, "SIGNUP_TIMEOUT_SECONDS", 10),
+                   internal_token=getattr(settings, "INTERNAL_SERVICE_TOKEN", "") or "")
+        code, out = await run_in_threadpool(
+            http.call, f"{base}/internal/tenants/{tenant}", method="GET", internal=True)
+        if code != 200:
+            return ""
+        return str(out.get("name") or "").strip()
+    except Exception:                                                          # noqa: BLE001
+        return ""
+
+
 def _decode_to_png(data_url: str) -> bytes | None:
     m = _DATA_URL.match(data_url)
     if not m:

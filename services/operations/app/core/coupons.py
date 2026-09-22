@@ -55,7 +55,7 @@ COUPON_PREFERENCES = "cross_tenant_coupon_preferences"
 PLATFORM = "_platform"
 SETTINGS_ID = "settings"
 
-COUPONS_KEY = "feature.coupons"
+COUPONS_KEY = "feature.partner_loyalty"
 # THE ONE OTHER APP EXCLUDED EVERYWHERE COUPONS_KEY IS — «جهات الاتصال» is free (amount 0,
 # `interval='once'`) and granted automatically to every shop at signup (signup.py's own
 # `_start_contacts_grant`), so it can never be discounted (there is nothing to discount) AND,

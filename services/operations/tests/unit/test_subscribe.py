@@ -205,7 +205,7 @@ def test_list_trial_plans_excludes_the_coupons_plan_even_with_a_real_trial():
     never be auto-trialed at signup like every other app is."""
     client = _plans_client({"plans": [
         {"id": "plan_visit", "trial_days": 30},
-        {"id": "plan_coupons", "trial_days": 30, "limits": {"feature.coupons": {"limit": 1}}},
+        {"id": "plan_coupons", "trial_days": 30, "limits": {"feature.partner_loyalty": {"limit": 1}}},
     ]})
     assert run(client.list_trial_plans()) == ["plan_visit"]
 

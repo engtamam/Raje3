@@ -582,6 +582,13 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "من المركزي إلى المستقل قرارٌ يُتخذ مرة — والعودة تحتاج التواصل معنا.",
     },
     {
+        "id": "operations.resolve_maps_link", "label": "حل رابط خرائط مختصر", "method": "GET",
+        "path": "/api/v1/staff/resolve-maps-link", "capability": "operations.read", "group": "الفروع",
+        "params": [{"name": "url", "in": "query", "type": "string", "required": True}],
+        "help": "يحوّل رابط خرائط جوجل المختصر إلى رابطه الكامل — خطوة السيرفر يعجز عنها المتصفح "
+                "بسبب قيود CORS.",
+    },
+    {
         "id": "operations.shop_vehicles", "label": "العمل على السيارات", "method": "GET",
         "path": "/api/v1/staff/vehicles", "capability": "operations.read", "group": "منشأتي",
         "help": "هل تسجيل الزيارة يعرض حقل رقم اللوحة والعدّاد لهذا المحل.",
@@ -698,6 +705,74 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "capability": "operations.grant_coupon_direct", "group": "كوبونات",
         "help": "تحكّم كامل من صاحب المحل — تشغيل الخانة لا يعني إجباره على استخدامها.",
     },
+    # ── شراكة استراتيجية — core/referral_partnership.py's own module docstring. NOT coupons: that
+    # app moves money on OUR OWN subscription; this one moves real customers between two real
+    # shops, mutual-consent only, backed by both shops' own catalogues. Every route already exists
+    # (staff.py's own `_REFERRAL_MANAGE = require_capability("operations.manage")`) — this block is
+    # only what was missing for the console to reach them at all.
+    {
+        "id": "operations.referral_partnership_propose", "label": "اقتراح شراكة استراتيجية",
+        "method": "POST", "path": "/api/v1/staff/referral-partnership/agreements",
+        "capability": "operations.manage", "group": "شراكة استراتيجية",
+        "help": "شرط، ومدة، وحد أقصى 3 شراكات نشطة بنفس الوقت — والطرف الآخر يوافق قبل أن تسري.",
+    },
+    {
+        "id": "operations.referral_partnership_list", "label": "قائمة شراكاتي الاستراتيجية",
+        "method": "GET", "path": "/api/v1/staff/referral-partnership/agreements",
+        "capability": "operations.read", "group": "شراكة استراتيجية",
+        "help": "كل شراكة اقترحتها أو اقتُرحت عليك، بأي حالة.",
+    },
+    {
+        "id": "operations.referral_partnership_get", "label": "تفاصيل شراكة استراتيجية",
+        "method": "GET", "path": "/api/v1/staff/referral-partnership/agreements/{id}",
+        "capability": "operations.manage", "group": "شراكة استراتيجية",
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "شراكة واحدة بكامل شروطها — القائمة تكفي للاستعراض، وهذه لعرض شراكة بعينها.",
+    },
+    {
+        "id": "operations.referral_partnership_accept", "label": "قبول شراكة استراتيجية",
+        "method": "POST", "path": "/api/v1/staff/referral-partnership/agreements/{id}/accept",
+        "capability": "operations.manage", "group": "شراكة استراتيجية", "confirm": True,
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "يُفعّلها فعلياً — يُرفض إن كانت ستتجاوز حد الشراكات النشطة لأي من الطرفين.",
+    },
+    {
+        "id": "operations.referral_partnership_reject", "label": "رفض شراكة استراتيجية",
+        "method": "POST", "path": "/api/v1/staff/referral-partnership/agreements/{id}/reject",
+        "capability": "operations.manage", "group": "شراكة استراتيجية",
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "قبل القبول فقط — بلا أثر بعدها.",
+    },
+    {
+        "id": "operations.referral_partnership_cancel_request", "label": "طلب إنهاء شراكة مبكراً",
+        "method": "POST",
+        "path": "/api/v1/staff/referral-partnership/agreements/{id}/cancel-request",
+        "capability": "operations.manage", "group": "شراكة استراتيجية",
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "الطرف الآخر يجب أن يوافق أيضاً قبل أن تنتهي فعلياً.",
+    },
+    {
+        "id": "operations.referral_partnership_cancel_confirm", "label": "تأكيد إنهاء شراكة مبكراً",
+        "method": "POST",
+        "path": "/api/v1/staff/referral-partnership/agreements/{id}/cancel-confirm",
+        "capability": "operations.manage", "group": "شراكة استراتيجية", "confirm": True,
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "ينهيها فعلياً بموافقة الطرفين — لا رجوع بعدها.",
+    },
+    {
+        "id": "operations.referral_partnership_audit_log", "label": "سجل أحداث شراكة استراتيجية",
+        "method": "GET",
+        "path": "/api/v1/staff/referral-partnership/agreements/{id}/audit-log",
+        "capability": "operations.read", "group": "شراكة استراتيجية",
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "كل حدث حقيقي جرى على هذه الشراكة، بترتيبه الزمني.",
+    },
+    {
+        "id": "operations.referral_partnership_kpis", "label": "أداء شراكاتي الاستراتيجية",
+        "method": "GET", "path": "/api/v1/staff/referral-partnership/kpis",
+        "capability": "operations.read", "group": "شراكة استراتيجية",
+        "help": "المُرسَل، المُستَبدَل، المنتهي بلا استخدام — كمُحيل وكمانح، منفصلين.",
+    },
     {
         "id": "operations.salla_install", "label": "اربط متجر سلة", "method": "GET",
         "path": "/api/v1/staff/salla/install", "capability": "billing.self", "group": "سلة",
@@ -780,6 +855,17 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
             "(api.ts's getMyLocale), same as the two routes right below it"},
     {"method": "PATCH", "path": "/api/v1/account/me/locale",
      "why": "same reasoning as the GET immediately above — setMyLocale, no capability required"},
+    {"method": "GET", "path": "/api/v1/account/me/name",
+     "why": "same shape as account/me/locale right above — require_user only, so the owner (no "
+            "operations.* capability of his own) can still name himself. The console calls it "
+            "directly (Account.tsx's own getMyName), no separate control to declare"},
+    {"method": "PATCH", "path": "/api/v1/account/me/name",
+     "why": "same reasoning as the GET immediately above — setMyName, no capability required"},
+    {"method": "GET", "path": "/api/v1/account/me/mobile-ai-assistant",
+     "why": "require_user only, deliberately — every signed-in operator (owner or staff) can ask "
+            "whether the shop holds this one entitlement, same as any other 'is this on' read. "
+            "apps/mobile calls it directly on sign-in (AiEntitlementProvider); there is no console "
+            "screen for it — see core/apps.py's own note on why this app has no console UI"},
     {"method": "PATCH", "path": "/api/v1/staff/operators/me/pinned-nav",
      "why": "the mobile app's own bottom-bar personalisation (apps/mobile, not the web console) — "
             "every signed-in operator sets his own, no operations.* capability required, and there "
