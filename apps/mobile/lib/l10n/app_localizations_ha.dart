@@ -878,4 +878,24 @@ class SHa extends S {
   @override
   String get readVehicleTrackingFailed =>
       'An kasa tabbatar da matsayin bin diddigin motoci yanzu, sake gwadawa.';
+
+  @override
+  String get writeVehicleTrackingEnabledConfirm =>
+      'Zai kunna filin lambar farantin a shafin rijistar ziyara na wannan shago. Tabbatarwa?';
+
+  @override
+  String get writeVehicleTrackingDisabledConfirm =>
+      'Zai kashe filin lambar farantin a shafin rijistar ziyara na wannan shago. Tabbatarwa?';
+
+  @override
+  String get writeVehicleTrackingEnabledDone =>
+      'An kunna bin diddigin motoci ✓';
+
+  @override
+  String get writeVehicleTrackingDisabledDone =>
+      'An kashe bin diddigin motoci ✓';
+
+  @override
+  String get writeVehicleTrackingFailed =>
+      'An kasa canza saitin bin diddigin motoci, sake gwadawa.';
 }

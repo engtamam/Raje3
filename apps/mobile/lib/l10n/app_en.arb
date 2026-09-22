@@ -262,5 +262,10 @@
   "readBranchFailed": "Could not fetch the branch count right now, try again.",
   "readVehicleTrackingOn": "Vehicle tracking is on right now.",
   "readVehicleTrackingOff": "Vehicle tracking is off right now.",
-  "readVehicleTrackingFailed": "Could not check vehicle tracking status right now, try again."
+  "readVehicleTrackingFailed": "Could not check vehicle tracking status right now, try again.",
+  "writeVehicleTrackingEnabledConfirm": "Turns on the plate-number field on this shop's visit-registration screen. Confirm?",
+  "writeVehicleTrackingDisabledConfirm": "Turns off the plate-number field on this shop's visit-registration screen. Confirm?",
+  "writeVehicleTrackingEnabledDone": "Vehicle tracking turned on ✓",
+  "writeVehicleTrackingDisabledDone": "Vehicle tracking turned off ✓",
+  "writeVehicleTrackingFailed": "Could not change the vehicle-tracking setting, try again."
 }

@@ -876,4 +876,24 @@ class SBn extends S {
   @override
   String get readVehicleTrackingFailed =>
       'এখন গাড়ি ট্র্যাকিং স্ট্যাটাস যাচাই করা যায়নি, আবার চেষ্টা করুন।';
+
+  @override
+  String get writeVehicleTrackingEnabledConfirm =>
+      'এই দোকানের ভিজিট-রেজিস্ট্রেশন স্ক্রিনে প্লেট নম্বর ফিল্ড চালু করবে। নিশ্চিত করবেন?';
+
+  @override
+  String get writeVehicleTrackingDisabledConfirm =>
+      'এই দোকানের ভিজিট-রেজিস্ট্রেশন স্ক্রিনে প্লেট নম্বর ফিল্ড বন্ধ করবে। নিশ্চিত করবেন?';
+
+  @override
+  String get writeVehicleTrackingEnabledDone =>
+      'গাড়ি ট্র্যাকিং চালু করা হয়েছে ✓';
+
+  @override
+  String get writeVehicleTrackingDisabledDone =>
+      'গাড়ি ট্র্যাকিং বন্ধ করা হয়েছে ✓';
+
+  @override
+  String get writeVehicleTrackingFailed =>
+      'গাড়ি ট্র্যাকিং সেটিং পরিবর্তন করা যায়নি, আবার চেষ্টা করুন।';
 }

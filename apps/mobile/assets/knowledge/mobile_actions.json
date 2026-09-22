@@ -95,5 +95,25 @@
     "enabled": true,
     "requires_confirmation": false,
     "requires": []
+  },
+  "write.enable_vehicle_tracking": {
+    "name": "enable_vehicle_tracking",
+    "description": "يفعّل «العمل على السيارات» — يظهر خانة رقم اللوحة بشاشة تسجيل الزيارة. يستخدم لطلب زي «شغّل تتبع السيارات» أو «فعّل رقم اللوحة».",
+    "scope": "system",
+    "kb_entry": "account.shop",
+    "enabled": true,
+    "requires_confirmation": true,
+    "confirm_message": "بيفعّل خانة رقم اللوحة بشاشة تسجيل الزيارة لهذا المحل. تأكيد؟",
+    "requires": ["operations.manage"]
+  },
+  "write.disable_vehicle_tracking": {
+    "name": "disable_vehicle_tracking",
+    "description": "يوقف «العمل على السيارات» — يخفي خانة رقم اللوحة بشاشة تسجيل الزيارة. يستخدم لطلب زي «أوقف تتبع السيارات».",
+    "scope": "system",
+    "kb_entry": "account.shop",
+    "enabled": true,
+    "requires_confirmation": true,
+    "confirm_message": "بيوقف خانة رقم اللوحة بشاشة تسجيل الزيارة لهذا المحل. تأكيد؟",
+    "requires": ["operations.manage"]
   }
 }

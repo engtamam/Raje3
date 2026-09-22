@@ -1682,6 +1682,36 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'تعذّر التأكد من حالة تتبع السيارات الآن، حاول مرة ثانية.'**
   String get readVehicleTrackingFailed;
+
+  /// No description provided for @writeVehicleTrackingEnabledConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'بيفعّل خانة رقم اللوحة بشاشة تسجيل الزيارة لهذا المحل. تأكيد؟'**
+  String get writeVehicleTrackingEnabledConfirm;
+
+  /// No description provided for @writeVehicleTrackingDisabledConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'بيوقف خانة رقم اللوحة بشاشة تسجيل الزيارة لهذا المحل. تأكيد؟'**
+  String get writeVehicleTrackingDisabledConfirm;
+
+  /// No description provided for @writeVehicleTrackingEnabledDone.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم تفعيل العمل على السيارات ✓'**
+  String get writeVehicleTrackingEnabledDone;
+
+  /// No description provided for @writeVehicleTrackingDisabledDone.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم إيقاف العمل على السيارات ✓'**
+  String get writeVehicleTrackingDisabledDone;
+
+  /// No description provided for @writeVehicleTrackingFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تغيير إعداد تتبع السيارات، حاول مرة ثانية.'**
+  String get writeVehicleTrackingFailed;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

@@ -97,6 +97,30 @@ void main() {
         expect(decision.action.requiresConfirmation, isFalse);
       });
     }
+  });
 
+  group('ActionExecutor — write actions resolve to ActionNeedsConfirmation, no route', () {
+    for (final name in [
+      'enable_vehicle_tracking',
+      'disable_vehicle_tracking',
+    ]) {
+      test('$name resolves to ActionNeedsConfirmation with no route and its own message', () {
+        final decision = executor.resolve(
+          AiActionProposed(name, const {}),
+          catalogWith(['operations.manage']),
+        );
+        expect(decision, isA<ActionNeedsConfirmation>());
+        final action = (decision as ActionNeedsConfirmation).action;
+        expect(action.route, isNull);
+        expect(action.confirmMessage, isNotNull);
+        expect(action.confirmMessage, isNotEmpty);
+      });
+
+      test('$name is unavailable without operations.manage — never trusted from a stale tool '
+          'list', () {
+        final decision = executor.resolve(AiActionProposed(name, const {}), Catalog.empty);
+        expect(decision, isA<ActionUnavailable>());
+      });
+    }
   });
 }

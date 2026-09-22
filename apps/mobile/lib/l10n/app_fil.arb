@@ -262,5 +262,10 @@
   "readBranchFailed": "Hindi makuha ang bilang ng branch ngayon, subukan muli.",
   "readVehicleTrackingOn": "Naka-on ang pagsubaybay sa sasakyan ngayon.",
   "readVehicleTrackingOff": "Naka-off ang pagsubaybay sa sasakyan ngayon.",
-  "readVehicleTrackingFailed": "Hindi ma-check ang status ng pagsubaybay sa sasakyan ngayon, subukan muli."
+  "readVehicleTrackingFailed": "Hindi ma-check ang status ng pagsubaybay sa sasakyan ngayon, subukan muli.",
+  "writeVehicleTrackingEnabledConfirm": "Ia-on ang field ng plate number sa visit-registration screen ng tindahang ito. Kumpirmahin?",
+  "writeVehicleTrackingDisabledConfirm": "Ia-off ang field ng plate number sa visit-registration screen ng tindahang ito. Kumpirmahin?",
+  "writeVehicleTrackingEnabledDone": "Na-on na ang pagsubaybay sa sasakyan ✓",
+  "writeVehicleTrackingDisabledDone": "Na-off na ang pagsubaybay sa sasakyan ✓",
+  "writeVehicleTrackingFailed": "Hindi mapalitan ang setting ng pagsubaybay sa sasakyan, subukan muli."
 }

@@ -262,5 +262,10 @@
   "readBranchFailed": "এখন শাখার সংখ্যা আনা যায়নি, আবার চেষ্টা করুন।",
   "readVehicleTrackingOn": "গাড়ি ট্র্যাকিং এখন চালু আছে।",
   "readVehicleTrackingOff": "গাড়ি ট্র্যাকিং এখন বন্ধ আছে।",
-  "readVehicleTrackingFailed": "এখন গাড়ি ট্র্যাকিং স্ট্যাটাস যাচাই করা যায়নি, আবার চেষ্টা করুন।"
+  "readVehicleTrackingFailed": "এখন গাড়ি ট্র্যাকিং স্ট্যাটাস যাচাই করা যায়নি, আবার চেষ্টা করুন।",
+  "writeVehicleTrackingEnabledConfirm": "এই দোকানের ভিজিট-রেজিস্ট্রেশন স্ক্রিনে প্লেট নম্বর ফিল্ড চালু করবে। নিশ্চিত করবেন?",
+  "writeVehicleTrackingDisabledConfirm": "এই দোকানের ভিজিট-রেজিস্ট্রেশন স্ক্রিনে প্লেট নম্বর ফিল্ড বন্ধ করবে। নিশ্চিত করবেন?",
+  "writeVehicleTrackingEnabledDone": "গাড়ি ট্র্যাকিং চালু করা হয়েছে ✓",
+  "writeVehicleTrackingDisabledDone": "গাড়ি ট্র্যাকিং বন্ধ করা হয়েছে ✓",
+  "writeVehicleTrackingFailed": "গাড়ি ট্র্যাকিং সেটিং পরিবর্তন করা যায়নি, আবার চেষ্টা করুন।"
 }

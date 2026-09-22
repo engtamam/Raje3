@@ -569,5 +569,10 @@
   "readBranchFailed": "تعذّر جلب عدد الفروع الآن، حاول مرة ثانية.",
   "readVehicleTrackingOn": "العمل على السيارات مفعّل الآن.",
   "readVehicleTrackingOff": "العمل على السيارات غير مفعّل حاليًا.",
-  "readVehicleTrackingFailed": "تعذّر التأكد من حالة تتبع السيارات الآن، حاول مرة ثانية."
+  "readVehicleTrackingFailed": "تعذّر التأكد من حالة تتبع السيارات الآن، حاول مرة ثانية.",
+  "writeVehicleTrackingEnabledConfirm": "بيفعّل خانة رقم اللوحة بشاشة تسجيل الزيارة لهذا المحل. تأكيد؟",
+  "writeVehicleTrackingDisabledConfirm": "بيوقف خانة رقم اللوحة بشاشة تسجيل الزيارة لهذا المحل. تأكيد؟",
+  "writeVehicleTrackingEnabledDone": "تم تفعيل العمل على السيارات ✓",
+  "writeVehicleTrackingDisabledDone": "تم إيقاف العمل على السيارات ✓",
+  "writeVehicleTrackingFailed": "تعذّر تغيير إعداد تتبع السيارات، حاول مرة ثانية."
 }

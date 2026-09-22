@@ -890,4 +890,24 @@ class SFil extends S {
   @override
   String get readVehicleTrackingFailed =>
       'Hindi ma-check ang status ng pagsubaybay sa sasakyan ngayon, subukan muli.';
+
+  @override
+  String get writeVehicleTrackingEnabledConfirm =>
+      'Ia-on ang field ng plate number sa visit-registration screen ng tindahang ito. Kumpirmahin?';
+
+  @override
+  String get writeVehicleTrackingDisabledConfirm =>
+      'Ia-off ang field ng plate number sa visit-registration screen ng tindahang ito. Kumpirmahin?';
+
+  @override
+  String get writeVehicleTrackingEnabledDone =>
+      'Na-on na ang pagsubaybay sa sasakyan ✓';
+
+  @override
+  String get writeVehicleTrackingDisabledDone =>
+      'Na-off na ang pagsubaybay sa sasakyan ✓';
+
+  @override
+  String get writeVehicleTrackingFailed =>
+      'Hindi mapalitan ang setting ng pagsubaybay sa sasakyan, subukan muli.';
 }

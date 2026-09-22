@@ -262,5 +262,10 @@
   "readBranchFailed": "An kasa samun yawan rassa yanzu, sake gwadawa.",
   "readVehicleTrackingOn": "Bin diddigin motoci yana aiki yanzu.",
   "readVehicleTrackingOff": "Bin diddigin motoci ba ya aiki a yanzu.",
-  "readVehicleTrackingFailed": "An kasa tabbatar da matsayin bin diddigin motoci yanzu, sake gwadawa."
+  "readVehicleTrackingFailed": "An kasa tabbatar da matsayin bin diddigin motoci yanzu, sake gwadawa.",
+  "writeVehicleTrackingEnabledConfirm": "Zai kunna filin lambar farantin a shafin rijistar ziyara na wannan shago. Tabbatarwa?",
+  "writeVehicleTrackingDisabledConfirm": "Zai kashe filin lambar farantin a shafin rijistar ziyara na wannan shago. Tabbatarwa?",
+  "writeVehicleTrackingEnabledDone": "An kunna bin diddigin motoci ✓",
+  "writeVehicleTrackingDisabledDone": "An kashe bin diddigin motoci ✓",
+  "writeVehicleTrackingFailed": "An kasa canza saitin bin diddigin motoci, sake gwadawa."
 }

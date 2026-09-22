@@ -262,5 +262,10 @@
   "readBranchFailed": "شاخوں کی تعداد ابھی حاصل نہیں ہو سکی، دوبارہ کوشش کریں۔",
   "readVehicleTrackingOn": "گاڑیوں کی ٹریکنگ ابھی فعال ہے۔",
   "readVehicleTrackingOff": "گاڑیوں کی ٹریکنگ ابھی غیر فعال ہے۔",
-  "readVehicleTrackingFailed": "گاڑیوں کی ٹریکنگ کی صورتحال ابھی معلوم نہیں ہو سکی، دوبارہ کوشش کریں۔"
+  "readVehicleTrackingFailed": "گاڑیوں کی ٹریکنگ کی صورتحال ابھی معلوم نہیں ہو سکی، دوبارہ کوشش کریں۔",
+  "writeVehicleTrackingEnabledConfirm": "اس دکان کی وزٹ رجسٹریشن اسکرین پر پلیٹ نمبر کا خانہ فعال کرے گا۔ تصدیق کریں؟",
+  "writeVehicleTrackingDisabledConfirm": "اس دکان کی وزٹ رجسٹریشن اسکرین پر پلیٹ نمبر کا خانہ غیر فعال کرے گا۔ تصدیق کریں؟",
+  "writeVehicleTrackingEnabledDone": "گاڑیوں کی ٹریکنگ فعال کر دی گئی ✓",
+  "writeVehicleTrackingDisabledDone": "گاڑیوں کی ٹریکنگ بند کر دی گئی ✓",
+  "writeVehicleTrackingFailed": "گاڑیوں کی ٹریکنگ کی ترتیب تبدیل نہیں ہو سکی، دوبارہ کوشش کریں۔"
 }

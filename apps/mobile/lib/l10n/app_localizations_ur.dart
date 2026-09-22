@@ -877,4 +877,24 @@ class SUr extends S {
   @override
   String get readVehicleTrackingFailed =>
       'گاڑیوں کی ٹریکنگ کی صورتحال ابھی معلوم نہیں ہو سکی، دوبارہ کوشش کریں۔';
+
+  @override
+  String get writeVehicleTrackingEnabledConfirm =>
+      'اس دکان کی وزٹ رجسٹریشن اسکرین پر پلیٹ نمبر کا خانہ فعال کرے گا۔ تصدیق کریں؟';
+
+  @override
+  String get writeVehicleTrackingDisabledConfirm =>
+      'اس دکان کی وزٹ رجسٹریشن اسکرین پر پلیٹ نمبر کا خانہ غیر فعال کرے گا۔ تصدیق کریں؟';
+
+  @override
+  String get writeVehicleTrackingEnabledDone =>
+      'گاڑیوں کی ٹریکنگ فعال کر دی گئی ✓';
+
+  @override
+  String get writeVehicleTrackingDisabledDone =>
+      'گاڑیوں کی ٹریکنگ بند کر دی گئی ✓';
+
+  @override
+  String get writeVehicleTrackingFailed =>
+      'گاڑیوں کی ٹریکنگ کی ترتیب تبدیل نہیں ہو سکی، دوبارہ کوشش کریں۔';
 }

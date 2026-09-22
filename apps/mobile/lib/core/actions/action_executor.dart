@@ -70,11 +70,13 @@ class ActionExecutor {
       context.goNamed(route);
       return null;
     }
-    final handler = _readHandlers[action.id];
-    if (handler != null) return handler(context);
-    // NO HANDLER YET FOR THIS NON-NAVIGATION ACTION. The day a real WRITE "system"/"app" action
-    // (no route, but a mutation rather than a read) is added, its own effect gets its own
-    // handler here — never guessed ahead of that action actually existing.
+    final readHandler = _readHandlers[action.id];
+    if (readHandler != null) return readHandler(context);
+    final writeHandler = _writeHandlers[action.id];
+    if (writeHandler != null) return writeHandler(context);
+    // NO HANDLER YET FOR THIS NON-NAVIGATION ACTION. Every "system"/"app" action registered so
+    // far is either a read (above) or a write (below); the day a THIRD shape is needed, it gets
+    // its own map here too — never guessed ahead of that action actually existing.
     return null;
   }
 
@@ -139,6 +141,27 @@ class ActionExecutor {
       return tracks ? s.readVehicleTrackingOn : s.readVehicleTrackingOff;
     } catch (_) {
       return s.readVehicleTrackingFailed;
+    }
+  }
+
+  /// One entry per "system"-scope WRITE action's own `id` — every one of these is
+  /// [AppAction.requiresConfirmation]==true (enforced at parse time, see [ActionModel]'s own
+  /// note), so [execute] only ever reaches these AFTER a real tap on [_ActionConfirmCard] — never
+  /// from the model's own output directly. Same map shape as [_readHandlers], same reason.
+  static final Map<String, Future<String> Function(BuildContext)> _writeHandlers = {
+    'write.enable_vehicle_tracking': (c) => _setVehicleTracking(c, true),
+    'write.disable_vehicle_tracking': (c) => _setVehicleTracking(c, false),
+  };
+
+  static Future<String> _setVehicleTracking(BuildContext context, bool enable) async {
+    final s = S.of(context)!;
+    final auth = context.read<AuthProvider>();
+    try {
+      final saved = await auth.setTracksVehicle(enable);
+      if (saved == null) return s.writeVehicleTrackingFailed;
+      return enable ? s.writeVehicleTrackingEnabledDone : s.writeVehicleTrackingDisabledDone;
+    } catch (_) {
+      return s.writeVehicleTrackingFailed;
     }
   }
 }

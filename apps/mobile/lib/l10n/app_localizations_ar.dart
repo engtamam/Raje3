@@ -863,4 +863,23 @@ class SAr extends S {
   @override
   String get readVehicleTrackingFailed =>
       'تعذّر التأكد من حالة تتبع السيارات الآن، حاول مرة ثانية.';
+
+  @override
+  String get writeVehicleTrackingEnabledConfirm =>
+      'بيفعّل خانة رقم اللوحة بشاشة تسجيل الزيارة لهذا المحل. تأكيد؟';
+
+  @override
+  String get writeVehicleTrackingDisabledConfirm =>
+      'بيوقف خانة رقم اللوحة بشاشة تسجيل الزيارة لهذا المحل. تأكيد؟';
+
+  @override
+  String get writeVehicleTrackingEnabledDone => 'تم تفعيل العمل على السيارات ✓';
+
+  @override
+  String get writeVehicleTrackingDisabledDone =>
+      'تم إيقاف العمل على السيارات ✓';
+
+  @override
+  String get writeVehicleTrackingFailed =>
+      'تعذّر تغيير إعداد تتبع السيارات، حاول مرة ثانية.';
 }

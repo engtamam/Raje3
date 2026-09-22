@@ -875,4 +875,23 @@ class SEn extends S {
   @override
   String get readVehicleTrackingFailed =>
       'Could not check vehicle tracking status right now, try again.';
+
+  @override
+  String get writeVehicleTrackingEnabledConfirm =>
+      'Turns on the plate-number field on this shop\'s visit-registration screen. Confirm?';
+
+  @override
+  String get writeVehicleTrackingDisabledConfirm =>
+      'Turns off the plate-number field on this shop\'s visit-registration screen. Confirm?';
+
+  @override
+  String get writeVehicleTrackingEnabledDone => 'Vehicle tracking turned on ✓';
+
+  @override
+  String get writeVehicleTrackingDisabledDone =>
+      'Vehicle tracking turned off ✓';
+
+  @override
+  String get writeVehicleTrackingFailed =>
+      'Could not change the vehicle-tracking setting, try again.';
 }
