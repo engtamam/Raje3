@@ -187,6 +187,21 @@ class LocalStorage {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // MOBILE AI ASSISTANT ENTITLEMENT (cached, fallback-only — see AiEntitlementProvider)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// The last confirmed answer, or null if never successfully checked. Read only when a fresh
+  /// check could not be made.
+  bool? getMobileAiAssistantSubscribed() {
+    return getBool(AppConstants.mobileAiAssistantSubscribedKey);
+  }
+
+  /// Persist the last CONFIRMED (`checked: true`) answer only — never a guess.
+  Future<bool> setMobileAiAssistantSubscribed(bool subscribed) {
+    return setBool(AppConstants.mobileAiAssistantSubscribedKey, subscribed);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // ONBOARDING
   // ─────────────────────────────────────────────────────────────────────────
 
