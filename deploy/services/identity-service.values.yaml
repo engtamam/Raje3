@@ -23,7 +23,7 @@ image:
   # and falls back to the legacy no-AAD format on InvalidTag, so every pre-existing sealed secret
   # keeps working with no migration or re-entry, and the next write to each row re-seals it with
   # the AAD. Confirmed safe by the sister session before this repin.
-  digest: "sha256:9ad2c34a8445eb71e82e02dbc34d4ea083e55178be8f74a5640eeec483480011"   # v0.25.26
+  digest: "sha256:a80974c1296147426adc1f7fe083e1f8060c189fdbc94cb7c59b1e4aa832b50d"   # v0.25.27
 
 replicas: 1
 
@@ -323,8 +323,21 @@ env:
   AUDIT_SERVICE_URL: "http://audit-service:8000"
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  # `http://localhost:8767` — TEMPORARY, this testing session only, same reasoning as
+  # `api-gateway.values.yaml`'s own identical addition: `/api/v1/auth/*` routes at the edge
+  # DIRECTLY to this service (deploy/edge/edge.json), bypassing api-gateway's own CORS entirely —
+  # found live, 2026-09-22: change-password from a browser mobile build 400'd with "No
+  # 'Access-Control-Allow-Origin' header" even though api-gateway's own origin list already had
+  # this port, because this service's separate CORS check never saw it. Remove once real
+  # production domains exist again (#338's own note on why empty here would blank the list).
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa,http://localhost:8767"
   CORS_ALLOW_CREDENTIALS: "true"
+  # Same real, permanent headers `api-gateway.values.yaml`'s own note explains — apps/mobile sends
+  # x-client-type on every call and x-tenant-id on every call after the first (once a tenant is
+  # known), and change-password is reached post-login so it carries both. Left off this service's
+  # own default (authorization,content-type,x-request-id) for the same reason api-gateway's was:
+  # no browser client had ever reached this service directly before.
+  CORS_ALLOWED_HEADERS: "authorization,content-type,x-request-id,x-client-type,x-tenant-id"
   EGRESS_ALLOWED_HOSTS: ""
 
   # ── Legal acceptance gate ─────────────────────────────────────────────────────────────────
