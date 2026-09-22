@@ -21,6 +21,10 @@ class RouteNames {
   static const String apps = 'apps';
   static const String account = 'account';
   static const String visit = 'visit';
+  static const String shopIdentity = 'shop_identity';
+  static const String branches = 'branches';
+  static const String branchDetail = 'branch_detail';
+  static const String billing = 'billing';
 
   // ── ROUTE PATHS ───────────────────────────────────────────────────────────
   static const String loginPath = '/login';
@@ -44,4 +48,19 @@ class RouteNames {
   static const String appsPath = '/apps';
   static const String accountPath = '/account';
   static const String visitPath = '/visit';
+  /// «منشأتي» — pushed FROM «حسابي», never a bottom-bar tab of its own: a settings drill-down, so
+  /// it lives OUTSIDE the shell (own back button, no bottom bar), the same "tap a row, land on a
+  /// dedicated screen" pattern the account list itself is built around.
+  static const String shopIdentityPath = '/account/shop';
+  /// «الفروع» — pushed FROM «منشأتي», own back button, no bottom bar. Every branch-scoped fact
+  /// (address, واتساب, الفريق) lives under a branch's own detail screen, never «منشأتي» itself —
+  /// see shop_identity_screen.dart's own header note on why.
+  static const String branchesPath = '/account/shop/branches';
+  /// `:branchId` — a specific branch's own detail screen.
+  static const String branchDetailPath = '/account/shop/branches/:branchId';
+  static String branchDetailPathFor(String branchId) => '/account/shop/branches/$branchId';
+  /// «الفوترة» — pushed FROM «حسابي» directly (own section, not nested under «منشأتي»: a
+  /// billing fact belongs to the whole account, not one branch or the shop's identity). Own back
+  /// button, no bottom bar, same drill-down pattern as every other account sub-screen.
+  static const String billingPath = '/account/billing';
 }
