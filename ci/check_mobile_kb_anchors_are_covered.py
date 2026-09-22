@@ -3,11 +3,15 @@
 used somewhere in code — drift caught in BOTH directions, the same shape
 check_app_display_name_is_not_bypassed.py already polices for plan display names.
 
-WHY BOTH DIRECTIONS. A widget wired to `KbAnchor(id: '...')`/`KbHintButton(anchor: '...')` with
-no matching mobile_kb.json entry means a real button or field the assistant (and the "؟" icon)
-cannot explain — the exact gap the owner asked this gate to close. A KB entry whose anchor no
-widget references any more means a screen changed shape and nobody removed its now-stale
-explanation — the KB quietly describing something that no longer exists.
+WHY BOTH DIRECTIONS. A widget wired to `KbAnchor(id: '...')` with no matching mobile_kb.json
+entry means a real button, field, or screen the AI assistant cannot explain when asked — the
+exact gap the owner asked this gate to close. A KB entry whose anchor no widget references any
+more means a screen changed shape and nobody removed its now-stale explanation — the KB quietly
+describing something that no longer exists.
+
+NO VISIBLE "؟" ICON ANYWHERE IN THIS APP — the owner's own standing rule. `KbAnchor` is an
+invisible marker only (see its own doc comment); every screen's help still comes from asking the
+AI assistant directly, never from a help button on the screen itself.
 
 Usage:
     python ci/check_mobile_kb_anchors_are_covered.py
@@ -27,7 +31,6 @@ KB_FILE = ROOT / "apps" / "mobile" / "assets" / "knowledge" / "mobile_kb.json"
 
 ANCHOR_PATTERNS = [
     re.compile(r"KbAnchor\(\s*id:\s*'([^']+)'"),
-    re.compile(r"KbHintButton\(anchor:\s*'([^']+)'"),
 ]
 
 
@@ -42,8 +45,8 @@ def _strip_comment_lines(text: str) -> str:
 
 def code_anchors() -> dict[str, list[str]]:
     """anchor -> list of files it's referenced from. Comment lines are blanked first — a doc
-    comment illustrating the pattern (this file's own KbAnchor/kb_hint_button.dart headers)
-    must never count as a real usage."""
+    comment illustrating the pattern (this file's own or kb_anchor.dart's own headers) must
+    never count as a real usage."""
     found: dict[str, list[str]] = {}
     for path in MOBILE_LIB.rglob("*.dart"):
         text = _strip_comment_lines(path.read_text(encoding="utf-8"))

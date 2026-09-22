@@ -45,6 +45,9 @@ SCREEN_ACTION_EXEMPT = {
     "auth.signup": "same as auth.login — pre-auth, never a voice destination",
     "auth.verify_phone": "a mid-flow detour reached only via a real signup/login refusal, "
                           "never something a signed-in session navigates to on purpose",
+    "account.shop.branches.detail": "needs a specific branchId chosen from the branches list — "
+                                     "not a fixed voice destination itself, reached only by "
+                                     "picking a branch from account.shop.branches",
 }
 
 
