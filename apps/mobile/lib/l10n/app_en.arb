@@ -253,5 +253,14 @@
   "visitOfferApplyLabel": "Apply this offer to this visit",
   "visitPointsRedeemCost": "{cost} points",
   "visitPointsRedeemedMessage": "{name} redeemed ✓",
-  "visitPointsRedeemFailed": "Couldn't redeem it. Try again."
+  "visitPointsRedeemFailed": "Couldn't redeem it. Try again.",
+  "readBillingActiveCount": "You have {count} active subscription(s).",
+  "readBillingNone": "You have no active subscriptions right now.",
+  "readBillingRenewsSoon": "The next renewal is on {date}.",
+  "readBillingFailed": "Could not fetch billing status right now, try again.",
+  "readBranchCount": "You have {count} branch(es).",
+  "readBranchFailed": "Could not fetch the branch count right now, try again.",
+  "readVehicleTrackingOn": "Vehicle tracking is on right now.",
+  "readVehicleTrackingOff": "Vehicle tracking is off right now.",
+  "readVehicleTrackingFailed": "Could not check vehicle tracking status right now, try again."
 }

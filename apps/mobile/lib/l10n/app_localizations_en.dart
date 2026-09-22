@@ -839,4 +839,40 @@ class SEn extends S {
 
   @override
   String get visitPointsRedeemFailed => 'Couldn\'t redeem it. Try again.';
+
+  @override
+  String readBillingActiveCount(Object count) {
+    return 'You have $count active subscription(s).';
+  }
+
+  @override
+  String get readBillingNone => 'You have no active subscriptions right now.';
+
+  @override
+  String readBillingRenewsSoon(Object date) {
+    return 'The next renewal is on $date.';
+  }
+
+  @override
+  String get readBillingFailed =>
+      'Could not fetch billing status right now, try again.';
+
+  @override
+  String readBranchCount(Object count) {
+    return 'You have $count branch(es).';
+  }
+
+  @override
+  String get readBranchFailed =>
+      'Could not fetch the branch count right now, try again.';
+
+  @override
+  String get readVehicleTrackingOn => 'Vehicle tracking is on right now.';
+
+  @override
+  String get readVehicleTrackingOff => 'Vehicle tracking is off right now.';
+
+  @override
+  String get readVehicleTrackingFailed =>
+      'Could not check vehicle tracking status right now, try again.';
 }

@@ -840,4 +840,40 @@ class SBn extends S {
 
   @override
   String get visitPointsRedeemFailed => 'রিডিম করা যায়নি। আবার চেষ্টা করুন।';
+
+  @override
+  String readBillingActiveCount(Object count) {
+    return 'আপনার $countটি সক্রিয় সাবস্ক্রিপশন আছে।';
+  }
+
+  @override
+  String get readBillingNone => 'এখন আপনার কোনো সক্রিয় সাবস্ক্রিপশন নেই।';
+
+  @override
+  String readBillingRenewsSoon(Object date) {
+    return 'পরবর্তী নবায়ন $date তারিখে।';
+  }
+
+  @override
+  String get readBillingFailed =>
+      'এখন বিলিং স্ট্যাটাস আনা যায়নি, আবার চেষ্টা করুন।';
+
+  @override
+  String readBranchCount(Object count) {
+    return 'আপনার $countটি শাখা আছে।';
+  }
+
+  @override
+  String get readBranchFailed =>
+      'এখন শাখার সংখ্যা আনা যায়নি, আবার চেষ্টা করুন।';
+
+  @override
+  String get readVehicleTrackingOn => 'গাড়ি ট্র্যাকিং এখন চালু আছে।';
+
+  @override
+  String get readVehicleTrackingOff => 'গাড়ি ট্র্যাকিং এখন বন্ধ আছে।';
+
+  @override
+  String get readVehicleTrackingFailed =>
+      'এখন গাড়ি ট্র্যাকিং স্ট্যাটাস যাচাই করা যায়নি, আবার চেষ্টা করুন।';
 }

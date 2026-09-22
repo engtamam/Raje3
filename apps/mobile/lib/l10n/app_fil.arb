@@ -253,5 +253,14 @@
   "visitOfferApplyLabel": "Ilapat ang alok na ito sa pagbisitang ito",
   "visitPointsRedeemCost": "{cost} puntos",
   "visitPointsRedeemedMessage": "Na-redeem ang {name} ✓",
-  "visitPointsRedeemFailed": "Hindi na-redeem. Subukan muli."
+  "visitPointsRedeemFailed": "Hindi na-redeem. Subukan muli.",
+  "readBillingActiveCount": "Mayroon kang {count} aktibong subscription.",
+  "readBillingNone": "Wala kang aktibong subscription ngayon.",
+  "readBillingRenewsSoon": "Ang susunod na pag-renew ay sa {date}.",
+  "readBillingFailed": "Hindi makuha ang katayuan ng billing ngayon, subukan muli.",
+  "readBranchCount": "Mayroon kang {count} branch.",
+  "readBranchFailed": "Hindi makuha ang bilang ng branch ngayon, subukan muli.",
+  "readVehicleTrackingOn": "Naka-on ang pagsubaybay sa sasakyan ngayon.",
+  "readVehicleTrackingOff": "Naka-off ang pagsubaybay sa sasakyan ngayon.",
+  "readVehicleTrackingFailed": "Hindi ma-check ang status ng pagsubaybay sa sasakyan ngayon, subukan muli."
 }

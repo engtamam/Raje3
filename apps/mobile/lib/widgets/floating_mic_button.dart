@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:raje3_mobile/core/actions/action_executor.dart';
+import 'package:raje3_mobile/core/actions/action_model.dart';
 import 'package:raje3_mobile/core/actions/action_registry.dart';
 import 'package:raje3_mobile/core/ai/ai_model.dart';
 import 'package:raje3_mobile/core/ai/assistant_service.dart';
@@ -212,7 +213,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
           case AiTextToken(:final text):
             buffer.write(text);
           case AiActionProposed():
-            _handleProposedAction(event);
+            _handleProposedAction(event, lang);
         }
       },
       onDone: () {
@@ -226,7 +227,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
 
   /// Resolves [event] against the REAL, CURRENT catalog — never the snapshot [_handleRecognized]
   /// captured when the question was first asked, since a capability can change mid-turn.
-  void _handleProposedAction(AiActionProposed event) {
+  void _handleProposedAction(AiActionProposed event, String lang) {
     if (!mounted || _state != _VoiceState.thinking) return; // cancelled meanwhile
     final catalog = context.read<NavProvider>().catalog;
     final decision = _executor.resolve(event, catalog);
@@ -238,8 +239,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
       case ActionRunNow(:final action):
         _answerSubscription?.cancel();
         _answerSubscription = null;
-        _executor.execute(context, action);
-        _goIdle();
+        unawaited(_runAndSpeak(action, lang));
       case ActionNeedsConfirmation():
         // NO HANDS-FREE CONFIRMATION SURFACE EXISTS on this button — a sensitive action falls
         // back to the chat sheet, where a real tap can confirm it (AssistantChatSheet's own
@@ -249,6 +249,20 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
         _goIdle();
         AssistantChatSheet.show(context);
     }
+  }
+
+  /// Carries out a run-now action, then SPEAKS whatever real answer it produced (a READ action)
+  /// before returning to idle — never a silent `_goIdle()` for those, which would make the
+  /// operator wait for a voice reply that simply never comes. `null` (navigation; nothing to
+  /// say) goes idle immediately, same as before this existed.
+  Future<void> _runAndSpeak(AppAction action, String lang) async {
+    final result = await _executor.execute(context, action);
+    if (!mounted) return;
+    if (result != null) {
+      await _speakAnswer(result, lang);
+      return;
+    }
+    _goIdle();
   }
 
   Future<void> _speakAnswer(String answer, String lang) async {

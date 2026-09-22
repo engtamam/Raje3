@@ -840,4 +840,41 @@ class SUr extends S {
 
   @override
   String get visitPointsRedeemFailed => 'کیش نہیں ہو سکا۔ دوبارہ کوشش کریں۔';
+
+  @override
+  String readBillingActiveCount(Object count) {
+    return 'آپ کے پاس $count فعال سبسکرپشن ہیں۔';
+  }
+
+  @override
+  String get readBillingNone =>
+      'آپ کے پاس فی الحال کوئی فعال سبسکرپشن نہیں ہے۔';
+
+  @override
+  String readBillingRenewsSoon(Object date) {
+    return 'اگلی تجدید $date کو ہے۔';
+  }
+
+  @override
+  String get readBillingFailed =>
+      'بلنگ کی صورتحال ابھی حاصل نہیں ہو سکی، دوبارہ کوشش کریں۔';
+
+  @override
+  String readBranchCount(Object count) {
+    return 'آپ کی $count شاخیں ہیں۔';
+  }
+
+  @override
+  String get readBranchFailed =>
+      'شاخوں کی تعداد ابھی حاصل نہیں ہو سکی، دوبارہ کوشش کریں۔';
+
+  @override
+  String get readVehicleTrackingOn => 'گاڑیوں کی ٹریکنگ ابھی فعال ہے۔';
+
+  @override
+  String get readVehicleTrackingOff => 'گاڑیوں کی ٹریکنگ ابھی غیر فعال ہے۔';
+
+  @override
+  String get readVehicleTrackingFailed =>
+      'گاڑیوں کی ٹریکنگ کی صورتحال ابھی معلوم نہیں ہو سکی، دوبارہ کوشش کریں۔';
 }

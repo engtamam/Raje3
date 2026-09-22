@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:raje3_mobile/core/actions/action_executor.dart';
@@ -120,21 +122,32 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
       case ActionUnavailable():
         setState(() => turn.answer += '\n${S.of(context)!.assistantActionUnavailable}');
       case ActionRunNow(:final action):
-        _executor.execute(context, action);
-        // THE SHEET CLOSES ITSELF — an action that just navigated away is a screen the sheet's
-        // own bottom-sheet overlay would otherwise sit on top of, confusingly.
-        if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+        unawaited(_runAndShow(turn, action));
       case ActionNeedsConfirmation(:final action):
         setState(() => turn.pendingAction = action);
     }
+  }
+
+  /// Carries out [action] and either closes the sheet (a real navigation just happened — the
+  /// destination screen IS the answer, and the sheet's own overlay would otherwise sit
+  /// confusingly on top of it) or, for a READ action with a real spoken answer, appends that
+  /// answer to the turn and keeps the sheet open — there is nowhere to navigate TO, so closing
+  /// it would hide the one thing the operator actually asked for.
+  Future<void> _runAndShow(_Turn turn, AppAction action) async {
+    final result = await _executor.execute(context, action);
+    if (!mounted) return;
+    if (result != null) {
+      setState(() => turn.answer += (turn.answer.isEmpty ? '' : '\n') + result);
+      return;
+    }
+    if (Navigator.of(context).canPop()) Navigator.of(context).pop();
   }
 
   void _confirmPendingAction(_Turn turn) {
     final action = turn.pendingAction;
     if (action == null) return;
     setState(() => turn.pendingAction = null);
-    _executor.execute(context, action);
-    if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+    unawaited(_runAndShow(turn, action));
   }
 
   @override

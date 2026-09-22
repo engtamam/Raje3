@@ -253,5 +253,14 @@
   "visitOfferApplyLabel": "یہ آفر اس وزٹ پر لاگو کریں",
   "visitPointsRedeemCost": "{cost} پوائنٹس",
   "visitPointsRedeemedMessage": "{name} کیش ہو گیا ✓",
-  "visitPointsRedeemFailed": "کیش نہیں ہو سکا۔ دوبارہ کوشش کریں۔"
+  "visitPointsRedeemFailed": "کیش نہیں ہو سکا۔ دوبارہ کوشش کریں۔",
+  "readBillingActiveCount": "آپ کے پاس {count} فعال سبسکرپشن ہیں۔",
+  "readBillingNone": "آپ کے پاس فی الحال کوئی فعال سبسکرپشن نہیں ہے۔",
+  "readBillingRenewsSoon": "اگلی تجدید {date} کو ہے۔",
+  "readBillingFailed": "بلنگ کی صورتحال ابھی حاصل نہیں ہو سکی، دوبارہ کوشش کریں۔",
+  "readBranchCount": "آپ کی {count} شاخیں ہیں۔",
+  "readBranchFailed": "شاخوں کی تعداد ابھی حاصل نہیں ہو سکی، دوبارہ کوشش کریں۔",
+  "readVehicleTrackingOn": "گاڑیوں کی ٹریکنگ ابھی فعال ہے۔",
+  "readVehicleTrackingOff": "گاڑیوں کی ٹریکنگ ابھی غیر فعال ہے۔",
+  "readVehicleTrackingFailed": "گاڑیوں کی ٹریکنگ کی صورتحال ابھی معلوم نہیں ہو سکی، دوبارہ کوشش کریں۔"
 }

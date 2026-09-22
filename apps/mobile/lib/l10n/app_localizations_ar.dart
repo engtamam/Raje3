@@ -828,4 +828,39 @@ class SAr extends S {
 
   @override
   String get visitPointsRedeemFailed => 'تعذّر الاستبدال، حاول مرة ثانية.';
+
+  @override
+  String readBillingActiveCount(Object count) {
+    return 'عندك $count اشتراك نشط.';
+  }
+
+  @override
+  String get readBillingNone => 'ما عندك أي اشتراك نشط حاليًا.';
+
+  @override
+  String readBillingRenewsSoon(Object date) {
+    return 'أقرب تجديد يوم $date.';
+  }
+
+  @override
+  String get readBillingFailed =>
+      'تعذّر جلب حالة الفوترة الآن، حاول مرة ثانية.';
+
+  @override
+  String readBranchCount(Object count) {
+    return 'عندك $count فرع.';
+  }
+
+  @override
+  String get readBranchFailed => 'تعذّر جلب عدد الفروع الآن، حاول مرة ثانية.';
+
+  @override
+  String get readVehicleTrackingOn => 'العمل على السيارات مفعّل الآن.';
+
+  @override
+  String get readVehicleTrackingOff => 'العمل على السيارات غير مفعّل حاليًا.';
+
+  @override
+  String get readVehicleTrackingFailed =>
+      'تعذّر التأكد من حالة تتبع السيارات الآن، حاول مرة ثانية.';
 }

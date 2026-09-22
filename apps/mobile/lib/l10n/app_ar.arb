@@ -560,5 +560,14 @@
   "visitOfferApplyLabel": "طبّق هذا العرض على هذي الزيارة",
   "visitPointsRedeemCost": "{cost} نقطة",
   "visitPointsRedeemedMessage": "تم استبدال {name} ✓",
-  "visitPointsRedeemFailed": "تعذّر الاستبدال، حاول مرة ثانية."
+  "visitPointsRedeemFailed": "تعذّر الاستبدال، حاول مرة ثانية.",
+  "readBillingActiveCount": "عندك {count} اشتراك نشط.",
+  "readBillingNone": "ما عندك أي اشتراك نشط حاليًا.",
+  "readBillingRenewsSoon": "أقرب تجديد يوم {date}.",
+  "readBillingFailed": "تعذّر جلب حالة الفوترة الآن، حاول مرة ثانية.",
+  "readBranchCount": "عندك {count} فرع.",
+  "readBranchFailed": "تعذّر جلب عدد الفروع الآن، حاول مرة ثانية.",
+  "readVehicleTrackingOn": "العمل على السيارات مفعّل الآن.",
+  "readVehicleTrackingOff": "العمل على السيارات غير مفعّل حاليًا.",
+  "readVehicleTrackingFailed": "تعذّر التأكد من حالة تتبع السيارات الآن، حاول مرة ثانية."
 }

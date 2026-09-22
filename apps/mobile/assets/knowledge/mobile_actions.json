@@ -68,5 +68,32 @@
     "enabled": true,
     "requires_confirmation": false,
     "requires": []
+  },
+  "read.billing_status": {
+    "name": "read_billing_status",
+    "description": "يجاوب بعدد الاشتراكات النشطة وتاريخ أقرب تجديد، بدون ما يفتح شاشة الفوترة — يستخدم لسؤال زي «كم اشتراكي؟» أو «متى تجديدي الجاي؟».",
+    "scope": "system",
+    "kb_entry": "account.billing",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
+  },
+  "read.branch_count": {
+    "name": "read_branch_count",
+    "description": "يجاوب بعدد فروع المحل، بدون ما يفتح شاشة الفروع — يستخدم لسؤال زي «كم فرع عندي؟».",
+    "scope": "system",
+    "kb_entry": "account.shop.branches",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
+  },
+  "read.vehicle_tracking_status": {
+    "name": "read_vehicle_tracking_status",
+    "description": "يجاوب هل العمل على السيارات مفعّل أو لا، بدون ما يفتح شاشة منشأتي — يستخدم لسؤال زي «هل تتبع السيارات شغّال؟».",
+    "scope": "system",
+    "kb_entry": "account.shop",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
   }
 }

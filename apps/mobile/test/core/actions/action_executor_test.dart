@@ -79,4 +79,24 @@ void main() {
       expect(find.text('screen visit'), findsOneWidget);
     });
   });
+
+  group('ActionExecutor — read actions resolve to a run-now, no-route action', () {
+    // NOT a full execute() round trip here — that hits AuthProvider's real network calls, and
+    // this file's own job is proving the REGISTRY/EXECUTOR wiring (route is null so navigation
+    // never fires, requires_confirmation is false so no tap is needed), not re-testing
+    // AuthProvider's own already-covered HTTP methods against a live or mocked server.
+    for (final name in [
+      'read_billing_status',
+      'read_branch_count',
+      'read_vehicle_tracking_status',
+    ]) {
+      test('$name resolves to ActionRunNow with no route', () {
+        final decision = executor.resolve(AiActionProposed(name, const {}), catalogWith(const []));
+        expect(decision, isA<ActionRunNow>());
+        expect((decision as ActionRunNow).action.route, isNull);
+        expect(decision.action.requiresConfirmation, isFalse);
+      });
+    }
+
+  });
 }

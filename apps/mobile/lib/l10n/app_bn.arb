@@ -253,5 +253,14 @@
   "visitOfferApplyLabel": "এই ভিজিটে এই অফারটি প্রয়োগ করুন",
   "visitPointsRedeemCost": "{cost} পয়েন্ট",
   "visitPointsRedeemedMessage": "{name} রিডিম হয়েছে ✓",
-  "visitPointsRedeemFailed": "রিডিম করা যায়নি। আবার চেষ্টা করুন।"
+  "visitPointsRedeemFailed": "রিডিম করা যায়নি। আবার চেষ্টা করুন।",
+  "readBillingActiveCount": "আপনার {count}টি সক্রিয় সাবস্ক্রিপশন আছে।",
+  "readBillingNone": "এখন আপনার কোনো সক্রিয় সাবস্ক্রিপশন নেই।",
+  "readBillingRenewsSoon": "পরবর্তী নবায়ন {date} তারিখে।",
+  "readBillingFailed": "এখন বিলিং স্ট্যাটাস আনা যায়নি, আবার চেষ্টা করুন।",
+  "readBranchCount": "আপনার {count}টি শাখা আছে।",
+  "readBranchFailed": "এখন শাখার সংখ্যা আনা যায়নি, আবার চেষ্টা করুন।",
+  "readVehicleTrackingOn": "গাড়ি ট্র্যাকিং এখন চালু আছে।",
+  "readVehicleTrackingOff": "গাড়ি ট্র্যাকিং এখন বন্ধ আছে।",
+  "readVehicleTrackingFailed": "এখন গাড়ি ট্র্যাকিং স্ট্যাটাস যাচাই করা যায়নি, আবার চেষ্টা করুন।"
 }

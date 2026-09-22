@@ -253,5 +253,14 @@
   "visitOfferApplyLabel": "Yi amfani da wannan tayin a wannan ziyarar",
   "visitPointsRedeemCost": "maki {cost}",
   "visitPointsRedeemedMessage": "An musanya {name} ✓",
-  "visitPointsRedeemFailed": "An kasa musanyawa. Sake gwadawa."
+  "visitPointsRedeemFailed": "An kasa musanyawa. Sake gwadawa.",
+  "readBillingActiveCount": "Kana da rajista {count} masu aiki.",
+  "readBillingNone": "Ba ka da wata rajista mai aiki a yanzu.",
+  "readBillingRenewsSoon": "Sabuntawa na gaba ranar {date} ne.",
+  "readBillingFailed": "An kasa samun matsayin lissafin kuɗi yanzu, sake gwadawa.",
+  "readBranchCount": "Kana da rassa {count}.",
+  "readBranchFailed": "An kasa samun yawan rassa yanzu, sake gwadawa.",
+  "readVehicleTrackingOn": "Bin diddigin motoci yana aiki yanzu.",
+  "readVehicleTrackingOff": "Bin diddigin motoci ba ya aiki a yanzu.",
+  "readVehicleTrackingFailed": "An kasa tabbatar da matsayin bin diddigin motoci yanzu, sake gwadawa."
 }

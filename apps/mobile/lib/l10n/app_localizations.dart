@@ -1628,6 +1628,60 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'تعذّر الاستبدال، حاول مرة ثانية.'**
   String get visitPointsRedeemFailed;
+
+  /// No description provided for @readBillingActiveCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'عندك {count} اشتراك نشط.'**
+  String readBillingActiveCount(Object count);
+
+  /// No description provided for @readBillingNone.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما عندك أي اشتراك نشط حاليًا.'**
+  String get readBillingNone;
+
+  /// No description provided for @readBillingRenewsSoon.
+  ///
+  /// In ar, this message translates to:
+  /// **'أقرب تجديد يوم {date}.'**
+  String readBillingRenewsSoon(Object date);
+
+  /// No description provided for @readBillingFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر جلب حالة الفوترة الآن، حاول مرة ثانية.'**
+  String get readBillingFailed;
+
+  /// No description provided for @readBranchCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'عندك {count} فرع.'**
+  String readBranchCount(Object count);
+
+  /// No description provided for @readBranchFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر جلب عدد الفروع الآن، حاول مرة ثانية.'**
+  String get readBranchFailed;
+
+  /// No description provided for @readVehicleTrackingOn.
+  ///
+  /// In ar, this message translates to:
+  /// **'العمل على السيارات مفعّل الآن.'**
+  String get readVehicleTrackingOn;
+
+  /// No description provided for @readVehicleTrackingOff.
+  ///
+  /// In ar, this message translates to:
+  /// **'العمل على السيارات غير مفعّل حاليًا.'**
+  String get readVehicleTrackingOff;
+
+  /// No description provided for @readVehicleTrackingFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر التأكد من حالة تتبع السيارات الآن، حاول مرة ثانية.'**
+  String get readVehicleTrackingFailed;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

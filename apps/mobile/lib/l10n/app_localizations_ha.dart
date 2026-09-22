@@ -841,4 +841,41 @@ class SHa extends S {
 
   @override
   String get visitPointsRedeemFailed => 'An kasa musanyawa. Sake gwadawa.';
+
+  @override
+  String readBillingActiveCount(Object count) {
+    return 'Kana da rajista $count masu aiki.';
+  }
+
+  @override
+  String get readBillingNone => 'Ba ka da wata rajista mai aiki a yanzu.';
+
+  @override
+  String readBillingRenewsSoon(Object date) {
+    return 'Sabuntawa na gaba ranar $date ne.';
+  }
+
+  @override
+  String get readBillingFailed =>
+      'An kasa samun matsayin lissafin kuɗi yanzu, sake gwadawa.';
+
+  @override
+  String readBranchCount(Object count) {
+    return 'Kana da rassa $count.';
+  }
+
+  @override
+  String get readBranchFailed =>
+      'An kasa samun yawan rassa yanzu, sake gwadawa.';
+
+  @override
+  String get readVehicleTrackingOn => 'Bin diddigin motoci yana aiki yanzu.';
+
+  @override
+  String get readVehicleTrackingOff =>
+      'Bin diddigin motoci ba ya aiki a yanzu.';
+
+  @override
+  String get readVehicleTrackingFailed =>
+      'An kasa tabbatar da matsayin bin diddigin motoci yanzu, sake gwadawa.';
 }

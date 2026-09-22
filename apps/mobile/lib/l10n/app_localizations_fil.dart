@@ -852,4 +852,42 @@ class SFil extends S {
 
   @override
   String get visitPointsRedeemFailed => 'Hindi na-redeem. Subukan muli.';
+
+  @override
+  String readBillingActiveCount(Object count) {
+    return 'Mayroon kang $count aktibong subscription.';
+  }
+
+  @override
+  String get readBillingNone => 'Wala kang aktibong subscription ngayon.';
+
+  @override
+  String readBillingRenewsSoon(Object date) {
+    return 'Ang susunod na pag-renew ay sa $date.';
+  }
+
+  @override
+  String get readBillingFailed =>
+      'Hindi makuha ang katayuan ng billing ngayon, subukan muli.';
+
+  @override
+  String readBranchCount(Object count) {
+    return 'Mayroon kang $count branch.';
+  }
+
+  @override
+  String get readBranchFailed =>
+      'Hindi makuha ang bilang ng branch ngayon, subukan muli.';
+
+  @override
+  String get readVehicleTrackingOn =>
+      'Naka-on ang pagsubaybay sa sasakyan ngayon.';
+
+  @override
+  String get readVehicleTrackingOff =>
+      'Naka-off ang pagsubaybay sa sasakyan ngayon.';
+
+  @override
+  String get readVehicleTrackingFailed =>
+      'Hindi ma-check ang status ng pagsubaybay sa sasakyan ngayon, subukan muli.';
 }
