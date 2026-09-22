@@ -717,6 +717,20 @@ export interface VisitDraft {
   quantities?: Record<string, number>;
 }
 
+/** The counter's own celebration moment — present ONLY on the rare visit that just made this
+ *  customer eligible for a NEW «شراكة استراتيجية» reward at a partner shop (never on an ordinary
+ *  visit, never on a replayed idempotency key — services/operations/app/api/v1/field.py's own
+ *  note on this same field). `partner_shop_name` may be empty (a name lookup that could not be
+ *  made) — the celebration still shows the real gift, just without that one line. */
+export interface ReferralGrantAck {
+  grant_type: 'gift' | 'discount';
+  gift_service_name: string;
+  discount_scope: string;
+  discount_group_name: string;
+  expires_at: number;
+  partner_shop_name: string;
+}
+
 export interface VisitAck {
   visit: { id: string; [k: string]: unknown };
   customer: CustomerHit;
@@ -724,6 +738,7 @@ export interface VisitAck {
   /** A repeat of the same key answers 201 with this true — a SUCCESS, not a conflict. The operator
    *  wanted one visit and there is one visit; a 409 on a double tap teaches him the screen lies. */
   duplicate: boolean;
+  referral_grant?: ReferralGrantAck;
 }
 
 /** A name the field sheet can offer. `has_pin` is what makes it offerable at all. */
@@ -739,6 +754,23 @@ export interface FieldOperator {
    *  «الموظف الميداني», the one role the server auto-includes in an unrestricted service's
    *  eligible set (assignment-mode redesign phase 2). */
   role?: string;
+}
+
+// ── حل رابط خرائط جوجل المختصر (googleMapsLink.ts) ───────────────────────────────────────────
+//
+// A BROWSER CANNOT DO THIS ITSELF — reading a cross-origin redirect's destination is exactly what
+// CORS exists to block, so `googleMapsLink.ts`'s own `parseGoogleMapsLink` never attempts it and
+// tells a short-link caller to paste the full one instead. Found live, real-world need: a phone's
+// Google Maps app hands out exactly the short form by default (its "Share" button), so an owner
+// pasting a branch's own link from HIS phone into a form he is filling on his COMPUTER is pasting
+// the one link he actually has — telling him to go find a different one is real friction with a
+// server-side fix one hop away. `/api/v1/staff/resolve-maps-link` runs same-origin from the
+// console's own point of view, so it hits none of the CORS wall a direct client fetch would.
+export async function resolveMapsShortLink(session: Session, url: string): Promise<string> {
+  const out = await call<{ resolved_url?: string }>(
+    session, `/api/v1/staff/resolve-maps-link?url=${encodeURIComponent(url)}`,
+  );
+  return out.resolved_url ?? '';
 }
 
 export async function listOperators(session: Session): Promise<FieldOperator[]> {
@@ -766,6 +798,27 @@ export async function getMyLocale(session: Session): Promise<MyLocaleRow> {
 export async function setMyLocale(session: Session, locale: string): Promise<void> {
   await call(session, '/api/v1/account/me/locale', {
     method: 'PATCH', body: JSON.stringify({ locale }),
+  });
+}
+
+// ── اسم صاحب الحساب — نفس منطق اللغة أعلاه تمامًا ─────────────────────────────────────────────
+//
+// FOUND LIVE: every employee `hire()` creates already carries a real name (`Operator.name`,
+// staff.py) — the owner himself holds no `Operator` row and so had no name anywhere in the
+// product, not even the one place `Operator.name` exists (AccountSettingsStore's own note).
+// Same platform-wide, capability-free door as the locale above, for the exact same reason.
+
+interface MyNameRow {
+  name?: string;
+}
+
+export async function getMyName(session: Session): Promise<MyNameRow> {
+  return call<MyNameRow>(session, '/api/v1/account/me/name');
+}
+
+export async function setMyName(session: Session, name: string): Promise<void> {
+  await call(session, '/api/v1/account/me/name', {
+    method: 'PATCH', body: JSON.stringify({ name }),
   });
 }
 

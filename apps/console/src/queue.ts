@@ -22,7 +22,7 @@
  * never ran, because the shop believes the visits are recorded.
  */
 import type { Session } from './session';
-import { ApiError, applyOffer, recordVisit, type VisitDraft } from './api';
+import { ApiError, applyOffer, recordVisit, type ReferralGrantAck, type VisitDraft } from './api';
 
 const KEY = 'raje3.field.queue.v1';
 
@@ -86,6 +86,14 @@ export class VisitQueue {
   /** The drain in flight, or null. A PROMISE rather than a boolean — see `drain`. */
   private running: Promise<void> | null = null;
   private listeners = new Set<(rows: Queued[]) => void>();
+  /** A SEPARATE channel from `listeners` (queue ROW state) on purpose — a celebration is a
+   *  one-shot EVENT ("this visit just earned a partner reward"), not a state a re-render should
+   *  replay every time the queue's row list changes for an unrelated reason. Fired only for a
+   *  row that drains WHILE a listener is actually subscribed — the ordinary online case, which is
+   *  the only case a celebration makes sense for: a visit that drains later, unattended, means the
+   *  customer already left, and showing it to whoever opens the screen next would celebrate a
+   *  stranger's visit. */
+  private celebrationListeners = new Set<(grant: ReferralGrantAck) => void>();
 
   /** Take the visit. Returns immediately — the caller clears the screen on THIS, never on a
    *  server answer, because the five-second budget cannot contain a round trip on a bad link.
@@ -123,8 +131,17 @@ export class VisitQueue {
     return () => this.listeners.delete(fn);
   }
 
+  subscribeToCelebrations(fn: (grant: ReferralGrantAck) => void): () => void {
+    this.celebrationListeners.add(fn);
+    return () => this.celebrationListeners.delete(fn);
+  }
+
   private emit(): void {
     for (const fn of this.listeners) fn(this.rows);
+  }
+
+  private emitCelebration(grant: ReferralGrantAck): void {
+    for (const fn of this.celebrationListeners) fn(grant);
   }
 
   /**
@@ -158,6 +175,7 @@ export class VisitQueue {
         try {
           const ack = await recordVisit(session, row.draft);
           this.rows = this.rows.filter((r) => r !== row);
+          if (ack.referral_grant) this.emitCelebration(ack.referral_grant);
           if (row.applyOfferSubject) {
             // ONLY NOW DOES THE VISIT EXIST ON THE SERVER (ط-1) — `ack.visit.id` names it, so
             // there is nothing left to race. STILL FIRE-AND-FORGET: the operator moved on the

@@ -21,8 +21,8 @@
  */
 import type { LucideIcon } from 'lucide-react';
 import {
-  CalendarClock, ClipboardPlus, Gift, Handshake, LifeBuoy, Megaphone, MessageSquare, Star, TrendingUp,
-  Truck, Users, Wrench,
+  CalendarClock, ClipboardPlus, Gift, HandHeart, Handshake, LifeBuoy, Megaphone, MessageSquare, Star,
+  TrendingUp, Truck, Users, Wrench,
 } from 'lucide-react';
 import { NAV_ACCENTS } from '../../../ui/packages/ui/src/theme';
 import type { Catalog } from './catalog';
@@ -115,19 +115,30 @@ export const SECTIONS: Section[] = [
   // أداة إدارة قائمة بحد ذاتها، لا مجرد قائمة تقييمات. نفس بوابة `operations.ratings` التي كانت
   // تُظهر التبويب القديم.
   { service: 'operations', id: 'rating', path: '/rating', label: 'التقييم', icon: Star, requires: ['operations.ratings'], accent: NAV_ACCENTS[4] },
-  // «تحالف استراتيجي» — id/path stay `coupons` (the stored capability names and the route both
-  // key off it), only the label changed. Gated on `operations.coupons_page` (owner decision,
-  // 2026-09-19: two separate tiers now exist for coupons — `operations.grant_coupon_direct`
-  // reaches this standalone page AND everything below, while the weaker `operations.grant_coupon`
-  // alone reaches ONLY the visit-recording screen's own shortcut checkbox, never this page). That
-  // split required decoupling: the actual grant action (`operations.grant_coupon`, POST
-  // /coupons/grant) now accepts the WEAK capability too, so a supervisor/operator/marketer can
-  // really submit a grant from the visit screen rather than see a button that 403s — which means
-  // `operations.grant_coupon`'s presence in the catalogue can no longer be used to gate THIS page.
-  // `operations.coupons_page` is a nav-only action id with no route of its own, declared purely to
-  // still require the strong capability (user_actions.py has the full note).
-  { service: 'operations', id: 'coupons', path: '/coupons', label: 'تحالف استراتيجي', icon: Handshake,
-   requires: ['operations.coupons_page'], accent: NAV_ACCENTS[10] },
+  // «ولاء الشركاء» — RENAMED 2026-09-22 from `coupons`/«تحالف استراتيجي» (id/path/label all moved
+  // together, no live data existed yet). Backend capability names (`operations.coupons_page`,
+  // `operations.grant_coupon*`) are left as-is on purpose — an internal permission id, never
+  // shown to anyone, not part of this app's own identity the way id/path/label are. Gated on
+  // `operations.coupons_page` (owner decision, 2026-09-19: two separate tiers now exist —
+  // `operations.grant_coupon_direct` reaches this standalone page AND everything below, while the
+  // weaker `operations.grant_coupon` alone reaches ONLY the visit-recording screen's own shortcut
+  // checkbox, never this page). That split required decoupling: the actual grant action
+  // (`operations.grant_coupon`, POST /coupons/grant) now accepts the WEAK capability too, so a
+  // supervisor/operator/marketer can really submit a grant from the visit screen rather than see a
+  // button that 403s — which means `operations.grant_coupon`'s presence in the catalogue can no
+  // longer be used to gate THIS page. `operations.coupons_page` is a nav-only action id with no
+  // route of its own, declared purely to still require the strong capability (user_actions.py has
+  // the full note).
+  { service: 'operations', id: 'partner-loyalty', path: '/partner-loyalty', label: 'ولاء الشركاء',
+   icon: Handshake, requires: ['operations.coupons_page'], accent: NAV_ACCENTS[10] },
+  // «شراكة استراتيجية» — cross-tenant CUSTOMER referral (core/referral_partnership.py's own
+  // module docstring), never to be confused with the row above: «ولاء الشركاء» discounts OUR
+  // OWN subscription price between two shops; this one moves real customers, backed by real
+  // catalogue items, mutual-consent only. Gated on the plain list action — every holder of
+  // `operations.manage` may propose, view and act on a partnership.
+  { service: 'operations', id: 'referral-partnership', path: '/referral-partnership',
+   label: 'شراكة استراتيجية', icon: HandHeart,
+   requires: ['operations.referral_partnership_list'], accent: NAV_ACCENTS[12] },
   // «خدمات متنقلة» — a real sold app now (Phase 4, feature.mobile_requests); the row itself still
   // gates on the review queue's own list action (real per ci/check_ui_actions.py — an action id
   // the catalogue actually declares, never the bare capability string), and MobileRequestsRoute's

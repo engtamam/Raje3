@@ -53,12 +53,15 @@ export interface LauncherApp {
  *  anything but Arabic no matter what the account's own language preference said. */
 // FOUR SCALABLE SHELVES, NEVER A CATCH-ALL «عام» (2026-09-16, the owner's own instruction) — each
 // one names a real, growing family of apps rather than a stage of this redesign:
-//   operations — running the shop day to day (visit/bookings/services/محلّي's own dashboard).
+//   operations — running the shop day to day (visit/bookings/services/محلّي's own dashboard,
+//                خدمات متنقلة — moved here 2026-09-22 from growth: a service delivery channel,
+//                same as bookings, not a way to reach new customers).
 //   customers  — the relationship itself: who they are, what they thought, why they come back
-//                (عملائي, التقييم, نقاطي — a loyalty programme is a customer-retention fact, not a
-//                 marketing channel).
+//                (عملائي, التقييم, نقاطي, ولاء الشركاء — moved here 2026-09-22 from growth: the
+//                 owner's own framing is that a discount extended to a partner shop is an
+//                 indirect LOYALTY mechanic between businesses, not customer acquisition).
 //   growth     — reaching NEW attention or NEW revenue from outside the existing relationship
-//                (الحملات, تحالف استراتيجي, خدمات متنقلة, صفقات).
+//                (الحملات, شراكة استراتيجية, صفقات).
 //   ai         — its own shelf on purpose, not folded into growth: المساعد الذكي is the first of
 //                what this product's own roadmap already names as a growing AI line, and a shelf
 //                that starts at one app still reads as a real category the day a second AI app
@@ -70,14 +73,16 @@ const CATEGORY_OF: Record<string, string> = {
   shop: 'operations',
   bookings: 'operations',
   services: 'operations',
+  'mobile-requests': 'operations',
   customers: 'customers',
   rating: 'customers',
   points: 'customers',
-  coupons: 'growth',
+  'partner-loyalty': 'customers',
   messages: 'growth',
-  'mobile-requests': 'growth',
   insights: 'growth',
+  'referral-partnership': 'growth',
   whatsapp: 'ai',
+  'mobile-ai-assistant': 'ai',
 };
 
 const FALLBACK_CATEGORY = 'general';

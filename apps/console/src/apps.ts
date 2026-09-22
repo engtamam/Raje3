@@ -221,23 +221,66 @@ export const APP_ROWS: AppRow[] = [
     // "ربط الواتساب مكانه صحيح ما نغيره لانه عام مو مخصص للبوات").
     openPath: '/whatsapp-assistant',
   },
-  // «تحالف استراتيجي» — shop-to-shop: a discount on ANOTHER registered shop's own subscription
-  // with us, applied at its next renewal (deploy/seed/plans.json's own note on this row, and
-  // docs/خطة-كوبونات-محل-لمحل.md for the underlying design — the doc's own filename predates the
-  // rename and is kept as history, never re-read as a live naming source). `id`/`key`/`section`
-  // stay the original `coupons` slug on purpose (stored data, capability names and the plan row
-  // in billing all key off it) — only what the shop OWNER ever reads changed.
+  // «ولاء الشركاء» — shop-to-shop: a discount on ANOTHER registered shop's own subscription with
+  // us, applied at its next renewal (deploy/seed/plans.json's own note on this row). Really an
+  // indirect loyalty mechanic between business partners (the owner's own framing) rather than a
+  // marketing/growth play — grouped with برنامج النقاط accordingly. RENAMED 2026-09-22 from
+  // `coupons`/«تحالف استراتيجي» — the old name read as a near-duplicate of «شراكة استراتيجية»
+  // (referral-partnership), a genuinely different app. `id`/`key`/`section` renamed with it (no
+  // live data existed yet); docs/خطة-كوبونات-محل-لمحل.md keeps its old filename as history, never
+  // re-read as a live naming source.
   {
-    id: 'coupons',
-    key: 'feature.coupons',
-    name: 'تحالف استراتيجي',
+    id: 'partner-loyalty',
+    key: 'feature.partner_loyalty',
+    name: 'ولاء الشركاء',
     what: 'كوّن تحالفاً حقيقياً مع محل آخر مسجّل عندنا — امنحه امتيازاً على اشتراكه معنا يُطبَّق تلقائياً عند تجديده القادم، ويثبّت علاقتك التجارية معه بخطوة ملموسة لا كلام فقط.',
-    section: 'coupons',
+    section: 'partner-loyalty',
     onCustomer: '',
     // NOT `gift`/`warning` — برنامج النقاط already owns that exact pair, and a shelf of cards
     // must read as distinct products (see this file's own `tone` doc-comment above).
     icon: 'users', tone: 'danger',
     // NO featuresAction — see «التقييم»'s own note above; operations owns this row too.
+  },
+  // «شراكة استراتيجية» — cross-tenant customer referral: a shop's own customer who meets a real
+  // condition at a SHOP IT TRUSTS becomes automatically eligible for a grant here, mutual-consent
+  // only (docs/خطة-شراكة-استراتيجية-الإحالة.md, core/referral_partnership.py's own module
+  // docstring). NOT `coupons` — that row moves money on OUR subscription; this one moves real
+  // customers between two real shops, backed by both shops' own catalogues (a gift is a real
+  // service/product, a discount is a real service/blanket/group — never a typed note). `screen:
+  // 'referral-partnership'` is THIS pass — the backend has held that name since the backend-only
+  // pass; this is the UI half finally landing.
+  {
+    id: 'referral-partnership',
+    key: 'feature.referral_partnership',
+    name: 'شراكة استراتيجية',
+    what: 'وسّع قاعدة عملائك دون ريال إعلان واحد — عميل محل تثق به يصير مستحقاً تلقائياً لعرضك بمجرد أن يثبت أنه عميل حقيقي، فتبنيان علاقة تجارية تكبر بها معاً، لا صفقة عابرة.',
+    section: 'referral-partnership',
+    onCustomer: '',
+    icon: 'hand-heart', tone: 'success',
+    // NO featuresAction — operations owns this app's row too, same posture as coupons/mobile
+    // requests above.
+  },
+  // «المساعد الذكي (تطبيق الجوال)» — on-device (Gemma 4, apps/mobile only). NO console screen
+  // EXISTS OR EVER WILL — this app's whole surface is the phone (owner's own words: "كل شي في
+  // تطبيق الجوال"). `openPath: '/account'` is a DELIBERATE, HONEST fallback, not a real
+  // destination: `allApps()`/`myApps()` in launcher/launcherCatalog.ts both require a row to
+  // carry a `section` OR an `openPath` to appear in «متجر التطبيقات»/«تطبيقاتي» AT ALL (checked
+  // against their own source before picking this) — with neither, the card the owner explicitly
+  // asked for ("يشوفه في متجر التطبيقات وفي تطبيقاتي") would simply never render. «حسابي» is the
+  // least-surprising place to land a shop owner who taps a card with nothing of its own to open.
+  // Priced 0 on purpose (deploy/seed/plans.json's own note) — a real, listed, subscribe/cancel-
+  // able plan, changing the price later needs no code change here.
+  {
+    id: 'mobile-ai-assistant',
+    key: 'feature.mobile_ai_assistant',
+    name: 'المساعد الذكي (تطبيق الجوال)',
+    what: 'يجاوبك ويرشدك داخل تطبيق الجوال بصوتك أو بالكتابة، فوراً وبلا انتظار.',
+    section: '',
+    onCustomer: '',
+    icon: 'bot', tone: 'info',
+    openPath: '/account',
+    // NO featuresAction — operations owns this app's row too, same posture as every other
+    // operations-only row on this file.
   },
   // «خدمات متنقلة» — a shop whose service travels TO the customer (mobile car wash, home visit).
   // STANDALONE (owner's own decision, 2026-09-15) — never needs «المساعد الذكي عبر واتساب» first;
