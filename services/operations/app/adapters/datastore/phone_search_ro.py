@@ -17,6 +17,20 @@ from app.adapters.lazy import load
 _VIEW = "customers_phone_search_v"
 
 
+def _strip_tenant_prefix(tenant: str, composite_key: str) -> str:
+    """`kv_store.key` — what this view's `key` column holds — is `core/stores.py`'s own
+    `_key()`: `"{tenant}|{id}"`, never a bare id. `Operations.customer_by_phone_searched` hands
+    whatever `find_key_by_phone` returns straight into `CustomerStore.get(tenant, ident)`, which
+    re-prefixes tenant itself — so returning the composite string unstripped produces
+    `"{tenant}|{tenant}|{id}"`, a key nothing ever wrote, and every phone lookup under this role
+    missed silently (200, `{"customer": null}`, indistinguishable from "no such customer"). Found
+    live: `/customers/by-phone` returning null for a customer proven to exist seconds earlier
+    through the exact, unprefixed path. A pure function so this one line is unit-testable without
+    a real Postgres connection."""
+    prefix = f"{tenant}|"
+    return composite_key[len(prefix):] if composite_key.startswith(prefix) else composite_key
+
+
 class PhoneSearchReadOnly:
     def __init__(self, dsn: str, *, pool_min: int = 0, pool_max: int = 2,
                  pool_timeout: float = 5.0) -> None:
@@ -39,15 +53,17 @@ class PhoneSearchReadOnly:
         return self._pool
 
     async def find_key_by_phone(self, tenant: str, phone: str) -> str | None:
-        """The customer's own store `key` for an exact (tenant, phone) match, or None — nothing
+        """The customer's own store id for an exact (tenant, phone) match, or None — nothing
         else. The caller (Operations.customer_by_phone_searched) fetches the full record back
-        through the NORMAL, already-trusted pool once it has this key; this role never returns a
-        name, a subject_ref, or anything from any collection but the one narrow view it can see."""
+        through the NORMAL, already-trusted pool once it has this id; this role never returns a
+        name, a subject_ref, or anything from any collection but the one narrow view it can see.
+        See `_strip_tenant_prefix` above for why the raw view column cannot be returned as-is."""
         pool = await self._get_pool()
         async with pool.acquire(timeout=self._pool_timeout) as conn:
-            return await conn.fetchval(
+            composite = await conn.fetchval(
                 f"SELECT key FROM {_VIEW} WHERE tenant=$1 AND phone=$2 LIMIT 1",  # nosec B608 - _VIEW is a trusted constant; values parameterized
                 tenant, phone)
+        return None if composite is None else _strip_tenant_prefix(tenant, composite)
 
     async def close(self) -> None:
         if self._pool is not None:
