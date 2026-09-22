@@ -20,10 +20,19 @@ class UserModel {
   final String phone;
   final String? fullName;
 
+  /// The account holder's OWN display name — a real field on operations-service's
+  /// `AccountSettingsStore` (see that store's own doc comment: an owner holds no `Operator` row,
+  /// so this is the one place his name lives), fetched separately via `GET
+  /// /api/v1/account/me/name` and never confused with [fullName] (the SHOP's own name, set only
+  /// at signup — a completely different real field on a completely different real record). Null
+  /// until that fetch resolves, empty string once it resolves to "no name set yet".
+  final String? ownerName;
+
   const UserModel({
     required this.id,
     required this.phone,
     this.fullName,
+    this.ownerName,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -31,12 +40,21 @@ class UserModel {
       id: json['id'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
       fullName: json['full_name'] as String?,
+      ownerName: json['owner_name'] as String?,
     );
   }
+
+  UserModel copyWith({String? ownerName}) => UserModel(
+        id: id,
+        phone: phone,
+        fullName: fullName,
+        ownerName: ownerName ?? this.ownerName,
+      );
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'phone': phone,
         if (fullName != null) 'full_name': fullName,
+        if (ownerName != null) 'owner_name': ownerName,
       };
 }

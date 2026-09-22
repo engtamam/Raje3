@@ -25,7 +25,6 @@ import 'package:raje3_mobile/features/auth/verify_phone_screen.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
-import 'package:raje3_mobile/widgets/kb_hint_button.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -106,7 +105,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KbAnchor(
+      id: 'auth.login',
+      child: Scaffold(
       backgroundColor: AppColors.surface0,
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
@@ -122,10 +123,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                     builder: (context, _) => Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Align(
-                          alignment: AlignmentDirectional.topEnd,
-                          child: KbHintButton(anchor: 'auth.login'),
-                        ),
                         const SizedBox(height: AppSpacing.xxl),
                         _buildLogo(),
                         const SizedBox(height: AppSpacing.xl),
@@ -143,6 +140,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             ),
           ),
         ),
+      ),
       ),
     );
   }
@@ -165,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
           style: const TextStyle(
             fontFamily: AppTextStyles.arabicFont,
             fontWeight: FontWeight.w800,
-            fontSize: 40,
+            fontSize: 52,
             color: AppColors.accent,
             height: 1,
           ),

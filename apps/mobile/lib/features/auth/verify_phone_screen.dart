@@ -22,7 +22,6 @@ import 'package:raje3_mobile/core/utils/validators.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
-import 'package:raje3_mobile/widgets/kb_hint_button.dart';
 
 class VerifyPhoneScreen extends StatefulWidget {
   /// The phone number to verify, and the password to retry sign-in with once
@@ -34,12 +33,16 @@ class VerifyPhoneScreen extends StatefulWidget {
   /// this shop name instead of [AuthProvider.login] — the signup flow's own
   /// unverified refusal happens mid-saga, after the shop already exists.
   final String? shopName;
+  /// Carried alongside [shopName] for the exact same retry — see AuthProvider.openShop's own
+  /// note on why this is optional and never blocks the retry either way.
+  final String ownerName;
 
   const VerifyPhoneScreen({
     super.key,
     required this.phone,
     required this.password,
     this.shopName,
+    this.ownerName = '',
   });
 
   @override
@@ -101,6 +104,7 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
             phone: widget.phone,
             password: widget.password,
             shopName: widget.shopName!,
+            ownerName: widget.ownerName,
           )
         : await auth.login(widget.phone, widget.password);
 
@@ -115,11 +119,12 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KbAnchor(
+      id: 'auth.verify_phone',
+      child: Scaffold(
       backgroundColor: AppColors.surface0,
       appBar: AppBar(
         title: Text(S.of(context)!.authVerifyPhoneTitle),
-        actions: const [KbHintButton(anchor: 'auth.verify_phone')],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -179,6 +184,7 @@ class _VerifyPhoneScreenState extends State<VerifyPhoneScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

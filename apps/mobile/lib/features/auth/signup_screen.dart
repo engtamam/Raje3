@@ -20,7 +20,6 @@ import 'package:raje3_mobile/features/auth/verify_phone_screen.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
-import 'package:raje3_mobile/widgets/kb_hint_button.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -35,6 +34,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   final _shopNameController = TextEditingController();
+  final _ownerNameController = TextEditingController();
   bool _obscure = true;
   bool _submitting = false;
 
@@ -44,6 +44,7 @@ class _SignupScreenState extends State<SignupScreen> {
     _passwordController.dispose();
     _confirmController.dispose();
     _shopNameController.dispose();
+    _ownerNameController.dispose();
     super.dispose();
   }
 
@@ -54,8 +55,11 @@ class _SignupScreenState extends State<SignupScreen> {
     final phone = _phoneController.text.trim();
     final password = _passwordController.text;
     final shopName = _shopNameController.text.trim();
+    final ownerName = _ownerNameController.text.trim();
 
-    final ok = await auth.openShop(phone: phone, password: password, shopName: shopName);
+    final ok = await auth.openShop(
+      phone: phone, password: password, shopName: shopName, ownerName: ownerName,
+    );
     if (!mounted) return;
     setState(() => _submitting = false);
 
@@ -69,7 +73,9 @@ class _SignupScreenState extends State<SignupScreen> {
     if (auth.errorReason == 'unverified' || auth.errorReason == 'otp_required') {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => VerifyPhoneScreen(phone: phone, password: password, shopName: shopName),
+          builder: (_) => VerifyPhoneScreen(
+            phone: phone, password: password, shopName: shopName, ownerName: ownerName,
+          ),
         ),
       );
     }
@@ -77,13 +83,14 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KbAnchor(
+      id: 'auth.signup',
+      child: Scaffold(
       backgroundColor: AppColors.surface0,
       appBar: AppBar(
         backgroundColor: AppColors.surface0,
         elevation: 0,
         title: Text(S.of(context)!.authOpenShopTitle, style: AppTextStyles.headlineSmall),
-        actions: const [KbHintButton(anchor: 'auth.signup')],
       ),
       body: SafeArea(
         child: GestureDetector(
@@ -106,7 +113,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     style: const TextStyle(
                       fontFamily: AppTextStyles.arabicFont,
                       fontWeight: FontWeight.w800,
-                      fontSize: 40,
+                      fontSize: 52,
                       color: AppColors.accent,
                       height: 1,
                     ),
@@ -139,6 +146,22 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
                             validator: (v) => Validators.validateRequired(v,
                                 fieldName: S.of(context)!.authShopNameLabel)?.text(context),
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          // OPTIONAL, NO VALIDATOR — see AuthProvider.openShop's own note on why
+                          // this never becomes a required fourth field. Empty means the greeting
+                          // still reads his phone number until he sets one.
+                          KbAnchor(
+                            id: 'auth.signup.owner_name_field',
+                            child: TextFormField(
+                            controller: _ownerNameController,
+                            textInputAction: TextInputAction.next,
+                            style: AppTextStyles.bodyMedium,
+                            decoration: AppInputDecorations.standard.copyWith(
+                              labelText: S.of(context)!.authOwnerNameLabel,
+                              prefixIcon: const Icon(Icons.badge_outlined, color: AppColors.textMuted),
+                            ),
                             ),
                           ),
                           const SizedBox(height: AppSpacing.md),
@@ -217,6 +240,7 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }
