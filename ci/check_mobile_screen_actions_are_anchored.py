@@ -111,6 +111,14 @@ EXEMPT_LINES: dict[str, set[str]] = {
         "TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.mobileRequestsRejectCancel)),",
         "TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(s.referralConfirm)),",
     },
+    "apps/mobile/lib/features/services/procedures_tab.dart": {
+        # The rename dialog's own cancel/save (both split across lines, each opening bare on its
+        # own line as just "TextButton(") — the text field right above (anchored) already
+        # explains what's being renamed; "cancel" and "save" need no separate entry. The bulk-
+        # actions "clear selection" TextButton (already covered by its own KbAnchor wrap) shares
+        # this same bare-opening shape, so this exemption is scoped by file, not by button.
+        "TextButton(",
+    },
 }
 
 

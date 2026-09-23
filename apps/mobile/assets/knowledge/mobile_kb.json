@@ -1379,6 +1379,114 @@
     "kind": "field",
     "anchor": "services.add_sheet"
   },
+  "services.procedures_bulk_actions": {
+    "title": {
+      "ar": "إجراءات التحديد الجماعي",
+      "en": "Bulk selection actions"
+    },
+    "body": {
+      "ar": "امسح التحديد كله، أو اطبع الخطوات المحدّدة دفعة واحدة.",
+      "en": "Clear the whole selection, or print the selected steps all at once."
+    },
+    "kind": "action",
+    "anchor": "services.procedures_bulk_actions"
+  },
+  "services.procedures_drawer_footer": {
+    "title": {
+      "ar": "طباعة أو حفظ قائمة الخطوات",
+      "en": "Print or save the step checklist"
+    },
+    "body": {
+      "ar": "اطبع القائمة كما هي، أو احفظ ترتيبها الجديد لهذه الخدمة.",
+      "en": "Print the list as it is, or save its new order for this service."
+    },
+    "kind": "action",
+    "anchor": "services.procedures_drawer_footer"
+  },
+  "services.procedures_drawer_remove_step": {
+    "title": {
+      "ar": "إزالة خطوة من القائمة",
+      "en": "Remove a step from the list"
+    },
+    "body": {
+      "ar": "يشيل هذي الخطوة من قائمة هذي الخدمة بس، ما يحذفها من مكتبة الخطوات نفسها.",
+      "en": "Removes this step from this service's own list only — it doesn't delete it from the shared step library."
+    },
+    "kind": "action",
+    "anchor": "services.procedures_drawer_remove_step"
+  },
+  "services.procedures_library_add": {
+    "title": {
+      "ar": "إضافة خطوة جديدة للمكتبة",
+      "en": "Add a new step to the library"
+    },
+    "body": {
+      "ar": "نص الخطوة الجديدة ودرجة أهميتها، تُضاف لمكتبة الخطوات المشتركة بين كل خدماتك.",
+      "en": "The new step's text and how critical it is — added to the step library shared across all your services."
+    },
+    "kind": "field",
+    "anchor": "services.procedures_library_add"
+  },
+  "services.procedures_library_rename_dialog": {
+    "title": {
+      "ar": "تعديل نص الخطوة",
+      "en": "Edit the step's text"
+    },
+    "body": {
+      "ar": "تعديل هذا النص يُحدّثه بكل خدمة تستخدم نفس هذي الخطوة، مو خدمة وحدة بس.",
+      "en": "Editing this text updates it everywhere this step is used, across every service, not just one."
+    },
+    "kind": "field",
+    "anchor": "services.procedures_library_rename_dialog"
+  },
+  "services.procedures_picker_create": {
+    "title": {
+      "ar": "إنشاء خطوة جديدة أثناء الاختيار",
+      "en": "Create a new step while choosing"
+    },
+    "body": {
+      "ar": "ما لقيت الخطوة اللي تبيها؟ أنشئها مباشرة وتُضاف لهذي الخدمة فورًا.",
+      "en": "Couldn't find the step you want? Create it right here and it's added to this service immediately."
+    },
+    "kind": "field",
+    "anchor": "services.procedures_picker_create"
+  },
+  "services.procedures_picker_footer": {
+    "title": {
+      "ar": "إضافة الخطوات المحدّدة",
+      "en": "Add the selected steps"
+    },
+    "body": {
+      "ar": "أضِف كل الخطوات اللي حدّدتها لهذي الخدمة دفعة واحدة، أو أغلق بدون إضافة.",
+      "en": "Adds every step you've selected to this service in one go, or close without adding anything."
+    },
+    "kind": "action",
+    "anchor": "services.procedures_picker_footer"
+  },
+  "services.procedures_picker_search": {
+    "title": {
+      "ar": "بحث بمكتبة الخطوات",
+      "en": "Search the step library"
+    },
+    "body": {
+      "ar": "دوّر باسم الخطوة بين كل الخطوات الموجودة بمكتبتك.",
+      "en": "Search by step name across every step already in your library."
+    },
+    "kind": "field",
+    "anchor": "services.procedures_picker_search"
+  },
+  "services.package_fields": {
+    "title": {
+      "ar": "بيانات الباقة",
+      "en": "Package details"
+    },
+    "body": {
+      "ar": "اسم الباقة، سعرها الإجمالي، ووصف مختصر — الخدمات اللي تضمّها تُختار بالأسفل.",
+      "en": "The package's name, its total price, and a short description — which services it bundles are chosen below."
+    },
+    "kind": "field",
+    "anchor": "services.package_fields"
+  },
   "visit.register.today_bookings": {
     "title": {
       "ar": "مواعيد اليوم",
