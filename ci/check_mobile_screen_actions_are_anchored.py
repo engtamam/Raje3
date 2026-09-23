@@ -90,6 +90,15 @@ EXEMPT_LINES: dict[str, set[str]] = {
         # The same generic retry control as visit_screen.dart's own entry.
         "Center(child: TextButton(onPressed: onRetry, child: Text(s.retry))),",
     },
+    "apps/mobile/lib/features/customers/customer_detail_screen.dart": {
+        # A back-navigation control (same as AppBackButton elsewhere) — its own class is named
+        # `_GlassIconButton`, which the gate's substring match on "IconButton(" catches by
+        # accident. Not a feature of this screen; nothing new to explain over a plain back arrow.
+        "_GlassIconButton(",
+        # `_GlassIconButton`'s own constructor DECLARATION, never a widget instance — the SAME
+        # accidental "IconButton(" substring match, on a line that renders nothing at all.
+        "const _GlassIconButton({required this.icon, required this.onTap});",
+    },
 }
 
 

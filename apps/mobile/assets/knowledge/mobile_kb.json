@@ -1091,6 +1091,78 @@
     "kind": "action",
     "anchor": "customer_detail.adjust_loyalty_button"
   },
+  "customer_detail.loyalty_adjust_stepper": {
+    "title": {
+      "ar": "قيمة التعديل",
+      "en": "Adjustment amount"
+    },
+    "body": {
+      "ar": "كم نقطة تضيف أو تخصم — رقم موجب يضيف، رقم سالب يخصم.",
+      "en": "How many points to add or take — a positive number adds, a negative one deducts."
+    },
+    "kind": "field",
+    "anchor": "customer_detail.loyalty_adjust_stepper"
+  },
+  "customer_detail.loyalty_adjust_note_field": {
+    "title": {
+      "ar": "سبب التعديل",
+      "en": "Reason for the adjustment"
+    },
+    "body": {
+      "ar": "ملاحظة تبقى بسجل العميل توضّح ليش عُدِّلت نقاطه.",
+      "en": "A note that stays on the customer's own record explaining why the points changed."
+    },
+    "kind": "field",
+    "anchor": "customer_detail.loyalty_adjust_note_field"
+  },
+  "customer_detail.cycles_stepper": {
+    "title": {
+      "ar": "كل كم يوم يرجع العميل",
+      "en": "How often the customer should return"
+    },
+    "body": {
+      "ar": "يضبط دورة التذكير الخاصة بهذا العميل — لو ما رجع خلال هذي المدة، يظهر كعميل متأخر.",
+      "en": "Sets this customer's own reminder cycle — if he doesn't return within it, he shows up as overdue."
+    },
+    "kind": "field",
+    "anchor": "customer_detail.cycles_stepper"
+  },
+  "customer_detail.rename_field": {
+    "title": {
+      "ar": "اسم العميل الجديد",
+      "en": "The customer's new name"
+    },
+    "body": {
+      "ar": "الاسم الجديد اللي راح يظهر بدل الاسم الحالي بكل مكان.",
+      "en": "The new name that replaces the current one everywhere it's shown."
+    },
+    "kind": "field",
+    "anchor": "customer_detail.rename_field"
+  },
+  "customer_detail.erase_confirm_field": {
+    "title": {
+      "ar": "اكتب اسم العميل للتأكيد",
+      "en": "Type the customer's name to confirm"
+    },
+    "body": {
+      "ar": "لازم تكتب اسم العميل بالضبط قبل ما يفعّل زر الحذف — يمنع الحذف بالغلط.",
+      "en": "You must type the customer's exact name before the delete button turns on — this prevents an accidental delete."
+    },
+    "kind": "field",
+    "anchor": "customer_detail.erase_confirm_field"
+  },
+  "customer_detail.erase_confirm_button": {
+    "title": {
+      "ar": "تأكيد حذف بيانات العميل",
+      "en": "Confirm erasing the customer's data"
+    },
+    "body": {
+      "ar": "حذف نهائي لا يُتراجع عنه — يمسح بيانات العميل الشخصية فعلياً، مو مجرد إخفائه.",
+      "en": "A permanent, irreversible erase — actually deletes the customer's personal data, not just hides him."
+    },
+    "kind": "action",
+    "anchor": "customer_detail.erase_confirm_button"
+  },
   "customer_detail.erase_button": {
     "title": {
       "ar": "حذف بيانات العميل",
