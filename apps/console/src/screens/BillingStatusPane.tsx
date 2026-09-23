@@ -44,6 +44,27 @@ interface OpenInvoice {
   currency?: string;
 }
 
+// TuwaiqPay's own webhook arrives by email (the weakest delivery channel we have), and our own
+// reconciliation sweep only catches a stuck invoice every 5 minutes — up to ~15-20 minutes worst
+// case. `sessionStorage`, not component state: `payByLink` navigates the WHOLE page away, so an
+// in-memory flag would be lost on the redirect back. Never used to change what's actually true —
+// only to soften the SENTENCE shown while the real status the server reports catches up.
+const JUST_PAID_KEY = 'raje3_billing_just_paid_at';
+const JUST_PAID_WINDOW_MS = 20 * 60 * 1000;
+
+function markJustPaid(): void {
+  try { window.sessionStorage.setItem(JUST_PAID_KEY, String(Date.now())); } catch { /* best-effort */ }
+}
+
+function isJustPaid(): boolean {
+  try {
+    const at = Number(window.sessionStorage.getItem(JUST_PAID_KEY) || '0');
+    return at > 0 && Date.now() - at < JUST_PAID_WINDOW_MS;
+  } catch {
+    return false;
+  }
+}
+
 interface RenewalPreviewLine {
   subscription_id: string;
   plan_name?: string;
@@ -80,6 +101,7 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
   const [payLinkBusy, setPayLinkBusy] = useState(false);
   const [renewingSubId, setRenewingSubId] = useState('');
   const [renewError, setRenewError] = useState('');
+  const [justPaid, setJustPaid] = useState(isJustPaid);
 
   const load = () => {
     const a = action(catalog, 'billing.my_subscriptions');
@@ -127,7 +149,7 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
       const res = await call<{ checkout_url?: string; pay_url?: string }>(
         session, a, { id: openInvoice.id, return_url: window.location.href });
       const url = res.pay_url || res.checkout_url;
-      if (url) window.location.assign(url);
+      if (url) { markJustPaid(); window.location.assign(url); }
     } catch (e) {
       setError(e instanceof Error ? e.message : t('billingStatus.payLinkFailed'));
     } finally {
@@ -135,14 +157,40 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
     }
   };
 
-  // «جدّد الآن» PULLED OUT ENTIRELY, 2026-09-22 (was here, calling `subscription.renew_now`) —
-  // a real, confirmed platform bug: this deployment runs BILLING_RENEWAL_INVOICE_MODE=consolidated
-  // (every subscribed app renews together, one invoice), but billing-service's own
-  // `POST /subscriptions/{id}/run` (what that action calls) forces ONLY the one subscription's
-  // cycle, with no awareness of its consolidated group — using it desyncs this one app's renewal
-  // date from the rest of the shop's apps. Reported to base-services, asking for a real GROUP
-  // early-renewal route (platform/services/billing-service is not ours to fix here); rebuild this
-  // against that route once it exists, never re-add the per-subscription call as-is.
+  // «جدّد الآن» BACK, 2026-09-23 — the platform bug this was pulled for on 2026-09-22 was fixed
+  // THE SAME DAY, one layer up: `renewal_provider.py::RenewalProvider.renew_now` (services/
+  // operations, ours) no longer forces a single subscription's cycle at all — it always renews the
+  // shop's WHOLE together-billed group (its own docstring literally calls this "the real bug this
+  // replaced"). `subscription.renew_now` (the action this calls) has taken no `sub_id` since
+  // (user_actions.py's own note) — this button was simply never reconnected after the route below
+  // it was fixed. Mobile's `_renewAllNow` (billing_screen.dart) already calls the exact same route
+  // the same way; this mirrors it, opening every real pay-link the group produced (never a single
+  // combined invoice — billing-service has no route that mints one, see the provider's own note).
+  const renewNow = async () => {
+    const a = action(catalog, 'subscription.renew_now');
+    if (!a) return;
+    setRenewingSubId('all');
+    setRenewError('');
+    try {
+      const res = await call<{ pay_urls?: string[] }>(session, a, {});
+      const urls = res.pay_urls ?? [];
+      if (urls.length === 0) {
+        setRenewError(t('billingStatus.renewNowFailed'));
+        return;
+      }
+      // SEVERAL TABS, NEVER A CHAINED REDIRECT — unlike the mobile WebView (which can wait for one
+      // screen to close before opening the next), a full-page `window.location` redirect here would
+      // navigate away and never open the rest of the group's own links.
+      for (const url of urls) window.open(url, '_blank', 'noopener');
+      markJustPaid();
+      setJustPaid(true);
+      load();
+    } catch (e) {
+      setRenewError(e instanceof Error ? e.message : t('billingStatus.renewNowFailed'));
+    } finally {
+      setRenewingSubId('');
+    }
+  };
 
   /** «تحديث بطاقة الدفع» — the one control that closes the involuntary-churn loop: the
    *  subscription's own dunning sweep keeps retrying the SAME stored token forever, and this is
@@ -223,8 +271,16 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
 
       {pastDueSub ? (
-        <Card className="flex flex-col gap-3 border-danger/30 bg-danger-soft p-4">
-          <p className="text-sm text-danger-on-soft">{t('billingStatus.pastDue')}</p>
+        <Card className={justPaid
+          ? 'flex flex-col gap-3 border-warning/30 bg-warning-soft p-4'
+          : 'flex flex-col gap-3 border-danger/30 bg-danger-soft p-4'}>
+          {/* SOFTENED SENTENCE, NEVER A DIFFERENT STATUS — `pastDueSub` above still reads the
+              server's own real status unmodified; only the tone/wording change for the ~20-minute
+              window after a real payment attempt, while TuwaiqPay's email-delivered webhook (and
+              our 5-minute reconciliation sweep behind it) catches up. See `isJustPaid`'s own note. */}
+          <p className={justPaid ? 'text-sm text-warning-on-soft' : 'text-sm text-danger-on-soft'}>
+            {justPaid ? t('billingStatus.paymentConfirming') : t('billingStatus.pastDue')}
+          </p>
           <div className="flex flex-wrap gap-2">
             {openInvoice ? (
               <Button type="button" variant="danger" size="sm" disabled={payLinkBusy} onClick={() => void payByLink()}>
@@ -291,6 +347,13 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
               </div>
             </Card>
           ))}
+          {/* ONE BUTTON FOR THE WHOLE GROUP, never per app — mirrors the mobile screen's own
+              single button below its renewal-preview section (billing_screen.dart). */}
+          <Button type="button" variant="outline" size="sm" disabled={renewingSubId === 'all'}
+                  onClick={() => void renewNow()}>
+            {renewingSubId === 'all' ? t('billingStatus.renewingNow') : t('billingStatus.renewNow')}
+          </Button>
+          {renewError ? <p className="text-xs text-danger">{renewError}</p> : null}
         </div>
       ) : null}
 
@@ -318,24 +381,14 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
                   cascadeNames={billing.cascadeTargets(sub.id).map((p) => appDisplayName(p))}
                   label={appDisplayName(plan)}
                 />
-                {/* "جدّد مبكرًا" REMOVED HERE, DELIBERATELY, 2026-09-22 — a real, confirmed
-                    platform bug: this deployment runs BILLING_RENEWAL_INVOICE_MODE=consolidated
-                    (every subscribed app stays in the ONE monthly invoice as long as it is not
-                    cancelled — the owner's own confirmed policy: no per-app manual renewal at
-                    all, the sweep alone handles it), but billing-service's own
-                    `POST /subscriptions/{id}/run` (what `subscription.renew_now` called) forces
-                    ONLY the one subscription's cycle, with no awareness of its consolidated group
-                    — using it would have desynced this one app's renewal date from the rest of
-                    the shop's apps. Reported to base-services (platform/services/billing-service
-                    is not ours to fix here); a real GROUP early-renewal route would still be
-                    useful for the genuine edge case (a past-due shop with no card-on-file), but
-                    is not urgent since normal renewal needs no manual trigger at all. */}
+                {/* NO PER-APP "جدّد مبكرًا" HERE — early renewal is a whole-account action (the
+                    single button below the renewal-preview section above), same as mobile's own
+                    per-card layout (billing_screen.dart's `_SubscriptionCard`). */}
               </Card>
             ))}
           </div>
           {billing.appCancelError ? <p className="text-xs text-danger">{billing.appCancelError}</p> : null}
           {billing.undoCancelError ? <p className="text-xs text-danger">{billing.undoCancelError}</p> : null}
-          {renewError ? <p className="text-xs text-danger">{renewError}</p> : null}
         </div>
       ) : null}
     </div>

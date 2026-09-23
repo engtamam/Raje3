@@ -247,6 +247,7 @@
   "billingLoadFailed": "Couldn't load your billing data. Pull down to retry.",
   "billingAllGood": "Your billing is in good shape — nothing needs your attention right now.",
   "billingPastDue": "You have a past-due invoice — pay it to avoid your services being paused.",
+  "billingPaymentConfirming": "We got your payment attempt and are confirming it now — this can take up to 20 minutes.",
   "billingUsageSectionTitle": "Your usage",
   "billingUsageStaffSeats": "Staff seats",
   "billingUsageBranches": "Branches",

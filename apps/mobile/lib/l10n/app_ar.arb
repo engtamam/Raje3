@@ -570,6 +570,7 @@
   "billingLoadFailed": "تعذّر تحميل بيانات الفوترة، اسحب للأسفل للمحاولة.",
   "billingAllGood": "فوترتك بحالة جيدة، لا شيء يحتاج انتباهك الآن.",
   "billingPastDue": "عندك فاتورة متأخرة السداد — سدّدها لتفادي إيقاف خدماتك.",
+  "billingPaymentConfirming": "استلمنا محاولة دفعك ونتأكد منها الآن — قد يستغرق هذا حتى 20 دقيقة.",
   "billingUsageSectionTitle": "استخدامك",
   "billingUsageStaffSeats": "مقاعد الموظفين",
   "billingUsageBranches": "الفروع",

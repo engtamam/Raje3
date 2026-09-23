@@ -9,6 +9,7 @@ import { registerOperatorStrings } from '../operator-i18n';
 registerOperatorStrings({
   ar: {
     'billingStatus.pastDue': 'آخر محاولة سحب لم تنجح. حدّث بطاقتك حتى لا يتوقف اشتراكك.',
+    'billingStatus.paymentConfirming': 'استلمنا محاولة دفعك ونتأكد منها الآن — قد يستغرق هذا حتى 20 دقيقة.',
     'billingStatus.updatePaymentMethod': 'تحديث بطاقة الدفع',
     'billingStatus.verifyingCard': 'نتحقق من بطاقتك…',
     'billingStatus.updated': 'تم تحديث بطاقة الدفع.',
@@ -33,6 +34,7 @@ registerOperatorStrings({
   },
   en: {
     'billingStatus.pastDue': "The last charge attempt failed. Update your card so your subscription doesn't stop.",
+    'billingStatus.paymentConfirming': "We got your payment attempt and are confirming it now — this can take up to 20 minutes.",
     'billingStatus.updatePaymentMethod': 'Update payment card',
     'billingStatus.verifyingCard': 'Verifying your card…',
     'billingStatus.updated': 'Payment card updated.',
@@ -57,6 +59,7 @@ registerOperatorStrings({
   },
   ur: {
     'billingStatus.pastDue': 'آخری ادائیگی کی کوشش ناکام ہو گئی۔ اپنا کارڈ اپڈیٹ کریں تاکہ آپ کی سبسکرپشن نہ رکے۔',
+    'billingStatus.paymentConfirming': 'ہمیں آپ کی ادائیگی کی کوشش موصول ہو گئی ہے اور ہم اس کی تصدیق کر رہے ہیں — اس میں 20 منٹ تک لگ سکتے ہیں۔',
     'billingStatus.updatePaymentMethod': 'ادائیگی کارڈ اپڈیٹ کریں',
     'billingStatus.verifyingCard': 'آپ کے کارڈ کی تصدیق ہو رہی ہے…',
     'billingStatus.updated': 'ادائیگی کارڈ اپڈیٹ ہو گیا۔',
@@ -81,6 +84,7 @@ registerOperatorStrings({
   },
   ha: {
     'billingStatus.pastDue': 'Ƙoƙarin caji na ƙarshe bai yi nasara ba. Sabunta katinka don biyan kuɗinka kada ya tsaya.',
+    'billingStatus.paymentConfirming': 'Mun samu ƙoƙarin biyanka kuma muna tabbatar da shi yanzu — wannan na iya ɗaukar har zuwa mintuna 20.',
     'billingStatus.updatePaymentMethod': 'Sabunta katin biya',
     'billingStatus.verifyingCard': 'Muna tabbatar da katinka…',
     'billingStatus.updated': 'An sabunta katin biya.',
@@ -105,6 +109,7 @@ registerOperatorStrings({
   },
   fil: {
     'billingStatus.pastDue': 'Nabigo ang huling pagsingil. I-update ang card mo para hindi huminto ang subscription mo.',
+    'billingStatus.paymentConfirming': 'Natanggap namin ang iyong pagsubok na bayad at kinukumpirma na ito ngayon — maaaring umabot ito ng 20 minuto.',
     'billingStatus.updatePaymentMethod': 'I-update ang payment card',
     'billingStatus.verifyingCard': 'Vinereverify ang card mo…',
     'billingStatus.updated': 'Na-update ang payment card.',
@@ -129,6 +134,7 @@ registerOperatorStrings({
   },
   bn: {
     'billingStatus.pastDue': 'শেষ পেমেন্ট চেষ্টা ব্যর্থ হয়েছে। আপনার সাবস্ক্রিপশন বন্ধ না হতে আপনার কার্ড আপডেট করুন।',
+    'billingStatus.paymentConfirming': 'আমরা আপনার পেমেন্টের চেষ্টা পেয়েছি এবং এখন যাচাই করছি — এতে ২০ মিনিট পর্যন্ত সময় লাগতে পারে।',
     'billingStatus.updatePaymentMethod': 'পেমেন্ট কার্ড আপডেট করুন',
     'billingStatus.verifyingCard': 'আপনার কার্ড যাচাই করা হচ্ছে…',
     'billingStatus.updated': 'পেমেন্ট কার্ড আপডেট হয়েছে।',

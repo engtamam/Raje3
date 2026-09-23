@@ -247,6 +247,7 @@
   "billingLoadFailed": "بلنگ ڈیٹا لوڈ نہیں ہو سکا۔ دوبارہ کوشش کے لیے نیچے کھینچیں۔",
   "billingAllGood": "آپ کی بلنگ ٹھیک ہے، فی الحال کسی توجہ کی ضرورت نہیں۔",
   "billingPastDue": "آپ کا ایک بل واجب الادا ہے — اپنی سروسز رکنے سے بچنے کے لیے ادا کریں۔",
+  "billingPaymentConfirming": "ہمیں آپ کی ادائیگی کی کوشش موصول ہو گئی ہے اور ہم اس کی تصدیق کر رہے ہیں — اس میں 20 منٹ تک لگ سکتے ہیں۔",
   "billingUsageSectionTitle": "آپ کا استعمال",
   "billingUsageStaffSeats": "اسٹاف سیٹیں",
   "billingUsageBranches": "شاخیں",

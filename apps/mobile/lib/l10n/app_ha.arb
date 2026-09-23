@@ -247,6 +247,7 @@
   "billingLoadFailed": "An kasa loda bayanan kuɗi. Ja ƙasa don sake gwadawa.",
   "billingAllGood": "Kuɗin ka yana lafiya — babu abin da ke bukatar kulawarka yanzu.",
   "billingPastDue": "Kana da lissafin da ya wuce lokacin biya — biya don guje wa dakatar da ayyukanka.",
+  "billingPaymentConfirming": "Mun samu ƙoƙarin biyanka kuma muna tabbatar da shi yanzu — wannan na iya ɗaukar har zuwa mintuna 20.",
   "billingUsageSectionTitle": "Amfaninka",
   "billingUsageStaffSeats": "Wuraren ma'aikata",
   "billingUsageBranches": "Rassa",

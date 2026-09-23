@@ -807,6 +807,10 @@ class SAr extends S {
       'عندك فاتورة متأخرة السداد — سدّدها لتفادي إيقاف خدماتك.';
 
   @override
+  String get billingPaymentConfirming =>
+      'استلمنا محاولة دفعك ونتأكد منها الآن — قد يستغرق هذا حتى 20 دقيقة.';
+
+  @override
   String get billingUsageSectionTitle => 'استخدامك';
 
   @override

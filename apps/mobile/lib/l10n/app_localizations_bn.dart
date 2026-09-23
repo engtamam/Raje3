@@ -817,6 +817,10 @@ class SBn extends S {
       'আপনার একটি বকেয়া ইনভয়েস আছে — সেবা বন্ধ হওয়া এড়াতে পরিশোধ করুন।';
 
   @override
+  String get billingPaymentConfirming =>
+      'আমরা আপনার পেমেন্টের চেষ্টা পেয়েছি এবং এখন যাচাই করছি — এতে ২০ মিনিট পর্যন্ত সময় লাগতে পারে।';
+
+  @override
   String get billingUsageSectionTitle => 'আপনার ব্যবহার';
 
   @override

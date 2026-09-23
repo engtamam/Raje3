@@ -373,11 +373,17 @@ USER_ACTIONS: list[dict[str, Any]] = [
         # the console too, not only from a WhatsApp button. Exists for TuwaiqPay (no card-on-
         # file/recurring-charge support): a shop needs a real way to trigger a due cycle's
         # charge itself, ahead of the daily sweep reaching its own scheduled date.
+        #
+        # NO `sub_id` PARAM (removed 2026-09-23) — the route itself (`/renew-now`) has taken none
+        # since 2026-09-22 (`renewal_provider.py::RenewalProvider.renew_now`'s own docstring: "the
+        # real bug this replaced"). It always renews the shop's WHOLE together-billed group, never
+        # one subscription alone; a caller cannot narrow it to a single app even if it tried. This
+        # declaration used to claim otherwise, which is what led the console to remove its own
+        # early-renewal button on 2026-09-22 believing the underlying bug was still live.
         "id": "subscription.renew_now", "label": "تجديد مبكر", "method": "POST",
         "path": "/api/v1/subscription/renew-now", "capability": "billing.self", "group": "حسابي",
         "confirm": True,
-        "params": [{"name": "sub_id", "in": "body", "type": "string", "required": True}],
-        "help": "يجبر دورة فوترة هذا الاشتراك تصير الآن، ويرجّع رابط دفع حقيقي.",
+        "help": "يجبر دورة فوترة كل اشتراكات المحل المشتركة تصير الآن، ويرجّع رابط دفع لكل واحد.",
     },
     {
         # THE CART — several apps in one checkout, validated together (a dependency and the app

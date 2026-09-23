@@ -817,6 +817,10 @@ class SEn extends S {
       'You have a past-due invoice — pay it to avoid your services being paused.';
 
   @override
+  String get billingPaymentConfirming =>
+      'We got your payment attempt and are confirming it now — this can take up to 20 minutes.';
+
+  @override
   String get billingUsageSectionTitle => 'Your usage';
 
   @override

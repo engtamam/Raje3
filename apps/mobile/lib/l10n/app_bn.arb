@@ -247,6 +247,7 @@
   "billingLoadFailed": "বিলিং তথ্য লোড করা যায়নি। আবার চেষ্টা করতে নিচে টানুন।",
   "billingAllGood": "আপনার বিলিং ঠিক আছে, এখন কিছুতে মনোযোগ দিতে হবে না।",
   "billingPastDue": "আপনার একটি বকেয়া ইনভয়েস আছে — সেবা বন্ধ হওয়া এড়াতে পরিশোধ করুন।",
+  "billingPaymentConfirming": "আমরা আপনার পেমেন্টের চেষ্টা পেয়েছি এবং এখন যাচাই করছি — এতে ২০ মিনিট পর্যন্ত সময় লাগতে পারে।",
   "billingUsageSectionTitle": "আপনার ব্যবহার",
   "billingUsageStaffSeats": "স্টাফ আসন",
   "billingUsageBranches": "শাখা",

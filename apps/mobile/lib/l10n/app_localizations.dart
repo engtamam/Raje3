@@ -1587,6 +1587,12 @@ abstract class S {
   /// **'عندك فاتورة متأخرة السداد — سدّدها لتفادي إيقاف خدماتك.'**
   String get billingPastDue;
 
+  /// No description provided for @billingPaymentConfirming.
+  ///
+  /// In ar, this message translates to:
+  /// **'استلمنا محاولة دفعك ونتأكد منها الآن — قد يستغرق هذا حتى 20 دقيقة.'**
+  String get billingPaymentConfirming;
+
   /// No description provided for @billingUsageSectionTitle.
   ///
   /// In ar, this message translates to:

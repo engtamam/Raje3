@@ -816,6 +816,10 @@ class SHa extends S {
       'Kana da lissafin da ya wuce lokacin biya — biya don guje wa dakatar da ayyukanka.';
 
   @override
+  String get billingPaymentConfirming =>
+      'Mun samu ƙoƙarin biyanka kuma muna tabbatar da shi yanzu — wannan na iya ɗaukar har zuwa mintuna 20.';
+
+  @override
   String get billingUsageSectionTitle => 'Amfaninka';
 
   @override

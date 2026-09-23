@@ -46,6 +46,13 @@ class _BillingScreenState extends State<BillingScreen> {
   String _busyInvoiceId = '';
   String _actionError = '';
   bool _renewingAll = false;
+  // Set once the owner has GONE THROUGH a real pay screen this session — TuwaiqPay's webhook
+  // arrives by email (the weakest delivery channel we have) and our own reconciliation sweep only
+  // catches a stuck invoice every 5 minutes, up to ~15-20 minutes worst case. Without this, an
+  // owner who just paid and reopens the app sees the SAME alarming past-due banner he paid to
+  // clear, with no explanation — this softens that one specific window, never the badge's own
+  // logic (which still reads the server's real status, unmodified).
+  bool _justAttemptedPayment = false;
 
   @override
   void initState() {
@@ -134,6 +141,7 @@ class _BillingScreenState extends State<BillingScreen> {
       if (!context.mounted) return;
       await openPaymentInApp(context, url);
     }
+    _justAttemptedPayment = true;
     if (context.mounted) _load();
   }
 
@@ -148,6 +156,7 @@ class _BillingScreenState extends State<BillingScreen> {
     setState(() => _busyInvoiceId = '');
     if (url != null) {
       await openPaymentInApp(context, url);
+      _justAttemptedPayment = true;
       if (context.mounted) _load();
     } else {
       setState(() => _actionError = s.billingPayLinkFailed);
@@ -181,7 +190,7 @@ class _BillingScreenState extends State<BillingScreen> {
                         padding: const EdgeInsets.fromLTRB(
                             AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xxl),
                         children: [
-                          _StatusHero(overview: overview),
+                          _StatusHero(overview: overview, justAttemptedPayment: _justAttemptedPayment),
                           if (_actionError.isNotEmpty) ...[
                             const SizedBox(height: AppSpacing.sm),
                             Text(_actionError, style: AppTextStyles.bodySmall.copyWith(color: AppColors.danger)),
@@ -322,16 +331,27 @@ class _SectionLabel extends StatelessWidget {
 /// no card-on-file).
 class _StatusHero extends StatelessWidget {
   final BillingOverview overview;
-  const _StatusHero({required this.overview});
+  final bool justAttemptedPayment;
+  const _StatusHero({required this.overview, this.justAttemptedPayment = false});
 
   @override
   Widget build(BuildContext context) {
     final s = S.of(context)!;
     final dark = context.isDark;
     final pastDue = overview.subscriptions.any((sub) => sub.status == 'past_due');
-    final tone = pastDue ? AppTone.danger : AppTone.success;
+    // SOFTENED, NEVER HIDDEN — the badge still reads the server's real status honestly (this is
+    // NOT "treat past_due as paid"); only the TONE and sentence change right after the owner has
+    // gone through a real pay screen this session, because TuwaiqPay's own webhook can lag up to
+    // ~15-20 minutes (see this class's own field comment on `justAttemptedPayment`).
+    final pendingConfirmation = pastDue && justAttemptedPayment;
+    final tone = pastDue ? (pendingConfirmation ? AppTone.warning : AppTone.danger) : AppTone.success;
     final colors = ToneColors.of(context, tone);
     final surface = dark ? AppDarkColors.surface1 : AppColors.surface1;
+    final message = pendingConfirmation
+        ? s.billingPaymentConfirming
+        : pastDue
+            ? s.billingPastDue
+            : s.billingAllGood;
 
     return KbAnchor(
       id: 'account.billing.status_hero',
@@ -362,12 +382,18 @@ class _StatusHero extends StatelessWidget {
                 colors: [colors.solid, colors.solid.withValues(alpha: 0.75)],
               ),
             ),
-            child: Icon(pastDue ? Icons.error_rounded : Icons.verified_rounded, color: Colors.white, size: 24),
+            child: Icon(
+                pendingConfirmation
+                    ? Icons.hourglass_top_rounded
+                    : pastDue
+                        ? Icons.error_rounded
+                        : Icons.verified_rounded,
+                color: Colors.white, size: 24),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(
-              pastDue ? s.billingPastDue : s.billingAllGood,
+              message,
               style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w700, color: colors.onSoft),
             ),
           ),

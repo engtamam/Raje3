@@ -828,6 +828,10 @@ class SFil extends S {
       'Mayroon kang overdue na invoice — bayaran ito para maiwasan ang pagka-pause ng iyong mga serbisyo.';
 
   @override
+  String get billingPaymentConfirming =>
+      'Natanggap namin ang iyong pagsubok na bayad at kinukumpirma na ito — maaaring umabot ito ng 20 minuto.';
+
+  @override
   String get billingUsageSectionTitle => 'Ang iyong paggamit';
 
   @override

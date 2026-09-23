@@ -816,6 +816,10 @@ class SUr extends S {
       'آپ کا ایک بل واجب الادا ہے — اپنی سروسز رکنے سے بچنے کے لیے ادا کریں۔';
 
   @override
+  String get billingPaymentConfirming =>
+      'ہمیں آپ کی ادائیگی کی کوشش موصول ہو گئی ہے اور ہم اس کی تصدیق کر رہے ہیں — اس میں 20 منٹ تک لگ سکتے ہیں۔';
+
+  @override
   String get billingUsageSectionTitle => 'آپ کا استعمال';
 
   @override
