@@ -64,6 +64,32 @@ EXEMPT_LINES: dict[str, set[str]] = {
         # above is already exempt for — this screen's own version of it.
         "FilledButton(onPressed: onRetry, child: Text(retryLabel)),",
     },
+    "apps/mobile/lib/features/account/account_screen.dart": {
+        # A plain yes/no confirm dialog for signing out — the button that OPENS it already says
+        # what it does ("sign out"); "cancel" and "yes, sign out" need no separate explanation.
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.accountSignOutCancel)),",
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(true),",
+    },
+    "apps/mobile/lib/features/account/billing_screen.dart": {
+        # Same generic confirm-dialog posture as account_screen.dart's own sign-out dialog — the
+        # subscription card's own "stop renewal" button (already anchored) is what explains this.
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.cancel)),",
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(true),",
+        # The same generic retry control as visit_screen.dart's own entry.
+        "Center(child: TextButton(onPressed: onRetry, child: Text(s.retry))),",
+    },
+    "apps/mobile/lib/features/account/branch_detail_screen.dart": {
+        # The same generic retry control as visit_screen.dart's own entry.
+        "Center(child: TextButton(onPressed: onRetry, child: Text(s.retry))),",
+        # Same generic confirm-dialog posture as billing_screen.dart's own cancel-subscription
+        # dialog — the row that opens it already says what it does.
+        "TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(s.cancel)),",
+        "TextButton(onPressed: () => Navigator.of(context).pop(true),",
+    },
+    "apps/mobile/lib/features/account/branches_screen.dart": {
+        # The same generic retry control as visit_screen.dart's own entry.
+        "Center(child: TextButton(onPressed: onRetry, child: Text(s.retry))),",
+    },
 }
 
 

@@ -3,10 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/router/route_names.dart';
-import 'package:raje3_mobile/core/constants/api_constants.dart';
 import 'package:raje3_mobile/core/services/auth_service.dart';
 import 'package:raje3_mobile/core/utils/maps_link.dart';
-import 'package:raje3_mobile/core/utils/url_helper.dart';
+import 'package:raje3_mobile/features/apps/apps_store_screen.dart';
 import 'package:raje3_mobile/features/home/app_tone.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
@@ -119,11 +118,13 @@ class _BranchesScreenState extends State<BranchesScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(s.branchesLimitReached),
       // A REAL DESTINATION, NOT A DEAD-END SENTENCE — console's own «فريقي» offers the same link
-      // at the same refusal (STORE_PATH). Mobile has no native store screen yet, so this opens
-      // the console's own, same server and session.
+      // at the same refusal (STORE_PATH). The native capacity stepper now lives right here
+      // (AppsStoreScreen's own «السعة» section, parity/app_store.md §6) — no more console URL.
       action: SnackBarAction(
         label: s.branchesIncreaseCapacity,
-        onPressed: () => openUrl('${ApiConstants.baseUrl}/app/', context),
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => const AppsStoreScreen(initialStoreTab: true),
+        )),
       ),
     ));
   }

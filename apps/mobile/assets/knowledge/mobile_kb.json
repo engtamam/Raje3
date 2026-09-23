@@ -1520,6 +1520,18 @@
     "kind": "action",
     "anchor": "account.shop.branches.detail.edit_member.stop_reactivate"
   },
+  "account.shop.branches.detail.working_hours.time_pickers": {
+    "title": {
+      "ar": "وقت بداية ونهاية الدوام",
+      "en": "Shift start and end time"
+    },
+    "body": {
+      "ar": "حدّد ساعة بداية ونهاية الدوام لهذا اليوم، أو أطفئ المفتاح لتعليمه يوم إجازة.",
+      "en": "Set the start and end time for this day's shift, or switch it off to mark the day as a day off."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.detail.working_hours.time_pickers"
+  },
   "account.shop.branches.detail.working_hours.save": {
     "title": {
       "ar": "حفظ ساعات العمل",

@@ -174,15 +174,9 @@ class AccountScreen extends StatelessWidget {
         title: Text(s.accountSignOutConfirmTitle),
         content: Text(s.accountSignOutConfirmBody),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(s.accountSignOutCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(s.accountSignOutConfirm,
-                style: const TextStyle(color: AppColors.danger)),
-          ),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.accountSignOutCancel)),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(s.accountSignOutConfirm, style: const TextStyle(color: AppColors.danger))),
         ],
       ),
     );

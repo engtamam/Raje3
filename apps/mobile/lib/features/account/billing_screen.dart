@@ -79,10 +79,8 @@ class _BillingScreenState extends State<BillingScreen> {
         content: Text(s.billingCancelConfirmBody),
         actions: [
           TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.cancel)),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(s.billingCancelConfirmAction, style: const TextStyle(color: AppColors.danger)),
-          ),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(s.billingCancelConfirmAction, style: const TextStyle(color: AppColors.danger))),
         ],
       ),
     );

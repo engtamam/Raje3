@@ -795,11 +795,8 @@ class _EditMemberSheetState extends State<_EditMemberSheet> {
         content: Text(s.branchesStopMemberBody(widget.member.name)),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(s.cancel)),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child:
-                Text(s.branchesStopMemberConfirm, style: const TextStyle(color: AppColors.danger)),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(true),
+              child: Text(s.branchesStopMemberConfirm, style: const TextStyle(color: AppColors.danger))),
         ],
       ),
     );
@@ -1127,7 +1124,9 @@ class _WorkingHoursSheetState extends State<_WorkingHoursSheet> {
                   style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
               const SizedBox(height: AppSpacing.md),
               for (var i = 0; i < 7; i++)
-                Padding(
+                KbAnchor(
+                  id: 'account.shop.branches.detail.working_hours.time_pickers',
+                  child: Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                   child: Row(
                     children: [
@@ -1160,6 +1159,7 @@ class _WorkingHoursSheetState extends State<_WorkingHoursSheet> {
                               style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
                         ),
                     ],
+                  ),
                   ),
                 ),
               if (_error != null) ...[
