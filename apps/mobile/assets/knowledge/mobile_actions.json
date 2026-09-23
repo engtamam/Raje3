@@ -400,5 +400,17 @@
     "requires": [
       "loyalty.rewards.update"
     ]
+  },
+  "nav.referral_partnership": {
+    "name": "open_referral_partnership",
+    "description": "يفتح شاشة «شراكة استراتيجية» — تحالفات محلك مع محلات ثانية، عرض شراكة جديدة، وقبول أو رفض العروض الواردة.",
+    "scope": "navigation",
+    "route": "referral-partnership",
+    "kb_entry": "referral-partnership",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.referral_partnership_list"
+    ]
   }
 }

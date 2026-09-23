@@ -1223,6 +1223,30 @@
     "kind": "field",
     "anchor": "rating.top_issues"
   },
+  "rating.custom_range_pickers": {
+    "title": {
+      "ar": "تحديد فترة مخصصة",
+      "en": "Set a custom date range"
+    },
+    "body": {
+      "ar": "اختر تاريخ البداية والنهاية بنفسك بدل الفترات الجاهزة (أسبوع/شهر/ربع).",
+      "en": "Pick your own start and end dates instead of the ready-made periods (week/month/quarter)."
+    },
+    "kind": "field",
+    "anchor": "rating.custom_range_pickers"
+  },
+  "rating.handled_note_field": {
+    "title": {
+      "ar": "ملاحظة المعالجة",
+      "en": "Handling note"
+    },
+    "body": {
+      "ar": "وش سويت عشان تعالج هذا التقييم — تبقى بسجل التقييم للرجوع لها لاحقاً.",
+      "en": "What you did to handle this rating — stays on its own record for later reference."
+    },
+    "kind": "field",
+    "anchor": "rating.handled_note_field"
+  },
   "rating.rating_card": {
     "title": {
       "ar": "بطاقة تقييم",
@@ -1642,6 +1666,81 @@
     "requires": [
       "loyalty.rewards.update"
     ]
+  },
+  "referral-partnership": {
+    "title": {
+      "ar": "شراكة استراتيجية",
+      "en": "Strategic partnership"
+    },
+    "body": {
+      "ar": "تحالفاتك مع محلات ثانية مسجّلة عندنا — كل محل يمنح الثاني امتيازاً لعميله المُحال، تلقائياً بمجرد ما يثبت إنه عميل حقيقي. اعرض شراكة جديدة، أو رُدّ على عرض وصلك.",
+      "en": "Your alliances with other registered shops — each grants the other a perk for a referred customer, automatically once they prove they're a real customer. Propose a new partnership, or respond to one that came in."
+    },
+    "kind": "screen",
+    "anchor": "referral-partnership",
+    "requires": [
+      "operations.referral_partnership_list"
+    ]
+  },
+  "referral.row_accept_reject": {
+    "title": {
+      "ar": "قبول أو رفض عرض الشراكة",
+      "en": "Accept or reject the partnership offer"
+    },
+    "body": {
+      "ar": "القبول يفعّل الشراكة فوراً، والرفض ينهيها بلا رجعة — القرار للمحل اللي وصله العرض.",
+      "en": "Accepting activates the partnership right away; rejecting ends it for good — the decision belongs to the shop the offer was sent to."
+    },
+    "kind": "action",
+    "anchor": "referral.row_accept_reject"
+  },
+  "referral.row_cancel_request": {
+    "title": {
+      "ar": "طلب إنهاء الشراكة",
+      "en": "Request to end the partnership"
+    },
+    "body": {
+      "ar": "يرسل طلب إنهاء للطرف الثاني — الشراكة تبقى فعّالة لين ما يوافق.",
+      "en": "Sends the other shop a request to end it — the partnership stays active until they agree."
+    },
+    "kind": "action",
+    "anchor": "referral.row_cancel_request"
+  },
+  "referral.row_cancel_confirm": {
+    "title": {
+      "ar": "تأكيد إنهاء الشراكة",
+      "en": "Confirm ending the partnership"
+    },
+    "body": {
+      "ar": "الطرف الثاني طلب إنهاء الشراكة، وهذا تأكيدك — بمجرد الموافقة تنتهي فوراً.",
+      "en": "The other shop asked to end this partnership, and this is your confirmation — it ends immediately once you agree."
+    },
+    "kind": "action",
+    "anchor": "referral.row_cancel_confirm"
+  },
+  "referral.propose_phone_field": {
+    "title": {
+      "ar": "رقم صاحب المحل الآخر",
+      "en": "The other shop owner's number"
+    },
+    "body": {
+      "ar": "رقم واتساب صاحب المحل اللي تبي تعرض عليه الشراكة.",
+      "en": "The WhatsApp number of the shop owner you want to propose the partnership to."
+    },
+    "kind": "field",
+    "anchor": "referral.propose_phone_field"
+  },
+  "referral.propose_condition_fields": {
+    "title": {
+      "ar": "شروط الشراكة",
+      "en": "Partnership conditions"
+    },
+    "body": {
+      "ar": "متى يستحق العميل المُحال الامتياز (بعد مبلغ معيّن أو خدمة معيّنة)، وصلاحية المنحة ومدتها وسقفها الأقصى.",
+      "en": "When a referred customer earns the perk (after a set amount or a specific service), and the grant's own validity window, duration, and maximum cap."
+    },
+    "kind": "field",
+    "anchor": "referral.propose_condition_fields"
   },
   "points.add_button": {
     "title": {

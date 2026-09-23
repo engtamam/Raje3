@@ -99,6 +99,18 @@ EXEMPT_LINES: dict[str, set[str]] = {
         # accidental "IconButton(" substring match, on a line that renders nothing at all.
         "const _GlassIconButton({required this.icon, required this.onTap});",
     },
+    "apps/mobile/lib/features/rating/rating_screen.dart": {
+        # A generic "load more of this same list" control — the same shape as every other
+        # paginated list in the app, not a feature of ratings specifically.
+        "TextButton(onPressed: () => _loadRows(reset: false), child: Text(s.ratingLoadMore)),",
+    },
+    "apps/mobile/lib/features/referral/referral_partnership_screen.dart": {
+        # A plain yes/no confirm dialog shared by every destructive action on this screen (cancel
+        # request, cancel confirm, ...) — the row/button that opens it already names the real
+        # action; "cancel" and "yes, do it" need no separate explanation.
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.mobileRequestsRejectCancel)),",
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(s.referralConfirm)),",
+    },
 }
 
 
