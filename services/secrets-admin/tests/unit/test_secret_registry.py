@@ -41,9 +41,6 @@ def test_the_registry_is_the_ones_we_decided_on():
         # found missing — config.py's third slot (HyperPay entityId / PayTabs profile_id / APS
         # merchant_identifier / PayPal-Stripe's second id), had no entry alongside the other two.
         "PAYMENT_API_KEY", "PAYMENT_EXTRA_ID", "PAYMENT_EXTRA_SECRET",
-        # the ONE payment credential a browser is meant to read (operations' own
-        # /subscription/status route) — a different service holding a slice of the same answer.
-        "PAYMENT_PUBLISHABLE_KEY",
         # Salla — the marketplace app («تحالف استراتيجي» from a real Salla order), added
         # 2026-09-15. All three land in operations-secrets: the integration lives inside
         # operations-service itself, no new Secret object or RBAC change needed.

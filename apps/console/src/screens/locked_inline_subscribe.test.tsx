@@ -5,13 +5,13 @@
  * prerequisite app (`requires_any`) is still missing — never a dead buy button.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { OperatorI18nProvider } from '../operator-i18n';
 import { LockedCard } from './Locked';
 
-vi.mock('../payment', () => ({ canMintToken: true, confirmToken: vi.fn(), tokenizeCard: vi.fn() }));
-
+// NO `prices` AT ALL — reads as free (`amount_minor` defaults to 0), so `subscribe()` takes the
+// no-payment path straight through `subscription.activate`, exactly like a real free/trial plan.
 const PLAN = { id: 'plan-rating', limits: { 'feature.rating': { limit: 1 } } };
 
 let planCall: unknown;
@@ -50,10 +50,10 @@ describe('a locked card with a live, resolvable plan buys inline', () => {
     expect(screen.queryByText('أضِفه من متجر التطبيقات')).toBeNull();
   });
 
-  it('pressing it opens the same CardForm subscribing to the resolved plan', async () => {
+  it('pressing it subscribes straight to the resolved plan (free plan, no pay-link needed)', async () => {
     open();
     fireEvent.click(await screen.findByText('اشترك الآن'));
-    expect(await screen.findByLabelText('الاسم كما على البطاقة')).toBeTruthy();
+    await waitFor(() => expect(planCall).toEqual({ plan_id: 'plan-rating', quantity: 1 }));
   });
 });
 

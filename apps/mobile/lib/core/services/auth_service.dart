@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:raje3_mobile/core/network/api_client.dart';
 import 'package:raje3_mobile/core/storage/secure_storage.dart';
+import 'package:raje3_mobile/features/apps/payment_webview_screen.dart' show paymentReturnMarker;
+import 'package:raje3_mobile/models/app_store_model.dart' show Owned, CartPreview;
 
 /// Service layer for authentication against Raje3's REAL identity door.
 ///
@@ -108,6 +110,14 @@ class BranchTeamMember {
   final String role;
   final String branchId;
   final bool active;
+  final int created;
+  // WHO ELSE HE MAY SEE, BEYOND HIS OWN STATION — `staff.py::branch_scope`'s own three answers:
+  // [visibleAll] (everything), [visibleBranchIds] (a named set), or neither (just [branchId]).
+  final bool visibleAll;
+  final List<String> visibleBranchIds;
+  final WorkingHours? workingHours;
+  final bool hasLogin;
+  final bool hasPin;
 
   const BranchTeamMember({
     required this.id,
@@ -115,6 +125,12 @@ class BranchTeamMember {
     required this.role,
     required this.branchId,
     required this.active,
+    this.created = 0,
+    this.visibleAll = false,
+    this.visibleBranchIds = const [],
+    this.workingHours,
+    this.hasLogin = false,
+    this.hasPin = false,
   });
 
   factory BranchTeamMember.fromJson(Map<String, dynamic> json) => BranchTeamMember(
@@ -123,20 +139,83 @@ class BranchTeamMember {
         role: json['role'] as String? ?? '',
         branchId: json['branch_id'] as String? ?? '',
         active: json['active'] as bool? ?? true,
+        created: (json['created'] as num?)?.toInt() ?? 0,
+        visibleAll: json['visible_all'] as bool? ?? false,
+        visibleBranchIds: ((json['visible_branch_ids'] as List?) ?? const [])
+            .map((e) => e.toString())
+            .toList(),
+        workingHours: json['working_hours'] is Map
+            ? WorkingHours.fromJson(Map<String, dynamic>.from(json['working_hours'] as Map))
+            : null,
+        hasLogin: json['has_login'] as bool? ?? false,
+        hasPin: json['has_pin'] as bool? ?? false,
       );
 }
 
+/// One weekday's own hours — `0` Monday .. `6` Sunday, minutes-of-day (0-1440), matching
+/// `staff.py`'s own `PUT .../working-hours` body exactly (never merged: the whole week is sent
+/// every time).
+class DayHours {
+  final bool closed;
+  final int startMinute;
+  final int endMinute;
+
+  const DayHours({required this.closed, required this.startMinute, required this.endMinute});
+
+  factory DayHours.fromJson(Map<String, dynamic> json) => DayHours(
+        closed: json['closed'] as bool? ?? false,
+        startMinute: (json['start_minute'] as num?)?.toInt() ?? 0,
+        endMinute: (json['end_minute'] as num?)?.toInt() ?? 0,
+      );
+
+  Map<String, dynamic> toJson() =>
+      {'closed': closed, 'start_minute': startMinute, 'end_minute': endMinute};
+
+  DayHours copyWith({bool? closed, int? startMinute, int? endMinute}) => DayHours(
+        closed: closed ?? this.closed,
+        startMinute: startMinute ?? this.startMinute,
+        endMinute: endMinute ?? this.endMinute,
+      );
+}
+
+class WorkingHours {
+  final Map<String, DayHours> weekly;
+  const WorkingHours({required this.weekly});
+
+  factory WorkingHours.fromJson(Map<String, dynamic> json) {
+    final weekly = json['weekly'];
+    return WorkingHours(
+      weekly: {
+        if (weekly is Map)
+          for (final entry in weekly.entries)
+            entry.key.toString(): DayHours.fromJson(Map<String, dynamic>.from(entry.value as Map)),
+      },
+    );
+  }
+
+  Map<String, dynamic> toJson() =>
+      {'weekly': {for (final entry in weekly.entries) entry.key: entry.value.toJson()}};
+}
+
 /// The real, fixed role set — `apps/console/src/screens/Team.tsx`'s own radio options, matched
-/// exactly (the server's `MemberIn.role` is a free string with no enum, but these three are the
+/// exactly (the server's `MemberIn.role` is a free string with no enum, but these four are the
 /// only ones the product actually offers anywhere). Never invented for this screen.
-enum StaffRole { operator, supervisor, manager }
+enum StaffRole { operator, supervisor, marketer, manager }
 
 extension StaffRoleValue on StaffRole {
   String get value => switch (this) {
         StaffRole.operator => 'operator',
         StaffRole.supervisor => 'supervisor',
+        StaffRole.marketer => 'marketer',
         StaffRole.manager => 'manager',
       };
+}
+
+StaffRole? staffRoleFromValue(String value) {
+  for (final r in StaffRole.values) {
+    if (r.value == value) return r;
+  }
+  return null;
 }
 
 /// The outcome of hiring a new team member — `POST /staff/members` (staff.py::hire_member).
@@ -164,18 +243,37 @@ class ChangePasswordResult {
 /// already read — this screen re-derives nothing new, only presents it mobile-natively. Money is
 /// integer minor units end-to-end, exactly like the server; [Formatters.formatCurrency] converts
 /// at the very edge of the UI, never here.
+/// THE ONE `Plan` MODEL EVERY BILLING SURFACE SHARES — «الفوترة» (already-subscribed) and
+/// «متجر التطبيقات» (browsing to buy) both read this same class, so a plan's shape is never
+/// defined twice (found live, 2026-09-23: the store screen had started growing its own second
+/// copy). `limits`/`active`/`listed` exist for the STORE's own read (which plan grants which
+/// `feature.*` key, and which plans are even sellable) — absent/default for the billing screen's
+/// own narrower read, which never needed them.
 class BillingPlan {
   final String id;
   final String name;
   final int monthlyAmountMinor;
   final String currency;
+  final Map<String, dynamic> limits;
+  final bool active;
+  final bool listed;
+  final int trialDays;
 
   const BillingPlan({
     required this.id,
     required this.name,
     required this.monthlyAmountMinor,
     required this.currency,
+    this.limits = const {},
+    this.active = true,
+    this.listed = true,
+    this.trialDays = 0,
   });
+
+  /// Free forever, or a trial that owes nothing today — mirrors the console's own
+  /// `subscribeFlow.ts::needsNoPayment` and `services/operations`'s own `may_subscribe` so this
+  /// app, the console, and the server never disagree about which plans need a pay-link at all.
+  bool get needsPayment => monthlyAmountMinor > 0 && trialDays <= 0;
 
   factory BillingPlan.fromJson(Map<String, dynamic> json) {
     final prices = (json['prices'] as List?)?.whereType<Map>().toList() ?? const [];
@@ -188,8 +286,28 @@ class BillingPlan {
       name: json['name'] as String? ?? '',
       monthlyAmountMinor: (monthly['amount_minor'] as num?)?.toInt() ?? 0,
       currency: monthly['currency'] as String? ?? 'SAR',
+      limits: Map<String, dynamic>.from((json['limits'] as Map?) ?? const {}),
+      active: json['active'] != false,
+      listed: json['listed'] != false,
+      trialDays: (json['trial_days'] as num?)?.toInt() ?? 0,
     );
   }
+
+  /// billingShared.tsx::appKey — the one `feature.*` key this plan turns on, or empty for a
+  /// capacity-only row (seats/branches carry no `feature.*` limit at all).
+  String get appKey {
+    for (final k in limits.keys) {
+      if (k.startsWith('feature.')) {
+        final lim = limits[k];
+        final raw = lim is Map ? lim['limit'] : null;
+        final n = raw is num ? raw : (raw == 'unlimited' ? -1 : 0);
+        if (n != 0) return k;
+      }
+    }
+    return '';
+  }
+
+  bool get isCapacity => appKey.isEmpty;
 }
 
 /// One subscribed app/capacity — `Subscription.to_dict()`. `planId` is the only link back to a
@@ -377,6 +495,7 @@ class AuthResult {
   final String phone;
   final String accessToken;
   final String refreshToken;
+  final int expiresIn;
   final bool trialStarted;
   final int trialEnd;
 
@@ -388,6 +507,7 @@ class AuthResult {
     this.phone = '',
     this.accessToken = '',
     this.refreshToken = '',
+    this.expiresIn = 0,
     this.trialStarted = false,
     this.trialEnd = 0,
   });
@@ -758,6 +878,72 @@ class AuthService {
     }
   }
 
+  /// One route for rename/role-change/station-move/branch-visibility-grant/stop/reactivate —
+  /// `PATCH /api/v1/staff/operators/{id}` (`OperatorPatch`, staff.py). Every param `null` (the
+  /// default) means "leave it" server-side — never send a field the caller did not actually mean
+  /// to change. Returns the server's own real refusal sentence (`BRANCH_REQUIRED`,
+  /// `NOT_STOPPED`, `REHIRE_REQUIRED`) or `null` on success.
+  Future<String?> editOperator(
+    String operatorId, {
+    String? name,
+    StaffRole? role,
+    String? branchId,
+    List<String>? visibleBranchIds,
+    bool? visibleAll,
+    bool? active,
+  }) async {
+    try {
+      final response = await apiClient.dio.patch<dynamic>('/api/v1/staff/operators/$operatorId',
+          data: {
+            if (name != null) 'name': name,
+            if (role != null) 'role': role.value,
+            if (branchId != null) 'branch_id': branchId,
+            if (visibleBranchIds != null) 'visible_branch_ids': visibleBranchIds,
+            if (visibleAll != null) 'visible_all': visibleAll,
+            if (active != null) 'active': active,
+          });
+      final status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) return null;
+      return _refusalMessage(response.data);
+    } on DioException catch (e) {
+      return _refusalMessage(e.response?.data) ?? '';
+    }
+  }
+
+  String? _refusalMessage(dynamic data) {
+    if (data is! Map) return '';
+    final code = data['error'] as String?;
+    final message = data['message'] as String?;
+    return message?.isNotEmpty == true ? message : (code ?? '');
+  }
+
+  /// `PUT /api/v1/staff/operators/{id}/working-hours` — the WHOLE week, every call (never
+  /// merged); `staff.py`'s own refusal when a day exceeds the shop's own hours.
+  Future<String?> setWorkingHours(String operatorId, WorkingHours hours) async {
+    try {
+      final response = await apiClient.dio
+          .put<dynamic>('/api/v1/staff/operators/$operatorId/working-hours', data: hours.toJson());
+      final status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) return null;
+      return _refusalMessage(response.data);
+    } on DioException catch (e) {
+      return _refusalMessage(e.response?.data) ?? '';
+    }
+  }
+
+  /// `DELETE /api/v1/staff/operators/{id}/working-hours` — back to inheriting the shop's own
+  /// hours. Idempotent.
+  Future<bool> clearWorkingHours(String operatorId) async {
+    try {
+      final response =
+          await apiClient.dio.delete<dynamic>('/api/v1/staff/operators/$operatorId/working-hours');
+      final status = response.statusCode ?? 0;
+      return status >= 200 && status < 300;
+    } on DioException {
+      return false;
+    }
+  }
+
   HireResult _hireResultFromData(dynamic data) {
     final code = data is Map ? data['error'] as String? : null;
     final message = data is Map ? data['message'] as String? ?? '' : '';
@@ -893,17 +1079,144 @@ class AuthService {
   }
 
   /// «ادفع الآن» — a trackable hosted-checkout LINK for an existing unpayable invoice,
-  /// `POST /api/v1/billing/invoices/{id}/pay-link`. Returns the URL to open externally, `null` on
-  /// any failure (a 409 INVOICE_NOT_PAYABLE included — the caller simply has nothing to open).
+  /// `POST /api/v1/billing/invoices/{id}/pay-link`. Returns the URL to open in-app
+  /// (`payment_webview_screen.dart::openPaymentInApp`), `null` on any failure (a 409
+  /// INVOICE_NOT_PAYABLE included — the caller simply has nothing to open). `return_url` is the
+  /// same marker that screen's own NavigationDelegate watches for to auto-close — console's own
+  /// BillingStatusPane.tsx passes `window.location.href` for the identical reason.
   Future<String?> invoicePayLink(String invoiceId) async {
     try {
-      final response = await apiClient.dio
-          .post<dynamic>('/api/v1/billing/invoices/$invoiceId/pay-link');
+      final response = await apiClient.dio.post<dynamic>('/api/v1/billing/invoices/$invoiceId/pay-link',
+          data: {'return_url': paymentReturnMarker});
       final data = response.data;
       if (response.statusCode != 201 || data is! Map) return null;
       return (data['pay_url'] as String?) ?? (data['checkout_url'] as String?);
     } on DioException {
       return null;
+    }
+  }
+
+  // ── متجر التطبيقات — purchasing what is not yet owned. NO payment_token anywhere here: the
+  // real, decided gateway (TuwaiqPay, owner's decision 2026-09-23) has no card-on-file/
+  // synchronous charge at all; renewal is manual, through `invoicePayLink` above once a real
+  // invoice falls due. `subscribe`/`checkout` themselves never charge synchronously either way —
+  // they only create the row (trial or immediate period, per the plan's own `trial_days`). ────
+
+  /// `GET /api/v1/subscription/apps` — this shop's real entitlement read, the one source every
+  /// lock/unlock badge on the store screen reads.
+  Future<Owned?> fetchOwnership() async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/subscription/apps');
+      if ((response.statusCode ?? 0) >= 400) return null;
+      final body = response.data;
+      if (body is! Map) return null;
+      return Owned.fromJson(Map<String, dynamic>.from(body));
+    } on DioException {
+      return null;
+    }
+  }
+
+  /// `GET /api/v1/billing/plans` — every plan a shop MAY buy, not only what it already holds
+  /// (`fetchBillingOverview`'s own narrower read). Same filter useAppBilling.ts::load applies.
+  Future<List<BillingPlan>?> fetchPurchasablePlans() async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/billing/plans');
+      if ((response.statusCode ?? 0) >= 400) return null;
+      final body = response.data;
+      if (body is! Map) return null;
+      final rows = (body['plans'] as List?) ?? const [];
+      return rows
+          .whereType<Map>()
+          .map((m) => BillingPlan.fromJson(Map<String, dynamic>.from(m)))
+          .where((p) => p.active && p.listed)
+          .toList();
+    } on DioException {
+      return null;
+    }
+  }
+
+  /// `POST /api/v1/subscription/checkout/preview` — read-only, creates and charges nothing.
+  Future<CartPreview?> checkoutPreview(List<String> planIds) async {
+    try {
+      final response = await apiClient.dio.post<dynamic>('/api/v1/subscription/checkout/preview', data: {
+        'items': planIds.map((id) => {'plan_id': id, 'interval': 'month'}).toList(),
+      });
+      if ((response.statusCode ?? 0) >= 400) return null;
+      final body = response.data;
+      if (body is! Map) return null;
+      return CartPreview.fromJson(Map<String, dynamic>.from(body));
+    } on DioException {
+      return null;
+    }
+  }
+
+  /// `POST /api/v1/subscription` — one app, our own route (enforces WhatsApp-before-paid
+  /// ordering). Returns `(ok, statusCode)` — the real HTTP status names the real refusal even
+  /// though its text is stripped in transit (same posture `propose`/`subscribe` elsewhere take).
+  Future<(bool, int?)> subscribeToApp({required String planId, int quantity = 1}) async {
+    try {
+      final response = await apiClient.dio.post<dynamic>('/api/v1/subscription', data: {
+        'plan_id': planId, 'quantity': quantity,
+      });
+      final status = response.statusCode ?? 0;
+      return (status < 400, status >= 400 ? status : null);
+    } on DioException catch (e) {
+      return (false, e.response?.statusCode);
+    }
+  }
+
+  /// `POST /api/v1/subscription/checkout-link` — a NEW paid subscription started with a real
+  /// TuwaiqPay hosted link, never a card-form token this app has no way to mint (TuwaiqPay has no
+  /// browser/app-side tokenisation at all). Mirrors the console's own `subscribeFlow.ts::
+  /// startPaidCheckout` (2026-09-24): the subscription is created `incomplete` and activates only
+  /// once the payment settles through billing's normal webhook/reconcile seam. Returns the real
+  /// pay-link to open, or null on ANY refusal (`status` names the family — 409 WhatsApp-required,
+  /// 503 gateway down, ...) — `null` with a status is a real refusal, `null` with none is a
+  /// network failure, same distinction `subscribeToApp` already draws.
+  Future<(String?, int?)> checkoutLink({required String planId, int quantity = 1}) async {
+    try {
+      final response = await apiClient.dio.post<dynamic>('/api/v1/subscription/checkout-link', data: {
+        'plan_id': planId, 'quantity': quantity,
+      });
+      final data = response.data;
+      final url = data is Map ? (data['checkout_url'] ?? data['pay_url']) as String? : null;
+      return (url, null);
+    } on DioException catch (e) {
+      return (null, e.response?.statusCode);
+    }
+  }
+
+  /// `POST /api/v1/subscription/checkout/link` — ONE real pay-link for the whole cart
+  /// (base-services v0.25.31), replacing the old token-based `checkout` route this app never had
+  /// a way to feed a real token to. An all-free/trial cart is already created (`checkout_required:
+  /// false`, no link to open); the console's own `useAppBilling.ts::checkout` reads the exact
+  /// same response shape.
+  Future<(String?, bool, int?)> checkoutCart(List<String> planIds) async {
+    try {
+      final response = await apiClient.dio.post<dynamic>('/api/v1/subscription/checkout/link', data: {
+        'items': planIds.map((id) => {'plan_id': id, 'interval': 'month'}).toList(),
+      });
+      final data = response.data;
+      if (data is! Map) return (null, true, null);
+      final url = (data['checkout_url'] ?? data['pay_url']) as String?;
+      final checkoutRequired = data['checkout_required'] != false;
+      return (checkoutRequired ? url : null, true, null);
+    } on DioException catch (e) {
+      return (null, false, e.response?.statusCode);
+    }
+  }
+
+  Future<bool> cancelCapacityUnit(String subscriptionId) => cancelSubscription(subscriptionId);
+
+  /// `POST /api/v1/billing/subscriptions/{id}/change` — the capacity stepper's +/-.
+  Future<bool> changeCapacityQuantity({required String subscriptionId, required String planId, required int quantity}) async {
+    try {
+      final response = await apiClient.dio.post<dynamic>('/api/v1/billing/subscriptions/$subscriptionId/change', data: {
+        'plan_id': planId, 'quantity': quantity,
+      });
+      return (response.statusCode ?? 0) < 400;
+    } on DioException {
+      return false;
     }
   }
 
@@ -1029,6 +1342,7 @@ class AuthService {
         phone: (map['phone'] as String?) ?? '',
         accessToken: (map['access_token'] as String?) ?? '',
         refreshToken: (map['refresh_token'] as String?) ?? '',
+        expiresIn: (map['expires_in'] as num?)?.toInt() ?? 0,
         trialStarted: map['trial_started'] == true,
         trialEnd: (map['trial_end'] as num?)?.toInt() ?? 0,
       );

@@ -276,27 +276,26 @@ class Settings(BaseSettings):
     # `HttpPlans.checkout`/`checkout_preview` docstrings for why this pair exists at all).
     BILLING_CHECKOUT_PATH: str = "/internal/billing/subscriptions/checkout"
     BILLING_CHECKOUT_PREVIEW_PATH: str = "/internal/billing/subscriptions/checkout/preview"
-
-    # ── the payment gateway, as the SCREEN needs to know it ───────────────────────────────────
-    #
-    # ONE KEY IS THE WHOLE SWITCH. Empty means no gateway is live, and the plans screen says so in
-    # a sentence instead of handing out paid tiers to whoever presses hardest. Filled means the
-    # card form appears and the subscription waits for a real charge. No code change, no rebuild:
-    # put the key in the secret and the product starts selling.
-    #
-    # PUBLISHABLE BY DESIGN. This is the key the gateway means to be read by a browser — it can
-    # create a token and nothing else. The SECRET key lives in billing-service and is never here,
-    # never in the console, and never in a response.
-    PAYMENT_PUBLISHABLE_KEY: str = ""
-    PAYMENT_PROVIDER: str = "moyasar"
+    # A HOSTED-CHECKOUT-LINK NEW SUBSCRIPTION (base-services v0.25.30) — the gateway-agnostic
+    # replacement for the old browser-tokenised card form (`payment.ts`, retired 2026-09-24): the
+    # subscription is created `incomplete` and activates only once the payment settles (billing's
+    # own webhook/reconcile seam), never on the strength of a client-claimed token. See
+    # `subscribeFlow.ts`'s own header note for the console-side half of this replacement.
+    BILLING_CHECKOUT_LINK_PATH: str = "/internal/billing/subscriptions/checkout-link"
+    # THE CART'S OWN HOSTED LINK (base-services v0.25.31) — `checkout-link`'s sibling for several
+    # plans at once: ONE pay-link for the whole cart, every subscription created `incomplete` and
+    # all activating together once that ONE invoice settles. A deliberately separate path from the
+    # single-plan one above (never overloaded with an `items[]` body on the same route) — one
+    # schema per path keeps validation strict, the provider's own call.
+    BILLING_CHECKOUT_CART_LINK_PATH: str = "/internal/billing/subscriptions/checkout/link"
 
     # ── Salla (marketplace app — shop-to-shop alliances from a real Salla order) ────────────────
     # SET FROM THE PARTNERS PORTAL, THROUGH secrets-admin — never typed here. A shop owner
     # registers the app at portal.salla.partners, pastes the three values this app gives him into
     # the secrets screen (same posture as every other external credential — see
     # secrets-admin/app/core/secret_registry.py's own module docstring). Empty means the Salla
-    # integration simply answers "not configured" rather than failing — same posture
-    # PAYMENT_PUBLISHABLE_KEY's own comment above documents for an unconfigured gateway.
+    # integration simply answers "not configured" rather than failing, same posture every other
+    # optional peer credential in this file holds.
     SALLA_CLIENT_ID: str = ""
     SALLA_CLIENT_SECRET: str = ""
     # HMAC-SHA256 key Salla signs every webhook call with (`X-Salla-Signature` header) — set ONCE

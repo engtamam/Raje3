@@ -189,23 +189,10 @@ SECRETS: tuple[SecretEntry, ...] = (
         deployment="billing-service",
         label="كلمة مرور بوابة الدفع",
     ),
-    # THE ONE PAYMENT CREDENTIAL A BROWSER IS MEANT TO READ — operations' own /subscription/status
-    # route returns it verbatim so the plans screen can mint a card form; the two above never leave
-    # billing-service. A DIFFERENT service (operations, not billing-service) holding a slice of the
-    # same "is a payment gateway configured" answer, found the same day the other two were: nowhere
-    # safe to write it either, until now.
-    SecretEntry(
-        key="PAYMENT_PUBLISHABLE_KEY",
-        secret="operations-secrets",
-        namespace="base-services",
-        deployment="operations",
-        label="المفتاح العام لبوابة الدفع (Publishable)",
-    ),
     # ── Salla (the marketplace app — «تحالف استراتيجي» from a real Salla order) ──────────────
     # ALL THREE INTO `operations-secrets` — the integration lives inside operations-service itself
     # (core/marketplaces/salla.py, api/v1/salla.py), not a separate microservice: no new Secret
-    # object, no RBAC Role change needed, the same reasoning PAYMENT_PUBLISHABLE_KEY's own entry
-    # above already established for a third credential landing in this same object.
+    # object, no RBAC Role change needed for a third credential landing in this same object.
     SecretEntry(
         key="SALLA_CLIENT_ID",
         secret="operations-secrets",

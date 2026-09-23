@@ -368,6 +368,28 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "اختر باقتك وفعّلها. يشترط ربط واتساب قبل الاشتراك المدفوع، والتجربة معفاة.",
     },
     {
+        # THE CONSOLE'S OWN PAID PATH NOW (2026-09-24), replacing the browser-tokenised card form:
+        # a real TuwaiqPay pay-link, never a `payment_token` the console has no way to mint any
+        # more (TuwaiqPay has no browser-side tokenisation at all). `subscription.activate` above
+        # still accepts a token on its wire shape — billing itself now charges before activating
+        # rather than trusting one blindly — but nothing in this codebase sends one any more; every
+        # real caller of `subscription.activate` today is a FREE/trial plan. See `checkout_link`'s
+        # own docstring (api/v1/subscription.py) for the full reasoning.
+        "id": "subscription.checkout_link", "label": "رابط دفع اشتراك جديد", "method": "POST",
+        "path": "/api/v1/subscription/checkout-link", "capability": "billing.self",
+        "group": "حسابي",
+        "help": "يبدأ اشتراكاً مدفوعاً برابط دفع حقيقي — الاشتراك يُفعَّل فقط بعد تأكيد الدفع فعلياً.",
+    },
+    {
+        # `checkout_link`'s own sibling for a whole cart — the launcher's own store checkout
+        # (`useAppBilling.ts`), replacing its old browser-tokenised path (2026-09-24, same reason
+        # `subscription.checkout_link` replaced the single-plan one).
+        "id": "subscription.checkout_cart_link", "label": "رابط دفع سلة شراء", "method": "POST",
+        "path": "/api/v1/subscription/checkout/link", "capability": "billing.self",
+        "group": "حسابي",
+        "help": "يبدأ شراء عدة تطبيقات مع بعض برابط دفع واحد — تُفعَّل كلها معاً بعد تأكيد الدفع.",
+    },
+    {
         # THE SAME REAL MECHANISM THE WHATSAPP RENEWAL FLOW ALREADY USES (adapters/
         # renewal_provider.py::renew_now) — reused, never re-implemented — now reachable from
         # the console too, not only from a WhatsApp button. Exists for TuwaiqPay (no card-on-

@@ -8,8 +8,8 @@
  *
  * REAL BILLING NOW LIVES HERE TOO (2026-09-16, second pass, the owner's own instruction: "يصير
  * تفاصيل التطبيق فيها كل شي من تجديد الاشتراك وعرض الخصومات والاسعار") — price, cross-app
- * discount badges, subscribe (through the SAME real `CardForm`/3DS flow `screens/Plans.tsx`
- * already uses, via `useAppBilling.ts` — never reinvented), cancel with an in-place confirm step,
+ * discount badges, subscribe (through `useAppBilling.ts`'s own real TuwaiqPay pay-link flow,
+ * 2026-09-24 — never reinvented here), cancel with an in-place confirm step,
  * and undo-cancel. `billing` is entirely optional: an app with no subscription plan of its own
  * (تسجيل زيارة/جهات الاتصال, always free) renders none of this, only the plain open/features view
  * it always had.

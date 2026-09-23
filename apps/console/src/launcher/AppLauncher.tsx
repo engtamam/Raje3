@@ -21,7 +21,6 @@ import { AppTile } from './AppTile';
 import { CartBar } from './CartBar';
 import { myApps, allApps, type LauncherApp } from './launcherCatalog';
 import { useAppBilling, includedAiCreditOf } from './useAppBilling';
-import { CardForm } from '../screens/CardForm';
 import { appDisplayName, CapacityAddonCard, type Plan, type Subscription } from '../billingShared';
 import './launcher-i18n';
 
@@ -426,22 +425,6 @@ export function AppLauncher() {
         />
       ) : null}
 
-      {billing.cardFormPending ? (
-        <CardForm
-          pending={billing.cardFormPending}
-          onCancel={() => billing.setCardFormPending(null)}
-          onToken={(token) => {
-            if (billing.cardFormPending?.kind === 'subscribe') {
-              void billing.finishSubscribe(billing.cardFormPending.planId, token, billing.cardFormPending.quantity ?? 1);
-            } else if (billing.cardFormPending?.kind === 'checkout') {
-              void billing.finishCheckout(billing.cardFormPending.planIds, token);
-            }
-          }}
-        />
-      ) : null}
-      {billing.resolvingReturn ? (
-        <p className="px-4 text-sm text-text-secondary sm:px-6">{t('launcher.billing.verifyingCard')}</p>
-      ) : null}
       {billing.notice ? (
         <p className="px-4 text-sm text-success sm:px-6">{billing.notice}</p>
       ) : null}

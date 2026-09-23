@@ -3,20 +3,28 @@
  * cannot be delivered at all without a connected WhatsApp number (`WHATSAPP_CONNECTION_REQUIRED`,
  * services/operations/app/api/v1/subscription.py). This is a real screen-jump, not a banner, so it
  * gets its own focused test rather than living inside locked_inline_subscribe.test.tsx.
+ *
+ * FREE-PLAN ONLY (2026-09-24 rewrite) — `subscribe()` now branches on the plan's own price/trial:
+ * a free plan goes through `subscription.activate` directly (exercised here); a paid one navigates
+ * the whole page to a pay-link (`subscription.checkout_link`, no fetch-and-stay left to unit test —
+ * see `subscribeFlow.ts`'s own header note). The WhatsApp gate is the SAME check on both paths
+ * (`handleWhatsappGate`), so covering it on the free path covers the logic for both.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { OperatorI18nProvider } from './operator-i18n';
 import { useSubscribeFlow } from './subscribeFlow';
+import type { Plan } from './billingShared';
 
 const navigateSpy = vi.fn();
 vi.mock('react-router-dom', () => ({ useNavigate: () => navigateSpy }));
-vi.mock('./payment', () => ({ canMintToken: true, confirmToken: vi.fn(), tokenizeCard: vi.fn() }));
 
 class ServerError extends Error {
   status?: number;
   code?: string;
 }
+
+const freePlan: Plan = { id: 'plan_free', name: 'Free plan', prices: [{ amount_minor: 0 }] };
 
 let subscribeShouldFailWith: ServerError | null = null;
 
@@ -46,7 +54,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 afterEach(() => { vi.clearAllMocks(); subscribeShouldFailWith = null; });
 
-describe('finishSubscribe on WHATSAPP_CONNECTION_REQUIRED', () => {
+describe('subscribe() (free plan) on WHATSAPP_CONNECTION_REQUIRED', () => {
   it('navigates straight to the whatsapp tab, never shows a generic error', async () => {
     const err = new ServerError('هذا التطبيق يعتمد بالكامل على واتساب الأعمال — اربط رقمك أولاً حتى يعمل.');
     err.status = 409;
@@ -55,28 +63,14 @@ describe('finishSubscribe on WHATSAPP_CONNECTION_REQUIRED', () => {
 
     const { result } = renderHook(() => useSubscribeFlow(session, catalog), { wrapper });
     await act(async () => {
-      await result.current.finishSubscribe('plan_campaigns', 'tok_1', 1);
+      result.current.subscribe(freePlan);
+      await Promise.resolve();
     });
 
     expect(navigateSpy).toHaveBeenCalledWith(
       '/account?tab=whatsapp',
       { state: { notice: err.message } });
     expect(result.current.error).toBe('');
-  });
-
-  it('closes any open card form rather than leaving it stuck mid-payment', async () => {
-    const err = new ServerError('لازم تربط رقمك أولاً.');
-    err.code = 'WHATSAPP_CONNECTION_REQUIRED';
-    subscribeShouldFailWith = err;
-
-    const { result } = renderHook(() => useSubscribeFlow(session, catalog), { wrapper });
-    act(() => { result.current.setCardFormPending({ kind: 'subscribe', planId: 'plan_x' }); });
-    expect(result.current.cardFormPending).not.toBeNull();
-
-    await act(async () => {
-      await result.current.finishSubscribe('plan_x', 'tok_1', 1);
-    });
-    expect(result.current.cardFormPending).toBeNull();
   });
 
   it('an ordinary refusal (no matching code) still falls back to the plain error banner', async () => {
@@ -86,7 +80,8 @@ describe('finishSubscribe on WHATSAPP_CONNECTION_REQUIRED', () => {
 
     const { result } = renderHook(() => useSubscribeFlow(session, catalog), { wrapper });
     await act(async () => {
-      await result.current.finishSubscribe('plan_y', 'tok_1', 1);
+      result.current.subscribe(freePlan);
+      await Promise.resolve();
     });
 
     expect(navigateSpy).not.toHaveBeenCalled();
@@ -98,7 +93,8 @@ describe('finishSubscribe on WHATSAPP_CONNECTION_REQUIRED', () => {
 
     const { result } = renderHook(() => useSubscribeFlow(session, catalog), { wrapper });
     await act(async () => {
-      await result.current.finishSubscribe('plan_z', 'tok_1', 1);
+      result.current.subscribe(freePlan);
+      await Promise.resolve();
     });
 
     expect(navigateSpy).not.toHaveBeenCalled();
@@ -109,7 +105,8 @@ describe('finishSubscribe on WHATSAPP_CONNECTION_REQUIRED', () => {
     subscribeShouldFailWith = null;
     const { result } = renderHook(() => useSubscribeFlow(session, catalog), { wrapper });
     await act(async () => {
-      await result.current.finishSubscribe('plan_ok', 'tok_1', 1);
+      result.current.subscribe(freePlan);
+      await Promise.resolve();
     });
 
     expect(navigateSpy).not.toHaveBeenCalled();

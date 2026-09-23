@@ -6,6 +6,7 @@ import 'package:raje3_mobile/core/network/api_client.dart';
 import 'package:raje3_mobile/core/services/auth_service.dart';
 import 'package:raje3_mobile/core/storage/local_storage.dart';
 import 'package:raje3_mobile/core/storage/secure_storage.dart';
+import 'package:raje3_mobile/models/app_store_model.dart' show Owned, CartPreview;
 import 'package:raje3_mobile/models/user_model.dart';
 
 /// Authentication states for the app lifecycle.
@@ -228,6 +229,25 @@ class AuthProvider extends ChangeNotifier {
   }) =>
       _authService.hireMember(
           name: name, phone: phone, password: password, role: role, branchId: branchId);
+  Future<String?> editOperator(
+    String operatorId, {
+    String? name,
+    StaffRole? role,
+    String? branchId,
+    List<String>? visibleBranchIds,
+    bool? visibleAll,
+    bool? active,
+  }) =>
+      _authService.editOperator(operatorId,
+          name: name,
+          role: role,
+          branchId: branchId,
+          visibleBranchIds: visibleBranchIds,
+          visibleAll: visibleAll,
+          active: active);
+  Future<String?> setWorkingHours(String operatorId, WorkingHours hours) =>
+      _authService.setWorkingHours(operatorId, hours);
+  Future<bool> clearWorkingHours(String operatorId) => _authService.clearWorkingHours(operatorId);
   Future<ChangePasswordResult> changePassword({required String oldPassword, required String newPassword}) =>
       _authService.changePassword(oldPassword: oldPassword, newPassword: newPassword);
   Future<BillingOverview> fetchBillingOverview() => _authService.fetchBillingOverview();
@@ -237,6 +257,18 @@ class AuthProvider extends ChangeNotifier {
       _authService.undoCancelSubscription(subscriptionId);
   Future<String?> invoicePayLink(String invoiceId) => _authService.invoicePayLink(invoiceId);
   Future<List<String>> renewSubscriptionsNow() => _authService.renewSubscriptionsNow();
+
+  // ── متجر التطبيقات — same delegate-wrapper shape as every billing call above. ──────────────
+  Future<Owned?> fetchOwnership() => _authService.fetchOwnership();
+  Future<List<BillingPlan>?> fetchPurchasablePlans() => _authService.fetchPurchasablePlans();
+  Future<CartPreview?> checkoutPreview(List<String> planIds) => _authService.checkoutPreview(planIds);
+  Future<(bool, int?)> subscribeToApp({required String planId, int quantity = 1}) =>
+      _authService.subscribeToApp(planId: planId, quantity: quantity);
+  Future<(String?, int?)> checkoutLink({required String planId, int quantity = 1}) =>
+      _authService.checkoutLink(planId: planId, quantity: quantity);
+  Future<(String?, bool, int?)> checkoutCart(List<String> planIds) => _authService.checkoutCart(planIds);
+  Future<bool> changeCapacityQuantity({required String subscriptionId, required String planId, required int quantity}) =>
+      _authService.changeCapacityQuantity(subscriptionId: subscriptionId, planId: planId, quantity: quantity);
 
   // ─────────────────────────────────────────────────────────────────────────
   // LOGIN
@@ -424,6 +456,11 @@ class AuthProvider extends ChangeNotifier {
     await secureStorage.setAccessToken(result.accessToken);
     if (result.refreshToken.isNotEmpty) {
       await secureStorage.setRefreshToken(result.refreshToken);
+    }
+    if (result.expiresIn > 0) {
+      await secureStorage.setTokenExpiry(
+        DateTime.now().add(Duration(seconds: result.expiresIn)).toIso8601String(),
+      );
     }
     await secureStorage.setTenantId(result.tenant);
     apiClient.setActiveTenantId(result.tenant);
