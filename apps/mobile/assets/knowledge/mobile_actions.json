@@ -7,7 +7,9 @@
     "kb_entry": "visit.register",
     "enabled": true,
     "requires_confirmation": false,
-    "requires": ["operations.record_visit"]
+    "requires": [
+      "operations.record_visit"
+    ]
   },
   "nav.home": {
     "name": "open_home",
@@ -61,10 +63,277 @@
   },
   "nav.apps": {
     "name": "open_apps",
-    "description": "يفتح شاشة «تطبيقاتي» — نفس الزر الموجود بالشريط السفلي، وحاليًا يعرض إنها لسا مو متوفرة على الجوال.",
+    "description": "يفتح متجر التطبيقات — تطبيقاتك المشترك فيها، وتصفّح وشراء تطبيقات جديدة بروابط دفع حقيقية.",
     "scope": "navigation",
     "route": "apps",
     "kb_entry": "apps",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
+  },
+  "nav.customers": {
+    "name": "open_customers",
+    "description": "يفتح شاشة «عملائي» — دفتر عملاء المحل: البحث، من تأخّر عن موعده المعتاد، وإضافة عميل جديد.",
+    "scope": "navigation",
+    "route": "customers",
+    "kb_entry": "customers",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.recent"
+    ]
+  },
+  "nav.rating": {
+    "name": "open_rating",
+    "description": "يفتح شاشة «التقييم» — متوسط تقييم المحل، أفضل الموظفين، وأكثر الشكاوى تكراراً.",
+    "scope": "navigation",
+    "route": "rating",
+    "kb_entry": "rating",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.ratings"
+    ]
+  },
+  "nav.mobile_requests": {
+    "name": "open_mobile_requests",
+    "description": "يفتح شاشة «خدمات متنقلة» — قائمة طلبات الخدمة اللي تصل للعميل، بانتظار قبول/رفض أو تعليم تمّ/لم يحضر.",
+    "scope": "navigation",
+    "route": "mobile-requests",
+    "kb_entry": "mobile-requests",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.mobile_requests_list"
+    ]
+  },
+  "nav.services": {
+    "name": "open_services",
+    "description": "يفتح شاشة «خدماتي ومنتجاتي» — إضافة خدمة جديدة أو تعديل وإيقاف خدمة موجودة.",
+    "scope": "navigation",
+    "route": "services",
+    "kb_entry": "services",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.update_service"
+    ]
+  },
+  "read.customers_total": {
+    "name": "read_customers_total",
+    "description": "يجاوب بعدد عملائك المسجّلين، بدون ما يفتح شاشة عملائي — يستخدم لسؤال زي «كم عميل عندي؟».",
+    "scope": "system",
+    "kb_entry": "customers",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.recent"
+    ]
+  },
+  "read.customers_overdue_count": {
+    "name": "read_customers_overdue_count",
+    "description": "يجاوب بعدد العملاء المتأخرين عن دورتهم المعتادة — يستخدم لسؤال زي «كم عميل متأخر؟».",
+    "scope": "system",
+    "kb_entry": "customers",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "reminders.list_schedule"
+    ]
+  },
+  "read.mobile_requests_pending_count": {
+    "name": "read_mobile_requests_pending_count",
+    "description": "يجاوب بعدد طلبات الخدمة المتنقلة بانتظار قرار — يستخدم لسؤال زي «كم طلب متنقل عندي؟».",
+    "scope": "system",
+    "kb_entry": "mobile-requests",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.mobile_requests_list"
+    ]
+  },
+  "read.mobile_requests_needs_decision_count": {
+    "name": "read_mobile_requests_needs_decision_count",
+    "description": "يجاوب بعدد الطلبات المتنقلة المقبولة اللي فات موعدها وتحتاج قرار الآن — يستخدم لسؤال زي «فيه طلبات متأخرة؟».",
+    "scope": "system",
+    "kb_entry": "mobile-requests",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.mobile_requests_list"
+    ]
+  },
+  "read.rating_average": {
+    "name": "read_rating_average",
+    "description": "يجاوب بمتوسط تقييم المحل آخر 30 يوم — يستخدم لسؤال زي «كم تقييمي؟».",
+    "scope": "system",
+    "kb_entry": "rating",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.staff_performance"
+    ]
+  },
+  "read.rating_unhandled_count": {
+    "name": "read_rating_unhandled_count",
+    "description": "يجاوب بعدد التقييمات اللي ما اتعالجت بعد — يستخدم لسؤال زي «فيه شكاوى ما رديت عليها؟».",
+    "scope": "system",
+    "kb_entry": "rating",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.ratings"
+    ]
+  },
+  "read.rating_top_staff": {
+    "name": "read_rating_top_staff",
+    "description": "يجاوب باسم أفضل موظف تقييماً آخر 30 يوم — يستخدم لسؤال زي «مين أفضل موظف؟».",
+    "scope": "system",
+    "kb_entry": "rating",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.staff_performance"
+    ]
+  },
+  "read.mobile_requests_completed_count": {
+    "name": "read_mobile_requests_completed_count",
+    "description": "يجاوب بعدد طلبات الخدمة المتنقلة المكتملة هذا الشهر — يستخدم لسؤال زي «كم طلب متنقل خلّصته هالشهر؟».",
+    "scope": "system",
+    "kb_entry": "mobile-requests",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.mobile_requests_list"
+    ]
+  },
+  "read.mobile_requests_today_count": {
+    "name": "read_mobile_requests_today_count",
+    "description": "يجاوب بعدد طلبات الخدمة المتنقلة اللي جاتك اليوم — يستخدم لسؤال زي «كم طلب متنقل جاني اليوم؟».",
+    "scope": "system",
+    "kb_entry": "mobile-requests",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.mobile_requests_list"
+    ]
+  },
+  "read.operators_count": {
+    "name": "read_operators_count",
+    "description": "يجاوب بعدد الموظفين بفريقك — يستخدم لسؤال زي «كم موظف عندي؟».",
+    "scope": "system",
+    "kb_entry": "account.shop",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
+  },
+  "read.branches_disconnected_count": {
+    "name": "read_branches_disconnected_count",
+    "description": "يجاوب بعدد الفروع النشطة اللي واتسابها مو شغّال أو مو مربوط — يستخدم لسؤال زي «فيه فرع واتسابه معطّل؟».",
+    "scope": "system",
+    "kb_entry": "account.shop.branches",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
+  },
+  "read.customers_recent_name": {
+    "name": "read_customers_recent_name",
+    "description": "يجاوب باسم أو جوال آخر عميل سجّل عندك زيارة — يستخدم لسؤال زي «مين آخر عميل جاني؟».",
+    "scope": "system",
+    "kb_entry": "customers",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.recent"
+    ]
+  },
+  "read.rating_critical_issues_count": {
+    "name": "read_rating_critical_issues_count",
+    "description": "يجاوب بعدد التقييمات غير المعالجة اللي فيها ملاحظة خطيرة — يستخدم لسؤال زي «فيه شكاوى خطيرة ما رديت عليها؟».",
+    "scope": "system",
+    "kb_entry": "rating",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.ratings"
+    ]
+  },
+  "read.per_branch_mode": {
+    "name": "read_per_branch_mode",
+    "description": "يجاوب هل محلك يشتغل بنظام تعدد الفروع أو لا — يستخدم لسؤال زي «أنا بنظام فروع؟».",
+    "scope": "system",
+    "kb_entry": "account.shop.branches",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
+  },
+  "read.billing_overdue": {
+    "name": "read_billing_overdue",
+    "description": "يجاوب هل عندك فاتورة متأخرة السداد أو لا — يستخدم لسؤال زي «هل عندي فاتورة متأخرة؟».",
+    "scope": "system",
+    "kb_entry": "account.billing",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
+  },
+  "read.services_count": {
+    "name": "read_services_count",
+    "description": "يجاوب بعدد الخدمات والمنتجات بقائمتك — يستخدم لسؤال زي «كم خدمة عندي؟».",
+    "kb_entry": "visit.register.services_grid",
+    "scope": "system",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
+  },
+  "read.customers_today_count": {
+    "name": "read_customers_today_count",
+    "description": "يجاوب بعدد العملاء الجدد اللي سجّلوا عندك اليوم — يستخدم لسؤال زي «كم عميل جديد جاني اليوم؟».",
+    "scope": "system",
+    "kb_entry": "customers",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.recent"
+    ]
+  },
+  "read.mobile_requests_rejected_count": {
+    "name": "read_mobile_requests_rejected_count",
+    "description": "يجاوب بعدد طلبات الخدمة المتنقلة اللي رفضتها هذا الشهر — يستخدم لسؤال زي «كم طلب رفضته هالشهر؟».",
+    "scope": "system",
+    "kb_entry": "mobile-requests",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.mobile_requests_list"
+    ]
+  },
+  "read.mobile_requests_no_show_count": {
+    "name": "read_mobile_requests_no_show_count",
+    "description": "يجاوب بعدد طلبات الخدمة المتنقلة اللي ما حضر عميلها هذا الشهر — يستخدم لسؤال زي «كم عميل ما حضر هالشهر؟».",
+    "scope": "system",
+    "kb_entry": "mobile-requests",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.mobile_requests_list"
+    ]
+  },
+  "read.rating_five_star_count": {
+    "name": "read_rating_five_star_count",
+    "description": "يجاوب بعدد التقييمات الخماسية (5 نجوم) عندك — يستخدم لسؤال زي «كم تقييم خماسي عندي؟».",
+    "scope": "system",
+    "kb_entry": "rating",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.ratings"
+    ]
+  },
+  "read.branches_active_count": {
+    "name": "read_branches_active_count",
+    "description": "يجاوب بعدد فروعك النشطة (غير المغلقة) — يستخدم لسؤال زي «كم فرع شغّال عندي؟».",
+    "scope": "system",
+    "kb_entry": "account.shop.branches",
     "enabled": true,
     "requires_confirmation": false,
     "requires": []
@@ -104,7 +373,9 @@
     "enabled": true,
     "requires_confirmation": true,
     "confirm_message": "بيفعّل خانة رقم اللوحة بشاشة تسجيل الزيارة لهذا المحل. تأكيد؟",
-    "requires": ["operations.manage"]
+    "requires": [
+      "operations.manage"
+    ]
   },
   "write.disable_vehicle_tracking": {
     "name": "disable_vehicle_tracking",
@@ -114,6 +385,20 @@
     "enabled": true,
     "requires_confirmation": true,
     "confirm_message": "بيوقف خانة رقم اللوحة بشاشة تسجيل الزيارة لهذا المحل. تأكيد؟",
-    "requires": ["operations.manage"]
+    "requires": [
+      "operations.manage"
+    ]
+  },
+  "nav.points": {
+    "name": "open_points",
+    "description": "يفتح شاشة «نقاط الولاء» — مكافآت برنامج نقاط الولاء وأكثرها طلبًا.",
+    "scope": "navigation",
+    "route": "points",
+    "kb_entry": "points",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "loyalty.rewards.update"
+    ]
   }
 }

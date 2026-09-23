@@ -1399,3 +1399,42 @@ jobs:
       # owner's own explicit ask: "كل شاشة أو عنصر في شاشة لازم له KB".
       - name: every interactive widget on a mobile screen is anchored
         run: python3 ci/check_mobile_screen_actions_are_anchored.py
+
+      # The mobile app's own half of check_branch_scope.py's guarantee — every service call
+      # reading data from a domain branch_domains.py marks branch-scoped passes the selected
+      # branch, or carries a reasoned `// branch-scope-exempt:` comment.
+      - name: every mobile call site reading branch-scoped data passes the selected branch
+        run: python3 ci/check_mobile_branch_scope.py
+
+      # apps/mobile's ApiClient accepts every 4xx except 401 as an ordinary response
+      # (validateStatus, api_client.dart) — a method that only branches on `on DioException catch`
+      # and never reads `.statusCode` silently treats a real refusal as success. Found live
+      # 2026-09-23 in ReferralPartnershipService.propose() (returned "no reason" on a genuine 402)
+      # and in its own _act() helper (accept/reject/cancel would have returned true on a 403/409
+      # refusal) — the same method shape, the same file, found the same afternoon by testing the
+      # first bug and noticing the second sitting right below it.
+      - name: every mobile dio call checks the response status, not just the catch clause
+        run: python3 ci/check_mobile_dio_status_check.py --all
+
+      # No Arabic-Indic/Urdu-Indic digit glyphs anywhere a mobile string is authored — the same
+      # "digits western" posture check_deploy_wiring.py's own note names for the rest of the repo.
+      - name: no mobile string carries an Arabic/Urdu-Indic digit
+        run: python3 ci/check_mobile_no_arabic_indic_digits.py
+
+      # A chevron/arrow icon that hardcodes one direction never flips for a locale that renders
+      # LTR — found live 2026-09-24 in branch_detail_screen.dart and points_screen.dart, both
+      # fixed the same pass this gate was wired.
+      - name: no mobile chevron/arrow hardcodes a direction that never flips for RTL
+        run: python3 ci/check_mobile_no_broken_directional_icons.py
+
+      # A card/row falling back to a raw id when its real display name is missing shows the
+      # customer a string that means nothing to him — the mobile mirror of the console's own rule
+      # against a raw plan id leaking onto a screen.
+      - name: no mobile display field falls back to a raw id
+        run: python3 ci/check_mobile_no_raw_id_fallback.py
+
+      # check_mobile_kb_anchors_are_covered.py only checks an anchor EXISTS for what a screen
+      # already declares; this one checks the declared KB entry is actually GRANULAR — one entry
+      # per real component, not one catch-all per screen that tells the assistant nothing useful.
+      - name: every mobile screen's KB coverage is granular, not one catch-all entry
+        run: python3 ci/check_mobile_screen_kb_granularity.py

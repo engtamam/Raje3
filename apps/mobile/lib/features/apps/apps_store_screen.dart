@@ -10,6 +10,7 @@ import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/models/app_store_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
+import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
 
 /// «تطبيقاتي» / متجر التطبيقات — mirrors AppLauncher.tsx's own two-shelf design EXACTLY
@@ -644,58 +645,64 @@ class _CapacityCardState extends State<_CapacityCard> {
     final qty = widget.sub?.quantity ?? 0;
 
     if (_confirming && widget.sub != null) {
-      return Container(
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        decoration: BoxDecoration(border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)), borderRadius: AppRadius.standardRadius, color: AppColors.danger.withValues(alpha: 0.06)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(s.appStoreCapacityConfirmRemove(widget.plan.name), style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w700, color: AppColors.danger)),
-            const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: OutlinedButton(
-                onPressed: widget.busy ? null : () { setState(() => _confirming = false); widget.onRemoveLast(widget.sub!); },
-                style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger)),
-                child: Text(widget.busy ? s.appStoreCheckingOut : s.appStoreCancelRenewal),
-              )),
-              const SizedBox(width: 8),
-              Expanded(child: OutlinedButton(onPressed: () => setState(() => _confirming = false), child: Text(s.mobileRequestsRejectCancel))),
-            ]),
-          ],
+      return KbAnchor(
+        id: 'apps.capacity_confirm_remove',
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)), borderRadius: AppRadius.standardRadius, color: AppColors.danger.withValues(alpha: 0.06)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(s.appStoreCapacityConfirmRemove(widget.plan.name), style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w700, color: AppColors.danger)),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(child: OutlinedButton(
+                  onPressed: widget.busy ? null : () { setState(() => _confirming = false); widget.onRemoveLast(widget.sub!); },
+                  style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger)),
+                  child: Text(widget.busy ? s.appStoreCheckingOut : s.appStoreCancelRenewal),
+                )),
+                const SizedBox(width: 8),
+                Expanded(child: OutlinedButton(onPressed: () => setState(() => _confirming = false), child: Text(s.mobileRequestsRejectCancel))),
+              ]),
+            ],
+          ),
         ),
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(color: colors.surface, border: Border.all(color: colors.borderSubtle), borderRadius: AppRadius.standardRadius),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.plan.name, style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w700)),
-                Text('${_riyals(widget.plan.monthlyAmountMinor)} ${s.appStorePerMonthShort}', style: AppTextStyles.caption.copyWith(color: colors.textSecondary)),
-              ],
+    return KbAnchor(
+      id: 'apps.capacity_stepper',
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        decoration: BoxDecoration(color: colors.surface, border: Border.all(color: colors.borderSubtle), borderRadius: AppRadius.standardRadius),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.plan.name, style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w700)),
+                  Text('${_riyals(widget.plan.monthlyAmountMinor)} ${s.appStorePerMonthShort}', style: AppTextStyles.caption.copyWith(color: colors.textSecondary)),
+                ],
+              ),
             ),
-          ),
-          IconButton(
-            onPressed: (widget.busy || qty == 0)
-                ? null
-                : () => qty > 1
-                    ? widget.onChangeQuantity(widget.sub!, qty - 1)
-                    : setState(() => _confirming = true),
-            icon: const Icon(Icons.remove_circle_outline_rounded),
-          ),
-          Text('$qty', style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w800)),
-          IconButton(
-            onPressed: widget.busy
-                ? null
-                : () => qty == 0 ? widget.onBuyFirst() : widget.onChangeQuantity(widget.sub!, qty + 1),
-            icon: const Icon(Icons.add_circle_outline_rounded),
-          ),
-        ],
+            IconButton(
+              onPressed: (widget.busy || qty == 0)
+                  ? null
+                  : () => qty > 1
+                      ? widget.onChangeQuantity(widget.sub!, qty - 1)
+                      : setState(() => _confirming = true),
+              icon: const Icon(Icons.remove_circle_outline_rounded),
+            ),
+            Text('$qty', style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w800)),
+            IconButton(
+              onPressed: widget.busy
+                  ? null
+                  : () => qty == 0 ? widget.onBuyFirst() : widget.onChangeQuantity(widget.sub!, qty + 1),
+              icon: const Icon(Icons.add_circle_outline_rounded),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -835,25 +842,31 @@ class _AppDetailsSheet extends StatelessWidget {
                       if (owned == true) ...[
                         if (sub?.cancelAtPeriodEnd == true) ...[
                           if (onUndoCancel != null)
-                            SizedBox(width: double.infinity, child: OutlinedButton(onPressed: onUndoCancel, child: Text(s.appStoreUndoCancel))),
+                            KbAnchor(
+                              id: 'apps.details_undo_cancel',
+                              child: SizedBox(width: double.infinity, child: OutlinedButton(onPressed: onUndoCancel, child: Text(s.appStoreUndoCancel))),
+                            ),
                         ] else if (onCancel != null)
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton(
-                              onPressed: () => showDialog<void>(
-                                context: context,
-                                builder: (dialogContext) => AlertDialog(
-                                  content: Text(s.appStoreConfirmCancel),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(s.mobileRequestsRejectCancel)),
-                                    TextButton(
-                                      onPressed: () { Navigator.of(dialogContext).pop(); onCancel!(); },
-                                      child: Text(s.appStoreCancelRenewal, style: const TextStyle(color: AppColors.danger)),
-                                    ),
-                                  ],
+                          KbAnchor(
+                            id: 'apps.details_cancel',
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton(
+                                onPressed: () => showDialog<void>(
+                                  context: context,
+                                  builder: (dialogContext) => AlertDialog(
+                                    content: Text(s.appStoreConfirmCancel),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(s.mobileRequestsRejectCancel)),
+                                      TextButton(
+                                        onPressed: () { Navigator.of(dialogContext).pop(); onCancel!(); },
+                                        child: Text(s.appStoreCancelRenewal, style: const TextStyle(color: AppColors.danger)),
+                                      ),
+                                    ],
+                                  ),
                                 ),
+                                child: Text(s.appStoreCancelRenewal, style: const TextStyle(color: AppColors.danger)),
                               ),
-                              child: Text(s.appStoreCancelRenewal, style: const TextStyle(color: AppColors.danger)),
                             ),
                           ),
                       ] else if (onSubscribe != null)

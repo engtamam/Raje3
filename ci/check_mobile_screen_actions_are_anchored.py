@@ -56,6 +56,14 @@ EXEMPT_LINES: dict[str, set[str]] = {
         # could ever show it — not a feature of THIS screen specifically.
         "OutlinedButton(onPressed: onRetry, child: Text(S.of(context)!.retry))",
     },
+    "apps/mobile/lib/features/apps/payment_webview_screen.dart": {
+        # Closes the payment screen — the same generic "leave this screen" control every modal's
+        # own AppBar carries, not a feature of the payment flow itself.
+        "leading: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.of(context).pop()),",
+        # The SAME generic "try again after a load failure" control visit_screen.dart's own entry
+        # above is already exempt for — this screen's own version of it.
+        "FilledButton(onPressed: onRetry, child: Text(retryLabel)),",
+    },
 }
 
 
