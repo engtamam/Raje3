@@ -55,6 +55,11 @@ EXEMPT_LINES: dict[str, set[str]] = {
         # A generic "try again after a network error" control, the same on every screen that
         # could ever show it — not a feature of THIS screen specifically.
         "OutlinedButton(onPressed: onRetry, child: Text(S.of(context)!.retry))",
+        # The quantity dialog's own cancel/save — the field right above (anchored) already says
+        # what's being set. "TextButton(" bare covers the save button's own opening line, which
+        # is the only one split across lines in this file — verified as the only bare occurrence.
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(s.mobileRequestsRejectCancel)),",
+        "TextButton(",
     },
     "apps/mobile/lib/features/apps/payment_webview_screen.dart": {
         # Closes the payment screen — the same generic "leave this screen" control every modal's
@@ -127,6 +132,18 @@ EXEMPT_LINES: dict[str, set[str]] = {
         "TextButton(onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()), child: Text(s.servicesSave)),",
         "TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.mobileRequestsRejectCancel)),",
         "TextButton(onPressed: () => Navigator.of(dialogContext).pop(true),",
+    },
+    "apps/mobile/lib/features/mobile_requests/mobile_requests_screen.dart": {
+        # `_DangerButton`'s own OutlinedButton lives inside ITS OWN `build()`, a different
+        # function scope than either call site — the gate's bracket-tracking can never see it as
+        # "inside" the KbAnchor(id: 'mobile-requests.card_actions') that already wraps both real
+        # usages (reject, no-show). Not a missing explanation, a one-level indirection the gate
+        # cannot see through.
+        "return OutlinedButton(",
+        # The reject-reason dialog's own cancel/confirm — the field right above (anchored)
+        # already says what's being rejected.
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(s.mobileRequestsRejectCancel)),",
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()), child: Text(s.mobileRequestsRejectConfirm)),",
     },
 }
 

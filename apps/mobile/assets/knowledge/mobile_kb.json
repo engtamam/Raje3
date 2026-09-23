@@ -995,6 +995,18 @@
     "kind": "action",
     "anchor": "mobile-requests.card_actions"
   },
+  "mobile-requests.reject_reason_field": {
+    "title": {
+      "ar": "سبب الرفض",
+      "en": "Reason for rejecting"
+    },
+    "body": {
+      "ar": "سبب اختياري يوضّح للعميل ليش رُفض طلبه.",
+      "en": "An optional reason explaining to the customer why his request was rejected."
+    },
+    "kind": "field",
+    "anchor": "mobile-requests.reject_reason_field"
+  },
   "mobile-requests.add_sheet": {
     "title": {
       "ar": "نموذج إضافة الطلب",
@@ -1636,6 +1648,18 @@
     "requires": [
       "operations.grant_coupon"
     ]
+  },
+  "visit.quantity_dialog_field": {
+    "title": {
+      "ar": "الكمية",
+      "en": "Quantity"
+    },
+    "body": {
+      "ar": "اكتب الرقم مباشرة بدل ما تضغط +/- عدة مرات.",
+      "en": "Type the number directly instead of tapping +/- several times."
+    },
+    "kind": "field",
+    "anchor": "visit.quantity_dialog_field"
   },
   "services.import_button": {
     "title": {
