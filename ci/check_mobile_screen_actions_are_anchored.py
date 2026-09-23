@@ -119,6 +119,15 @@ EXEMPT_LINES: dict[str, set[str]] = {
         # this same bare-opening shape, so this exemption is scoped by file, not by button.
         "TextButton(",
     },
+    "apps/mobile/lib/features/services/services_screen.dart": {
+        # Three plain yes/no confirm dialogs (name a new group, stop a service, add a new
+        # checklist step) — the field/row right above each one (all anchored) already says what's
+        # being named/stopped/added; "cancel" and "save"/"confirm" need no separate entry.
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(s.mobileRequestsRejectCancel)),",
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()), child: Text(s.servicesSave)),",
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.mobileRequestsRejectCancel)),",
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(true),",
+    },
 }
 
 

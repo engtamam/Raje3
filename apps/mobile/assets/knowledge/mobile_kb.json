@@ -1475,6 +1475,90 @@
     "kind": "field",
     "anchor": "services.procedures_picker_search"
   },
+  "services.suggestion_banner": {
+    "title": {
+      "ar": "اقتراح تجميع تلقائي",
+      "en": "Automatic grouping suggestion"
+    },
+    "body": {
+      "ar": "اكتشفنا خدمات تتشابه بالاسم — جمّعها بمجموعة وحدة بضغطة، أو تجاهل الاقتراح.",
+      "en": "We found services with similar names — group them together in one tap, or dismiss the suggestion."
+    },
+    "kind": "action",
+    "anchor": "services.suggestion_banner"
+  },
+  "services.group_name_field": {
+    "title": {
+      "ar": "اسم المجموعة",
+      "en": "Group name"
+    },
+    "body": {
+      "ar": "الاسم اللي راح تظهر تحته هالخدمات المجمّعة.",
+      "en": "The name these grouped services will appear under."
+    },
+    "kind": "field",
+    "anchor": "services.group_name_field"
+  },
+  "services.step_add_field": {
+    "title": {
+      "ar": "نص الخطوة الجديدة",
+      "en": "The new step's text"
+    },
+    "body": {
+      "ar": "خطوة تُضاف لمكتبة خطوات الخدمة المشتركة بين كل خدماتك.",
+      "en": "A step added to the shared service-checklist library across all your services."
+    },
+    "kind": "field",
+    "anchor": "services.step_add_field"
+  },
+  "services.step_edit_field": {
+    "title": {
+      "ar": "تعديل نص الخطوة",
+      "en": "Edit the step's text"
+    },
+    "body": {
+      "ar": "تعديل هذا النص يُحدّثه بكل خدمة تستخدم نفس هذي الخطوة.",
+      "en": "Editing this text updates it everywhere this step is used."
+    },
+    "kind": "field",
+    "anchor": "services.step_edit_field"
+  },
+  "services.step_retire_button": {
+    "title": {
+      "ar": "إيقاف الخطوة",
+      "en": "Retire the step"
+    },
+    "body": {
+      "ar": "يوقفها عن الظهور بأي قائمة جديدة، بدون حذفها من السجل.",
+      "en": "Stops it from appearing on any new checklist, without deleting it from the record."
+    },
+    "kind": "action",
+    "anchor": "services.step_retire_button"
+  },
+  "services.general_settings_fields": {
+    "title": {
+      "ar": "إعدادات عامة للخدمات",
+      "en": "General service settings"
+    },
+    "body": {
+      "ar": "القيمة الافتراضية لدورة التذكير وعدد النقاط لكل خدمة ما لها إعداد خاص بها.",
+      "en": "The default reminder-cycle length and points value for any service that has no override of its own."
+    },
+    "kind": "field",
+    "anchor": "services.general_settings_fields"
+  },
+  "services.override_field": {
+    "title": {
+      "ar": "تخصيص إعداد لهذي الخدمة",
+      "en": "Customize this service's own setting"
+    },
+    "body": {
+      "ar": "يتبع الإعداد العام افتراضياً — اضغط «تخصيص» عشان تحط قيمة مختلفة لهذي الخدمة بالذات.",
+      "en": "Follows the general setting by default — tap \"Customize\" to give this specific service its own value instead."
+    },
+    "kind": "field",
+    "anchor": "services.override_field"
+  },
   "services.package_fields": {
     "title": {
       "ar": "بيانات الباقة",
