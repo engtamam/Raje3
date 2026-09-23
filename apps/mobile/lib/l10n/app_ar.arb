@@ -508,9 +508,54 @@
   "branchesMemberRoleLabel": "الصلاحية",
   "branchesRoleOperator": "موظف ميداني",
   "branchesRoleSupervisor": "مشرف وردية",
+  "branchesRoleMarketer": "مسؤول التسويق",
   "branchesRoleManager": "مدير",
   "branchesSeatLimit": "باقتك الحالية لا تسمح بإضافة موظف آخر.",
   "branchesHireFailed": "تعذّر إضافة الموظف، حاول مرة ثانية.",
+  "branchesVisibleAllHint": "يشوف كل الفروع",
+  "branchesVisibleSomeHint": "يشوف {count} فروع",
+  "@branchesVisibleSomeHint": {
+    "description": "branchesVisibleSomeHint",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "branchesEditMember": "تعديل الموظف",
+  "branchesMemberStopped": "متوقف",
+  "branchesMemberStationLabel": "الفرع اللي يشتغل فيه",
+  "branchesMemberVisibilityLabel": "أي فروع يقدر يشوفها",
+  "branchesVisibilityOwnOnly": "فرعه بس",
+  "branchesVisibilitySome": "فروع محددة",
+  "branchesVisibilityAll": "كل الفروع",
+  "branchesWorkingHours": "ساعات العمل",
+  "branchesStopMember": "إيقاف الموظف",
+  "branchesStopMemberTitle": "إيقاف هذا الموظف؟",
+  "branchesStopMemberBody": "بيفقد {name} القدرة على الدخول للتطبيق فورًا. سجل زياراته وتاريخه يبقى محفوظًا.",
+  "@branchesStopMemberBody": {
+    "description": "branchesStopMemberBody",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "branchesStopMemberConfirm": "إيقاف",
+  "branchesReactivateMember": "إعادة تفعيل",
+  "branchesRehireRequired": "هذا الموظف متوقف تمامًا — التفعيل يحتاج توظيفه من جديد، مو مجرد تشغيل.",
+  "branchesHoursSaved": "تم حفظ ساعات العمل.",
+  "branchesHoursExceedsShop": "هذي الساعات أوسع من ساعات عمل المحل نفسه — عدّلها.",
+  "branchesHoursHint": "لو ما عدّلت شي، يشتغل بنفس ساعات المحل تلقائيًا.",
+  "branchesHoursClear": "رجّعه لساعات المحل الافتراضية",
+  "branchesDayMonday": "الاثنين",
+  "branchesDayTuesday": "الثلاثاء",
+  "branchesDayWednesday": "الأربعاء",
+  "branchesDayThursday": "الخميس",
+  "branchesDayFriday": "الجمعة",
+  "branchesDaySaturday": "السبت",
+  "branchesDaySunday": "الأحد",
+  "branchesDayClosed": "مغلق",
   "accountSecuritySectionTitle": "الأمان",
   "accountChangePasswordRow": "تغيير كلمة المرور",
   "accountChangePasswordFailed": "تعذّر تغيير كلمة المرور، حاول مرة ثانية.",
@@ -554,6 +599,7 @@
   "billingInvoiceStatusDraft": "مسودة",
   "billingPayNow": "ادفع الآن",
   "billingPayLinkFailed": "تعذّر إنشاء رابط الدفع، حاول مرة أخرى.",
+  "paymentPageLoadFailed": "تعذّر تحميل صفحة الدفع. تحقق من اتصالك ثم أعد المحاولة.",
   "billingCancelConfirmTitle": "إيقاف التجديد؟",
   "billingCancelConfirmBody": "ستستمر الخدمة حتى نهاية الفترة الحالية، ثم لن تتجدد.",
   "billingCancelConfirmAction": "إيقاف التجديد",
@@ -574,5 +620,2352 @@
   "writeVehicleTrackingDisabledConfirm": "بيوقف خانة رقم اللوحة بشاشة تسجيل الزيارة لهذا المحل. تأكيد؟",
   "writeVehicleTrackingEnabledDone": "تم تفعيل العمل على السيارات ✓",
   "writeVehicleTrackingDisabledDone": "تم إيقاف العمل على السيارات ✓",
-  "writeVehicleTrackingFailed": "تعذّر تغيير إعداد تتبع السيارات، حاول مرة ثانية."
+  "writeVehicleTrackingFailed": "تعذّر تغيير إعداد تتبع السيارات، حاول مرة ثانية.",
+  "mobileRequestsTitle": "خدمات متنقلة",
+  "@mobileRequestsTitle": {
+    "description": "mobileRequestsTitle"
+  },
+  "mobileRequestsSubtitle": "طلبات خدمة تصل للعميل، من الاستلام للتنفيذ.",
+  "@mobileRequestsSubtitle": {
+    "description": "mobileRequestsSubtitle"
+  },
+  "mobileRequestsKpiPending": "بانتظار قرار",
+  "@mobileRequestsKpiPending": {
+    "description": "mobileRequestsKpiPending"
+  },
+  "mobileRequestsKpiNeedsDecision": "تحتاج قرار",
+  "@mobileRequestsKpiNeedsDecision": {
+    "description": "mobileRequestsKpiNeedsDecision"
+  },
+  "mobileRequestsKpiCompletedMonth": "تمّت هذا الشهر",
+  "@mobileRequestsKpiCompletedMonth": {
+    "description": "mobileRequestsKpiCompletedMonth"
+  },
+  "mobileRequestsBannerGo": "عرضها",
+  "@mobileRequestsBannerGo": {
+    "description": "mobileRequestsBannerGo"
+  },
+  "mobileRequestsFilterAll": "الكل",
+  "@mobileRequestsFilterAll": {
+    "description": "mobileRequestsFilterAll"
+  },
+  "mobileRequestsFilterPending": "بانتظار قرار",
+  "@mobileRequestsFilterPending": {
+    "description": "mobileRequestsFilterPending"
+  },
+  "mobileRequestsFilterAccepted": "مقبولة",
+  "@mobileRequestsFilterAccepted": {
+    "description": "mobileRequestsFilterAccepted"
+  },
+  "mobileRequestsFilterNeedsDecision": "تحتاج قرار",
+  "@mobileRequestsFilterNeedsDecision": {
+    "description": "mobileRequestsFilterNeedsDecision"
+  },
+  "mobileRequestsFilterCompleted": "تمّت",
+  "@mobileRequestsFilterCompleted": {
+    "description": "mobileRequestsFilterCompleted"
+  },
+  "mobileRequestsFilterClosed": "مغلقة",
+  "@mobileRequestsFilterClosed": {
+    "description": "mobileRequestsFilterClosed"
+  },
+  "mobileRequestsSearchHint": "ابحث بالاسم أو الجوال",
+  "@mobileRequestsSearchHint": {
+    "description": "mobileRequestsSearchHint"
+  },
+  "mobileRequestsLoadFailedTitle": "تعذّر تحميل الطلبات",
+  "@mobileRequestsLoadFailedTitle": {
+    "description": "mobileRequestsLoadFailedTitle"
+  },
+  "mobileRequestsLoadFailedBody": "تحقّق من اتصالك وحاول مرة أخرى.",
+  "@mobileRequestsLoadFailedBody": {
+    "description": "mobileRequestsLoadFailedBody"
+  },
+  "mobileRequestsRetry": "إعادة المحاولة",
+  "@mobileRequestsRetry": {
+    "description": "mobileRequestsRetry"
+  },
+  "mobileRequestsEmptyTitle": "لا طلبات بعد",
+  "@mobileRequestsEmptyTitle": {
+    "description": "mobileRequestsEmptyTitle"
+  },
+  "mobileRequestsEmptyBody": "طلبات الخدمة المتنقلة من عملائك تظهر هنا.",
+  "@mobileRequestsEmptyBody": {
+    "description": "mobileRequestsEmptyBody"
+  },
+  "mobileRequestsStatusPending": "بانتظار قرار",
+  "@mobileRequestsStatusPending": {
+    "description": "mobileRequestsStatusPending"
+  },
+  "mobileRequestsStatusAccepted": "مقبول",
+  "@mobileRequestsStatusAccepted": {
+    "description": "mobileRequestsStatusAccepted"
+  },
+  "mobileRequestsStatusNeedsDecision": "تحتاج قرار",
+  "@mobileRequestsStatusNeedsDecision": {
+    "description": "mobileRequestsStatusNeedsDecision"
+  },
+  "mobileRequestsStatusCompleted": "تمّ",
+  "@mobileRequestsStatusCompleted": {
+    "description": "mobileRequestsStatusCompleted"
+  },
+  "mobileRequestsStatusNoShow": "لم يحضر",
+  "@mobileRequestsStatusNoShow": {
+    "description": "mobileRequestsStatusNoShow"
+  },
+  "mobileRequestsStatusRejected": "مرفوض",
+  "@mobileRequestsStatusRejected": {
+    "description": "mobileRequestsStatusRejected"
+  },
+  "mobileRequestsUnnamed": "بدون اسم",
+  "@mobileRequestsUnnamed": {
+    "description": "mobileRequestsUnnamed"
+  },
+  "mobileRequestsOpenMap": "الموقع",
+  "@mobileRequestsOpenMap": {
+    "description": "mobileRequestsOpenMap"
+  },
+  "mobileRequestsPhoneCopied": "تم نسخ رقم الجوال",
+  "@mobileRequestsPhoneCopied": {
+    "description": "mobileRequestsPhoneCopied"
+  },
+  "mobileRequestsRiskyCustomer": "عميل عالي خطر عدم الحضور",
+  "@mobileRequestsRiskyCustomer": {
+    "description": "mobileRequestsRiskyCustomer"
+  },
+  "mobileRequestsRejectReasonLine": "سبب الرفض: {reason}",
+  "@mobileRequestsRejectReasonLine": {
+    "description": "mobileRequestsRejectReasonLine"
+  },
+  "mobileRequestsActionAccept": "قبول",
+  "@mobileRequestsActionAccept": {
+    "description": "mobileRequestsActionAccept"
+  },
+  "mobileRequestsActionReject": "رفض",
+  "@mobileRequestsActionReject": {
+    "description": "mobileRequestsActionReject"
+  },
+  "mobileRequestsActionComplete": "تمّ",
+  "@mobileRequestsActionComplete": {
+    "description": "mobileRequestsActionComplete"
+  },
+  "mobileRequestsActionNoShow": "لم يحضر",
+  "@mobileRequestsActionNoShow": {
+    "description": "mobileRequestsActionNoShow"
+  },
+  "mobileRequestsAssignUnassigned": "غير مُسنَد",
+  "@mobileRequestsAssignUnassigned": {
+    "description": "mobileRequestsAssignUnassigned"
+  },
+  "mobileRequestsActionFailed": "تعذّر تنفيذ الإجراء، حاول مرة أخرى.",
+  "@mobileRequestsActionFailed": {
+    "description": "mobileRequestsActionFailed"
+  },
+  "mobileRequestsRejectTitle": "سبب الرفض",
+  "@mobileRequestsRejectTitle": {
+    "description": "mobileRequestsRejectTitle"
+  },
+  "mobileRequestsRejectHint": "اختياري",
+  "@mobileRequestsRejectHint": {
+    "description": "mobileRequestsRejectHint"
+  },
+  "mobileRequestsRejectCancel": "إلغاء",
+  "@mobileRequestsRejectCancel": {
+    "description": "mobileRequestsRejectCancel"
+  },
+  "mobileRequestsRejectConfirm": "رفض الطلب",
+  "@mobileRequestsRejectConfirm": {
+    "description": "mobileRequestsRejectConfirm"
+  },
+  "mobileRequestsAddOpen": "إضافة طلب",
+  "@mobileRequestsAddOpen": {
+    "description": "mobileRequestsAddOpen"
+  },
+  "mobileRequestsAddTitle": "إضافة طلب خدمة متنقلة",
+  "@mobileRequestsAddTitle": {
+    "description": "mobileRequestsAddTitle"
+  },
+  "mobileRequestsAddPhoneLabel": "جوال العميل",
+  "@mobileRequestsAddPhoneLabel": {
+    "description": "mobileRequestsAddPhoneLabel"
+  },
+  "mobileRequestsAddNameLabel": "اسم العميل (اختياري)",
+  "@mobileRequestsAddNameLabel": {
+    "description": "mobileRequestsAddNameLabel"
+  },
+  "mobileRequestsAddServicesLabel": "الخدمات",
+  "@mobileRequestsAddServicesLabel": {
+    "description": "mobileRequestsAddServicesLabel"
+  },
+  "mobileRequestsAddServicesEmpty": "لا خدمات متاحة بعد.",
+  "@mobileRequestsAddServicesEmpty": {
+    "description": "mobileRequestsAddServicesEmpty"
+  },
+  "mobileRequestsAddDayLabel": "اليوم",
+  "@mobileRequestsAddDayLabel": {
+    "description": "mobileRequestsAddDayLabel"
+  },
+  "mobileRequestsAddTimeLabel": "الوقت",
+  "@mobileRequestsAddTimeLabel": {
+    "description": "mobileRequestsAddTimeLabel"
+  },
+  "mobileRequestsAddMapsLinkLabel": "رابط الموقع من خرائط جوجل",
+  "@mobileRequestsAddMapsLinkLabel": {
+    "description": "mobileRequestsAddMapsLinkLabel"
+  },
+  "mobileRequestsAddMapsLinkHint": "يقبل الرابط الكامل أو المختصر من خرائط جوجل.",
+  "@mobileRequestsAddMapsLinkHint": {
+    "description": "mobileRequestsAddMapsLinkHint"
+  },
+  "mobileRequestsAddMapsLinkShort": "هذا رابط مختصر — الصق الرابط الكامل من خرائط جوجل.",
+  "@mobileRequestsAddMapsLinkShort": {
+    "description": "mobileRequestsAddMapsLinkShort"
+  },
+  "mobileRequestsAddMapsLinkInvalid": "تعذّر قراءة موقع من هذا الرابط.",
+  "@mobileRequestsAddMapsLinkInvalid": {
+    "description": "mobileRequestsAddMapsLinkInvalid"
+  },
+  "mobileRequestsAddAssignLabel": "إسناد إلى (اختياري)",
+  "@mobileRequestsAddAssignLabel": {
+    "description": "mobileRequestsAddAssignLabel"
+  },
+  "mobileRequestsAddCancel": "إلغاء",
+  "@mobileRequestsAddCancel": {
+    "description": "mobileRequestsAddCancel"
+  },
+  "mobileRequestsAddSubmit": "إضافة الطلب",
+  "@mobileRequestsAddSubmit": {
+    "description": "mobileRequestsAddSubmit"
+  },
+  "mobileRequestsAddSubmitting": "جارٍ الإضافة...",
+  "@mobileRequestsAddSubmitting": {
+    "description": "mobileRequestsAddSubmitting"
+  },
+  "mobileRequestsAddError": "تعذّرت إضافة الطلب، حاول مرة أخرى.",
+  "@mobileRequestsAddError": {
+    "description": "mobileRequestsAddError"
+  },
+  "mobileRequestsBannerText": "{count, plural, one{طلب واحد يحتاج قرارك الآن} other{{count} طلبات تحتاج قرارك الآن}}",
+  "@mobileRequestsBannerText": {
+    "description": "Warning banner: N requests overdue a decision",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mobileRequestsAddMapsLinkResolving": "جارٍ قراءة الموقع من الرابط...",
+  "@mobileRequestsAddMapsLinkResolving": {
+    "description": "mobileRequestsAddMapsLinkResolving"
+  },
+  "customersTitle": "عملائي",
+  "@customersTitle": {
+    "description": "customersTitle"
+  },
+  "customersAddOpen": "إضافة عميل",
+  "@customersAddOpen": {
+    "description": "customersAddOpen"
+  },
+  "customersSearchHint": "ابحث بالاسم أو الجوال",
+  "@customersSearchHint": {
+    "description": "customersSearchHint"
+  },
+  "customersTabAll": "الكل",
+  "@customersTabAll": {
+    "description": "customersTabAll"
+  },
+  "customersTabOverdue": "من تأخّر",
+  "@customersTabOverdue": {
+    "description": "customersTabOverdue"
+  },
+  "customersSearchFailedTitle": "تعذّر البحث الآن",
+  "@customersSearchFailedTitle": {
+    "description": "customersSearchFailedTitle"
+  },
+  "customersSearchFailedBody": "حاول مرة أخرى بعد قليل.",
+  "@customersSearchFailedBody": {
+    "description": "customersSearchFailedBody"
+  },
+  "customersSearchEmpty": "لا نتائج",
+  "@customersSearchEmpty": {
+    "description": "customersSearchEmpty"
+  },
+  "customersLoadFailedTitle": "تعذّر التحميل",
+  "@customersLoadFailedTitle": {
+    "description": "customersLoadFailedTitle"
+  },
+  "customersEmptyTitle": "لا عملاء بعد",
+  "@customersEmptyTitle": {
+    "description": "customersEmptyTitle"
+  },
+  "customersOverdueEmpty": "لا أحد متأخر حالياً",
+  "@customersOverdueEmpty": {
+    "description": "customersOverdueEmpty"
+  },
+  "customersUnnamed": "بلا اسم",
+  "@customersUnnamed": {
+    "description": "customersUnnamed"
+  },
+  "customersVisitCount": "{count, plural, one{زيارة واحدة} two{زيارتان} other{{count} زيارة}}",
+  "@customersVisitCount": {
+    "description": "customersVisitCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "customersOverdueBadge": "متأخر",
+  "@customersOverdueBadge": {
+    "description": "customersOverdueBadge"
+  },
+  "customersStatEveryDays": "{days, plural, one{كل يوم} two{كل يومين} other{كل {days} يوم}}",
+  "@customersStatEveryDays": {
+    "description": "customersStatEveryDays",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "customersOverdueBanner": "متأخر عن موعده المعتاد — عادة يزور كل {every} يوم، ومضى {since} يوم منذ آخر زيارة",
+  "@customersOverdueBanner": {
+    "description": "customersOverdueBanner",
+    "placeholders": {
+      "every": {
+        "type": "int"
+      },
+      "since": {
+        "type": "int"
+      }
+    }
+  },
+  "customersVisitMeter": "قراءة العدّاد: {n}",
+  "@customersVisitMeter": {
+    "description": "customersVisitMeter",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "customersOfferExpiredBadge": "منتهي",
+  "@customersOfferExpiredBadge": {
+    "description": "customersOfferExpiredBadge"
+  },
+  "customersDeniedAllTitle": "لا تملك صلاحية عرض قائمة العملاء",
+  "@customersDeniedAllTitle": {
+    "description": "customersDeniedAllTitle"
+  },
+  "customersDeniedOverdueTitle": "لا تملك صلاحية عرض من تأخّر",
+  "@customersDeniedOverdueTitle": {
+    "description": "customersDeniedOverdueTitle"
+  },
+  "customersDeniedDesc": "اطلب من مالك المحل يمنحك هذي الصلاحية.",
+  "@customersDeniedDesc": {
+    "description": "customersDeniedDesc"
+  },
+  "customersAddTitle": "إضافة عميل جديد",
+  "@customersAddTitle": {
+    "description": "customersAddTitle"
+  },
+  "customersAddPhoneLabel": "جوال العميل",
+  "@customersAddPhoneLabel": {
+    "description": "customersAddPhoneLabel"
+  },
+  "customersAddNameLabel": "اسم العميل",
+  "@customersAddNameLabel": {
+    "description": "customersAddNameLabel"
+  },
+  "customersAddPhoneInvalid": "رقم الجوال غير صحيح.",
+  "@customersAddPhoneInvalid": {
+    "description": "customersAddPhoneInvalid"
+  },
+  "customersAddFailed": "تعذّرت إضافة العميل، حاول مرة أخرى.",
+  "@customersAddFailed": {
+    "description": "customersAddFailed"
+  },
+  "customersAddSubmitting": "جارٍ الإضافة...",
+  "@customersAddSubmitting": {
+    "description": "customersAddSubmitting"
+  },
+  "customersAddSubmit": "إضافة",
+  "@customersAddSubmit": {
+    "description": "customersAddSubmit"
+  },
+  "customersActionFailed": "تعذّر تنفيذ الإجراء، حاول مرة أخرى.",
+  "@customersActionFailed": {
+    "description": "customersActionFailed"
+  },
+  "customersRepeatedIssuesTitle": "شكاوى متكررة",
+  "@customersRepeatedIssuesTitle": {
+    "description": "customersRepeatedIssuesTitle"
+  },
+  "customersVehiclesTitle": "المركبات",
+  "@customersVehiclesTitle": {
+    "description": "customersVehiclesTitle"
+  },
+  "customersLoyaltyTitle": "الولاء",
+  "@customersLoyaltyTitle": {
+    "description": "customersLoyaltyTitle"
+  },
+  "customersLoyaltyLoading": "جارٍ التحميل...",
+  "@customersLoyaltyLoading": {
+    "description": "customersLoyaltyLoading"
+  },
+  "customersLoyaltyPoints": "{count} نقطة",
+  "@customersLoyaltyPoints": {
+    "description": "customersLoyaltyPoints",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "customersLoyaltyAdjust": "تعديل",
+  "@customersLoyaltyAdjust": {
+    "description": "customersLoyaltyAdjust"
+  },
+  "customersOffersTitle": "العروض السارية",
+  "@customersOffersTitle": {
+    "description": "customersOffersTitle"
+  },
+  "customersOfferExpires": "ينتهي {date}",
+  "@customersOfferExpires": {
+    "description": "customersOfferExpires",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "customersVisitsTitle": "سجل الزيارات",
+  "@customersVisitsTitle": {
+    "description": "customersVisitsTitle"
+  },
+  "customersVisitsEmpty": "لا زيارات بعد",
+  "@customersVisitsEmpty": {
+    "description": "customersVisitsEmpty"
+  },
+  "customersVisitNoServices": "بدون خدمات مسجّلة",
+  "@customersVisitNoServices": {
+    "description": "customersVisitNoServices"
+  },
+  "customersRenameTitle": "تعديل اسم العميل",
+  "@customersRenameTitle": {
+    "description": "customersRenameTitle"
+  },
+  "customersRenameSubmit": "حفظ",
+  "@customersRenameSubmit": {
+    "description": "customersRenameSubmit"
+  },
+  "customersLoyaltyAdjustTitle": "تعديل نقاط الولاء",
+  "@customersLoyaltyAdjustTitle": {
+    "description": "customersLoyaltyAdjustTitle"
+  },
+  "customersLoyaltyAdjustNoteLabel": "سبب التعديل",
+  "@customersLoyaltyAdjustNoteLabel": {
+    "description": "customersLoyaltyAdjustNoteLabel"
+  },
+  "customersLoyaltyAdjustNoteRequired": "اكتب سبباً حقيقياً (3 أحرف على الأقل)، واختر عدداً غير صفر.",
+  "@customersLoyaltyAdjustNoteRequired": {
+    "description": "customersLoyaltyAdjustNoteRequired"
+  },
+  "customersLoyaltyAdjustSubmit": "حفظ التعديل",
+  "@customersLoyaltyAdjustSubmit": {
+    "description": "customersLoyaltyAdjustSubmit"
+  },
+  "customersEraseButton": "حذف بيانات هذا العميل",
+  "@customersEraseButton": {
+    "description": "customersEraseButton"
+  },
+  "customersEraseTitle": "حذف بيانات العميل",
+  "@customersEraseTitle": {
+    "description": "customersEraseTitle"
+  },
+  "customersEraseWarning": "هذا حذف نهائي لكل بيانات العميل من المنصة، ولا يمكن التراجع عنه.",
+  "@customersEraseWarning": {
+    "description": "customersEraseWarning"
+  },
+  "customersEraseTypeNameLabel": "للتأكيد، اكتب اسم العميل: {name}",
+  "@customersEraseTypeNameLabel": {
+    "description": "customersEraseTypeNameLabel",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "customersEraseConfirm": "حذف نهائي",
+  "@customersEraseConfirm": {
+    "description": "customersEraseConfirm"
+  },
+  "customersBookingsTitle": "الحجوزات",
+  "@customersBookingsTitle": {
+    "description": "customersBookingsTitle"
+  },
+  "customersAttendanceRate": "{rate}٪ حضور",
+  "@customersAttendanceRate": {
+    "description": "customersAttendanceRate",
+    "placeholders": {
+      "rate": {
+        "type": "int"
+      }
+    }
+  },
+  "customersBookingsNoneUpcoming": "لا حجوزات قادمة",
+  "@customersBookingsNoneUpcoming": {
+    "description": "customersBookingsNoneUpcoming"
+  },
+  "customersCyclesTitle": "دورات التذكير",
+  "@customersCyclesTitle": {
+    "description": "customersCyclesTitle"
+  },
+  "customersCyclesEveryDays": "كل {days} يوم",
+  "@customersCyclesEveryDays": {
+    "description": "customersCyclesEveryDays",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "customersCyclesEditHint": "اضبط الفترة، وسيتوقف التعلّم التلقائي لهذه الخدمة مع هذا العميل.",
+  "@customersCyclesEditHint": {
+    "description": "customersCyclesEditHint"
+  },
+  "customersCyclesSave": "حفظ",
+  "@customersCyclesSave": {
+    "description": "customersCyclesSave"
+  },
+  "customersLogTitle": "ماذا قلنا له",
+  "@customersLogTitle": {
+    "description": "customersLogTitle"
+  },
+  "customersLogEmpty": "لم نرسل له شيئاً بعد",
+  "@customersLogEmpty": {
+    "description": "customersLogEmpty"
+  },
+  "customersCyclesUnknownService": "خدمة غير معروفة",
+  "@customersCyclesUnknownService": {
+    "description": "customersCyclesUnknownService"
+  },
+  "customersVisitGapDays": "{days, plural, =0{بنفس اليوم} one{بعد يوم واحد} two{بعد يومين} other{بعد {days} يوم}}",
+  "@customersVisitGapDays": {
+    "description": "customersVisitGapDays",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "customersCountLabel": "{count, plural, =0{لا عملاء بعد} one{عميل واحد} two{عميلان} other{{count} عميل}}",
+  "@customersCountLabel": {
+    "description": "customersCountLabel",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ratingTitle": "التقييم",
+  "@ratingTitle": {
+    "description": "ratingTitle"
+  },
+  "pointsTitle": "نقاط الولاء",
+  "@pointsTitle": {
+    "description": "pointsTitle"
+  },
+  "pointsAddReward": "مكافأة جديدة",
+  "@pointsAddReward": {
+    "description": "pointsAddReward"
+  },
+  "pointsEditReward": "تعديل المكافأة",
+  "@pointsEditReward": {
+    "description": "pointsEditReward"
+  },
+  "pointsTabRewards": "المكافآت",
+  "@pointsTabRewards": {
+    "description": "pointsTabRewards"
+  },
+  "pointsTabLeaderboard": "الأكثر طلبًا",
+  "@pointsTabLeaderboard": {
+    "description": "pointsTabLeaderboard"
+  },
+  "pointsOutstandingHint": "نقطة لسه بذمة المحل لعملائه",
+  "@pointsOutstandingHint": {
+    "description": "pointsOutstandingHint"
+  },
+  "pointsRedemptionsCount": "{count, plural, one{استبدال واحد} two{استبدالان} other{{count} استبدال}}",
+  "@pointsRedemptionsCount": {
+    "description": "pointsRedemptionsCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pointsCustomersCount": "{count, plural, one{عميل واحد استبدل} two{عميلان استبدلا} other{{count} عميل استبدل}}",
+  "@pointsCustomersCount": {
+    "description": "pointsCustomersCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pointsExpiredWarning": "%{percent} من النقاط الممنوحة انتهت بلا استبدال — راجع أسعار مكافآتك",
+  "@pointsExpiredWarning": {
+    "description": "pointsExpiredWarning",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "pointsLoadFailedTitle": "تعذّر تحميل المكافآت",
+  "@pointsLoadFailedTitle": {
+    "description": "pointsLoadFailedTitle"
+  },
+  "pointsRewardsEmpty": "لا مكافآت بعد — أضف أول مكافأة لعملائك",
+  "@pointsRewardsEmpty": {
+    "description": "pointsRewardsEmpty"
+  },
+  "pointsLeaderboardEmpty": "لا استبدالات بعد — بتظهر هنا أول ما عميل يستبدل مكافأة",
+  "@pointsLeaderboardEmpty": {
+    "description": "pointsLeaderboardEmpty"
+  },
+  "pointsLeaderboardTitle": "الأعلى طلبًا",
+  "@pointsLeaderboardTitle": {
+    "description": "pointsLeaderboardTitle"
+  },
+  "pointsLeaderboardHint": "أكثر خمس مكافآت استبدلها عملاؤك",
+  "@pointsLeaderboardHint": {
+    "description": "pointsLeaderboardHint"
+  },
+  "pointsTimesRedeemed": "{count, plural, one{مرة واحدة} two{مرتان} other{{count} مرة}}",
+  "@pointsTimesRedeemed": {
+    "description": "pointsTimesRedeemed",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pointsRewardRetired": "متوقفة",
+  "@pointsRewardRetired": {
+    "description": "pointsRewardRetired"
+  },
+  "pointsRewardServiceHint": "خدمة: {name}",
+  "@pointsRewardServiceHint": {
+    "description": "pointsRewardServiceHint",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pointsRewardDiscountHint": "خصم {amount} ريال",
+  "@pointsRewardDiscountHint": {
+    "description": "pointsRewardDiscountHint",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "pointsRewardItemHint": "هدية غير مرتبطة بالكتالوج",
+  "@pointsRewardItemHint": {
+    "description": "pointsRewardItemHint"
+  },
+  "pointsRewardNameLabel": "اسم المكافأة",
+  "@pointsRewardNameLabel": {
+    "description": "pointsRewardNameLabel"
+  },
+  "pointsRewardTypeLabel": "نوع المكافأة",
+  "@pointsRewardTypeLabel": {
+    "description": "pointsRewardTypeLabel"
+  },
+  "pointsTypeService": "خدمة من كتالوجك",
+  "@pointsTypeService": {
+    "description": "pointsTypeService"
+  },
+  "pointsTypeItem": "هدية",
+  "@pointsTypeItem": {
+    "description": "pointsTypeItem"
+  },
+  "pointsTypeDiscount": "خصم مبلغ",
+  "@pointsTypeDiscount": {
+    "description": "pointsTypeDiscount"
+  },
+  "pointsRewardServiceLabel": "أي خدمة",
+  "@pointsRewardServiceLabel": {
+    "description": "pointsRewardServiceLabel"
+  },
+  "pointsRewardDiscountLabel": "قيمة الخصم بالريال",
+  "@pointsRewardDiscountLabel": {
+    "description": "pointsRewardDiscountLabel"
+  },
+  "pointsRewardCostLabel": "ثمنها بالنقاط",
+  "@pointsRewardCostLabel": {
+    "description": "pointsRewardCostLabel"
+  },
+  "pointsRewardActiveLabel": "فعّالة ويقدر العملاء يستبدلونها",
+  "@pointsRewardActiveLabel": {
+    "description": "pointsRewardActiveLabel"
+  },
+  "pointsRewardInvalid": "اكتب اسم ونقاط صحيحة أكبر من صفر",
+  "@pointsRewardInvalid": {
+    "description": "pointsRewardInvalid"
+  },
+  "pointsSaveFailed": "تعذّر الحفظ، حاول مرة ثانية",
+  "@pointsSaveFailed": {
+    "description": "pointsSaveFailed"
+  },
+  "pointsModeTitle": "طريقة الاحتساب",
+  "@pointsModeTitle": {
+    "description": "pointsModeTitle"
+  },
+  "pointsModeHint": "بالخدمات: كل خدمة نقاطها. بقيمة الفاتورة: نقطة لكل ريال.",
+  "@pointsModeHint": {
+    "description": "pointsModeHint"
+  },
+  "pointsModeServices": "بالخدمات",
+  "@pointsModeServices": {
+    "description": "pointsModeServices"
+  },
+  "pointsModeInvoice": "بقيمة الفاتورة",
+  "@pointsModeInvoice": {
+    "description": "pointsModeInvoice"
+  },
+  "pointsModeNeedsPricedServices": "الاحتساب بقيمة الفاتورة يحتاج كل خدماتك مسعّرة أولاً — سعّرها كلها بخدماتي ومنتجاتي ثم فعّله.",
+  "@pointsModeNeedsPricedServices": {
+    "description": "pointsModeNeedsPricedServices"
+  },
+  "pointsOpenEarnSettings": "إعدادات نقاط كل خدمة",
+  "@pointsOpenEarnSettings": {
+    "description": "pointsOpenEarnSettings"
+  },
+  "ratingLeaderboardTitle": "الأعلى تقييماً",
+  "@ratingLeaderboardTitle": {
+    "description": "ratingLeaderboardTitle"
+  },
+  "ratingCardNoName": "بلا اسم",
+  "@ratingCardNoName": {
+    "description": "ratingCardNoName"
+  },
+  "ratingMetricVisits": "الأكثر زيارات",
+  "@ratingMetricVisits": {
+    "description": "ratingMetricVisits"
+  },
+  "ratingMetricRatings": "الأكثر تقييمات",
+  "@ratingMetricRatings": {
+    "description": "ratingMetricRatings"
+  },
+  "ratingMetricAvg": "الأعلى تقييماً",
+  "@ratingMetricAvg": {
+    "description": "ratingMetricAvg"
+  },
+  "ratingStaffCount": "{count, plural, one{موظف واحد} two{موظفان} other{{count} موظف}}",
+  "@ratingStaffCount": {
+    "description": "ratingStaffCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ratingTableTitle": "كل موظف",
+  "@ratingTableTitle": {
+    "description": "ratingTableTitle"
+  },
+  "ratingTableVisitsValue": "{n} زيارة",
+  "@ratingTableVisitsValue": {
+    "description": "ratingTableVisitsValue",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ratingTableRatingsValue": "{n} تقييم",
+  "@ratingTableRatingsValue": {
+    "description": "ratingTableRatingsValue",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ratingTableEngagementValue": "تفاعل %{n}",
+  "@ratingTableEngagementValue": {
+    "description": "ratingTableEngagementValue",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ratingTableNoShowValue": "لم يحضر %{n}",
+  "@ratingTableNoShowValue": {
+    "description": "ratingTableNoShowValue",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ratingPeriodWeek": "أسبوع",
+  "@ratingPeriodWeek": {
+    "description": "ratingPeriodWeek"
+  },
+  "ratingPeriodMonth": "شهر",
+  "@ratingPeriodMonth": {
+    "description": "ratingPeriodMonth"
+  },
+  "ratingPeriodQuarter": "ربع سنة",
+  "@ratingPeriodQuarter": {
+    "description": "ratingPeriodQuarter"
+  },
+  "ratingPeriodCustom": "مخصّص",
+  "@ratingPeriodCustom": {
+    "description": "ratingPeriodCustom"
+  },
+  "ratingCustomSince": "من: {date}",
+  "@ratingCustomSince": {
+    "description": "ratingCustomSince",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "ratingCustomUntil": "إلى: {date}",
+  "@ratingCustomUntil": {
+    "description": "ratingCustomUntil",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "ratingCustomRangeInvalid": "المدى غير صالح — تأكد إن تاريخ البداية قبل النهاية",
+  "@ratingCustomRangeInvalid": {
+    "description": "ratingCustomRangeInvalid"
+  },
+  "ratingExportLocaleLabel": "لغة التقرير",
+  "@ratingExportLocaleLabel": {
+    "description": "ratingExportLocaleLabel"
+  },
+  "localeNameAr": "العربية",
+  "@localeNameAr": {
+    "description": "localeNameAr"
+  },
+  "localeNameEn": "English",
+  "@localeNameEn": {
+    "description": "localeNameEn"
+  },
+  "localeNameUr": "اردو",
+  "@localeNameUr": {
+    "description": "localeNameUr"
+  },
+  "localeNameHa": "Hausa",
+  "@localeNameHa": {
+    "description": "localeNameHa"
+  },
+  "localeNameFil": "Filipino",
+  "@localeNameFil": {
+    "description": "localeNameFil"
+  },
+  "localeNameBn": "বাংলা",
+  "@localeNameBn": {
+    "description": "localeNameBn"
+  },
+  "ratingTopIssuesTitle": "أكثر المشاكل تكراراً",
+  "@ratingTopIssuesTitle": {
+    "description": "ratingTopIssuesTitle"
+  },
+  "ratingFilterUnhandled": "بانتظار المعالجة",
+  "@ratingFilterUnhandled": {
+    "description": "ratingFilterUnhandled"
+  },
+  "ratingFilterAll": "الكل",
+  "@ratingFilterAll": {
+    "description": "ratingFilterAll"
+  },
+  "ratingFilterHandled": "معالَجة",
+  "@ratingFilterHandled": {
+    "description": "ratingFilterHandled"
+  },
+  "ratingStarsAll": "كل النجوم",
+  "@ratingStarsAll": {
+    "description": "ratingStarsAll"
+  },
+  "ratingLoadFailedTitle": "تعذّر تحميل التقييمات",
+  "@ratingLoadFailedTitle": {
+    "description": "ratingLoadFailedTitle"
+  },
+  "ratingEmptyTitle": "لا تقييمات بعد",
+  "@ratingEmptyTitle": {
+    "description": "ratingEmptyTitle"
+  },
+  "ratingLoadMore": "عرض المزيد",
+  "@ratingLoadMore": {
+    "description": "ratingLoadMore"
+  },
+  "ratingHandledPlain": "تمّت معالجته",
+  "@ratingHandledPlain": {
+    "description": "ratingHandledPlain"
+  },
+  "ratingMarkHandled": "تمّت المعالجة",
+  "@ratingMarkHandled": {
+    "description": "ratingMarkHandled"
+  },
+  "ratingMarkHandledHint": "يُسجَّل هذا نهائياً — لا يمكن التراجع عنه لاحقاً.",
+  "@ratingMarkHandledHint": {
+    "description": "ratingMarkHandledHint"
+  },
+  "ratingHandledNoteLabel": "ملاحظة (اختياري)",
+  "@ratingHandledNoteLabel": {
+    "description": "ratingHandledNoteLabel"
+  },
+  "ratingMarkHandledConfirm": "تأكيد المعالجة",
+  "@ratingMarkHandledConfirm": {
+    "description": "ratingMarkHandledConfirm"
+  },
+  "ratingActionFailed": "تعذّر تنفيذ الإجراء، حاول مرة أخرى.",
+  "@ratingActionFailed": {
+    "description": "ratingActionFailed"
+  },
+  "ratingWeightedAvgHint": "{count, plural, =0{لا تقييمات بعد آخر 30 يوم} one{من تقييم واحد آخر 30 يوم} other{من {count} تقييم آخر 30 يوم}}",
+  "@ratingWeightedAvgHint": {
+    "description": "ratingWeightedAvgHint",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ratingUnhandledCount": "{count, plural, one{تقييم واحد بانتظار المعالجة} two{تقييمان بانتظار المعالجة} other{{count} تقييم بانتظار المعالجة}}",
+  "@ratingUnhandledCount": {
+    "description": "ratingUnhandledCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ratingVisitsShort": "{count, plural, one{زيارة واحدة} two{زيارتان} other{{count} زيارة}}",
+  "@ratingVisitsShort": {
+    "description": "ratingVisitsShort",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ratingIssueFilterLabel": "المشكلة: {label}",
+  "@ratingIssueFilterLabel": {
+    "description": "ratingIssueFilterLabel",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "ratingByOperator": "خدمه {name}",
+  "@ratingByOperator": {
+    "description": "ratingByOperator",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "ratingHandledWithNote": "تمّت المعالجة: {note}",
+  "@ratingHandledWithNote": {
+    "description": "ratingHandledWithNote",
+    "placeholders": {
+      "note": {
+        "type": "String"
+      }
+    }
+  },
+  "ratingQuadrantTitle": "رباعية الأداء",
+  "@ratingQuadrantTitle": {
+    "description": "ratingQuadrantTitle"
+  },
+  "ratingQuadrantHint": "الجودة مقابل معدل التفاعل — اضغط على أي نقطة لسجل تدريب الموظف.",
+  "@ratingQuadrantHint": {
+    "description": "ratingQuadrantHint"
+  },
+  "ratingQuadrantStars": "نجوم",
+  "@ratingQuadrantStars": {
+    "description": "ratingQuadrantStars"
+  },
+  "ratingQuadrantUnderused": "غير مُستغَل",
+  "@ratingQuadrantUnderused": {
+    "description": "ratingQuadrantUnderused"
+  },
+  "ratingQuadrantNeedsCoaching": "يحتاج تدريب",
+  "@ratingQuadrantNeedsCoaching": {
+    "description": "ratingQuadrantNeedsCoaching"
+  },
+  "ratingQuadrantAtRisk": "يحتاج متابعة",
+  "@ratingQuadrantAtRisk": {
+    "description": "ratingQuadrantAtRisk"
+  },
+  "ratingTrainingTitle": "سجل التدريب",
+  "@ratingTrainingTitle": {
+    "description": "ratingTrainingTitle"
+  },
+  "ratingTrainingNoAccess": "ما عندك صلاحية عرض هذا.",
+  "@ratingTrainingNoAccess": {
+    "description": "ratingTrainingNoAccess"
+  },
+  "ratingTrainingClean": "سجل نظيف — ما فيه ملاحظات متكررة.",
+  "@ratingTrainingClean": {
+    "description": "ratingTrainingClean"
+  },
+  "ratingEngagementPercent": "{percent}٪ تفاعل",
+  "@ratingEngagementPercent": {
+    "description": "ratingEngagementPercent",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "ratingTabOverview": "نظرة عامة",
+  "@ratingTabOverview": {
+    "description": "ratingTabOverview"
+  },
+  "ratingTabFeed": "كل التقييمات",
+  "@ratingTabFeed": {
+    "description": "ratingTabFeed"
+  },
+  "ratingOverviewEmpty": "لا بيانات أداء بعد آخر 30 يوم.",
+  "@ratingOverviewEmpty": {
+    "description": "ratingOverviewEmpty"
+  },
+  "ratingExportTitle": "تصدير التقرير",
+  "@ratingExportTitle": {
+    "description": "ratingExportTitle"
+  },
+  "ratingExportHint": "تقرير أداء الفريق للمدة المختارة، جاهز للمشاركة.",
+  "@ratingExportHint": {
+    "description": "ratingExportHint"
+  },
+  "ratingExportFailed": "تعذّر تصدير التقرير، حاول مرة أخرى.",
+  "@ratingExportFailed": {
+    "description": "ratingExportFailed"
+  },
+  "customersPrivacyRequestsTitle": "طلبات حماية البيانات",
+  "@customersPrivacyRequestsTitle": {
+    "description": "customersPrivacyRequestsTitle"
+  },
+  "customersPrivacyRequestErase": "طلب حذف بيانات",
+  "@customersPrivacyRequestErase": {
+    "description": "customersPrivacyRequestErase"
+  },
+  "customersPrivacyRequestCopy": "طلب نسخة من البيانات",
+  "@customersPrivacyRequestCopy": {
+    "description": "customersPrivacyRequestCopy"
+  },
+  "customersPrivacyRequestGeneric": "طلب: {type}",
+  "@customersPrivacyRequestGeneric": {
+    "description": "customersPrivacyRequestGeneric",
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "customersPrivacyRequestClose": "إغلاق",
+  "@customersPrivacyRequestClose": {
+    "description": "customersPrivacyRequestClose"
+  },
+  "customersLoyaltyHistoryTitle": "سجل نقاط الولاء",
+  "@customersLoyaltyHistoryTitle": {
+    "description": "customersLoyaltyHistoryTitle"
+  },
+  "customersLoyaltyHistoryNoReason": "بدون سبب مذكور",
+  "@customersLoyaltyHistoryNoReason": {
+    "description": "customersLoyaltyHistoryNoReason"
+  },
+  "customersLoyaltyReasonRedeem": "استبدال مكافأة",
+  "@customersLoyaltyReasonRedeem": {
+    "description": "customersLoyaltyReasonRedeem"
+  },
+  "customersLoyaltyReasonAdjust": "تعديل يدوي",
+  "@customersLoyaltyReasonAdjust": {
+    "description": "customersLoyaltyReasonAdjust"
+  },
+  "customersLoyaltyReasonEarn": "نقاط من زيارة",
+  "@customersLoyaltyReasonEarn": {
+    "description": "customersLoyaltyReasonEarn"
+  },
+  "customersLoyaltyReasonExpire": "انتهت صلاحيتها",
+  "@customersLoyaltyReasonExpire": {
+    "description": "customersLoyaltyReasonExpire"
+  },
+  "readCustomersFailed": "تعذّر جلب بيانات العملاء الآن، حاول مرة ثانية.",
+  "@readCustomersFailed": {
+    "description": "readCustomersFailed"
+  },
+  "readCustomersTotal": "{count, plural, =0{ما عندك أي عميل مسجّل بعد.} one{عندك عميل واحد مسجّل.} other{عندك {count} عميل مسجّل.}}",
+  "@readCustomersTotal": {
+    "description": "readCustomersTotal",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readCustomersOverdueCount": "{count, plural, =0{ما فيه عميل متأخر عن دورته حالياً.} one{عندك عميل واحد متأخر عن دورته.} other{عندك {count} عميل متأخر عن دورتهم.}}",
+  "@readCustomersOverdueCount": {
+    "description": "readCustomersOverdueCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readMobileRequestsFailed": "تعذّر جلب طلبات الخدمة المتنقلة الآن، حاول مرة ثانية.",
+  "@readMobileRequestsFailed": {
+    "description": "readMobileRequestsFailed"
+  },
+  "readMobileRequestsPendingCount": "{count, plural, =0{ما فيه طلبات خدمة متنقلة بانتظار قرار.} one{عندك طلب واحد بانتظار قرار.} other{عندك {count} طلب بانتظار قرار.}}",
+  "@readMobileRequestsPendingCount": {
+    "description": "readMobileRequestsPendingCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readMobileRequestsNeedsDecisionCount": "{count, plural, =0{ما فيه طلبات متنقلة تحتاج قرارك الآن.} one{عندك طلب واحد يحتاج قرارك الآن.} other{عندك {count} طلبات تحتاج قرارك الآن.}}",
+  "@readMobileRequestsNeedsDecisionCount": {
+    "description": "readMobileRequestsNeedsDecisionCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readRatingFailed": "تعذّر جلب بيانات التقييم الآن، حاول مرة ثانية.",
+  "@readRatingFailed": {
+    "description": "readRatingFailed"
+  },
+  "readRatingNone": "ما عندك تقييمات آخر 30 يوم بعد.",
+  "@readRatingNone": {
+    "description": "readRatingNone"
+  },
+  "readRatingAverage": "متوسط تقييمك آخر 30 يوم {avg} من 5، من {count} تقييم.",
+  "@readRatingAverage": {
+    "description": "readRatingAverage",
+    "placeholders": {
+      "avg": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readRatingUnhandledCount": "{count, plural, =0{ما فيه تقييمات بانتظار المعالجة.} one{عندك تقييم واحد بانتظار المعالجة.} other{عندك {count} تقييم بانتظار المعالجة.}}",
+  "@readRatingUnhandledCount": {
+    "description": "readRatingUnhandledCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readRatingTopStaff": "أفضل موظف تقييماً آخر 30 يوم هو {name}، بمتوسط {avg} من 5.",
+  "@readRatingTopStaff": {
+    "description": "readRatingTopStaff",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "avg": {
+        "type": "String"
+      }
+    }
+  },
+  "readMobileRequestsCompletedCount": "{count, plural, =0{ما خلّصت أي طلب متنقل هذا الشهر بعد.} one{خلّصت طلب واحد هذا الشهر.} other{خلّصت {count} طلب هذا الشهر.}}",
+  "@readMobileRequestsCompletedCount": {
+    "description": "readMobileRequestsCompletedCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readMobileRequestsTodayCount": "{count, plural, =0{ما جاك أي طلب خدمة متنقلة اليوم بعد.} one{جاك طلب واحد اليوم.} other{جاك {count} طلب اليوم.}}",
+  "@readMobileRequestsTodayCount": {
+    "description": "readMobileRequestsTodayCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readOperatorsFailed": "تعذّر جلب عدد الموظفين الآن، حاول مرة ثانية.",
+  "@readOperatorsFailed": {
+    "description": "readOperatorsFailed"
+  },
+  "readOperatorsCount": "{count, plural, =0{ما عندك أي موظف مسجّل بعد.} one{عندك موظف واحد بفريقك.} other{عندك {count} موظف بفريقك.}}",
+  "@readOperatorsCount": {
+    "description": "readOperatorsCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readBranchesDisconnectedCount": "{count, plural, =0{كل فروعك النشطة واتسابها مربوط ويشتغل.} one{عندك فرع واحد واتسابه مو شغّال.} other{عندك {count} فروع واتسابها مو شغّال.}}",
+  "@readBranchesDisconnectedCount": {
+    "description": "readBranchesDisconnectedCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readCustomersRecentNone": "ما عندك أي عميل مسجّل بعد.",
+  "@readCustomersRecentNone": {
+    "description": "readCustomersRecentNone"
+  },
+  "readCustomersRecentName": "آخر عميل سجّلته هو {name}.",
+  "@readCustomersRecentName": {
+    "description": "readCustomersRecentName",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "readRatingCriticalIssuesCount": "{count, plural, =0{ما فيه تقييمات فيها ملاحظة خطيرة ما رديت عليها.} one{عندك تقييم واحد فيه ملاحظة خطيرة ما رديت عليه.} other{عندك {count} تقييمات فيها ملاحظات خطيرة ما رديت عليها.}}",
+  "@readRatingCriticalIssuesCount": {
+    "description": "readRatingCriticalIssuesCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readPerBranchModeOn": "أيوه، محلك يشتغل بنظام تعدد الفروع.",
+  "@readPerBranchModeOn": {
+    "description": "readPerBranchModeOn"
+  },
+  "readPerBranchModeOff": "لا، محلك يشتغل كفرع واحد فقط.",
+  "@readPerBranchModeOff": {
+    "description": "readPerBranchModeOff"
+  },
+  "readBillingOverdueYes": "أيوه، عندك فاتورة متأخرة السداد — سدّدها لتفادي إيقاف خدماتك.",
+  "@readBillingOverdueYes": {
+    "description": "readBillingOverdueYes"
+  },
+  "readBillingOverdueNo": "لا، فوترتك بحالة جيدة، ما فيه فواتير متأخرة.",
+  "@readBillingOverdueNo": {
+    "description": "readBillingOverdueNo"
+  },
+  "readServicesFailed": "تعذّر جلب عدد الخدمات الآن، حاول مرة ثانية.",
+  "@readServicesFailed": {
+    "description": "readServicesFailed"
+  },
+  "readServicesCount": "{count, plural, =0{ما عندك أي خدمة بقائمتك بعد.} one{عندك خدمة واحدة بقائمتك.} other{عندك {count} خدمة بقائمتك.}}",
+  "@readServicesCount": {
+    "description": "readServicesCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readCustomersTodayCount": "{count, plural, =0{ما جاك عميل جديد اليوم بعد.} one{جاك عميل جديد واحد اليوم.} other{جاك {count} عميل جديد اليوم.}}",
+  "@readCustomersTodayCount": {
+    "description": "readCustomersTodayCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readMobileRequestsRejectedCount": "{count, plural, =0{ما رفضت أي طلب خدمة متنقلة هذا الشهر.} one{رفضت طلب واحد هذا الشهر.} other{رفضت {count} طلب هذا الشهر.}}",
+  "@readMobileRequestsRejectedCount": {
+    "description": "readMobileRequestsRejectedCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readMobileRequestsNoShowCount": "{count, plural, =0{ما فيه عميل ما حضر هذا الشهر.} one{عندك عميل واحد ما حضر هذا الشهر.} other{عندك {count} عملاء ما حضروا هذا الشهر.}}",
+  "@readMobileRequestsNoShowCount": {
+    "description": "readMobileRequestsNoShowCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readRatingFiveStarCount": "{count, plural, =0{ما عندك أي تقييم خماسي بعد.} one{عندك تقييم خماسي واحد.} other{عندك {count} تقييم خماسي.}}",
+  "@readRatingFiveStarCount": {
+    "description": "readRatingFiveStarCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readBranchesActiveCount": "{count, plural, =0{ما عندك أي فرع نشط حالياً.} one{عندك فرع واحد نشط.} other{عندك {count} فروع نشطة.}}",
+  "@readBranchesActiveCount": {
+    "description": "readBranchesActiveCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "servicesTitle": "خدماتي ومنتجاتي",
+  "@servicesTitle": {
+    "description": "servicesTitle"
+  },
+  "servicesUnnamedGlyph": "؟",
+  "@servicesUnnamedGlyph": {
+    "description": "servicesUnnamedGlyph"
+  },
+  "servicesSearchHint": "ابحث باسم الخدمة",
+  "@servicesSearchHint": {
+    "description": "servicesSearchHint"
+  },
+  "servicesTabActive": "نشطة",
+  "@servicesTabActive": {
+    "description": "servicesTabActive"
+  },
+  "servicesTabStopped": "متوقفة",
+  "@servicesTabStopped": {
+    "description": "servicesTabStopped"
+  },
+  "servicesLoadFailedTitle": "تعذّر تحميل الخدمات",
+  "@servicesLoadFailedTitle": {
+    "description": "servicesLoadFailedTitle"
+  },
+  "servicesEmptyActive": "لا خدمات نشطة بعد",
+  "@servicesEmptyActive": {
+    "description": "servicesEmptyActive"
+  },
+  "servicesEmptyStopped": "لا خدمات متوقفة",
+  "@servicesEmptyStopped": {
+    "description": "servicesEmptyStopped"
+  },
+  "servicesAddOpen": "إضافة خدمة",
+  "@servicesAddOpen": {
+    "description": "servicesAddOpen"
+  },
+  "servicesNoPrice": "بدون سعر",
+  "@servicesNoPrice": {
+    "description": "servicesNoPrice"
+  },
+  "servicesNoDuration": "غير محدّدة",
+  "@servicesNoDuration": {
+    "description": "servicesNoDuration"
+  },
+  "servicesNoCycle": "بدون دورة",
+  "@servicesNoCycle": {
+    "description": "servicesNoCycle"
+  },
+  "servicesStopTitle": "إيقاف الخدمة",
+  "@servicesStopTitle": {
+    "description": "servicesStopTitle"
+  },
+  "servicesStopConfirm": "إيقاف",
+  "@servicesStopConfirm": {
+    "description": "servicesStopConfirm"
+  },
+  "servicesActionFailed": "تعذّر تنفيذ الإجراء، حاول مرة أخرى.",
+  "@servicesActionFailed": {
+    "description": "servicesActionFailed"
+  },
+  "servicesEditTitle": "تعديل الخدمة",
+  "@servicesEditTitle": {
+    "description": "servicesEditTitle"
+  },
+  "servicesAddTitle": "إضافة خدمة جديدة",
+  "@servicesAddTitle": {
+    "description": "servicesAddTitle"
+  },
+  "servicesNameLabel": "اسم الخدمة",
+  "@servicesNameLabel": {
+    "description": "servicesNameLabel"
+  },
+  "servicesPriceLabel": "السعر (اختياري)",
+  "@servicesPriceLabel": {
+    "description": "servicesPriceLabel"
+  },
+  "servicesDurationLabel": "المدة بالدقائق (اختياري)",
+  "@servicesDurationLabel": {
+    "description": "servicesDurationLabel"
+  },
+  "servicesCycleLabel": "دورة التذكير بالأيام (اختياري)",
+  "@servicesCycleLabel": {
+    "description": "servicesCycleLabel"
+  },
+  "servicesDescriptionLabel": "وصف مختصر (اختياري)",
+  "@servicesDescriptionLabel": {
+    "description": "servicesDescriptionLabel"
+  },
+  "servicesSaving": "جارٍ الحفظ...",
+  "@servicesSaving": {
+    "description": "servicesSaving"
+  },
+  "servicesSave": "حفظ",
+  "@servicesSave": {
+    "description": "servicesSave"
+  },
+  "servicesNameRequired": "اسم الخدمة مطلوب",
+  "@servicesNameRequired": {
+    "description": "servicesNameRequired"
+  },
+  "servicesActiveCount": "{count, plural, =0{ما عندك أي خدمة نشطة بعد.} one{عندك خدمة نشطة واحدة.} other{عندك {count} خدمة نشطة.}}",
+  "@servicesActiveCount": {
+    "description": "servicesActiveCount",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "servicesDurationMinutes": "{count} دقيقة",
+  "@servicesDurationMinutes": {
+    "description": "servicesDurationMinutes",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "servicesCycleDays": "كل {count} يوم",
+  "@servicesCycleDays": {
+    "description": "servicesCycleDays",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "servicesStopWarning": "بيوقف خدمة «{name}» — ما راح تظهر لعميل جديد بتسجيل الزيارة، وتذكيراتها تتوقف. ما تُحذف بياناتها.",
+  "@servicesStopWarning": {
+    "description": "servicesStopWarning",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "servicesPhotoPickFailed": "تعذّر اختيار الصورة",
+  "@servicesPhotoPickFailed": {
+    "description": "servicesPhotoPickFailed"
+  },
+  "servicesPhotoUploadFailed": "تم الحفظ لكن تعذّر رفع الصورة",
+  "@servicesPhotoUploadFailed": {
+    "description": "servicesPhotoUploadFailed"
+  },
+  "servicesPhotoLabel": "صورة الخدمة (اختياري)",
+  "@servicesPhotoLabel": {
+    "description": "servicesPhotoLabel"
+  },
+  "servicesUploadPhoto": "رفع صورة",
+  "@servicesUploadPhoto": {
+    "description": "servicesUploadPhoto"
+  },
+  "servicesChangePhoto": "تغيير الصورة",
+  "@servicesChangePhoto": {
+    "description": "servicesChangePhoto"
+  },
+  "servicesRemovePhoto": "إزالة",
+  "@servicesRemovePhoto": {
+    "description": "servicesRemovePhoto"
+  },
+  "servicesAssignmentLabel": "من يقدّم هذه الخدمة؟",
+  "@servicesAssignmentLabel": {
+    "description": "servicesAssignmentLabel"
+  },
+  "servicesAssignmentAuto": "أي موظف متاح",
+  "@servicesAssignmentAuto": {
+    "description": "servicesAssignmentAuto"
+  },
+  "servicesAssignmentNamed": "موظفون محدّدون",
+  "@servicesAssignmentNamed": {
+    "description": "servicesAssignmentNamed"
+  },
+  "servicesChecklistLabel": "خطوات الإجراء",
+  "@servicesChecklistLabel": {
+    "description": "servicesChecklistLabel"
+  },
+  "servicesChecklistEmpty": "لا خطوات بعد — أضف أول خطوة",
+  "@servicesChecklistEmpty": {
+    "description": "servicesChecklistEmpty"
+  },
+  "servicesStepAddTitle": "إضافة خطوة",
+  "@servicesStepAddTitle": {
+    "description": "servicesStepAddTitle"
+  },
+  "servicesGeneralSettingsTitle": "الإعداد العام",
+  "@servicesGeneralSettingsTitle": {
+    "description": "servicesGeneralSettingsTitle"
+  },
+  "servicesGeneralSettingsHint": "القيمة التي تتبعها كل خدمة لم تُخصَّص بعد",
+  "@servicesGeneralSettingsHint": {
+    "description": "servicesGeneralSettingsHint"
+  },
+  "servicesFollowUpLabel": "أيام المتابعة بعد الزيارة",
+  "@servicesFollowUpLabel": {
+    "description": "servicesFollowUpLabel"
+  },
+  "servicesPointsLabel": "نقاط لكل زيارة",
+  "@servicesPointsLabel": {
+    "description": "servicesPointsLabel"
+  },
+  "servicesGroupThem": "تجميعها",
+  "@servicesGroupThem": {
+    "description": "servicesGroupThem"
+  },
+  "servicesGroupNameHint": "اسم المجموعة",
+  "@servicesGroupNameHint": {
+    "description": "servicesGroupNameHint"
+  },
+  "servicesAllGroups": "الكل",
+  "@servicesAllGroups": {
+    "description": "servicesAllGroups"
+  },
+  "servicesStepEditTitle": "تعديل الخطوة",
+  "@servicesStepEditTitle": {
+    "description": "servicesStepEditTitle"
+  },
+  "servicesStepCriticalLabel": "خطوة حرجة",
+  "@servicesStepCriticalLabel": {
+    "description": "servicesStepCriticalLabel"
+  },
+  "servicesStepRetire": "إيقاف هذه الخطوة",
+  "@servicesStepRetire": {
+    "description": "servicesStepRetire"
+  },
+  "servicesStepEditHint": "اضغط مطوّلاً على أي خطوة لتعديلها أو إيقافها",
+  "@servicesStepEditHint": {
+    "description": "servicesStepEditHint"
+  },
+  "servicesAdvancedTitle": "إعدادات متقدمة",
+  "@servicesAdvancedTitle": {
+    "description": "servicesAdvancedTitle"
+  },
+  "servicesAdvancedHint": "تخصيص هذه الخدمة عن الإعداد العام — لدورة التذكير والنقاط والتجميع",
+  "@servicesAdvancedHint": {
+    "description": "servicesAdvancedHint"
+  },
+  "servicesGroupLabel": "المجموعة",
+  "@servicesGroupLabel": {
+    "description": "servicesGroupLabel"
+  },
+  "servicesNoGroup": "بدون مجموعة",
+  "@servicesNoGroup": {
+    "description": "servicesNoGroup"
+  },
+  "servicesNewGroup": "مجموعة جديدة",
+  "@servicesNewGroup": {
+    "description": "servicesNewGroup"
+  },
+  "servicesFollowGeneralAction": "اتّباع العام",
+  "@servicesFollowGeneralAction": {
+    "description": "servicesFollowGeneralAction"
+  },
+  "servicesCustomizeAction": "تخصيص",
+  "@servicesCustomizeAction": {
+    "description": "servicesCustomizeAction"
+  },
+  "servicesFollowUpDays": "متابعة بعد {n} يوم",
+  "@servicesFollowUpDays": {
+    "description": "servicesFollowUpDays",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "servicesPointsPerVisit": "{n} نقطة",
+  "@servicesPointsPerVisit": {
+    "description": "servicesPointsPerVisit",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "servicesSuggestionText": "{n} خدمات تتشارك نفس القيمة — تجميعها في مجموعة واحدة يسهّل تعديلها معاً لاحقاً.",
+  "@servicesSuggestionText": {
+    "description": "servicesSuggestionText",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "servicesFollowsGeneral": "يتبع العام — {hint}",
+  "@servicesFollowsGeneral": {
+    "description": "servicesFollowsGeneral",
+    "placeholders": {
+      "hint": {
+        "type": "String"
+      }
+    }
+  },
+  "servicesPageTabServices": "الخدمات",
+  "@servicesPageTabServices": {
+    "description": "servicesPageTabServices"
+  },
+  "servicesPageTabPackages": "الباقات",
+  "@servicesPageTabPackages": {
+    "description": "servicesPageTabPackages"
+  },
+  "servicesPackageAdd": "إضافة باقة",
+  "@servicesPackageAdd": {
+    "description": "servicesPackageAdd"
+  },
+  "servicesPackageNeedsTwoServices": "الباقة تحتاج خدمتين نشطتين على الأقل",
+  "@servicesPackageNeedsTwoServices": {
+    "description": "servicesPackageNeedsTwoServices"
+  },
+  "servicesPackageEmpty": "لا باقات بعد",
+  "@servicesPackageEmpty": {
+    "description": "servicesPackageEmpty"
+  },
+  "servicesPackageEditTitle": "تعديل الباقة",
+  "@servicesPackageEditTitle": {
+    "description": "servicesPackageEditTitle"
+  },
+  "servicesPackageAddTitle": "إضافة باقة جديدة",
+  "@servicesPackageAddTitle": {
+    "description": "servicesPackageAddTitle"
+  },
+  "servicesPackageNameLabel": "اسم الباقة",
+  "@servicesPackageNameLabel": {
+    "description": "servicesPackageNameLabel"
+  },
+  "servicesPackagePriceRequired": "سعر الباقة مطلوب، أكبر من صفر",
+  "@servicesPackagePriceRequired": {
+    "description": "servicesPackagePriceRequired"
+  },
+  "servicesPackageServicesLabel": "الخدمات المشمولة",
+  "@servicesPackageServicesLabel": {
+    "description": "servicesPackageServicesLabel"
+  },
+  "servicesImportTitle": "استيراد خدمات من ملف",
+  "@servicesImportTitle": {
+    "description": "servicesImportTitle"
+  },
+  "servicesImportHint": "ملف CSV بأعمدة: name, price, duration_minutes, cycle_days, description",
+  "@servicesImportHint": {
+    "description": "servicesImportHint"
+  },
+  "servicesImportPickFile": "اختيار ملف CSV",
+  "@servicesImportPickFile": {
+    "description": "servicesImportPickFile"
+  },
+  "servicesImportReadFailed": "تعذّرت قراءة الملف",
+  "@servicesImportReadFailed": {
+    "description": "servicesImportReadFailed"
+  },
+  "servicesImportParseFailed": "الملف لا يحتوي عمود name، أو تنسيقه غير صحيح",
+  "@servicesImportParseFailed": {
+    "description": "servicesImportParseFailed"
+  },
+  "servicesImportDeactivateMissing": "إيقاف الخدمات غير الموجودة بالملف",
+  "@servicesImportDeactivateMissing": {
+    "description": "servicesImportDeactivateMissing"
+  },
+  "servicesImportDeactivateMissingHint": "أي خدمة عندك حاليًا ولم تظهر بهذا الملف تُوقَف تلقائيًا",
+  "@servicesImportDeactivateMissingHint": {
+    "description": "servicesImportDeactivateMissingHint"
+  },
+  "servicesImportConfirm": "استيراد",
+  "@servicesImportConfirm": {
+    "description": "servicesImportConfirm"
+  },
+  "servicesImportClose": "تم",
+  "@servicesImportClose": {
+    "description": "servicesImportClose"
+  },
+  "servicesImportRowCount": "{n, plural, =0{لا صفوف} one{صف واحد} other{{n} صف}} جاهزة للاستيراد",
+  "@servicesImportRowCount": {
+    "description": "servicesImportRowCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "servicesImportDone": "أُضيفت {created}، وحُدّثت {updated}، وأُعيد تفعيل {reactivated}.",
+  "@servicesImportDone": {
+    "description": "servicesImportDone",
+    "placeholders": {
+      "created": {
+        "type": "int"
+      },
+      "updated": {
+        "type": "int"
+      },
+      "reactivated": {
+        "type": "int"
+      }
+    }
+  },
+  "visitPackagesSectionTitle": "باقات مميّزة",
+  "@visitPackagesSectionTitle": {
+    "description": "visitPackagesSectionTitle"
+  },
+  "visitNameFieldHint": "اسم العميل (اختياري)",
+  "@visitNameFieldHint": {
+    "description": "visitNameFieldHint"
+  },
+  "visitMeterFieldHint": "قراءة العدّاد",
+  "@visitMeterFieldHint": {
+    "description": "visitMeterFieldHint"
+  },
+  "visitQuantityDialogTitle": "الكمية",
+  "@visitQuantityDialogTitle": {
+    "description": "visitQuantityDialogTitle"
+  },
+  "visitCouponCheckboxLabel": "منح كوبون خصم لمحل آخر",
+  "@visitCouponCheckboxLabel": {
+    "description": "visitCouponCheckboxLabel"
+  },
+  "visitCouponPhoneHint": "جوال صاحب المحل",
+  "@visitCouponPhoneHint": {
+    "description": "visitCouponPhoneHint"
+  },
+  "visitClearAllButton": "مسح الكل",
+  "@visitClearAllButton": {
+    "description": "visitClearAllButton"
+  },
+  "visitServicesSelectedCount": "{n, plural, one{خدمة واحدة مختارة} other{{n} خدمة مختارة}}",
+  "@visitServicesSelectedCount": {
+    "description": "visitServicesSelectedCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "visitTodayBookingsTitle": "مواعيد اليوم",
+  "@visitTodayBookingsTitle": {
+    "description": "visitTodayBookingsTitle"
+  },
+  "visitBookingAttendFailed": "تعذّر تسجيل الحضور، حاول مرة أخرى",
+  "@visitBookingAttendFailed": {
+    "description": "visitBookingAttendFailed"
+  },
+  "branchSwitcherChooseBranch": "اختر الفرع",
+  "@branchSwitcherChooseBranch": {
+    "description": "branchSwitcherChooseBranch"
+  },
+  "branchSwitcherTitle": "الفرع الحالي",
+  "@branchSwitcherTitle": {
+    "description": "branchSwitcherTitle"
+  },
+  "branchSwitcherHint": "كل ما تفتحه بعدها يخص هذا الفرع",
+  "@branchSwitcherHint": {
+    "description": "branchSwitcherHint"
+  },
+  "proceduresPrintFailed": "تعذّر إنشاء المستند",
+  "@proceduresPrintFailed": {
+    "description": "proceduresPrintFailed"
+  },
+  "proceduresTitle": "الإجراءات",
+  "@proceduresTitle": {
+    "description": "proceduresTitle"
+  },
+  "proceduresSubtitle": "اضبط قائمة الإجراءات لكل خدمة، أو أدر المكتبة المشتركة كاملة. اضغط مطوّلًا على خدمة لتحديدها للطباعة",
+  "@proceduresSubtitle": {
+    "description": "proceduresSubtitle"
+  },
+  "proceduresLibraryLink": "مكتبة الإجراءات",
+  "@proceduresLibraryLink": {
+    "description": "proceduresLibraryLink"
+  },
+  "proceduresPrint": "طباعة",
+  "@proceduresPrint": {
+    "description": "proceduresPrint"
+  },
+  "proceduresEmptyTitle": "لا خدمات نشطة بعد",
+  "@proceduresEmptyTitle": {
+    "description": "proceduresEmptyTitle"
+  },
+  "servicesStepSeverityNormal": "عادي",
+  "@servicesStepSeverityNormal": {
+    "description": "servicesStepSeverityNormal"
+  },
+  "servicesStepSeverityCritical": "حرج",
+  "@servicesStepSeverityCritical": {
+    "description": "servicesStepSeverityCritical"
+  },
+  "proceduresSaveFailed": "تعذّر الحفظ",
+  "@proceduresSaveFailed": {
+    "description": "proceduresSaveFailed"
+  },
+  "proceduresDrawerSubtitle": "رتّب الإجراءات بالسحب، أو أضف إجراءً من المكتبة",
+  "@proceduresDrawerSubtitle": {
+    "description": "proceduresDrawerSubtitle"
+  },
+  "proceduresDrawerEmpty": "لا إجراءات لهذه الخدمة بعد",
+  "@proceduresDrawerEmpty": {
+    "description": "proceduresDrawerEmpty"
+  },
+  "proceduresDrawerAddButton": "إضافة من المكتبة",
+  "@proceduresDrawerAddButton": {
+    "description": "proceduresDrawerAddButton"
+  },
+  "proceduresPickTitle": "اختيار إجراء",
+  "@proceduresPickTitle": {
+    "description": "proceduresPickTitle"
+  },
+  "proceduresPickClose": "إغلاق",
+  "@proceduresPickClose": {
+    "description": "proceduresPickClose"
+  },
+  "proceduresPickApply": "إضافة",
+  "@proceduresPickApply": {
+    "description": "proceduresPickApply"
+  },
+  "proceduresPickSearch": "ابحث بالإجراءات",
+  "@proceduresPickSearch": {
+    "description": "proceduresPickSearch"
+  },
+  "proceduresPickEmpty": "لا نتائج",
+  "@proceduresPickEmpty": {
+    "description": "proceduresPickEmpty"
+  },
+  "proceduresPickCreatePlaceholder": "إجراء جديد...",
+  "@proceduresPickCreatePlaceholder": {
+    "description": "proceduresPickCreatePlaceholder"
+  },
+  "proceduresLibrarySaveFailed": "تعذّر الحفظ",
+  "@proceduresLibrarySaveFailed": {
+    "description": "proceduresLibrarySaveFailed"
+  },
+  "proceduresLibraryTitle": "مكتبة الإجراءات",
+  "@proceduresLibraryTitle": {
+    "description": "proceduresLibraryTitle"
+  },
+  "proceduresLibrarySubtitle": "كل إجراء هنا مشترك بين كل الخدمات اللي تستخدمه — تعديله يغيّره بكل مكان",
+  "@proceduresLibrarySubtitle": {
+    "description": "proceduresLibrarySubtitle"
+  },
+  "proceduresLibraryNewPlaceholder": "نص الإجراء الجديد",
+  "@proceduresLibraryNewPlaceholder": {
+    "description": "proceduresLibraryNewPlaceholder"
+  },
+  "proceduresLibraryAdd": "إضافة",
+  "@proceduresLibraryAdd": {
+    "description": "proceduresLibraryAdd"
+  },
+  "proceduresLibraryShowRetired": "إظهار الملغاة",
+  "@proceduresLibraryShowRetired": {
+    "description": "proceduresLibraryShowRetired"
+  },
+  "proceduresLibraryEmpty": "لا إجراءات بعد",
+  "@proceduresLibraryEmpty": {
+    "description": "proceduresLibraryEmpty"
+  },
+  "proceduresLibraryRetired": "ملغى",
+  "@proceduresLibraryRetired": {
+    "description": "proceduresLibraryRetired"
+  },
+  "proceduresLibraryRetire": "إلغاء",
+  "@proceduresLibraryRetire": {
+    "description": "proceduresLibraryRetire"
+  },
+  "proceduresLibraryReactivate": "إعادة تفعيل",
+  "@proceduresLibraryReactivate": {
+    "description": "proceduresLibraryReactivate"
+  },
+  "proceduresSeverityHint": "الإجراء الحرج يُبرَز للموظف بلون مختلف، ولا يجوز تخطّيه أثناء تنفيذ الخدمة",
+  "@proceduresSeverityHint": {
+    "description": "proceduresSeverityHint"
+  },
+  "proceduresSelectedCount": "{n} محددة",
+  "@proceduresSelectedCount": {
+    "description": "proceduresSelectedCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "proceduresStepCount": "{n} إجراء",
+  "@proceduresStepCount": {
+    "description": "proceduresStepCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "proceduresUsedIn": "مستخدم بـ{n} خدمة",
+  "@proceduresUsedIn": {
+    "description": "proceduresUsedIn",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "referralProposeButton": "اقتراح شراكة",
+  "@referralProposeButton": {
+    "description": "referralProposeButton"
+  },
+  "referralTitle": "شراكة استراتيجية",
+  "@referralTitle": {
+    "description": "referralTitle"
+  },
+  "referralSubtitle": "انقل عملاء حقيقيين بينك وبين محلات أخرى، باتفاق متبادل",
+  "@referralSubtitle": {
+    "description": "referralSubtitle"
+  },
+  "referralRoleAll": "الكل",
+  "@referralRoleAll": {
+    "description": "referralRoleAll"
+  },
+  "referralRoleReferrer": "كمُحيل",
+  "@referralRoleReferrer": {
+    "description": "referralRoleReferrer"
+  },
+  "referralRoleBeneficiary": "كمستفيد",
+  "@referralRoleBeneficiary": {
+    "description": "referralRoleBeneficiary"
+  },
+  "referralLoadFailed": "تعذّر تحميل الشراكات",
+  "@referralLoadFailed": {
+    "description": "referralLoadFailed"
+  },
+  "referralEmptyTitle": "لا شراكات بعد",
+  "@referralEmptyTitle": {
+    "description": "referralEmptyTitle"
+  },
+  "referralKpiAsReferrer": "كمُحيل",
+  "@referralKpiAsReferrer": {
+    "description": "referralKpiAsReferrer"
+  },
+  "referralKpiAsBeneficiary": "كمستفيد",
+  "@referralKpiAsBeneficiary": {
+    "description": "referralKpiAsBeneficiary"
+  },
+  "referralKpiSent": "أُحيل",
+  "@referralKpiSent": {
+    "description": "referralKpiSent"
+  },
+  "referralKpiRedeemed": "استُبدل",
+  "@referralKpiRedeemed": {
+    "description": "referralKpiRedeemed"
+  },
+  "referralKpiRate": "نسبة الاستبدال",
+  "@referralKpiRate": {
+    "description": "referralKpiRate"
+  },
+  "referralConfirm": "تأكيد",
+  "@referralConfirm": {
+    "description": "referralConfirm"
+  },
+  "referralGrantDiscountBlanket": "خصم على كامل الزيارة",
+  "@referralGrantDiscountBlanket": {
+    "description": "referralGrantDiscountBlanket"
+  },
+  "referralStatusProposed": "مقترحة",
+  "@referralStatusProposed": {
+    "description": "referralStatusProposed"
+  },
+  "referralStatusActive": "نشطة",
+  "@referralStatusActive": {
+    "description": "referralStatusActive"
+  },
+  "referralStatusPaused": "متوقفة مؤقتًا",
+  "@referralStatusPaused": {
+    "description": "referralStatusPaused"
+  },
+  "referralStatusCancelRequested": "طُلب إنهاؤها",
+  "@referralStatusCancelRequested": {
+    "description": "referralStatusCancelRequested"
+  },
+  "referralStatusEnded": "منتهية",
+  "@referralStatusEnded": {
+    "description": "referralStatusEnded"
+  },
+  "referralStatusRejected": "مرفوضة",
+  "@referralStatusRejected": {
+    "description": "referralStatusRejected"
+  },
+  "referralStatusExpiredUnanswered": "انتهت بلا رد",
+  "@referralStatusExpiredUnanswered": {
+    "description": "referralStatusExpiredUnanswered"
+  },
+  "referralEventProposed": "اقتراح الشراكة",
+  "@referralEventProposed": {
+    "description": "referralEventProposed"
+  },
+  "referralEventAccepted": "قبول الشراكة",
+  "@referralEventAccepted": {
+    "description": "referralEventAccepted"
+  },
+  "referralEventRejected": "رفض الشراكة",
+  "@referralEventRejected": {
+    "description": "referralEventRejected"
+  },
+  "referralEventActivated": "تفعيل الشراكة",
+  "@referralEventActivated": {
+    "description": "referralEventActivated"
+  },
+  "referralEventCancelRequested": "طلب إنهاء",
+  "@referralEventCancelRequested": {
+    "description": "referralEventCancelRequested"
+  },
+  "referralEventCancelConfirmed": "تأكيد الإنهاء",
+  "@referralEventCancelConfirmed": {
+    "description": "referralEventCancelConfirmed"
+  },
+  "referralEventExpiredUnanswered": "انتهت المهلة بلا رد",
+  "@referralEventExpiredUnanswered": {
+    "description": "referralEventExpiredUnanswered"
+  },
+  "referralEventPaused": "إيقاف مؤقت",
+  "@referralEventPaused": {
+    "description": "referralEventPaused"
+  },
+  "referralEventResumed": "استئناف",
+  "@referralEventResumed": {
+    "description": "referralEventResumed"
+  },
+  "referralEventEndedTerm": "انتهت المدة",
+  "@referralEventEndedTerm": {
+    "description": "referralEventEndedTerm"
+  },
+  "referralEventGrantCreated": "منحة جديدة",
+  "@referralEventGrantCreated": {
+    "description": "referralEventGrantCreated"
+  },
+  "referralEventGrantRedeemed": "استبدال منحة",
+  "@referralEventGrantRedeemed": {
+    "description": "referralEventGrantRedeemed"
+  },
+  "referralActivityActive": "نشطة",
+  "@referralActivityActive": {
+    "description": "referralActivityActive"
+  },
+  "referralActivityPaused": "متوقفة مؤقتًا",
+  "@referralActivityPaused": {
+    "description": "referralActivityPaused"
+  },
+  "referralActivityPending": "بانتظار الرد",
+  "@referralActivityPending": {
+    "description": "referralActivityPending"
+  },
+  "referralActivityInactive": "غير نشطة",
+  "@referralActivityInactive": {
+    "description": "referralActivityInactive"
+  },
+  "referralScorecardTitle": "الأداء",
+  "@referralScorecardTitle": {
+    "description": "referralScorecardTitle"
+  },
+  "referralScorecardFailed": "تعذّر تحميل الأداء",
+  "@referralScorecardFailed": {
+    "description": "referralScorecardFailed"
+  },
+  "referralActivityTitle": "النشاط الأخير",
+  "@referralActivityTitle": {
+    "description": "referralActivityTitle"
+  },
+  "referralActivityEmpty": "لا نشاط بعد",
+  "@referralActivityEmpty": {
+    "description": "referralActivityEmpty"
+  },
+  "referralAgreementsTitle": "الاتفاقيات",
+  "@referralAgreementsTitle": {
+    "description": "referralAgreementsTitle"
+  },
+  "referralConfirmCancel": "تأكيد إنهاء هذه الشراكة نهائيًا؟",
+  "@referralConfirmCancel": {
+    "description": "referralConfirmCancel"
+  },
+  "referralActionAccept": "قبول",
+  "@referralActionAccept": {
+    "description": "referralActionAccept"
+  },
+  "referralActionReject": "رفض",
+  "@referralActionReject": {
+    "description": "referralActionReject"
+  },
+  "referralActionWaitingThem": "بانتظار الطرف الآخر",
+  "@referralActionWaitingThem": {
+    "description": "referralActionWaitingThem"
+  },
+  "referralActionCancelRequest": "طلب إنهاء",
+  "@referralActionCancelRequest": {
+    "description": "referralActionCancelRequest"
+  },
+  "referralActionCancelConfirm": "تأكيد الإنهاء",
+  "@referralActionCancelConfirm": {
+    "description": "referralActionCancelConfirm"
+  },
+  "referralProposeTitle": "اقتراح شراكة جديدة",
+  "@referralProposeTitle": {
+    "description": "referralProposeTitle"
+  },
+  "referralProposePhoneLabel": "جوال المحل الآخر",
+  "@referralProposePhoneLabel": {
+    "description": "referralProposePhoneLabel"
+  },
+  "referralProposeConditionLabel": "شرط الاستحقاق عندك",
+  "@referralProposeConditionLabel": {
+    "description": "referralProposeConditionLabel"
+  },
+  "referralConditionMinTotal": "حد أدنى للفاتورة",
+  "@referralConditionMinTotal": {
+    "description": "referralConditionMinTotal"
+  },
+  "referralConditionServiceId": "خدمة معينة",
+  "@referralConditionServiceId": {
+    "description": "referralConditionServiceId"
+  },
+  "referralProposeConditionValueRiyals": "المبلغ (ريال)",
+  "@referralProposeConditionValueRiyals": {
+    "description": "referralProposeConditionValueRiyals"
+  },
+  "referralProposeConditionValueService": "الخدمة",
+  "@referralProposeConditionValueService": {
+    "description": "referralProposeConditionValueService"
+  },
+  "referralProposeValidityLabel": "الصلاحية (يوم)",
+  "@referralProposeValidityLabel": {
+    "description": "referralProposeValidityLabel"
+  },
+  "referralProposeDurationLabel": "المدة (يوم)",
+  "@referralProposeDurationLabel": {
+    "description": "referralProposeDurationLabel"
+  },
+  "referralProposeCapLabel": "الحد كل 30 يوم",
+  "@referralProposeCapLabel": {
+    "description": "referralProposeCapLabel"
+  },
+  "referralProposeGrantTypeLabel": "نوع المنحة",
+  "@referralProposeGrantTypeLabel": {
+    "description": "referralProposeGrantTypeLabel"
+  },
+  "referralGrantTypeDiscount": "خصم",
+  "@referralGrantTypeDiscount": {
+    "description": "referralGrantTypeDiscount"
+  },
+  "referralGrantTypeGift": "هدية",
+  "@referralGrantTypeGift": {
+    "description": "referralGrantTypeGift"
+  },
+  "referralScopeBlanket": "كامل الزيارة",
+  "@referralScopeBlanket": {
+    "description": "referralScopeBlanket"
+  },
+  "referralScopeItem": "خدمة معينة",
+  "@referralScopeItem": {
+    "description": "referralScopeItem"
+  },
+  "referralScopeGroup": "مجموعة/باقة",
+  "@referralScopeGroup": {
+    "description": "referralScopeGroup"
+  },
+  "referralProposeServiceLabel": "الخدمة",
+  "@referralProposeServiceLabel": {
+    "description": "referralProposeServiceLabel"
+  },
+  "referralProposeGroupLabel": "المجموعة",
+  "@referralProposeGroupLabel": {
+    "description": "referralProposeGroupLabel"
+  },
+  "referralProposeImmutableNote": "شروط المنحة ثابتة بعد الإرسال — أي تغيير يحتاج اتفاقية جديدة",
+  "@referralProposeImmutableNote": {
+    "description": "referralProposeImmutableNote"
+  },
+  "referralProposeSubmitting": "جارٍ الإرسال...",
+  "@referralProposeSubmitting": {
+    "description": "referralProposeSubmitting"
+  },
+  "referralProposeSubmit": "إرسال الاقتراح",
+  "@referralProposeSubmit": {
+    "description": "referralProposeSubmit"
+  },
+  "referralGrantGift": "هدية: {name}",
+  "@referralGrantGift": {
+    "description": "referralGrantGift",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "referralGrantDiscountItem": "خصم على: {name}",
+  "@referralGrantDiscountItem": {
+    "description": "referralGrantDiscountItem",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "referralGrantDiscountGroup": "خصم على مجموعة: {name}",
+  "@referralGrantDiscountGroup": {
+    "description": "referralGrantDiscountGroup",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "referralPartnerCount": "{n} اتفاقية",
+  "@referralPartnerCount": {
+    "description": "referralPartnerCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "referralProposeResultFail": "تعذّر إرسال الاقتراح",
+  "@referralProposeResultFail": {
+    "description": "referralProposeResultFail"
+  },
+  "referralRefusal402": "محلك غير مشترك بتطبيق شراكة استراتيجية — اشترك من متجر التطبيقات أولًا",
+  "@referralRefusal402": {
+    "description": "referralRefusal402"
+  },
+  "referralRefusal403": "لا تملك صلاحية كافية لهذا الإجراء",
+  "@referralRefusal403": {
+    "description": "referralRefusal403"
+  },
+  "referralRefusal400": "بيانات الاقتراح غير صحيحة — تأكد من الشرط، أو أنك لا تقترح شراكة على محلك نفسه",
+  "@referralRefusal400": {
+    "description": "referralRefusal400"
+  },
+  "referralRefusal404": "لم يُعثر على محل بهذا الرقم، أو على الخدمة/المجموعة المختارة بكتالوج الطرف الآخر",
+  "@referralRefusal404": {
+    "description": "referralRefusal404"
+  },
+  "referralRefusal409": "تجاوزت الحد الأقصى للشراكات النشطة (3)، أو حالة الشراكة تغيّرت",
+  "@referralRefusal409": {
+    "description": "referralRefusal409"
+  },
+  "referralRefusal503": "خدمة الفوترة غير متاحة حاليًا، حاول لاحقًا",
+  "@referralRefusal503": {
+    "description": "referralRefusal503"
+  },
+  "appStoreTitle": "متجر التطبيقات",
+  "@appStoreTitle": {
+    "description": "appStoreTitle"
+  },
+  "appStoreSubtitle": "طوّر محلك بتطبيقات حقيقية، واحد واحد",
+  "@appStoreSubtitle": {
+    "description": "appStoreSubtitle"
+  },
+  "appStoreTabMine": "تطبيقاتي",
+  "@appStoreTabMine": {
+    "description": "appStoreTabMine"
+  },
+  "appStoreTabAll": "متجر التطبيقات",
+  "@appStoreTabAll": {
+    "description": "appStoreTabAll"
+  },
+  "appStoreDetails": "التفاصيل",
+  "@appStoreDetails": {
+    "description": "appStoreDetails"
+  },
+  "appStorePerMonth": "شهريًا",
+  "@appStorePerMonth": {
+    "description": "appStorePerMonth"
+  },
+  "appStorePerMonthShort": "/شهر",
+  "@appStorePerMonthShort": {
+    "description": "appStorePerMonthShort"
+  },
+  "appStoreActive": "نشط",
+  "@appStoreActive": {
+    "description": "appStoreActive"
+  },
+  "appStoreTrialing": "تجريبي",
+  "@appStoreTrialing": {
+    "description": "appStoreTrialing"
+  },
+  "appStoreSubscribe": "اشترك الآن",
+  "@appStoreSubscribe": {
+    "description": "appStoreSubscribe"
+  },
+  "appStoreCancelRenewal": "إيقاف التجديد",
+  "@appStoreCancelRenewal": {
+    "description": "appStoreCancelRenewal"
+  },
+  "appStoreUndoCancel": "تراجع عن الإيقاف",
+  "@appStoreUndoCancel": {
+    "description": "appStoreUndoCancel"
+  },
+  "appStoreConfirmCancel": "هل تريد إيقاف تجديد هذا التطبيق؟ يستمر لين نهاية الفترة المدفوعة",
+  "@appStoreConfirmCancel": {
+    "description": "appStoreConfirmCancel"
+  },
+  "appStoreCartCount": "{n} بالسلة",
+  "@appStoreCartCount": {
+    "description": "appStoreCartCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "appStoreCheckout": "إتمام الشراء",
+  "@appStoreCheckout": {
+    "description": "appStoreCheckout"
+  },
+  "appStoreCheckingOut": "جاري الشراء...",
+  "@appStoreCheckingOut": {
+    "description": "appStoreCheckingOut"
+  },
+  "appStoreRefusal402": "الدفع غير مفعّل على حسابك حاليًا — تواصل معنا لتفعيله",
+  "@appStoreRefusal402": {
+    "description": "appStoreRefusal402"
+  },
+  "appStoreRefusal403": "لا صلاحية لك لإتمام عملية الشراء هذه",
+  "@appStoreRefusal403": {
+    "description": "appStoreRefusal403"
+  },
+  "appStoreRefusal404": "لم يُعثر على الباقة المطلوبة — أعد المحاولة بعد تحديث الشاشة",
+  "@appStoreRefusal404": {
+    "description": "appStoreRefusal404"
+  },
+  "appStoreRefusal409": "هذا التطبيق مملوك مسبقًا أو تغيّرت حالته أثناء الشراء",
+  "@appStoreRefusal409": {
+    "description": "appStoreRefusal409"
+  },
+  "appStoreRefusalGeneric": "تعذّر إتمام الشراء، حاول مرة أخرى",
+  "@appStoreRefusalGeneric": {
+    "description": "appStoreRefusalGeneric"
+  },
+  "appStoreCapacityTitle": "السعة",
+  "@appStoreCapacityTitle": {
+    "description": "appStoreCapacityTitle"
+  },
+  "appStoreCapacityConfirmRemove": "هل تريد إزالة آخر وحدة من \"{name}\"؟ هذا يوقف تجديده بالكامل",
+  "@appStoreCapacityConfirmRemove": {
+    "description": "appStoreCapacityConfirmRemove",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
 }

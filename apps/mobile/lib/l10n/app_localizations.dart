@@ -1311,6 +1311,12 @@ abstract class S {
   /// **'مشرف وردية'**
   String get branchesRoleSupervisor;
 
+  /// No description provided for @branchesRoleMarketer.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسؤول التسويق'**
+  String get branchesRoleMarketer;
+
   /// No description provided for @branchesRoleManager.
   ///
   /// In ar, this message translates to:
@@ -1328,6 +1334,174 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'تعذّر إضافة الموظف، حاول مرة ثانية.'**
   String get branchesHireFailed;
+
+  /// No description provided for @branchesVisibleAllHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'يشوف كل الفروع'**
+  String get branchesVisibleAllHint;
+
+  /// branchesVisibleSomeHint
+  ///
+  /// In ar, this message translates to:
+  /// **'يشوف {count} فروع'**
+  String branchesVisibleSomeHint(int count);
+
+  /// No description provided for @branchesEditMember.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعديل الموظف'**
+  String get branchesEditMember;
+
+  /// No description provided for @branchesMemberStopped.
+  ///
+  /// In ar, this message translates to:
+  /// **'متوقف'**
+  String get branchesMemberStopped;
+
+  /// No description provided for @branchesMemberStationLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'الفرع اللي يشتغل فيه'**
+  String get branchesMemberStationLabel;
+
+  /// No description provided for @branchesMemberVisibilityLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'أي فروع يقدر يشوفها'**
+  String get branchesMemberVisibilityLabel;
+
+  /// No description provided for @branchesVisibilityOwnOnly.
+  ///
+  /// In ar, this message translates to:
+  /// **'فرعه بس'**
+  String get branchesVisibilityOwnOnly;
+
+  /// No description provided for @branchesVisibilitySome.
+  ///
+  /// In ar, this message translates to:
+  /// **'فروع محددة'**
+  String get branchesVisibilitySome;
+
+  /// No description provided for @branchesVisibilityAll.
+  ///
+  /// In ar, this message translates to:
+  /// **'كل الفروع'**
+  String get branchesVisibilityAll;
+
+  /// No description provided for @branchesWorkingHours.
+  ///
+  /// In ar, this message translates to:
+  /// **'ساعات العمل'**
+  String get branchesWorkingHours;
+
+  /// No description provided for @branchesStopMember.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف الموظف'**
+  String get branchesStopMember;
+
+  /// No description provided for @branchesStopMemberTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف هذا الموظف؟'**
+  String get branchesStopMemberTitle;
+
+  /// branchesStopMemberBody
+  ///
+  /// In ar, this message translates to:
+  /// **'بيفقد {name} القدرة على الدخول للتطبيق فورًا. سجل زياراته وتاريخه يبقى محفوظًا.'**
+  String branchesStopMemberBody(String name);
+
+  /// No description provided for @branchesStopMemberConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف'**
+  String get branchesStopMemberConfirm;
+
+  /// No description provided for @branchesReactivateMember.
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة تفعيل'**
+  String get branchesReactivateMember;
+
+  /// No description provided for @branchesRehireRequired.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا الموظف متوقف تمامًا — التفعيل يحتاج توظيفه من جديد، مو مجرد تشغيل.'**
+  String get branchesRehireRequired;
+
+  /// No description provided for @branchesHoursSaved.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم حفظ ساعات العمل.'**
+  String get branchesHoursSaved;
+
+  /// No description provided for @branchesHoursExceedsShop.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذي الساعات أوسع من ساعات عمل المحل نفسه — عدّلها.'**
+  String get branchesHoursExceedsShop;
+
+  /// No description provided for @branchesHoursHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'لو ما عدّلت شي، يشتغل بنفس ساعات المحل تلقائيًا.'**
+  String get branchesHoursHint;
+
+  /// No description provided for @branchesHoursClear.
+  ///
+  /// In ar, this message translates to:
+  /// **'رجّعه لساعات المحل الافتراضية'**
+  String get branchesHoursClear;
+
+  /// No description provided for @branchesDayMonday.
+  ///
+  /// In ar, this message translates to:
+  /// **'الاثنين'**
+  String get branchesDayMonday;
+
+  /// No description provided for @branchesDayTuesday.
+  ///
+  /// In ar, this message translates to:
+  /// **'الثلاثاء'**
+  String get branchesDayTuesday;
+
+  /// No description provided for @branchesDayWednesday.
+  ///
+  /// In ar, this message translates to:
+  /// **'الأربعاء'**
+  String get branchesDayWednesday;
+
+  /// No description provided for @branchesDayThursday.
+  ///
+  /// In ar, this message translates to:
+  /// **'الخميس'**
+  String get branchesDayThursday;
+
+  /// No description provided for @branchesDayFriday.
+  ///
+  /// In ar, this message translates to:
+  /// **'الجمعة'**
+  String get branchesDayFriday;
+
+  /// No description provided for @branchesDaySaturday.
+  ///
+  /// In ar, this message translates to:
+  /// **'السبت'**
+  String get branchesDaySaturday;
+
+  /// No description provided for @branchesDaySunday.
+  ///
+  /// In ar, this message translates to:
+  /// **'الأحد'**
+  String get branchesDaySunday;
+
+  /// No description provided for @branchesDayClosed.
+  ///
+  /// In ar, this message translates to:
+  /// **'مغلق'**
+  String get branchesDayClosed;
 
   /// No description provided for @accountSecuritySectionTitle.
   ///
@@ -1587,6 +1761,12 @@ abstract class S {
   /// **'تعذّر إنشاء رابط الدفع، حاول مرة أخرى.'**
   String get billingPayLinkFailed;
 
+  /// No description provided for @paymentPageLoadFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تحميل صفحة الدفع. تحقق من اتصالك ثم أعد المحاولة.'**
+  String get paymentPageLoadFailed;
+
   /// No description provided for @billingCancelConfirmTitle.
   ///
   /// In ar, this message translates to:
@@ -1712,6 +1892,2964 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'تعذّر تغيير إعداد تتبع السيارات، حاول مرة ثانية.'**
   String get writeVehicleTrackingFailed;
+
+  /// mobileRequestsTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'خدمات متنقلة'**
+  String get mobileRequestsTitle;
+
+  /// mobileRequestsSubtitle
+  ///
+  /// In ar, this message translates to:
+  /// **'طلبات خدمة تصل للعميل، من الاستلام للتنفيذ.'**
+  String get mobileRequestsSubtitle;
+
+  /// mobileRequestsKpiPending
+  ///
+  /// In ar, this message translates to:
+  /// **'بانتظار قرار'**
+  String get mobileRequestsKpiPending;
+
+  /// mobileRequestsKpiNeedsDecision
+  ///
+  /// In ar, this message translates to:
+  /// **'تحتاج قرار'**
+  String get mobileRequestsKpiNeedsDecision;
+
+  /// mobileRequestsKpiCompletedMonth
+  ///
+  /// In ar, this message translates to:
+  /// **'تمّت هذا الشهر'**
+  String get mobileRequestsKpiCompletedMonth;
+
+  /// mobileRequestsBannerGo
+  ///
+  /// In ar, this message translates to:
+  /// **'عرضها'**
+  String get mobileRequestsBannerGo;
+
+  /// mobileRequestsFilterAll
+  ///
+  /// In ar, this message translates to:
+  /// **'الكل'**
+  String get mobileRequestsFilterAll;
+
+  /// mobileRequestsFilterPending
+  ///
+  /// In ar, this message translates to:
+  /// **'بانتظار قرار'**
+  String get mobileRequestsFilterPending;
+
+  /// mobileRequestsFilterAccepted
+  ///
+  /// In ar, this message translates to:
+  /// **'مقبولة'**
+  String get mobileRequestsFilterAccepted;
+
+  /// mobileRequestsFilterNeedsDecision
+  ///
+  /// In ar, this message translates to:
+  /// **'تحتاج قرار'**
+  String get mobileRequestsFilterNeedsDecision;
+
+  /// mobileRequestsFilterCompleted
+  ///
+  /// In ar, this message translates to:
+  /// **'تمّت'**
+  String get mobileRequestsFilterCompleted;
+
+  /// mobileRequestsFilterClosed
+  ///
+  /// In ar, this message translates to:
+  /// **'مغلقة'**
+  String get mobileRequestsFilterClosed;
+
+  /// mobileRequestsSearchHint
+  ///
+  /// In ar, this message translates to:
+  /// **'ابحث بالاسم أو الجوال'**
+  String get mobileRequestsSearchHint;
+
+  /// mobileRequestsLoadFailedTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تحميل الطلبات'**
+  String get mobileRequestsLoadFailedTitle;
+
+  /// mobileRequestsLoadFailedBody
+  ///
+  /// In ar, this message translates to:
+  /// **'تحقّق من اتصالك وحاول مرة أخرى.'**
+  String get mobileRequestsLoadFailedBody;
+
+  /// mobileRequestsRetry
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة المحاولة'**
+  String get mobileRequestsRetry;
+
+  /// mobileRequestsEmptyTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'لا طلبات بعد'**
+  String get mobileRequestsEmptyTitle;
+
+  /// mobileRequestsEmptyBody
+  ///
+  /// In ar, this message translates to:
+  /// **'طلبات الخدمة المتنقلة من عملائك تظهر هنا.'**
+  String get mobileRequestsEmptyBody;
+
+  /// mobileRequestsStatusPending
+  ///
+  /// In ar, this message translates to:
+  /// **'بانتظار قرار'**
+  String get mobileRequestsStatusPending;
+
+  /// mobileRequestsStatusAccepted
+  ///
+  /// In ar, this message translates to:
+  /// **'مقبول'**
+  String get mobileRequestsStatusAccepted;
+
+  /// mobileRequestsStatusNeedsDecision
+  ///
+  /// In ar, this message translates to:
+  /// **'تحتاج قرار'**
+  String get mobileRequestsStatusNeedsDecision;
+
+  /// mobileRequestsStatusCompleted
+  ///
+  /// In ar, this message translates to:
+  /// **'تمّ'**
+  String get mobileRequestsStatusCompleted;
+
+  /// mobileRequestsStatusNoShow
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يحضر'**
+  String get mobileRequestsStatusNoShow;
+
+  /// mobileRequestsStatusRejected
+  ///
+  /// In ar, this message translates to:
+  /// **'مرفوض'**
+  String get mobileRequestsStatusRejected;
+
+  /// mobileRequestsUnnamed
+  ///
+  /// In ar, this message translates to:
+  /// **'بدون اسم'**
+  String get mobileRequestsUnnamed;
+
+  /// mobileRequestsOpenMap
+  ///
+  /// In ar, this message translates to:
+  /// **'الموقع'**
+  String get mobileRequestsOpenMap;
+
+  /// mobileRequestsPhoneCopied
+  ///
+  /// In ar, this message translates to:
+  /// **'تم نسخ رقم الجوال'**
+  String get mobileRequestsPhoneCopied;
+
+  /// mobileRequestsRiskyCustomer
+  ///
+  /// In ar, this message translates to:
+  /// **'عميل عالي خطر عدم الحضور'**
+  String get mobileRequestsRiskyCustomer;
+
+  /// mobileRequestsRejectReasonLine
+  ///
+  /// In ar, this message translates to:
+  /// **'سبب الرفض: {reason}'**
+  String mobileRequestsRejectReasonLine(Object reason);
+
+  /// mobileRequestsActionAccept
+  ///
+  /// In ar, this message translates to:
+  /// **'قبول'**
+  String get mobileRequestsActionAccept;
+
+  /// mobileRequestsActionReject
+  ///
+  /// In ar, this message translates to:
+  /// **'رفض'**
+  String get mobileRequestsActionReject;
+
+  /// mobileRequestsActionComplete
+  ///
+  /// In ar, this message translates to:
+  /// **'تمّ'**
+  String get mobileRequestsActionComplete;
+
+  /// mobileRequestsActionNoShow
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يحضر'**
+  String get mobileRequestsActionNoShow;
+
+  /// mobileRequestsAssignUnassigned
+  ///
+  /// In ar, this message translates to:
+  /// **'غير مُسنَد'**
+  String get mobileRequestsAssignUnassigned;
+
+  /// mobileRequestsActionFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تنفيذ الإجراء، حاول مرة أخرى.'**
+  String get mobileRequestsActionFailed;
+
+  /// mobileRequestsRejectTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'سبب الرفض'**
+  String get mobileRequestsRejectTitle;
+
+  /// mobileRequestsRejectHint
+  ///
+  /// In ar, this message translates to:
+  /// **'اختياري'**
+  String get mobileRequestsRejectHint;
+
+  /// mobileRequestsRejectCancel
+  ///
+  /// In ar, this message translates to:
+  /// **'إلغاء'**
+  String get mobileRequestsRejectCancel;
+
+  /// mobileRequestsRejectConfirm
+  ///
+  /// In ar, this message translates to:
+  /// **'رفض الطلب'**
+  String get mobileRequestsRejectConfirm;
+
+  /// mobileRequestsAddOpen
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة طلب'**
+  String get mobileRequestsAddOpen;
+
+  /// mobileRequestsAddTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة طلب خدمة متنقلة'**
+  String get mobileRequestsAddTitle;
+
+  /// mobileRequestsAddPhoneLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'جوال العميل'**
+  String get mobileRequestsAddPhoneLabel;
+
+  /// mobileRequestsAddNameLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم العميل (اختياري)'**
+  String get mobileRequestsAddNameLabel;
+
+  /// mobileRequestsAddServicesLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'الخدمات'**
+  String get mobileRequestsAddServicesLabel;
+
+  /// mobileRequestsAddServicesEmpty
+  ///
+  /// In ar, this message translates to:
+  /// **'لا خدمات متاحة بعد.'**
+  String get mobileRequestsAddServicesEmpty;
+
+  /// mobileRequestsAddDayLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'اليوم'**
+  String get mobileRequestsAddDayLabel;
+
+  /// mobileRequestsAddTimeLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'الوقت'**
+  String get mobileRequestsAddTimeLabel;
+
+  /// mobileRequestsAddMapsLinkLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'رابط الموقع من خرائط جوجل'**
+  String get mobileRequestsAddMapsLinkLabel;
+
+  /// mobileRequestsAddMapsLinkHint
+  ///
+  /// In ar, this message translates to:
+  /// **'يقبل الرابط الكامل أو المختصر من خرائط جوجل.'**
+  String get mobileRequestsAddMapsLinkHint;
+
+  /// mobileRequestsAddMapsLinkShort
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا رابط مختصر — الصق الرابط الكامل من خرائط جوجل.'**
+  String get mobileRequestsAddMapsLinkShort;
+
+  /// mobileRequestsAddMapsLinkInvalid
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر قراءة موقع من هذا الرابط.'**
+  String get mobileRequestsAddMapsLinkInvalid;
+
+  /// mobileRequestsAddAssignLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'إسناد إلى (اختياري)'**
+  String get mobileRequestsAddAssignLabel;
+
+  /// mobileRequestsAddCancel
+  ///
+  /// In ar, this message translates to:
+  /// **'إلغاء'**
+  String get mobileRequestsAddCancel;
+
+  /// mobileRequestsAddSubmit
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة الطلب'**
+  String get mobileRequestsAddSubmit;
+
+  /// mobileRequestsAddSubmitting
+  ///
+  /// In ar, this message translates to:
+  /// **'جارٍ الإضافة...'**
+  String get mobileRequestsAddSubmitting;
+
+  /// mobileRequestsAddError
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّرت إضافة الطلب، حاول مرة أخرى.'**
+  String get mobileRequestsAddError;
+
+  /// Warning banner: N requests overdue a decision
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, one{طلب واحد يحتاج قرارك الآن} other{{count} طلبات تحتاج قرارك الآن}}'**
+  String mobileRequestsBannerText(int count);
+
+  /// mobileRequestsAddMapsLinkResolving
+  ///
+  /// In ar, this message translates to:
+  /// **'جارٍ قراءة الموقع من الرابط...'**
+  String get mobileRequestsAddMapsLinkResolving;
+
+  /// customersTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'عملائي'**
+  String get customersTitle;
+
+  /// customersAddOpen
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة عميل'**
+  String get customersAddOpen;
+
+  /// customersSearchHint
+  ///
+  /// In ar, this message translates to:
+  /// **'ابحث بالاسم أو الجوال'**
+  String get customersSearchHint;
+
+  /// customersTabAll
+  ///
+  /// In ar, this message translates to:
+  /// **'الكل'**
+  String get customersTabAll;
+
+  /// customersTabOverdue
+  ///
+  /// In ar, this message translates to:
+  /// **'من تأخّر'**
+  String get customersTabOverdue;
+
+  /// customersSearchFailedTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر البحث الآن'**
+  String get customersSearchFailedTitle;
+
+  /// customersSearchFailedBody
+  ///
+  /// In ar, this message translates to:
+  /// **'حاول مرة أخرى بعد قليل.'**
+  String get customersSearchFailedBody;
+
+  /// customersSearchEmpty
+  ///
+  /// In ar, this message translates to:
+  /// **'لا نتائج'**
+  String get customersSearchEmpty;
+
+  /// customersLoadFailedTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر التحميل'**
+  String get customersLoadFailedTitle;
+
+  /// customersEmptyTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'لا عملاء بعد'**
+  String get customersEmptyTitle;
+
+  /// customersOverdueEmpty
+  ///
+  /// In ar, this message translates to:
+  /// **'لا أحد متأخر حالياً'**
+  String get customersOverdueEmpty;
+
+  /// customersUnnamed
+  ///
+  /// In ar, this message translates to:
+  /// **'بلا اسم'**
+  String get customersUnnamed;
+
+  /// customersVisitCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, one{زيارة واحدة} two{زيارتان} other{{count} زيارة}}'**
+  String customersVisitCount(int count);
+
+  /// customersOverdueBadge
+  ///
+  /// In ar, this message translates to:
+  /// **'متأخر'**
+  String get customersOverdueBadge;
+
+  /// customersStatEveryDays
+  ///
+  /// In ar, this message translates to:
+  /// **'{days, plural, one{كل يوم} two{كل يومين} other{كل {days} يوم}}'**
+  String customersStatEveryDays(int days);
+
+  /// customersOverdueBanner
+  ///
+  /// In ar, this message translates to:
+  /// **'متأخر عن موعده المعتاد — عادة يزور كل {every} يوم، ومضى {since} يوم منذ آخر زيارة'**
+  String customersOverdueBanner(int every, int since);
+
+  /// customersVisitMeter
+  ///
+  /// In ar, this message translates to:
+  /// **'قراءة العدّاد: {n}'**
+  String customersVisitMeter(int n);
+
+  /// customersOfferExpiredBadge
+  ///
+  /// In ar, this message translates to:
+  /// **'منتهي'**
+  String get customersOfferExpiredBadge;
+
+  /// customersDeniedAllTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'لا تملك صلاحية عرض قائمة العملاء'**
+  String get customersDeniedAllTitle;
+
+  /// customersDeniedOverdueTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'لا تملك صلاحية عرض من تأخّر'**
+  String get customersDeniedOverdueTitle;
+
+  /// customersDeniedDesc
+  ///
+  /// In ar, this message translates to:
+  /// **'اطلب من مالك المحل يمنحك هذي الصلاحية.'**
+  String get customersDeniedDesc;
+
+  /// customersAddTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة عميل جديد'**
+  String get customersAddTitle;
+
+  /// customersAddPhoneLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'جوال العميل'**
+  String get customersAddPhoneLabel;
+
+  /// customersAddNameLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم العميل'**
+  String get customersAddNameLabel;
+
+  /// customersAddPhoneInvalid
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم الجوال غير صحيح.'**
+  String get customersAddPhoneInvalid;
+
+  /// customersAddFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّرت إضافة العميل، حاول مرة أخرى.'**
+  String get customersAddFailed;
+
+  /// customersAddSubmitting
+  ///
+  /// In ar, this message translates to:
+  /// **'جارٍ الإضافة...'**
+  String get customersAddSubmitting;
+
+  /// customersAddSubmit
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة'**
+  String get customersAddSubmit;
+
+  /// customersActionFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تنفيذ الإجراء، حاول مرة أخرى.'**
+  String get customersActionFailed;
+
+  /// customersRepeatedIssuesTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'شكاوى متكررة'**
+  String get customersRepeatedIssuesTitle;
+
+  /// customersVehiclesTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'المركبات'**
+  String get customersVehiclesTitle;
+
+  /// customersLoyaltyTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'الولاء'**
+  String get customersLoyaltyTitle;
+
+  /// customersLoyaltyLoading
+  ///
+  /// In ar, this message translates to:
+  /// **'جارٍ التحميل...'**
+  String get customersLoyaltyLoading;
+
+  /// customersLoyaltyPoints
+  ///
+  /// In ar, this message translates to:
+  /// **'{count} نقطة'**
+  String customersLoyaltyPoints(int count);
+
+  /// customersLoyaltyAdjust
+  ///
+  /// In ar, this message translates to:
+  /// **'تعديل'**
+  String get customersLoyaltyAdjust;
+
+  /// customersOffersTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'العروض السارية'**
+  String get customersOffersTitle;
+
+  /// customersOfferExpires
+  ///
+  /// In ar, this message translates to:
+  /// **'ينتهي {date}'**
+  String customersOfferExpires(String date);
+
+  /// customersVisitsTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'سجل الزيارات'**
+  String get customersVisitsTitle;
+
+  /// customersVisitsEmpty
+  ///
+  /// In ar, this message translates to:
+  /// **'لا زيارات بعد'**
+  String get customersVisitsEmpty;
+
+  /// customersVisitNoServices
+  ///
+  /// In ar, this message translates to:
+  /// **'بدون خدمات مسجّلة'**
+  String get customersVisitNoServices;
+
+  /// customersRenameTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'تعديل اسم العميل'**
+  String get customersRenameTitle;
+
+  /// customersRenameSubmit
+  ///
+  /// In ar, this message translates to:
+  /// **'حفظ'**
+  String get customersRenameSubmit;
+
+  /// customersLoyaltyAdjustTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'تعديل نقاط الولاء'**
+  String get customersLoyaltyAdjustTitle;
+
+  /// customersLoyaltyAdjustNoteLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'سبب التعديل'**
+  String get customersLoyaltyAdjustNoteLabel;
+
+  /// customersLoyaltyAdjustNoteRequired
+  ///
+  /// In ar, this message translates to:
+  /// **'اكتب سبباً حقيقياً (3 أحرف على الأقل)، واختر عدداً غير صفر.'**
+  String get customersLoyaltyAdjustNoteRequired;
+
+  /// customersLoyaltyAdjustSubmit
+  ///
+  /// In ar, this message translates to:
+  /// **'حفظ التعديل'**
+  String get customersLoyaltyAdjustSubmit;
+
+  /// customersEraseButton
+  ///
+  /// In ar, this message translates to:
+  /// **'حذف بيانات هذا العميل'**
+  String get customersEraseButton;
+
+  /// customersEraseTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'حذف بيانات العميل'**
+  String get customersEraseTitle;
+
+  /// customersEraseWarning
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا حذف نهائي لكل بيانات العميل من المنصة، ولا يمكن التراجع عنه.'**
+  String get customersEraseWarning;
+
+  /// customersEraseTypeNameLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'للتأكيد، اكتب اسم العميل: {name}'**
+  String customersEraseTypeNameLabel(String name);
+
+  /// customersEraseConfirm
+  ///
+  /// In ar, this message translates to:
+  /// **'حذف نهائي'**
+  String get customersEraseConfirm;
+
+  /// customersBookingsTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'الحجوزات'**
+  String get customersBookingsTitle;
+
+  /// customersAttendanceRate
+  ///
+  /// In ar, this message translates to:
+  /// **'{rate}٪ حضور'**
+  String customersAttendanceRate(int rate);
+
+  /// customersBookingsNoneUpcoming
+  ///
+  /// In ar, this message translates to:
+  /// **'لا حجوزات قادمة'**
+  String get customersBookingsNoneUpcoming;
+
+  /// customersCyclesTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'دورات التذكير'**
+  String get customersCyclesTitle;
+
+  /// customersCyclesEveryDays
+  ///
+  /// In ar, this message translates to:
+  /// **'كل {days} يوم'**
+  String customersCyclesEveryDays(int days);
+
+  /// customersCyclesEditHint
+  ///
+  /// In ar, this message translates to:
+  /// **'اضبط الفترة، وسيتوقف التعلّم التلقائي لهذه الخدمة مع هذا العميل.'**
+  String get customersCyclesEditHint;
+
+  /// customersCyclesSave
+  ///
+  /// In ar, this message translates to:
+  /// **'حفظ'**
+  String get customersCyclesSave;
+
+  /// customersLogTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'ماذا قلنا له'**
+  String get customersLogTitle;
+
+  /// customersLogEmpty
+  ///
+  /// In ar, this message translates to:
+  /// **'لم نرسل له شيئاً بعد'**
+  String get customersLogEmpty;
+
+  /// customersCyclesUnknownService
+  ///
+  /// In ar, this message translates to:
+  /// **'خدمة غير معروفة'**
+  String get customersCyclesUnknownService;
+
+  /// customersVisitGapDays
+  ///
+  /// In ar, this message translates to:
+  /// **'{days, plural, =0{بنفس اليوم} one{بعد يوم واحد} two{بعد يومين} other{بعد {days} يوم}}'**
+  String customersVisitGapDays(int days);
+
+  /// customersCountLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{لا عملاء بعد} one{عميل واحد} two{عميلان} other{{count} عميل}}'**
+  String customersCountLabel(int count);
+
+  /// ratingTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'التقييم'**
+  String get ratingTitle;
+
+  /// pointsTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'نقاط الولاء'**
+  String get pointsTitle;
+
+  /// pointsAddReward
+  ///
+  /// In ar, this message translates to:
+  /// **'مكافأة جديدة'**
+  String get pointsAddReward;
+
+  /// pointsEditReward
+  ///
+  /// In ar, this message translates to:
+  /// **'تعديل المكافأة'**
+  String get pointsEditReward;
+
+  /// pointsTabRewards
+  ///
+  /// In ar, this message translates to:
+  /// **'المكافآت'**
+  String get pointsTabRewards;
+
+  /// pointsTabLeaderboard
+  ///
+  /// In ar, this message translates to:
+  /// **'الأكثر طلبًا'**
+  String get pointsTabLeaderboard;
+
+  /// pointsOutstandingHint
+  ///
+  /// In ar, this message translates to:
+  /// **'نقطة لسه بذمة المحل لعملائه'**
+  String get pointsOutstandingHint;
+
+  /// pointsRedemptionsCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, one{استبدال واحد} two{استبدالان} other{{count} استبدال}}'**
+  String pointsRedemptionsCount(int count);
+
+  /// pointsCustomersCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, one{عميل واحد استبدل} two{عميلان استبدلا} other{{count} عميل استبدل}}'**
+  String pointsCustomersCount(int count);
+
+  /// pointsExpiredWarning
+  ///
+  /// In ar, this message translates to:
+  /// **'%{percent} من النقاط الممنوحة انتهت بلا استبدال — راجع أسعار مكافآتك'**
+  String pointsExpiredWarning(int percent);
+
+  /// pointsLoadFailedTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تحميل المكافآت'**
+  String get pointsLoadFailedTitle;
+
+  /// pointsRewardsEmpty
+  ///
+  /// In ar, this message translates to:
+  /// **'لا مكافآت بعد — أضف أول مكافأة لعملائك'**
+  String get pointsRewardsEmpty;
+
+  /// pointsLeaderboardEmpty
+  ///
+  /// In ar, this message translates to:
+  /// **'لا استبدالات بعد — بتظهر هنا أول ما عميل يستبدل مكافأة'**
+  String get pointsLeaderboardEmpty;
+
+  /// pointsLeaderboardTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'الأعلى طلبًا'**
+  String get pointsLeaderboardTitle;
+
+  /// pointsLeaderboardHint
+  ///
+  /// In ar, this message translates to:
+  /// **'أكثر خمس مكافآت استبدلها عملاؤك'**
+  String get pointsLeaderboardHint;
+
+  /// pointsTimesRedeemed
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, one{مرة واحدة} two{مرتان} other{{count} مرة}}'**
+  String pointsTimesRedeemed(int count);
+
+  /// pointsRewardRetired
+  ///
+  /// In ar, this message translates to:
+  /// **'متوقفة'**
+  String get pointsRewardRetired;
+
+  /// pointsRewardServiceHint
+  ///
+  /// In ar, this message translates to:
+  /// **'خدمة: {name}'**
+  String pointsRewardServiceHint(String name);
+
+  /// pointsRewardDiscountHint
+  ///
+  /// In ar, this message translates to:
+  /// **'خصم {amount} ريال'**
+  String pointsRewardDiscountHint(String amount);
+
+  /// pointsRewardItemHint
+  ///
+  /// In ar, this message translates to:
+  /// **'هدية غير مرتبطة بالكتالوج'**
+  String get pointsRewardItemHint;
+
+  /// pointsRewardNameLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم المكافأة'**
+  String get pointsRewardNameLabel;
+
+  /// pointsRewardTypeLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'نوع المكافأة'**
+  String get pointsRewardTypeLabel;
+
+  /// pointsTypeService
+  ///
+  /// In ar, this message translates to:
+  /// **'خدمة من كتالوجك'**
+  String get pointsTypeService;
+
+  /// pointsTypeItem
+  ///
+  /// In ar, this message translates to:
+  /// **'هدية'**
+  String get pointsTypeItem;
+
+  /// pointsTypeDiscount
+  ///
+  /// In ar, this message translates to:
+  /// **'خصم مبلغ'**
+  String get pointsTypeDiscount;
+
+  /// pointsRewardServiceLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'أي خدمة'**
+  String get pointsRewardServiceLabel;
+
+  /// pointsRewardDiscountLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'قيمة الخصم بالريال'**
+  String get pointsRewardDiscountLabel;
+
+  /// pointsRewardCostLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'ثمنها بالنقاط'**
+  String get pointsRewardCostLabel;
+
+  /// pointsRewardActiveLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'فعّالة ويقدر العملاء يستبدلونها'**
+  String get pointsRewardActiveLabel;
+
+  /// pointsRewardInvalid
+  ///
+  /// In ar, this message translates to:
+  /// **'اكتب اسم ونقاط صحيحة أكبر من صفر'**
+  String get pointsRewardInvalid;
+
+  /// pointsSaveFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر الحفظ، حاول مرة ثانية'**
+  String get pointsSaveFailed;
+
+  /// pointsModeTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'طريقة الاحتساب'**
+  String get pointsModeTitle;
+
+  /// pointsModeHint
+  ///
+  /// In ar, this message translates to:
+  /// **'بالخدمات: كل خدمة نقاطها. بقيمة الفاتورة: نقطة لكل ريال.'**
+  String get pointsModeHint;
+
+  /// pointsModeServices
+  ///
+  /// In ar, this message translates to:
+  /// **'بالخدمات'**
+  String get pointsModeServices;
+
+  /// pointsModeInvoice
+  ///
+  /// In ar, this message translates to:
+  /// **'بقيمة الفاتورة'**
+  String get pointsModeInvoice;
+
+  /// pointsModeNeedsPricedServices
+  ///
+  /// In ar, this message translates to:
+  /// **'الاحتساب بقيمة الفاتورة يحتاج كل خدماتك مسعّرة أولاً — سعّرها كلها بخدماتي ومنتجاتي ثم فعّله.'**
+  String get pointsModeNeedsPricedServices;
+
+  /// pointsOpenEarnSettings
+  ///
+  /// In ar, this message translates to:
+  /// **'إعدادات نقاط كل خدمة'**
+  String get pointsOpenEarnSettings;
+
+  /// ratingLeaderboardTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'الأعلى تقييماً'**
+  String get ratingLeaderboardTitle;
+
+  /// ratingCardNoName
+  ///
+  /// In ar, this message translates to:
+  /// **'بلا اسم'**
+  String get ratingCardNoName;
+
+  /// ratingMetricVisits
+  ///
+  /// In ar, this message translates to:
+  /// **'الأكثر زيارات'**
+  String get ratingMetricVisits;
+
+  /// ratingMetricRatings
+  ///
+  /// In ar, this message translates to:
+  /// **'الأكثر تقييمات'**
+  String get ratingMetricRatings;
+
+  /// ratingMetricAvg
+  ///
+  /// In ar, this message translates to:
+  /// **'الأعلى تقييماً'**
+  String get ratingMetricAvg;
+
+  /// ratingStaffCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, one{موظف واحد} two{موظفان} other{{count} موظف}}'**
+  String ratingStaffCount(int count);
+
+  /// ratingTableTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'كل موظف'**
+  String get ratingTableTitle;
+
+  /// ratingTableVisitsValue
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} زيارة'**
+  String ratingTableVisitsValue(int n);
+
+  /// ratingTableRatingsValue
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} تقييم'**
+  String ratingTableRatingsValue(int n);
+
+  /// ratingTableEngagementValue
+  ///
+  /// In ar, this message translates to:
+  /// **'تفاعل %{n}'**
+  String ratingTableEngagementValue(int n);
+
+  /// ratingTableNoShowValue
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يحضر %{n}'**
+  String ratingTableNoShowValue(int n);
+
+  /// ratingPeriodWeek
+  ///
+  /// In ar, this message translates to:
+  /// **'أسبوع'**
+  String get ratingPeriodWeek;
+
+  /// ratingPeriodMonth
+  ///
+  /// In ar, this message translates to:
+  /// **'شهر'**
+  String get ratingPeriodMonth;
+
+  /// ratingPeriodQuarter
+  ///
+  /// In ar, this message translates to:
+  /// **'ربع سنة'**
+  String get ratingPeriodQuarter;
+
+  /// ratingPeriodCustom
+  ///
+  /// In ar, this message translates to:
+  /// **'مخصّص'**
+  String get ratingPeriodCustom;
+
+  /// ratingCustomSince
+  ///
+  /// In ar, this message translates to:
+  /// **'من: {date}'**
+  String ratingCustomSince(String date);
+
+  /// ratingCustomUntil
+  ///
+  /// In ar, this message translates to:
+  /// **'إلى: {date}'**
+  String ratingCustomUntil(String date);
+
+  /// ratingCustomRangeInvalid
+  ///
+  /// In ar, this message translates to:
+  /// **'المدى غير صالح — تأكد إن تاريخ البداية قبل النهاية'**
+  String get ratingCustomRangeInvalid;
+
+  /// ratingExportLocaleLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'لغة التقرير'**
+  String get ratingExportLocaleLabel;
+
+  /// localeNameAr
+  ///
+  /// In ar, this message translates to:
+  /// **'العربية'**
+  String get localeNameAr;
+
+  /// localeNameEn
+  ///
+  /// In ar, this message translates to:
+  /// **'English'**
+  String get localeNameEn;
+
+  /// localeNameUr
+  ///
+  /// In ar, this message translates to:
+  /// **'اردو'**
+  String get localeNameUr;
+
+  /// localeNameHa
+  ///
+  /// In ar, this message translates to:
+  /// **'Hausa'**
+  String get localeNameHa;
+
+  /// localeNameFil
+  ///
+  /// In ar, this message translates to:
+  /// **'Filipino'**
+  String get localeNameFil;
+
+  /// localeNameBn
+  ///
+  /// In ar, this message translates to:
+  /// **'বাংলা'**
+  String get localeNameBn;
+
+  /// ratingTopIssuesTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'أكثر المشاكل تكراراً'**
+  String get ratingTopIssuesTitle;
+
+  /// ratingFilterUnhandled
+  ///
+  /// In ar, this message translates to:
+  /// **'بانتظار المعالجة'**
+  String get ratingFilterUnhandled;
+
+  /// ratingFilterAll
+  ///
+  /// In ar, this message translates to:
+  /// **'الكل'**
+  String get ratingFilterAll;
+
+  /// ratingFilterHandled
+  ///
+  /// In ar, this message translates to:
+  /// **'معالَجة'**
+  String get ratingFilterHandled;
+
+  /// ratingStarsAll
+  ///
+  /// In ar, this message translates to:
+  /// **'كل النجوم'**
+  String get ratingStarsAll;
+
+  /// ratingLoadFailedTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تحميل التقييمات'**
+  String get ratingLoadFailedTitle;
+
+  /// ratingEmptyTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'لا تقييمات بعد'**
+  String get ratingEmptyTitle;
+
+  /// ratingLoadMore
+  ///
+  /// In ar, this message translates to:
+  /// **'عرض المزيد'**
+  String get ratingLoadMore;
+
+  /// ratingHandledPlain
+  ///
+  /// In ar, this message translates to:
+  /// **'تمّت معالجته'**
+  String get ratingHandledPlain;
+
+  /// ratingMarkHandled
+  ///
+  /// In ar, this message translates to:
+  /// **'تمّت المعالجة'**
+  String get ratingMarkHandled;
+
+  /// ratingMarkHandledHint
+  ///
+  /// In ar, this message translates to:
+  /// **'يُسجَّل هذا نهائياً — لا يمكن التراجع عنه لاحقاً.'**
+  String get ratingMarkHandledHint;
+
+  /// ratingHandledNoteLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'ملاحظة (اختياري)'**
+  String get ratingHandledNoteLabel;
+
+  /// ratingMarkHandledConfirm
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد المعالجة'**
+  String get ratingMarkHandledConfirm;
+
+  /// ratingActionFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تنفيذ الإجراء، حاول مرة أخرى.'**
+  String get ratingActionFailed;
+
+  /// ratingWeightedAvgHint
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{لا تقييمات بعد آخر 30 يوم} one{من تقييم واحد آخر 30 يوم} other{من {count} تقييم آخر 30 يوم}}'**
+  String ratingWeightedAvgHint(int count);
+
+  /// ratingUnhandledCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, one{تقييم واحد بانتظار المعالجة} two{تقييمان بانتظار المعالجة} other{{count} تقييم بانتظار المعالجة}}'**
+  String ratingUnhandledCount(int count);
+
+  /// ratingVisitsShort
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, one{زيارة واحدة} two{زيارتان} other{{count} زيارة}}'**
+  String ratingVisitsShort(int count);
+
+  /// ratingIssueFilterLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'المشكلة: {label}'**
+  String ratingIssueFilterLabel(String label);
+
+  /// ratingByOperator
+  ///
+  /// In ar, this message translates to:
+  /// **'خدمه {name}'**
+  String ratingByOperator(String name);
+
+  /// ratingHandledWithNote
+  ///
+  /// In ar, this message translates to:
+  /// **'تمّت المعالجة: {note}'**
+  String ratingHandledWithNote(String note);
+
+  /// ratingQuadrantTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'رباعية الأداء'**
+  String get ratingQuadrantTitle;
+
+  /// ratingQuadrantHint
+  ///
+  /// In ar, this message translates to:
+  /// **'الجودة مقابل معدل التفاعل — اضغط على أي نقطة لسجل تدريب الموظف.'**
+  String get ratingQuadrantHint;
+
+  /// ratingQuadrantStars
+  ///
+  /// In ar, this message translates to:
+  /// **'نجوم'**
+  String get ratingQuadrantStars;
+
+  /// ratingQuadrantUnderused
+  ///
+  /// In ar, this message translates to:
+  /// **'غير مُستغَل'**
+  String get ratingQuadrantUnderused;
+
+  /// ratingQuadrantNeedsCoaching
+  ///
+  /// In ar, this message translates to:
+  /// **'يحتاج تدريب'**
+  String get ratingQuadrantNeedsCoaching;
+
+  /// ratingQuadrantAtRisk
+  ///
+  /// In ar, this message translates to:
+  /// **'يحتاج متابعة'**
+  String get ratingQuadrantAtRisk;
+
+  /// ratingTrainingTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'سجل التدريب'**
+  String get ratingTrainingTitle;
+
+  /// ratingTrainingNoAccess
+  ///
+  /// In ar, this message translates to:
+  /// **'ما عندك صلاحية عرض هذا.'**
+  String get ratingTrainingNoAccess;
+
+  /// ratingTrainingClean
+  ///
+  /// In ar, this message translates to:
+  /// **'سجل نظيف — ما فيه ملاحظات متكررة.'**
+  String get ratingTrainingClean;
+
+  /// ratingEngagementPercent
+  ///
+  /// In ar, this message translates to:
+  /// **'{percent}٪ تفاعل'**
+  String ratingEngagementPercent(int percent);
+
+  /// ratingTabOverview
+  ///
+  /// In ar, this message translates to:
+  /// **'نظرة عامة'**
+  String get ratingTabOverview;
+
+  /// ratingTabFeed
+  ///
+  /// In ar, this message translates to:
+  /// **'كل التقييمات'**
+  String get ratingTabFeed;
+
+  /// ratingOverviewEmpty
+  ///
+  /// In ar, this message translates to:
+  /// **'لا بيانات أداء بعد آخر 30 يوم.'**
+  String get ratingOverviewEmpty;
+
+  /// ratingExportTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'تصدير التقرير'**
+  String get ratingExportTitle;
+
+  /// ratingExportHint
+  ///
+  /// In ar, this message translates to:
+  /// **'تقرير أداء الفريق للمدة المختارة، جاهز للمشاركة.'**
+  String get ratingExportHint;
+
+  /// ratingExportFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تصدير التقرير، حاول مرة أخرى.'**
+  String get ratingExportFailed;
+
+  /// customersPrivacyRequestsTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'طلبات حماية البيانات'**
+  String get customersPrivacyRequestsTitle;
+
+  /// customersPrivacyRequestErase
+  ///
+  /// In ar, this message translates to:
+  /// **'طلب حذف بيانات'**
+  String get customersPrivacyRequestErase;
+
+  /// customersPrivacyRequestCopy
+  ///
+  /// In ar, this message translates to:
+  /// **'طلب نسخة من البيانات'**
+  String get customersPrivacyRequestCopy;
+
+  /// customersPrivacyRequestGeneric
+  ///
+  /// In ar, this message translates to:
+  /// **'طلب: {type}'**
+  String customersPrivacyRequestGeneric(String type);
+
+  /// customersPrivacyRequestClose
+  ///
+  /// In ar, this message translates to:
+  /// **'إغلاق'**
+  String get customersPrivacyRequestClose;
+
+  /// customersLoyaltyHistoryTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'سجل نقاط الولاء'**
+  String get customersLoyaltyHistoryTitle;
+
+  /// customersLoyaltyHistoryNoReason
+  ///
+  /// In ar, this message translates to:
+  /// **'بدون سبب مذكور'**
+  String get customersLoyaltyHistoryNoReason;
+
+  /// customersLoyaltyReasonRedeem
+  ///
+  /// In ar, this message translates to:
+  /// **'استبدال مكافأة'**
+  String get customersLoyaltyReasonRedeem;
+
+  /// customersLoyaltyReasonAdjust
+  ///
+  /// In ar, this message translates to:
+  /// **'تعديل يدوي'**
+  String get customersLoyaltyReasonAdjust;
+
+  /// customersLoyaltyReasonEarn
+  ///
+  /// In ar, this message translates to:
+  /// **'نقاط من زيارة'**
+  String get customersLoyaltyReasonEarn;
+
+  /// customersLoyaltyReasonExpire
+  ///
+  /// In ar, this message translates to:
+  /// **'انتهت صلاحيتها'**
+  String get customersLoyaltyReasonExpire;
+
+  /// readCustomersFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر جلب بيانات العملاء الآن، حاول مرة ثانية.'**
+  String get readCustomersFailed;
+
+  /// readCustomersTotal
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما عندك أي عميل مسجّل بعد.} one{عندك عميل واحد مسجّل.} other{عندك {count} عميل مسجّل.}}'**
+  String readCustomersTotal(int count);
+
+  /// readCustomersOverdueCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما فيه عميل متأخر عن دورته حالياً.} one{عندك عميل واحد متأخر عن دورته.} other{عندك {count} عميل متأخر عن دورتهم.}}'**
+  String readCustomersOverdueCount(int count);
+
+  /// readMobileRequestsFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر جلب طلبات الخدمة المتنقلة الآن، حاول مرة ثانية.'**
+  String get readMobileRequestsFailed;
+
+  /// readMobileRequestsPendingCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما فيه طلبات خدمة متنقلة بانتظار قرار.} one{عندك طلب واحد بانتظار قرار.} other{عندك {count} طلب بانتظار قرار.}}'**
+  String readMobileRequestsPendingCount(int count);
+
+  /// readMobileRequestsNeedsDecisionCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما فيه طلبات متنقلة تحتاج قرارك الآن.} one{عندك طلب واحد يحتاج قرارك الآن.} other{عندك {count} طلبات تحتاج قرارك الآن.}}'**
+  String readMobileRequestsNeedsDecisionCount(int count);
+
+  /// readRatingFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر جلب بيانات التقييم الآن، حاول مرة ثانية.'**
+  String get readRatingFailed;
+
+  /// readRatingNone
+  ///
+  /// In ar, this message translates to:
+  /// **'ما عندك تقييمات آخر 30 يوم بعد.'**
+  String get readRatingNone;
+
+  /// readRatingAverage
+  ///
+  /// In ar, this message translates to:
+  /// **'متوسط تقييمك آخر 30 يوم {avg} من 5، من {count} تقييم.'**
+  String readRatingAverage(String avg, int count);
+
+  /// readRatingUnhandledCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما فيه تقييمات بانتظار المعالجة.} one{عندك تقييم واحد بانتظار المعالجة.} other{عندك {count} تقييم بانتظار المعالجة.}}'**
+  String readRatingUnhandledCount(int count);
+
+  /// readRatingTopStaff
+  ///
+  /// In ar, this message translates to:
+  /// **'أفضل موظف تقييماً آخر 30 يوم هو {name}، بمتوسط {avg} من 5.'**
+  String readRatingTopStaff(String name, String avg);
+
+  /// readMobileRequestsCompletedCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما خلّصت أي طلب متنقل هذا الشهر بعد.} one{خلّصت طلب واحد هذا الشهر.} other{خلّصت {count} طلب هذا الشهر.}}'**
+  String readMobileRequestsCompletedCount(int count);
+
+  /// readMobileRequestsTodayCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما جاك أي طلب خدمة متنقلة اليوم بعد.} one{جاك طلب واحد اليوم.} other{جاك {count} طلب اليوم.}}'**
+  String readMobileRequestsTodayCount(int count);
+
+  /// readOperatorsFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر جلب عدد الموظفين الآن، حاول مرة ثانية.'**
+  String get readOperatorsFailed;
+
+  /// readOperatorsCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما عندك أي موظف مسجّل بعد.} one{عندك موظف واحد بفريقك.} other{عندك {count} موظف بفريقك.}}'**
+  String readOperatorsCount(int count);
+
+  /// readBranchesDisconnectedCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{كل فروعك النشطة واتسابها مربوط ويشتغل.} one{عندك فرع واحد واتسابه مو شغّال.} other{عندك {count} فروع واتسابها مو شغّال.}}'**
+  String readBranchesDisconnectedCount(int count);
+
+  /// readCustomersRecentNone
+  ///
+  /// In ar, this message translates to:
+  /// **'ما عندك أي عميل مسجّل بعد.'**
+  String get readCustomersRecentNone;
+
+  /// readCustomersRecentName
+  ///
+  /// In ar, this message translates to:
+  /// **'آخر عميل سجّلته هو {name}.'**
+  String readCustomersRecentName(String name);
+
+  /// readRatingCriticalIssuesCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما فيه تقييمات فيها ملاحظة خطيرة ما رديت عليها.} one{عندك تقييم واحد فيه ملاحظة خطيرة ما رديت عليه.} other{عندك {count} تقييمات فيها ملاحظات خطيرة ما رديت عليها.}}'**
+  String readRatingCriticalIssuesCount(int count);
+
+  /// readPerBranchModeOn
+  ///
+  /// In ar, this message translates to:
+  /// **'أيوه، محلك يشتغل بنظام تعدد الفروع.'**
+  String get readPerBranchModeOn;
+
+  /// readPerBranchModeOff
+  ///
+  /// In ar, this message translates to:
+  /// **'لا، محلك يشتغل كفرع واحد فقط.'**
+  String get readPerBranchModeOff;
+
+  /// readBillingOverdueYes
+  ///
+  /// In ar, this message translates to:
+  /// **'أيوه، عندك فاتورة متأخرة السداد — سدّدها لتفادي إيقاف خدماتك.'**
+  String get readBillingOverdueYes;
+
+  /// readBillingOverdueNo
+  ///
+  /// In ar, this message translates to:
+  /// **'لا، فوترتك بحالة جيدة، ما فيه فواتير متأخرة.'**
+  String get readBillingOverdueNo;
+
+  /// readServicesFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر جلب عدد الخدمات الآن، حاول مرة ثانية.'**
+  String get readServicesFailed;
+
+  /// readServicesCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما عندك أي خدمة بقائمتك بعد.} one{عندك خدمة واحدة بقائمتك.} other{عندك {count} خدمة بقائمتك.}}'**
+  String readServicesCount(int count);
+
+  /// readCustomersTodayCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما جاك عميل جديد اليوم بعد.} one{جاك عميل جديد واحد اليوم.} other{جاك {count} عميل جديد اليوم.}}'**
+  String readCustomersTodayCount(int count);
+
+  /// readMobileRequestsRejectedCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما رفضت أي طلب خدمة متنقلة هذا الشهر.} one{رفضت طلب واحد هذا الشهر.} other{رفضت {count} طلب هذا الشهر.}}'**
+  String readMobileRequestsRejectedCount(int count);
+
+  /// readMobileRequestsNoShowCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما فيه عميل ما حضر هذا الشهر.} one{عندك عميل واحد ما حضر هذا الشهر.} other{عندك {count} عملاء ما حضروا هذا الشهر.}}'**
+  String readMobileRequestsNoShowCount(int count);
+
+  /// readRatingFiveStarCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما عندك أي تقييم خماسي بعد.} one{عندك تقييم خماسي واحد.} other{عندك {count} تقييم خماسي.}}'**
+  String readRatingFiveStarCount(int count);
+
+  /// readBranchesActiveCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما عندك أي فرع نشط حالياً.} one{عندك فرع واحد نشط.} other{عندك {count} فروع نشطة.}}'**
+  String readBranchesActiveCount(int count);
+
+  /// servicesTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'خدماتي ومنتجاتي'**
+  String get servicesTitle;
+
+  /// servicesUnnamedGlyph
+  ///
+  /// In ar, this message translates to:
+  /// **'؟'**
+  String get servicesUnnamedGlyph;
+
+  /// servicesSearchHint
+  ///
+  /// In ar, this message translates to:
+  /// **'ابحث باسم الخدمة'**
+  String get servicesSearchHint;
+
+  /// servicesTabActive
+  ///
+  /// In ar, this message translates to:
+  /// **'نشطة'**
+  String get servicesTabActive;
+
+  /// servicesTabStopped
+  ///
+  /// In ar, this message translates to:
+  /// **'متوقفة'**
+  String get servicesTabStopped;
+
+  /// servicesLoadFailedTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تحميل الخدمات'**
+  String get servicesLoadFailedTitle;
+
+  /// servicesEmptyActive
+  ///
+  /// In ar, this message translates to:
+  /// **'لا خدمات نشطة بعد'**
+  String get servicesEmptyActive;
+
+  /// servicesEmptyStopped
+  ///
+  /// In ar, this message translates to:
+  /// **'لا خدمات متوقفة'**
+  String get servicesEmptyStopped;
+
+  /// servicesAddOpen
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة خدمة'**
+  String get servicesAddOpen;
+
+  /// servicesNoPrice
+  ///
+  /// In ar, this message translates to:
+  /// **'بدون سعر'**
+  String get servicesNoPrice;
+
+  /// servicesNoDuration
+  ///
+  /// In ar, this message translates to:
+  /// **'غير محدّدة'**
+  String get servicesNoDuration;
+
+  /// servicesNoCycle
+  ///
+  /// In ar, this message translates to:
+  /// **'بدون دورة'**
+  String get servicesNoCycle;
+
+  /// servicesStopTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف الخدمة'**
+  String get servicesStopTitle;
+
+  /// servicesStopConfirm
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف'**
+  String get servicesStopConfirm;
+
+  /// servicesActionFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تنفيذ الإجراء، حاول مرة أخرى.'**
+  String get servicesActionFailed;
+
+  /// servicesEditTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'تعديل الخدمة'**
+  String get servicesEditTitle;
+
+  /// servicesAddTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة خدمة جديدة'**
+  String get servicesAddTitle;
+
+  /// servicesNameLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم الخدمة'**
+  String get servicesNameLabel;
+
+  /// servicesPriceLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'السعر (اختياري)'**
+  String get servicesPriceLabel;
+
+  /// servicesDurationLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'المدة بالدقائق (اختياري)'**
+  String get servicesDurationLabel;
+
+  /// servicesCycleLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'دورة التذكير بالأيام (اختياري)'**
+  String get servicesCycleLabel;
+
+  /// servicesDescriptionLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'وصف مختصر (اختياري)'**
+  String get servicesDescriptionLabel;
+
+  /// servicesSaving
+  ///
+  /// In ar, this message translates to:
+  /// **'جارٍ الحفظ...'**
+  String get servicesSaving;
+
+  /// servicesSave
+  ///
+  /// In ar, this message translates to:
+  /// **'حفظ'**
+  String get servicesSave;
+
+  /// servicesNameRequired
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم الخدمة مطلوب'**
+  String get servicesNameRequired;
+
+  /// servicesActiveCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{ما عندك أي خدمة نشطة بعد.} one{عندك خدمة نشطة واحدة.} other{عندك {count} خدمة نشطة.}}'**
+  String servicesActiveCount(int count);
+
+  /// servicesDurationMinutes
+  ///
+  /// In ar, this message translates to:
+  /// **'{count} دقيقة'**
+  String servicesDurationMinutes(int count);
+
+  /// servicesCycleDays
+  ///
+  /// In ar, this message translates to:
+  /// **'كل {count} يوم'**
+  String servicesCycleDays(int count);
+
+  /// servicesStopWarning
+  ///
+  /// In ar, this message translates to:
+  /// **'بيوقف خدمة «{name}» — ما راح تظهر لعميل جديد بتسجيل الزيارة، وتذكيراتها تتوقف. ما تُحذف بياناتها.'**
+  String servicesStopWarning(String name);
+
+  /// servicesPhotoPickFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر اختيار الصورة'**
+  String get servicesPhotoPickFailed;
+
+  /// servicesPhotoUploadFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تم الحفظ لكن تعذّر رفع الصورة'**
+  String get servicesPhotoUploadFailed;
+
+  /// servicesPhotoLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'صورة الخدمة (اختياري)'**
+  String get servicesPhotoLabel;
+
+  /// servicesUploadPhoto
+  ///
+  /// In ar, this message translates to:
+  /// **'رفع صورة'**
+  String get servicesUploadPhoto;
+
+  /// servicesChangePhoto
+  ///
+  /// In ar, this message translates to:
+  /// **'تغيير الصورة'**
+  String get servicesChangePhoto;
+
+  /// servicesRemovePhoto
+  ///
+  /// In ar, this message translates to:
+  /// **'إزالة'**
+  String get servicesRemovePhoto;
+
+  /// servicesAssignmentLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'من يقدّم هذه الخدمة؟'**
+  String get servicesAssignmentLabel;
+
+  /// servicesAssignmentAuto
+  ///
+  /// In ar, this message translates to:
+  /// **'أي موظف متاح'**
+  String get servicesAssignmentAuto;
+
+  /// servicesAssignmentNamed
+  ///
+  /// In ar, this message translates to:
+  /// **'موظفون محدّدون'**
+  String get servicesAssignmentNamed;
+
+  /// servicesChecklistLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'خطوات الإجراء'**
+  String get servicesChecklistLabel;
+
+  /// servicesChecklistEmpty
+  ///
+  /// In ar, this message translates to:
+  /// **'لا خطوات بعد — أضف أول خطوة'**
+  String get servicesChecklistEmpty;
+
+  /// servicesStepAddTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة خطوة'**
+  String get servicesStepAddTitle;
+
+  /// servicesGeneralSettingsTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'الإعداد العام'**
+  String get servicesGeneralSettingsTitle;
+
+  /// servicesGeneralSettingsHint
+  ///
+  /// In ar, this message translates to:
+  /// **'القيمة التي تتبعها كل خدمة لم تُخصَّص بعد'**
+  String get servicesGeneralSettingsHint;
+
+  /// servicesFollowUpLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'أيام المتابعة بعد الزيارة'**
+  String get servicesFollowUpLabel;
+
+  /// servicesPointsLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'نقاط لكل زيارة'**
+  String get servicesPointsLabel;
+
+  /// servicesGroupThem
+  ///
+  /// In ar, this message translates to:
+  /// **'تجميعها'**
+  String get servicesGroupThem;
+
+  /// servicesGroupNameHint
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم المجموعة'**
+  String get servicesGroupNameHint;
+
+  /// servicesAllGroups
+  ///
+  /// In ar, this message translates to:
+  /// **'الكل'**
+  String get servicesAllGroups;
+
+  /// servicesStepEditTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'تعديل الخطوة'**
+  String get servicesStepEditTitle;
+
+  /// servicesStepCriticalLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'خطوة حرجة'**
+  String get servicesStepCriticalLabel;
+
+  /// servicesStepRetire
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف هذه الخطوة'**
+  String get servicesStepRetire;
+
+  /// servicesStepEditHint
+  ///
+  /// In ar, this message translates to:
+  /// **'اضغط مطوّلاً على أي خطوة لتعديلها أو إيقافها'**
+  String get servicesStepEditHint;
+
+  /// servicesAdvancedTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'إعدادات متقدمة'**
+  String get servicesAdvancedTitle;
+
+  /// servicesAdvancedHint
+  ///
+  /// In ar, this message translates to:
+  /// **'تخصيص هذه الخدمة عن الإعداد العام — لدورة التذكير والنقاط والتجميع'**
+  String get servicesAdvancedHint;
+
+  /// servicesGroupLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'المجموعة'**
+  String get servicesGroupLabel;
+
+  /// servicesNoGroup
+  ///
+  /// In ar, this message translates to:
+  /// **'بدون مجموعة'**
+  String get servicesNoGroup;
+
+  /// servicesNewGroup
+  ///
+  /// In ar, this message translates to:
+  /// **'مجموعة جديدة'**
+  String get servicesNewGroup;
+
+  /// servicesFollowGeneralAction
+  ///
+  /// In ar, this message translates to:
+  /// **'اتّباع العام'**
+  String get servicesFollowGeneralAction;
+
+  /// servicesCustomizeAction
+  ///
+  /// In ar, this message translates to:
+  /// **'تخصيص'**
+  String get servicesCustomizeAction;
+
+  /// servicesFollowUpDays
+  ///
+  /// In ar, this message translates to:
+  /// **'متابعة بعد {n} يوم'**
+  String servicesFollowUpDays(int n);
+
+  /// servicesPointsPerVisit
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} نقطة'**
+  String servicesPointsPerVisit(int n);
+
+  /// servicesSuggestionText
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} خدمات تتشارك نفس القيمة — تجميعها في مجموعة واحدة يسهّل تعديلها معاً لاحقاً.'**
+  String servicesSuggestionText(int n);
+
+  /// servicesFollowsGeneral
+  ///
+  /// In ar, this message translates to:
+  /// **'يتبع العام — {hint}'**
+  String servicesFollowsGeneral(String hint);
+
+  /// servicesPageTabServices
+  ///
+  /// In ar, this message translates to:
+  /// **'الخدمات'**
+  String get servicesPageTabServices;
+
+  /// servicesPageTabPackages
+  ///
+  /// In ar, this message translates to:
+  /// **'الباقات'**
+  String get servicesPageTabPackages;
+
+  /// servicesPackageAdd
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة باقة'**
+  String get servicesPackageAdd;
+
+  /// servicesPackageNeedsTwoServices
+  ///
+  /// In ar, this message translates to:
+  /// **'الباقة تحتاج خدمتين نشطتين على الأقل'**
+  String get servicesPackageNeedsTwoServices;
+
+  /// servicesPackageEmpty
+  ///
+  /// In ar, this message translates to:
+  /// **'لا باقات بعد'**
+  String get servicesPackageEmpty;
+
+  /// servicesPackageEditTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'تعديل الباقة'**
+  String get servicesPackageEditTitle;
+
+  /// servicesPackageAddTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة باقة جديدة'**
+  String get servicesPackageAddTitle;
+
+  /// servicesPackageNameLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم الباقة'**
+  String get servicesPackageNameLabel;
+
+  /// servicesPackagePriceRequired
+  ///
+  /// In ar, this message translates to:
+  /// **'سعر الباقة مطلوب، أكبر من صفر'**
+  String get servicesPackagePriceRequired;
+
+  /// servicesPackageServicesLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'الخدمات المشمولة'**
+  String get servicesPackageServicesLabel;
+
+  /// servicesImportTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'استيراد خدمات من ملف'**
+  String get servicesImportTitle;
+
+  /// servicesImportHint
+  ///
+  /// In ar, this message translates to:
+  /// **'ملف CSV بأعمدة: name, price, duration_minutes, cycle_days, description'**
+  String get servicesImportHint;
+
+  /// servicesImportPickFile
+  ///
+  /// In ar, this message translates to:
+  /// **'اختيار ملف CSV'**
+  String get servicesImportPickFile;
+
+  /// servicesImportReadFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّرت قراءة الملف'**
+  String get servicesImportReadFailed;
+
+  /// servicesImportParseFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'الملف لا يحتوي عمود name، أو تنسيقه غير صحيح'**
+  String get servicesImportParseFailed;
+
+  /// servicesImportDeactivateMissing
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف الخدمات غير الموجودة بالملف'**
+  String get servicesImportDeactivateMissing;
+
+  /// servicesImportDeactivateMissingHint
+  ///
+  /// In ar, this message translates to:
+  /// **'أي خدمة عندك حاليًا ولم تظهر بهذا الملف تُوقَف تلقائيًا'**
+  String get servicesImportDeactivateMissingHint;
+
+  /// servicesImportConfirm
+  ///
+  /// In ar, this message translates to:
+  /// **'استيراد'**
+  String get servicesImportConfirm;
+
+  /// servicesImportClose
+  ///
+  /// In ar, this message translates to:
+  /// **'تم'**
+  String get servicesImportClose;
+
+  /// servicesImportRowCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{n, plural, =0{لا صفوف} one{صف واحد} other{{n} صف}} جاهزة للاستيراد'**
+  String servicesImportRowCount(int n);
+
+  /// servicesImportDone
+  ///
+  /// In ar, this message translates to:
+  /// **'أُضيفت {created}، وحُدّثت {updated}، وأُعيد تفعيل {reactivated}.'**
+  String servicesImportDone(int created, int updated, int reactivated);
+
+  /// visitPackagesSectionTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'باقات مميّزة'**
+  String get visitPackagesSectionTitle;
+
+  /// visitNameFieldHint
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم العميل (اختياري)'**
+  String get visitNameFieldHint;
+
+  /// visitMeterFieldHint
+  ///
+  /// In ar, this message translates to:
+  /// **'قراءة العدّاد'**
+  String get visitMeterFieldHint;
+
+  /// visitQuantityDialogTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'الكمية'**
+  String get visitQuantityDialogTitle;
+
+  /// visitCouponCheckboxLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'منح كوبون خصم لمحل آخر'**
+  String get visitCouponCheckboxLabel;
+
+  /// visitCouponPhoneHint
+  ///
+  /// In ar, this message translates to:
+  /// **'جوال صاحب المحل'**
+  String get visitCouponPhoneHint;
+
+  /// visitClearAllButton
+  ///
+  /// In ar, this message translates to:
+  /// **'مسح الكل'**
+  String get visitClearAllButton;
+
+  /// visitServicesSelectedCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{n, plural, one{خدمة واحدة مختارة} other{{n} خدمة مختارة}}'**
+  String visitServicesSelectedCount(int n);
+
+  /// visitTodayBookingsTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'مواعيد اليوم'**
+  String get visitTodayBookingsTitle;
+
+  /// visitBookingAttendFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تسجيل الحضور، حاول مرة أخرى'**
+  String get visitBookingAttendFailed;
+
+  /// branchSwitcherChooseBranch
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر الفرع'**
+  String get branchSwitcherChooseBranch;
+
+  /// branchSwitcherTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'الفرع الحالي'**
+  String get branchSwitcherTitle;
+
+  /// branchSwitcherHint
+  ///
+  /// In ar, this message translates to:
+  /// **'كل ما تفتحه بعدها يخص هذا الفرع'**
+  String get branchSwitcherHint;
+
+  /// proceduresPrintFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر إنشاء المستند'**
+  String get proceduresPrintFailed;
+
+  /// proceduresTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'الإجراءات'**
+  String get proceduresTitle;
+
+  /// proceduresSubtitle
+  ///
+  /// In ar, this message translates to:
+  /// **'اضبط قائمة الإجراءات لكل خدمة، أو أدر المكتبة المشتركة كاملة. اضغط مطوّلًا على خدمة لتحديدها للطباعة'**
+  String get proceduresSubtitle;
+
+  /// proceduresLibraryLink
+  ///
+  /// In ar, this message translates to:
+  /// **'مكتبة الإجراءات'**
+  String get proceduresLibraryLink;
+
+  /// proceduresPrint
+  ///
+  /// In ar, this message translates to:
+  /// **'طباعة'**
+  String get proceduresPrint;
+
+  /// proceduresEmptyTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'لا خدمات نشطة بعد'**
+  String get proceduresEmptyTitle;
+
+  /// servicesStepSeverityNormal
+  ///
+  /// In ar, this message translates to:
+  /// **'عادي'**
+  String get servicesStepSeverityNormal;
+
+  /// servicesStepSeverityCritical
+  ///
+  /// In ar, this message translates to:
+  /// **'حرج'**
+  String get servicesStepSeverityCritical;
+
+  /// proceduresSaveFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر الحفظ'**
+  String get proceduresSaveFailed;
+
+  /// proceduresDrawerSubtitle
+  ///
+  /// In ar, this message translates to:
+  /// **'رتّب الإجراءات بالسحب، أو أضف إجراءً من المكتبة'**
+  String get proceduresDrawerSubtitle;
+
+  /// proceduresDrawerEmpty
+  ///
+  /// In ar, this message translates to:
+  /// **'لا إجراءات لهذه الخدمة بعد'**
+  String get proceduresDrawerEmpty;
+
+  /// proceduresDrawerAddButton
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة من المكتبة'**
+  String get proceduresDrawerAddButton;
+
+  /// proceduresPickTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'اختيار إجراء'**
+  String get proceduresPickTitle;
+
+  /// proceduresPickClose
+  ///
+  /// In ar, this message translates to:
+  /// **'إغلاق'**
+  String get proceduresPickClose;
+
+  /// proceduresPickApply
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة'**
+  String get proceduresPickApply;
+
+  /// proceduresPickSearch
+  ///
+  /// In ar, this message translates to:
+  /// **'ابحث بالإجراءات'**
+  String get proceduresPickSearch;
+
+  /// proceduresPickEmpty
+  ///
+  /// In ar, this message translates to:
+  /// **'لا نتائج'**
+  String get proceduresPickEmpty;
+
+  /// proceduresPickCreatePlaceholder
+  ///
+  /// In ar, this message translates to:
+  /// **'إجراء جديد...'**
+  String get proceduresPickCreatePlaceholder;
+
+  /// proceduresLibrarySaveFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر الحفظ'**
+  String get proceduresLibrarySaveFailed;
+
+  /// proceduresLibraryTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'مكتبة الإجراءات'**
+  String get proceduresLibraryTitle;
+
+  /// proceduresLibrarySubtitle
+  ///
+  /// In ar, this message translates to:
+  /// **'كل إجراء هنا مشترك بين كل الخدمات اللي تستخدمه — تعديله يغيّره بكل مكان'**
+  String get proceduresLibrarySubtitle;
+
+  /// proceduresLibraryNewPlaceholder
+  ///
+  /// In ar, this message translates to:
+  /// **'نص الإجراء الجديد'**
+  String get proceduresLibraryNewPlaceholder;
+
+  /// proceduresLibraryAdd
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة'**
+  String get proceduresLibraryAdd;
+
+  /// proceduresLibraryShowRetired
+  ///
+  /// In ar, this message translates to:
+  /// **'إظهار الملغاة'**
+  String get proceduresLibraryShowRetired;
+
+  /// proceduresLibraryEmpty
+  ///
+  /// In ar, this message translates to:
+  /// **'لا إجراءات بعد'**
+  String get proceduresLibraryEmpty;
+
+  /// proceduresLibraryRetired
+  ///
+  /// In ar, this message translates to:
+  /// **'ملغى'**
+  String get proceduresLibraryRetired;
+
+  /// proceduresLibraryRetire
+  ///
+  /// In ar, this message translates to:
+  /// **'إلغاء'**
+  String get proceduresLibraryRetire;
+
+  /// proceduresLibraryReactivate
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة تفعيل'**
+  String get proceduresLibraryReactivate;
+
+  /// proceduresSeverityHint
+  ///
+  /// In ar, this message translates to:
+  /// **'الإجراء الحرج يُبرَز للموظف بلون مختلف، ولا يجوز تخطّيه أثناء تنفيذ الخدمة'**
+  String get proceduresSeverityHint;
+
+  /// proceduresSelectedCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} محددة'**
+  String proceduresSelectedCount(int n);
+
+  /// proceduresStepCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} إجراء'**
+  String proceduresStepCount(int n);
+
+  /// proceduresUsedIn
+  ///
+  /// In ar, this message translates to:
+  /// **'مستخدم بـ{n} خدمة'**
+  String proceduresUsedIn(int n);
+
+  /// referralProposeButton
+  ///
+  /// In ar, this message translates to:
+  /// **'اقتراح شراكة'**
+  String get referralProposeButton;
+
+  /// referralTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'شراكة استراتيجية'**
+  String get referralTitle;
+
+  /// referralSubtitle
+  ///
+  /// In ar, this message translates to:
+  /// **'انقل عملاء حقيقيين بينك وبين محلات أخرى، باتفاق متبادل'**
+  String get referralSubtitle;
+
+  /// referralRoleAll
+  ///
+  /// In ar, this message translates to:
+  /// **'الكل'**
+  String get referralRoleAll;
+
+  /// referralRoleReferrer
+  ///
+  /// In ar, this message translates to:
+  /// **'كمُحيل'**
+  String get referralRoleReferrer;
+
+  /// referralRoleBeneficiary
+  ///
+  /// In ar, this message translates to:
+  /// **'كمستفيد'**
+  String get referralRoleBeneficiary;
+
+  /// referralLoadFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تحميل الشراكات'**
+  String get referralLoadFailed;
+
+  /// referralEmptyTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'لا شراكات بعد'**
+  String get referralEmptyTitle;
+
+  /// referralKpiAsReferrer
+  ///
+  /// In ar, this message translates to:
+  /// **'كمُحيل'**
+  String get referralKpiAsReferrer;
+
+  /// referralKpiAsBeneficiary
+  ///
+  /// In ar, this message translates to:
+  /// **'كمستفيد'**
+  String get referralKpiAsBeneficiary;
+
+  /// referralKpiSent
+  ///
+  /// In ar, this message translates to:
+  /// **'أُحيل'**
+  String get referralKpiSent;
+
+  /// referralKpiRedeemed
+  ///
+  /// In ar, this message translates to:
+  /// **'استُبدل'**
+  String get referralKpiRedeemed;
+
+  /// referralKpiRate
+  ///
+  /// In ar, this message translates to:
+  /// **'نسبة الاستبدال'**
+  String get referralKpiRate;
+
+  /// referralConfirm
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد'**
+  String get referralConfirm;
+
+  /// referralGrantDiscountBlanket
+  ///
+  /// In ar, this message translates to:
+  /// **'خصم على كامل الزيارة'**
+  String get referralGrantDiscountBlanket;
+
+  /// referralStatusProposed
+  ///
+  /// In ar, this message translates to:
+  /// **'مقترحة'**
+  String get referralStatusProposed;
+
+  /// referralStatusActive
+  ///
+  /// In ar, this message translates to:
+  /// **'نشطة'**
+  String get referralStatusActive;
+
+  /// referralStatusPaused
+  ///
+  /// In ar, this message translates to:
+  /// **'متوقفة مؤقتًا'**
+  String get referralStatusPaused;
+
+  /// referralStatusCancelRequested
+  ///
+  /// In ar, this message translates to:
+  /// **'طُلب إنهاؤها'**
+  String get referralStatusCancelRequested;
+
+  /// referralStatusEnded
+  ///
+  /// In ar, this message translates to:
+  /// **'منتهية'**
+  String get referralStatusEnded;
+
+  /// referralStatusRejected
+  ///
+  /// In ar, this message translates to:
+  /// **'مرفوضة'**
+  String get referralStatusRejected;
+
+  /// referralStatusExpiredUnanswered
+  ///
+  /// In ar, this message translates to:
+  /// **'انتهت بلا رد'**
+  String get referralStatusExpiredUnanswered;
+
+  /// referralEventProposed
+  ///
+  /// In ar, this message translates to:
+  /// **'اقتراح الشراكة'**
+  String get referralEventProposed;
+
+  /// referralEventAccepted
+  ///
+  /// In ar, this message translates to:
+  /// **'قبول الشراكة'**
+  String get referralEventAccepted;
+
+  /// referralEventRejected
+  ///
+  /// In ar, this message translates to:
+  /// **'رفض الشراكة'**
+  String get referralEventRejected;
+
+  /// referralEventActivated
+  ///
+  /// In ar, this message translates to:
+  /// **'تفعيل الشراكة'**
+  String get referralEventActivated;
+
+  /// referralEventCancelRequested
+  ///
+  /// In ar, this message translates to:
+  /// **'طلب إنهاء'**
+  String get referralEventCancelRequested;
+
+  /// referralEventCancelConfirmed
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد الإنهاء'**
+  String get referralEventCancelConfirmed;
+
+  /// referralEventExpiredUnanswered
+  ///
+  /// In ar, this message translates to:
+  /// **'انتهت المهلة بلا رد'**
+  String get referralEventExpiredUnanswered;
+
+  /// referralEventPaused
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف مؤقت'**
+  String get referralEventPaused;
+
+  /// referralEventResumed
+  ///
+  /// In ar, this message translates to:
+  /// **'استئناف'**
+  String get referralEventResumed;
+
+  /// referralEventEndedTerm
+  ///
+  /// In ar, this message translates to:
+  /// **'انتهت المدة'**
+  String get referralEventEndedTerm;
+
+  /// referralEventGrantCreated
+  ///
+  /// In ar, this message translates to:
+  /// **'منحة جديدة'**
+  String get referralEventGrantCreated;
+
+  /// referralEventGrantRedeemed
+  ///
+  /// In ar, this message translates to:
+  /// **'استبدال منحة'**
+  String get referralEventGrantRedeemed;
+
+  /// referralActivityActive
+  ///
+  /// In ar, this message translates to:
+  /// **'نشطة'**
+  String get referralActivityActive;
+
+  /// referralActivityPaused
+  ///
+  /// In ar, this message translates to:
+  /// **'متوقفة مؤقتًا'**
+  String get referralActivityPaused;
+
+  /// referralActivityPending
+  ///
+  /// In ar, this message translates to:
+  /// **'بانتظار الرد'**
+  String get referralActivityPending;
+
+  /// referralActivityInactive
+  ///
+  /// In ar, this message translates to:
+  /// **'غير نشطة'**
+  String get referralActivityInactive;
+
+  /// referralScorecardTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'الأداء'**
+  String get referralScorecardTitle;
+
+  /// referralScorecardFailed
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تحميل الأداء'**
+  String get referralScorecardFailed;
+
+  /// referralActivityTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'النشاط الأخير'**
+  String get referralActivityTitle;
+
+  /// referralActivityEmpty
+  ///
+  /// In ar, this message translates to:
+  /// **'لا نشاط بعد'**
+  String get referralActivityEmpty;
+
+  /// referralAgreementsTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'الاتفاقيات'**
+  String get referralAgreementsTitle;
+
+  /// referralConfirmCancel
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد إنهاء هذه الشراكة نهائيًا؟'**
+  String get referralConfirmCancel;
+
+  /// referralActionAccept
+  ///
+  /// In ar, this message translates to:
+  /// **'قبول'**
+  String get referralActionAccept;
+
+  /// referralActionReject
+  ///
+  /// In ar, this message translates to:
+  /// **'رفض'**
+  String get referralActionReject;
+
+  /// referralActionWaitingThem
+  ///
+  /// In ar, this message translates to:
+  /// **'بانتظار الطرف الآخر'**
+  String get referralActionWaitingThem;
+
+  /// referralActionCancelRequest
+  ///
+  /// In ar, this message translates to:
+  /// **'طلب إنهاء'**
+  String get referralActionCancelRequest;
+
+  /// referralActionCancelConfirm
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد الإنهاء'**
+  String get referralActionCancelConfirm;
+
+  /// referralProposeTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'اقتراح شراكة جديدة'**
+  String get referralProposeTitle;
+
+  /// referralProposePhoneLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'جوال المحل الآخر'**
+  String get referralProposePhoneLabel;
+
+  /// referralProposeConditionLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'شرط الاستحقاق عندك'**
+  String get referralProposeConditionLabel;
+
+  /// referralConditionMinTotal
+  ///
+  /// In ar, this message translates to:
+  /// **'حد أدنى للفاتورة'**
+  String get referralConditionMinTotal;
+
+  /// referralConditionServiceId
+  ///
+  /// In ar, this message translates to:
+  /// **'خدمة معينة'**
+  String get referralConditionServiceId;
+
+  /// referralProposeConditionValueRiyals
+  ///
+  /// In ar, this message translates to:
+  /// **'المبلغ (ريال)'**
+  String get referralProposeConditionValueRiyals;
+
+  /// referralProposeConditionValueService
+  ///
+  /// In ar, this message translates to:
+  /// **'الخدمة'**
+  String get referralProposeConditionValueService;
+
+  /// referralProposeValidityLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'الصلاحية (يوم)'**
+  String get referralProposeValidityLabel;
+
+  /// referralProposeDurationLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'المدة (يوم)'**
+  String get referralProposeDurationLabel;
+
+  /// referralProposeCapLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'الحد كل 30 يوم'**
+  String get referralProposeCapLabel;
+
+  /// referralProposeGrantTypeLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'نوع المنحة'**
+  String get referralProposeGrantTypeLabel;
+
+  /// referralGrantTypeDiscount
+  ///
+  /// In ar, this message translates to:
+  /// **'خصم'**
+  String get referralGrantTypeDiscount;
+
+  /// referralGrantTypeGift
+  ///
+  /// In ar, this message translates to:
+  /// **'هدية'**
+  String get referralGrantTypeGift;
+
+  /// referralScopeBlanket
+  ///
+  /// In ar, this message translates to:
+  /// **'كامل الزيارة'**
+  String get referralScopeBlanket;
+
+  /// referralScopeItem
+  ///
+  /// In ar, this message translates to:
+  /// **'خدمة معينة'**
+  String get referralScopeItem;
+
+  /// referralScopeGroup
+  ///
+  /// In ar, this message translates to:
+  /// **'مجموعة/باقة'**
+  String get referralScopeGroup;
+
+  /// referralProposeServiceLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'الخدمة'**
+  String get referralProposeServiceLabel;
+
+  /// referralProposeGroupLabel
+  ///
+  /// In ar, this message translates to:
+  /// **'المجموعة'**
+  String get referralProposeGroupLabel;
+
+  /// referralProposeImmutableNote
+  ///
+  /// In ar, this message translates to:
+  /// **'شروط المنحة ثابتة بعد الإرسال — أي تغيير يحتاج اتفاقية جديدة'**
+  String get referralProposeImmutableNote;
+
+  /// referralProposeSubmitting
+  ///
+  /// In ar, this message translates to:
+  /// **'جارٍ الإرسال...'**
+  String get referralProposeSubmitting;
+
+  /// referralProposeSubmit
+  ///
+  /// In ar, this message translates to:
+  /// **'إرسال الاقتراح'**
+  String get referralProposeSubmit;
+
+  /// referralGrantGift
+  ///
+  /// In ar, this message translates to:
+  /// **'هدية: {name}'**
+  String referralGrantGift(String name);
+
+  /// referralGrantDiscountItem
+  ///
+  /// In ar, this message translates to:
+  /// **'خصم على: {name}'**
+  String referralGrantDiscountItem(String name);
+
+  /// referralGrantDiscountGroup
+  ///
+  /// In ar, this message translates to:
+  /// **'خصم على مجموعة: {name}'**
+  String referralGrantDiscountGroup(String name);
+
+  /// referralPartnerCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} اتفاقية'**
+  String referralPartnerCount(int n);
+
+  /// referralProposeResultFail
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر إرسال الاقتراح'**
+  String get referralProposeResultFail;
+
+  /// referralRefusal402
+  ///
+  /// In ar, this message translates to:
+  /// **'محلك غير مشترك بتطبيق شراكة استراتيجية — اشترك من متجر التطبيقات أولًا'**
+  String get referralRefusal402;
+
+  /// referralRefusal403
+  ///
+  /// In ar, this message translates to:
+  /// **'لا تملك صلاحية كافية لهذا الإجراء'**
+  String get referralRefusal403;
+
+  /// referralRefusal400
+  ///
+  /// In ar, this message translates to:
+  /// **'بيانات الاقتراح غير صحيحة — تأكد من الشرط، أو أنك لا تقترح شراكة على محلك نفسه'**
+  String get referralRefusal400;
+
+  /// referralRefusal404
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يُعثر على محل بهذا الرقم، أو على الخدمة/المجموعة المختارة بكتالوج الطرف الآخر'**
+  String get referralRefusal404;
+
+  /// referralRefusal409
+  ///
+  /// In ar, this message translates to:
+  /// **'تجاوزت الحد الأقصى للشراكات النشطة (3)، أو حالة الشراكة تغيّرت'**
+  String get referralRefusal409;
+
+  /// referralRefusal503
+  ///
+  /// In ar, this message translates to:
+  /// **'خدمة الفوترة غير متاحة حاليًا، حاول لاحقًا'**
+  String get referralRefusal503;
+
+  /// appStoreTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'متجر التطبيقات'**
+  String get appStoreTitle;
+
+  /// appStoreSubtitle
+  ///
+  /// In ar, this message translates to:
+  /// **'طوّر محلك بتطبيقات حقيقية، واحد واحد'**
+  String get appStoreSubtitle;
+
+  /// appStoreTabMine
+  ///
+  /// In ar, this message translates to:
+  /// **'تطبيقاتي'**
+  String get appStoreTabMine;
+
+  /// appStoreTabAll
+  ///
+  /// In ar, this message translates to:
+  /// **'متجر التطبيقات'**
+  String get appStoreTabAll;
+
+  /// appStoreDetails
+  ///
+  /// In ar, this message translates to:
+  /// **'التفاصيل'**
+  String get appStoreDetails;
+
+  /// appStorePerMonth
+  ///
+  /// In ar, this message translates to:
+  /// **'شهريًا'**
+  String get appStorePerMonth;
+
+  /// appStorePerMonthShort
+  ///
+  /// In ar, this message translates to:
+  /// **'/شهر'**
+  String get appStorePerMonthShort;
+
+  /// appStoreActive
+  ///
+  /// In ar, this message translates to:
+  /// **'نشط'**
+  String get appStoreActive;
+
+  /// appStoreTrialing
+  ///
+  /// In ar, this message translates to:
+  /// **'تجريبي'**
+  String get appStoreTrialing;
+
+  /// appStoreSubscribe
+  ///
+  /// In ar, this message translates to:
+  /// **'اشترك الآن'**
+  String get appStoreSubscribe;
+
+  /// appStoreCancelRenewal
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف التجديد'**
+  String get appStoreCancelRenewal;
+
+  /// appStoreUndoCancel
+  ///
+  /// In ar, this message translates to:
+  /// **'تراجع عن الإيقاف'**
+  String get appStoreUndoCancel;
+
+  /// appStoreConfirmCancel
+  ///
+  /// In ar, this message translates to:
+  /// **'هل تريد إيقاف تجديد هذا التطبيق؟ يستمر لين نهاية الفترة المدفوعة'**
+  String get appStoreConfirmCancel;
+
+  /// appStoreCartCount
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} بالسلة'**
+  String appStoreCartCount(int n);
+
+  /// appStoreCheckout
+  ///
+  /// In ar, this message translates to:
+  /// **'إتمام الشراء'**
+  String get appStoreCheckout;
+
+  /// appStoreCheckingOut
+  ///
+  /// In ar, this message translates to:
+  /// **'جاري الشراء...'**
+  String get appStoreCheckingOut;
+
+  /// appStoreRefusal402
+  ///
+  /// In ar, this message translates to:
+  /// **'الدفع غير مفعّل على حسابك حاليًا — تواصل معنا لتفعيله'**
+  String get appStoreRefusal402;
+
+  /// appStoreRefusal403
+  ///
+  /// In ar, this message translates to:
+  /// **'لا صلاحية لك لإتمام عملية الشراء هذه'**
+  String get appStoreRefusal403;
+
+  /// appStoreRefusal404
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يُعثر على الباقة المطلوبة — أعد المحاولة بعد تحديث الشاشة'**
+  String get appStoreRefusal404;
+
+  /// appStoreRefusal409
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا التطبيق مملوك مسبقًا أو تغيّرت حالته أثناء الشراء'**
+  String get appStoreRefusal409;
+
+  /// appStoreRefusalGeneric
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر إتمام الشراء، حاول مرة أخرى'**
+  String get appStoreRefusalGeneric;
+
+  /// appStoreCapacityTitle
+  ///
+  /// In ar, this message translates to:
+  /// **'السعة'**
+  String get appStoreCapacityTitle;
+
+  /// appStoreCapacityConfirmRemove
+  ///
+  /// In ar, this message translates to:
+  /// **'هل تريد إزالة آخر وحدة من \"{name}\"؟ هذا يوقف تجديده بالكامل'**
+  String appStoreCapacityConfirmRemove(String name);
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

@@ -201,9 +201,38 @@
   "branchesMemberRoleLabel": "Matsayi",
   "branchesRoleOperator": "Ma'aikacin filin",
   "branchesRoleSupervisor": "Mai kula da canjin aiki",
+  "branchesRoleMarketer": "Shugaban tallace-tallace",
   "branchesRoleManager": "Manaja",
   "branchesSeatLimit": "Tsarinka na yanzu ba ya barin ƙarin ma'aikaci.",
   "branchesHireFailed": "An kasa ƙara ma'aikaci, sake gwadawa.",
+  "branchesVisibleAllHint": "Yana ganin kowanne reshe",
+  "branchesVisibleSomeHint": "Yana ganin rassa {count}",
+  "branchesEditMember": "Gyara ma'aikaci",
+  "branchesMemberStopped": "An dakatar",
+  "branchesMemberStationLabel": "Wanne reshe yake aiki",
+  "branchesMemberVisibilityLabel": "Wadanne rassa zai iya gani",
+  "branchesVisibilityOwnOnly": "Reshensa kawai",
+  "branchesVisibilitySome": "Rassan da aka zaɓa",
+  "branchesVisibilityAll": "Kowanne reshe",
+  "branchesWorkingHours": "Sa'o'in aiki",
+  "branchesStopMember": "Dakatar da ma'aikaci",
+  "branchesStopMemberTitle": "Dakatar da wannan ma'aikaci?",
+  "branchesStopMemberBody": "{name} zai rasa damar shiga app nan take. Tarihin ziyararsa zai ci gaba da ajiye.",
+  "branchesStopMemberConfirm": "Dakatar",
+  "branchesReactivateMember": "Sake kunnawa",
+  "branchesRehireRequired": "Wannan ma'aikaci an dakatar da shi gaba daya — sake kunnawa yana bukatar sake daukar sa aiki, ba kawai kunnawa ba.",
+  "branchesHoursSaved": "An ajiye sa'o'in aiki.",
+  "branchesHoursExceedsShop": "Wadannan sa'o'i sun fi na shago kansa fadi — gyara su.",
+  "branchesHoursHint": "Idan ba ka canza komai ba, zai bi sa'o'in shago kansa kai tsaye.",
+  "branchesHoursClear": "Mayar da sa'o'in shago na asali",
+  "branchesDayMonday": "Litinin",
+  "branchesDayTuesday": "Talata",
+  "branchesDayWednesday": "Laraba",
+  "branchesDayThursday": "Alhamis",
+  "branchesDayFriday": "Jumma'a",
+  "branchesDaySaturday": "Asabar",
+  "branchesDaySunday": "Lahadi",
+  "branchesDayClosed": "A rufe",
   "accountSecuritySectionTitle": "Tsaro",
   "accountChangePasswordRow": "Canza kalmar sirri",
   "accountChangePasswordFailed": "An kasa canza kalmar sirri, sake gwadawa.",
@@ -247,6 +276,7 @@
   "billingInvoiceStatusDraft": "Zane-zane",
   "billingPayNow": "Biya yanzu",
   "billingPayLinkFailed": "An kasa ƙirƙirar hanyar biya. Sake gwadawa.",
+  "paymentPageLoadFailed": "An kasa loda shafin biya. Duba haɗin intanet ɗinka sannan ka sake gwadawa.",
   "billingCancelConfirmTitle": "Dakatar da sabuntawa?",
   "billingCancelConfirmBody": "Ayyukan za su ci gaba har zuwa ƙarshen wannan lokacin, sannan ba za su sabunta ba.",
   "billingCancelConfirmAction": "Dakatar da sabuntawa",
@@ -267,5 +297,881 @@
   "writeVehicleTrackingDisabledConfirm": "Zai kashe filin lambar farantin a shafin rijistar ziyara na wannan shago. Tabbatarwa?",
   "writeVehicleTrackingEnabledDone": "An kunna bin diddigin motoci ✓",
   "writeVehicleTrackingDisabledDone": "An kashe bin diddigin motoci ✓",
-  "writeVehicleTrackingFailed": "An kasa canza saitin bin diddigin motoci, sake gwadawa."
+  "writeVehicleTrackingFailed": "An kasa canza saitin bin diddigin motoci, sake gwadawa.",
+  "mobileRequestsTitle": "Buƙatun keɓaɓɓu",
+  "mobileRequestsSubtitle": "Buƙatun sabis da ke zuwa wurin abokin ciniki, daga karɓa zuwa kammalawa.",
+  "mobileRequestsKpiPending": "Jiran yanke shawara",
+  "mobileRequestsKpiNeedsDecision": "Yana buƙatar yanke shawara",
+  "mobileRequestsKpiCompletedMonth": "An kammala wannan wata",
+  "mobileRequestsBannerGo": "Duba",
+  "mobileRequestsFilterAll": "Duka",
+  "mobileRequestsFilterPending": "Jiran",
+  "mobileRequestsFilterAccepted": "An karɓa",
+  "mobileRequestsFilterNeedsDecision": "Yana buƙatar shawara",
+  "mobileRequestsFilterCompleted": "An kammala",
+  "mobileRequestsFilterClosed": "An rufe",
+  "mobileRequestsSearchHint": "Nema da suna ko waya",
+  "mobileRequestsLoadFailedTitle": "An kasa loda buƙatun",
+  "mobileRequestsLoadFailedBody": "Duba haɗin intanetinka kuma sake gwadawa.",
+  "mobileRequestsRetry": "Sake gwadawa",
+  "mobileRequestsEmptyTitle": "Babu buƙatu tukuna",
+  "mobileRequestsEmptyBody": "Buƙatun sabis na keɓaɓɓu daga abokan cinikinka suna bayyana anan.",
+  "mobileRequestsStatusPending": "Ana jira",
+  "mobileRequestsStatusAccepted": "An karɓa",
+  "mobileRequestsStatusNeedsDecision": "Yana buƙatar shawara",
+  "mobileRequestsStatusCompleted": "An kammala",
+  "mobileRequestsStatusNoShow": "Bai zo ba",
+  "mobileRequestsStatusRejected": "An ƙi",
+  "mobileRequestsUnnamed": "Ba tare da suna ba",
+  "mobileRequestsOpenMap": "Wuri",
+  "mobileRequestsPhoneCopied": "An kwafi lambar wayar",
+  "mobileRequestsRiskyCustomer": "Abokin ciniki mai haɗarin rashin zuwa",
+  "mobileRequestsRejectReasonLine": "Dalilin ƙi: {reason}",
+  "mobileRequestsActionAccept": "Karɓa",
+  "mobileRequestsActionReject": "Ƙi",
+  "mobileRequestsActionComplete": "An kammala",
+  "mobileRequestsActionNoShow": "Bai zo ba",
+  "mobileRequestsAssignUnassigned": "Ba a ba da alhaki ba",
+  "mobileRequestsActionFailed": "An kasa kammala aikin, sake gwadawa.",
+  "mobileRequestsRejectTitle": "Dalilin ƙi",
+  "mobileRequestsRejectHint": "Na zaɓi",
+  "mobileRequestsRejectCancel": "Soke",
+  "mobileRequestsRejectConfirm": "Ƙi buƙatar",
+  "mobileRequestsAddOpen": "Ƙara buƙata",
+  "mobileRequestsAddTitle": "Ƙara buƙatar sabis na keɓaɓɓu",
+  "mobileRequestsAddPhoneLabel": "Wayar abokin ciniki",
+  "mobileRequestsAddNameLabel": "Sunan abokin ciniki (na zaɓi)",
+  "mobileRequestsAddServicesLabel": "Ayyuka",
+  "mobileRequestsAddServicesEmpty": "Babu ayyuka tukuna.",
+  "mobileRequestsAddDayLabel": "Rana",
+  "mobileRequestsAddTimeLabel": "Lokaci",
+  "mobileRequestsAddMapsLinkLabel": "Hanyar wurin Google Maps",
+  "mobileRequestsAddMapsLinkHint": "Yana karɓar cikakkiyar ko gajarciyar hanyar Google Maps.",
+  "mobileRequestsAddMapsLinkShort": "Wannan gajarciyar hanya ce — manna cikakkiyar hanyar Google Maps.",
+  "mobileRequestsAddMapsLinkInvalid": "An kasa karanta wuri daga wannan hanyar.",
+  "mobileRequestsAddAssignLabel": "Ba da alhaki ga (na zaɓi)",
+  "mobileRequestsAddCancel": "Soke",
+  "mobileRequestsAddSubmit": "Ƙara buƙatar",
+  "mobileRequestsAddSubmitting": "Ana ƙarawa...",
+  "mobileRequestsAddError": "An kasa ƙara buƙatar, sake gwadawa.",
+  "mobileRequestsBannerText": "{count, plural, other{Buƙatu {count} suna buƙatar yanke shawararka yanzu}}",
+  "mobileRequestsAddMapsLinkResolving": "Ana karanta wuri daga hanyar...",
+  "customersTitle": "Abokan cinikina",
+  "customersAddOpen": "Ƙara abokin ciniki",
+  "customersSearchHint": "Nema da suna ko waya",
+  "customersTabAll": "Duka",
+  "customersTabOverdue": "Wanda ya jinkirta",
+  "customersSearchFailedTitle": "Bincike ba ya samuwa yanzu",
+  "customersSearchFailedBody": "Sake gwadawa nan da ƴan lokaci.",
+  "customersSearchEmpty": "Babu sakamako",
+  "customersLoadFailedTitle": "An kasa loda",
+  "customersEmptyTitle": "Babu abokan ciniki tukuna",
+  "customersOverdueEmpty": "Babu wanda ya jinkirta a yanzu",
+  "customersUnnamed": "Ba tare da suna ba",
+  "customersVisitCount": "{count, plural, other{Ziyara {count}}}",
+  "customersOverdueBadge": "Jinkiri",
+  "customersStatEveryDays": "{days, plural, other{kowanne kwana {days}}}",
+  "customersOverdueBanner": "Ya jinkirta ziyararsa ta saba — yawanci kowanne kwana {every}, kwana {since} tun ziyararsa ta karshe",
+  "customersVisitMeter": "Karatun mita: {n}",
+  "customersOfferExpiredBadge": "Ya kare",
+  "customersDeniedAllTitle": "Ba ka da izinin duba jerin abokan ciniki",
+  "customersDeniedOverdueTitle": "Ba ka da izinin duba wanda ya jinkirta",
+  "customersDeniedDesc": "Nemi mai shago ya baka wannan izinin.",
+  "customersAddTitle": "Ƙara sabon abokin ciniki",
+  "customersAddPhoneLabel": "Wayar abokin ciniki",
+  "customersAddNameLabel": "Sunan abokin ciniki",
+  "customersAddPhoneInvalid": "Lambar waya ba daidai ba ce.",
+  "customersAddFailed": "An kasa ƙara abokin ciniki, sake gwadawa.",
+  "customersAddSubmitting": "Ana ƙarawa...",
+  "customersAddSubmit": "Ƙara",
+  "customersActionFailed": "An kasa kammala aikin, sake gwadawa.",
+  "customersRepeatedIssuesTitle": "Matsaloli masu maimaituwa",
+  "customersVehiclesTitle": "Motoci",
+  "customersLoyaltyTitle": "Aminci",
+  "customersLoyaltyLoading": "Ana loda...",
+  "customersLoyaltyPoints": "Maki {count}",
+  "customersLoyaltyAdjust": "Gyara",
+  "customersOffersTitle": "Tayin da ke aiki",
+  "customersOfferExpires": "Yana ƙarewa {date}",
+  "customersVisitsTitle": "Tarihin ziyara",
+  "customersVisitsEmpty": "Babu ziyara tukuna",
+  "customersVisitNoServices": "Babu ayyukan da aka rubuta",
+  "customersRenameTitle": "Gyara sunan abokin ciniki",
+  "customersRenameSubmit": "Ajiye",
+  "customersLoyaltyAdjustTitle": "Gyara makin aminci",
+  "customersLoyaltyAdjustNoteLabel": "Dalilin gyara",
+  "customersLoyaltyAdjustNoteRequired": "Rubuta dalili na gaskiya (aƙalla haruffa 3), kuma zaɓi lambar da ba sifili ba.",
+  "customersLoyaltyAdjustSubmit": "Ajiye gyara",
+  "customersEraseButton": "Share bayanan wannan abokin ciniki",
+  "customersEraseTitle": "Share bayanan abokin ciniki",
+  "customersEraseWarning": "Wannan yana share duk bayanan abokin ciniki daga dandali har abada — ba za a iya soke wannan ba.",
+  "customersEraseTypeNameLabel": "Don tabbatarwa, rubuta sunan abokin ciniki: {name}",
+  "customersEraseConfirm": "Share har abada",
+  "customersBookingsTitle": "Ajiyewa",
+  "customersAttendanceRate": "{rate}% halarta",
+  "customersBookingsNoneUpcoming": "Babu ajiyewa mai zuwa",
+  "customersCyclesTitle": "Zagayowar tunatarwa",
+  "customersCyclesEveryDays": "Kowace kwana {days}",
+  "customersCyclesEditHint": "Saita tazara, kuma koyo ta atomatik zai tsaya don wannan sabis tare da wannan abokin ciniki.",
+  "customersCyclesSave": "Ajiye",
+  "customersLogTitle": "Abin da muka gaya masa",
+  "customersLogEmpty": "Ba mu aika masa da komai ba tukuna",
+  "customersCyclesUnknownService": "Sabis wanda ba a sani ba",
+  "customersVisitGapDays": "{days, plural, =0{a rana daya} other{bayan kwana {days}}}",
+  "customersCountLabel": "{count, plural, =0{babu abokan ciniki tukuna} other{Abokan ciniki {count}}}",
+  "ratingTitle": "Kimantawa",
+  "pointsTitle": "Maki na Aminci",
+  "pointsAddReward": "Sabuwar lada",
+  "pointsEditReward": "Gyara lada",
+  "pointsTabRewards": "Ladoji",
+  "pointsTabLeaderboard": "Mafi karɓa",
+  "pointsOutstandingHint": "maki da shago har yanzu yake bin abokan ciniki",
+  "pointsRedemptionsCount": "{count, plural, other{karɓe {count}}}",
+  "pointsCustomersCount": "{count, plural, other{abokan ciniki {count} sun karɓa}}",
+  "pointsExpiredWarning": "%{percent} na makin da aka bayar sun kare ba tare da karɓa ba — duba farashin ladodinka",
+  "pointsLoadFailedTitle": "An kasa loda ladoji",
+  "pointsRewardsEmpty": "Babu lada tukuna — kara lada na farko ga abokan cinikinka",
+  "pointsLeaderboardEmpty": "Babu karɓa tukuna — zai bayyana anan da zarar abokin ciniki ya karɓi lada",
+  "pointsLeaderboardTitle": "Mafi karɓa",
+  "pointsLeaderboardHint": "Manyan ladoji biyar da abokan cinikinka suka karɓa",
+  "pointsTimesRedeemed": "{count, plural, other{sau {count}}}",
+  "pointsRewardRetired": "An dakatar",
+  "pointsRewardServiceHint": "Sabis: {name}",
+  "pointsRewardDiscountHint": "Rangwame na riyal {amount}",
+  "pointsRewardItemHint": "Kyauta, ba a haɗa da katalog ba",
+  "pointsRewardNameLabel": "Sunan lada",
+  "pointsRewardTypeLabel": "Nau'in lada",
+  "pointsTypeService": "Sabis daga katalogka",
+  "pointsTypeItem": "Kyauta",
+  "pointsTypeDiscount": "Rangwamen kudi",
+  "pointsRewardServiceLabel": "Wanne sabis",
+  "pointsRewardDiscountLabel": "Adadin rangwame, riyal",
+  "pointsRewardCostLabel": "Kudin a maki",
+  "pointsRewardActiveLabel": "Yana aiki — abokan ciniki na iya karɓarsa",
+  "pointsRewardInvalid": "Shigar da suna da maki na gaskiya sama da sifili",
+  "pointsSaveFailed": "An kasa ajiyewa, sake gwadawa",
+  "pointsModeTitle": "Hanyar ƙidayawa",
+  "pointsModeHint": "Ta sabis: kowace sabis makinta na kanta. Ta darajar sigina: maki ɗaya kowace riyal.",
+  "pointsModeServices": "Ta sabis",
+  "pointsModeInvoice": "Ta darajar sigina",
+  "pointsModeNeedsPricedServices": "Ƙidayawa ta darajar sigina tana buƙatar an sanya farashin kowace sabis tukuna — sanya farashin duka a Ayyuka, sannan a kunna shi.",
+  "pointsOpenEarnSettings": "Saitin maki na kowace sabis",
+  "ratingLeaderboardTitle": "Mas kimanta mafi girma",
+  "ratingCardNoName": "Ba tare da suna ba",
+  "ratingMetricVisits": "Mafi yawan ziyara",
+  "ratingMetricRatings": "Mafi yawan kimantawa",
+  "ratingMetricAvg": "Mas kimanta mafi girma",
+  "ratingStaffCount": "{count, plural, other{ma'aikata {count}}}",
+  "ratingTableTitle": "Kowanne ma'aikaci",
+  "ratingTableVisitsValue": "ziyara {n}",
+  "ratingTableRatingsValue": "kimantawa {n}",
+  "ratingTableEngagementValue": "shiga %{n}",
+  "ratingTableNoShowValue": "rashin zuwa %{n}",
+  "ratingPeriodWeek": "Mako",
+  "ratingPeriodMonth": "Wata",
+  "ratingPeriodQuarter": "Kwata",
+  "ratingPeriodCustom": "Na musamman",
+  "ratingCustomSince": "Daga: {date}",
+  "ratingCustomUntil": "Zuwa: {date}",
+  "ratingCustomRangeInvalid": "Zangon ba daidai ba ne — tabbatar ranar farawa ta gabaci ranar ƙarshe",
+  "ratingExportLocaleLabel": "Harshen rahoto",
+  "localeNameAr": "العربية",
+  "localeNameEn": "English",
+  "localeNameUr": "اردو",
+  "localeNameHa": "Hausa",
+  "localeNameFil": "Filipino",
+  "localeNameBn": "বাংলা",
+  "ratingTopIssuesTitle": "Matsalolin da suka fi maimaituwa",
+  "ratingFilterUnhandled": "Ana jira",
+  "ratingFilterAll": "Duka",
+  "ratingFilterHandled": "An warware",
+  "ratingStarsAll": "Duk taurari",
+  "ratingLoadFailedTitle": "An kasa loda kimantawa",
+  "ratingEmptyTitle": "Babu kimantawa tukuna",
+  "ratingLoadMore": "Nuna ƙari",
+  "ratingHandledPlain": "An warware",
+  "ratingMarkHandled": "Yi alama an warware",
+  "ratingMarkHandledHint": "Ana rikodin wannan har abada — ba za a iya soke shi daga baya ba.",
+  "ratingHandledNoteLabel": "Bayani (na zaɓi)",
+  "ratingMarkHandledConfirm": "Tabbatar",
+  "ratingActionFailed": "An kasa kammala aikin, sake gwadawa.",
+  "ratingWeightedAvgHint": "{count, plural, =0{babu kimantawa cikin kwanaki 30 da suka wuce} other{daga kimantawa {count} cikin kwanaki 30 da suka wuce}}",
+  "ratingUnhandledCount": "{count, plural, other{Kimantawa {count} suna jira}}",
+  "ratingVisitsShort": "{count, plural, other{Ziyara {count}}}",
+  "ratingIssueFilterLabel": "Matsala: {label}",
+  "ratingByOperator": "{name} ne yi masa hidima",
+  "ratingHandledWithNote": "An warware: {note}",
+  "ratingQuadrantTitle": "Kashin aiki",
+  "ratingQuadrantHint": "Inganci da yawan sadarwa — danna kowane digo don rikodin horar da ma'aikacin.",
+  "ratingQuadrantStars": "Taurari",
+  "ratingQuadrantUnderused": "Ba a amfani da shi sosai ba",
+  "ratingQuadrantNeedsCoaching": "Yana buƙatar horo",
+  "ratingQuadrantAtRisk": "Yana cikin haɗari",
+  "ratingTrainingTitle": "Rikodin horo",
+  "ratingTrainingNoAccess": "Ba ka da izinin ganin wannan.",
+  "ratingTrainingClean": "Tsaftataccen rikodi — babu matsalolin da suka maimaita.",
+  "ratingEngagementPercent": "%{percent} sadarwa",
+  "ratingTabOverview": "Bayyani",
+  "ratingTabFeed": "Duk kimantawa",
+  "ratingOverviewEmpty": "Babu bayanan aiki tukuna cikin kwanaki 30 da suka wuce.",
+  "ratingExportTitle": "Fitar da rahoto",
+  "ratingExportHint": "Rahoton aikin ƙungiya na lokacin da aka zaɓa, a shirye don rabawa.",
+  "ratingExportFailed": "An kasa fitar da rahoto, sake gwadawa.",
+  "customersPrivacyRequestsTitle": "Buƙatun keɓantawa",
+  "customersPrivacyRequestErase": "Buƙatar share bayanai",
+  "customersPrivacyRequestCopy": "Buƙatar kwafin bayanai",
+  "customersPrivacyRequestGeneric": "Buƙata: {type}",
+  "customersPrivacyRequestClose": "Rufe",
+  "customersLoyaltyHistoryTitle": "Tarihin maki",
+  "customersLoyaltyHistoryNoReason": "Ba a bayar da dalili ba",
+  "customersLoyaltyReasonRedeem": "An maida lada",
+  "customersLoyaltyReasonAdjust": "Gyaran hannu",
+  "customersLoyaltyReasonEarn": "Maki daga ziyara",
+  "customersLoyaltyReasonExpire": "Ya ƙare",
+  "readCustomersFailed": "An kasa samun bayanan abokan ciniki yanzu, sake gwadawa.",
+  "readCustomersTotal": "{count, plural, =0{Babu abokan ciniki da aka yi wa rijista tukuna.} other{Kana da abokan ciniki {count} da aka yi wa rijista.}}",
+  "readCustomersOverdueCount": "{count, plural, =0{Babu abokin ciniki da ya jinkirta a zagayowarsa yanzu.} other{Abokan cinikinka {count} sun jinkirta a zagayowarsu.}}",
+  "readMobileRequestsFailed": "An kasa samun buƙatun keɓaɓɓu yanzu, sake gwadawa.",
+  "readMobileRequestsPendingCount": "{count, plural, =0{Babu buƙatun keɓaɓɓu da ke jiran yanke shawara.} other{Kana da buƙatu {count} da ke jiran yanke shawara.}}",
+  "readMobileRequestsNeedsDecisionCount": "{count, plural, =0{Babu buƙatu da ke buƙatar yanke shawararka yanzu.} other{Buƙatu {count} suna buƙatar yanke shawararka yanzu.}}",
+  "readRatingFailed": "An kasa samun bayanan kimantawa yanzu, sake gwadawa.",
+  "readRatingNone": "Babu kimantawa a cikin kwanaki 30 da suka wuce tukuna.",
+  "readRatingAverage": "Matsakaicin kimantawarka a cikin kwanaki 30 da suka wuce {avg} daga cikin 5, daga kimantawa {count}.",
+  "readRatingUnhandledCount": "{count, plural, =0{Babu kimantawa da ke jira.} other{Kana da kimantawa {count} da ke jira.}}",
+  "readRatingTopStaff": "Ma'aikaci mafi kyawun kimantawa a cikin kwanaki 30 da suka wuce shine {name}, matsakaicin {avg} daga 5.",
+  "readMobileRequestsCompletedCount": "{count, plural, =0{Ba ka kammala wata buƙatar keɓaɓɓu a wannan wata ba tukuna.} other{Ka kammala {count} a wannan wata.}}",
+  "readMobileRequestsTodayCount": "{count, plural, =0{Babu buƙatar keɓaɓɓu da ta zo yau tukuna.} other{Buƙatu {count} sun zo yau.}}",
+  "readOperatorsFailed": "An kasa samun adadin ma'aikata yanzu, sake gwadawa.",
+  "readOperatorsCount": "{count, plural, =0{Babu ma'aikata da aka yi wa rijista tukuna.} other{Kana da ma'aikata {count} a ƙungiyarka.}}",
+  "readBranchesDisconnectedCount": "{count, plural, =0{Duk rassanka masu aiki suna da WhatsApp da aka haɗa kuma yana aiki.} other{Kana da rassa {count} da WhatsApp ba ya aiki.}}",
+  "readCustomersRecentNone": "Ba ka da wani abokin ciniki da aka yi wa rijista tukuna.",
+  "readCustomersRecentName": "Abokin cinikinka na baya-bayan nan shine {name}.",
+  "readRatingCriticalIssuesCount": "{count, plural, =0{Babu kimantawar da ke jira mai matsala mai tsanani.} other{Kana da kimantawa {count} da ke jira masu matsala mai tsanani.}}",
+  "readPerBranchModeOn": "Ee, shagonka yana aiki cikin yanayin rassa da yawa.",
+  "readPerBranchModeOff": "A'a, shagonka yana aiki azaman reshe ɗaya kawai.",
+  "readBillingOverdueYes": "Ee, kana da lissafin da bai biya ba — biya don kauce wa dakatar da hidimominka.",
+  "readBillingOverdueNo": "A'a, biyan kuɗinka yana da kyau, babu lissafin da bai biya ba.",
+  "readServicesFailed": "An kasa samun adadin ayyuka yanzu, sake gwadawa.",
+  "readServicesCount": "{count, plural, =0{Babu wani sabis a jerinka tukuna.} other{Kana da ayyuka {count} a jerinka.}}",
+  "readCustomersTodayCount": "{count, plural, =0{Babu sabon abokin ciniki da ya zo yau tukuna.} other{Sabbin abokan ciniki {count} sun zo yau.}}",
+  "readMobileRequestsRejectedCount": "{count, plural, =0{Ba ka ƙi wata buƙatar keɓaɓɓu a wannan wata ba.} other{Ka ƙi {count} a wannan wata.}}",
+  "readMobileRequestsNoShowCount": "{count, plural, =0{Babu abokin ciniki da bai zo ba a wannan wata.} other{Abokan ciniki {count} ba su zo ba a wannan wata.}}",
+  "readRatingFiveStarCount": "{count, plural, =0{Babu kimantawar taurari biyar tukuna.} other{Kana da kimantawa {count} na taurari biyar.}}",
+  "readBranchesActiveCount": "{count, plural, =0{Babu reshe mai aiki a yanzu.} other{Kana da rassa {count} masu aiki.}}",
+  "servicesTitle": "Ayyukana",
+  "servicesUnnamedGlyph": "?",
+  "servicesSearchHint": "Nema da sunan sabis",
+  "servicesTabActive": "Masu aiki",
+  "servicesTabStopped": "An dakatar",
+  "servicesLoadFailedTitle": "An kasa loda ayyuka",
+  "servicesEmptyActive": "Babu ayyuka masu aiki tukuna",
+  "servicesEmptyStopped": "Babu ayyukan da aka dakatar",
+  "servicesAddOpen": "Ƙara sabis",
+  "servicesNoPrice": "Ba a saita farashi ba",
+  "servicesNoDuration": "Ba a saita ba",
+  "servicesNoCycle": "Babu zagaye",
+  "servicesStopTitle": "Dakatar da sabis",
+  "servicesStopConfirm": "Dakatar",
+  "servicesActionFailed": "An kasa kammala aikin, sake gwadawa.",
+  "servicesEditTitle": "Gyara sabis",
+  "servicesAddTitle": "Ƙara sabon sabis",
+  "servicesNameLabel": "Sunan sabis",
+  "servicesPriceLabel": "Farashi (na zaɓi)",
+  "servicesDurationLabel": "Tsawon lokaci a mintuna (na zaɓi)",
+  "servicesCycleLabel": "Zagayen tunatarwa a kwanaki (na zaɓi)",
+  "servicesDescriptionLabel": "Gajeren bayani (na zaɓi)",
+  "servicesSaving": "Ana ajiyewa...",
+  "servicesSave": "Ajiye",
+  "servicesNameRequired": "Sunan sabis ana buƙata",
+  "servicesActiveCount": "{count, plural, =0{Babu sabis mai aiki tukuna.} other{Kana da ayyuka {count} masu aiki.}}",
+  "servicesDurationMinutes": "Mintuna {count}",
+  "servicesCycleDays": "Kowace kwana {count}",
+  "servicesStopWarning": "Wannan zai dakatar da \"{name}\" — ba za ta bayyana don sabon ziyara ba, kuma tunatarwarta za su tsaya. Ba a taɓa share bayananta ba.",
+  "servicesPhotoPickFailed": "An kasa zaɓar hoto",
+  "servicesPhotoUploadFailed": "An ajiye, amma an kasa loda hoto",
+  "servicesPhotoLabel": "Hoton sabis (na zaɓi)",
+  "servicesUploadPhoto": "Loda hoto",
+  "@servicesUploadPhoto": {
+    "description": "servicesUploadPhoto"
+  },
+  "servicesChangePhoto": "Canza hoto",
+  "@servicesChangePhoto": {
+    "description": "servicesChangePhoto"
+  },
+  "servicesRemovePhoto": "Cire",
+  "@servicesRemovePhoto": {
+    "description": "servicesRemovePhoto"
+  },
+  "servicesAssignmentLabel": "Wa ke bayar da wannan sabis?",
+  "servicesAssignmentAuto": "Duk wani ma'aikaci da ke akwai",
+  "servicesAssignmentNamed": "Takamaiman ma'aikata",
+  "servicesChecklistLabel": "Matakan aiki",
+  "servicesChecklistEmpty": "Babu matakai tukuna — ƙara na farko",
+  "servicesStepAddTitle": "Ƙara mataki",
+  "servicesGeneralSettingsTitle": "Saitin gama-gari",
+  "servicesGeneralSettingsHint": "Ƙimar da kowane sabis da ba a keɓance ba yake bi",
+  "servicesFollowUpLabel": "Kwanakin bibiya bayan ziyara",
+  "servicesPointsLabel": "Maki a kowace ziyara",
+  "servicesGroupThem": "Haɗa su",
+  "servicesGroupNameHint": "Sunan rukuni",
+  "servicesAllGroups": "Duka",
+  "servicesStepEditTitle": "Gyara mataki",
+  "servicesStepCriticalLabel": "Muhimmin mataki",
+  "servicesStepRetire": "Dakatar da wannan mataki",
+  "servicesStepEditHint": "Riƙe kowane mataki na dogon lokaci don gyara ko dakatar da shi",
+  "servicesAdvancedTitle": "Ci-gaba na saituna",
+  "servicesAdvancedHint": "Keɓance wannan sabis daga saitin gama-gari — zagaye, maki, da haɗawa",
+  "servicesGroupLabel": "Rukuni",
+  "servicesNoGroup": "Babu rukuni",
+  "servicesNewGroup": "Sabon rukuni",
+  "servicesFollowGeneralAction": "Bi na gama-gari",
+  "servicesCustomizeAction": "Keɓance",
+  "servicesFollowUpDays": "Bibiya bayan kwanaki {n}",
+  "servicesPointsPerVisit": "Maki {n}",
+  "servicesSuggestionText": "Sabis {n} suna da ƙima ɗaya — haɗa su cikin rukuni ɗaya yana sauƙaƙa gyara su tare daga baya.",
+  "servicesFollowsGeneral": "Yana bin gama-gari — {hint}",
+  "servicesPageTabServices": "Ayyuka",
+  "servicesPageTabPackages": "Fakiti",
+  "servicesPackageAdd": "Ƙara fakiti",
+  "servicesPackageNeedsTwoServices": "Fakiti yana buƙatar aƙalla ayyuka biyu masu aiki",
+  "servicesPackageEmpty": "Babu fakiti tukuna",
+  "servicesPackageEditTitle": "Gyara fakiti",
+  "servicesPackageAddTitle": "Ƙara sabon fakiti",
+  "servicesPackageNameLabel": "Sunan fakiti",
+  "servicesPackagePriceRequired": "Ana buƙatar farashin fakiti, sama da sifili",
+  "servicesPackageServicesLabel": "Ayyukan da aka haɗa",
+  "servicesImportTitle": "Shigo da ayyuka daga fayil",
+  "servicesImportHint": "Fayil CSV mai ginshiƙai: name, price, duration_minutes, cycle_days, description",
+  "servicesImportPickFile": "Zaɓi fayil CSV",
+  "servicesImportReadFailed": "An kasa karanta fayil",
+  "servicesImportParseFailed": "Fayil ba shi da ginshiƙin name, ko tsarinsa ba daidai ba ne",
+  "servicesImportDeactivateMissing": "Dakatar da ayyukan da ba su nan a fayil",
+  "servicesImportDeactivateMissingHint": "Duk wani sabis da kake da shi a halin yanzu wanda ba ya cikin wannan fayil za a dakatar da shi ta atomatik",
+  "servicesImportConfirm": "Shigo da su",
+  "servicesImportClose": "An gama",
+  "servicesImportRowCount": "Layuka {n} a shirye don shigowa",
+  "servicesImportDone": "An ƙara {created}, an sabunta {updated}, an sake kunna {reactivated}.",
+  "visitPackagesSectionTitle": "Fakiti masu fice",
+  "visitNameFieldHint": "Sunan abokin ciniki (na zaɓi)",
+  "visitMeterFieldHint": "Karatun mita",
+  "visitQuantityDialogTitle": "Yawa",
+  "visitCouponCheckboxLabel": "Ba wani shago kubo na rangwame",
+  "visitCouponPhoneHint": "Wayar mai shago",
+  "visitClearAllButton": "Share duka",
+  "visitServicesSelectedCount": "An zaɓi ayyuka {n}",
+  "visitTodayBookingsTitle": "Alkawuran yau",
+  "visitBookingAttendFailed": "An kasa tabbatar da halarta, sake gwadawa",
+  "branchSwitcherChooseBranch": "Zaɓi reshe",
+  "branchSwitcherTitle": "Reshen yanzu",
+  "branchSwitcherHint": "Duk abin da ka buɗe bayan wannan na wannan reshe ne",
+  "proceduresPrintFailed": "An kasa qirqirar takarda",
+  "@proceduresPrintFailed": {
+    "description": "proceduresPrintFailed"
+  },
+  "proceduresTitle": "Matakan Aiki",
+  "@proceduresTitle": {
+    "description": "proceduresTitle"
+  },
+  "proceduresSubtitle": "Saita jerin matakan aiki na kowace sabis, ko kula da dukan dakin karatu na gama gari. Latsa na dade don zaba don bugawa",
+  "@proceduresSubtitle": {
+    "description": "proceduresSubtitle"
+  },
+  "proceduresLibraryLink": "Dakin karatun matakai",
+  "@proceduresLibraryLink": {
+    "description": "proceduresLibraryLink"
+  },
+  "proceduresPrint": "Buga",
+  "@proceduresPrint": {
+    "description": "proceduresPrint"
+  },
+  "proceduresEmptyTitle": "Babu sabis mai aiki tukuna",
+  "@proceduresEmptyTitle": {
+    "description": "proceduresEmptyTitle"
+  },
+  "servicesStepSeverityNormal": "Na yau da kullun",
+  "@servicesStepSeverityNormal": {
+    "description": "servicesStepSeverityNormal"
+  },
+  "servicesStepSeverityCritical": "Mai muhimmanci",
+  "@servicesStepSeverityCritical": {
+    "description": "servicesStepSeverityCritical"
+  },
+  "proceduresSaveFailed": "An kasa ajiyewa",
+  "@proceduresSaveFailed": {
+    "description": "proceduresSaveFailed"
+  },
+  "proceduresDrawerSubtitle": "Ja don sake tsari, ko qara mataki daga dakin karatu",
+  "@proceduresDrawerSubtitle": {
+    "description": "proceduresDrawerSubtitle"
+  },
+  "proceduresDrawerEmpty": "Babu matakai na wannan sabis tukuna",
+  "@proceduresDrawerEmpty": {
+    "description": "proceduresDrawerEmpty"
+  },
+  "proceduresDrawerAddButton": "Qara daga dakin karatu",
+  "@proceduresDrawerAddButton": {
+    "description": "proceduresDrawerAddButton"
+  },
+  "proceduresPickTitle": "Zabi mataki",
+  "@proceduresPickTitle": {
+    "description": "proceduresPickTitle"
+  },
+  "proceduresPickClose": "Rufe",
+  "@proceduresPickClose": {
+    "description": "proceduresPickClose"
+  },
+  "proceduresPickApply": "Qara",
+  "@proceduresPickApply": {
+    "description": "proceduresPickApply"
+  },
+  "proceduresPickSearch": "Nema matakai",
+  "@proceduresPickSearch": {
+    "description": "proceduresPickSearch"
+  },
+  "proceduresPickEmpty": "Babu sakamako",
+  "@proceduresPickEmpty": {
+    "description": "proceduresPickEmpty"
+  },
+  "proceduresPickCreatePlaceholder": "Sabon mataki...",
+  "@proceduresPickCreatePlaceholder": {
+    "description": "proceduresPickCreatePlaceholder"
+  },
+  "proceduresLibrarySaveFailed": "An kasa ajiyewa",
+  "@proceduresLibrarySaveFailed": {
+    "description": "proceduresLibrarySaveFailed"
+  },
+  "proceduresLibraryTitle": "Dakin karatun matakai",
+  "@proceduresLibraryTitle": {
+    "description": "proceduresLibraryTitle"
+  },
+  "proceduresLibrarySubtitle": "Kowane mataki anan an raba shi tsakanin duk sabis da ke amfani da shi - gyara shi yana canza shi kowa inda",
+  "@proceduresLibrarySubtitle": {
+    "description": "proceduresLibrarySubtitle"
+  },
+  "proceduresLibraryNewPlaceholder": "Rubutun sabon mataki",
+  "@proceduresLibraryNewPlaceholder": {
+    "description": "proceduresLibraryNewPlaceholder"
+  },
+  "proceduresLibraryAdd": "Qara",
+  "@proceduresLibraryAdd": {
+    "description": "proceduresLibraryAdd"
+  },
+  "proceduresLibraryShowRetired": "Nuna wadanda aka dakatar",
+  "@proceduresLibraryShowRetired": {
+    "description": "proceduresLibraryShowRetired"
+  },
+  "proceduresLibraryEmpty": "Babu matakai tukuna",
+  "@proceduresLibraryEmpty": {
+    "description": "proceduresLibraryEmpty"
+  },
+  "proceduresLibraryRetired": "An dakatar",
+  "@proceduresLibraryRetired": {
+    "description": "proceduresLibraryRetired"
+  },
+  "proceduresLibraryRetire": "Dakatar",
+  "@proceduresLibraryRetire": {
+    "description": "proceduresLibraryRetire"
+  },
+  "proceduresLibraryReactivate": "Sake kunnawa",
+  "@proceduresLibraryReactivate": {
+    "description": "proceduresLibraryReactivate"
+  },
+  "proceduresSeverityHint": "Ana haskaka muhimmin mataki wa maaikaci kuma ba za a iya tsallake shi ba yayin aiwatar da sabis",
+  "@proceduresSeverityHint": {
+    "description": "proceduresSeverityHint"
+  },
+  "proceduresSelectedCount": "An zabi {n}",
+  "@proceduresSelectedCount": {
+    "description": "proceduresSelectedCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "proceduresStepCount": "Matakai {n}",
+  "@proceduresStepCount": {
+    "description": "proceduresStepCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "proceduresUsedIn": "Ana amfani a sabis {n}",
+  "@proceduresUsedIn": {
+    "description": "proceduresUsedIn",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "referralProposeButton": "Baiwa shawarar hadin gwiwa",
+  "@referralProposeButton": {
+    "description": "referralProposeButton"
+  },
+  "referralTitle": "Hadin Gwiwar Dabaru",
+  "@referralTitle": {
+    "description": "referralTitle"
+  },
+  "referralSubtitle": "Tura abokan ciniki na gaske tsakanin ku da sauran shaguna, ta yarjejeniya tsakanin bangarorin biyu",
+  "@referralSubtitle": {
+    "description": "referralSubtitle"
+  },
+  "referralRoleAll": "Duka",
+  "@referralRoleAll": {
+    "description": "referralRoleAll"
+  },
+  "referralRoleReferrer": "A matsayin mai tura",
+  "@referralRoleReferrer": {
+    "description": "referralRoleReferrer"
+  },
+  "referralRoleBeneficiary": "A matsayin mai amfana",
+  "@referralRoleBeneficiary": {
+    "description": "referralRoleBeneficiary"
+  },
+  "referralLoadFailed": "An kasa loda hadin gwiwa",
+  "@referralLoadFailed": {
+    "description": "referralLoadFailed"
+  },
+  "referralEmptyTitle": "Babu hadin gwiwa tukuna",
+  "@referralEmptyTitle": {
+    "description": "referralEmptyTitle"
+  },
+  "referralKpiAsReferrer": "A matsayin mai tura",
+  "@referralKpiAsReferrer": {
+    "description": "referralKpiAsReferrer"
+  },
+  "referralKpiAsBeneficiary": "A matsayin mai amfana",
+  "@referralKpiAsBeneficiary": {
+    "description": "referralKpiAsBeneficiary"
+  },
+  "referralKpiSent": "An tura",
+  "@referralKpiSent": {
+    "description": "referralKpiSent"
+  },
+  "referralKpiRedeemed": "An fanshi",
+  "@referralKpiRedeemed": {
+    "description": "referralKpiRedeemed"
+  },
+  "referralKpiRate": "Adadin fansa",
+  "@referralKpiRate": {
+    "description": "referralKpiRate"
+  },
+  "referralConfirm": "Tabbatar",
+  "@referralConfirm": {
+    "description": "referralConfirm"
+  },
+  "referralGrantDiscountBlanket": "Rangwame akan dukan ziyara",
+  "@referralGrantDiscountBlanket": {
+    "description": "referralGrantDiscountBlanket"
+  },
+  "referralStatusProposed": "An bayar da shawara",
+  "@referralStatusProposed": {
+    "description": "referralStatusProposed"
+  },
+  "referralStatusActive": "Mai aiki",
+  "@referralStatusActive": {
+    "description": "referralStatusActive"
+  },
+  "referralStatusPaused": "An dakatar na wucin gadi",
+  "@referralStatusPaused": {
+    "description": "referralStatusPaused"
+  },
+  "referralStatusCancelRequested": "An nemi soke",
+  "@referralStatusCancelRequested": {
+    "description": "referralStatusCancelRequested"
+  },
+  "referralStatusEnded": "Ya kare",
+  "@referralStatusEnded": {
+    "description": "referralStatusEnded"
+  },
+  "referralStatusRejected": "An ki amincewa",
+  "@referralStatusRejected": {
+    "description": "referralStatusRejected"
+  },
+  "referralStatusExpiredUnanswered": "Ya kare ba tare da amsa ba",
+  "@referralStatusExpiredUnanswered": {
+    "description": "referralStatusExpiredUnanswered"
+  },
+  "referralEventProposed": "An bayar da shawarar hadin gwiwa",
+  "@referralEventProposed": {
+    "description": "referralEventProposed"
+  },
+  "referralEventAccepted": "An amince da hadin gwiwa",
+  "@referralEventAccepted": {
+    "description": "referralEventAccepted"
+  },
+  "referralEventRejected": "An ki amincewa da hadin gwiwa",
+  "@referralEventRejected": {
+    "description": "referralEventRejected"
+  },
+  "referralEventActivated": "An kunna hadin gwiwa",
+  "@referralEventActivated": {
+    "description": "referralEventActivated"
+  },
+  "referralEventCancelRequested": "An nemi soke",
+  "@referralEventCancelRequested": {
+    "description": "referralEventCancelRequested"
+  },
+  "referralEventCancelConfirmed": "An tabbatar da sokewa",
+  "@referralEventCancelConfirmed": {
+    "description": "referralEventCancelConfirmed"
+  },
+  "referralEventExpiredUnanswered": "Ya kare ba tare da amsa ba",
+  "@referralEventExpiredUnanswered": {
+    "description": "referralEventExpiredUnanswered"
+  },
+  "referralEventPaused": "An dakatar na wucin gadi",
+  "@referralEventPaused": {
+    "description": "referralEventPaused"
+  },
+  "referralEventResumed": "An sake farawa",
+  "@referralEventResumed": {
+    "description": "referralEventResumed"
+  },
+  "referralEventEndedTerm": "Lokaci ya kare",
+  "@referralEventEndedTerm": {
+    "description": "referralEventEndedTerm"
+  },
+  "referralEventGrantCreated": "Sabon kyauta",
+  "@referralEventGrantCreated": {
+    "description": "referralEventGrantCreated"
+  },
+  "referralEventGrantRedeemed": "An fanshi kyauta",
+  "@referralEventGrantRedeemed": {
+    "description": "referralEventGrantRedeemed"
+  },
+  "referralActivityActive": "Mai aiki",
+  "@referralActivityActive": {
+    "description": "referralActivityActive"
+  },
+  "referralActivityPaused": "An dakatar na wucin gadi",
+  "@referralActivityPaused": {
+    "description": "referralActivityPaused"
+  },
+  "referralActivityPending": "Ana jiran amsa",
+  "@referralActivityPending": {
+    "description": "referralActivityPending"
+  },
+  "referralActivityInactive": "Ba mai aiki ba",
+  "@referralActivityInactive": {
+    "description": "referralActivityInactive"
+  },
+  "referralScorecardTitle": "Aiki",
+  "@referralScorecardTitle": {
+    "description": "referralScorecardTitle"
+  },
+  "referralScorecardFailed": "An kasa loda aiki",
+  "@referralScorecardFailed": {
+    "description": "referralScorecardFailed"
+  },
+  "referralActivityTitle": "Ayyukan kwanan nan",
+  "@referralActivityTitle": {
+    "description": "referralActivityTitle"
+  },
+  "referralActivityEmpty": "Babu ayyuka tukuna",
+  "@referralActivityEmpty": {
+    "description": "referralActivityEmpty"
+  },
+  "referralAgreementsTitle": "Yarjejeniyoyi",
+  "@referralAgreementsTitle": {
+    "description": "referralAgreementsTitle"
+  },
+  "referralConfirmCancel": "Tabbatar da kawo karshen wannan hadin gwiwa har abada?",
+  "@referralConfirmCancel": {
+    "description": "referralConfirmCancel"
+  },
+  "referralActionAccept": "Amince",
+  "@referralActionAccept": {
+    "description": "referralActionAccept"
+  },
+  "referralActionReject": "Ki amincewa",
+  "@referralActionReject": {
+    "description": "referralActionReject"
+  },
+  "referralActionWaitingThem": "Ana jiran daya bangaren",
+  "@referralActionWaitingThem": {
+    "description": "referralActionWaitingThem"
+  },
+  "referralActionCancelRequest": "Nema a kawo karshen",
+  "@referralActionCancelRequest": {
+    "description": "referralActionCancelRequest"
+  },
+  "referralActionCancelConfirm": "Tabbatar da kawo karshen",
+  "@referralActionCancelConfirm": {
+    "description": "referralActionCancelConfirm"
+  },
+  "referralProposeTitle": "Baiwa sabon shawarar hadin gwiwa",
+  "@referralProposeTitle": {
+    "description": "referralProposeTitle"
+  },
+  "referralProposePhoneLabel": "Lambar wayar sauran shago",
+  "@referralProposePhoneLabel": {
+    "description": "referralProposePhoneLabel"
+  },
+  "referralProposeConditionLabel": "Sharadin cancanta a shagon ku",
+  "@referralProposeConditionLabel": {
+    "description": "referralProposeConditionLabel"
+  },
+  "referralConditionMinTotal": "Mafi karancin kudin biya",
+  "@referralConditionMinTotal": {
+    "description": "referralConditionMinTotal"
+  },
+  "referralConditionServiceId": "Takamaiman sabis",
+  "@referralConditionServiceId": {
+    "description": "referralConditionServiceId"
+  },
+  "referralProposeConditionValueRiyals": "Adadin (Riyal)",
+  "@referralProposeConditionValueRiyals": {
+    "description": "referralProposeConditionValueRiyals"
+  },
+  "referralProposeConditionValueService": "Sabis",
+  "@referralProposeConditionValueService": {
+    "description": "referralProposeConditionValueService"
+  },
+  "referralProposeValidityLabel": "Ingancin (kwanaki)",
+  "@referralProposeValidityLabel": {
+    "description": "referralProposeValidityLabel"
+  },
+  "referralProposeDurationLabel": "Tsawon (kwanaki)",
+  "@referralProposeDurationLabel": {
+    "description": "referralProposeDurationLabel"
+  },
+  "referralProposeCapLabel": "Iyaka / kwana 30",
+  "@referralProposeCapLabel": {
+    "description": "referralProposeCapLabel"
+  },
+  "referralProposeGrantTypeLabel": "Nau'in kyauta",
+  "@referralProposeGrantTypeLabel": {
+    "description": "referralProposeGrantTypeLabel"
+  },
+  "referralGrantTypeDiscount": "Rangwame",
+  "@referralGrantTypeDiscount": {
+    "description": "referralGrantTypeDiscount"
+  },
+  "referralGrantTypeGift": "Kyauta",
+  "@referralGrantTypeGift": {
+    "description": "referralGrantTypeGift"
+  },
+  "referralScopeBlanket": "Dukan ziyara",
+  "@referralScopeBlanket": {
+    "description": "referralScopeBlanket"
+  },
+  "referralScopeItem": "Takamaiman sabis",
+  "@referralScopeItem": {
+    "description": "referralScopeItem"
+  },
+  "referralScopeGroup": "Kungiya/kunshin",
+  "@referralScopeGroup": {
+    "description": "referralScopeGroup"
+  },
+  "referralProposeServiceLabel": "Sabis",
+  "@referralProposeServiceLabel": {
+    "description": "referralProposeServiceLabel"
+  },
+  "referralProposeGroupLabel": "Kungiya",
+  "@referralProposeGroupLabel": {
+    "description": "referralProposeGroupLabel"
+  },
+  "referralProposeImmutableNote": "Sharuddan kyauta sun tabbata bayan aikawa — sabon tayi yana bukatar sabuwar yarjejeniya",
+  "@referralProposeImmutableNote": {
+    "description": "referralProposeImmutableNote"
+  },
+  "referralProposeSubmitting": "Ana aikawa...",
+  "@referralProposeSubmitting": {
+    "description": "referralProposeSubmitting"
+  },
+  "referralProposeSubmit": "Aika shawara",
+  "@referralProposeSubmit": {
+    "description": "referralProposeSubmit"
+  },
+  "referralGrantGift": "Kyauta: {name}",
+  "@referralGrantGift": {
+    "description": "referralGrantGift",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "referralGrantDiscountItem": "Rangwame akan: {name}",
+  "@referralGrantDiscountItem": {
+    "description": "referralGrantDiscountItem",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "referralGrantDiscountGroup": "Rangwame akan kungiya: {name}",
+  "@referralGrantDiscountGroup": {
+    "description": "referralGrantDiscountGroup",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "referralPartnerCount": "Yarjejeniya {n}",
+  "@referralPartnerCount": {
+    "description": "referralPartnerCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "referralProposeResultFail": "An kasa aika shawara",
+  "@referralProposeResultFail": {
+    "description": "referralProposeResultFail"
+  },
+  "referralRefusal402": "Shagon ku bai yi rajista da app na Hadin Gwiwar Dabaru ba — yi rajista daga shagon aikace-aikace tukuna",
+  "@referralRefusal402": {
+    "description": "referralRefusal402"
+  },
+  "referralRefusal403": "Ba ka da izinin wannan aikin",
+  "@referralRefusal403": {
+    "description": "referralRefusal403"
+  },
+  "referralRefusal400": "Bayanan shawara ba daidai ba ne — duba sharadin, ko kana bayar da shawarar hadin gwiwa da kanka",
+  "@referralRefusal400": {
+    "description": "referralRefusal400"
+  },
+  "referralRefusal404": "Ba a sami shago da wannan lambar ba, ko sabis/kungiyar da aka zaba babu su a cikin kundin sauran shagon",
+  "@referralRefusal404": {
+    "description": "referralRefusal404"
+  },
+  "referralRefusal409": "Ka kai iyakar hadin gwiwa 3 masu aiki, ko yanayin hadin gwiwa ya canza",
+  "@referralRefusal409": {
+    "description": "referralRefusal409"
+  },
+  "referralRefusal503": "Ba a samun sabis na kudi na wucin gadi, sake gwadawa daga baya",
+  "@referralRefusal503": {
+    "description": "referralRefusal503"
+  },
+  "appStoreTitle": "Kantin App",
+  "appStoreSubtitle": "Bunkasa shagon ka da apps na gaske, ɗaya bayan ɗaya",
+  "appStoreTabMine": "Apps na",
+  "appStoreTabAll": "Kantin App",
+  "appStoreDetails": "Cikakkun bayanai",
+  "appStorePerMonth": "kowane wata",
+  "appStorePerMonthShort": "/wata",
+  "appStoreActive": "Mai aiki",
+  "appStoreTrialing": "Gwaji",
+  "appStoreSubscribe": "Yi rajista yanzu",
+  "appStoreCancelRenewal": "Dakatar da sabuntawa",
+  "appStoreUndoCancel": "Soke bata",
+  "appStoreConfirmCancel": "Dakatar da sabunta wannan app? Zai ci gaba da aiki har zuwa ƙarshen lokacin da aka biya",
+  "appStoreCartCount": "{n} a keken saya",
+  "appStoreCheckout": "Kammala Siye",
+  "appStoreCheckingOut": "Ana kammala siye...",
+  "appStoreRefusal402": "Biyan kuɗi ba a kunna ba a asusun ka yanzu — tuntube mu don kunna shi",
+  "appStoreRefusal403": "Ba ka da izinin kammala wannan sayayya",
+  "appStoreRefusal404": "Ba a sami shirin da ake nema ba — sabunta sannan a sake gwadawa",
+  "appStoreRefusal409": "An riga an mallaki wannan app, ko yanayinsa ya canza yayin sayayya",
+  "appStoreRefusalGeneric": "An kasa kammala sayayya, sake gwadawa",
+  "appStoreCapacityTitle": "Iyaka",
+  "appStoreCapacityConfirmRemove": "Cire raka na ƙarshe na \"{name}\"? Wannan zai dakatar da sabuntawarsa gaba ɗaya"
 }

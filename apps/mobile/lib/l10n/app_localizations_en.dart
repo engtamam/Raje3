@@ -667,6 +667,9 @@ class SEn extends S {
   String get branchesRoleSupervisor => 'Shift supervisor';
 
   @override
+  String get branchesRoleMarketer => 'Marketing lead';
+
+  @override
   String get branchesRoleManager => 'Manager';
 
   @override
@@ -675,6 +678,97 @@ class SEn extends S {
 
   @override
   String get branchesHireFailed => 'Could not add the employee, try again.';
+
+  @override
+  String get branchesVisibleAllHint => 'Sees every branch';
+
+  @override
+  String branchesVisibleSomeHint(int count) {
+    return 'Sees $count branches';
+  }
+
+  @override
+  String get branchesEditMember => 'Edit employee';
+
+  @override
+  String get branchesMemberStopped => 'Stopped';
+
+  @override
+  String get branchesMemberStationLabel => 'Which branch they work at';
+
+  @override
+  String get branchesMemberVisibilityLabel => 'Which branches they may see';
+
+  @override
+  String get branchesVisibilityOwnOnly => 'Their own branch only';
+
+  @override
+  String get branchesVisibilitySome => 'Specific branches';
+
+  @override
+  String get branchesVisibilityAll => 'Every branch';
+
+  @override
+  String get branchesWorkingHours => 'Working hours';
+
+  @override
+  String get branchesStopMember => 'Stop employee';
+
+  @override
+  String get branchesStopMemberTitle => 'Stop this employee?';
+
+  @override
+  String branchesStopMemberBody(String name) {
+    return '$name loses access to the app immediately. Their visit history and records stay saved.';
+  }
+
+  @override
+  String get branchesStopMemberConfirm => 'Stop';
+
+  @override
+  String get branchesReactivateMember => 'Reactivate';
+
+  @override
+  String get branchesRehireRequired =>
+      'This employee is fully stopped — reactivating them needs hiring them again, not just a toggle.';
+
+  @override
+  String get branchesHoursSaved => 'Working hours saved.';
+
+  @override
+  String get branchesHoursExceedsShop =>
+      'These hours are wider than the shop\'s own hours — adjust them.';
+
+  @override
+  String get branchesHoursHint =>
+      'If you don\'t change anything, they follow the shop\'s own hours automatically.';
+
+  @override
+  String get branchesHoursClear => 'Reset to the shop\'s default hours';
+
+  @override
+  String get branchesDayMonday => 'Monday';
+
+  @override
+  String get branchesDayTuesday => 'Tuesday';
+
+  @override
+  String get branchesDayWednesday => 'Wednesday';
+
+  @override
+  String get branchesDayThursday => 'Thursday';
+
+  @override
+  String get branchesDayFriday => 'Friday';
+
+  @override
+  String get branchesDaySaturday => 'Saturday';
+
+  @override
+  String get branchesDaySunday => 'Sunday';
+
+  @override
+  String get branchesDayClosed => 'Closed';
 
   @override
   String get accountSecuritySectionTitle => 'Security';
@@ -815,6 +909,10 @@ class SEn extends S {
   String get billingPayLinkFailed => 'Couldn\'t create a pay link. Try again.';
 
   @override
+  String get paymentPageLoadFailed =>
+      'Couldn\'t load the payment page. Check your connection and try again.';
+
+  @override
   String get billingCancelConfirmTitle => 'Stop renewal?';
 
   @override
@@ -894,4 +992,1902 @@ class SEn extends S {
   @override
   String get writeVehicleTrackingFailed =>
       'Could not change the vehicle-tracking setting, try again.';
+
+  @override
+  String get mobileRequestsTitle => 'Mobile requests';
+
+  @override
+  String get mobileRequestsSubtitle =>
+      'Requests for a service that comes to the customer, from intake to completion.';
+
+  @override
+  String get mobileRequestsKpiPending => 'Awaiting decision';
+
+  @override
+  String get mobileRequestsKpiNeedsDecision => 'Needs a decision';
+
+  @override
+  String get mobileRequestsKpiCompletedMonth => 'Completed this month';
+
+  @override
+  String get mobileRequestsBannerGo => 'View';
+
+  @override
+  String get mobileRequestsFilterAll => 'All';
+
+  @override
+  String get mobileRequestsFilterPending => 'Pending';
+
+  @override
+  String get mobileRequestsFilterAccepted => 'Accepted';
+
+  @override
+  String get mobileRequestsFilterNeedsDecision => 'Needs decision';
+
+  @override
+  String get mobileRequestsFilterCompleted => 'Completed';
+
+  @override
+  String get mobileRequestsFilterClosed => 'Closed';
+
+  @override
+  String get mobileRequestsSearchHint => 'Search by name or phone';
+
+  @override
+  String get mobileRequestsLoadFailedTitle => 'Couldn\'t load requests';
+
+  @override
+  String get mobileRequestsLoadFailedBody =>
+      'Check your connection and try again.';
+
+  @override
+  String get mobileRequestsRetry => 'Retry';
+
+  @override
+  String get mobileRequestsEmptyTitle => 'No requests yet';
+
+  @override
+  String get mobileRequestsEmptyBody =>
+      'Mobile-service requests from your customers show up here.';
+
+  @override
+  String get mobileRequestsStatusPending => 'Pending';
+
+  @override
+  String get mobileRequestsStatusAccepted => 'Accepted';
+
+  @override
+  String get mobileRequestsStatusNeedsDecision => 'Needs decision';
+
+  @override
+  String get mobileRequestsStatusCompleted => 'Completed';
+
+  @override
+  String get mobileRequestsStatusNoShow => 'No-show';
+
+  @override
+  String get mobileRequestsStatusRejected => 'Rejected';
+
+  @override
+  String get mobileRequestsUnnamed => 'Unnamed';
+
+  @override
+  String get mobileRequestsOpenMap => 'Location';
+
+  @override
+  String get mobileRequestsPhoneCopied => 'Phone number copied';
+
+  @override
+  String get mobileRequestsRiskyCustomer => 'High no-show risk customer';
+
+  @override
+  String mobileRequestsRejectReasonLine(Object reason) {
+    return 'Rejection reason: $reason';
+  }
+
+  @override
+  String get mobileRequestsActionAccept => 'Accept';
+
+  @override
+  String get mobileRequestsActionReject => 'Reject';
+
+  @override
+  String get mobileRequestsActionComplete => 'Complete';
+
+  @override
+  String get mobileRequestsActionNoShow => 'No-show';
+
+  @override
+  String get mobileRequestsAssignUnassigned => 'Unassigned';
+
+  @override
+  String get mobileRequestsActionFailed =>
+      'Couldn\'t complete the action, try again.';
+
+  @override
+  String get mobileRequestsRejectTitle => 'Reason for rejection';
+
+  @override
+  String get mobileRequestsRejectHint => 'Optional';
+
+  @override
+  String get mobileRequestsRejectCancel => 'Cancel';
+
+  @override
+  String get mobileRequestsRejectConfirm => 'Reject request';
+
+  @override
+  String get mobileRequestsAddOpen => 'Add request';
+
+  @override
+  String get mobileRequestsAddTitle => 'Add a mobile-service request';
+
+  @override
+  String get mobileRequestsAddPhoneLabel => 'Customer\'s phone';
+
+  @override
+  String get mobileRequestsAddNameLabel => 'Customer\'s name (optional)';
+
+  @override
+  String get mobileRequestsAddServicesLabel => 'Services';
+
+  @override
+  String get mobileRequestsAddServicesEmpty => 'No services available yet.';
+
+  @override
+  String get mobileRequestsAddDayLabel => 'Day';
+
+  @override
+  String get mobileRequestsAddTimeLabel => 'Time';
+
+  @override
+  String get mobileRequestsAddMapsLinkLabel => 'Google Maps location link';
+
+  @override
+  String get mobileRequestsAddMapsLinkHint =>
+      'Accepts a full or shortened Google Maps link.';
+
+  @override
+  String get mobileRequestsAddMapsLinkShort =>
+      'This is a shortened link — paste the full Google Maps link.';
+
+  @override
+  String get mobileRequestsAddMapsLinkInvalid =>
+      'Couldn\'t read a location from this link.';
+
+  @override
+  String get mobileRequestsAddAssignLabel => 'Assign to (optional)';
+
+  @override
+  String get mobileRequestsAddCancel => 'Cancel';
+
+  @override
+  String get mobileRequestsAddSubmit => 'Add request';
+
+  @override
+  String get mobileRequestsAddSubmitting => 'Adding...';
+
+  @override
+  String get mobileRequestsAddError => 'Couldn\'t add the request, try again.';
+
+  @override
+  String mobileRequestsBannerText(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count requests need your decision now',
+      one: '1 request needs your decision now',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get mobileRequestsAddMapsLinkResolving =>
+      'Reading the location from the link...';
+
+  @override
+  String get customersTitle => 'My customers';
+
+  @override
+  String get customersAddOpen => 'Add customer';
+
+  @override
+  String get customersSearchHint => 'Search by name or phone';
+
+  @override
+  String get customersTabAll => 'All';
+
+  @override
+  String get customersTabOverdue => 'Overdue';
+
+  @override
+  String get customersSearchFailedTitle => 'Search unavailable right now';
+
+  @override
+  String get customersSearchFailedBody => 'Try again shortly.';
+
+  @override
+  String get customersSearchEmpty => 'No results';
+
+  @override
+  String get customersLoadFailedTitle => 'Couldn\'t load';
+
+  @override
+  String get customersEmptyTitle => 'No customers yet';
+
+  @override
+  String get customersOverdueEmpty => 'No one is overdue right now';
+
+  @override
+  String get customersUnnamed => 'Unnamed';
+
+  @override
+  String customersVisitCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count visits',
+      one: '1 visit',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get customersOverdueBadge => 'Overdue';
+
+  @override
+  String customersStatEveryDays(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: 'every $days days',
+      one: 'every day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String customersOverdueBanner(int every, int since) {
+    return 'Overdue for their usual visit — usually every $every days, $since days since their last visit';
+  }
+
+  @override
+  String customersVisitMeter(int n) {
+    return 'Odometer: $n';
+  }
+
+  @override
+  String get customersOfferExpiredBadge => 'Expired';
+
+  @override
+  String get customersDeniedAllTitle =>
+      'You don\'t have permission to view the customer list';
+
+  @override
+  String get customersDeniedOverdueTitle =>
+      'You don\'t have permission to view who\'s overdue';
+
+  @override
+  String get customersDeniedDesc =>
+      'Ask the shop owner to grant you this permission.';
+
+  @override
+  String get customersAddTitle => 'Add a new customer';
+
+  @override
+  String get customersAddPhoneLabel => 'Customer\'s phone';
+
+  @override
+  String get customersAddNameLabel => 'Customer\'s name';
+
+  @override
+  String get customersAddPhoneInvalid => 'Invalid phone number.';
+
+  @override
+  String get customersAddFailed => 'Couldn\'t add the customer, try again.';
+
+  @override
+  String get customersAddSubmitting => 'Adding...';
+
+  @override
+  String get customersAddSubmit => 'Add';
+
+  @override
+  String get customersActionFailed =>
+      'Couldn\'t complete the action, try again.';
+
+  @override
+  String get customersRepeatedIssuesTitle => 'Repeated issues';
+
+  @override
+  String get customersVehiclesTitle => 'Vehicles';
+
+  @override
+  String get customersLoyaltyTitle => 'Loyalty';
+
+  @override
+  String get customersLoyaltyLoading => 'Loading...';
+
+  @override
+  String customersLoyaltyPoints(int count) {
+    return '$count points';
+  }
+
+  @override
+  String get customersLoyaltyAdjust => 'Adjust';
+
+  @override
+  String get customersOffersTitle => 'Live offers';
+
+  @override
+  String customersOfferExpires(String date) {
+    return 'Expires $date';
+  }
+
+  @override
+  String get customersVisitsTitle => 'Visit history';
+
+  @override
+  String get customersVisitsEmpty => 'No visits yet';
+
+  @override
+  String get customersVisitNoServices => 'No services recorded';
+
+  @override
+  String get customersRenameTitle => 'Edit customer\'s name';
+
+  @override
+  String get customersRenameSubmit => 'Save';
+
+  @override
+  String get customersLoyaltyAdjustTitle => 'Adjust loyalty points';
+
+  @override
+  String get customersLoyaltyAdjustNoteLabel => 'Reason for the adjustment';
+
+  @override
+  String get customersLoyaltyAdjustNoteRequired =>
+      'Write a real reason (at least 3 characters), and pick a nonzero amount.';
+
+  @override
+  String get customersLoyaltyAdjustSubmit => 'Save adjustment';
+
+  @override
+  String get customersEraseButton => 'Erase this customer\'s data';
+
+  @override
+  String get customersEraseTitle => 'Erase customer data';
+
+  @override
+  String get customersEraseWarning =>
+      'This permanently erases all of the customer\'s data from the platform — it cannot be undone.';
+
+  @override
+  String customersEraseTypeNameLabel(String name) {
+    return 'To confirm, type the customer\'s name: $name';
+  }
+
+  @override
+  String get customersEraseConfirm => 'Erase permanently';
+
+  @override
+  String get customersBookingsTitle => 'Bookings';
+
+  @override
+  String customersAttendanceRate(int rate) {
+    return '$rate% attendance';
+  }
+
+  @override
+  String get customersBookingsNoneUpcoming => 'No upcoming bookings';
+
+  @override
+  String get customersCyclesTitle => 'Reminder cycles';
+
+  @override
+  String customersCyclesEveryDays(int days) {
+    return 'Every $days days';
+  }
+
+  @override
+  String get customersCyclesEditHint =>
+      'Set the interval, and automatic learning stops for this service with this customer.';
+
+  @override
+  String get customersCyclesSave => 'Save';
+
+  @override
+  String get customersLogTitle => 'What we told them';
+
+  @override
+  String get customersLogEmpty => 'We haven\'t sent them anything yet';
+
+  @override
+  String get customersCyclesUnknownService => 'Unknown service';
+
+  @override
+  String customersVisitGapDays(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: 'after $days days',
+      one: 'after 1 day',
+      zero: 'same day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String customersCountLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count customers',
+      one: '1 customer',
+      zero: 'no customers yet',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ratingTitle => 'Ratings';
+
+  @override
+  String get pointsTitle => 'Loyalty Points';
+
+  @override
+  String get pointsAddReward => 'New reward';
+
+  @override
+  String get pointsEditReward => 'Edit reward';
+
+  @override
+  String get pointsTabRewards => 'Rewards';
+
+  @override
+  String get pointsTabLeaderboard => 'Most redeemed';
+
+  @override
+  String get pointsOutstandingHint =>
+      'points the shop still owes its customers';
+
+  @override
+  String pointsRedemptionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count redemptions',
+      one: '1 redemption',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pointsCustomersCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count customers redeemed',
+      one: '1 customer redeemed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pointsExpiredWarning(int percent) {
+    return '$percent% of granted points expired unredeemed — review your reward pricing';
+  }
+
+  @override
+  String get pointsLoadFailedTitle => 'Could not load rewards';
+
+  @override
+  String get pointsRewardsEmpty =>
+      'No rewards yet — add your customers\' first reward';
+
+  @override
+  String get pointsLeaderboardEmpty =>
+      'No redemptions yet — they\'ll show here once a customer redeems one';
+
+  @override
+  String get pointsLeaderboardTitle => 'Most redeemed';
+
+  @override
+  String get pointsLeaderboardHint =>
+      'The top five rewards your customers redeemed';
+
+  @override
+  String pointsTimesRedeemed(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count times',
+      one: 'once',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pointsRewardRetired => 'Retired';
+
+  @override
+  String pointsRewardServiceHint(String name) {
+    return 'Service: $name';
+  }
+
+  @override
+  String pointsRewardDiscountHint(String amount) {
+    return '$amount SAR off';
+  }
+
+  @override
+  String get pointsRewardItemHint => 'A gift, not tied to the catalogue';
+
+  @override
+  String get pointsRewardNameLabel => 'Reward name';
+
+  @override
+  String get pointsRewardTypeLabel => 'Reward type';
+
+  @override
+  String get pointsTypeService => 'A service from your catalogue';
+
+  @override
+  String get pointsTypeItem => 'A gift';
+
+  @override
+  String get pointsTypeDiscount => 'A cash discount';
+
+  @override
+  String get pointsRewardServiceLabel => 'Which service';
+
+  @override
+  String get pointsRewardDiscountLabel => 'Discount amount, SAR';
+
+  @override
+  String get pointsRewardCostLabel => 'Cost in points';
+
+  @override
+  String get pointsRewardActiveLabel => 'Active — customers may redeem it';
+
+  @override
+  String get pointsRewardInvalid =>
+      'Enter a name and a real point cost above zero';
+
+  @override
+  String get pointsSaveFailed => 'Could not save, try again';
+
+  @override
+  String get pointsModeTitle => 'Earning method';
+
+  @override
+  String get pointsModeHint =>
+      'By service: each service has its own points. By invoice value: one point per riyal.';
+
+  @override
+  String get pointsModeServices => 'By service';
+
+  @override
+  String get pointsModeInvoice => 'By invoice value';
+
+  @override
+  String get pointsModeNeedsPricedServices =>
+      'Earning by invoice value needs every service priced first — price them all in Services, then turn it on.';
+
+  @override
+  String get pointsOpenEarnSettings => 'Per-service points settings';
+
+  @override
+  String get ratingLeaderboardTitle => 'Top-rated staff';
+
+  @override
+  String get ratingCardNoName => 'Unnamed';
+
+  @override
+  String get ratingMetricVisits => 'Most visits';
+
+  @override
+  String get ratingMetricRatings => 'Most ratings';
+
+  @override
+  String get ratingMetricAvg => 'Top-rated';
+
+  @override
+  String ratingStaffCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count staff members',
+      one: '1 staff member',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ratingTableTitle => 'Every staff member';
+
+  @override
+  String ratingTableVisitsValue(int n) {
+    return '$n visits';
+  }
+
+  @override
+  String ratingTableRatingsValue(int n) {
+    return '$n ratings';
+  }
+
+  @override
+  String ratingTableEngagementValue(int n) {
+    return '$n% engagement';
+  }
+
+  @override
+  String ratingTableNoShowValue(int n) {
+    return '$n% no-show';
+  }
+
+  @override
+  String get ratingPeriodWeek => 'Week';
+
+  @override
+  String get ratingPeriodMonth => 'Month';
+
+  @override
+  String get ratingPeriodQuarter => 'Quarter';
+
+  @override
+  String get ratingPeriodCustom => 'Custom';
+
+  @override
+  String ratingCustomSince(String date) {
+    return 'From: $date';
+  }
+
+  @override
+  String ratingCustomUntil(String date) {
+    return 'To: $date';
+  }
+
+  @override
+  String get ratingCustomRangeInvalid =>
+      'Invalid range — make sure the start date is before the end date';
+
+  @override
+  String get ratingExportLocaleLabel => 'Report language';
+
+  @override
+  String get localeNameAr => 'العربية';
+
+  @override
+  String get localeNameEn => 'English';
+
+  @override
+  String get localeNameUr => 'اردو';
+
+  @override
+  String get localeNameHa => 'Hausa';
+
+  @override
+  String get localeNameFil => 'Filipino';
+
+  @override
+  String get localeNameBn => 'বাংলা';
+
+  @override
+  String get ratingTopIssuesTitle => 'Most repeated issues';
+
+  @override
+  String get ratingFilterUnhandled => 'Pending';
+
+  @override
+  String get ratingFilterAll => 'All';
+
+  @override
+  String get ratingFilterHandled => 'Handled';
+
+  @override
+  String get ratingStarsAll => 'All stars';
+
+  @override
+  String get ratingLoadFailedTitle => 'Couldn\'t load ratings';
+
+  @override
+  String get ratingEmptyTitle => 'No ratings yet';
+
+  @override
+  String get ratingLoadMore => 'Show more';
+
+  @override
+  String get ratingHandledPlain => 'Handled';
+
+  @override
+  String get ratingMarkHandled => 'Mark as handled';
+
+  @override
+  String get ratingMarkHandledHint =>
+      'This is recorded permanently — it cannot be undone later.';
+
+  @override
+  String get ratingHandledNoteLabel => 'Note (optional)';
+
+  @override
+  String get ratingMarkHandledConfirm => 'Confirm';
+
+  @override
+  String get ratingActionFailed => 'Couldn\'t complete the action, try again.';
+
+  @override
+  String ratingWeightedAvgHint(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'from $count ratings over the last 30 days',
+      one: 'from 1 rating over the last 30 days',
+      zero: 'no ratings in the last 30 days',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String ratingUnhandledCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ratings pending',
+      one: '1 rating pending',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String ratingVisitsShort(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count visits',
+      one: '1 visit',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String ratingIssueFilterLabel(String label) {
+    return 'Issue: $label';
+  }
+
+  @override
+  String ratingByOperator(String name) {
+    return 'Served by $name';
+  }
+
+  @override
+  String ratingHandledWithNote(String note) {
+    return 'Handled: $note';
+  }
+
+  @override
+  String get ratingQuadrantTitle => 'Performance quadrant';
+
+  @override
+  String get ratingQuadrantHint =>
+      'Quality against engagement rate — tap any point for that operator\'s training record.';
+
+  @override
+  String get ratingQuadrantStars => 'Stars';
+
+  @override
+  String get ratingQuadrantUnderused => 'Underused';
+
+  @override
+  String get ratingQuadrantNeedsCoaching => 'Needs coaching';
+
+  @override
+  String get ratingQuadrantAtRisk => 'At risk';
+
+  @override
+  String get ratingTrainingTitle => 'Training record';
+
+  @override
+  String get ratingTrainingNoAccess =>
+      'You don\'t have permission to view this.';
+
+  @override
+  String get ratingTrainingClean => 'Clean record — no repeated issues.';
+
+  @override
+  String ratingEngagementPercent(int percent) {
+    return '$percent% engagement';
+  }
+
+  @override
+  String get ratingTabOverview => 'Overview';
+
+  @override
+  String get ratingTabFeed => 'All ratings';
+
+  @override
+  String get ratingOverviewEmpty =>
+      'No performance data yet for the last 30 days.';
+
+  @override
+  String get ratingExportTitle => 'Export report';
+
+  @override
+  String get ratingExportHint =>
+      'The team\'s performance report for the selected period, ready to share.';
+
+  @override
+  String get ratingExportFailed => 'Couldn\'t export the report, try again.';
+
+  @override
+  String get customersPrivacyRequestsTitle => 'Privacy requests';
+
+  @override
+  String get customersPrivacyRequestErase => 'Data erasure request';
+
+  @override
+  String get customersPrivacyRequestCopy => 'Data copy request';
+
+  @override
+  String customersPrivacyRequestGeneric(String type) {
+    return 'Request: $type';
+  }
+
+  @override
+  String get customersPrivacyRequestClose => 'Close';
+
+  @override
+  String get customersLoyaltyHistoryTitle => 'Points history';
+
+  @override
+  String get customersLoyaltyHistoryNoReason => 'No reason given';
+
+  @override
+  String get customersLoyaltyReasonRedeem => 'Reward redeemed';
+
+  @override
+  String get customersLoyaltyReasonAdjust => 'Manual adjustment';
+
+  @override
+  String get customersLoyaltyReasonEarn => 'Points from a visit';
+
+  @override
+  String get customersLoyaltyReasonExpire => 'Expired';
+
+  @override
+  String get readCustomersFailed =>
+      'Could not fetch customer data right now, try again.';
+
+  @override
+  String readCustomersTotal(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You have $count registered customers.',
+      one: 'You have 1 registered customer.',
+      zero: 'You have no customers registered yet.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readCustomersOverdueCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You have $count customers overdue on their cycle.',
+      one: 'You have 1 customer overdue on their cycle.',
+      zero: 'No customer is overdue on their cycle right now.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get readMobileRequestsFailed =>
+      'Could not fetch mobile requests right now, try again.';
+
+  @override
+  String readMobileRequestsPendingCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You have $count requests awaiting a decision.',
+      one: 'You have 1 request awaiting a decision.',
+      zero: 'No mobile requests are awaiting a decision.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readMobileRequestsNeedsDecisionCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count requests need your decision now.',
+      one: '1 request needs your decision now.',
+      zero: 'No mobile requests need your decision right now.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get readRatingFailed =>
+      'Could not fetch rating data right now, try again.';
+
+  @override
+  String get readRatingNone => 'You have no ratings in the last 30 days yet.';
+
+  @override
+  String readRatingAverage(String avg, int count) {
+    return 'Your average rating over the last 30 days is $avg out of 5, from $count ratings.';
+  }
+
+  @override
+  String readRatingUnhandledCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You have $count ratings pending.',
+      one: 'You have 1 rating pending.',
+      zero: 'No ratings are pending.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readRatingTopStaff(String name, String avg) {
+    return 'Your top-rated staff over the last 30 days is $name, averaging $avg out of 5.';
+  }
+
+  @override
+  String readMobileRequestsCompletedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You\'ve completed $count this month.',
+      one: 'You\'ve completed 1 this month.',
+      zero: 'You haven\'t completed any mobile requests this month yet.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readMobileRequestsTodayCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count requests have come in today.',
+      one: '1 request has come in today.',
+      zero: 'No mobile requests have come in today yet.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get readOperatorsFailed =>
+      'Could not fetch the staff count right now, try again.';
+
+  @override
+  String readOperatorsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You have $count staff members.',
+      one: 'You have 1 staff member.',
+      zero: 'You have no staff registered yet.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readBranchesDisconnectedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You have $count branches with WhatsApp not working.',
+      one: 'You have 1 branch with WhatsApp not working.',
+      zero: 'All your active branches have WhatsApp connected and working.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get readCustomersRecentNone =>
+      'You don\'t have any customers registered yet.';
+
+  @override
+  String readCustomersRecentName(String name) {
+    return 'Your most recent customer is $name.';
+  }
+
+  @override
+  String readRatingCriticalIssuesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You have $count pending ratings with critical issues.',
+      one: 'You have 1 pending rating with a critical issue.',
+      zero: 'No pending ratings carry a critical issue.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get readPerBranchModeOn => 'Yes, your shop runs in multi-branch mode.';
+
+  @override
+  String get readPerBranchModeOff => 'No, your shop runs as a single branch.';
+
+  @override
+  String get readBillingOverdueYes =>
+      'Yes, you have an overdue invoice — pay it to avoid your services being paused.';
+
+  @override
+  String get readBillingOverdueNo =>
+      'No, your billing is in good standing, no overdue invoices.';
+
+  @override
+  String get readServicesFailed =>
+      'Could not fetch the services count right now, try again.';
+
+  @override
+  String readServicesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You have $count services in your list.',
+      one: 'You have 1 service in your list.',
+      zero: 'You have no services in your list yet.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readCustomersTodayCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count new customers have come in today.',
+      one: '1 new customer has come in today.',
+      zero: 'No new customer has come in today yet.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readMobileRequestsRejectedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You\'ve rejected $count this month.',
+      one: 'You\'ve rejected 1 this month.',
+      zero: 'You haven\'t rejected any mobile requests this month.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readMobileRequestsNoShowCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count customers have been no-shows this month.',
+      one: '1 customer has been a no-show this month.',
+      zero: 'No customer has been a no-show this month.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readRatingFiveStarCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You have $count five-star ratings.',
+      one: 'You have 1 five-star rating.',
+      zero: 'You have no five-star ratings yet.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readBranchesActiveCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You have $count active branches.',
+      one: 'You have 1 active branch.',
+      zero: 'You have no active branches right now.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get servicesTitle => 'My services';
+
+  @override
+  String get servicesUnnamedGlyph => '?';
+
+  @override
+  String get servicesSearchHint => 'Search by service name';
+
+  @override
+  String get servicesTabActive => 'Active';
+
+  @override
+  String get servicesTabStopped => 'Stopped';
+
+  @override
+  String get servicesLoadFailedTitle => 'Couldn\'t load services';
+
+  @override
+  String get servicesEmptyActive => 'No active services yet';
+
+  @override
+  String get servicesEmptyStopped => 'No stopped services';
+
+  @override
+  String get servicesAddOpen => 'Add service';
+
+  @override
+  String get servicesNoPrice => 'No price set';
+
+  @override
+  String get servicesNoDuration => 'Not set';
+
+  @override
+  String get servicesNoCycle => 'No cycle';
+
+  @override
+  String get servicesStopTitle => 'Stop this service';
+
+  @override
+  String get servicesStopConfirm => 'Stop';
+
+  @override
+  String get servicesActionFailed =>
+      'Couldn\'t complete the action, try again.';
+
+  @override
+  String get servicesEditTitle => 'Edit service';
+
+  @override
+  String get servicesAddTitle => 'Add a new service';
+
+  @override
+  String get servicesNameLabel => 'Service name';
+
+  @override
+  String get servicesPriceLabel => 'Price (optional)';
+
+  @override
+  String get servicesDurationLabel => 'Duration in minutes (optional)';
+
+  @override
+  String get servicesCycleLabel => 'Reminder cycle in days (optional)';
+
+  @override
+  String get servicesDescriptionLabel => 'Short description (optional)';
+
+  @override
+  String get servicesSaving => 'Saving...';
+
+  @override
+  String get servicesSave => 'Save';
+
+  @override
+  String get servicesNameRequired => 'Service name is required';
+
+  @override
+  String servicesActiveCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You have $count active services.',
+      one: 'You have 1 active service.',
+      zero: 'You have no active services yet.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String servicesDurationMinutes(int count) {
+    return '$count min';
+  }
+
+  @override
+  String servicesCycleDays(int count) {
+    return 'Every $count days';
+  }
+
+  @override
+  String servicesStopWarning(String name) {
+    return 'This stops \"$name\" — it won\'t show for a new visit and its reminders stop. Its data is never deleted.';
+  }
+
+  @override
+  String get servicesPhotoPickFailed => 'Couldn\'t pick the photo';
+
+  @override
+  String get servicesPhotoUploadFailed => 'Saved, but the photo upload failed';
+
+  @override
+  String get servicesPhotoLabel => 'Service photo (optional)';
+
+  @override
+  String get servicesUploadPhoto => 'Upload photo';
+
+  @override
+  String get servicesChangePhoto => 'Change photo';
+
+  @override
+  String get servicesRemovePhoto => 'Remove';
+
+  @override
+  String get servicesAssignmentLabel => 'Who provides this service?';
+
+  @override
+  String get servicesAssignmentAuto => 'Any available staff';
+
+  @override
+  String get servicesAssignmentNamed => 'Specific staff';
+
+  @override
+  String get servicesChecklistLabel => 'Procedure checklist';
+
+  @override
+  String get servicesChecklistEmpty => 'No steps yet — add the first one';
+
+  @override
+  String get servicesStepAddTitle => 'Add a step';
+
+  @override
+  String get servicesGeneralSettingsTitle => 'General default';
+
+  @override
+  String get servicesGeneralSettingsHint =>
+      'The value every service that hasn\'t been customised follows';
+
+  @override
+  String get servicesFollowUpLabel => 'Follow-up days after the visit';
+
+  @override
+  String get servicesPointsLabel => 'Points per visit';
+
+  @override
+  String get servicesGroupThem => 'Group them';
+
+  @override
+  String get servicesGroupNameHint => 'Group name';
+
+  @override
+  String get servicesAllGroups => 'All';
+
+  @override
+  String get servicesStepEditTitle => 'Edit the step';
+
+  @override
+  String get servicesStepCriticalLabel => 'Critical step';
+
+  @override
+  String get servicesStepRetire => 'Retire this step';
+
+  @override
+  String get servicesStepEditHint => 'Long-press any step to edit or retire it';
+
+  @override
+  String get servicesAdvancedTitle => 'Advanced settings';
+
+  @override
+  String get servicesAdvancedHint =>
+      'Customise this service away from the general default — cycle, points, and grouping';
+
+  @override
+  String get servicesGroupLabel => 'Group';
+
+  @override
+  String get servicesNoGroup => 'No group';
+
+  @override
+  String get servicesNewGroup => 'New group';
+
+  @override
+  String get servicesFollowGeneralAction => 'Follow general';
+
+  @override
+  String get servicesCustomizeAction => 'Customise';
+
+  @override
+  String servicesFollowUpDays(int n) {
+    return 'Follow up after $n days';
+  }
+
+  @override
+  String servicesPointsPerVisit(int n) {
+    return '$n points';
+  }
+
+  @override
+  String servicesSuggestionText(int n) {
+    return '$n services share the same value — grouping them makes editing them together easier later.';
+  }
+
+  @override
+  String servicesFollowsGeneral(String hint) {
+    return 'Follows general — $hint';
+  }
+
+  @override
+  String get servicesPageTabServices => 'Services';
+
+  @override
+  String get servicesPageTabPackages => 'Packages';
+
+  @override
+  String get servicesPackageAdd => 'Add package';
+
+  @override
+  String get servicesPackageNeedsTwoServices =>
+      'A package needs at least two active services';
+
+  @override
+  String get servicesPackageEmpty => 'No packages yet';
+
+  @override
+  String get servicesPackageEditTitle => 'Edit package';
+
+  @override
+  String get servicesPackageAddTitle => 'Add a new package';
+
+  @override
+  String get servicesPackageNameLabel => 'Package name';
+
+  @override
+  String get servicesPackagePriceRequired =>
+      'Package price is required, above zero';
+
+  @override
+  String get servicesPackageServicesLabel => 'Included services';
+
+  @override
+  String get servicesImportTitle => 'Import services from a file';
+
+  @override
+  String get servicesImportHint =>
+      'A CSV file with columns: name, price, duration_minutes, cycle_days, description';
+
+  @override
+  String get servicesImportPickFile => 'Choose a CSV file';
+
+  @override
+  String get servicesImportReadFailed => 'Couldn\'t read the file';
+
+  @override
+  String get servicesImportParseFailed =>
+      'The file has no name column, or its format is invalid';
+
+  @override
+  String get servicesImportDeactivateMissing =>
+      'Stop services missing from the file';
+
+  @override
+  String get servicesImportDeactivateMissingHint =>
+      'Any service you currently have that isn\'t in this file gets stopped automatically';
+
+  @override
+  String get servicesImportConfirm => 'Import';
+
+  @override
+  String get servicesImportClose => 'Done';
+
+  @override
+  String servicesImportRowCount(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n rows',
+      one: '1 row',
+      zero: 'No rows',
+    );
+    return '$_temp0 ready to import';
+  }
+
+  @override
+  String servicesImportDone(int created, int updated, int reactivated) {
+    return 'Added $created, updated $updated, reactivated $reactivated.';
+  }
+
+  @override
+  String get visitPackagesSectionTitle => 'Featured packages';
+
+  @override
+  String get visitNameFieldHint => 'Customer name (optional)';
+
+  @override
+  String get visitMeterFieldHint => 'Odometer reading';
+
+  @override
+  String get visitQuantityDialogTitle => 'Quantity';
+
+  @override
+  String get visitCouponCheckboxLabel =>
+      'Grant a discount coupon to another shop';
+
+  @override
+  String get visitCouponPhoneHint => 'Shop owner\'s phone';
+
+  @override
+  String get visitClearAllButton => 'Clear all';
+
+  @override
+  String visitServicesSelectedCount(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n services selected',
+      one: '1 service selected',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get visitTodayBookingsTitle => 'Today\'s appointments';
+
+  @override
+  String get visitBookingAttendFailed =>
+      'Couldn\'t confirm attendance, try again';
+
+  @override
+  String get branchSwitcherChooseBranch => 'Choose branch';
+
+  @override
+  String get branchSwitcherTitle => 'Current branch';
+
+  @override
+  String get branchSwitcherHint =>
+      'Everything you open after this belongs to this branch';
+
+  @override
+  String get proceduresPrintFailed => 'Couldn\'t generate the document';
+
+  @override
+  String get proceduresTitle => 'Procedures';
+
+  @override
+  String get proceduresSubtitle =>
+      'Set the procedure checklist for each service, or manage the whole shared library. Long-press a service to select it for printing';
+
+  @override
+  String get proceduresLibraryLink => 'Procedure library';
+
+  @override
+  String get proceduresPrint => 'Print';
+
+  @override
+  String get proceduresEmptyTitle => 'No active services yet';
+
+  @override
+  String get servicesStepSeverityNormal => 'Normal';
+
+  @override
+  String get servicesStepSeverityCritical => 'Critical';
+
+  @override
+  String get proceduresSaveFailed => 'Couldn\'t save';
+
+  @override
+  String get proceduresDrawerSubtitle =>
+      'Drag to reorder, or add a step from the library';
+
+  @override
+  String get proceduresDrawerEmpty => 'No steps for this service yet';
+
+  @override
+  String get proceduresDrawerAddButton => 'Add from library';
+
+  @override
+  String get proceduresPickTitle => 'Pick a step';
+
+  @override
+  String get proceduresPickClose => 'Close';
+
+  @override
+  String get proceduresPickApply => 'Add';
+
+  @override
+  String get proceduresPickSearch => 'Search steps';
+
+  @override
+  String get proceduresPickEmpty => 'No results';
+
+  @override
+  String get proceduresPickCreatePlaceholder => 'New step...';
+
+  @override
+  String get proceduresLibrarySaveFailed => 'Couldn\'t save';
+
+  @override
+  String get proceduresLibraryTitle => 'Procedure library';
+
+  @override
+  String get proceduresLibrarySubtitle =>
+      'Every step here is shared across every service that uses it - editing it changes it everywhere';
+
+  @override
+  String get proceduresLibraryNewPlaceholder => 'New step text';
+
+  @override
+  String get proceduresLibraryAdd => 'Add';
+
+  @override
+  String get proceduresLibraryShowRetired => 'Show retired';
+
+  @override
+  String get proceduresLibraryEmpty => 'No steps yet';
+
+  @override
+  String get proceduresLibraryRetired => 'Retired';
+
+  @override
+  String get proceduresLibraryRetire => 'Retire';
+
+  @override
+  String get proceduresLibraryReactivate => 'Reactivate';
+
+  @override
+  String get proceduresSeverityHint =>
+      'A critical step is highlighted for staff and can\'t be skipped while performing the service';
+
+  @override
+  String proceduresSelectedCount(int n) {
+    return '$n selected';
+  }
+
+  @override
+  String proceduresStepCount(int n) {
+    return '$n steps';
+  }
+
+  @override
+  String proceduresUsedIn(int n) {
+    return 'Used in $n services';
+  }
+
+  @override
+  String get referralProposeButton => 'Propose partnership';
+
+  @override
+  String get referralTitle => 'Strategic Partnership';
+
+  @override
+  String get referralSubtitle =>
+      'Move real customers between you and other shops, by mutual agreement';
+
+  @override
+  String get referralRoleAll => 'All';
+
+  @override
+  String get referralRoleReferrer => 'As referrer';
+
+  @override
+  String get referralRoleBeneficiary => 'As beneficiary';
+
+  @override
+  String get referralLoadFailed => 'Couldn\'t load partnerships';
+
+  @override
+  String get referralEmptyTitle => 'No partnerships yet';
+
+  @override
+  String get referralKpiAsReferrer => 'As referrer';
+
+  @override
+  String get referralKpiAsBeneficiary => 'As beneficiary';
+
+  @override
+  String get referralKpiSent => 'Referred';
+
+  @override
+  String get referralKpiRedeemed => 'Redeemed';
+
+  @override
+  String get referralKpiRate => 'Redemption rate';
+
+  @override
+  String get referralConfirm => 'Confirm';
+
+  @override
+  String get referralGrantDiscountBlanket => 'Discount on the whole visit';
+
+  @override
+  String get referralStatusProposed => 'Proposed';
+
+  @override
+  String get referralStatusActive => 'Active';
+
+  @override
+  String get referralStatusPaused => 'Paused';
+
+  @override
+  String get referralStatusCancelRequested => 'Cancellation requested';
+
+  @override
+  String get referralStatusEnded => 'Ended';
+
+  @override
+  String get referralStatusRejected => 'Rejected';
+
+  @override
+  String get referralStatusExpiredUnanswered => 'Expired unanswered';
+
+  @override
+  String get referralEventProposed => 'Partnership proposed';
+
+  @override
+  String get referralEventAccepted => 'Partnership accepted';
+
+  @override
+  String get referralEventRejected => 'Partnership rejected';
+
+  @override
+  String get referralEventActivated => 'Partnership activated';
+
+  @override
+  String get referralEventCancelRequested => 'Cancellation requested';
+
+  @override
+  String get referralEventCancelConfirmed => 'Cancellation confirmed';
+
+  @override
+  String get referralEventExpiredUnanswered => 'Expired with no answer';
+
+  @override
+  String get referralEventPaused => 'Paused';
+
+  @override
+  String get referralEventResumed => 'Resumed';
+
+  @override
+  String get referralEventEndedTerm => 'Term ended';
+
+  @override
+  String get referralEventGrantCreated => 'New grant';
+
+  @override
+  String get referralEventGrantRedeemed => 'Grant redeemed';
+
+  @override
+  String get referralActivityActive => 'Active';
+
+  @override
+  String get referralActivityPaused => 'Paused';
+
+  @override
+  String get referralActivityPending => 'Awaiting reply';
+
+  @override
+  String get referralActivityInactive => 'Inactive';
+
+  @override
+  String get referralScorecardTitle => 'Performance';
+
+  @override
+  String get referralScorecardFailed => 'Couldn\'t load performance';
+
+  @override
+  String get referralActivityTitle => 'Recent activity';
+
+  @override
+  String get referralActivityEmpty => 'No activity yet';
+
+  @override
+  String get referralAgreementsTitle => 'Agreements';
+
+  @override
+  String get referralConfirmCancel => 'End this partnership for good?';
+
+  @override
+  String get referralActionAccept => 'Accept';
+
+  @override
+  String get referralActionReject => 'Reject';
+
+  @override
+  String get referralActionWaitingThem => 'Waiting on the other side';
+
+  @override
+  String get referralActionCancelRequest => 'Request to end';
+
+  @override
+  String get referralActionCancelConfirm => 'Confirm ending';
+
+  @override
+  String get referralProposeTitle => 'Propose a new partnership';
+
+  @override
+  String get referralProposePhoneLabel => 'Other shop\'s phone';
+
+  @override
+  String get referralProposeConditionLabel =>
+      'Eligibility condition at your shop';
+
+  @override
+  String get referralConditionMinTotal => 'Minimum invoice';
+
+  @override
+  String get referralConditionServiceId => 'A specific service';
+
+  @override
+  String get referralProposeConditionValueRiyals => 'Amount (SAR)';
+
+  @override
+  String get referralProposeConditionValueService => 'Service';
+
+  @override
+  String get referralProposeValidityLabel => 'Validity (days)';
+
+  @override
+  String get referralProposeDurationLabel => 'Duration (days)';
+
+  @override
+  String get referralProposeCapLabel => 'Cap / 30 days';
+
+  @override
+  String get referralProposeGrantTypeLabel => 'Grant type';
+
+  @override
+  String get referralGrantTypeDiscount => 'Discount';
+
+  @override
+  String get referralGrantTypeGift => 'Gift';
+
+  @override
+  String get referralScopeBlanket => 'Whole visit';
+
+  @override
+  String get referralScopeItem => 'A specific service';
+
+  @override
+  String get referralScopeGroup => 'Group/package';
+
+  @override
+  String get referralProposeServiceLabel => 'Service';
+
+  @override
+  String get referralProposeGroupLabel => 'Group';
+
+  @override
+  String get referralProposeImmutableNote =>
+      'Grant terms are fixed once sent — a different offer needs a new agreement';
+
+  @override
+  String get referralProposeSubmitting => 'Sending...';
+
+  @override
+  String get referralProposeSubmit => 'Send proposal';
+
+  @override
+  String referralGrantGift(String name) {
+    return 'Gift: $name';
+  }
+
+  @override
+  String referralGrantDiscountItem(String name) {
+    return 'Discount on: $name';
+  }
+
+  @override
+  String referralGrantDiscountGroup(String name) {
+    return 'Discount on group: $name';
+  }
+
+  @override
+  String referralPartnerCount(int n) {
+    return '$n agreement(s)';
+  }
+
+  @override
+  String get referralProposeResultFail => 'Couldn\'t send the proposal';
+
+  @override
+  String get referralRefusal402 =>
+      'Your shop isn\'t subscribed to the Strategic Partnership app — subscribe from the app store first';
+
+  @override
+  String get referralRefusal403 => 'You don\'t have permission for this action';
+
+  @override
+  String get referralRefusal400 =>
+      'The proposal\'s data is invalid — check the condition, or that you\'re not proposing a partnership with your own shop';
+
+  @override
+  String get referralRefusal404 =>
+      'No shop found with that number, or the chosen service/group doesn\'t exist in the other shop\'s catalogue';
+
+  @override
+  String get referralRefusal409 =>
+      'You\'ve reached the limit of 3 active partnerships, or the partnership\'s state has changed';
+
+  @override
+  String get referralRefusal503 =>
+      'Billing is temporarily unavailable, try again later';
+
+  @override
+  String get appStoreTitle => 'App Store';
+
+  @override
+  String get appStoreSubtitle => 'Grow your shop with real apps, one at a time';
+
+  @override
+  String get appStoreTabMine => 'My apps';
+
+  @override
+  String get appStoreTabAll => 'App Store';
+
+  @override
+  String get appStoreDetails => 'Details';
+
+  @override
+  String get appStorePerMonth => 'per month';
+
+  @override
+  String get appStorePerMonthShort => '/mo';
+
+  @override
+  String get appStoreActive => 'Active';
+
+  @override
+  String get appStoreTrialing => 'Trial';
+
+  @override
+  String get appStoreSubscribe => 'Subscribe now';
+
+  @override
+  String get appStoreCancelRenewal => 'Stop renewal';
+
+  @override
+  String get appStoreUndoCancel => 'Undo cancellation';
+
+  @override
+  String get appStoreConfirmCancel =>
+      'Stop renewing this app? It stays active until the paid period ends';
+
+  @override
+  String appStoreCartCount(int n) {
+    return '$n in cart';
+  }
+
+  @override
+  String get appStoreCheckout => 'Checkout';
+
+  @override
+  String get appStoreCheckingOut => 'Checking out...';
+
+  @override
+  String get appStoreRefusal402 =>
+      'Payment isn\'t enabled on your account right now — contact us to enable it';
+
+  @override
+  String get appStoreRefusal403 =>
+      'You don\'t have permission to complete this purchase';
+
+  @override
+  String get appStoreRefusal404 =>
+      'The requested plan wasn\'t found — refresh and try again';
+
+  @override
+  String get appStoreRefusal409 =>
+      'This app is already owned, or its state changed mid-purchase';
+
+  @override
+  String get appStoreRefusalGeneric =>
+      'Couldn\'t complete the purchase, try again';
+
+  @override
+  String get appStoreCapacityTitle => 'Capacity';
+
+  @override
+  String appStoreCapacityConfirmRemove(String name) {
+    return 'Remove the last unit of \"$name\"? This stops its renewal entirely';
+  }
 }

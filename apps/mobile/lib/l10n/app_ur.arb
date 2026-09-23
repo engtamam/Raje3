@@ -201,9 +201,38 @@
   "branchesMemberRoleLabel": "کردار",
   "branchesRoleOperator": "فیلڈ آپریٹر",
   "branchesRoleSupervisor": "شفٹ سپروائزر",
+  "branchesRoleMarketer": "مارکیٹنگ انچارج",
   "branchesRoleManager": "مینیجر",
   "branchesSeatLimit": "آپ کا موجودہ پلان مزید ملازم کی اجازت نہیں دیتا۔",
   "branchesHireFailed": "ملازم شامل نہیں ہو سکا، دوبارہ کوشش کریں۔",
+  "branchesVisibleAllHint": "تمام شاخیں دیکھتا ہے",
+  "branchesVisibleSomeHint": "{count} شاخیں دیکھتا ہے",
+  "branchesEditMember": "ملازم میں ترمیم",
+  "branchesMemberStopped": "روکا گیا",
+  "branchesMemberStationLabel": "کس شاخ میں کام کرتا ہے",
+  "branchesMemberVisibilityLabel": "کون سی شاخیں دیکھ سکتا ہے",
+  "branchesVisibilityOwnOnly": "صرف اپنی شاخ",
+  "branchesVisibilitySome": "مخصوص شاخیں",
+  "branchesVisibilityAll": "تمام شاخیں",
+  "branchesWorkingHours": "اوقات کار",
+  "branchesStopMember": "ملازم روکیں",
+  "branchesStopMemberTitle": "اس ملازم کو روکیں؟",
+  "branchesStopMemberBody": "{name} فوراً ایپ تک رسائی کھو دے گا۔ اس کی وزٹ کی تاریخ محفوظ رہے گی۔",
+  "branchesStopMemberConfirm": "روکیں",
+  "branchesReactivateMember": "دوبارہ فعال کریں",
+  "branchesRehireRequired": "یہ ملازم مکمل طور پر روکا گیا ہے — دوبارہ فعال کرنے کے لیے دوبارہ ملازمت دینا ضروری ہے، صرف آن کرنا کافی نہیں۔",
+  "branchesHoursSaved": "اوقات کار محفوظ ہو گئے۔",
+  "branchesHoursExceedsShop": "یہ اوقات دکان کے اپنے اوقات سے زیادہ ہیں — درست کریں۔",
+  "branchesHoursHint": "اگر آپ کچھ نہیں بدلیں گے، تو وہ خودکار طور پر دکان کے اپنے اوقات کی پیروی کرے گا۔",
+  "branchesHoursClear": "دکان کے ڈیفالٹ اوقات پر واپس کریں",
+  "branchesDayMonday": "پیر",
+  "branchesDayTuesday": "منگل",
+  "branchesDayWednesday": "بدھ",
+  "branchesDayThursday": "جمعرات",
+  "branchesDayFriday": "جمعہ",
+  "branchesDaySaturday": "ہفتہ",
+  "branchesDaySunday": "اتوار",
+  "branchesDayClosed": "بند",
   "accountSecuritySectionTitle": "سیکیورٹی",
   "accountChangePasswordRow": "پاس ورڈ تبدیل کریں",
   "accountChangePasswordFailed": "پاس ورڈ تبدیل نہیں ہو سکا، دوبارہ کوشش کریں۔",
@@ -247,6 +276,7 @@
   "billingInvoiceStatusDraft": "ڈرافٹ",
   "billingPayNow": "ابھی ادا کریں",
   "billingPayLinkFailed": "ادائیگی کا لنک نہیں بن سکا۔ دوبارہ کوشش کریں۔",
+  "paymentPageLoadFailed": "ادائیگی کا صفحہ لوڈ نہیں ہو سکا۔ اپنا کنکشن چیک کریں اور دوبارہ کوشش کریں۔",
   "billingCancelConfirmTitle": "تجدید روکیں؟",
   "billingCancelConfirmBody": "سروس موجودہ مدت کے اختتام تک کام کرتی رہے گی، پھر تجدید نہیں ہوگی۔",
   "billingCancelConfirmAction": "تجدید روکیں",
@@ -267,5 +297,881 @@
   "writeVehicleTrackingDisabledConfirm": "اس دکان کی وزٹ رجسٹریشن اسکرین پر پلیٹ نمبر کا خانہ غیر فعال کرے گا۔ تصدیق کریں؟",
   "writeVehicleTrackingEnabledDone": "گاڑیوں کی ٹریکنگ فعال کر دی گئی ✓",
   "writeVehicleTrackingDisabledDone": "گاڑیوں کی ٹریکنگ بند کر دی گئی ✓",
-  "writeVehicleTrackingFailed": "گاڑیوں کی ٹریکنگ کی ترتیب تبدیل نہیں ہو سکی، دوبارہ کوشش کریں۔"
+  "writeVehicleTrackingFailed": "گاڑیوں کی ٹریکنگ کی ترتیب تبدیل نہیں ہو سکی، دوبارہ کوشش کریں۔",
+  "mobileRequestsTitle": "موبائل درخواستیں",
+  "mobileRequestsSubtitle": "ایسی درخواستیں جو خدمت کو گاہک تک پہنچاتی ہیں، وصولی سے تکمیل تک۔",
+  "mobileRequestsKpiPending": "فیصلے کا منتظر",
+  "mobileRequestsKpiNeedsDecision": "فیصلہ درکار",
+  "mobileRequestsKpiCompletedMonth": "اس ماہ مکمل ہوئیں",
+  "mobileRequestsBannerGo": "دیکھیں",
+  "mobileRequestsFilterAll": "تمام",
+  "mobileRequestsFilterPending": "زیر التوا",
+  "mobileRequestsFilterAccepted": "قبول شدہ",
+  "mobileRequestsFilterNeedsDecision": "فیصلہ درکار",
+  "mobileRequestsFilterCompleted": "مکمل",
+  "mobileRequestsFilterClosed": "بند",
+  "mobileRequestsSearchHint": "نام یا فون سے تلاش کریں",
+  "mobileRequestsLoadFailedTitle": "درخواستیں لوڈ نہیں ہو سکیں",
+  "mobileRequestsLoadFailedBody": "اپنا کنکشن چیک کریں اور دوبارہ کوشش کریں۔",
+  "mobileRequestsRetry": "دوبارہ کوشش کریں",
+  "mobileRequestsEmptyTitle": "ابھی تک کوئی درخواست نہیں",
+  "mobileRequestsEmptyBody": "آپ کے گاہکوں کی موبائل سروس کی درخواستیں یہاں ظاہر ہوں گی۔",
+  "mobileRequestsStatusPending": "زیر التوا",
+  "mobileRequestsStatusAccepted": "قبول شدہ",
+  "mobileRequestsStatusNeedsDecision": "فیصلہ درکار",
+  "mobileRequestsStatusCompleted": "مکمل",
+  "mobileRequestsStatusNoShow": "حاضر نہیں ہوا",
+  "mobileRequestsStatusRejected": "مسترد",
+  "mobileRequestsUnnamed": "بلا نام",
+  "mobileRequestsOpenMap": "مقام",
+  "mobileRequestsPhoneCopied": "فون نمبر کاپی ہو گیا",
+  "mobileRequestsRiskyCustomer": "زیادہ رسک والا گاہک",
+  "mobileRequestsRejectReasonLine": "مسترد کرنے کی وجہ: {reason}",
+  "mobileRequestsActionAccept": "قبول کریں",
+  "mobileRequestsActionReject": "مسترد کریں",
+  "mobileRequestsActionComplete": "مکمل",
+  "mobileRequestsActionNoShow": "حاضر نہیں ہوا",
+  "mobileRequestsAssignUnassigned": "غیر تفویض شدہ",
+  "mobileRequestsActionFailed": "کارروائی مکمل نہیں ہو سکی، دوبارہ کوشش کریں۔",
+  "mobileRequestsRejectTitle": "مسترد کرنے کی وجہ",
+  "mobileRequestsRejectHint": "اختیاری",
+  "mobileRequestsRejectCancel": "منسوخ کریں",
+  "mobileRequestsRejectConfirm": "درخواست مسترد کریں",
+  "mobileRequestsAddOpen": "درخواست شامل کریں",
+  "mobileRequestsAddTitle": "موبائل سروس کی درخواست شامل کریں",
+  "mobileRequestsAddPhoneLabel": "گاہک کا فون",
+  "mobileRequestsAddNameLabel": "گاہک کا نام (اختیاری)",
+  "mobileRequestsAddServicesLabel": "خدمات",
+  "mobileRequestsAddServicesEmpty": "ابھی تک کوئی خدمت دستیاب نہیں۔",
+  "mobileRequestsAddDayLabel": "دن",
+  "mobileRequestsAddTimeLabel": "وقت",
+  "mobileRequestsAddMapsLinkLabel": "گوگل میپس لوکیشن لنک",
+  "mobileRequestsAddMapsLinkHint": "مکمل یا مختصر گوگل میپس لنک قبول کرتا ہے۔",
+  "mobileRequestsAddMapsLinkShort": "یہ ایک مختصر لنک ہے — مکمل گوگل میپس لنک پیسٹ کریں۔",
+  "mobileRequestsAddMapsLinkInvalid": "اس لنک سے مقام نہیں پڑھا جا سکا۔",
+  "mobileRequestsAddAssignLabel": "تفویض کریں (اختیاری)",
+  "mobileRequestsAddCancel": "منسوخ کریں",
+  "mobileRequestsAddSubmit": "درخواست شامل کریں",
+  "mobileRequestsAddSubmitting": "شامل ہو رہا ہے...",
+  "mobileRequestsAddError": "درخواست شامل نہیں ہو سکی، دوبارہ کوشش کریں۔",
+  "mobileRequestsBannerText": "{count, plural, other{{count} درخواستیں ابھی آپ کے فیصلے کی منتظر ہیں}}",
+  "mobileRequestsAddMapsLinkResolving": "لنک سے مقام پڑھا جا رہا ہے...",
+  "customersTitle": "میرے گاہک",
+  "customersAddOpen": "گاہک شامل کریں",
+  "customersSearchHint": "نام یا فون سے تلاش کریں",
+  "customersTabAll": "تمام",
+  "customersTabOverdue": "تاخیر زدہ",
+  "customersSearchFailedTitle": "ابھی تلاش دستیاب نہیں",
+  "customersSearchFailedBody": "تھوڑی دیر بعد دوبارہ کوشش کریں۔",
+  "customersSearchEmpty": "کوئی نتیجہ نہیں",
+  "customersLoadFailedTitle": "لوڈ نہیں ہو سکا",
+  "customersEmptyTitle": "ابھی تک کوئی گاہک نہیں",
+  "customersOverdueEmpty": "فی الحال کوئی تاخیر زدہ نہیں",
+  "customersUnnamed": "بلا نام",
+  "customersVisitCount": "{count, plural, other{{count} وزٹس}}",
+  "customersOverdueBadge": "تاخیر",
+  "customersStatEveryDays": "{days, plural, other{ہر {days} دن}}",
+  "customersOverdueBanner": "اپنی معمول کی وزٹ میں تاخیر — عام طور پر ہر {every} دن، آخری وزٹ کو {since} دن ہو چکے ہیں",
+  "customersVisitMeter": "میٹر ریڈنگ: {n}",
+  "customersOfferExpiredBadge": "ختم ہو گیا",
+  "customersDeniedAllTitle": "آپ کو گاہکوں کی فہرست دیکھنے کی اجازت نہیں",
+  "customersDeniedOverdueTitle": "آپ کو تاخیر والوں کو دیکھنے کی اجازت نہیں",
+  "customersDeniedDesc": "دکان کے مالک سے یہ اجازت طلب کریں۔",
+  "customersAddTitle": "نیا گاہک شامل کریں",
+  "customersAddPhoneLabel": "گاہک کا فون",
+  "customersAddNameLabel": "گاہک کا نام",
+  "customersAddPhoneInvalid": "فون نمبر درست نہیں۔",
+  "customersAddFailed": "گاہک شامل نہیں ہو سکا، دوبارہ کوشش کریں۔",
+  "customersAddSubmitting": "شامل ہو رہا ہے...",
+  "customersAddSubmit": "شامل کریں",
+  "customersActionFailed": "کارروائی مکمل نہیں ہو سکی، دوبارہ کوشش کریں۔",
+  "customersRepeatedIssuesTitle": "بار بار شکایات",
+  "customersVehiclesTitle": "گاڑیاں",
+  "customersLoyaltyTitle": "وفاداری",
+  "customersLoyaltyLoading": "لوڈ ہو رہا ہے...",
+  "customersLoyaltyPoints": "{count} پوائنٹس",
+  "customersLoyaltyAdjust": "ترمیم کریں",
+  "customersOffersTitle": "جاری آفرز",
+  "customersOfferExpires": "{date} کو ختم",
+  "customersVisitsTitle": "وزٹ کی تاریخ",
+  "customersVisitsEmpty": "ابھی تک کوئی وزٹ نہیں",
+  "customersVisitNoServices": "کوئی خدمت درج نہیں",
+  "customersRenameTitle": "گاہک کا نام تبدیل کریں",
+  "customersRenameSubmit": "محفوظ کریں",
+  "customersLoyaltyAdjustTitle": "وفاداری پوائنٹس ترمیم کریں",
+  "customersLoyaltyAdjustNoteLabel": "ترمیم کی وجہ",
+  "customersLoyaltyAdjustNoteRequired": "ایک حقیقی وجہ لکھیں (کم از کم 3 حروف)، اور غیر صفر تعداد منتخب کریں۔",
+  "customersLoyaltyAdjustSubmit": "ترمیم محفوظ کریں",
+  "customersEraseButton": "اس گاہک کا ڈیٹا حذف کریں",
+  "customersEraseTitle": "گاہک کا ڈیٹا حذف کریں",
+  "customersEraseWarning": "یہ پلیٹ فارم سے گاہک کا تمام ڈیٹا مستقل طور پر حذف کر دیتا ہے — اسے واپس نہیں لیا جا سکتا۔",
+  "customersEraseTypeNameLabel": "تصدیق کے لیے، گاہک کا نام لکھیں: {name}",
+  "customersEraseConfirm": "مستقل حذف کریں",
+  "customersBookingsTitle": "بکنگز",
+  "customersAttendanceRate": "{rate}٪ حاضری",
+  "customersBookingsNoneUpcoming": "کوئی آئندہ بکنگ نہیں",
+  "customersCyclesTitle": "یاد دہانی کے چکر",
+  "customersCyclesEveryDays": "ہر {days} دن",
+  "customersCyclesEditHint": "وقفہ مقرر کریں، اور اس گاہک کے ساتھ اس خدمت کے لیے خودکار سیکھنا رک جائے گا۔",
+  "customersCyclesSave": "محفوظ کریں",
+  "customersLogTitle": "ہم نے کیا کہا",
+  "customersLogEmpty": "ہم نے ابھی تک کچھ نہیں بھیجا",
+  "customersCyclesUnknownService": "نامعلوم خدمت",
+  "customersVisitGapDays": "{days, plural, =0{اسی دن} other{{days} دن بعد}}",
+  "customersCountLabel": "{count, plural, =0{ابھی تک کوئی گاہک نہیں} other{{count} گاہک}}",
+  "ratingTitle": "ریٹنگ",
+  "pointsTitle": "وفاداری پوائنٹس",
+  "pointsAddReward": "نیا انعام",
+  "pointsEditReward": "انعام میں ترمیم",
+  "pointsTabRewards": "انعامات",
+  "pointsTabLeaderboard": "سب سے زیادہ حاصل شدہ",
+  "pointsOutstandingHint": "پوائنٹس جو دکان ابھی تک گاہکوں کے ذمہ ہیں",
+  "pointsRedemptionsCount": "{count, plural, other{{count} تبادلے}}",
+  "pointsCustomersCount": "{count, plural, other{{count} گاہکوں نے تبادلہ کیا}}",
+  "pointsExpiredWarning": "دیے گئے پوائنٹس کا %{percent} بغیر تبادلے کے ختم ہو گیا — اپنے انعامات کی قیمتیں دیکھیں",
+  "pointsLoadFailedTitle": "انعامات لوڈ نہیں ہو سکے",
+  "pointsRewardsEmpty": "ابھی کوئی انعام نہیں — اپنے گاہکوں کا پہلا انعام شامل کریں",
+  "pointsLeaderboardEmpty": "ابھی کوئی تبادلہ نہیں — گاہک کے تبادلہ کرتے ہی یہاں ظاہر ہوگا",
+  "pointsLeaderboardTitle": "سب سے زیادہ حاصل شدہ",
+  "pointsLeaderboardHint": "آپ کے گاہکوں کے حاصل کردہ پانچ سب سے زیادہ انعامات",
+  "pointsTimesRedeemed": "{count, plural, other{{count} بار}}",
+  "pointsRewardRetired": "بند",
+  "pointsRewardServiceHint": "سروس: {name}",
+  "pointsRewardDiscountHint": "{amount} ریال رعایت",
+  "pointsRewardItemHint": "تحفہ، کیٹلاگ سے منسلک نہیں",
+  "pointsRewardNameLabel": "انعام کا نام",
+  "pointsRewardTypeLabel": "انعام کی قسم",
+  "pointsTypeService": "آپ کے کیٹلاگ سے ایک سروس",
+  "pointsTypeItem": "ایک تحفہ",
+  "pointsTypeDiscount": "نقد رعایت",
+  "pointsRewardServiceLabel": "کون سی سروس",
+  "pointsRewardDiscountLabel": "رعایت کی رقم، ریال",
+  "pointsRewardCostLabel": "پوائنٹس میں قیمت",
+  "pointsRewardActiveLabel": "فعال — گاہک اسے حاصل کر سکتے ہیں",
+  "pointsRewardInvalid": "ایک نام اور صفر سے زیادہ حقیقی پوائنٹس قیمت درج کریں",
+  "pointsSaveFailed": "محفوظ نہیں ہو سکا، دوبارہ کوشش کریں",
+  "pointsModeTitle": "احتساب کا طریقہ",
+  "pointsModeHint": "خدمات کے حساب سے: ہر خدمت کے اپنے پوائنٹس۔ فاتورہ کی قیمت کے حساب سے: ہر ریال پر ایک پوائنٹ۔",
+  "pointsModeServices": "خدمات کے حساب سے",
+  "pointsModeInvoice": "فاتورہ کی قیمت کے حساب سے",
+  "pointsModeNeedsPricedServices": "فاتورے کی قیمت کے حساب سے احتساب کے لیے پہلے ہر سروس کی قیمت مقرر ہونی چاہیے — سب کی قیمت میری سروسز میں مقرر کریں، پھر اسے فعال کریں۔",
+  "pointsOpenEarnSettings": "ہر سروس کے پوائنٹس کی سیٹنگز",
+  "ratingLeaderboardTitle": "سب سے زیادہ ریٹیڈ",
+  "ratingCardNoName": "بلا نام",
+  "ratingMetricVisits": "سب سے زیادہ وزٹس",
+  "ratingMetricRatings": "سب سے زیادہ ریٹنگز",
+  "ratingMetricAvg": "سب سے زیادہ ریٹیڈ",
+  "ratingStaffCount": "{count, plural, other{{count} ملازمین}}",
+  "ratingTableTitle": "ہر ملازم",
+  "ratingTableVisitsValue": "{n} وزٹس",
+  "ratingTableRatingsValue": "{n} ریٹنگز",
+  "ratingTableEngagementValue": "شمولیت %{n}",
+  "ratingTableNoShowValue": "غیر حاضر %{n}",
+  "ratingPeriodWeek": "ہفتہ",
+  "ratingPeriodMonth": "مہینہ",
+  "ratingPeriodQuarter": "سہ ماہی",
+  "ratingPeriodCustom": "مخصوص",
+  "ratingCustomSince": "سے: {date}",
+  "ratingCustomUntil": "تک: {date}",
+  "ratingCustomRangeInvalid": "مدت درست نہیں — یقینی بنائیں شروع کی تاریخ اختتام سے پہلے ہو",
+  "ratingExportLocaleLabel": "رپورٹ کی زبان",
+  "localeNameAr": "العربية",
+  "localeNameEn": "English",
+  "localeNameUr": "اردو",
+  "localeNameHa": "Hausa",
+  "localeNameFil": "Filipino",
+  "localeNameBn": "বাংলা",
+  "ratingTopIssuesTitle": "سب سے زیادہ دہرائے جانے والے مسائل",
+  "ratingFilterUnhandled": "زیر التوا",
+  "ratingFilterAll": "تمام",
+  "ratingFilterHandled": "حل شدہ",
+  "ratingStarsAll": "تمام ستارے",
+  "ratingLoadFailedTitle": "ریٹنگز لوڈ نہیں ہو سکیں",
+  "ratingEmptyTitle": "ابھی تک کوئی ریٹنگ نہیں",
+  "ratingLoadMore": "مزید دکھائیں",
+  "ratingHandledPlain": "حل ہو گیا",
+  "ratingMarkHandled": "حل شدہ نشان زد کریں",
+  "ratingMarkHandledHint": "یہ مستقل طور پر ریکارڈ ہوتا ہے — بعد میں واپس نہیں لیا جا سکتا۔",
+  "ratingHandledNoteLabel": "نوٹ (اختیاری)",
+  "ratingMarkHandledConfirm": "تصدیق کریں",
+  "ratingActionFailed": "کارروائی مکمل نہیں ہو سکی، دوبارہ کوشش کریں۔",
+  "ratingWeightedAvgHint": "{count, plural, =0{پچھلے 30 دنوں میں کوئی ریٹنگ نہیں} other{پچھلے 30 دنوں میں {count} ریٹنگز سے}}",
+  "ratingUnhandledCount": "{count, plural, other{{count} ریٹنگز زیر التوا}}",
+  "ratingVisitsShort": "{count, plural, other{{count} وزٹس}}",
+  "ratingIssueFilterLabel": "مسئلہ: {label}",
+  "ratingByOperator": "{name} نے خدمت دی",
+  "ratingHandledWithNote": "حل ہوگیا: {note}",
+  "ratingQuadrantTitle": "کارکردگی کواڈرینٹ",
+  "ratingQuadrantHint": "معیار بمقابلہ مصروفیت کی شرح — تربیتی ریکارڈ کے لیے کسی بھی نقطے کو دبائیں۔",
+  "ratingQuadrantStars": "ستارے",
+  "ratingQuadrantUnderused": "کم استعمال شدہ",
+  "ratingQuadrantNeedsCoaching": "تربیت درکار",
+  "ratingQuadrantAtRisk": "توجہ درکار",
+  "ratingTrainingTitle": "تربیتی ریکارڈ",
+  "ratingTrainingNoAccess": "آپ کو یہ دیکھنے کی اجازت نہیں ہے۔",
+  "ratingTrainingClean": "صاف ریکارڈ — کوئی دہرائے جانے والے مسائل نہیں۔",
+  "ratingEngagementPercent": "{percent}٪ مصروفیت",
+  "ratingTabOverview": "جائزہ",
+  "ratingTabFeed": "تمام ریٹنگز",
+  "ratingOverviewEmpty": "پچھلے 30 دنوں کے لیے ابھی تک کارکردگی کا کوئی ڈیٹا نہیں۔",
+  "ratingExportTitle": "رپورٹ برآمد کریں",
+  "ratingExportHint": "ٹیم کی کارکردگی کی رپورٹ منتخب کردہ مدت کی، شیئر کرنے کے لیے تیار۔",
+  "ratingExportFailed": "رپورٹ برآمد نہیں ہو سکی، دوبارہ کوشش کریں۔",
+  "customersPrivacyRequestsTitle": "رازداری کی درخواستیں",
+  "customersPrivacyRequestErase": "ڈیٹا حذف کرنے کی درخواست",
+  "customersPrivacyRequestCopy": "ڈیٹا کاپی کی درخواست",
+  "customersPrivacyRequestGeneric": "درخواست: {type}",
+  "customersPrivacyRequestClose": "بند کریں",
+  "customersLoyaltyHistoryTitle": "پوائنٹس کی تاریخ",
+  "customersLoyaltyHistoryNoReason": "کوئی وجہ نہیں بتائی گئی",
+  "customersLoyaltyReasonRedeem": "انعام کا استعمال",
+  "customersLoyaltyReasonAdjust": "دستی ترمیم",
+  "customersLoyaltyReasonEarn": "وزٹ سے پوائنٹس",
+  "customersLoyaltyReasonExpire": "میعاد ختم",
+  "readCustomersFailed": "ابھی گاہک کا ڈیٹا حاصل نہیں ہو سکا، دوبارہ کوشش کریں۔",
+  "readCustomersTotal": "{count, plural, =0{ابھی تک کوئی گاہک رجسٹرڈ نہیں۔} other{آپ کے پاس {count} رجسٹرڈ گاہک ہیں۔}}",
+  "readCustomersOverdueCount": "{count, plural, =0{فی الحال کوئی گاہک اپنے چکر میں تاخیر کا شکار نہیں۔} other{آپ کے {count} گاہک اپنے چکر میں تاخیر کا شکار ہیں۔}}",
+  "readMobileRequestsFailed": "ابھی موبائل درخواستیں حاصل نہیں ہو سکیں، دوبارہ کوشش کریں۔",
+  "readMobileRequestsPendingCount": "{count, plural, =0{کوئی موبائل درخواست فیصلے کی منتظر نہیں۔} other{آپ کی {count} درخواستیں فیصلے کی منتظر ہیں۔}}",
+  "readMobileRequestsNeedsDecisionCount": "{count, plural, =0{فی الحال کوئی موبائل درخواست آپ کے فیصلے کی منتظر نہیں۔} other{{count} درخواستیں ابھی آپ کے فیصلے کی منتظر ہیں۔}}",
+  "readRatingFailed": "ابھی ریٹنگ کا ڈیٹا حاصل نہیں ہو سکا، دوبارہ کوشش کریں۔",
+  "readRatingNone": "پچھلے 30 دنوں میں ابھی تک کوئی ریٹنگ نہیں۔",
+  "readRatingAverage": "پچھلے 30 دنوں میں آپ کی اوسط ریٹنگ 5 میں سے {avg} ہے، {count} ریٹنگز سے۔",
+  "readRatingUnhandledCount": "{count, plural, =0{کوئی ریٹنگ زیر التوا نہیں۔} other{آپ کی {count} ریٹنگز زیر التوا ہیں۔}}",
+  "readRatingTopStaff": "پچھلے 30 دنوں میں سب سے بہتر ریٹیڈ عملہ {name} ہے، اوسط {avg} از 5۔",
+  "readMobileRequestsCompletedCount": "{count, plural, =0{اس مہینے ابھی تک کوئی موبائل درخواست مکمل نہیں ہوئی۔} other{اس مہینے آپ نے {count} مکمل کیں۔}}",
+  "readMobileRequestsTodayCount": "{count, plural, =0{آج تک کوئی موبائل درخواست نہیں آئی۔} other{آج {count} درخواستیں آئیں۔}}",
+  "readOperatorsFailed": "ابھی عملے کی تعداد حاصل نہیں ہو سکی، دوبارہ کوشش کریں۔",
+  "readOperatorsCount": "{count, plural, =0{ابھی تک کوئی عملہ رجسٹرڈ نہیں۔} other{آپ کی ٹیم میں {count} افراد ہیں۔}}",
+  "readBranchesDisconnectedCount": "{count, plural, =0{آپ کی تمام فعال شاخوں کا واٹس ایپ مربوط اور کام کر رہا ہے۔} other{آپ کی {count} شاخوں کا واٹس ایپ کام نہیں کر رہا۔}}",
+  "readCustomersRecentNone": "ابھی تک آپ کے پاس کوئی گاہک رجسٹرڈ نہیں۔",
+  "readCustomersRecentName": "آپ کا تازہ ترین گاہک {name} ہے۔",
+  "readRatingCriticalIssuesCount": "{count, plural, =0{کوئی زیر التوا ریٹنگ میں سنگین مسئلہ نہیں۔} other{آپ کی {count} زیر التوا ریٹنگز میں سنگین مسائل ہیں۔}}",
+  "readPerBranchModeOn": "جی ہاں، آپ کی دکان ملٹی برانچ موڈ میں چلتی ہے۔",
+  "readPerBranchModeOff": "نہیں، آپ کی دکان صرف ایک شاخ کے طور پر چلتی ہے۔",
+  "readBillingOverdueYes": "جی ہاں، آپ کا ایک زیر التوا انوائس ہے — خدمات بند ہونے سے بچنے کے لیے ادا کریں۔",
+  "readBillingOverdueNo": "نہیں، آپ کی بلنگ ٹھیک ہے، کوئی زیر التوا انوائس نہیں۔",
+  "readServicesFailed": "ابھی خدمات کی تعداد حاصل نہیں ہو سکی، دوبارہ کوشش کریں۔",
+  "readServicesCount": "{count, plural, =0{ابھی تک آپ کی فہرست میں کوئی خدمت نہیں۔} other{آپ کی فہرست میں {count} خدمات ہیں۔}}",
+  "readCustomersTodayCount": "{count, plural, =0{آج تک کوئی نیا گاہک نہیں آیا۔} other{آج {count} نئے گاہک آئے۔}}",
+  "readMobileRequestsRejectedCount": "{count, plural, =0{اس مہینے آپ نے کوئی موبائل درخواست مسترد نہیں کی۔} other{اس مہینے آپ نے {count} مسترد کیں۔}}",
+  "readMobileRequestsNoShowCount": "{count, plural, =0{اس مہینے کوئی گاہک غیر حاضر نہیں ہوا۔} other{اس مہینے {count} گاہک غیر حاضر ہوئے۔}}",
+  "readRatingFiveStarCount": "{count, plural, =0{ابھی تک آپ کی کوئی 5 ستارہ ریٹنگ نہیں۔} other{آپ کی {count} پانچ ستارہ ریٹنگز ہیں۔}}",
+  "readBranchesActiveCount": "{count, plural, =0{فی الحال آپ کی کوئی فعال شاخ نہیں۔} other{آپ کی {count} فعال شاخیں ہیں۔}}",
+  "servicesTitle": "میری خدمات",
+  "servicesUnnamedGlyph": "?",
+  "servicesSearchHint": "خدمت کے نام سے تلاش کریں",
+  "servicesTabActive": "فعال",
+  "servicesTabStopped": "بند",
+  "servicesLoadFailedTitle": "خدمات لوڈ نہیں ہو سکیں",
+  "servicesEmptyActive": "ابھی تک کوئی فعال خدمت نہیں",
+  "servicesEmptyStopped": "کوئی بند خدمت نہیں",
+  "servicesAddOpen": "خدمت شامل کریں",
+  "servicesNoPrice": "کوئی قیمت مقرر نہیں",
+  "servicesNoDuration": "غیر متعین",
+  "servicesNoCycle": "کوئی دور نہیں",
+  "servicesStopTitle": "خدمت بند کریں",
+  "servicesStopConfirm": "بند کریں",
+  "servicesActionFailed": "کارروائی مکمل نہیں ہو سکی، دوبارہ کوشش کریں۔",
+  "servicesEditTitle": "خدمت میں ترمیم کریں",
+  "servicesAddTitle": "نئی خدمت شامل کریں",
+  "servicesNameLabel": "خدمت کا نام",
+  "servicesPriceLabel": "قیمت (اختیاری)",
+  "servicesDurationLabel": "منٹوں میں دورانیہ (اختیاری)",
+  "servicesCycleLabel": "یاد دہانی کا دور دنوں میں (اختیاری)",
+  "servicesDescriptionLabel": "مختصر تفصیل (اختیاری)",
+  "servicesSaving": "محفوظ ہو رہا ہے...",
+  "servicesSave": "محفوظ کریں",
+  "servicesNameRequired": "خدمت کا نام درکار ہے",
+  "servicesActiveCount": "{count, plural, =0{ابھی تک کوئی فعال خدمت نہیں۔} other{آپ کی {count} فعال خدمات ہیں۔}}",
+  "servicesDurationMinutes": "{count} منٹ",
+  "servicesCycleDays": "ہر {count} دن",
+  "servicesStopWarning": "یہ \"{name}\" کو بند کر دے گا — نئی وزٹ میں نہیں دکھے گی، اور یاد دہانیاں رک جائیں گی۔ ڈیٹا کبھی حذف نہیں ہوتا۔",
+  "servicesPhotoPickFailed": "تصویر منتخب نہیں ہو سکی",
+  "servicesPhotoUploadFailed": "محفوظ ہو گیا، لیکن تصویر اپ لوڈ نہیں ہو سکی",
+  "servicesPhotoLabel": "خدمت کی تصویر (اختیاری)",
+  "servicesUploadPhoto": "تصویر اپ لوڈ کریں",
+  "@servicesUploadPhoto": {
+    "description": "servicesUploadPhoto"
+  },
+  "servicesChangePhoto": "تصویر تبدیل کریں",
+  "@servicesChangePhoto": {
+    "description": "servicesChangePhoto"
+  },
+  "servicesRemovePhoto": "ہٹائیں",
+  "@servicesRemovePhoto": {
+    "description": "servicesRemovePhoto"
+  },
+  "servicesAssignmentLabel": "یہ خدمت کون فراہم کرتا ہے؟",
+  "servicesAssignmentAuto": "کوئی بھی دستیاب اسٹاف",
+  "servicesAssignmentNamed": "مخصوص اسٹاف",
+  "servicesChecklistLabel": "طریقہ کار کے مراحل",
+  "servicesChecklistEmpty": "ابھی تک کوئی مرحلہ نہیں — پہلا شامل کریں",
+  "servicesStepAddTitle": "مرحلہ شامل کریں",
+  "servicesGeneralSettingsTitle": "عمومی سیٹنگ",
+  "servicesGeneralSettingsHint": "وہ قدر جس کی پیروی ہر وہ خدمت کرتی ہے جو ابھی تک مخصوص نہیں کی گئی",
+  "servicesFollowUpLabel": "زیارت کے بعد فالو اپ کے دن",
+  "servicesPointsLabel": "فی وزٹ پوائنٹس",
+  "servicesGroupThem": "انہیں گروپ کریں",
+  "servicesGroupNameHint": "گروپ کا نام",
+  "servicesAllGroups": "سب",
+  "servicesStepEditTitle": "مرحلہ میں ترمیم کریں",
+  "servicesStepCriticalLabel": "نازک مرحلہ",
+  "servicesStepRetire": "یہ مرحلہ بند کریں",
+  "servicesStepEditHint": "کسی بھی مرحلے کو دیر تک دبائیں تاکہ اسے تبدیل یا بند کریں",
+  "servicesAdvancedTitle": "اعلیٰ ترتیبات",
+  "servicesAdvancedHint": "اس خدمت کو عمومی سیٹنگ سے مختلف بنائیں — دور، پوائنٹس، اور گروپنگ",
+  "servicesGroupLabel": "گروپ",
+  "servicesNoGroup": "کوئی گروپ نہیں",
+  "servicesNewGroup": "نیا گروپ",
+  "servicesFollowGeneralAction": "عمومی کی پیروی کریں",
+  "servicesCustomizeAction": "مخصوص بنائیں",
+  "servicesFollowUpDays": "{n} دن بعد فالو اپ",
+  "servicesPointsPerVisit": "{n} پوائنٹس",
+  "servicesSuggestionText": "{n} خدمات ایک ہی قدر رکھتی ہیں — انہیں ایک گروپ میں جمع کرنا بعد میں ترمیم آسان بناتا ہے۔",
+  "servicesFollowsGeneral": "عمومی کی پیروی کرتا ہے — {hint}",
+  "servicesPageTabServices": "خدمات",
+  "servicesPageTabPackages": "پیکجز",
+  "servicesPackageAdd": "پیکج شامل کریں",
+  "servicesPackageNeedsTwoServices": "پیکج کے لیے کم از کم دو فعال خدمات درکار ہیں",
+  "servicesPackageEmpty": "ابھی تک کوئی پیکج نہیں",
+  "servicesPackageEditTitle": "پیکج میں ترمیم کریں",
+  "servicesPackageAddTitle": "نیا پیکج شامل کریں",
+  "servicesPackageNameLabel": "پیکج کا نام",
+  "servicesPackagePriceRequired": "پیکج کی قیمت درکار ہے، صفر سے زیادہ",
+  "servicesPackageServicesLabel": "شامل خدمات",
+  "servicesImportTitle": "فائل سے خدمات درآمد کریں",
+  "servicesImportHint": "کالموں والی CSV فائل: name, price, duration_minutes, cycle_days, description",
+  "servicesImportPickFile": "CSV فائل منتخب کریں",
+  "servicesImportReadFailed": "فائل پڑھی نہیں جا سکی",
+  "servicesImportParseFailed": "فائل میں name کالم نہیں، یا اس کی فارمیٹنگ غلط ہے",
+  "servicesImportDeactivateMissing": "فائل میں موجود نہ خدمات کو بند کریں",
+  "servicesImportDeactivateMissingHint": "کوئی بھی موجودہ خدمت جو اس فائل میں نہیں وہ خودکار بند ہو جائے گی",
+  "servicesImportConfirm": "درآمد کریں",
+  "servicesImportClose": "ہو گیا",
+  "servicesImportRowCount": "{n} قطاریں درآمد کے لیے تیار ہیں",
+  "servicesImportDone": "{created} شامل، {updated} اپ ڈیٹ، {reactivated} دوبارہ فعال۔",
+  "visitPackagesSectionTitle": "نمایاں پیکجز",
+  "visitNameFieldHint": "گاہک کا نام (اختیاری)",
+  "visitMeterFieldHint": "میٹر ریڈنگ",
+  "visitQuantityDialogTitle": "مقدار",
+  "visitCouponCheckboxLabel": "دوسرے دکان کو ڈسکاؤنٹ کوپن دیں",
+  "visitCouponPhoneHint": "دکان کے مالک کا فون",
+  "visitClearAllButton": "سب صاف کریں",
+  "visitServicesSelectedCount": "{n} خدمات منتخب",
+  "visitTodayBookingsTitle": "آج کی ملاقاتیں",
+  "visitBookingAttendFailed": "حاضری کی تصدیق نہیں ہو سکی، دوبارہ کوشش کریں",
+  "branchSwitcherChooseBranch": "برانچ منتخب کریں",
+  "branchSwitcherTitle": "موجودہ برانچ",
+  "branchSwitcherHint": "اس کے بعد آپ جو کچھ کھولیں گے وہ اسی برانچ سے متعلق ہوگا",
+  "proceduresPrintFailed": "دستاویز نہیں بن سکی",
+  "@proceduresPrintFailed": {
+    "description": "proceduresPrintFailed"
+  },
+  "proceduresTitle": "طریقہ کار",
+  "@proceduresTitle": {
+    "description": "proceduresTitle"
+  },
+  "proceduresSubtitle": "ہر خدمت کے لیے طریقہ کار کی فہرست سیٹ کریں، یا پوری مشترکہ لائبریری کا انتظام کریں۔ پرنٹ کے لیے منتخب کرنے کے لیے دبائے رکھیں",
+  "@proceduresSubtitle": {
+    "description": "proceduresSubtitle"
+  },
+  "proceduresLibraryLink": "طریقہ کار کی لائبریری",
+  "@proceduresLibraryLink": {
+    "description": "proceduresLibraryLink"
+  },
+  "proceduresPrint": "پرنٹ کریں",
+  "@proceduresPrint": {
+    "description": "proceduresPrint"
+  },
+  "proceduresEmptyTitle": "ابھی تک کوئی فعال خدمت نہیں",
+  "@proceduresEmptyTitle": {
+    "description": "proceduresEmptyTitle"
+  },
+  "servicesStepSeverityNormal": "عام",
+  "@servicesStepSeverityNormal": {
+    "description": "servicesStepSeverityNormal"
+  },
+  "servicesStepSeverityCritical": "اہم",
+  "@servicesStepSeverityCritical": {
+    "description": "servicesStepSeverityCritical"
+  },
+  "proceduresSaveFailed": "محفوظ نہیں ہو سکا",
+  "@proceduresSaveFailed": {
+    "description": "proceduresSaveFailed"
+  },
+  "proceduresDrawerSubtitle": "ترتیب بدلنے کے لیے گھسیٹیں، یا لائبریری سے مرحلہ شامل کریں",
+  "@proceduresDrawerSubtitle": {
+    "description": "proceduresDrawerSubtitle"
+  },
+  "proceduresDrawerEmpty": "اس خدمت کے لیے ابھی تک کوئی مرحلہ نہیں",
+  "@proceduresDrawerEmpty": {
+    "description": "proceduresDrawerEmpty"
+  },
+  "proceduresDrawerAddButton": "لائبریری سے شامل کریں",
+  "@proceduresDrawerAddButton": {
+    "description": "proceduresDrawerAddButton"
+  },
+  "proceduresPickTitle": "مرحلہ منتخب کریں",
+  "@proceduresPickTitle": {
+    "description": "proceduresPickTitle"
+  },
+  "proceduresPickClose": "بند کریں",
+  "@proceduresPickClose": {
+    "description": "proceduresPickClose"
+  },
+  "proceduresPickApply": "شامل کریں",
+  "@proceduresPickApply": {
+    "description": "proceduresPickApply"
+  },
+  "proceduresPickSearch": "مراحل تلاش کریں",
+  "@proceduresPickSearch": {
+    "description": "proceduresPickSearch"
+  },
+  "proceduresPickEmpty": "کوئی نتیجہ نہیں",
+  "@proceduresPickEmpty": {
+    "description": "proceduresPickEmpty"
+  },
+  "proceduresPickCreatePlaceholder": "نیا مرحلہ...",
+  "@proceduresPickCreatePlaceholder": {
+    "description": "proceduresPickCreatePlaceholder"
+  },
+  "proceduresLibrarySaveFailed": "محفوظ نہیں ہو سکا",
+  "@proceduresLibrarySaveFailed": {
+    "description": "proceduresLibrarySaveFailed"
+  },
+  "proceduresLibraryTitle": "طریقہ کار کی لائبریری",
+  "@proceduresLibraryTitle": {
+    "description": "proceduresLibraryTitle"
+  },
+  "proceduresLibrarySubtitle": "یہاں ہر مرحلہ اسے استعمال کرنے والی ہر خدمت میں مشترک ہے - اسے تبدیل کرنے سے ہر جگہ تبدیلی آتی ہے",
+  "@proceduresLibrarySubtitle": {
+    "description": "proceduresLibrarySubtitle"
+  },
+  "proceduresLibraryNewPlaceholder": "نئے مرحلے کا متن",
+  "@proceduresLibraryNewPlaceholder": {
+    "description": "proceduresLibraryNewPlaceholder"
+  },
+  "proceduresLibraryAdd": "شامل کریں",
+  "@proceduresLibraryAdd": {
+    "description": "proceduresLibraryAdd"
+  },
+  "proceduresLibraryShowRetired": "منسوخ شدہ دکھائیں",
+  "@proceduresLibraryShowRetired": {
+    "description": "proceduresLibraryShowRetired"
+  },
+  "proceduresLibraryEmpty": "ابھی تک کوئی مرحلہ نہیں",
+  "@proceduresLibraryEmpty": {
+    "description": "proceduresLibraryEmpty"
+  },
+  "proceduresLibraryRetired": "منسوخ",
+  "@proceduresLibraryRetired": {
+    "description": "proceduresLibraryRetired"
+  },
+  "proceduresLibraryRetire": "منسوخ کریں",
+  "@proceduresLibraryRetire": {
+    "description": "proceduresLibraryRetire"
+  },
+  "proceduresLibraryReactivate": "دوبارہ فعال کریں",
+  "@proceduresLibraryReactivate": {
+    "description": "proceduresLibraryReactivate"
+  },
+  "proceduresSeverityHint": "اہم مرحلہ عملے کے لیے مختلف رنگ میں نمایاں ہوتا ہے اور خدمت کی انجام دہی کے دوران اسے چھوڑا نہیں جا سکتا",
+  "@proceduresSeverityHint": {
+    "description": "proceduresSeverityHint"
+  },
+  "proceduresSelectedCount": "{n} منتخب",
+  "@proceduresSelectedCount": {
+    "description": "proceduresSelectedCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "proceduresStepCount": "{n} مراحل",
+  "@proceduresStepCount": {
+    "description": "proceduresStepCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "proceduresUsedIn": "{n} خدمات میں استعمال ہوتا ہے",
+  "@proceduresUsedIn": {
+    "description": "proceduresUsedIn",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "referralProposeButton": "شراکت کی تجویز دیں",
+  "@referralProposeButton": {
+    "description": "referralProposeButton"
+  },
+  "referralTitle": "اسٹریٹجک شراکت",
+  "@referralTitle": {
+    "description": "referralTitle"
+  },
+  "referralSubtitle": "باہمی رضامندی سے اپنے اور دیگر دکانوں کے درمیان حقیقی گاہک منتقل کریں",
+  "@referralSubtitle": {
+    "description": "referralSubtitle"
+  },
+  "referralRoleAll": "سب",
+  "@referralRoleAll": {
+    "description": "referralRoleAll"
+  },
+  "referralRoleReferrer": "بطور ریفرر",
+  "@referralRoleReferrer": {
+    "description": "referralRoleReferrer"
+  },
+  "referralRoleBeneficiary": "بطور مستفید",
+  "@referralRoleBeneficiary": {
+    "description": "referralRoleBeneficiary"
+  },
+  "referralLoadFailed": "شراکتیں لوڈ نہیں ہو سکیں",
+  "@referralLoadFailed": {
+    "description": "referralLoadFailed"
+  },
+  "referralEmptyTitle": "ابھی تک کوئی شراکت نہیں",
+  "@referralEmptyTitle": {
+    "description": "referralEmptyTitle"
+  },
+  "referralKpiAsReferrer": "بطور ریفرر",
+  "@referralKpiAsReferrer": {
+    "description": "referralKpiAsReferrer"
+  },
+  "referralKpiAsBeneficiary": "بطور مستفید",
+  "@referralKpiAsBeneficiary": {
+    "description": "referralKpiAsBeneficiary"
+  },
+  "referralKpiSent": "بھیجی گئیں",
+  "@referralKpiSent": {
+    "description": "referralKpiSent"
+  },
+  "referralKpiRedeemed": "استعمال ہوئیں",
+  "@referralKpiRedeemed": {
+    "description": "referralKpiRedeemed"
+  },
+  "referralKpiRate": "استعمال کی شرح",
+  "@referralKpiRate": {
+    "description": "referralKpiRate"
+  },
+  "referralConfirm": "تصدیق کریں",
+  "@referralConfirm": {
+    "description": "referralConfirm"
+  },
+  "referralGrantDiscountBlanket": "پوری وزٹ پر رعایت",
+  "@referralGrantDiscountBlanket": {
+    "description": "referralGrantDiscountBlanket"
+  },
+  "referralStatusProposed": "تجویز کردہ",
+  "@referralStatusProposed": {
+    "description": "referralStatusProposed"
+  },
+  "referralStatusActive": "فعال",
+  "@referralStatusActive": {
+    "description": "referralStatusActive"
+  },
+  "referralStatusPaused": "عارضی طور پر روکا گیا",
+  "@referralStatusPaused": {
+    "description": "referralStatusPaused"
+  },
+  "referralStatusCancelRequested": "منسوخی کی درخواست دی گئی",
+  "@referralStatusCancelRequested": {
+    "description": "referralStatusCancelRequested"
+  },
+  "referralStatusEnded": "ختم شدہ",
+  "@referralStatusEnded": {
+    "description": "referralStatusEnded"
+  },
+  "referralStatusRejected": "مسترد",
+  "@referralStatusRejected": {
+    "description": "referralStatusRejected"
+  },
+  "referralStatusExpiredUnanswered": "بغیر جواب ختم ہوگئی",
+  "@referralStatusExpiredUnanswered": {
+    "description": "referralStatusExpiredUnanswered"
+  },
+  "referralEventProposed": "شراکت کی تجویز",
+  "@referralEventProposed": {
+    "description": "referralEventProposed"
+  },
+  "referralEventAccepted": "شراکت قبول",
+  "@referralEventAccepted": {
+    "description": "referralEventAccepted"
+  },
+  "referralEventRejected": "شراکت مسترد",
+  "@referralEventRejected": {
+    "description": "referralEventRejected"
+  },
+  "referralEventActivated": "شراکت فعال",
+  "@referralEventActivated": {
+    "description": "referralEventActivated"
+  },
+  "referralEventCancelRequested": "منسوخی کی درخواست",
+  "@referralEventCancelRequested": {
+    "description": "referralEventCancelRequested"
+  },
+  "referralEventCancelConfirmed": "منسوخی کی تصدیق",
+  "@referralEventCancelConfirmed": {
+    "description": "referralEventCancelConfirmed"
+  },
+  "referralEventExpiredUnanswered": "بغیر جواب میعاد ختم",
+  "@referralEventExpiredUnanswered": {
+    "description": "referralEventExpiredUnanswered"
+  },
+  "referralEventPaused": "عارضی توقف",
+  "@referralEventPaused": {
+    "description": "referralEventPaused"
+  },
+  "referralEventResumed": "دوبارہ شروع",
+  "@referralEventResumed": {
+    "description": "referralEventResumed"
+  },
+  "referralEventEndedTerm": "مدت ختم",
+  "@referralEventEndedTerm": {
+    "description": "referralEventEndedTerm"
+  },
+  "referralEventGrantCreated": "نئی مراعات",
+  "@referralEventGrantCreated": {
+    "description": "referralEventGrantCreated"
+  },
+  "referralEventGrantRedeemed": "مراعات استعمال ہوئی",
+  "@referralEventGrantRedeemed": {
+    "description": "referralEventGrantRedeemed"
+  },
+  "referralActivityActive": "فعال",
+  "@referralActivityActive": {
+    "description": "referralActivityActive"
+  },
+  "referralActivityPaused": "عارضی طور پر روکا گیا",
+  "@referralActivityPaused": {
+    "description": "referralActivityPaused"
+  },
+  "referralActivityPending": "جواب کا انتظار",
+  "@referralActivityPending": {
+    "description": "referralActivityPending"
+  },
+  "referralActivityInactive": "غیر فعال",
+  "@referralActivityInactive": {
+    "description": "referralActivityInactive"
+  },
+  "referralScorecardTitle": "کارکردگی",
+  "@referralScorecardTitle": {
+    "description": "referralScorecardTitle"
+  },
+  "referralScorecardFailed": "کارکردگی لوڈ نہیں ہو سکی",
+  "@referralScorecardFailed": {
+    "description": "referralScorecardFailed"
+  },
+  "referralActivityTitle": "حالیہ سرگرمی",
+  "@referralActivityTitle": {
+    "description": "referralActivityTitle"
+  },
+  "referralActivityEmpty": "ابھی تک کوئی سرگرمی نہیں",
+  "@referralActivityEmpty": {
+    "description": "referralActivityEmpty"
+  },
+  "referralAgreementsTitle": "معاہدے",
+  "@referralAgreementsTitle": {
+    "description": "referralAgreementsTitle"
+  },
+  "referralConfirmCancel": "اس شراکت کو مستقل طور پر ختم کریں؟",
+  "@referralConfirmCancel": {
+    "description": "referralConfirmCancel"
+  },
+  "referralActionAccept": "قبول کریں",
+  "@referralActionAccept": {
+    "description": "referralActionAccept"
+  },
+  "referralActionReject": "مسترد کریں",
+  "@referralActionReject": {
+    "description": "referralActionReject"
+  },
+  "referralActionWaitingThem": "دوسری جانب کا انتظار",
+  "@referralActionWaitingThem": {
+    "description": "referralActionWaitingThem"
+  },
+  "referralActionCancelRequest": "ختم کرنے کی درخواست",
+  "@referralActionCancelRequest": {
+    "description": "referralActionCancelRequest"
+  },
+  "referralActionCancelConfirm": "ختم کرنے کی تصدیق",
+  "@referralActionCancelConfirm": {
+    "description": "referralActionCancelConfirm"
+  },
+  "referralProposeTitle": "نئی شراکت کی تجویز دیں",
+  "@referralProposeTitle": {
+    "description": "referralProposeTitle"
+  },
+  "referralProposePhoneLabel": "دوسری دکان کا فون",
+  "@referralProposePhoneLabel": {
+    "description": "referralProposePhoneLabel"
+  },
+  "referralProposeConditionLabel": "آپ کی دکان پر اہلیت کی شرط",
+  "@referralProposeConditionLabel": {
+    "description": "referralProposeConditionLabel"
+  },
+  "referralConditionMinTotal": "کم از کم رقم",
+  "@referralConditionMinTotal": {
+    "description": "referralConditionMinTotal"
+  },
+  "referralConditionServiceId": "مخصوص خدمت",
+  "@referralConditionServiceId": {
+    "description": "referralConditionServiceId"
+  },
+  "referralProposeConditionValueRiyals": "رقم (ریال)",
+  "@referralProposeConditionValueRiyals": {
+    "description": "referralProposeConditionValueRiyals"
+  },
+  "referralProposeConditionValueService": "خدمت",
+  "@referralProposeConditionValueService": {
+    "description": "referralProposeConditionValueService"
+  },
+  "referralProposeValidityLabel": "مدت (دن)",
+  "@referralProposeValidityLabel": {
+    "description": "referralProposeValidityLabel"
+  },
+  "referralProposeDurationLabel": "مدت معاہدہ (دن)",
+  "@referralProposeDurationLabel": {
+    "description": "referralProposeDurationLabel"
+  },
+  "referralProposeCapLabel": "حد / 30 دن",
+  "@referralProposeCapLabel": {
+    "description": "referralProposeCapLabel"
+  },
+  "referralProposeGrantTypeLabel": "مراعات کی قسم",
+  "@referralProposeGrantTypeLabel": {
+    "description": "referralProposeGrantTypeLabel"
+  },
+  "referralGrantTypeDiscount": "رعایت",
+  "@referralGrantTypeDiscount": {
+    "description": "referralGrantTypeDiscount"
+  },
+  "referralGrantTypeGift": "تحفہ",
+  "@referralGrantTypeGift": {
+    "description": "referralGrantTypeGift"
+  },
+  "referralScopeBlanket": "پوری وزٹ",
+  "@referralScopeBlanket": {
+    "description": "referralScopeBlanket"
+  },
+  "referralScopeItem": "مخصوص خدمت",
+  "@referralScopeItem": {
+    "description": "referralScopeItem"
+  },
+  "referralScopeGroup": "گروپ/پیکج",
+  "@referralScopeGroup": {
+    "description": "referralScopeGroup"
+  },
+  "referralProposeServiceLabel": "خدمت",
+  "@referralProposeServiceLabel": {
+    "description": "referralProposeServiceLabel"
+  },
+  "referralProposeGroupLabel": "گروپ",
+  "@referralProposeGroupLabel": {
+    "description": "referralProposeGroupLabel"
+  },
+  "referralProposeImmutableNote": "بھیجنے کے بعد مراعات کی شرائط طے شدہ ہیں — مختلف پیشکش کے لیے نیا معاہدہ درکار ہے",
+  "@referralProposeImmutableNote": {
+    "description": "referralProposeImmutableNote"
+  },
+  "referralProposeSubmitting": "بھیجا جا رہا ہے...",
+  "@referralProposeSubmitting": {
+    "description": "referralProposeSubmitting"
+  },
+  "referralProposeSubmit": "تجویز بھیجیں",
+  "@referralProposeSubmit": {
+    "description": "referralProposeSubmit"
+  },
+  "referralGrantGift": "تحفہ: {name}",
+  "@referralGrantGift": {
+    "description": "referralGrantGift",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "referralGrantDiscountItem": "رعایت: {name}",
+  "@referralGrantDiscountItem": {
+    "description": "referralGrantDiscountItem",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "referralGrantDiscountGroup": "گروپ پر رعایت: {name}",
+  "@referralGrantDiscountGroup": {
+    "description": "referralGrantDiscountGroup",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "referralPartnerCount": "{n} معاہدے",
+  "@referralPartnerCount": {
+    "description": "referralPartnerCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "referralProposeResultFail": "تجویز نہیں بھیجی جا سکی",
+  "@referralProposeResultFail": {
+    "description": "referralProposeResultFail"
+  },
+  "referralRefusal402": "آپ کی دکان اسٹریٹجک شراکت ایپ کی سبسکرائبر نہیں — پہلے ایپ اسٹور سے سبسکرائب کریں",
+  "@referralRefusal402": {
+    "description": "referralRefusal402"
+  },
+  "referralRefusal403": "آپ کے پاس اس عمل کی اجازت نہیں",
+  "@referralRefusal403": {
+    "description": "referralRefusal403"
+  },
+  "referralRefusal400": "تجویز کا ڈیٹا درست نہیں — شرط چیک کریں، یا یقینی بنائیں کہ آپ اپنی دکان کے ساتھ شراکت تجویز نہیں کر رہے",
+  "@referralRefusal400": {
+    "description": "referralRefusal400"
+  },
+  "referralRefusal404": "اس نمبر پر کوئی دکان نہیں ملی، یا منتخب کردہ خدمت/گروپ دوسری دکان کے کیٹلاگ میں موجود نہیں",
+  "@referralRefusal404": {
+    "description": "referralRefusal404"
+  },
+  "referralRefusal409": "آپ فعال شراکتوں کی حد (3) تک پہنچ گئے ہیں، یا شراکت کی حالت تبدیل ہو گئی ہے",
+  "@referralRefusal409": {
+    "description": "referralRefusal409"
+  },
+  "referralRefusal503": "بلنگ عارضی طور پر دستیاب نہیں، بعد میں دوبارہ کوشش کریں",
+  "@referralRefusal503": {
+    "description": "referralRefusal503"
+  },
+  "appStoreTitle": "ایپ اسٹور",
+  "appStoreSubtitle": "اپنی دکان کو حقیقی ایپس سے بڑھائیں، ایک ایک کر کے",
+  "appStoreTabMine": "میری ایپس",
+  "appStoreTabAll": "ایپ اسٹور",
+  "appStoreDetails": "تفصیلات",
+  "appStorePerMonth": "ماہانہ",
+  "appStorePerMonthShort": "/ماہ",
+  "appStoreActive": "فعال",
+  "appStoreTrialing": "آزمائشی",
+  "appStoreSubscribe": "ابھی سبسکرائب کریں",
+  "appStoreCancelRenewal": "تجدید روکیں",
+  "appStoreUndoCancel": "منسوخی واپس لیں",
+  "appStoreConfirmCancel": "اس ایپ کی تجدید روکنا چاہتے ہیں؟ یہ ادا شدہ مدت ختم ہونے تک فعال رہے گی",
+  "appStoreCartCount": "کارٹ میں {n}",
+  "appStoreCheckout": "چیک آؤٹ",
+  "appStoreCheckingOut": "چیک آؤٹ ہو رہا ہے...",
+  "appStoreRefusal402": "آپ کے اکاؤنٹ پر ابھی ادائیگی فعال نہیں ہے — فعال کرنے کے لیے رابطہ کریں",
+  "appStoreRefusal403": "آپ کو یہ خریداری مکمل کرنے کی اجازت نہیں",
+  "appStoreRefusal404": "مطلوبہ پلان نہیں ملا — ریفریش کر کے دوبارہ کوشش کریں",
+  "appStoreRefusal409": "یہ ایپ پہلے سے آپ کی ملکیت ہے، یا خریداری کے دوران اس کی حالت بدل گئی",
+  "appStoreRefusalGeneric": "خریداری مکمل نہیں ہو سکی، دوبارہ کوشش کریں",
+  "appStoreCapacityTitle": "گنجائش",
+  "appStoreCapacityConfirmRemove": "\"{name}\" کی آخری یونٹ ہٹانا چاہتے ہیں؟ یہ اس کی تجدید مکمل طور پر روک دے گا"
 }

@@ -201,9 +201,38 @@
   "branchesMemberRoleLabel": "Role",
   "branchesRoleOperator": "Field operator",
   "branchesRoleSupervisor": "Shift supervisor",
+  "branchesRoleMarketer": "Marketing lead",
   "branchesRoleManager": "Manager",
   "branchesSeatLimit": "Your current plan does not allow another employee.",
   "branchesHireFailed": "Could not add the employee, try again.",
+  "branchesVisibleAllHint": "Sees every branch",
+  "branchesVisibleSomeHint": "Sees {count} branches",
+  "branchesEditMember": "Edit employee",
+  "branchesMemberStopped": "Stopped",
+  "branchesMemberStationLabel": "Which branch they work at",
+  "branchesMemberVisibilityLabel": "Which branches they may see",
+  "branchesVisibilityOwnOnly": "Their own branch only",
+  "branchesVisibilitySome": "Specific branches",
+  "branchesVisibilityAll": "Every branch",
+  "branchesWorkingHours": "Working hours",
+  "branchesStopMember": "Stop employee",
+  "branchesStopMemberTitle": "Stop this employee?",
+  "branchesStopMemberBody": "{name} loses access to the app immediately. Their visit history and records stay saved.",
+  "branchesStopMemberConfirm": "Stop",
+  "branchesReactivateMember": "Reactivate",
+  "branchesRehireRequired": "This employee is fully stopped — reactivating them needs hiring them again, not just a toggle.",
+  "branchesHoursSaved": "Working hours saved.",
+  "branchesHoursExceedsShop": "These hours are wider than the shop's own hours — adjust them.",
+  "branchesHoursHint": "If you don't change anything, they follow the shop's own hours automatically.",
+  "branchesHoursClear": "Reset to the shop's default hours",
+  "branchesDayMonday": "Monday",
+  "branchesDayTuesday": "Tuesday",
+  "branchesDayWednesday": "Wednesday",
+  "branchesDayThursday": "Thursday",
+  "branchesDayFriday": "Friday",
+  "branchesDaySaturday": "Saturday",
+  "branchesDaySunday": "Sunday",
+  "branchesDayClosed": "Closed",
   "accountSecuritySectionTitle": "Security",
   "accountChangePasswordRow": "Change password",
   "accountChangePasswordFailed": "Could not change the password, try again.",
@@ -247,6 +276,7 @@
   "billingInvoiceStatusDraft": "Draft",
   "billingPayNow": "Pay now",
   "billingPayLinkFailed": "Couldn't create a pay link. Try again.",
+  "paymentPageLoadFailed": "Couldn't load the payment page. Check your connection and try again.",
   "billingCancelConfirmTitle": "Stop renewal?",
   "billingCancelConfirmBody": "The service keeps working until the end of the current period, then it won't renew.",
   "billingCancelConfirmAction": "Stop renewal",
@@ -267,5 +297,881 @@
   "writeVehicleTrackingDisabledConfirm": "Turns off the plate-number field on this shop's visit-registration screen. Confirm?",
   "writeVehicleTrackingEnabledDone": "Vehicle tracking turned on ✓",
   "writeVehicleTrackingDisabledDone": "Vehicle tracking turned off ✓",
-  "writeVehicleTrackingFailed": "Could not change the vehicle-tracking setting, try again."
+  "writeVehicleTrackingFailed": "Could not change the vehicle-tracking setting, try again.",
+  "mobileRequestsTitle": "Mobile requests",
+  "mobileRequestsSubtitle": "Requests for a service that comes to the customer, from intake to completion.",
+  "mobileRequestsKpiPending": "Awaiting decision",
+  "mobileRequestsKpiNeedsDecision": "Needs a decision",
+  "mobileRequestsKpiCompletedMonth": "Completed this month",
+  "mobileRequestsBannerGo": "View",
+  "mobileRequestsFilterAll": "All",
+  "mobileRequestsFilterPending": "Pending",
+  "mobileRequestsFilterAccepted": "Accepted",
+  "mobileRequestsFilterNeedsDecision": "Needs decision",
+  "mobileRequestsFilterCompleted": "Completed",
+  "mobileRequestsFilterClosed": "Closed",
+  "mobileRequestsSearchHint": "Search by name or phone",
+  "mobileRequestsLoadFailedTitle": "Couldn't load requests",
+  "mobileRequestsLoadFailedBody": "Check your connection and try again.",
+  "mobileRequestsRetry": "Retry",
+  "mobileRequestsEmptyTitle": "No requests yet",
+  "mobileRequestsEmptyBody": "Mobile-service requests from your customers show up here.",
+  "mobileRequestsStatusPending": "Pending",
+  "mobileRequestsStatusAccepted": "Accepted",
+  "mobileRequestsStatusNeedsDecision": "Needs decision",
+  "mobileRequestsStatusCompleted": "Completed",
+  "mobileRequestsStatusNoShow": "No-show",
+  "mobileRequestsStatusRejected": "Rejected",
+  "mobileRequestsUnnamed": "Unnamed",
+  "mobileRequestsOpenMap": "Location",
+  "mobileRequestsPhoneCopied": "Phone number copied",
+  "mobileRequestsRiskyCustomer": "High no-show risk customer",
+  "mobileRequestsRejectReasonLine": "Rejection reason: {reason}",
+  "mobileRequestsActionAccept": "Accept",
+  "mobileRequestsActionReject": "Reject",
+  "mobileRequestsActionComplete": "Complete",
+  "mobileRequestsActionNoShow": "No-show",
+  "mobileRequestsAssignUnassigned": "Unassigned",
+  "mobileRequestsActionFailed": "Couldn't complete the action, try again.",
+  "mobileRequestsRejectTitle": "Reason for rejection",
+  "mobileRequestsRejectHint": "Optional",
+  "mobileRequestsRejectCancel": "Cancel",
+  "mobileRequestsRejectConfirm": "Reject request",
+  "mobileRequestsAddOpen": "Add request",
+  "mobileRequestsAddTitle": "Add a mobile-service request",
+  "mobileRequestsAddPhoneLabel": "Customer's phone",
+  "mobileRequestsAddNameLabel": "Customer's name (optional)",
+  "mobileRequestsAddServicesLabel": "Services",
+  "mobileRequestsAddServicesEmpty": "No services available yet.",
+  "mobileRequestsAddDayLabel": "Day",
+  "mobileRequestsAddTimeLabel": "Time",
+  "mobileRequestsAddMapsLinkLabel": "Google Maps location link",
+  "mobileRequestsAddMapsLinkHint": "Accepts a full or shortened Google Maps link.",
+  "mobileRequestsAddMapsLinkShort": "This is a shortened link — paste the full Google Maps link.",
+  "mobileRequestsAddMapsLinkInvalid": "Couldn't read a location from this link.",
+  "mobileRequestsAddAssignLabel": "Assign to (optional)",
+  "mobileRequestsAddCancel": "Cancel",
+  "mobileRequestsAddSubmit": "Add request",
+  "mobileRequestsAddSubmitting": "Adding...",
+  "mobileRequestsAddError": "Couldn't add the request, try again.",
+  "mobileRequestsBannerText": "{count, plural, one{1 request needs your decision now} other{{count} requests need your decision now}}",
+  "mobileRequestsAddMapsLinkResolving": "Reading the location from the link...",
+  "customersTitle": "My customers",
+  "customersAddOpen": "Add customer",
+  "customersSearchHint": "Search by name or phone",
+  "customersTabAll": "All",
+  "customersTabOverdue": "Overdue",
+  "customersSearchFailedTitle": "Search unavailable right now",
+  "customersSearchFailedBody": "Try again shortly.",
+  "customersSearchEmpty": "No results",
+  "customersLoadFailedTitle": "Couldn't load",
+  "customersEmptyTitle": "No customers yet",
+  "customersOverdueEmpty": "No one is overdue right now",
+  "customersUnnamed": "Unnamed",
+  "customersVisitCount": "{count, plural, one{1 visit} other{{count} visits}}",
+  "customersOverdueBadge": "Overdue",
+  "customersStatEveryDays": "{days, plural, one{every day} other{every {days} days}}",
+  "customersOverdueBanner": "Overdue for their usual visit — usually every {every} days, {since} days since their last visit",
+  "customersVisitMeter": "Odometer: {n}",
+  "customersOfferExpiredBadge": "Expired",
+  "customersDeniedAllTitle": "You don't have permission to view the customer list",
+  "customersDeniedOverdueTitle": "You don't have permission to view who's overdue",
+  "customersDeniedDesc": "Ask the shop owner to grant you this permission.",
+  "customersAddTitle": "Add a new customer",
+  "customersAddPhoneLabel": "Customer's phone",
+  "customersAddNameLabel": "Customer's name",
+  "customersAddPhoneInvalid": "Invalid phone number.",
+  "customersAddFailed": "Couldn't add the customer, try again.",
+  "customersAddSubmitting": "Adding...",
+  "customersAddSubmit": "Add",
+  "customersActionFailed": "Couldn't complete the action, try again.",
+  "customersRepeatedIssuesTitle": "Repeated issues",
+  "customersVehiclesTitle": "Vehicles",
+  "customersLoyaltyTitle": "Loyalty",
+  "customersLoyaltyLoading": "Loading...",
+  "customersLoyaltyPoints": "{count} points",
+  "customersLoyaltyAdjust": "Adjust",
+  "customersOffersTitle": "Live offers",
+  "customersOfferExpires": "Expires {date}",
+  "customersVisitsTitle": "Visit history",
+  "customersVisitsEmpty": "No visits yet",
+  "customersVisitNoServices": "No services recorded",
+  "customersRenameTitle": "Edit customer's name",
+  "customersRenameSubmit": "Save",
+  "customersLoyaltyAdjustTitle": "Adjust loyalty points",
+  "customersLoyaltyAdjustNoteLabel": "Reason for the adjustment",
+  "customersLoyaltyAdjustNoteRequired": "Write a real reason (at least 3 characters), and pick a nonzero amount.",
+  "customersLoyaltyAdjustSubmit": "Save adjustment",
+  "customersEraseButton": "Erase this customer's data",
+  "customersEraseTitle": "Erase customer data",
+  "customersEraseWarning": "This permanently erases all of the customer's data from the platform — it cannot be undone.",
+  "customersEraseTypeNameLabel": "To confirm, type the customer's name: {name}",
+  "customersEraseConfirm": "Erase permanently",
+  "customersBookingsTitle": "Bookings",
+  "customersAttendanceRate": "{rate}% attendance",
+  "customersBookingsNoneUpcoming": "No upcoming bookings",
+  "customersCyclesTitle": "Reminder cycles",
+  "customersCyclesEveryDays": "Every {days} days",
+  "customersCyclesEditHint": "Set the interval, and automatic learning stops for this service with this customer.",
+  "customersCyclesSave": "Save",
+  "customersLogTitle": "What we told them",
+  "customersLogEmpty": "We haven't sent them anything yet",
+  "customersCyclesUnknownService": "Unknown service",
+  "customersVisitGapDays": "{days, plural, =0{same day} one{after 1 day} other{after {days} days}}",
+  "customersCountLabel": "{count, plural, =0{no customers yet} one{1 customer} other{{count} customers}}",
+  "ratingTitle": "Ratings",
+  "pointsTitle": "Loyalty Points",
+  "pointsAddReward": "New reward",
+  "pointsEditReward": "Edit reward",
+  "pointsTabRewards": "Rewards",
+  "pointsTabLeaderboard": "Most redeemed",
+  "pointsOutstandingHint": "points the shop still owes its customers",
+  "pointsRedemptionsCount": "{count, plural, one{1 redemption} other{{count} redemptions}}",
+  "pointsCustomersCount": "{count, plural, one{1 customer redeemed} other{{count} customers redeemed}}",
+  "pointsExpiredWarning": "{percent}% of granted points expired unredeemed — review your reward pricing",
+  "pointsLoadFailedTitle": "Could not load rewards",
+  "pointsRewardsEmpty": "No rewards yet — add your customers' first reward",
+  "pointsLeaderboardEmpty": "No redemptions yet — they'll show here once a customer redeems one",
+  "pointsLeaderboardTitle": "Most redeemed",
+  "pointsLeaderboardHint": "The top five rewards your customers redeemed",
+  "pointsTimesRedeemed": "{count, plural, one{once} other{{count} times}}",
+  "pointsRewardRetired": "Retired",
+  "pointsRewardServiceHint": "Service: {name}",
+  "pointsRewardDiscountHint": "{amount} SAR off",
+  "pointsRewardItemHint": "A gift, not tied to the catalogue",
+  "pointsRewardNameLabel": "Reward name",
+  "pointsRewardTypeLabel": "Reward type",
+  "pointsTypeService": "A service from your catalogue",
+  "pointsTypeItem": "A gift",
+  "pointsTypeDiscount": "A cash discount",
+  "pointsRewardServiceLabel": "Which service",
+  "pointsRewardDiscountLabel": "Discount amount, SAR",
+  "pointsRewardCostLabel": "Cost in points",
+  "pointsRewardActiveLabel": "Active — customers may redeem it",
+  "pointsRewardInvalid": "Enter a name and a real point cost above zero",
+  "pointsSaveFailed": "Could not save, try again",
+  "pointsModeTitle": "Earning method",
+  "pointsModeHint": "By service: each service has its own points. By invoice value: one point per riyal.",
+  "pointsModeServices": "By service",
+  "pointsModeInvoice": "By invoice value",
+  "pointsModeNeedsPricedServices": "Earning by invoice value needs every service priced first — price them all in Services, then turn it on.",
+  "pointsOpenEarnSettings": "Per-service points settings",
+  "ratingLeaderboardTitle": "Top-rated staff",
+  "ratingCardNoName": "Unnamed",
+  "ratingMetricVisits": "Most visits",
+  "ratingMetricRatings": "Most ratings",
+  "ratingMetricAvg": "Top-rated",
+  "ratingStaffCount": "{count, plural, one{1 staff member} other{{count} staff members}}",
+  "ratingTableTitle": "Every staff member",
+  "ratingTableVisitsValue": "{n} visits",
+  "ratingTableRatingsValue": "{n} ratings",
+  "ratingTableEngagementValue": "{n}% engagement",
+  "ratingTableNoShowValue": "{n}% no-show",
+  "ratingPeriodWeek": "Week",
+  "ratingPeriodMonth": "Month",
+  "ratingPeriodQuarter": "Quarter",
+  "ratingPeriodCustom": "Custom",
+  "ratingCustomSince": "From: {date}",
+  "ratingCustomUntil": "To: {date}",
+  "ratingCustomRangeInvalid": "Invalid range — make sure the start date is before the end date",
+  "ratingExportLocaleLabel": "Report language",
+  "localeNameAr": "العربية",
+  "localeNameEn": "English",
+  "localeNameUr": "اردو",
+  "localeNameHa": "Hausa",
+  "localeNameFil": "Filipino",
+  "localeNameBn": "বাংলা",
+  "ratingTopIssuesTitle": "Most repeated issues",
+  "ratingFilterUnhandled": "Pending",
+  "ratingFilterAll": "All",
+  "ratingFilterHandled": "Handled",
+  "ratingStarsAll": "All stars",
+  "ratingLoadFailedTitle": "Couldn't load ratings",
+  "ratingEmptyTitle": "No ratings yet",
+  "ratingLoadMore": "Show more",
+  "ratingHandledPlain": "Handled",
+  "ratingMarkHandled": "Mark as handled",
+  "ratingMarkHandledHint": "This is recorded permanently — it cannot be undone later.",
+  "ratingHandledNoteLabel": "Note (optional)",
+  "ratingMarkHandledConfirm": "Confirm",
+  "ratingActionFailed": "Couldn't complete the action, try again.",
+  "ratingWeightedAvgHint": "{count, plural, =0{no ratings in the last 30 days} one{from 1 rating over the last 30 days} other{from {count} ratings over the last 30 days}}",
+  "ratingUnhandledCount": "{count, plural, one{1 rating pending} other{{count} ratings pending}}",
+  "ratingVisitsShort": "{count, plural, one{1 visit} other{{count} visits}}",
+  "ratingIssueFilterLabel": "Issue: {label}",
+  "ratingByOperator": "Served by {name}",
+  "ratingHandledWithNote": "Handled: {note}",
+  "ratingQuadrantTitle": "Performance quadrant",
+  "ratingQuadrantHint": "Quality against engagement rate — tap any point for that operator's training record.",
+  "ratingQuadrantStars": "Stars",
+  "ratingQuadrantUnderused": "Underused",
+  "ratingQuadrantNeedsCoaching": "Needs coaching",
+  "ratingQuadrantAtRisk": "At risk",
+  "ratingTrainingTitle": "Training record",
+  "ratingTrainingNoAccess": "You don't have permission to view this.",
+  "ratingTrainingClean": "Clean record — no repeated issues.",
+  "ratingEngagementPercent": "{percent}% engagement",
+  "ratingTabOverview": "Overview",
+  "ratingTabFeed": "All ratings",
+  "ratingOverviewEmpty": "No performance data yet for the last 30 days.",
+  "ratingExportTitle": "Export report",
+  "ratingExportHint": "The team's performance report for the selected period, ready to share.",
+  "ratingExportFailed": "Couldn't export the report, try again.",
+  "customersPrivacyRequestsTitle": "Privacy requests",
+  "customersPrivacyRequestErase": "Data erasure request",
+  "customersPrivacyRequestCopy": "Data copy request",
+  "customersPrivacyRequestGeneric": "Request: {type}",
+  "customersPrivacyRequestClose": "Close",
+  "customersLoyaltyHistoryTitle": "Points history",
+  "customersLoyaltyHistoryNoReason": "No reason given",
+  "customersLoyaltyReasonRedeem": "Reward redeemed",
+  "customersLoyaltyReasonAdjust": "Manual adjustment",
+  "customersLoyaltyReasonEarn": "Points from a visit",
+  "customersLoyaltyReasonExpire": "Expired",
+  "readCustomersFailed": "Could not fetch customer data right now, try again.",
+  "readCustomersTotal": "{count, plural, =0{You have no customers registered yet.} one{You have 1 registered customer.} other{You have {count} registered customers.}}",
+  "readCustomersOverdueCount": "{count, plural, =0{No customer is overdue on their cycle right now.} one{You have 1 customer overdue on their cycle.} other{You have {count} customers overdue on their cycle.}}",
+  "readMobileRequestsFailed": "Could not fetch mobile requests right now, try again.",
+  "readMobileRequestsPendingCount": "{count, plural, =0{No mobile requests are awaiting a decision.} one{You have 1 request awaiting a decision.} other{You have {count} requests awaiting a decision.}}",
+  "readMobileRequestsNeedsDecisionCount": "{count, plural, =0{No mobile requests need your decision right now.} one{1 request needs your decision now.} other{{count} requests need your decision now.}}",
+  "readRatingFailed": "Could not fetch rating data right now, try again.",
+  "readRatingNone": "You have no ratings in the last 30 days yet.",
+  "readRatingAverage": "Your average rating over the last 30 days is {avg} out of 5, from {count} ratings.",
+  "readRatingUnhandledCount": "{count, plural, =0{No ratings are pending.} one{You have 1 rating pending.} other{You have {count} ratings pending.}}",
+  "readRatingTopStaff": "Your top-rated staff over the last 30 days is {name}, averaging {avg} out of 5.",
+  "readMobileRequestsCompletedCount": "{count, plural, =0{You haven't completed any mobile requests this month yet.} one{You've completed 1 this month.} other{You've completed {count} this month.}}",
+  "readMobileRequestsTodayCount": "{count, plural, =0{No mobile requests have come in today yet.} one{1 request has come in today.} other{{count} requests have come in today.}}",
+  "readOperatorsFailed": "Could not fetch the staff count right now, try again.",
+  "readOperatorsCount": "{count, plural, =0{You have no staff registered yet.} one{You have 1 staff member.} other{You have {count} staff members.}}",
+  "readBranchesDisconnectedCount": "{count, plural, =0{All your active branches have WhatsApp connected and working.} one{You have 1 branch with WhatsApp not working.} other{You have {count} branches with WhatsApp not working.}}",
+  "readCustomersRecentNone": "You don't have any customers registered yet.",
+  "readCustomersRecentName": "Your most recent customer is {name}.",
+  "readRatingCriticalIssuesCount": "{count, plural, =0{No pending ratings carry a critical issue.} one{You have 1 pending rating with a critical issue.} other{You have {count} pending ratings with critical issues.}}",
+  "readPerBranchModeOn": "Yes, your shop runs in multi-branch mode.",
+  "readPerBranchModeOff": "No, your shop runs as a single branch.",
+  "readBillingOverdueYes": "Yes, you have an overdue invoice — pay it to avoid your services being paused.",
+  "readBillingOverdueNo": "No, your billing is in good standing, no overdue invoices.",
+  "readServicesFailed": "Could not fetch the services count right now, try again.",
+  "readServicesCount": "{count, plural, =0{You have no services in your list yet.} one{You have 1 service in your list.} other{You have {count} services in your list.}}",
+  "readCustomersTodayCount": "{count, plural, =0{No new customer has come in today yet.} one{1 new customer has come in today.} other{{count} new customers have come in today.}}",
+  "readMobileRequestsRejectedCount": "{count, plural, =0{You haven't rejected any mobile requests this month.} one{You've rejected 1 this month.} other{You've rejected {count} this month.}}",
+  "readMobileRequestsNoShowCount": "{count, plural, =0{No customer has been a no-show this month.} one{1 customer has been a no-show this month.} other{{count} customers have been no-shows this month.}}",
+  "readRatingFiveStarCount": "{count, plural, =0{You have no five-star ratings yet.} one{You have 1 five-star rating.} other{You have {count} five-star ratings.}}",
+  "readBranchesActiveCount": "{count, plural, =0{You have no active branches right now.} one{You have 1 active branch.} other{You have {count} active branches.}}",
+  "servicesTitle": "My services",
+  "servicesUnnamedGlyph": "?",
+  "servicesSearchHint": "Search by service name",
+  "servicesTabActive": "Active",
+  "servicesTabStopped": "Stopped",
+  "servicesLoadFailedTitle": "Couldn't load services",
+  "servicesEmptyActive": "No active services yet",
+  "servicesEmptyStopped": "No stopped services",
+  "servicesAddOpen": "Add service",
+  "servicesNoPrice": "No price set",
+  "servicesNoDuration": "Not set",
+  "servicesNoCycle": "No cycle",
+  "servicesStopTitle": "Stop this service",
+  "servicesStopConfirm": "Stop",
+  "servicesActionFailed": "Couldn't complete the action, try again.",
+  "servicesEditTitle": "Edit service",
+  "servicesAddTitle": "Add a new service",
+  "servicesNameLabel": "Service name",
+  "servicesPriceLabel": "Price (optional)",
+  "servicesDurationLabel": "Duration in minutes (optional)",
+  "servicesCycleLabel": "Reminder cycle in days (optional)",
+  "servicesDescriptionLabel": "Short description (optional)",
+  "servicesSaving": "Saving...",
+  "servicesSave": "Save",
+  "servicesNameRequired": "Service name is required",
+  "servicesActiveCount": "{count, plural, =0{You have no active services yet.} one{You have 1 active service.} other{You have {count} active services.}}",
+  "servicesDurationMinutes": "{count} min",
+  "servicesCycleDays": "Every {count} days",
+  "servicesStopWarning": "This stops \"{name}\" — it won't show for a new visit and its reminders stop. Its data is never deleted.",
+  "servicesPhotoPickFailed": "Couldn't pick the photo",
+  "servicesPhotoUploadFailed": "Saved, but the photo upload failed",
+  "servicesPhotoLabel": "Service photo (optional)",
+  "servicesUploadPhoto": "Upload photo",
+  "@servicesUploadPhoto": {
+    "description": "servicesUploadPhoto"
+  },
+  "servicesChangePhoto": "Change photo",
+  "@servicesChangePhoto": {
+    "description": "servicesChangePhoto"
+  },
+  "servicesRemovePhoto": "Remove",
+  "@servicesRemovePhoto": {
+    "description": "servicesRemovePhoto"
+  },
+  "servicesAssignmentLabel": "Who provides this service?",
+  "servicesAssignmentAuto": "Any available staff",
+  "servicesAssignmentNamed": "Specific staff",
+  "servicesChecklistLabel": "Procedure checklist",
+  "servicesChecklistEmpty": "No steps yet — add the first one",
+  "servicesStepAddTitle": "Add a step",
+  "servicesGeneralSettingsTitle": "General default",
+  "servicesGeneralSettingsHint": "The value every service that hasn't been customised follows",
+  "servicesFollowUpLabel": "Follow-up days after the visit",
+  "servicesPointsLabel": "Points per visit",
+  "servicesGroupThem": "Group them",
+  "servicesGroupNameHint": "Group name",
+  "servicesAllGroups": "All",
+  "servicesStepEditTitle": "Edit the step",
+  "servicesStepCriticalLabel": "Critical step",
+  "servicesStepRetire": "Retire this step",
+  "servicesStepEditHint": "Long-press any step to edit or retire it",
+  "servicesAdvancedTitle": "Advanced settings",
+  "servicesAdvancedHint": "Customise this service away from the general default — cycle, points, and grouping",
+  "servicesGroupLabel": "Group",
+  "servicesNoGroup": "No group",
+  "servicesNewGroup": "New group",
+  "servicesFollowGeneralAction": "Follow general",
+  "servicesCustomizeAction": "Customise",
+  "servicesFollowUpDays": "Follow up after {n} days",
+  "servicesPointsPerVisit": "{n} points",
+  "servicesSuggestionText": "{n} services share the same value — grouping them makes editing them together easier later.",
+  "servicesFollowsGeneral": "Follows general — {hint}",
+  "servicesPageTabServices": "Services",
+  "servicesPageTabPackages": "Packages",
+  "servicesPackageAdd": "Add package",
+  "servicesPackageNeedsTwoServices": "A package needs at least two active services",
+  "servicesPackageEmpty": "No packages yet",
+  "servicesPackageEditTitle": "Edit package",
+  "servicesPackageAddTitle": "Add a new package",
+  "servicesPackageNameLabel": "Package name",
+  "servicesPackagePriceRequired": "Package price is required, above zero",
+  "servicesPackageServicesLabel": "Included services",
+  "servicesImportTitle": "Import services from a file",
+  "servicesImportHint": "A CSV file with columns: name, price, duration_minutes, cycle_days, description",
+  "servicesImportPickFile": "Choose a CSV file",
+  "servicesImportReadFailed": "Couldn't read the file",
+  "servicesImportParseFailed": "The file has no name column, or its format is invalid",
+  "servicesImportDeactivateMissing": "Stop services missing from the file",
+  "servicesImportDeactivateMissingHint": "Any service you currently have that isn't in this file gets stopped automatically",
+  "servicesImportConfirm": "Import",
+  "servicesImportClose": "Done",
+  "servicesImportRowCount": "{n, plural, =0{No rows} one{1 row} other{{n} rows}} ready to import",
+  "servicesImportDone": "Added {created}, updated {updated}, reactivated {reactivated}.",
+  "visitPackagesSectionTitle": "Featured packages",
+  "visitNameFieldHint": "Customer name (optional)",
+  "visitMeterFieldHint": "Odometer reading",
+  "visitQuantityDialogTitle": "Quantity",
+  "visitCouponCheckboxLabel": "Grant a discount coupon to another shop",
+  "visitCouponPhoneHint": "Shop owner's phone",
+  "visitClearAllButton": "Clear all",
+  "visitServicesSelectedCount": "{n, plural, one{1 service selected} other{{n} services selected}}",
+  "visitTodayBookingsTitle": "Today's appointments",
+  "visitBookingAttendFailed": "Couldn't confirm attendance, try again",
+  "branchSwitcherChooseBranch": "Choose branch",
+  "branchSwitcherTitle": "Current branch",
+  "branchSwitcherHint": "Everything you open after this belongs to this branch",
+  "proceduresPrintFailed": "Couldn't generate the document",
+  "@proceduresPrintFailed": {
+    "description": "proceduresPrintFailed"
+  },
+  "proceduresTitle": "Procedures",
+  "@proceduresTitle": {
+    "description": "proceduresTitle"
+  },
+  "proceduresSubtitle": "Set the procedure checklist for each service, or manage the whole shared library. Long-press a service to select it for printing",
+  "@proceduresSubtitle": {
+    "description": "proceduresSubtitle"
+  },
+  "proceduresLibraryLink": "Procedure library",
+  "@proceduresLibraryLink": {
+    "description": "proceduresLibraryLink"
+  },
+  "proceduresPrint": "Print",
+  "@proceduresPrint": {
+    "description": "proceduresPrint"
+  },
+  "proceduresEmptyTitle": "No active services yet",
+  "@proceduresEmptyTitle": {
+    "description": "proceduresEmptyTitle"
+  },
+  "servicesStepSeverityNormal": "Normal",
+  "@servicesStepSeverityNormal": {
+    "description": "servicesStepSeverityNormal"
+  },
+  "servicesStepSeverityCritical": "Critical",
+  "@servicesStepSeverityCritical": {
+    "description": "servicesStepSeverityCritical"
+  },
+  "proceduresSaveFailed": "Couldn't save",
+  "@proceduresSaveFailed": {
+    "description": "proceduresSaveFailed"
+  },
+  "proceduresDrawerSubtitle": "Drag to reorder, or add a step from the library",
+  "@proceduresDrawerSubtitle": {
+    "description": "proceduresDrawerSubtitle"
+  },
+  "proceduresDrawerEmpty": "No steps for this service yet",
+  "@proceduresDrawerEmpty": {
+    "description": "proceduresDrawerEmpty"
+  },
+  "proceduresDrawerAddButton": "Add from library",
+  "@proceduresDrawerAddButton": {
+    "description": "proceduresDrawerAddButton"
+  },
+  "proceduresPickTitle": "Pick a step",
+  "@proceduresPickTitle": {
+    "description": "proceduresPickTitle"
+  },
+  "proceduresPickClose": "Close",
+  "@proceduresPickClose": {
+    "description": "proceduresPickClose"
+  },
+  "proceduresPickApply": "Add",
+  "@proceduresPickApply": {
+    "description": "proceduresPickApply"
+  },
+  "proceduresPickSearch": "Search steps",
+  "@proceduresPickSearch": {
+    "description": "proceduresPickSearch"
+  },
+  "proceduresPickEmpty": "No results",
+  "@proceduresPickEmpty": {
+    "description": "proceduresPickEmpty"
+  },
+  "proceduresPickCreatePlaceholder": "New step...",
+  "@proceduresPickCreatePlaceholder": {
+    "description": "proceduresPickCreatePlaceholder"
+  },
+  "proceduresLibrarySaveFailed": "Couldn't save",
+  "@proceduresLibrarySaveFailed": {
+    "description": "proceduresLibrarySaveFailed"
+  },
+  "proceduresLibraryTitle": "Procedure library",
+  "@proceduresLibraryTitle": {
+    "description": "proceduresLibraryTitle"
+  },
+  "proceduresLibrarySubtitle": "Every step here is shared across every service that uses it - editing it changes it everywhere",
+  "@proceduresLibrarySubtitle": {
+    "description": "proceduresLibrarySubtitle"
+  },
+  "proceduresLibraryNewPlaceholder": "New step text",
+  "@proceduresLibraryNewPlaceholder": {
+    "description": "proceduresLibraryNewPlaceholder"
+  },
+  "proceduresLibraryAdd": "Add",
+  "@proceduresLibraryAdd": {
+    "description": "proceduresLibraryAdd"
+  },
+  "proceduresLibraryShowRetired": "Show retired",
+  "@proceduresLibraryShowRetired": {
+    "description": "proceduresLibraryShowRetired"
+  },
+  "proceduresLibraryEmpty": "No steps yet",
+  "@proceduresLibraryEmpty": {
+    "description": "proceduresLibraryEmpty"
+  },
+  "proceduresLibraryRetired": "Retired",
+  "@proceduresLibraryRetired": {
+    "description": "proceduresLibraryRetired"
+  },
+  "proceduresLibraryRetire": "Retire",
+  "@proceduresLibraryRetire": {
+    "description": "proceduresLibraryRetire"
+  },
+  "proceduresLibraryReactivate": "Reactivate",
+  "@proceduresLibraryReactivate": {
+    "description": "proceduresLibraryReactivate"
+  },
+  "proceduresSeverityHint": "A critical step is highlighted for staff and can't be skipped while performing the service",
+  "@proceduresSeverityHint": {
+    "description": "proceduresSeverityHint"
+  },
+  "proceduresSelectedCount": "{n} selected",
+  "@proceduresSelectedCount": {
+    "description": "proceduresSelectedCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "proceduresStepCount": "{n} steps",
+  "@proceduresStepCount": {
+    "description": "proceduresStepCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "proceduresUsedIn": "Used in {n} services",
+  "@proceduresUsedIn": {
+    "description": "proceduresUsedIn",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "referralProposeButton": "Propose partnership",
+  "@referralProposeButton": {
+    "description": "referralProposeButton"
+  },
+  "referralTitle": "Strategic Partnership",
+  "@referralTitle": {
+    "description": "referralTitle"
+  },
+  "referralSubtitle": "Move real customers between you and other shops, by mutual agreement",
+  "@referralSubtitle": {
+    "description": "referralSubtitle"
+  },
+  "referralRoleAll": "All",
+  "@referralRoleAll": {
+    "description": "referralRoleAll"
+  },
+  "referralRoleReferrer": "As referrer",
+  "@referralRoleReferrer": {
+    "description": "referralRoleReferrer"
+  },
+  "referralRoleBeneficiary": "As beneficiary",
+  "@referralRoleBeneficiary": {
+    "description": "referralRoleBeneficiary"
+  },
+  "referralLoadFailed": "Couldn't load partnerships",
+  "@referralLoadFailed": {
+    "description": "referralLoadFailed"
+  },
+  "referralEmptyTitle": "No partnerships yet",
+  "@referralEmptyTitle": {
+    "description": "referralEmptyTitle"
+  },
+  "referralKpiAsReferrer": "As referrer",
+  "@referralKpiAsReferrer": {
+    "description": "referralKpiAsReferrer"
+  },
+  "referralKpiAsBeneficiary": "As beneficiary",
+  "@referralKpiAsBeneficiary": {
+    "description": "referralKpiAsBeneficiary"
+  },
+  "referralKpiSent": "Referred",
+  "@referralKpiSent": {
+    "description": "referralKpiSent"
+  },
+  "referralKpiRedeemed": "Redeemed",
+  "@referralKpiRedeemed": {
+    "description": "referralKpiRedeemed"
+  },
+  "referralKpiRate": "Redemption rate",
+  "@referralKpiRate": {
+    "description": "referralKpiRate"
+  },
+  "referralConfirm": "Confirm",
+  "@referralConfirm": {
+    "description": "referralConfirm"
+  },
+  "referralGrantDiscountBlanket": "Discount on the whole visit",
+  "@referralGrantDiscountBlanket": {
+    "description": "referralGrantDiscountBlanket"
+  },
+  "referralStatusProposed": "Proposed",
+  "@referralStatusProposed": {
+    "description": "referralStatusProposed"
+  },
+  "referralStatusActive": "Active",
+  "@referralStatusActive": {
+    "description": "referralStatusActive"
+  },
+  "referralStatusPaused": "Paused",
+  "@referralStatusPaused": {
+    "description": "referralStatusPaused"
+  },
+  "referralStatusCancelRequested": "Cancellation requested",
+  "@referralStatusCancelRequested": {
+    "description": "referralStatusCancelRequested"
+  },
+  "referralStatusEnded": "Ended",
+  "@referralStatusEnded": {
+    "description": "referralStatusEnded"
+  },
+  "referralStatusRejected": "Rejected",
+  "@referralStatusRejected": {
+    "description": "referralStatusRejected"
+  },
+  "referralStatusExpiredUnanswered": "Expired unanswered",
+  "@referralStatusExpiredUnanswered": {
+    "description": "referralStatusExpiredUnanswered"
+  },
+  "referralEventProposed": "Partnership proposed",
+  "@referralEventProposed": {
+    "description": "referralEventProposed"
+  },
+  "referralEventAccepted": "Partnership accepted",
+  "@referralEventAccepted": {
+    "description": "referralEventAccepted"
+  },
+  "referralEventRejected": "Partnership rejected",
+  "@referralEventRejected": {
+    "description": "referralEventRejected"
+  },
+  "referralEventActivated": "Partnership activated",
+  "@referralEventActivated": {
+    "description": "referralEventActivated"
+  },
+  "referralEventCancelRequested": "Cancellation requested",
+  "@referralEventCancelRequested": {
+    "description": "referralEventCancelRequested"
+  },
+  "referralEventCancelConfirmed": "Cancellation confirmed",
+  "@referralEventCancelConfirmed": {
+    "description": "referralEventCancelConfirmed"
+  },
+  "referralEventExpiredUnanswered": "Expired with no answer",
+  "@referralEventExpiredUnanswered": {
+    "description": "referralEventExpiredUnanswered"
+  },
+  "referralEventPaused": "Paused",
+  "@referralEventPaused": {
+    "description": "referralEventPaused"
+  },
+  "referralEventResumed": "Resumed",
+  "@referralEventResumed": {
+    "description": "referralEventResumed"
+  },
+  "referralEventEndedTerm": "Term ended",
+  "@referralEventEndedTerm": {
+    "description": "referralEventEndedTerm"
+  },
+  "referralEventGrantCreated": "New grant",
+  "@referralEventGrantCreated": {
+    "description": "referralEventGrantCreated"
+  },
+  "referralEventGrantRedeemed": "Grant redeemed",
+  "@referralEventGrantRedeemed": {
+    "description": "referralEventGrantRedeemed"
+  },
+  "referralActivityActive": "Active",
+  "@referralActivityActive": {
+    "description": "referralActivityActive"
+  },
+  "referralActivityPaused": "Paused",
+  "@referralActivityPaused": {
+    "description": "referralActivityPaused"
+  },
+  "referralActivityPending": "Awaiting reply",
+  "@referralActivityPending": {
+    "description": "referralActivityPending"
+  },
+  "referralActivityInactive": "Inactive",
+  "@referralActivityInactive": {
+    "description": "referralActivityInactive"
+  },
+  "referralScorecardTitle": "Performance",
+  "@referralScorecardTitle": {
+    "description": "referralScorecardTitle"
+  },
+  "referralScorecardFailed": "Couldn't load performance",
+  "@referralScorecardFailed": {
+    "description": "referralScorecardFailed"
+  },
+  "referralActivityTitle": "Recent activity",
+  "@referralActivityTitle": {
+    "description": "referralActivityTitle"
+  },
+  "referralActivityEmpty": "No activity yet",
+  "@referralActivityEmpty": {
+    "description": "referralActivityEmpty"
+  },
+  "referralAgreementsTitle": "Agreements",
+  "@referralAgreementsTitle": {
+    "description": "referralAgreementsTitle"
+  },
+  "referralConfirmCancel": "End this partnership for good?",
+  "@referralConfirmCancel": {
+    "description": "referralConfirmCancel"
+  },
+  "referralActionAccept": "Accept",
+  "@referralActionAccept": {
+    "description": "referralActionAccept"
+  },
+  "referralActionReject": "Reject",
+  "@referralActionReject": {
+    "description": "referralActionReject"
+  },
+  "referralActionWaitingThem": "Waiting on the other side",
+  "@referralActionWaitingThem": {
+    "description": "referralActionWaitingThem"
+  },
+  "referralActionCancelRequest": "Request to end",
+  "@referralActionCancelRequest": {
+    "description": "referralActionCancelRequest"
+  },
+  "referralActionCancelConfirm": "Confirm ending",
+  "@referralActionCancelConfirm": {
+    "description": "referralActionCancelConfirm"
+  },
+  "referralProposeTitle": "Propose a new partnership",
+  "@referralProposeTitle": {
+    "description": "referralProposeTitle"
+  },
+  "referralProposePhoneLabel": "Other shop's phone",
+  "@referralProposePhoneLabel": {
+    "description": "referralProposePhoneLabel"
+  },
+  "referralProposeConditionLabel": "Eligibility condition at your shop",
+  "@referralProposeConditionLabel": {
+    "description": "referralProposeConditionLabel"
+  },
+  "referralConditionMinTotal": "Minimum invoice",
+  "@referralConditionMinTotal": {
+    "description": "referralConditionMinTotal"
+  },
+  "referralConditionServiceId": "A specific service",
+  "@referralConditionServiceId": {
+    "description": "referralConditionServiceId"
+  },
+  "referralProposeConditionValueRiyals": "Amount (SAR)",
+  "@referralProposeConditionValueRiyals": {
+    "description": "referralProposeConditionValueRiyals"
+  },
+  "referralProposeConditionValueService": "Service",
+  "@referralProposeConditionValueService": {
+    "description": "referralProposeConditionValueService"
+  },
+  "referralProposeValidityLabel": "Validity (days)",
+  "@referralProposeValidityLabel": {
+    "description": "referralProposeValidityLabel"
+  },
+  "referralProposeDurationLabel": "Duration (days)",
+  "@referralProposeDurationLabel": {
+    "description": "referralProposeDurationLabel"
+  },
+  "referralProposeCapLabel": "Cap / 30 days",
+  "@referralProposeCapLabel": {
+    "description": "referralProposeCapLabel"
+  },
+  "referralProposeGrantTypeLabel": "Grant type",
+  "@referralProposeGrantTypeLabel": {
+    "description": "referralProposeGrantTypeLabel"
+  },
+  "referralGrantTypeDiscount": "Discount",
+  "@referralGrantTypeDiscount": {
+    "description": "referralGrantTypeDiscount"
+  },
+  "referralGrantTypeGift": "Gift",
+  "@referralGrantTypeGift": {
+    "description": "referralGrantTypeGift"
+  },
+  "referralScopeBlanket": "Whole visit",
+  "@referralScopeBlanket": {
+    "description": "referralScopeBlanket"
+  },
+  "referralScopeItem": "A specific service",
+  "@referralScopeItem": {
+    "description": "referralScopeItem"
+  },
+  "referralScopeGroup": "Group/package",
+  "@referralScopeGroup": {
+    "description": "referralScopeGroup"
+  },
+  "referralProposeServiceLabel": "Service",
+  "@referralProposeServiceLabel": {
+    "description": "referralProposeServiceLabel"
+  },
+  "referralProposeGroupLabel": "Group",
+  "@referralProposeGroupLabel": {
+    "description": "referralProposeGroupLabel"
+  },
+  "referralProposeImmutableNote": "Grant terms are fixed once sent — a different offer needs a new agreement",
+  "@referralProposeImmutableNote": {
+    "description": "referralProposeImmutableNote"
+  },
+  "referralProposeSubmitting": "Sending...",
+  "@referralProposeSubmitting": {
+    "description": "referralProposeSubmitting"
+  },
+  "referralProposeSubmit": "Send proposal",
+  "@referralProposeSubmit": {
+    "description": "referralProposeSubmit"
+  },
+  "referralGrantGift": "Gift: {name}",
+  "@referralGrantGift": {
+    "description": "referralGrantGift",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "referralGrantDiscountItem": "Discount on: {name}",
+  "@referralGrantDiscountItem": {
+    "description": "referralGrantDiscountItem",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "referralGrantDiscountGroup": "Discount on group: {name}",
+  "@referralGrantDiscountGroup": {
+    "description": "referralGrantDiscountGroup",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "referralPartnerCount": "{n} agreement(s)",
+  "@referralPartnerCount": {
+    "description": "referralPartnerCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "referralProposeResultFail": "Couldn't send the proposal",
+  "@referralProposeResultFail": {
+    "description": "referralProposeResultFail"
+  },
+  "referralRefusal402": "Your shop isn't subscribed to the Strategic Partnership app — subscribe from the app store first",
+  "@referralRefusal402": {
+    "description": "referralRefusal402"
+  },
+  "referralRefusal403": "You don't have permission for this action",
+  "@referralRefusal403": {
+    "description": "referralRefusal403"
+  },
+  "referralRefusal400": "The proposal's data is invalid — check the condition, or that you're not proposing a partnership with your own shop",
+  "@referralRefusal400": {
+    "description": "referralRefusal400"
+  },
+  "referralRefusal404": "No shop found with that number, or the chosen service/group doesn't exist in the other shop's catalogue",
+  "@referralRefusal404": {
+    "description": "referralRefusal404"
+  },
+  "referralRefusal409": "You've reached the limit of 3 active partnerships, or the partnership's state has changed",
+  "@referralRefusal409": {
+    "description": "referralRefusal409"
+  },
+  "referralRefusal503": "Billing is temporarily unavailable, try again later",
+  "@referralRefusal503": {
+    "description": "referralRefusal503"
+  },
+  "appStoreTitle": "App Store",
+  "appStoreSubtitle": "Grow your shop with real apps, one at a time",
+  "appStoreTabMine": "My apps",
+  "appStoreTabAll": "App Store",
+  "appStoreDetails": "Details",
+  "appStorePerMonth": "per month",
+  "appStorePerMonthShort": "/mo",
+  "appStoreActive": "Active",
+  "appStoreTrialing": "Trial",
+  "appStoreSubscribe": "Subscribe now",
+  "appStoreCancelRenewal": "Stop renewal",
+  "appStoreUndoCancel": "Undo cancellation",
+  "appStoreConfirmCancel": "Stop renewing this app? It stays active until the paid period ends",
+  "appStoreCartCount": "{n} in cart",
+  "appStoreCheckout": "Checkout",
+  "appStoreCheckingOut": "Checking out...",
+  "appStoreRefusal402": "Payment isn't enabled on your account right now — contact us to enable it",
+  "appStoreRefusal403": "You don't have permission to complete this purchase",
+  "appStoreRefusal404": "The requested plan wasn't found — refresh and try again",
+  "appStoreRefusal409": "This app is already owned, or its state changed mid-purchase",
+  "appStoreRefusalGeneric": "Couldn't complete the purchase, try again",
+  "appStoreCapacityTitle": "Capacity",
+  "appStoreCapacityConfirmRemove": "Remove the last unit of \"{name}\"? This stops its renewal entirely"
 }

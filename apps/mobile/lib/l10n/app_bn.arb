@@ -201,9 +201,38 @@
   "branchesMemberRoleLabel": "ভূমিকা",
   "branchesRoleOperator": "মাঠকর্মী",
   "branchesRoleSupervisor": "শিফট সুপারভাইজার",
+  "branchesRoleMarketer": "মার্কেটিং লিড",
   "branchesRoleManager": "ম্যানেজার",
   "branchesSeatLimit": "আপনার বর্তমান প্ল্যানে আরেকজন কর্মচারী যোগ করা যাবে না।",
   "branchesHireFailed": "কর্মচারী যোগ করা যায়নি, আবার চেষ্টা করুন।",
+  "branchesVisibleAllHint": "সব শাখা দেখে",
+  "branchesVisibleSomeHint": "{count} শাখা দেখে",
+  "branchesEditMember": "কর্মচারী সম্পাদনা",
+  "branchesMemberStopped": "বন্ধ",
+  "branchesMemberStationLabel": "কোন শাখায় কাজ করে",
+  "branchesMemberVisibilityLabel": "কোন শাখাগুলো দেখতে পারবে",
+  "branchesVisibilityOwnOnly": "শুধু তার নিজের শাখা",
+  "branchesVisibilitySome": "নির্দিষ্ট শাখা",
+  "branchesVisibilityAll": "সব শাখা",
+  "branchesWorkingHours": "কাজের সময়",
+  "branchesStopMember": "কর্মচারী বন্ধ করুন",
+  "branchesStopMemberTitle": "এই কর্মচারীকে বন্ধ করবেন?",
+  "branchesStopMemberBody": "{name} সাথে সাথে অ্যাপে প্রবেশাধিকার হারাবে। তার ভিজিট ইতিহাস সংরক্ষিত থাকবে।",
+  "branchesStopMemberConfirm": "বন্ধ করুন",
+  "branchesReactivateMember": "পুনরায় সক্রিয় করুন",
+  "branchesRehireRequired": "এই কর্মচারী সম্পূর্ণ বন্ধ — পুনরায় সক্রিয় করতে আবার নিয়োগ দিতে হবে, শুধু টগল যথেষ্ট নয়।",
+  "branchesHoursSaved": "কাজের সময় সংরক্ষিত হয়েছে।",
+  "branchesHoursExceedsShop": "এই সময়গুলো দোকানের নিজস্ব সময়ের চেয়ে বেশি — ঠিক করুন।",
+  "branchesHoursHint": "কিছু না বদলালে, তিনি দোকানের নিজস্ব সময় অনুসরণ করবেন স্বয়ংক্রিয়ভাবে।",
+  "branchesHoursClear": "দোকানের ডিফল্ট সময়ে ফিরিয়ে দিন",
+  "branchesDayMonday": "সোমবার",
+  "branchesDayTuesday": "মঙ্গলবার",
+  "branchesDayWednesday": "বুধবার",
+  "branchesDayThursday": "বৃহস্পতিবার",
+  "branchesDayFriday": "শুক্রবার",
+  "branchesDaySaturday": "শনিবার",
+  "branchesDaySunday": "রবিবার",
+  "branchesDayClosed": "বন্ধ",
   "accountSecuritySectionTitle": "নিরাপত্তা",
   "accountChangePasswordRow": "পাসওয়ার্ড পরিবর্তন করুন",
   "accountChangePasswordFailed": "পাসওয়ার্ড পরিবর্তন করা যায়নি, আবার চেষ্টা করুন।",
@@ -247,6 +276,7 @@
   "billingInvoiceStatusDraft": "খসড়া",
   "billingPayNow": "এখনই পরিশোধ করুন",
   "billingPayLinkFailed": "পেমেন্ট লিঙ্ক তৈরি করা যায়নি। আবার চেষ্টা করুন।",
+  "paymentPageLoadFailed": "পেমেন্ট পেজ লোড করা যায়নি। আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।",
   "billingCancelConfirmTitle": "নবায়ন বন্ধ করবেন?",
   "billingCancelConfirmBody": "চলতি মেয়াদ শেষ পর্যন্ত সেবা চালু থাকবে, এরপর তা আর নবায়ন হবে না।",
   "billingCancelConfirmAction": "নবায়ন বন্ধ করুন",
@@ -267,5 +297,881 @@
   "writeVehicleTrackingDisabledConfirm": "এই দোকানের ভিজিট-রেজিস্ট্রেশন স্ক্রিনে প্লেট নম্বর ফিল্ড বন্ধ করবে। নিশ্চিত করবেন?",
   "writeVehicleTrackingEnabledDone": "গাড়ি ট্র্যাকিং চালু করা হয়েছে ✓",
   "writeVehicleTrackingDisabledDone": "গাড়ি ট্র্যাকিং বন্ধ করা হয়েছে ✓",
-  "writeVehicleTrackingFailed": "গাড়ি ট্র্যাকিং সেটিং পরিবর্তন করা যায়নি, আবার চেষ্টা করুন।"
+  "writeVehicleTrackingFailed": "গাড়ি ট্র্যাকিং সেটিং পরিবর্তন করা যায়নি, আবার চেষ্টা করুন।",
+  "mobileRequestsTitle": "মোবাইল অনুরোধ",
+  "mobileRequestsSubtitle": "সেবা যা গ্রাহকের কাছে পৌঁছায়, গ্রহণ থেকে সম্পন্ন হওয়া পর্যন্ত।",
+  "mobileRequestsKpiPending": "সিদ্ধান্তের অপেক্ষায়",
+  "mobileRequestsKpiNeedsDecision": "সিদ্ধান্ত প্রয়োজন",
+  "mobileRequestsKpiCompletedMonth": "এই মাসে সম্পন্ন",
+  "mobileRequestsBannerGo": "দেখুন",
+  "mobileRequestsFilterAll": "সব",
+  "mobileRequestsFilterPending": "মুলতুবি",
+  "mobileRequestsFilterAccepted": "গৃহীত",
+  "mobileRequestsFilterNeedsDecision": "সিদ্ধান্ত প্রয়োজন",
+  "mobileRequestsFilterCompleted": "সম্পন্ন",
+  "mobileRequestsFilterClosed": "বন্ধ",
+  "mobileRequestsSearchHint": "নাম বা ফোন দিয়ে খুঁজুন",
+  "mobileRequestsLoadFailedTitle": "অনুরোধ লোড করা যায়নি",
+  "mobileRequestsLoadFailedBody": "আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।",
+  "mobileRequestsRetry": "আবার চেষ্টা করুন",
+  "mobileRequestsEmptyTitle": "এখনো কোনো অনুরোধ নেই",
+  "mobileRequestsEmptyBody": "আপনার গ্রাহকদের মোবাইল সার্ভিস অনুরোধ এখানে দেখা যাবে।",
+  "mobileRequestsStatusPending": "মুলতুবি",
+  "mobileRequestsStatusAccepted": "গৃহীত",
+  "mobileRequestsStatusNeedsDecision": "সিদ্ধান্ত প্রয়োজন",
+  "mobileRequestsStatusCompleted": "সম্পন্ন",
+  "mobileRequestsStatusNoShow": "উপস্থিত হয়নি",
+  "mobileRequestsStatusRejected": "প্রত্যাখ্যাত",
+  "mobileRequestsUnnamed": "নামহীন",
+  "mobileRequestsOpenMap": "অবস্থান",
+  "mobileRequestsPhoneCopied": "ফোন নম্বর কপি হয়েছে",
+  "mobileRequestsRiskyCustomer": "উচ্চ নো-শো ঝুঁকিসম্পন্ন গ্রাহক",
+  "mobileRequestsRejectReasonLine": "প্রত্যাখ্যানের কারণ: {reason}",
+  "mobileRequestsActionAccept": "গ্রহণ করুন",
+  "mobileRequestsActionReject": "প্রত্যাখ্যান করুন",
+  "mobileRequestsActionComplete": "সম্পন্ন",
+  "mobileRequestsActionNoShow": "উপস্থিত হয়নি",
+  "mobileRequestsAssignUnassigned": "অনির্ধারিত",
+  "mobileRequestsActionFailed": "কাজটি সম্পন্ন করা যায়নি, আবার চেষ্টা করুন।",
+  "mobileRequestsRejectTitle": "প্রত্যাখ্যানের কারণ",
+  "mobileRequestsRejectHint": "ঐচ্ছিক",
+  "mobileRequestsRejectCancel": "বাতিল করুন",
+  "mobileRequestsRejectConfirm": "অনুরোধ প্রত্যাখ্যান করুন",
+  "mobileRequestsAddOpen": "অনুরোধ যোগ করুন",
+  "mobileRequestsAddTitle": "মোবাইল সার্ভিস অনুরোধ যোগ করুন",
+  "mobileRequestsAddPhoneLabel": "গ্রাহকের ফোন",
+  "mobileRequestsAddNameLabel": "গ্রাহকের নাম (ঐচ্ছিক)",
+  "mobileRequestsAddServicesLabel": "সেবাসমূহ",
+  "mobileRequestsAddServicesEmpty": "এখনো কোনো সেবা উপলব্ধ নেই।",
+  "mobileRequestsAddDayLabel": "দিন",
+  "mobileRequestsAddTimeLabel": "সময়",
+  "mobileRequestsAddMapsLinkLabel": "গুগল ম্যাপস অবস্থান লিঙ্ক",
+  "mobileRequestsAddMapsLinkHint": "সম্পূর্ণ বা সংক্ষিপ্ত গুগল ম্যাপস লিঙ্ক গ্রহণ করে।",
+  "mobileRequestsAddMapsLinkShort": "এটি একটি সংক্ষিপ্ত লিঙ্ক — সম্পূর্ণ গুগল ম্যাপস লিঙ্ক পেস্ট করুন।",
+  "mobileRequestsAddMapsLinkInvalid": "এই লিঙ্ক থেকে অবস্থান পড়া যায়নি।",
+  "mobileRequestsAddAssignLabel": "নিয়োগ করুন (ঐচ্ছিক)",
+  "mobileRequestsAddCancel": "বাতিল করুন",
+  "mobileRequestsAddSubmit": "অনুরোধ যোগ করুন",
+  "mobileRequestsAddSubmitting": "যোগ করা হচ্ছে...",
+  "mobileRequestsAddError": "অনুরোধ যোগ করা যায়নি, আবার চেষ্টা করুন।",
+  "mobileRequestsBannerText": "{count, plural, other{{count}টি অনুরোধ এখন আপনার সিদ্ধান্তের অপেক্ষায়}}",
+  "mobileRequestsAddMapsLinkResolving": "লিঙ্ক থেকে অবস্থান পড়া হচ্ছে...",
+  "customersTitle": "আমার গ্রাহক",
+  "customersAddOpen": "গ্রাহক যোগ করুন",
+  "customersSearchHint": "নাম বা ফোন দিয়ে খুঁজুন",
+  "customersTabAll": "সব",
+  "customersTabOverdue": "বিলম্বিত",
+  "customersSearchFailedTitle": "এখন অনুসন্ধান উপলব্ধ নয়",
+  "customersSearchFailedBody": "শীঘ্রই আবার চেষ্টা করুন।",
+  "customersSearchEmpty": "কোনো ফলাফল নেই",
+  "customersLoadFailedTitle": "লোড করা যায়নি",
+  "customersEmptyTitle": "এখনো কোনো গ্রাহক নেই",
+  "customersOverdueEmpty": "এখন কেউ বিলম্বিত নয়",
+  "customersUnnamed": "নামহীন",
+  "customersVisitCount": "{count, plural, other{{count}টি ভিজিট}}",
+  "customersOverdueBadge": "বিলম্বিত",
+  "customersStatEveryDays": "{days, plural, other{প্রতি {days} দিন}}",
+  "customersOverdueBanner": "তার স্বাভাবিক ভিজিটের চেয়ে দেরি — সাধারণত প্রতি {every} দিনে, শেষ ভিজিটের পর {since} দিন হয়েছে",
+  "customersVisitMeter": "মিটার রিডিং: {n}",
+  "customersOfferExpiredBadge": "মেয়াদোত্তীর্ণ",
+  "customersDeniedAllTitle": "গ্রাহক তালিকা দেখার অনুমতি আপনার নেই",
+  "customersDeniedOverdueTitle": "কে দেরি করেছে তা দেখার অনুমতি আপনার নেই",
+  "customersDeniedDesc": "দোকান মালিকের কাছে এই অনুমতি চান।",
+  "customersAddTitle": "নতুন গ্রাহক যোগ করুন",
+  "customersAddPhoneLabel": "গ্রাহকের ফোন",
+  "customersAddNameLabel": "গ্রাহকের নাম",
+  "customersAddPhoneInvalid": "ফোন নম্বর সঠিক নয়।",
+  "customersAddFailed": "গ্রাহক যোগ করা যায়নি, আবার চেষ্টা করুন।",
+  "customersAddSubmitting": "যোগ করা হচ্ছে...",
+  "customersAddSubmit": "যোগ করুন",
+  "customersActionFailed": "কাজটি সম্পন্ন করা যায়নি, আবার চেষ্টা করুন।",
+  "customersRepeatedIssuesTitle": "পুনরাবৃত্ত সমস্যা",
+  "customersVehiclesTitle": "যানবাহন",
+  "customersLoyaltyTitle": "লয়্যালটি",
+  "customersLoyaltyLoading": "লোড হচ্ছে...",
+  "customersLoyaltyPoints": "{count} পয়েন্ট",
+  "customersLoyaltyAdjust": "সামঞ্জস্য করুন",
+  "customersOffersTitle": "সক্রিয় অফার",
+  "customersOfferExpires": "{date} মেয়াদ শেষ",
+  "customersVisitsTitle": "ভিজিটের ইতিহাস",
+  "customersVisitsEmpty": "এখনো কোনো ভিজিট নেই",
+  "customersVisitNoServices": "কোনো সেবা রেকর্ড করা হয়নি",
+  "customersRenameTitle": "গ্রাহকের নাম সম্পাদনা করুন",
+  "customersRenameSubmit": "সংরক্ষণ করুন",
+  "customersLoyaltyAdjustTitle": "লয়্যালটি পয়েন্ট সামঞ্জস্য করুন",
+  "customersLoyaltyAdjustNoteLabel": "সামঞ্জস্যের কারণ",
+  "customersLoyaltyAdjustNoteRequired": "একটি বাস্তব কারণ লিখুন (কমপক্ষে ৩ অক্ষর), এবং শূন্য নয় এমন সংখ্যা বেছে নিন।",
+  "customersLoyaltyAdjustSubmit": "সামঞ্জস্য সংরক্ষণ করুন",
+  "customersEraseButton": "এই গ্রাহকের তথ্য মুছুন",
+  "customersEraseTitle": "গ্রাহকের তথ্য মুছুন",
+  "customersEraseWarning": "এটি প্ল্যাটফর্ম থেকে গ্রাহকের সমস্ত তথ্য স্থায়ীভাবে মুছে দেয় — এটি ফিরিয়ে আনা যাবে না।",
+  "customersEraseTypeNameLabel": "নিশ্চিত করতে, গ্রাহকের নাম লিখুন: {name}",
+  "customersEraseConfirm": "স্থায়ীভাবে মুছুন",
+  "customersBookingsTitle": "বুকিং",
+  "customersAttendanceRate": "{rate}% উপস্থিতি",
+  "customersBookingsNoneUpcoming": "কোনো আসন্ন বুকিং নেই",
+  "customersCyclesTitle": "রিমাইন্ডার চক্র",
+  "customersCyclesEveryDays": "প্রতি {days} দিন",
+  "customersCyclesEditHint": "ব্যবধান নির্ধারণ করুন, এবং এই গ্রাহকের সাথে এই সেবার জন্য স্বয়ংক্রিয় শিক্ষণ বন্ধ হয়ে যাবে।",
+  "customersCyclesSave": "সংরক্ষণ করুন",
+  "customersLogTitle": "আমরা তাকে যা বলেছি",
+  "customersLogEmpty": "আমরা এখনো তাকে কিছু পাঠাইনি",
+  "customersCyclesUnknownService": "অজানা সেবা",
+  "customersVisitGapDays": "{days, plural, =0{একই দিনে} other{{days} দিন পরে}}",
+  "customersCountLabel": "{count, plural, =0{এখনো কোনো গ্রাহক নেই} other{{count} জন গ্রাহক}}",
+  "ratingTitle": "রেটিং",
+  "pointsTitle": "লয়্যালটি পয়েন্ট",
+  "pointsAddReward": "নতুন পুরস্কার",
+  "pointsEditReward": "পুরস্কার সম্পাদনা",
+  "pointsTabRewards": "পুরস্কার",
+  "pointsTabLeaderboard": "সবচেয়ে বেশি বিনিময়",
+  "pointsOutstandingHint": "পয়েন্ট যা দোকান এখনও গ্রাহকদের কাছে ঋণী",
+  "pointsRedemptionsCount": "{count, plural, other{{count}টি বিনিময়}}",
+  "pointsCustomersCount": "{count, plural, other{{count} জন গ্রাহক বিনিময় করেছেন}}",
+  "pointsExpiredWarning": "প্রদত্ত পয়েন্টের {percent}% বিনিময় ছাড়াই মেয়াদোত্তীর্ণ হয়েছে — আপনার পুরস্কারের মূল্য পর্যালোচনা করুন",
+  "pointsLoadFailedTitle": "পুরস্কার লোড করা যায়নি",
+  "pointsRewardsEmpty": "এখনো কোন পুরস্কার নেই — আপনার গ্রাহকদের প্রথম পুরস্কার যোগ করুন",
+  "pointsLeaderboardEmpty": "এখনো কোন বিনিময় নেই — গ্রাহক একটি বিনিময় করলে এখানে দেখা যাবে",
+  "pointsLeaderboardTitle": "সবচেয়ে বেশি বিনিময়",
+  "pointsLeaderboardHint": "আপনার গ্রাহকরা বিনিময় করা শীর্ষ পাঁচটি পুরস্কার",
+  "pointsTimesRedeemed": "{count, plural, other{{count} বার}}",
+  "pointsRewardRetired": "বন্ধ",
+  "pointsRewardServiceHint": "সেবা: {name}",
+  "pointsRewardDiscountHint": "{amount} রিয়াল ছাড়",
+  "pointsRewardItemHint": "একটি উপহার, ক্যাটালগের সাথে সম্পর্কিত নয়",
+  "pointsRewardNameLabel": "পুরস্কারের নাম",
+  "pointsRewardTypeLabel": "পুরস্কারের ধরন",
+  "pointsTypeService": "আপনার ক্যাটালগ থেকে একটি সেবা",
+  "pointsTypeItem": "একটি উপহার",
+  "pointsTypeDiscount": "নগদ ছাড়",
+  "pointsRewardServiceLabel": "কোন সেবা",
+  "pointsRewardDiscountLabel": "ছাড়ের পরিমাণ, রিয়াল",
+  "pointsRewardCostLabel": "পয়েন্টে খরচ",
+  "pointsRewardActiveLabel": "সক্রিয় — গ্রাহকরা এটি বিনিময় করতে পারবেন",
+  "pointsRewardInvalid": "একটি নাম এবং শূন্যের বেশি প্রকৃত পয়েন্ট খরচ লিখুন",
+  "pointsSaveFailed": "সংরক্ষণ করা যায়নি, আবার চেষ্টা করুন",
+  "pointsModeTitle": "হিসাবের পদ্ধতি",
+  "pointsModeHint": "সেবা অনুযায়ী: প্রতিটি সেবার নিজস্ব পয়েন্ট। বিলের মূল্য অনুযায়ী: প্রতি রিয়ালে এক পয়েন্ট।",
+  "pointsModeServices": "সেবা অনুযায়ী",
+  "pointsModeInvoice": "বিলের মূল্য অনুযায়ী",
+  "pointsModeNeedsPricedServices": "বিলের মূল্য অনুযায়ী হিসাবের জন্য প্রথমে আপনার সব সেবার মূল্য নির্ধারণ থাকতে হবে — সেবাগুলোতে সবগুলোর দাম দিন, তারপর চালু করুন।",
+  "pointsOpenEarnSettings": "প্রতি সেবার পয়েন্ট সেটিংস",
+  "ratingLeaderboardTitle": "সর্বোচ্চ রেটেড",
+  "ratingCardNoName": "নামহীন",
+  "ratingMetricVisits": "সবচেয়ে বেশি ভিজিট",
+  "ratingMetricRatings": "সবচেয়ে বেশি রেটিং",
+  "ratingMetricAvg": "সর্বোচ্চ রেটেড",
+  "ratingStaffCount": "{count, plural, other{{count} জন কর্মী}}",
+  "ratingTableTitle": "প্রতিটি কর্মী",
+  "ratingTableVisitsValue": "{n} ভিজিট",
+  "ratingTableRatingsValue": "{n} রেটিং",
+  "ratingTableEngagementValue": "সম্পৃক্ততা {n}%",
+  "ratingTableNoShowValue": "অনুপস্থিত {n}%",
+  "ratingPeriodWeek": "সপ্তাহ",
+  "ratingPeriodMonth": "মাস",
+  "ratingPeriodQuarter": "প্রান্তিক",
+  "ratingPeriodCustom": "কাস্টম",
+  "ratingCustomSince": "থেকে: {date}",
+  "ratingCustomUntil": "পর্যন্ত: {date}",
+  "ratingCustomRangeInvalid": "সীমা অবৈধ — শুরুর তারিখ শেষ তারিখের আগে কিনা নিশ্চিত করুন",
+  "ratingExportLocaleLabel": "রিপোর্টের ভাষা",
+  "localeNameAr": "العربية",
+  "localeNameEn": "English",
+  "localeNameUr": "اردو",
+  "localeNameHa": "Hausa",
+  "localeNameFil": "Filipino",
+  "localeNameBn": "বাংলা",
+  "ratingTopIssuesTitle": "সর্বাধিক পুনরাবৃত্ত সমস্যা",
+  "ratingFilterUnhandled": "মুলতুবি",
+  "ratingFilterAll": "সব",
+  "ratingFilterHandled": "সমাধান হয়েছে",
+  "ratingStarsAll": "সব তারকা",
+  "ratingLoadFailedTitle": "রেটিং লোড করা যায়নি",
+  "ratingEmptyTitle": "এখনো কোনো রেটিং নেই",
+  "ratingLoadMore": "আরও দেখুন",
+  "ratingHandledPlain": "সমাধান হয়ে গেছে",
+  "ratingMarkHandled": "সমাধান হয়েছে হিসেবে চিহ্নিত করুন",
+  "ratingMarkHandledHint": "এটি স্থায়ীভাবে রেকর্ড করা হয় — পরে ফিরিয়ে নেওয়া যাবে না।",
+  "ratingHandledNoteLabel": "নোট (ঐচ্ছিক)",
+  "ratingMarkHandledConfirm": "নিশ্চিত করুন",
+  "ratingActionFailed": "কাজটি সম্পন্ন করা যায়নি, আবার চেষ্টা করুন।",
+  "ratingWeightedAvgHint": "{count, plural, =0{গত ৩০ দিনে কোনো রেটিং নেই} other{গত ৩০ দিনে {count}টি রেটিং থেকে}}",
+  "ratingUnhandledCount": "{count, plural, other{{count}টি রেটিং মুলতুবি}}",
+  "ratingVisitsShort": "{count, plural, other{{count}টি ভিজিট}}",
+  "ratingIssueFilterLabel": "সমস্যা: {label}",
+  "ratingByOperator": "{name} সেবা দিয়েছেন",
+  "ratingHandledWithNote": "সমাধান হয়েছে: {note}",
+  "ratingQuadrantTitle": "পারফরম্যান্স কোয়াড্রেন্ট",
+  "ratingQuadrantHint": "গুণমান বনাম সম্পৃক্ততার হার — প্রশিক্ষণ রেকর্ডের জন্য যেকোনো পয়েন্টে চাপুন।",
+  "ratingQuadrantStars": "তারকা",
+  "ratingQuadrantUnderused": "কম ব্যবহৃত",
+  "ratingQuadrantNeedsCoaching": "প্রশিক্ষণ প্রয়োজন",
+  "ratingQuadrantAtRisk": "মনোযোগ প্রয়োজন",
+  "ratingTrainingTitle": "প্রশিক্ষণ রেকর্ড",
+  "ratingTrainingNoAccess": "এটি দেখার অনুমতি আপনার নেই।",
+  "ratingTrainingClean": "পরিষ্কার রেকর্ড — কোনো পুনরাবৃত্ত সমস্যা নেই।",
+  "ratingEngagementPercent": "{percent}% সম্পৃক্ততা",
+  "ratingTabOverview": "ওভারভিউ",
+  "ratingTabFeed": "সব রেটিং",
+  "ratingOverviewEmpty": "গত 30 দিনের জন্য এখনো কোনো পারফরম্যান্স তথ্য নেই।",
+  "ratingExportTitle": "রিপোর্ট রপ্তানি করুন",
+  "ratingExportHint": "নির্বাচিত সময়ের জন্য দলের পারফরম্যান্স রিপোর্ট, শেয়ার করার জন্য প্রস্তুত।",
+  "ratingExportFailed": "রিপোর্ট রপ্তানি করা যায়নি, আবার চেষ্টা করুন।",
+  "customersPrivacyRequestsTitle": "গোপনীয়তা অনুরোধ",
+  "customersPrivacyRequestErase": "তথ্য মুছার অনুরোধ",
+  "customersPrivacyRequestCopy": "তথ্যের কপির অনুরোধ",
+  "customersPrivacyRequestGeneric": "অনুরোধ: {type}",
+  "customersPrivacyRequestClose": "বন্ধ করুন",
+  "customersLoyaltyHistoryTitle": "পয়েন্ট ইতিহাস",
+  "customersLoyaltyHistoryNoReason": "কোনো কারণ উল্লেখ করা হয়নি",
+  "customersLoyaltyReasonRedeem": "পুরস্কার ব্যবহৃত",
+  "customersLoyaltyReasonAdjust": "ম্যানুয়াল সমন্বয়",
+  "customersLoyaltyReasonEarn": "ভিজিট থেকে পয়েন্ট",
+  "customersLoyaltyReasonExpire": "মেয়াদোত্তীর্ণ",
+  "readCustomersFailed": "এখন গ্রাহকের তথ্য পাওয়া যায়নি, আবার চেষ্টা করুন।",
+  "readCustomersTotal": "{count, plural, =0{আপনার এখনো কোনো নিবন্ধিত গ্রাহক নেই।} other{আপনার {count} জন নিবন্ধিত গ্রাহক আছে।}}",
+  "readCustomersOverdueCount": "{count, plural, =0{এখন কোনো গ্রাহক তাদের চক্রে বিলম্বিত নয়।} other{আপনার {count} জন গ্রাহক তাদের চক্রে বিলম্বিত।}}",
+  "readMobileRequestsFailed": "এখন মোবাইল অনুরোধ পাওয়া যায়নি, আবার চেষ্টা করুন।",
+  "readMobileRequestsPendingCount": "{count, plural, =0{কোনো মোবাইল অনুরোধ সিদ্ধান্তের অপেক্ষায় নেই।} other{আপনার {count}টি অনুরোধ সিদ্ধান্তের অপেক্ষায়।}}",
+  "readMobileRequestsNeedsDecisionCount": "{count, plural, =0{এখন কোনো মোবাইল অনুরোধ আপনার সিদ্ধান্তের প্রয়োজন নেই।} other{{count}টি অনুরোধ এখন আপনার সিদ্ধান্তের অপেক্ষায়।}}",
+  "readRatingFailed": "এখন রেটিং তথ্য পাওয়া যায়নি, আবার চেষ্টা করুন।",
+  "readRatingNone": "গত 30 দিনে আপনার এখনো কোনো রেটিং নেই।",
+  "readRatingAverage": "গত 30 দিনে আপনার গড় রেটিং 5 এর মধ্যে {avg}, {count}টি রেটিং থেকে।",
+  "readRatingUnhandledCount": "{count, plural, =0{কোনো রেটিং মুলতুবি নেই।} other{আপনার {count}টি রেটিং মুলতুবি রয়েছে।}}",
+  "readRatingTopStaff": "গত 30 দিনে আপনার শীর্ষ রেটেড স্টাফ হলেন {name}, গড়ে 5-এর মধ্যে {avg}।",
+  "readMobileRequestsCompletedCount": "{count, plural, =0{এই মাসে আপনি এখনো কোনো মোবাইল অনুরোধ সম্পন্ন করেননি।} other{এই মাসে আপনি {count}টি সম্পন্ন করেছেন।}}",
+  "readMobileRequestsTodayCount": "{count, plural, =0{আজ এখনো কোনো মোবাইল অনুরোধ আসেনি।} other{আজ {count}টি অনুরোধ এসেছে।}}",
+  "readOperatorsFailed": "এখন কর্মীর সংখ্যা পাওয়া যায়নি, আবার চেষ্টা করুন।",
+  "readOperatorsCount": "{count, plural, =0{আপনার এখনো কোনো নিবন্ধিত কর্মী নেই।} other{আপনার দলে {count} জন কর্মী আছেন।}}",
+  "readBranchesDisconnectedCount": "{count, plural, =0{আপনার সব সক্রিয় শাখার হোয়াটসঅ্যাপ সংযুক্ত এবং কাজ করছে।} other{আপনার {count}টি শাখার হোয়াটসঅ্যাপ কাজ করছে না।}}",
+  "readCustomersRecentNone": "আপনার এখনো কোনো নিবন্ধিত গ্রাহক নেই।",
+  "readCustomersRecentName": "আপনার সাম্প্রতিকতম গ্রাহক হলেন {name}।",
+  "readRatingCriticalIssuesCount": "{count, plural, =0{কোনো মুলতুবি রেটিংয়ে গুরুতর সমস্যা নেই।} other{আপনার {count}টি মুলতুবি রেটিংয়ে গুরুতর সমস্যা রয়েছে।}}",
+  "readPerBranchModeOn": "হ্যাঁ, আপনার দোকান মাল্টি-ব্রাঞ্চ মোডে চলে।",
+  "readPerBranchModeOff": "না, আপনার দোকান শুধুমাত্র একটি শাখা হিসেবে চলে।",
+  "readBillingOverdueYes": "হ্যাঁ, আপনার একটি বকেয়া চালান আছে — পরিষেবা বন্ধ হওয়া এড়াতে পরিশোধ করুন।",
+  "readBillingOverdueNo": "না, আপনার বিলিং ঠিক আছে, কোনো বকেয়া চালান নেই।",
+  "readServicesFailed": "এখন সেবার সংখ্যা পাওয়া যায়নি, আবার চেষ্টা করুন।",
+  "readServicesCount": "{count, plural, =0{আপনার তালিকায় এখনো কোনো সেবা নেই।} other{আপনার তালিকায় {count}টি সেবা আছে।}}",
+  "readCustomersTodayCount": "{count, plural, =0{আজ এখনো কোনো নতুন গ্রাহক আসেননি।} other{আজ {count} জন নতুন গ্রাহক এসেছেন।}}",
+  "readMobileRequestsRejectedCount": "{count, plural, =0{এই মাসে আপনি কোনো মোবাইল অনুরোধ প্রত্যাখ্যান করেননি।} other{এই মাসে আপনি {count}টি প্রত্যাখ্যান করেছেন।}}",
+  "readMobileRequestsNoShowCount": "{count, plural, =0{এই মাসে কোনো গ্রাহক অনুপস্থিত থাকেননি।} other{এই মাসে {count} জন গ্রাহক অনুপস্থিত ছিলেন।}}",
+  "readRatingFiveStarCount": "{count, plural, =0{আপনার এখনো কোনো ৫-তারকা রেটিং নেই।} other{আপনার {count}টি ৫-তারকা রেটিং আছে।}}",
+  "readBranchesActiveCount": "{count, plural, =0{এখন আপনার কোনো সক্রিয় শাখা নেই।} other{আপনার {count}টি সক্রিয় শাখা আছে।}}",
+  "servicesTitle": "আমার সেবা",
+  "servicesUnnamedGlyph": "?",
+  "servicesSearchHint": "সেবার নাম দিয়ে খুঁজুন",
+  "servicesTabActive": "সক্রিয়",
+  "servicesTabStopped": "বন্ধ",
+  "servicesLoadFailedTitle": "সেবা লোড করা যায়নি",
+  "servicesEmptyActive": "এখনো কোনো সক্রিয় সেবা নেই",
+  "servicesEmptyStopped": "কোনো বন্ধ সেবা নেই",
+  "servicesAddOpen": "সেবা যোগ করুন",
+  "servicesNoPrice": "কোনো মূল্য নির্ধারিত নেই",
+  "servicesNoDuration": "নির্ধারিত নয়",
+  "servicesNoCycle": "কোনো চক্র নেই",
+  "servicesStopTitle": "সেবা বন্ধ করুন",
+  "servicesStopConfirm": "বন্ধ করুন",
+  "servicesActionFailed": "কাজটি সম্পন্ন করা যায়নি, আবার চেষ্টা করুন।",
+  "servicesEditTitle": "সেবা সম্পাদনা করুন",
+  "servicesAddTitle": "নতুন সেবা যোগ করুন",
+  "servicesNameLabel": "সেবার নাম",
+  "servicesPriceLabel": "মূল্য (ঐচ্ছিক)",
+  "servicesDurationLabel": "মিনিটে সময়কাল (ঐচ্ছিক)",
+  "servicesCycleLabel": "দিনে রিমাইন্ডার চক্র (ঐচ্ছিক)",
+  "servicesDescriptionLabel": "সংক্ষিপ্ত বিবরণ (ঐচ্ছিক)",
+  "servicesSaving": "সংরক্ষণ করা হচ্ছে...",
+  "servicesSave": "সংরক্ষণ করুন",
+  "servicesNameRequired": "সেবার নাম আবশ্যক",
+  "servicesActiveCount": "{count, plural, =0{আপনার এখনো কোনো সক্রিয় সেবা নেই।} other{আপনার {count}টি সক্রিয় সেবা আছে।}}",
+  "servicesDurationMinutes": "{count} মিনিট",
+  "servicesCycleDays": "প্রতি {count} দিন",
+  "servicesStopWarning": "এটি \"{name}\" বন্ধ করবে — নতুন ভিজিটে দেখাবে না, এবং এর রিমাইন্ডার বন্ধ হয়ে যাবে। এর তথ্য কখনো মুছে ফেলা হয় না।",
+  "servicesPhotoPickFailed": "ছবি নির্বাচন করা যায়নি",
+  "servicesPhotoUploadFailed": "সংরক্ষিত হয়েছে, কিন্তু ছবি আপলোড করা যায়নি",
+  "servicesPhotoLabel": "সেবার ছবি (ঐচ্ছিক)",
+  "servicesUploadPhoto": "ছবি আপলোড করুন",
+  "@servicesUploadPhoto": {
+    "description": "servicesUploadPhoto"
+  },
+  "servicesChangePhoto": "ছবি পরিবর্তন করুন",
+  "@servicesChangePhoto": {
+    "description": "servicesChangePhoto"
+  },
+  "servicesRemovePhoto": "সরান",
+  "@servicesRemovePhoto": {
+    "description": "servicesRemovePhoto"
+  },
+  "servicesAssignmentLabel": "এই সেবা কে প্রদান করে?",
+  "servicesAssignmentAuto": "যেকোনো উপলব্ধ কর্মী",
+  "servicesAssignmentNamed": "নির্দিষ্ট কর্মী",
+  "servicesChecklistLabel": "প্রক্রিয়ার তালিকা",
+  "servicesChecklistEmpty": "এখনো কোনো ধাপ নেই — প্রথমটি যোগ করুন",
+  "servicesStepAddTitle": "ধাপ যোগ করুন",
+  "servicesGeneralSettingsTitle": "সাধারণ সেটিং",
+  "servicesGeneralSettingsHint": "যে মান প্রতিটি কাস্টমাইজ না করা সেবা অনুসরণ করে",
+  "servicesFollowUpLabel": "ভিজিটের পর ফলো-আপ দিন",
+  "servicesPointsLabel": "প্রতি ভিজিট পয়েন্ট",
+  "servicesGroupThem": "একত্র করুন",
+  "servicesGroupNameHint": "গ্রুপের নাম",
+  "servicesAllGroups": "সব",
+  "servicesStepEditTitle": "ধাপ সম্পাদনা করুন",
+  "servicesStepCriticalLabel": "সংকটাপন্ন ধাপ",
+  "servicesStepRetire": "এই ধাপ বন্ধ করুন",
+  "servicesStepEditHint": "যেকোনো ধাপে দীর্ঘক্ষণ চাপুন সম্পাদনা বা বন্ধ করতে",
+  "servicesAdvancedTitle": "উন্নত সেটিং",
+  "servicesAdvancedHint": "সাধারণ সেটিং থেকে এই সেবা কাস্টমাইজ করুন — চক্র, পয়েন্ট, এবং গ্রুপিং",
+  "servicesGroupLabel": "গ্রুপ",
+  "servicesNoGroup": "কোনো গ্রুপ নেই",
+  "servicesNewGroup": "নতুন গ্রুপ",
+  "servicesFollowGeneralAction": "সাধারণ অনুসরণ করুন",
+  "servicesCustomizeAction": "কাস্টমাইজ",
+  "servicesFollowUpDays": "{n} দিন পর ফলো-আপ",
+  "servicesPointsPerVisit": "{n} পয়েন্ট",
+  "servicesSuggestionText": "{n}টি সেবা একই মান শেয়ার করে — তাদের একটি গ্রুপে একত্র করলে পরে একসাথে সম্পাদনা সহজ হবে।",
+  "servicesFollowsGeneral": "সাধারণ অনুসরণ করে — {hint}",
+  "servicesPageTabServices": "সেবাসমূহ",
+  "servicesPageTabPackages": "প্যাকেজ",
+  "servicesPackageAdd": "প্যাকেজ যোগ করুন",
+  "servicesPackageNeedsTwoServices": "প্যাকেজের জন্য অন্তত দুটি সক্রিয় সেবা প্রয়োজন",
+  "servicesPackageEmpty": "এখনো কোনো প্যাকেজ নেই",
+  "servicesPackageEditTitle": "প্যাকেজ সম্পাদনা করুন",
+  "servicesPackageAddTitle": "নতুন প্যাকেজ যোগ করুন",
+  "servicesPackageNameLabel": "প্যাকেজের নাম",
+  "servicesPackagePriceRequired": "প্যাকেজের মূল্য আবশ্যক, শূন্যের বেশি",
+  "servicesPackageServicesLabel": "অন্তর্ভুক্ত সেবা",
+  "servicesImportTitle": "ফাইল থেকে সেবা আমদানি করুন",
+  "servicesImportHint": "কলামসহ CSV ফাইল: name, price, duration_minutes, cycle_days, description",
+  "servicesImportPickFile": "CSV ফাইল নির্বাচন করুন",
+  "servicesImportReadFailed": "ফাইল পড়া যায়নি",
+  "servicesImportParseFailed": "ফাইলে name কলাম নেই, অথবা এর ফরম্যাট সঠিক নয়",
+  "servicesImportDeactivateMissing": "ফাইলে অনুপস্থিত সেবা বন্ধ করুন",
+  "servicesImportDeactivateMissingHint": "আপনার বর্তমান যেকোনো সেবা যা এই ফাইলে নেই তা স্বয়ংক্রিয়ভাবে বন্ধ হয়ে যাবে",
+  "servicesImportConfirm": "আমদানি করুন",
+  "servicesImportClose": "সম্পন্ন",
+  "servicesImportRowCount": "{n}টি সারি আমদানির জন্য প্রস্তুত",
+  "servicesImportDone": "{created}টি যোগ, {updated}টি আপডেট, {reactivated}টি পুনরায় সক্রিয়।",
+  "visitPackagesSectionTitle": "বৈশিষ্ট্যযুক্ত প্যাকেজ",
+  "visitNameFieldHint": "গ্রাহকের নাম (ঐচ্ছিক)",
+  "visitMeterFieldHint": "মিটার রিডিং",
+  "visitQuantityDialogTitle": "পরিমাণ",
+  "visitCouponCheckboxLabel": "অন্য দোকানকে ছাড়ের কুপন দিন",
+  "visitCouponPhoneHint": "দোকানের মালিকের ফোন",
+  "visitClearAllButton": "সব মুছুন",
+  "visitServicesSelectedCount": "{n}টি সেবা নির্বাচিত",
+  "visitTodayBookingsTitle": "আজকের অ্যাপয়েন্টমেন্ট",
+  "visitBookingAttendFailed": "উপস্থিতি নিশ্চিত করা যায়নি, আবার চেষ্টা করুন",
+  "branchSwitcherChooseBranch": "শাখা নির্বাচন করুন",
+  "branchSwitcherTitle": "বর্তমান শাখা",
+  "branchSwitcherHint": "এর পরে আপনি যা কিছু খুলবেন তা এই শাখার অন্তর্গত",
+  "proceduresPrintFailed": "নথি তৈরি করা যায়নি",
+  "@proceduresPrintFailed": {
+    "description": "proceduresPrintFailed"
+  },
+  "proceduresTitle": "পদ্ধতিসমূহ",
+  "@proceduresTitle": {
+    "description": "proceduresTitle"
+  },
+  "proceduresSubtitle": "প্রতিটি সেবার জন্য পদ্ধতি তালিকা সেট করুন, অথবা পুরো শেয়ার্ড লাইব্রেরি পরিচালনা করুন। প্রিন্টের জন্য নির্বাচন করতে দীর্ঘক্ষণ চাপুন",
+  "@proceduresSubtitle": {
+    "description": "proceduresSubtitle"
+  },
+  "proceduresLibraryLink": "পদ্ধতি লাইব্রেরি",
+  "@proceduresLibraryLink": {
+    "description": "proceduresLibraryLink"
+  },
+  "proceduresPrint": "প্রিন্ট",
+  "@proceduresPrint": {
+    "description": "proceduresPrint"
+  },
+  "proceduresEmptyTitle": "এখনো কোনো সক্রিয় সেবা নেই",
+  "@proceduresEmptyTitle": {
+    "description": "proceduresEmptyTitle"
+  },
+  "servicesStepSeverityNormal": "সাধারণ",
+  "@servicesStepSeverityNormal": {
+    "description": "servicesStepSeverityNormal"
+  },
+  "servicesStepSeverityCritical": "জরুরি",
+  "@servicesStepSeverityCritical": {
+    "description": "servicesStepSeverityCritical"
+  },
+  "proceduresSaveFailed": "সংরক্ষণ করা যায়নি",
+  "@proceduresSaveFailed": {
+    "description": "proceduresSaveFailed"
+  },
+  "proceduresDrawerSubtitle": "ক্রম পরিবর্তনে টেনে আনুন, অথবা লাইব্রেরি থেকে একটি ধাপ যোগ করুন",
+  "@proceduresDrawerSubtitle": {
+    "description": "proceduresDrawerSubtitle"
+  },
+  "proceduresDrawerEmpty": "এই সেবার জন্য এখনো কোনো ধাপ নেই",
+  "@proceduresDrawerEmpty": {
+    "description": "proceduresDrawerEmpty"
+  },
+  "proceduresDrawerAddButton": "লাইব্রেরি থেকে যোগ করুন",
+  "@proceduresDrawerAddButton": {
+    "description": "proceduresDrawerAddButton"
+  },
+  "proceduresPickTitle": "একটি ধাপ বেছে নিন",
+  "@proceduresPickTitle": {
+    "description": "proceduresPickTitle"
+  },
+  "proceduresPickClose": "বন্ধ করুন",
+  "@proceduresPickClose": {
+    "description": "proceduresPickClose"
+  },
+  "proceduresPickApply": "যোগ করুন",
+  "@proceduresPickApply": {
+    "description": "proceduresPickApply"
+  },
+  "proceduresPickSearch": "ধাপ খুঁজুন",
+  "@proceduresPickSearch": {
+    "description": "proceduresPickSearch"
+  },
+  "proceduresPickEmpty": "কোনো ফলাফল নেই",
+  "@proceduresPickEmpty": {
+    "description": "proceduresPickEmpty"
+  },
+  "proceduresPickCreatePlaceholder": "নতুন ধাপ...",
+  "@proceduresPickCreatePlaceholder": {
+    "description": "proceduresPickCreatePlaceholder"
+  },
+  "proceduresLibrarySaveFailed": "সংরক্ষণ করা যায়নি",
+  "@proceduresLibrarySaveFailed": {
+    "description": "proceduresLibrarySaveFailed"
+  },
+  "proceduresLibraryTitle": "পদ্ধতি লাইব্রেরি",
+  "@proceduresLibraryTitle": {
+    "description": "proceduresLibraryTitle"
+  },
+  "proceduresLibrarySubtitle": "এখানের প্রতিটি ধাপ এটি ব্যবহারকারী সব সেবার মধ্যে শেয়ার করা - সম্পাদনা করলে সব জায়গায় পরিবর্তন হয়",
+  "@proceduresLibrarySubtitle": {
+    "description": "proceduresLibrarySubtitle"
+  },
+  "proceduresLibraryNewPlaceholder": "নতুন ধাপের লেখা",
+  "@proceduresLibraryNewPlaceholder": {
+    "description": "proceduresLibraryNewPlaceholder"
+  },
+  "proceduresLibraryAdd": "যোগ করুন",
+  "@proceduresLibraryAdd": {
+    "description": "proceduresLibraryAdd"
+  },
+  "proceduresLibraryShowRetired": "বাতিলকৃত দেখান",
+  "@proceduresLibraryShowRetired": {
+    "description": "proceduresLibraryShowRetired"
+  },
+  "proceduresLibraryEmpty": "এখনো কোনো ধাপ নেই",
+  "@proceduresLibraryEmpty": {
+    "description": "proceduresLibraryEmpty"
+  },
+  "proceduresLibraryRetired": "বাতিল",
+  "@proceduresLibraryRetired": {
+    "description": "proceduresLibraryRetired"
+  },
+  "proceduresLibraryRetire": "বাতিল করুন",
+  "@proceduresLibraryRetire": {
+    "description": "proceduresLibraryRetire"
+  },
+  "proceduresLibraryReactivate": "পুনরায় সক্রিয় করুন",
+  "@proceduresLibraryReactivate": {
+    "description": "proceduresLibraryReactivate"
+  },
+  "proceduresSeverityHint": "জরুরি ধাপ কর্মীর জন্য ভিন্ন রঙে হাইলাইট করা হয় এবং সেবা সম্পাদনের সময় এড়ানো যায় না",
+  "@proceduresSeverityHint": {
+    "description": "proceduresSeverityHint"
+  },
+  "proceduresSelectedCount": "{n}টি নির্বাচিত",
+  "@proceduresSelectedCount": {
+    "description": "proceduresSelectedCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "proceduresStepCount": "{n}টি ধাপ",
+  "@proceduresStepCount": {
+    "description": "proceduresStepCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "proceduresUsedIn": "{n}টি সেবায় ব্যবহৃত",
+  "@proceduresUsedIn": {
+    "description": "proceduresUsedIn",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "referralProposeButton": "অংশীদারিত্ব প্রস্তাব করুন",
+  "@referralProposeButton": {
+    "description": "referralProposeButton"
+  },
+  "referralTitle": "কৌশলগত অংশীদারিত্ব",
+  "@referralTitle": {
+    "description": "referralTitle"
+  },
+  "referralSubtitle": "পারস্পরিক সম্মতিতে আপনার এবং অন্য দোকানের মধ্যে প্রকৃত গ্রাহক স্থানান্তর করুন",
+  "@referralSubtitle": {
+    "description": "referralSubtitle"
+  },
+  "referralRoleAll": "সব",
+  "@referralRoleAll": {
+    "description": "referralRoleAll"
+  },
+  "referralRoleReferrer": "রেফারার হিসেবে",
+  "@referralRoleReferrer": {
+    "description": "referralRoleReferrer"
+  },
+  "referralRoleBeneficiary": "সুবিধাভোগী হিসেবে",
+  "@referralRoleBeneficiary": {
+    "description": "referralRoleBeneficiary"
+  },
+  "referralLoadFailed": "অংশীদারিত্ব লোড করা যায়নি",
+  "@referralLoadFailed": {
+    "description": "referralLoadFailed"
+  },
+  "referralEmptyTitle": "এখনো কোনো অংশীদারিত্ব নেই",
+  "@referralEmptyTitle": {
+    "description": "referralEmptyTitle"
+  },
+  "referralKpiAsReferrer": "রেফারার হিসেবে",
+  "@referralKpiAsReferrer": {
+    "description": "referralKpiAsReferrer"
+  },
+  "referralKpiAsBeneficiary": "সুবিধাভোগী হিসেবে",
+  "@referralKpiAsBeneficiary": {
+    "description": "referralKpiAsBeneficiary"
+  },
+  "referralKpiSent": "রেফার করা হয়েছে",
+  "@referralKpiSent": {
+    "description": "referralKpiSent"
+  },
+  "referralKpiRedeemed": "রিডিম করা হয়েছে",
+  "@referralKpiRedeemed": {
+    "description": "referralKpiRedeemed"
+  },
+  "referralKpiRate": "রিডেম্পশন হার",
+  "@referralKpiRate": {
+    "description": "referralKpiRate"
+  },
+  "referralConfirm": "নিশ্চিত করুন",
+  "@referralConfirm": {
+    "description": "referralConfirm"
+  },
+  "referralGrantDiscountBlanket": "পুরো ভিজিটে ছাড়",
+  "@referralGrantDiscountBlanket": {
+    "description": "referralGrantDiscountBlanket"
+  },
+  "referralStatusProposed": "প্রস্তাবিত",
+  "@referralStatusProposed": {
+    "description": "referralStatusProposed"
+  },
+  "referralStatusActive": "সক্রিয়",
+  "@referralStatusActive": {
+    "description": "referralStatusActive"
+  },
+  "referralStatusPaused": "স্থগিত",
+  "@referralStatusPaused": {
+    "description": "referralStatusPaused"
+  },
+  "referralStatusCancelRequested": "বাতিলের অনুরোধ করা হয়েছে",
+  "@referralStatusCancelRequested": {
+    "description": "referralStatusCancelRequested"
+  },
+  "referralStatusEnded": "সমাপ্ত",
+  "@referralStatusEnded": {
+    "description": "referralStatusEnded"
+  },
+  "referralStatusRejected": "প্রত্যাখ্যাত",
+  "@referralStatusRejected": {
+    "description": "referralStatusRejected"
+  },
+  "referralStatusExpiredUnanswered": "উত্তরহীন মেয়াদোত্তীর্ণ",
+  "@referralStatusExpiredUnanswered": {
+    "description": "referralStatusExpiredUnanswered"
+  },
+  "referralEventProposed": "অংশীদারিত্ব প্রস্তাবিত",
+  "@referralEventProposed": {
+    "description": "referralEventProposed"
+  },
+  "referralEventAccepted": "অংশীদারিত্ব গৃহীত",
+  "@referralEventAccepted": {
+    "description": "referralEventAccepted"
+  },
+  "referralEventRejected": "অংশীদারিত্ব প্রত্যাখ্যাত",
+  "@referralEventRejected": {
+    "description": "referralEventRejected"
+  },
+  "referralEventActivated": "অংশীদারিত্ব সক্রিয় হয়েছে",
+  "@referralEventActivated": {
+    "description": "referralEventActivated"
+  },
+  "referralEventCancelRequested": "বাতিলের অনুরোধ",
+  "@referralEventCancelRequested": {
+    "description": "referralEventCancelRequested"
+  },
+  "referralEventCancelConfirmed": "বাতিল নিশ্চিত হয়েছে",
+  "@referralEventCancelConfirmed": {
+    "description": "referralEventCancelConfirmed"
+  },
+  "referralEventExpiredUnanswered": "উত্তর ছাড়া মেয়াদোত্তীর্ণ",
+  "@referralEventExpiredUnanswered": {
+    "description": "referralEventExpiredUnanswered"
+  },
+  "referralEventPaused": "স্থগিত",
+  "@referralEventPaused": {
+    "description": "referralEventPaused"
+  },
+  "referralEventResumed": "পুনরায় শুরু",
+  "@referralEventResumed": {
+    "description": "referralEventResumed"
+  },
+  "referralEventEndedTerm": "মেয়াদ শেষ",
+  "@referralEventEndedTerm": {
+    "description": "referralEventEndedTerm"
+  },
+  "referralEventGrantCreated": "নতুন মঞ্জুরি",
+  "@referralEventGrantCreated": {
+    "description": "referralEventGrantCreated"
+  },
+  "referralEventGrantRedeemed": "মঞ্জুরি রিডিম হয়েছে",
+  "@referralEventGrantRedeemed": {
+    "description": "referralEventGrantRedeemed"
+  },
+  "referralActivityActive": "সক্রিয়",
+  "@referralActivityActive": {
+    "description": "referralActivityActive"
+  },
+  "referralActivityPaused": "স্থগিত",
+  "@referralActivityPaused": {
+    "description": "referralActivityPaused"
+  },
+  "referralActivityPending": "উত্তরের অপেক্ষায়",
+  "@referralActivityPending": {
+    "description": "referralActivityPending"
+  },
+  "referralActivityInactive": "নিষ্ক্রিয়",
+  "@referralActivityInactive": {
+    "description": "referralActivityInactive"
+  },
+  "referralScorecardTitle": "কর্মক্ষমতা",
+  "@referralScorecardTitle": {
+    "description": "referralScorecardTitle"
+  },
+  "referralScorecardFailed": "কর্মক্ষমতা লোড করা যায়নি",
+  "@referralScorecardFailed": {
+    "description": "referralScorecardFailed"
+  },
+  "referralActivityTitle": "সাম্প্রতিক কার্যকলাপ",
+  "@referralActivityTitle": {
+    "description": "referralActivityTitle"
+  },
+  "referralActivityEmpty": "এখনো কোনো কার্যকলাপ নেই",
+  "@referralActivityEmpty": {
+    "description": "referralActivityEmpty"
+  },
+  "referralAgreementsTitle": "চুক্তিসমূহ",
+  "@referralAgreementsTitle": {
+    "description": "referralAgreementsTitle"
+  },
+  "referralConfirmCancel": "এই অংশীদারিত্ব স্থায়ীভাবে শেষ করবেন?",
+  "@referralConfirmCancel": {
+    "description": "referralConfirmCancel"
+  },
+  "referralActionAccept": "গ্রহণ করুন",
+  "@referralActionAccept": {
+    "description": "referralActionAccept"
+  },
+  "referralActionReject": "প্রত্যাখ্যান করুন",
+  "@referralActionReject": {
+    "description": "referralActionReject"
+  },
+  "referralActionWaitingThem": "অন্য পক্ষের অপেক্ষায়",
+  "@referralActionWaitingThem": {
+    "description": "referralActionWaitingThem"
+  },
+  "referralActionCancelRequest": "শেষ করার অনুরোধ",
+  "@referralActionCancelRequest": {
+    "description": "referralActionCancelRequest"
+  },
+  "referralActionCancelConfirm": "সমাপ্তি নিশ্চিত করুন",
+  "@referralActionCancelConfirm": {
+    "description": "referralActionCancelConfirm"
+  },
+  "referralProposeTitle": "নতুন অংশীদারিত্ব প্রস্তাব করুন",
+  "@referralProposeTitle": {
+    "description": "referralProposeTitle"
+  },
+  "referralProposePhoneLabel": "অন্য দোকানের ফোন",
+  "@referralProposePhoneLabel": {
+    "description": "referralProposePhoneLabel"
+  },
+  "referralProposeConditionLabel": "আপনার দোকানে যোগ্যতার শর্ত",
+  "@referralProposeConditionLabel": {
+    "description": "referralProposeConditionLabel"
+  },
+  "referralConditionMinTotal": "সর্বনিম্ন চালান",
+  "@referralConditionMinTotal": {
+    "description": "referralConditionMinTotal"
+  },
+  "referralConditionServiceId": "নির্দিষ্ট একটি সেবা",
+  "@referralConditionServiceId": {
+    "description": "referralConditionServiceId"
+  },
+  "referralProposeConditionValueRiyals": "পরিমাণ (রিয়াল)",
+  "@referralProposeConditionValueRiyals": {
+    "description": "referralProposeConditionValueRiyals"
+  },
+  "referralProposeConditionValueService": "সেবা",
+  "@referralProposeConditionValueService": {
+    "description": "referralProposeConditionValueService"
+  },
+  "referralProposeValidityLabel": "মেয়াদ (দিন)",
+  "@referralProposeValidityLabel": {
+    "description": "referralProposeValidityLabel"
+  },
+  "referralProposeDurationLabel": "সময়কাল (দিন)",
+  "@referralProposeDurationLabel": {
+    "description": "referralProposeDurationLabel"
+  },
+  "referralProposeCapLabel": "সীমা / ৩০ দিন",
+  "@referralProposeCapLabel": {
+    "description": "referralProposeCapLabel"
+  },
+  "referralProposeGrantTypeLabel": "মঞ্জুরির ধরন",
+  "@referralProposeGrantTypeLabel": {
+    "description": "referralProposeGrantTypeLabel"
+  },
+  "referralGrantTypeDiscount": "ছাড়",
+  "@referralGrantTypeDiscount": {
+    "description": "referralGrantTypeDiscount"
+  },
+  "referralGrantTypeGift": "উপহার",
+  "@referralGrantTypeGift": {
+    "description": "referralGrantTypeGift"
+  },
+  "referralScopeBlanket": "পুরো ভিজিট",
+  "@referralScopeBlanket": {
+    "description": "referralScopeBlanket"
+  },
+  "referralScopeItem": "নির্দিষ্ট একটি সেবা",
+  "@referralScopeItem": {
+    "description": "referralScopeItem"
+  },
+  "referralScopeGroup": "গ্রুপ/প্যাকেজ",
+  "@referralScopeGroup": {
+    "description": "referralScopeGroup"
+  },
+  "referralProposeServiceLabel": "সেবা",
+  "@referralProposeServiceLabel": {
+    "description": "referralProposeServiceLabel"
+  },
+  "referralProposeGroupLabel": "গ্রুপ",
+  "@referralProposeGroupLabel": {
+    "description": "referralProposeGroupLabel"
+  },
+  "referralProposeImmutableNote": "পাঠানোর পর মঞ্জুরির শর্ত স্থির — ভিন্ন অফারের জন্য নতুন চুক্তি প্রয়োজন",
+  "@referralProposeImmutableNote": {
+    "description": "referralProposeImmutableNote"
+  },
+  "referralProposeSubmitting": "পাঠানো হচ্ছে...",
+  "@referralProposeSubmitting": {
+    "description": "referralProposeSubmitting"
+  },
+  "referralProposeSubmit": "প্রস্তাব পাঠান",
+  "@referralProposeSubmit": {
+    "description": "referralProposeSubmit"
+  },
+  "referralGrantGift": "উপহার: {name}",
+  "@referralGrantGift": {
+    "description": "referralGrantGift",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "referralGrantDiscountItem": "ছাড়: {name}",
+  "@referralGrantDiscountItem": {
+    "description": "referralGrantDiscountItem",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "referralGrantDiscountGroup": "গ্রুপে ছাড়: {name}",
+  "@referralGrantDiscountGroup": {
+    "description": "referralGrantDiscountGroup",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "referralPartnerCount": "{n}টি চুক্তি",
+  "@referralPartnerCount": {
+    "description": "referralPartnerCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "referralProposeResultFail": "প্রস্তাব পাঠানো যায়নি",
+  "@referralProposeResultFail": {
+    "description": "referralProposeResultFail"
+  },
+  "referralRefusal402": "আপনার দোকান কৌশলগত অংশীদারিত্ব অ্যাপে সাবস্ক্রাইব করা নেই — প্রথমে অ্যাপ স্টোর থেকে সাবস্ক্রাইব করুন",
+  "@referralRefusal402": {
+    "description": "referralRefusal402"
+  },
+  "referralRefusal403": "এই কাজের জন্য আপনার পর্যাপ্ত অনুমতি নেই",
+  "@referralRefusal403": {
+    "description": "referralRefusal403"
+  },
+  "referralRefusal400": "প্রস্তাবের তথ্য সঠিক নয় — শর্ত পরীক্ষা করুন, অথবা আপনি নিজের দোকানের সাথে অংশীদারিত্ব প্রস্তাব করছেন না তা নিশ্চিত করুন",
+  "@referralRefusal400": {
+    "description": "referralRefusal400"
+  },
+  "referralRefusal404": "এই নম্বরে কোনো দোকান পাওয়া যায়নি, অথবা নির্বাচিত সেবা/গ্রুপ অন্য দোকানের ক্যাটালগে নেই",
+  "@referralRefusal404": {
+    "description": "referralRefusal404"
+  },
+  "referralRefusal409": "আপনি সক্রিয় অংশীদারিত্বের সীমা (৩) অতিক্রম করেছেন, অথবা অংশীদারিত্বের অবস্থা পরিবর্তিত হয়েছে",
+  "@referralRefusal409": {
+    "description": "referralRefusal409"
+  },
+  "referralRefusal503": "বিলিং সাময়িকভাবে অনুপলব্ধ, পরে আবার চেষ্টা করুন",
+  "@referralRefusal503": {
+    "description": "referralRefusal503"
+  },
+  "appStoreTitle": "অ্যাপ স্টোর",
+  "appStoreSubtitle": "সত্যিকারের অ্যাপ দিয়ে আপনার দোকান বাড়ান, একটি একটি করে",
+  "appStoreTabMine": "আমার অ্যাপস",
+  "appStoreTabAll": "অ্যাপ স্টোর",
+  "appStoreDetails": "বিস্তারিত",
+  "appStorePerMonth": "মাসিক",
+  "appStorePerMonthShort": "/মাস",
+  "appStoreActive": "সক্রিয়",
+  "appStoreTrialing": "ট্রায়াল",
+  "appStoreSubscribe": "এখনই সাবস্ক্রাইব করুন",
+  "appStoreCancelRenewal": "নবায়ন বন্ধ করুন",
+  "appStoreUndoCancel": "বাতিল পূর্বাবস্থায় ফেরান",
+  "appStoreConfirmCancel": "এই অ্যাপের নবায়ন বন্ধ করবেন? পরিশোধিত মেয়াদ শেষ না হওয়া পর্যন্ত এটি সক্রিয় থাকবে",
+  "appStoreCartCount": "কার্টে {n}",
+  "appStoreCheckout": "চেকআউট",
+  "appStoreCheckingOut": "চেকআউট হচ্ছে...",
+  "appStoreRefusal402": "আপনার অ্যাকাউন্টে এখন পেমেন্ট সক্রিয় নেই — সক্রিয় করতে যোগাযোগ করুন",
+  "appStoreRefusal403": "এই ক্রয় সম্পন্ন করার অনুমতি আপনার নেই",
+  "appStoreRefusal404": "অনুরোধকৃত প্ল্যান পাওয়া যায়নি — রিফ্রেশ করে আবার চেষ্টা করুন",
+  "appStoreRefusal409": "এই অ্যাপ ইতিমধ্যে মালিকানাধীন, অথবা এর অবস্থা ক্রয়ের মাঝে পরিবর্তিত হয়েছে",
+  "appStoreRefusalGeneric": "ক্রয় সম্পন্ন করা যায়নি, আবার চেষ্টা করুন",
+  "appStoreCapacityTitle": "ক্ষমতা",
+  "appStoreCapacityConfirmRemove": "\"{name}\" এর শেষ ইউনিট সরাতে চান? এটি সম্পূর্ণভাবে এর নবায়ন বন্ধ করবে"
 }

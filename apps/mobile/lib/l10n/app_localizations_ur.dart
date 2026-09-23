@@ -666,6 +666,9 @@ class SUr extends S {
   String get branchesRoleSupervisor => 'شفٹ سپروائزر';
 
   @override
+  String get branchesRoleMarketer => 'مارکیٹنگ انچارج';
+
+  @override
   String get branchesRoleManager => 'مینیجر';
 
   @override
@@ -674,6 +677,97 @@ class SUr extends S {
 
   @override
   String get branchesHireFailed => 'ملازم شامل نہیں ہو سکا، دوبارہ کوشش کریں۔';
+
+  @override
+  String get branchesVisibleAllHint => 'تمام شاخیں دیکھتا ہے';
+
+  @override
+  String branchesVisibleSomeHint(int count) {
+    return '$count شاخیں دیکھتا ہے';
+  }
+
+  @override
+  String get branchesEditMember => 'ملازم میں ترمیم';
+
+  @override
+  String get branchesMemberStopped => 'روکا گیا';
+
+  @override
+  String get branchesMemberStationLabel => 'کس شاخ میں کام کرتا ہے';
+
+  @override
+  String get branchesMemberVisibilityLabel => 'کون سی شاخیں دیکھ سکتا ہے';
+
+  @override
+  String get branchesVisibilityOwnOnly => 'صرف اپنی شاخ';
+
+  @override
+  String get branchesVisibilitySome => 'مخصوص شاخیں';
+
+  @override
+  String get branchesVisibilityAll => 'تمام شاخیں';
+
+  @override
+  String get branchesWorkingHours => 'اوقات کار';
+
+  @override
+  String get branchesStopMember => 'ملازم روکیں';
+
+  @override
+  String get branchesStopMemberTitle => 'اس ملازم کو روکیں؟';
+
+  @override
+  String branchesStopMemberBody(String name) {
+    return '$name فوراً ایپ تک رسائی کھو دے گا۔ اس کی وزٹ کی تاریخ محفوظ رہے گی۔';
+  }
+
+  @override
+  String get branchesStopMemberConfirm => 'روکیں';
+
+  @override
+  String get branchesReactivateMember => 'دوبارہ فعال کریں';
+
+  @override
+  String get branchesRehireRequired =>
+      'یہ ملازم مکمل طور پر روکا گیا ہے — دوبارہ فعال کرنے کے لیے دوبارہ ملازمت دینا ضروری ہے، صرف آن کرنا کافی نہیں۔';
+
+  @override
+  String get branchesHoursSaved => 'اوقات کار محفوظ ہو گئے۔';
+
+  @override
+  String get branchesHoursExceedsShop =>
+      'یہ اوقات دکان کے اپنے اوقات سے زیادہ ہیں — درست کریں۔';
+
+  @override
+  String get branchesHoursHint =>
+      'اگر آپ کچھ نہیں بدلیں گے، تو وہ خودکار طور پر دکان کے اپنے اوقات کی پیروی کرے گا۔';
+
+  @override
+  String get branchesHoursClear => 'دکان کے ڈیفالٹ اوقات پر واپس کریں';
+
+  @override
+  String get branchesDayMonday => 'پیر';
+
+  @override
+  String get branchesDayTuesday => 'منگل';
+
+  @override
+  String get branchesDayWednesday => 'بدھ';
+
+  @override
+  String get branchesDayThursday => 'جمعرات';
+
+  @override
+  String get branchesDayFriday => 'جمعہ';
+
+  @override
+  String get branchesDaySaturday => 'ہفتہ';
+
+  @override
+  String get branchesDaySunday => 'اتوار';
+
+  @override
+  String get branchesDayClosed => 'بند';
 
   @override
   String get accountSecuritySectionTitle => 'سیکیورٹی';
@@ -816,6 +910,10 @@ class SUr extends S {
       'ادائیگی کا لنک نہیں بن سکا۔ دوبارہ کوشش کریں۔';
 
   @override
+  String get paymentPageLoadFailed =>
+      'ادائیگی کا صفحہ لوڈ نہیں ہو سکا۔ اپنا کنکشن چیک کریں اور دوبارہ کوشش کریں۔';
+
+  @override
   String get billingCancelConfirmTitle => 'تجدید روکیں؟';
 
   @override
@@ -897,4 +995,1864 @@ class SUr extends S {
   @override
   String get writeVehicleTrackingFailed =>
       'گاڑیوں کی ٹریکنگ کی ترتیب تبدیل نہیں ہو سکی، دوبارہ کوشش کریں۔';
+
+  @override
+  String get mobileRequestsTitle => 'موبائل درخواستیں';
+
+  @override
+  String get mobileRequestsSubtitle =>
+      'ایسی درخواستیں جو خدمت کو گاہک تک پہنچاتی ہیں، وصولی سے تکمیل تک۔';
+
+  @override
+  String get mobileRequestsKpiPending => 'فیصلے کا منتظر';
+
+  @override
+  String get mobileRequestsKpiNeedsDecision => 'فیصلہ درکار';
+
+  @override
+  String get mobileRequestsKpiCompletedMonth => 'اس ماہ مکمل ہوئیں';
+
+  @override
+  String get mobileRequestsBannerGo => 'دیکھیں';
+
+  @override
+  String get mobileRequestsFilterAll => 'تمام';
+
+  @override
+  String get mobileRequestsFilterPending => 'زیر التوا';
+
+  @override
+  String get mobileRequestsFilterAccepted => 'قبول شدہ';
+
+  @override
+  String get mobileRequestsFilterNeedsDecision => 'فیصلہ درکار';
+
+  @override
+  String get mobileRequestsFilterCompleted => 'مکمل';
+
+  @override
+  String get mobileRequestsFilterClosed => 'بند';
+
+  @override
+  String get mobileRequestsSearchHint => 'نام یا فون سے تلاش کریں';
+
+  @override
+  String get mobileRequestsLoadFailedTitle => 'درخواستیں لوڈ نہیں ہو سکیں';
+
+  @override
+  String get mobileRequestsLoadFailedBody =>
+      'اپنا کنکشن چیک کریں اور دوبارہ کوشش کریں۔';
+
+  @override
+  String get mobileRequestsRetry => 'دوبارہ کوشش کریں';
+
+  @override
+  String get mobileRequestsEmptyTitle => 'ابھی تک کوئی درخواست نہیں';
+
+  @override
+  String get mobileRequestsEmptyBody =>
+      'آپ کے گاہکوں کی موبائل سروس کی درخواستیں یہاں ظاہر ہوں گی۔';
+
+  @override
+  String get mobileRequestsStatusPending => 'زیر التوا';
+
+  @override
+  String get mobileRequestsStatusAccepted => 'قبول شدہ';
+
+  @override
+  String get mobileRequestsStatusNeedsDecision => 'فیصلہ درکار';
+
+  @override
+  String get mobileRequestsStatusCompleted => 'مکمل';
+
+  @override
+  String get mobileRequestsStatusNoShow => 'حاضر نہیں ہوا';
+
+  @override
+  String get mobileRequestsStatusRejected => 'مسترد';
+
+  @override
+  String get mobileRequestsUnnamed => 'بلا نام';
+
+  @override
+  String get mobileRequestsOpenMap => 'مقام';
+
+  @override
+  String get mobileRequestsPhoneCopied => 'فون نمبر کاپی ہو گیا';
+
+  @override
+  String get mobileRequestsRiskyCustomer => 'زیادہ رسک والا گاہک';
+
+  @override
+  String mobileRequestsRejectReasonLine(Object reason) {
+    return 'مسترد کرنے کی وجہ: $reason';
+  }
+
+  @override
+  String get mobileRequestsActionAccept => 'قبول کریں';
+
+  @override
+  String get mobileRequestsActionReject => 'مسترد کریں';
+
+  @override
+  String get mobileRequestsActionComplete => 'مکمل';
+
+  @override
+  String get mobileRequestsActionNoShow => 'حاضر نہیں ہوا';
+
+  @override
+  String get mobileRequestsAssignUnassigned => 'غیر تفویض شدہ';
+
+  @override
+  String get mobileRequestsActionFailed =>
+      'کارروائی مکمل نہیں ہو سکی، دوبارہ کوشش کریں۔';
+
+  @override
+  String get mobileRequestsRejectTitle => 'مسترد کرنے کی وجہ';
+
+  @override
+  String get mobileRequestsRejectHint => 'اختیاری';
+
+  @override
+  String get mobileRequestsRejectCancel => 'منسوخ کریں';
+
+  @override
+  String get mobileRequestsRejectConfirm => 'درخواست مسترد کریں';
+
+  @override
+  String get mobileRequestsAddOpen => 'درخواست شامل کریں';
+
+  @override
+  String get mobileRequestsAddTitle => 'موبائل سروس کی درخواست شامل کریں';
+
+  @override
+  String get mobileRequestsAddPhoneLabel => 'گاہک کا فون';
+
+  @override
+  String get mobileRequestsAddNameLabel => 'گاہک کا نام (اختیاری)';
+
+  @override
+  String get mobileRequestsAddServicesLabel => 'خدمات';
+
+  @override
+  String get mobileRequestsAddServicesEmpty => 'ابھی تک کوئی خدمت دستیاب نہیں۔';
+
+  @override
+  String get mobileRequestsAddDayLabel => 'دن';
+
+  @override
+  String get mobileRequestsAddTimeLabel => 'وقت';
+
+  @override
+  String get mobileRequestsAddMapsLinkLabel => 'گوگل میپس لوکیشن لنک';
+
+  @override
+  String get mobileRequestsAddMapsLinkHint =>
+      'مکمل یا مختصر گوگل میپس لنک قبول کرتا ہے۔';
+
+  @override
+  String get mobileRequestsAddMapsLinkShort =>
+      'یہ ایک مختصر لنک ہے — مکمل گوگل میپس لنک پیسٹ کریں۔';
+
+  @override
+  String get mobileRequestsAddMapsLinkInvalid =>
+      'اس لنک سے مقام نہیں پڑھا جا سکا۔';
+
+  @override
+  String get mobileRequestsAddAssignLabel => 'تفویض کریں (اختیاری)';
+
+  @override
+  String get mobileRequestsAddCancel => 'منسوخ کریں';
+
+  @override
+  String get mobileRequestsAddSubmit => 'درخواست شامل کریں';
+
+  @override
+  String get mobileRequestsAddSubmitting => 'شامل ہو رہا ہے...';
+
+  @override
+  String get mobileRequestsAddError =>
+      'درخواست شامل نہیں ہو سکی، دوبارہ کوشش کریں۔';
+
+  @override
+  String mobileRequestsBannerText(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count درخواستیں ابھی آپ کے فیصلے کی منتظر ہیں',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get mobileRequestsAddMapsLinkResolving =>
+      'لنک سے مقام پڑھا جا رہا ہے...';
+
+  @override
+  String get customersTitle => 'میرے گاہک';
+
+  @override
+  String get customersAddOpen => 'گاہک شامل کریں';
+
+  @override
+  String get customersSearchHint => 'نام یا فون سے تلاش کریں';
+
+  @override
+  String get customersTabAll => 'تمام';
+
+  @override
+  String get customersTabOverdue => 'تاخیر زدہ';
+
+  @override
+  String get customersSearchFailedTitle => 'ابھی تلاش دستیاب نہیں';
+
+  @override
+  String get customersSearchFailedBody => 'تھوڑی دیر بعد دوبارہ کوشش کریں۔';
+
+  @override
+  String get customersSearchEmpty => 'کوئی نتیجہ نہیں';
+
+  @override
+  String get customersLoadFailedTitle => 'لوڈ نہیں ہو سکا';
+
+  @override
+  String get customersEmptyTitle => 'ابھی تک کوئی گاہک نہیں';
+
+  @override
+  String get customersOverdueEmpty => 'فی الحال کوئی تاخیر زدہ نہیں';
+
+  @override
+  String get customersUnnamed => 'بلا نام';
+
+  @override
+  String customersVisitCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count وزٹس',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get customersOverdueBadge => 'تاخیر';
+
+  @override
+  String customersStatEveryDays(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: 'ہر $days دن',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String customersOverdueBanner(int every, int since) {
+    return 'اپنی معمول کی وزٹ میں تاخیر — عام طور پر ہر $every دن، آخری وزٹ کو $since دن ہو چکے ہیں';
+  }
+
+  @override
+  String customersVisitMeter(int n) {
+    return 'میٹر ریڈنگ: $n';
+  }
+
+  @override
+  String get customersOfferExpiredBadge => 'ختم ہو گیا';
+
+  @override
+  String get customersDeniedAllTitle =>
+      'آپ کو گاہکوں کی فہرست دیکھنے کی اجازت نہیں';
+
+  @override
+  String get customersDeniedOverdueTitle =>
+      'آپ کو تاخیر والوں کو دیکھنے کی اجازت نہیں';
+
+  @override
+  String get customersDeniedDesc => 'دکان کے مالک سے یہ اجازت طلب کریں۔';
+
+  @override
+  String get customersAddTitle => 'نیا گاہک شامل کریں';
+
+  @override
+  String get customersAddPhoneLabel => 'گاہک کا فون';
+
+  @override
+  String get customersAddNameLabel => 'گاہک کا نام';
+
+  @override
+  String get customersAddPhoneInvalid => 'فون نمبر درست نہیں۔';
+
+  @override
+  String get customersAddFailed => 'گاہک شامل نہیں ہو سکا، دوبارہ کوشش کریں۔';
+
+  @override
+  String get customersAddSubmitting => 'شامل ہو رہا ہے...';
+
+  @override
+  String get customersAddSubmit => 'شامل کریں';
+
+  @override
+  String get customersActionFailed =>
+      'کارروائی مکمل نہیں ہو سکی، دوبارہ کوشش کریں۔';
+
+  @override
+  String get customersRepeatedIssuesTitle => 'بار بار شکایات';
+
+  @override
+  String get customersVehiclesTitle => 'گاڑیاں';
+
+  @override
+  String get customersLoyaltyTitle => 'وفاداری';
+
+  @override
+  String get customersLoyaltyLoading => 'لوڈ ہو رہا ہے...';
+
+  @override
+  String customersLoyaltyPoints(int count) {
+    return '$count پوائنٹس';
+  }
+
+  @override
+  String get customersLoyaltyAdjust => 'ترمیم کریں';
+
+  @override
+  String get customersOffersTitle => 'جاری آفرز';
+
+  @override
+  String customersOfferExpires(String date) {
+    return '$date کو ختم';
+  }
+
+  @override
+  String get customersVisitsTitle => 'وزٹ کی تاریخ';
+
+  @override
+  String get customersVisitsEmpty => 'ابھی تک کوئی وزٹ نہیں';
+
+  @override
+  String get customersVisitNoServices => 'کوئی خدمت درج نہیں';
+
+  @override
+  String get customersRenameTitle => 'گاہک کا نام تبدیل کریں';
+
+  @override
+  String get customersRenameSubmit => 'محفوظ کریں';
+
+  @override
+  String get customersLoyaltyAdjustTitle => 'وفاداری پوائنٹس ترمیم کریں';
+
+  @override
+  String get customersLoyaltyAdjustNoteLabel => 'ترمیم کی وجہ';
+
+  @override
+  String get customersLoyaltyAdjustNoteRequired =>
+      'ایک حقیقی وجہ لکھیں (کم از کم 3 حروف)، اور غیر صفر تعداد منتخب کریں۔';
+
+  @override
+  String get customersLoyaltyAdjustSubmit => 'ترمیم محفوظ کریں';
+
+  @override
+  String get customersEraseButton => 'اس گاہک کا ڈیٹا حذف کریں';
+
+  @override
+  String get customersEraseTitle => 'گاہک کا ڈیٹا حذف کریں';
+
+  @override
+  String get customersEraseWarning =>
+      'یہ پلیٹ فارم سے گاہک کا تمام ڈیٹا مستقل طور پر حذف کر دیتا ہے — اسے واپس نہیں لیا جا سکتا۔';
+
+  @override
+  String customersEraseTypeNameLabel(String name) {
+    return 'تصدیق کے لیے، گاہک کا نام لکھیں: $name';
+  }
+
+  @override
+  String get customersEraseConfirm => 'مستقل حذف کریں';
+
+  @override
+  String get customersBookingsTitle => 'بکنگز';
+
+  @override
+  String customersAttendanceRate(int rate) {
+    return '$rate٪ حاضری';
+  }
+
+  @override
+  String get customersBookingsNoneUpcoming => 'کوئی آئندہ بکنگ نہیں';
+
+  @override
+  String get customersCyclesTitle => 'یاد دہانی کے چکر';
+
+  @override
+  String customersCyclesEveryDays(int days) {
+    return 'ہر $days دن';
+  }
+
+  @override
+  String get customersCyclesEditHint =>
+      'وقفہ مقرر کریں، اور اس گاہک کے ساتھ اس خدمت کے لیے خودکار سیکھنا رک جائے گا۔';
+
+  @override
+  String get customersCyclesSave => 'محفوظ کریں';
+
+  @override
+  String get customersLogTitle => 'ہم نے کیا کہا';
+
+  @override
+  String get customersLogEmpty => 'ہم نے ابھی تک کچھ نہیں بھیجا';
+
+  @override
+  String get customersCyclesUnknownService => 'نامعلوم خدمت';
+
+  @override
+  String customersVisitGapDays(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days دن بعد',
+      zero: 'اسی دن',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String customersCountLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count گاہک',
+      zero: 'ابھی تک کوئی گاہک نہیں',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ratingTitle => 'ریٹنگ';
+
+  @override
+  String get pointsTitle => 'وفاداری پوائنٹس';
+
+  @override
+  String get pointsAddReward => 'نیا انعام';
+
+  @override
+  String get pointsEditReward => 'انعام میں ترمیم';
+
+  @override
+  String get pointsTabRewards => 'انعامات';
+
+  @override
+  String get pointsTabLeaderboard => 'سب سے زیادہ حاصل شدہ';
+
+  @override
+  String get pointsOutstandingHint =>
+      'پوائنٹس جو دکان ابھی تک گاہکوں کے ذمہ ہیں';
+
+  @override
+  String pointsRedemptionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count تبادلے',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pointsCustomersCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count گاہکوں نے تبادلہ کیا',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pointsExpiredWarning(int percent) {
+    return 'دیے گئے پوائنٹس کا %$percent بغیر تبادلے کے ختم ہو گیا — اپنے انعامات کی قیمتیں دیکھیں';
+  }
+
+  @override
+  String get pointsLoadFailedTitle => 'انعامات لوڈ نہیں ہو سکے';
+
+  @override
+  String get pointsRewardsEmpty =>
+      'ابھی کوئی انعام نہیں — اپنے گاہکوں کا پہلا انعام شامل کریں';
+
+  @override
+  String get pointsLeaderboardEmpty =>
+      'ابھی کوئی تبادلہ نہیں — گاہک کے تبادلہ کرتے ہی یہاں ظاہر ہوگا';
+
+  @override
+  String get pointsLeaderboardTitle => 'سب سے زیادہ حاصل شدہ';
+
+  @override
+  String get pointsLeaderboardHint =>
+      'آپ کے گاہکوں کے حاصل کردہ پانچ سب سے زیادہ انعامات';
+
+  @override
+  String pointsTimesRedeemed(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count بار',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pointsRewardRetired => 'بند';
+
+  @override
+  String pointsRewardServiceHint(String name) {
+    return 'سروس: $name';
+  }
+
+  @override
+  String pointsRewardDiscountHint(String amount) {
+    return '$amount ریال رعایت';
+  }
+
+  @override
+  String get pointsRewardItemHint => 'تحفہ، کیٹلاگ سے منسلک نہیں';
+
+  @override
+  String get pointsRewardNameLabel => 'انعام کا نام';
+
+  @override
+  String get pointsRewardTypeLabel => 'انعام کی قسم';
+
+  @override
+  String get pointsTypeService => 'آپ کے کیٹلاگ سے ایک سروس';
+
+  @override
+  String get pointsTypeItem => 'ایک تحفہ';
+
+  @override
+  String get pointsTypeDiscount => 'نقد رعایت';
+
+  @override
+  String get pointsRewardServiceLabel => 'کون سی سروس';
+
+  @override
+  String get pointsRewardDiscountLabel => 'رعایت کی رقم، ریال';
+
+  @override
+  String get pointsRewardCostLabel => 'پوائنٹس میں قیمت';
+
+  @override
+  String get pointsRewardActiveLabel => 'فعال — گاہک اسے حاصل کر سکتے ہیں';
+
+  @override
+  String get pointsRewardInvalid =>
+      'ایک نام اور صفر سے زیادہ حقیقی پوائنٹس قیمت درج کریں';
+
+  @override
+  String get pointsSaveFailed => 'محفوظ نہیں ہو سکا، دوبارہ کوشش کریں';
+
+  @override
+  String get pointsModeTitle => 'احتساب کا طریقہ';
+
+  @override
+  String get pointsModeHint =>
+      'خدمات کے حساب سے: ہر خدمت کے اپنے پوائنٹس۔ فاتورہ کی قیمت کے حساب سے: ہر ریال پر ایک پوائنٹ۔';
+
+  @override
+  String get pointsModeServices => 'خدمات کے حساب سے';
+
+  @override
+  String get pointsModeInvoice => 'فاتورہ کی قیمت کے حساب سے';
+
+  @override
+  String get pointsModeNeedsPricedServices =>
+      'فاتورے کی قیمت کے حساب سے احتساب کے لیے پہلے ہر سروس کی قیمت مقرر ہونی چاہیے — سب کی قیمت میری سروسز میں مقرر کریں، پھر اسے فعال کریں۔';
+
+  @override
+  String get pointsOpenEarnSettings => 'ہر سروس کے پوائنٹس کی سیٹنگز';
+
+  @override
+  String get ratingLeaderboardTitle => 'سب سے زیادہ ریٹیڈ';
+
+  @override
+  String get ratingCardNoName => 'بلا نام';
+
+  @override
+  String get ratingMetricVisits => 'سب سے زیادہ وزٹس';
+
+  @override
+  String get ratingMetricRatings => 'سب سے زیادہ ریٹنگز';
+
+  @override
+  String get ratingMetricAvg => 'سب سے زیادہ ریٹیڈ';
+
+  @override
+  String ratingStaffCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ملازمین',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ratingTableTitle => 'ہر ملازم';
+
+  @override
+  String ratingTableVisitsValue(int n) {
+    return '$n وزٹس';
+  }
+
+  @override
+  String ratingTableRatingsValue(int n) {
+    return '$n ریٹنگز';
+  }
+
+  @override
+  String ratingTableEngagementValue(int n) {
+    return 'شمولیت %$n';
+  }
+
+  @override
+  String ratingTableNoShowValue(int n) {
+    return 'غیر حاضر %$n';
+  }
+
+  @override
+  String get ratingPeriodWeek => 'ہفتہ';
+
+  @override
+  String get ratingPeriodMonth => 'مہینہ';
+
+  @override
+  String get ratingPeriodQuarter => 'سہ ماہی';
+
+  @override
+  String get ratingPeriodCustom => 'مخصوص';
+
+  @override
+  String ratingCustomSince(String date) {
+    return 'سے: $date';
+  }
+
+  @override
+  String ratingCustomUntil(String date) {
+    return 'تک: $date';
+  }
+
+  @override
+  String get ratingCustomRangeInvalid =>
+      'مدت درست نہیں — یقینی بنائیں شروع کی تاریخ اختتام سے پہلے ہو';
+
+  @override
+  String get ratingExportLocaleLabel => 'رپورٹ کی زبان';
+
+  @override
+  String get localeNameAr => 'العربية';
+
+  @override
+  String get localeNameEn => 'English';
+
+  @override
+  String get localeNameUr => 'اردو';
+
+  @override
+  String get localeNameHa => 'Hausa';
+
+  @override
+  String get localeNameFil => 'Filipino';
+
+  @override
+  String get localeNameBn => 'বাংলা';
+
+  @override
+  String get ratingTopIssuesTitle => 'سب سے زیادہ دہرائے جانے والے مسائل';
+
+  @override
+  String get ratingFilterUnhandled => 'زیر التوا';
+
+  @override
+  String get ratingFilterAll => 'تمام';
+
+  @override
+  String get ratingFilterHandled => 'حل شدہ';
+
+  @override
+  String get ratingStarsAll => 'تمام ستارے';
+
+  @override
+  String get ratingLoadFailedTitle => 'ریٹنگز لوڈ نہیں ہو سکیں';
+
+  @override
+  String get ratingEmptyTitle => 'ابھی تک کوئی ریٹنگ نہیں';
+
+  @override
+  String get ratingLoadMore => 'مزید دکھائیں';
+
+  @override
+  String get ratingHandledPlain => 'حل ہو گیا';
+
+  @override
+  String get ratingMarkHandled => 'حل شدہ نشان زد کریں';
+
+  @override
+  String get ratingMarkHandledHint =>
+      'یہ مستقل طور پر ریکارڈ ہوتا ہے — بعد میں واپس نہیں لیا جا سکتا۔';
+
+  @override
+  String get ratingHandledNoteLabel => 'نوٹ (اختیاری)';
+
+  @override
+  String get ratingMarkHandledConfirm => 'تصدیق کریں';
+
+  @override
+  String get ratingActionFailed =>
+      'کارروائی مکمل نہیں ہو سکی، دوبارہ کوشش کریں۔';
+
+  @override
+  String ratingWeightedAvgHint(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'پچھلے 30 دنوں میں $count ریٹنگز سے',
+      zero: 'پچھلے 30 دنوں میں کوئی ریٹنگ نہیں',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String ratingUnhandledCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ریٹنگز زیر التوا',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String ratingVisitsShort(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count وزٹس',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String ratingIssueFilterLabel(String label) {
+    return 'مسئلہ: $label';
+  }
+
+  @override
+  String ratingByOperator(String name) {
+    return '$name نے خدمت دی';
+  }
+
+  @override
+  String ratingHandledWithNote(String note) {
+    return 'حل ہوگیا: $note';
+  }
+
+  @override
+  String get ratingQuadrantTitle => 'کارکردگی کواڈرینٹ';
+
+  @override
+  String get ratingQuadrantHint =>
+      'معیار بمقابلہ مصروفیت کی شرح — تربیتی ریکارڈ کے لیے کسی بھی نقطے کو دبائیں۔';
+
+  @override
+  String get ratingQuadrantStars => 'ستارے';
+
+  @override
+  String get ratingQuadrantUnderused => 'کم استعمال شدہ';
+
+  @override
+  String get ratingQuadrantNeedsCoaching => 'تربیت درکار';
+
+  @override
+  String get ratingQuadrantAtRisk => 'توجہ درکار';
+
+  @override
+  String get ratingTrainingTitle => 'تربیتی ریکارڈ';
+
+  @override
+  String get ratingTrainingNoAccess => 'آپ کو یہ دیکھنے کی اجازت نہیں ہے۔';
+
+  @override
+  String get ratingTrainingClean =>
+      'صاف ریکارڈ — کوئی دہرائے جانے والے مسائل نہیں۔';
+
+  @override
+  String ratingEngagementPercent(int percent) {
+    return '$percent٪ مصروفیت';
+  }
+
+  @override
+  String get ratingTabOverview => 'جائزہ';
+
+  @override
+  String get ratingTabFeed => 'تمام ریٹنگز';
+
+  @override
+  String get ratingOverviewEmpty =>
+      'پچھلے 30 دنوں کے لیے ابھی تک کارکردگی کا کوئی ڈیٹا نہیں۔';
+
+  @override
+  String get ratingExportTitle => 'رپورٹ برآمد کریں';
+
+  @override
+  String get ratingExportHint =>
+      'ٹیم کی کارکردگی کی رپورٹ منتخب کردہ مدت کی، شیئر کرنے کے لیے تیار۔';
+
+  @override
+  String get ratingExportFailed => 'رپورٹ برآمد نہیں ہو سکی، دوبارہ کوشش کریں۔';
+
+  @override
+  String get customersPrivacyRequestsTitle => 'رازداری کی درخواستیں';
+
+  @override
+  String get customersPrivacyRequestErase => 'ڈیٹا حذف کرنے کی درخواست';
+
+  @override
+  String get customersPrivacyRequestCopy => 'ڈیٹا کاپی کی درخواست';
+
+  @override
+  String customersPrivacyRequestGeneric(String type) {
+    return 'درخواست: $type';
+  }
+
+  @override
+  String get customersPrivacyRequestClose => 'بند کریں';
+
+  @override
+  String get customersLoyaltyHistoryTitle => 'پوائنٹس کی تاریخ';
+
+  @override
+  String get customersLoyaltyHistoryNoReason => 'کوئی وجہ نہیں بتائی گئی';
+
+  @override
+  String get customersLoyaltyReasonRedeem => 'انعام کا استعمال';
+
+  @override
+  String get customersLoyaltyReasonAdjust => 'دستی ترمیم';
+
+  @override
+  String get customersLoyaltyReasonEarn => 'وزٹ سے پوائنٹس';
+
+  @override
+  String get customersLoyaltyReasonExpire => 'میعاد ختم';
+
+  @override
+  String get readCustomersFailed =>
+      'ابھی گاہک کا ڈیٹا حاصل نہیں ہو سکا، دوبارہ کوشش کریں۔';
+
+  @override
+  String readCustomersTotal(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'آپ کے پاس $count رجسٹرڈ گاہک ہیں۔',
+      zero: 'ابھی تک کوئی گاہک رجسٹرڈ نہیں۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readCustomersOverdueCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'آپ کے $count گاہک اپنے چکر میں تاخیر کا شکار ہیں۔',
+      zero: 'فی الحال کوئی گاہک اپنے چکر میں تاخیر کا شکار نہیں۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get readMobileRequestsFailed =>
+      'ابھی موبائل درخواستیں حاصل نہیں ہو سکیں، دوبارہ کوشش کریں۔';
+
+  @override
+  String readMobileRequestsPendingCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'آپ کی $count درخواستیں فیصلے کی منتظر ہیں۔',
+      zero: 'کوئی موبائل درخواست فیصلے کی منتظر نہیں۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readMobileRequestsNeedsDecisionCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count درخواستیں ابھی آپ کے فیصلے کی منتظر ہیں۔',
+      zero: 'فی الحال کوئی موبائل درخواست آپ کے فیصلے کی منتظر نہیں۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get readRatingFailed =>
+      'ابھی ریٹنگ کا ڈیٹا حاصل نہیں ہو سکا، دوبارہ کوشش کریں۔';
+
+  @override
+  String get readRatingNone => 'پچھلے 30 دنوں میں ابھی تک کوئی ریٹنگ نہیں۔';
+
+  @override
+  String readRatingAverage(String avg, int count) {
+    return 'پچھلے 30 دنوں میں آپ کی اوسط ریٹنگ 5 میں سے $avg ہے، $count ریٹنگز سے۔';
+  }
+
+  @override
+  String readRatingUnhandledCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'آپ کی $count ریٹنگز زیر التوا ہیں۔',
+      zero: 'کوئی ریٹنگ زیر التوا نہیں۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readRatingTopStaff(String name, String avg) {
+    return 'پچھلے 30 دنوں میں سب سے بہتر ریٹیڈ عملہ $name ہے، اوسط $avg از 5۔';
+  }
+
+  @override
+  String readMobileRequestsCompletedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'اس مہینے آپ نے $count مکمل کیں۔',
+      zero: 'اس مہینے ابھی تک کوئی موبائل درخواست مکمل نہیں ہوئی۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readMobileRequestsTodayCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'آج $count درخواستیں آئیں۔',
+      zero: 'آج تک کوئی موبائل درخواست نہیں آئی۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get readOperatorsFailed =>
+      'ابھی عملے کی تعداد حاصل نہیں ہو سکی، دوبارہ کوشش کریں۔';
+
+  @override
+  String readOperatorsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'آپ کی ٹیم میں $count افراد ہیں۔',
+      zero: 'ابھی تک کوئی عملہ رجسٹرڈ نہیں۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readBranchesDisconnectedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'آپ کی $count شاخوں کا واٹس ایپ کام نہیں کر رہا۔',
+      zero: 'آپ کی تمام فعال شاخوں کا واٹس ایپ مربوط اور کام کر رہا ہے۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get readCustomersRecentNone =>
+      'ابھی تک آپ کے پاس کوئی گاہک رجسٹرڈ نہیں۔';
+
+  @override
+  String readCustomersRecentName(String name) {
+    return 'آپ کا تازہ ترین گاہک $name ہے۔';
+  }
+
+  @override
+  String readRatingCriticalIssuesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'آپ کی $count زیر التوا ریٹنگز میں سنگین مسائل ہیں۔',
+      zero: 'کوئی زیر التوا ریٹنگ میں سنگین مسئلہ نہیں۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get readPerBranchModeOn =>
+      'جی ہاں، آپ کی دکان ملٹی برانچ موڈ میں چلتی ہے۔';
+
+  @override
+  String get readPerBranchModeOff =>
+      'نہیں، آپ کی دکان صرف ایک شاخ کے طور پر چلتی ہے۔';
+
+  @override
+  String get readBillingOverdueYes =>
+      'جی ہاں، آپ کا ایک زیر التوا انوائس ہے — خدمات بند ہونے سے بچنے کے لیے ادا کریں۔';
+
+  @override
+  String get readBillingOverdueNo =>
+      'نہیں، آپ کی بلنگ ٹھیک ہے، کوئی زیر التوا انوائس نہیں۔';
+
+  @override
+  String get readServicesFailed =>
+      'ابھی خدمات کی تعداد حاصل نہیں ہو سکی، دوبارہ کوشش کریں۔';
+
+  @override
+  String readServicesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'آپ کی فہرست میں $count خدمات ہیں۔',
+      zero: 'ابھی تک آپ کی فہرست میں کوئی خدمت نہیں۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readCustomersTodayCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'آج $count نئے گاہک آئے۔',
+      zero: 'آج تک کوئی نیا گاہک نہیں آیا۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readMobileRequestsRejectedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'اس مہینے آپ نے $count مسترد کیں۔',
+      zero: 'اس مہینے آپ نے کوئی موبائل درخواست مسترد نہیں کی۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readMobileRequestsNoShowCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'اس مہینے $count گاہک غیر حاضر ہوئے۔',
+      zero: 'اس مہینے کوئی گاہک غیر حاضر نہیں ہوا۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readRatingFiveStarCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'آپ کی $count پانچ ستارہ ریٹنگز ہیں۔',
+      zero: 'ابھی تک آپ کی کوئی 5 ستارہ ریٹنگ نہیں۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readBranchesActiveCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'آپ کی $count فعال شاخیں ہیں۔',
+      zero: 'فی الحال آپ کی کوئی فعال شاخ نہیں۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get servicesTitle => 'میری خدمات';
+
+  @override
+  String get servicesUnnamedGlyph => '?';
+
+  @override
+  String get servicesSearchHint => 'خدمت کے نام سے تلاش کریں';
+
+  @override
+  String get servicesTabActive => 'فعال';
+
+  @override
+  String get servicesTabStopped => 'بند';
+
+  @override
+  String get servicesLoadFailedTitle => 'خدمات لوڈ نہیں ہو سکیں';
+
+  @override
+  String get servicesEmptyActive => 'ابھی تک کوئی فعال خدمت نہیں';
+
+  @override
+  String get servicesEmptyStopped => 'کوئی بند خدمت نہیں';
+
+  @override
+  String get servicesAddOpen => 'خدمت شامل کریں';
+
+  @override
+  String get servicesNoPrice => 'کوئی قیمت مقرر نہیں';
+
+  @override
+  String get servicesNoDuration => 'غیر متعین';
+
+  @override
+  String get servicesNoCycle => 'کوئی دور نہیں';
+
+  @override
+  String get servicesStopTitle => 'خدمت بند کریں';
+
+  @override
+  String get servicesStopConfirm => 'بند کریں';
+
+  @override
+  String get servicesActionFailed =>
+      'کارروائی مکمل نہیں ہو سکی، دوبارہ کوشش کریں۔';
+
+  @override
+  String get servicesEditTitle => 'خدمت میں ترمیم کریں';
+
+  @override
+  String get servicesAddTitle => 'نئی خدمت شامل کریں';
+
+  @override
+  String get servicesNameLabel => 'خدمت کا نام';
+
+  @override
+  String get servicesPriceLabel => 'قیمت (اختیاری)';
+
+  @override
+  String get servicesDurationLabel => 'منٹوں میں دورانیہ (اختیاری)';
+
+  @override
+  String get servicesCycleLabel => 'یاد دہانی کا دور دنوں میں (اختیاری)';
+
+  @override
+  String get servicesDescriptionLabel => 'مختصر تفصیل (اختیاری)';
+
+  @override
+  String get servicesSaving => 'محفوظ ہو رہا ہے...';
+
+  @override
+  String get servicesSave => 'محفوظ کریں';
+
+  @override
+  String get servicesNameRequired => 'خدمت کا نام درکار ہے';
+
+  @override
+  String servicesActiveCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'آپ کی $count فعال خدمات ہیں۔',
+      zero: 'ابھی تک کوئی فعال خدمت نہیں۔',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String servicesDurationMinutes(int count) {
+    return '$count منٹ';
+  }
+
+  @override
+  String servicesCycleDays(int count) {
+    return 'ہر $count دن';
+  }
+
+  @override
+  String servicesStopWarning(String name) {
+    return 'یہ \"$name\" کو بند کر دے گا — نئی وزٹ میں نہیں دکھے گی، اور یاد دہانیاں رک جائیں گی۔ ڈیٹا کبھی حذف نہیں ہوتا۔';
+  }
+
+  @override
+  String get servicesPhotoPickFailed => 'تصویر منتخب نہیں ہو سکی';
+
+  @override
+  String get servicesPhotoUploadFailed =>
+      'محفوظ ہو گیا، لیکن تصویر اپ لوڈ نہیں ہو سکی';
+
+  @override
+  String get servicesPhotoLabel => 'خدمت کی تصویر (اختیاری)';
+
+  @override
+  String get servicesUploadPhoto => 'تصویر اپ لوڈ کریں';
+
+  @override
+  String get servicesChangePhoto => 'تصویر تبدیل کریں';
+
+  @override
+  String get servicesRemovePhoto => 'ہٹائیں';
+
+  @override
+  String get servicesAssignmentLabel => 'یہ خدمت کون فراہم کرتا ہے؟';
+
+  @override
+  String get servicesAssignmentAuto => 'کوئی بھی دستیاب اسٹاف';
+
+  @override
+  String get servicesAssignmentNamed => 'مخصوص اسٹاف';
+
+  @override
+  String get servicesChecklistLabel => 'طریقہ کار کے مراحل';
+
+  @override
+  String get servicesChecklistEmpty =>
+      'ابھی تک کوئی مرحلہ نہیں — پہلا شامل کریں';
+
+  @override
+  String get servicesStepAddTitle => 'مرحلہ شامل کریں';
+
+  @override
+  String get servicesGeneralSettingsTitle => 'عمومی سیٹنگ';
+
+  @override
+  String get servicesGeneralSettingsHint =>
+      'وہ قدر جس کی پیروی ہر وہ خدمت کرتی ہے جو ابھی تک مخصوص نہیں کی گئی';
+
+  @override
+  String get servicesFollowUpLabel => 'زیارت کے بعد فالو اپ کے دن';
+
+  @override
+  String get servicesPointsLabel => 'فی وزٹ پوائنٹس';
+
+  @override
+  String get servicesGroupThem => 'انہیں گروپ کریں';
+
+  @override
+  String get servicesGroupNameHint => 'گروپ کا نام';
+
+  @override
+  String get servicesAllGroups => 'سب';
+
+  @override
+  String get servicesStepEditTitle => 'مرحلہ میں ترمیم کریں';
+
+  @override
+  String get servicesStepCriticalLabel => 'نازک مرحلہ';
+
+  @override
+  String get servicesStepRetire => 'یہ مرحلہ بند کریں';
+
+  @override
+  String get servicesStepEditHint =>
+      'کسی بھی مرحلے کو دیر تک دبائیں تاکہ اسے تبدیل یا بند کریں';
+
+  @override
+  String get servicesAdvancedTitle => 'اعلیٰ ترتیبات';
+
+  @override
+  String get servicesAdvancedHint =>
+      'اس خدمت کو عمومی سیٹنگ سے مختلف بنائیں — دور، پوائنٹس، اور گروپنگ';
+
+  @override
+  String get servicesGroupLabel => 'گروپ';
+
+  @override
+  String get servicesNoGroup => 'کوئی گروپ نہیں';
+
+  @override
+  String get servicesNewGroup => 'نیا گروپ';
+
+  @override
+  String get servicesFollowGeneralAction => 'عمومی کی پیروی کریں';
+
+  @override
+  String get servicesCustomizeAction => 'مخصوص بنائیں';
+
+  @override
+  String servicesFollowUpDays(int n) {
+    return '$n دن بعد فالو اپ';
+  }
+
+  @override
+  String servicesPointsPerVisit(int n) {
+    return '$n پوائنٹس';
+  }
+
+  @override
+  String servicesSuggestionText(int n) {
+    return '$n خدمات ایک ہی قدر رکھتی ہیں — انہیں ایک گروپ میں جمع کرنا بعد میں ترمیم آسان بناتا ہے۔';
+  }
+
+  @override
+  String servicesFollowsGeneral(String hint) {
+    return 'عمومی کی پیروی کرتا ہے — $hint';
+  }
+
+  @override
+  String get servicesPageTabServices => 'خدمات';
+
+  @override
+  String get servicesPageTabPackages => 'پیکجز';
+
+  @override
+  String get servicesPackageAdd => 'پیکج شامل کریں';
+
+  @override
+  String get servicesPackageNeedsTwoServices =>
+      'پیکج کے لیے کم از کم دو فعال خدمات درکار ہیں';
+
+  @override
+  String get servicesPackageEmpty => 'ابھی تک کوئی پیکج نہیں';
+
+  @override
+  String get servicesPackageEditTitle => 'پیکج میں ترمیم کریں';
+
+  @override
+  String get servicesPackageAddTitle => 'نیا پیکج شامل کریں';
+
+  @override
+  String get servicesPackageNameLabel => 'پیکج کا نام';
+
+  @override
+  String get servicesPackagePriceRequired =>
+      'پیکج کی قیمت درکار ہے، صفر سے زیادہ';
+
+  @override
+  String get servicesPackageServicesLabel => 'شامل خدمات';
+
+  @override
+  String get servicesImportTitle => 'فائل سے خدمات درآمد کریں';
+
+  @override
+  String get servicesImportHint =>
+      'کالموں والی CSV فائل: name, price, duration_minutes, cycle_days, description';
+
+  @override
+  String get servicesImportPickFile => 'CSV فائل منتخب کریں';
+
+  @override
+  String get servicesImportReadFailed => 'فائل پڑھی نہیں جا سکی';
+
+  @override
+  String get servicesImportParseFailed =>
+      'فائل میں name کالم نہیں، یا اس کی فارمیٹنگ غلط ہے';
+
+  @override
+  String get servicesImportDeactivateMissing =>
+      'فائل میں موجود نہ خدمات کو بند کریں';
+
+  @override
+  String get servicesImportDeactivateMissingHint =>
+      'کوئی بھی موجودہ خدمت جو اس فائل میں نہیں وہ خودکار بند ہو جائے گی';
+
+  @override
+  String get servicesImportConfirm => 'درآمد کریں';
+
+  @override
+  String get servicesImportClose => 'ہو گیا';
+
+  @override
+  String servicesImportRowCount(int n) {
+    return '$n قطاریں درآمد کے لیے تیار ہیں';
+  }
+
+  @override
+  String servicesImportDone(int created, int updated, int reactivated) {
+    return '$created شامل، $updated اپ ڈیٹ، $reactivated دوبارہ فعال۔';
+  }
+
+  @override
+  String get visitPackagesSectionTitle => 'نمایاں پیکجز';
+
+  @override
+  String get visitNameFieldHint => 'گاہک کا نام (اختیاری)';
+
+  @override
+  String get visitMeterFieldHint => 'میٹر ریڈنگ';
+
+  @override
+  String get visitQuantityDialogTitle => 'مقدار';
+
+  @override
+  String get visitCouponCheckboxLabel => 'دوسرے دکان کو ڈسکاؤنٹ کوپن دیں';
+
+  @override
+  String get visitCouponPhoneHint => 'دکان کے مالک کا فون';
+
+  @override
+  String get visitClearAllButton => 'سب صاف کریں';
+
+  @override
+  String visitServicesSelectedCount(int n) {
+    return '$n خدمات منتخب';
+  }
+
+  @override
+  String get visitTodayBookingsTitle => 'آج کی ملاقاتیں';
+
+  @override
+  String get visitBookingAttendFailed =>
+      'حاضری کی تصدیق نہیں ہو سکی، دوبارہ کوشش کریں';
+
+  @override
+  String get branchSwitcherChooseBranch => 'برانچ منتخب کریں';
+
+  @override
+  String get branchSwitcherTitle => 'موجودہ برانچ';
+
+  @override
+  String get branchSwitcherHint =>
+      'اس کے بعد آپ جو کچھ کھولیں گے وہ اسی برانچ سے متعلق ہوگا';
+
+  @override
+  String get proceduresPrintFailed => 'دستاویز نہیں بن سکی';
+
+  @override
+  String get proceduresTitle => 'طریقہ کار';
+
+  @override
+  String get proceduresSubtitle =>
+      'ہر خدمت کے لیے طریقہ کار کی فہرست سیٹ کریں، یا پوری مشترکہ لائبریری کا انتظام کریں۔ پرنٹ کے لیے منتخب کرنے کے لیے دبائے رکھیں';
+
+  @override
+  String get proceduresLibraryLink => 'طریقہ کار کی لائبریری';
+
+  @override
+  String get proceduresPrint => 'پرنٹ کریں';
+
+  @override
+  String get proceduresEmptyTitle => 'ابھی تک کوئی فعال خدمت نہیں';
+
+  @override
+  String get servicesStepSeverityNormal => 'عام';
+
+  @override
+  String get servicesStepSeverityCritical => 'اہم';
+
+  @override
+  String get proceduresSaveFailed => 'محفوظ نہیں ہو سکا';
+
+  @override
+  String get proceduresDrawerSubtitle =>
+      'ترتیب بدلنے کے لیے گھسیٹیں، یا لائبریری سے مرحلہ شامل کریں';
+
+  @override
+  String get proceduresDrawerEmpty => 'اس خدمت کے لیے ابھی تک کوئی مرحلہ نہیں';
+
+  @override
+  String get proceduresDrawerAddButton => 'لائبریری سے شامل کریں';
+
+  @override
+  String get proceduresPickTitle => 'مرحلہ منتخب کریں';
+
+  @override
+  String get proceduresPickClose => 'بند کریں';
+
+  @override
+  String get proceduresPickApply => 'شامل کریں';
+
+  @override
+  String get proceduresPickSearch => 'مراحل تلاش کریں';
+
+  @override
+  String get proceduresPickEmpty => 'کوئی نتیجہ نہیں';
+
+  @override
+  String get proceduresPickCreatePlaceholder => 'نیا مرحلہ...';
+
+  @override
+  String get proceduresLibrarySaveFailed => 'محفوظ نہیں ہو سکا';
+
+  @override
+  String get proceduresLibraryTitle => 'طریقہ کار کی لائبریری';
+
+  @override
+  String get proceduresLibrarySubtitle =>
+      'یہاں ہر مرحلہ اسے استعمال کرنے والی ہر خدمت میں مشترک ہے - اسے تبدیل کرنے سے ہر جگہ تبدیلی آتی ہے';
+
+  @override
+  String get proceduresLibraryNewPlaceholder => 'نئے مرحلے کا متن';
+
+  @override
+  String get proceduresLibraryAdd => 'شامل کریں';
+
+  @override
+  String get proceduresLibraryShowRetired => 'منسوخ شدہ دکھائیں';
+
+  @override
+  String get proceduresLibraryEmpty => 'ابھی تک کوئی مرحلہ نہیں';
+
+  @override
+  String get proceduresLibraryRetired => 'منسوخ';
+
+  @override
+  String get proceduresLibraryRetire => 'منسوخ کریں';
+
+  @override
+  String get proceduresLibraryReactivate => 'دوبارہ فعال کریں';
+
+  @override
+  String get proceduresSeverityHint =>
+      'اہم مرحلہ عملے کے لیے مختلف رنگ میں نمایاں ہوتا ہے اور خدمت کی انجام دہی کے دوران اسے چھوڑا نہیں جا سکتا';
+
+  @override
+  String proceduresSelectedCount(int n) {
+    return '$n منتخب';
+  }
+
+  @override
+  String proceduresStepCount(int n) {
+    return '$n مراحل';
+  }
+
+  @override
+  String proceduresUsedIn(int n) {
+    return '$n خدمات میں استعمال ہوتا ہے';
+  }
+
+  @override
+  String get referralProposeButton => 'شراکت کی تجویز دیں';
+
+  @override
+  String get referralTitle => 'اسٹریٹجک شراکت';
+
+  @override
+  String get referralSubtitle =>
+      'باہمی رضامندی سے اپنے اور دیگر دکانوں کے درمیان حقیقی گاہک منتقل کریں';
+
+  @override
+  String get referralRoleAll => 'سب';
+
+  @override
+  String get referralRoleReferrer => 'بطور ریفرر';
+
+  @override
+  String get referralRoleBeneficiary => 'بطور مستفید';
+
+  @override
+  String get referralLoadFailed => 'شراکتیں لوڈ نہیں ہو سکیں';
+
+  @override
+  String get referralEmptyTitle => 'ابھی تک کوئی شراکت نہیں';
+
+  @override
+  String get referralKpiAsReferrer => 'بطور ریفرر';
+
+  @override
+  String get referralKpiAsBeneficiary => 'بطور مستفید';
+
+  @override
+  String get referralKpiSent => 'بھیجی گئیں';
+
+  @override
+  String get referralKpiRedeemed => 'استعمال ہوئیں';
+
+  @override
+  String get referralKpiRate => 'استعمال کی شرح';
+
+  @override
+  String get referralConfirm => 'تصدیق کریں';
+
+  @override
+  String get referralGrantDiscountBlanket => 'پوری وزٹ پر رعایت';
+
+  @override
+  String get referralStatusProposed => 'تجویز کردہ';
+
+  @override
+  String get referralStatusActive => 'فعال';
+
+  @override
+  String get referralStatusPaused => 'عارضی طور پر روکا گیا';
+
+  @override
+  String get referralStatusCancelRequested => 'منسوخی کی درخواست دی گئی';
+
+  @override
+  String get referralStatusEnded => 'ختم شدہ';
+
+  @override
+  String get referralStatusRejected => 'مسترد';
+
+  @override
+  String get referralStatusExpiredUnanswered => 'بغیر جواب ختم ہوگئی';
+
+  @override
+  String get referralEventProposed => 'شراکت کی تجویز';
+
+  @override
+  String get referralEventAccepted => 'شراکت قبول';
+
+  @override
+  String get referralEventRejected => 'شراکت مسترد';
+
+  @override
+  String get referralEventActivated => 'شراکت فعال';
+
+  @override
+  String get referralEventCancelRequested => 'منسوخی کی درخواست';
+
+  @override
+  String get referralEventCancelConfirmed => 'منسوخی کی تصدیق';
+
+  @override
+  String get referralEventExpiredUnanswered => 'بغیر جواب میعاد ختم';
+
+  @override
+  String get referralEventPaused => 'عارضی توقف';
+
+  @override
+  String get referralEventResumed => 'دوبارہ شروع';
+
+  @override
+  String get referralEventEndedTerm => 'مدت ختم';
+
+  @override
+  String get referralEventGrantCreated => 'نئی مراعات';
+
+  @override
+  String get referralEventGrantRedeemed => 'مراعات استعمال ہوئی';
+
+  @override
+  String get referralActivityActive => 'فعال';
+
+  @override
+  String get referralActivityPaused => 'عارضی طور پر روکا گیا';
+
+  @override
+  String get referralActivityPending => 'جواب کا انتظار';
+
+  @override
+  String get referralActivityInactive => 'غیر فعال';
+
+  @override
+  String get referralScorecardTitle => 'کارکردگی';
+
+  @override
+  String get referralScorecardFailed => 'کارکردگی لوڈ نہیں ہو سکی';
+
+  @override
+  String get referralActivityTitle => 'حالیہ سرگرمی';
+
+  @override
+  String get referralActivityEmpty => 'ابھی تک کوئی سرگرمی نہیں';
+
+  @override
+  String get referralAgreementsTitle => 'معاہدے';
+
+  @override
+  String get referralConfirmCancel => 'اس شراکت کو مستقل طور پر ختم کریں؟';
+
+  @override
+  String get referralActionAccept => 'قبول کریں';
+
+  @override
+  String get referralActionReject => 'مسترد کریں';
+
+  @override
+  String get referralActionWaitingThem => 'دوسری جانب کا انتظار';
+
+  @override
+  String get referralActionCancelRequest => 'ختم کرنے کی درخواست';
+
+  @override
+  String get referralActionCancelConfirm => 'ختم کرنے کی تصدیق';
+
+  @override
+  String get referralProposeTitle => 'نئی شراکت کی تجویز دیں';
+
+  @override
+  String get referralProposePhoneLabel => 'دوسری دکان کا فون';
+
+  @override
+  String get referralProposeConditionLabel => 'آپ کی دکان پر اہلیت کی شرط';
+
+  @override
+  String get referralConditionMinTotal => 'کم از کم رقم';
+
+  @override
+  String get referralConditionServiceId => 'مخصوص خدمت';
+
+  @override
+  String get referralProposeConditionValueRiyals => 'رقم (ریال)';
+
+  @override
+  String get referralProposeConditionValueService => 'خدمت';
+
+  @override
+  String get referralProposeValidityLabel => 'مدت (دن)';
+
+  @override
+  String get referralProposeDurationLabel => 'مدت معاہدہ (دن)';
+
+  @override
+  String get referralProposeCapLabel => 'حد / 30 دن';
+
+  @override
+  String get referralProposeGrantTypeLabel => 'مراعات کی قسم';
+
+  @override
+  String get referralGrantTypeDiscount => 'رعایت';
+
+  @override
+  String get referralGrantTypeGift => 'تحفہ';
+
+  @override
+  String get referralScopeBlanket => 'پوری وزٹ';
+
+  @override
+  String get referralScopeItem => 'مخصوص خدمت';
+
+  @override
+  String get referralScopeGroup => 'گروپ/پیکج';
+
+  @override
+  String get referralProposeServiceLabel => 'خدمت';
+
+  @override
+  String get referralProposeGroupLabel => 'گروپ';
+
+  @override
+  String get referralProposeImmutableNote =>
+      'بھیجنے کے بعد مراعات کی شرائط طے شدہ ہیں — مختلف پیشکش کے لیے نیا معاہدہ درکار ہے';
+
+  @override
+  String get referralProposeSubmitting => 'بھیجا جا رہا ہے...';
+
+  @override
+  String get referralProposeSubmit => 'تجویز بھیجیں';
+
+  @override
+  String referralGrantGift(String name) {
+    return 'تحفہ: $name';
+  }
+
+  @override
+  String referralGrantDiscountItem(String name) {
+    return 'رعایت: $name';
+  }
+
+  @override
+  String referralGrantDiscountGroup(String name) {
+    return 'گروپ پر رعایت: $name';
+  }
+
+  @override
+  String referralPartnerCount(int n) {
+    return '$n معاہدے';
+  }
+
+  @override
+  String get referralProposeResultFail => 'تجویز نہیں بھیجی جا سکی';
+
+  @override
+  String get referralRefusal402 =>
+      'آپ کی دکان اسٹریٹجک شراکت ایپ کی سبسکرائبر نہیں — پہلے ایپ اسٹور سے سبسکرائب کریں';
+
+  @override
+  String get referralRefusal403 => 'آپ کے پاس اس عمل کی اجازت نہیں';
+
+  @override
+  String get referralRefusal400 =>
+      'تجویز کا ڈیٹا درست نہیں — شرط چیک کریں، یا یقینی بنائیں کہ آپ اپنی دکان کے ساتھ شراکت تجویز نہیں کر رہے';
+
+  @override
+  String get referralRefusal404 =>
+      'اس نمبر پر کوئی دکان نہیں ملی، یا منتخب کردہ خدمت/گروپ دوسری دکان کے کیٹلاگ میں موجود نہیں';
+
+  @override
+  String get referralRefusal409 =>
+      'آپ فعال شراکتوں کی حد (3) تک پہنچ گئے ہیں، یا شراکت کی حالت تبدیل ہو گئی ہے';
+
+  @override
+  String get referralRefusal503 =>
+      'بلنگ عارضی طور پر دستیاب نہیں، بعد میں دوبارہ کوشش کریں';
+
+  @override
+  String get appStoreTitle => 'ایپ اسٹور';
+
+  @override
+  String get appStoreSubtitle =>
+      'اپنی دکان کو حقیقی ایپس سے بڑھائیں، ایک ایک کر کے';
+
+  @override
+  String get appStoreTabMine => 'میری ایپس';
+
+  @override
+  String get appStoreTabAll => 'ایپ اسٹور';
+
+  @override
+  String get appStoreDetails => 'تفصیلات';
+
+  @override
+  String get appStorePerMonth => 'ماہانہ';
+
+  @override
+  String get appStorePerMonthShort => '/ماہ';
+
+  @override
+  String get appStoreActive => 'فعال';
+
+  @override
+  String get appStoreTrialing => 'آزمائشی';
+
+  @override
+  String get appStoreSubscribe => 'ابھی سبسکرائب کریں';
+
+  @override
+  String get appStoreCancelRenewal => 'تجدید روکیں';
+
+  @override
+  String get appStoreUndoCancel => 'منسوخی واپس لیں';
+
+  @override
+  String get appStoreConfirmCancel =>
+      'اس ایپ کی تجدید روکنا چاہتے ہیں؟ یہ ادا شدہ مدت ختم ہونے تک فعال رہے گی';
+
+  @override
+  String appStoreCartCount(int n) {
+    return 'کارٹ میں $n';
+  }
+
+  @override
+  String get appStoreCheckout => 'چیک آؤٹ';
+
+  @override
+  String get appStoreCheckingOut => 'چیک آؤٹ ہو رہا ہے...';
+
+  @override
+  String get appStoreRefusal402 =>
+      'آپ کے اکاؤنٹ پر ابھی ادائیگی فعال نہیں ہے — فعال کرنے کے لیے رابطہ کریں';
+
+  @override
+  String get appStoreRefusal403 => 'آپ کو یہ خریداری مکمل کرنے کی اجازت نہیں';
+
+  @override
+  String get appStoreRefusal404 =>
+      'مطلوبہ پلان نہیں ملا — ریفریش کر کے دوبارہ کوشش کریں';
+
+  @override
+  String get appStoreRefusal409 =>
+      'یہ ایپ پہلے سے آپ کی ملکیت ہے، یا خریداری کے دوران اس کی حالت بدل گئی';
+
+  @override
+  String get appStoreRefusalGeneric =>
+      'خریداری مکمل نہیں ہو سکی، دوبارہ کوشش کریں';
+
+  @override
+  String get appStoreCapacityTitle => 'گنجائش';
+
+  @override
+  String appStoreCapacityConfirmRemove(String name) {
+    return '\"$name\" کی آخری یونٹ ہٹانا چاہتے ہیں؟ یہ اس کی تجدید مکمل طور پر روک دے گا';
+  }
 }

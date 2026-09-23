@@ -39,6 +39,21 @@ dependencies:
   # URI in `branding.logo_url` (PUT /api/v1/tenant/branding) — same field, same shape as the
   # console's own `shrink()`.
   image_picker: ^1.1.2
+  # «التقييم»'s own «تصدير التقرير» — a real binary (PDF/DOCX) POST response, saved to a temp file
+  # then handed to the OS share sheet. No local database anywhere else in this app; these two are
+  # here purely as OS-integration glue for one already-real server endpoint, not new storage.
+  path_provider: ^2.1.4
+  # TuwaiqPay's manual pay-link, opened INSIDE the app (owner's own instruction, 2026-09-23: never
+  # feel like leaving to something external) — the same "in-app WebView, watch for the return URL"
+  # pattern every real payment SDK uses. Web has no native WebView, so this only really renders on
+  # Android/iOS; on web the pay-link falls back to an external tab (url_helper.dart's own openUrl).
+  webview_flutter: ^4.10.0
+  share_plus: ^10.1.2
+  # «استيراد خدمات من ملف» — CSV only (the server itself "has no business knowing what a .csv or
+  # .xlsx looks like", per its own bulk_import_services docstring: the CLIENT parses the file and
+  # sends structured rows). A real .xlsx parser is a much heavier, separate dependency this pass
+  # does not add — CSV is the real, working half of "CSV/Excel", not a stand-in for both.
+  file_picker: ^8.1.6
 
   # THE REBRAND'S OWN TYPEFACES, loaded the same way the web console loads them
   # (apps/console/index.html: fonts.googleapis.com, Cairo 600-900 + Tajawal

@@ -4,7 +4,7 @@ import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/router/route_names.dart';
 import 'package:raje3_mobile/core/services/auth_service.dart';
 import 'package:raje3_mobile/core/utils/formatters.dart';
-import 'package:raje3_mobile/core/utils/url_helper.dart';
+import 'package:raje3_mobile/features/apps/payment_webview_screen.dart';
 import 'package:raje3_mobile/features/home/app_tone.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
@@ -127,10 +127,14 @@ class _BillingScreenState extends State<BillingScreen> {
       setState(() => _actionError = S.of(context)!.billingActionFailed);
       return;
     }
+    // ONE AT A TIME, IN-APP (owner's own instruction, 2026-09-23: never feel like leaving to
+    // something external) — `openPaymentInApp` awaits each WebView's own close (auto or manual)
+    // before the next one opens, since only one can show on screen at once.
     for (final url in urls) {
-      openUrl(url, context);
+      if (!context.mounted) return;
+      await openPaymentInApp(context, url);
     }
-    _load();
+    if (context.mounted) _load();
   }
 
   Future<void> _payInvoice(BuildContext context, BillingInvoice invoice) async {
@@ -143,7 +147,8 @@ class _BillingScreenState extends State<BillingScreen> {
     if (!context.mounted) return;
     setState(() => _busyInvoiceId = '');
     if (url != null) {
-      openUrl(url, context);
+      await openPaymentInApp(context, url);
+      if (context.mounted) _load();
     } else {
       setState(() => _actionError = s.billingPayLinkFailed);
     }

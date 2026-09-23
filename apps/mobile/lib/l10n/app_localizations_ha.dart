@@ -665,6 +665,9 @@ class SHa extends S {
   String get branchesRoleSupervisor => 'Mai kula da canjin aiki';
 
   @override
+  String get branchesRoleMarketer => 'Shugaban tallace-tallace';
+
+  @override
   String get branchesRoleManager => 'Manaja';
 
   @override
@@ -673,6 +676,97 @@ class SHa extends S {
 
   @override
   String get branchesHireFailed => 'An kasa ƙara ma\'aikaci, sake gwadawa.';
+
+  @override
+  String get branchesVisibleAllHint => 'Yana ganin kowanne reshe';
+
+  @override
+  String branchesVisibleSomeHint(int count) {
+    return 'Yana ganin rassa $count';
+  }
+
+  @override
+  String get branchesEditMember => 'Gyara ma\'aikaci';
+
+  @override
+  String get branchesMemberStopped => 'An dakatar';
+
+  @override
+  String get branchesMemberStationLabel => 'Wanne reshe yake aiki';
+
+  @override
+  String get branchesMemberVisibilityLabel => 'Wadanne rassa zai iya gani';
+
+  @override
+  String get branchesVisibilityOwnOnly => 'Reshensa kawai';
+
+  @override
+  String get branchesVisibilitySome => 'Rassan da aka zaɓa';
+
+  @override
+  String get branchesVisibilityAll => 'Kowanne reshe';
+
+  @override
+  String get branchesWorkingHours => 'Sa\'o\'in aiki';
+
+  @override
+  String get branchesStopMember => 'Dakatar da ma\'aikaci';
+
+  @override
+  String get branchesStopMemberTitle => 'Dakatar da wannan ma\'aikaci?';
+
+  @override
+  String branchesStopMemberBody(String name) {
+    return '$name zai rasa damar shiga app nan take. Tarihin ziyararsa zai ci gaba da ajiye.';
+  }
+
+  @override
+  String get branchesStopMemberConfirm => 'Dakatar';
+
+  @override
+  String get branchesReactivateMember => 'Sake kunnawa';
+
+  @override
+  String get branchesRehireRequired =>
+      'Wannan ma\'aikaci an dakatar da shi gaba daya — sake kunnawa yana bukatar sake daukar sa aiki, ba kawai kunnawa ba.';
+
+  @override
+  String get branchesHoursSaved => 'An ajiye sa\'o\'in aiki.';
+
+  @override
+  String get branchesHoursExceedsShop =>
+      'Wadannan sa\'o\'i sun fi na shago kansa fadi — gyara su.';
+
+  @override
+  String get branchesHoursHint =>
+      'Idan ba ka canza komai ba, zai bi sa\'o\'in shago kansa kai tsaye.';
+
+  @override
+  String get branchesHoursClear => 'Mayar da sa\'o\'in shago na asali';
+
+  @override
+  String get branchesDayMonday => 'Litinin';
+
+  @override
+  String get branchesDayTuesday => 'Talata';
+
+  @override
+  String get branchesDayWednesday => 'Laraba';
+
+  @override
+  String get branchesDayThursday => 'Alhamis';
+
+  @override
+  String get branchesDayFriday => 'Jumma\'a';
+
+  @override
+  String get branchesDaySaturday => 'Asabar';
+
+  @override
+  String get branchesDaySunday => 'Lahadi';
+
+  @override
+  String get branchesDayClosed => 'A rufe';
 
   @override
   String get accountSecuritySectionTitle => 'Tsaro';
@@ -816,6 +910,10 @@ class SHa extends S {
       'An kasa ƙirƙirar hanyar biya. Sake gwadawa.';
 
   @override
+  String get paymentPageLoadFailed =>
+      'An kasa loda shafin biya. Duba haɗin intanet ɗinka sannan ka sake gwadawa.';
+
+  @override
   String get billingCancelConfirmTitle => 'Dakatar da sabuntawa?';
 
   @override
@@ -898,4 +996,1862 @@ class SHa extends S {
   @override
   String get writeVehicleTrackingFailed =>
       'An kasa canza saitin bin diddigin motoci, sake gwadawa.';
+
+  @override
+  String get mobileRequestsTitle => 'Buƙatun keɓaɓɓu';
+
+  @override
+  String get mobileRequestsSubtitle =>
+      'Buƙatun sabis da ke zuwa wurin abokin ciniki, daga karɓa zuwa kammalawa.';
+
+  @override
+  String get mobileRequestsKpiPending => 'Jiran yanke shawara';
+
+  @override
+  String get mobileRequestsKpiNeedsDecision => 'Yana buƙatar yanke shawara';
+
+  @override
+  String get mobileRequestsKpiCompletedMonth => 'An kammala wannan wata';
+
+  @override
+  String get mobileRequestsBannerGo => 'Duba';
+
+  @override
+  String get mobileRequestsFilterAll => 'Duka';
+
+  @override
+  String get mobileRequestsFilterPending => 'Jiran';
+
+  @override
+  String get mobileRequestsFilterAccepted => 'An karɓa';
+
+  @override
+  String get mobileRequestsFilterNeedsDecision => 'Yana buƙatar shawara';
+
+  @override
+  String get mobileRequestsFilterCompleted => 'An kammala';
+
+  @override
+  String get mobileRequestsFilterClosed => 'An rufe';
+
+  @override
+  String get mobileRequestsSearchHint => 'Nema da suna ko waya';
+
+  @override
+  String get mobileRequestsLoadFailedTitle => 'An kasa loda buƙatun';
+
+  @override
+  String get mobileRequestsLoadFailedBody =>
+      'Duba haɗin intanetinka kuma sake gwadawa.';
+
+  @override
+  String get mobileRequestsRetry => 'Sake gwadawa';
+
+  @override
+  String get mobileRequestsEmptyTitle => 'Babu buƙatu tukuna';
+
+  @override
+  String get mobileRequestsEmptyBody =>
+      'Buƙatun sabis na keɓaɓɓu daga abokan cinikinka suna bayyana anan.';
+
+  @override
+  String get mobileRequestsStatusPending => 'Ana jira';
+
+  @override
+  String get mobileRequestsStatusAccepted => 'An karɓa';
+
+  @override
+  String get mobileRequestsStatusNeedsDecision => 'Yana buƙatar shawara';
+
+  @override
+  String get mobileRequestsStatusCompleted => 'An kammala';
+
+  @override
+  String get mobileRequestsStatusNoShow => 'Bai zo ba';
+
+  @override
+  String get mobileRequestsStatusRejected => 'An ƙi';
+
+  @override
+  String get mobileRequestsUnnamed => 'Ba tare da suna ba';
+
+  @override
+  String get mobileRequestsOpenMap => 'Wuri';
+
+  @override
+  String get mobileRequestsPhoneCopied => 'An kwafi lambar wayar';
+
+  @override
+  String get mobileRequestsRiskyCustomer =>
+      'Abokin ciniki mai haɗarin rashin zuwa';
+
+  @override
+  String mobileRequestsRejectReasonLine(Object reason) {
+    return 'Dalilin ƙi: $reason';
+  }
+
+  @override
+  String get mobileRequestsActionAccept => 'Karɓa';
+
+  @override
+  String get mobileRequestsActionReject => 'Ƙi';
+
+  @override
+  String get mobileRequestsActionComplete => 'An kammala';
+
+  @override
+  String get mobileRequestsActionNoShow => 'Bai zo ba';
+
+  @override
+  String get mobileRequestsAssignUnassigned => 'Ba a ba da alhaki ba';
+
+  @override
+  String get mobileRequestsActionFailed =>
+      'An kasa kammala aikin, sake gwadawa.';
+
+  @override
+  String get mobileRequestsRejectTitle => 'Dalilin ƙi';
+
+  @override
+  String get mobileRequestsRejectHint => 'Na zaɓi';
+
+  @override
+  String get mobileRequestsRejectCancel => 'Soke';
+
+  @override
+  String get mobileRequestsRejectConfirm => 'Ƙi buƙatar';
+
+  @override
+  String get mobileRequestsAddOpen => 'Ƙara buƙata';
+
+  @override
+  String get mobileRequestsAddTitle => 'Ƙara buƙatar sabis na keɓaɓɓu';
+
+  @override
+  String get mobileRequestsAddPhoneLabel => 'Wayar abokin ciniki';
+
+  @override
+  String get mobileRequestsAddNameLabel => 'Sunan abokin ciniki (na zaɓi)';
+
+  @override
+  String get mobileRequestsAddServicesLabel => 'Ayyuka';
+
+  @override
+  String get mobileRequestsAddServicesEmpty => 'Babu ayyuka tukuna.';
+
+  @override
+  String get mobileRequestsAddDayLabel => 'Rana';
+
+  @override
+  String get mobileRequestsAddTimeLabel => 'Lokaci';
+
+  @override
+  String get mobileRequestsAddMapsLinkLabel => 'Hanyar wurin Google Maps';
+
+  @override
+  String get mobileRequestsAddMapsLinkHint =>
+      'Yana karɓar cikakkiyar ko gajarciyar hanyar Google Maps.';
+
+  @override
+  String get mobileRequestsAddMapsLinkShort =>
+      'Wannan gajarciyar hanya ce — manna cikakkiyar hanyar Google Maps.';
+
+  @override
+  String get mobileRequestsAddMapsLinkInvalid =>
+      'An kasa karanta wuri daga wannan hanyar.';
+
+  @override
+  String get mobileRequestsAddAssignLabel => 'Ba da alhaki ga (na zaɓi)';
+
+  @override
+  String get mobileRequestsAddCancel => 'Soke';
+
+  @override
+  String get mobileRequestsAddSubmit => 'Ƙara buƙatar';
+
+  @override
+  String get mobileRequestsAddSubmitting => 'Ana ƙarawa...';
+
+  @override
+  String get mobileRequestsAddError => 'An kasa ƙara buƙatar, sake gwadawa.';
+
+  @override
+  String mobileRequestsBannerText(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Buƙatu $count suna buƙatar yanke shawararka yanzu',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get mobileRequestsAddMapsLinkResolving =>
+      'Ana karanta wuri daga hanyar...';
+
+  @override
+  String get customersTitle => 'Abokan cinikina';
+
+  @override
+  String get customersAddOpen => 'Ƙara abokin ciniki';
+
+  @override
+  String get customersSearchHint => 'Nema da suna ko waya';
+
+  @override
+  String get customersTabAll => 'Duka';
+
+  @override
+  String get customersTabOverdue => 'Wanda ya jinkirta';
+
+  @override
+  String get customersSearchFailedTitle => 'Bincike ba ya samuwa yanzu';
+
+  @override
+  String get customersSearchFailedBody => 'Sake gwadawa nan da ƴan lokaci.';
+
+  @override
+  String get customersSearchEmpty => 'Babu sakamako';
+
+  @override
+  String get customersLoadFailedTitle => 'An kasa loda';
+
+  @override
+  String get customersEmptyTitle => 'Babu abokan ciniki tukuna';
+
+  @override
+  String get customersOverdueEmpty => 'Babu wanda ya jinkirta a yanzu';
+
+  @override
+  String get customersUnnamed => 'Ba tare da suna ba';
+
+  @override
+  String customersVisitCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ziyara $count',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get customersOverdueBadge => 'Jinkiri';
+
+  @override
+  String customersStatEveryDays(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: 'kowanne kwana $days',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String customersOverdueBanner(int every, int since) {
+    return 'Ya jinkirta ziyararsa ta saba — yawanci kowanne kwana $every, kwana $since tun ziyararsa ta karshe';
+  }
+
+  @override
+  String customersVisitMeter(int n) {
+    return 'Karatun mita: $n';
+  }
+
+  @override
+  String get customersOfferExpiredBadge => 'Ya kare';
+
+  @override
+  String get customersDeniedAllTitle =>
+      'Ba ka da izinin duba jerin abokan ciniki';
+
+  @override
+  String get customersDeniedOverdueTitle =>
+      'Ba ka da izinin duba wanda ya jinkirta';
+
+  @override
+  String get customersDeniedDesc => 'Nemi mai shago ya baka wannan izinin.';
+
+  @override
+  String get customersAddTitle => 'Ƙara sabon abokin ciniki';
+
+  @override
+  String get customersAddPhoneLabel => 'Wayar abokin ciniki';
+
+  @override
+  String get customersAddNameLabel => 'Sunan abokin ciniki';
+
+  @override
+  String get customersAddPhoneInvalid => 'Lambar waya ba daidai ba ce.';
+
+  @override
+  String get customersAddFailed => 'An kasa ƙara abokin ciniki, sake gwadawa.';
+
+  @override
+  String get customersAddSubmitting => 'Ana ƙarawa...';
+
+  @override
+  String get customersAddSubmit => 'Ƙara';
+
+  @override
+  String get customersActionFailed => 'An kasa kammala aikin, sake gwadawa.';
+
+  @override
+  String get customersRepeatedIssuesTitle => 'Matsaloli masu maimaituwa';
+
+  @override
+  String get customersVehiclesTitle => 'Motoci';
+
+  @override
+  String get customersLoyaltyTitle => 'Aminci';
+
+  @override
+  String get customersLoyaltyLoading => 'Ana loda...';
+
+  @override
+  String customersLoyaltyPoints(int count) {
+    return 'Maki $count';
+  }
+
+  @override
+  String get customersLoyaltyAdjust => 'Gyara';
+
+  @override
+  String get customersOffersTitle => 'Tayin da ke aiki';
+
+  @override
+  String customersOfferExpires(String date) {
+    return 'Yana ƙarewa $date';
+  }
+
+  @override
+  String get customersVisitsTitle => 'Tarihin ziyara';
+
+  @override
+  String get customersVisitsEmpty => 'Babu ziyara tukuna';
+
+  @override
+  String get customersVisitNoServices => 'Babu ayyukan da aka rubuta';
+
+  @override
+  String get customersRenameTitle => 'Gyara sunan abokin ciniki';
+
+  @override
+  String get customersRenameSubmit => 'Ajiye';
+
+  @override
+  String get customersLoyaltyAdjustTitle => 'Gyara makin aminci';
+
+  @override
+  String get customersLoyaltyAdjustNoteLabel => 'Dalilin gyara';
+
+  @override
+  String get customersLoyaltyAdjustNoteRequired =>
+      'Rubuta dalili na gaskiya (aƙalla haruffa 3), kuma zaɓi lambar da ba sifili ba.';
+
+  @override
+  String get customersLoyaltyAdjustSubmit => 'Ajiye gyara';
+
+  @override
+  String get customersEraseButton => 'Share bayanan wannan abokin ciniki';
+
+  @override
+  String get customersEraseTitle => 'Share bayanan abokin ciniki';
+
+  @override
+  String get customersEraseWarning =>
+      'Wannan yana share duk bayanan abokin ciniki daga dandali har abada — ba za a iya soke wannan ba.';
+
+  @override
+  String customersEraseTypeNameLabel(String name) {
+    return 'Don tabbatarwa, rubuta sunan abokin ciniki: $name';
+  }
+
+  @override
+  String get customersEraseConfirm => 'Share har abada';
+
+  @override
+  String get customersBookingsTitle => 'Ajiyewa';
+
+  @override
+  String customersAttendanceRate(int rate) {
+    return '$rate% halarta';
+  }
+
+  @override
+  String get customersBookingsNoneUpcoming => 'Babu ajiyewa mai zuwa';
+
+  @override
+  String get customersCyclesTitle => 'Zagayowar tunatarwa';
+
+  @override
+  String customersCyclesEveryDays(int days) {
+    return 'Kowace kwana $days';
+  }
+
+  @override
+  String get customersCyclesEditHint =>
+      'Saita tazara, kuma koyo ta atomatik zai tsaya don wannan sabis tare da wannan abokin ciniki.';
+
+  @override
+  String get customersCyclesSave => 'Ajiye';
+
+  @override
+  String get customersLogTitle => 'Abin da muka gaya masa';
+
+  @override
+  String get customersLogEmpty => 'Ba mu aika masa da komai ba tukuna';
+
+  @override
+  String get customersCyclesUnknownService => 'Sabis wanda ba a sani ba';
+
+  @override
+  String customersVisitGapDays(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: 'bayan kwana $days',
+      zero: 'a rana daya',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String customersCountLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Abokan ciniki $count',
+      zero: 'babu abokan ciniki tukuna',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ratingTitle => 'Kimantawa';
+
+  @override
+  String get pointsTitle => 'Maki na Aminci';
+
+  @override
+  String get pointsAddReward => 'Sabuwar lada';
+
+  @override
+  String get pointsEditReward => 'Gyara lada';
+
+  @override
+  String get pointsTabRewards => 'Ladoji';
+
+  @override
+  String get pointsTabLeaderboard => 'Mafi karɓa';
+
+  @override
+  String get pointsOutstandingHint =>
+      'maki da shago har yanzu yake bin abokan ciniki';
+
+  @override
+  String pointsRedemptionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'karɓe $count',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pointsCustomersCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'abokan ciniki $count sun karɓa',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pointsExpiredWarning(int percent) {
+    return '%$percent na makin da aka bayar sun kare ba tare da karɓa ba — duba farashin ladodinka';
+  }
+
+  @override
+  String get pointsLoadFailedTitle => 'An kasa loda ladoji';
+
+  @override
+  String get pointsRewardsEmpty =>
+      'Babu lada tukuna — kara lada na farko ga abokan cinikinka';
+
+  @override
+  String get pointsLeaderboardEmpty =>
+      'Babu karɓa tukuna — zai bayyana anan da zarar abokin ciniki ya karɓi lada';
+
+  @override
+  String get pointsLeaderboardTitle => 'Mafi karɓa';
+
+  @override
+  String get pointsLeaderboardHint =>
+      'Manyan ladoji biyar da abokan cinikinka suka karɓa';
+
+  @override
+  String pointsTimesRedeemed(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'sau $count',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pointsRewardRetired => 'An dakatar';
+
+  @override
+  String pointsRewardServiceHint(String name) {
+    return 'Sabis: $name';
+  }
+
+  @override
+  String pointsRewardDiscountHint(String amount) {
+    return 'Rangwame na riyal $amount';
+  }
+
+  @override
+  String get pointsRewardItemHint => 'Kyauta, ba a haɗa da katalog ba';
+
+  @override
+  String get pointsRewardNameLabel => 'Sunan lada';
+
+  @override
+  String get pointsRewardTypeLabel => 'Nau\'in lada';
+
+  @override
+  String get pointsTypeService => 'Sabis daga katalogka';
+
+  @override
+  String get pointsTypeItem => 'Kyauta';
+
+  @override
+  String get pointsTypeDiscount => 'Rangwamen kudi';
+
+  @override
+  String get pointsRewardServiceLabel => 'Wanne sabis';
+
+  @override
+  String get pointsRewardDiscountLabel => 'Adadin rangwame, riyal';
+
+  @override
+  String get pointsRewardCostLabel => 'Kudin a maki';
+
+  @override
+  String get pointsRewardActiveLabel =>
+      'Yana aiki — abokan ciniki na iya karɓarsa';
+
+  @override
+  String get pointsRewardInvalid =>
+      'Shigar da suna da maki na gaskiya sama da sifili';
+
+  @override
+  String get pointsSaveFailed => 'An kasa ajiyewa, sake gwadawa';
+
+  @override
+  String get pointsModeTitle => 'Hanyar ƙidayawa';
+
+  @override
+  String get pointsModeHint =>
+      'Ta sabis: kowace sabis makinta na kanta. Ta darajar sigina: maki ɗaya kowace riyal.';
+
+  @override
+  String get pointsModeServices => 'Ta sabis';
+
+  @override
+  String get pointsModeInvoice => 'Ta darajar sigina';
+
+  @override
+  String get pointsModeNeedsPricedServices =>
+      'Ƙidayawa ta darajar sigina tana buƙatar an sanya farashin kowace sabis tukuna — sanya farashin duka a Ayyuka, sannan a kunna shi.';
+
+  @override
+  String get pointsOpenEarnSettings => 'Saitin maki na kowace sabis';
+
+  @override
+  String get ratingLeaderboardTitle => 'Mas kimanta mafi girma';
+
+  @override
+  String get ratingCardNoName => 'Ba tare da suna ba';
+
+  @override
+  String get ratingMetricVisits => 'Mafi yawan ziyara';
+
+  @override
+  String get ratingMetricRatings => 'Mafi yawan kimantawa';
+
+  @override
+  String get ratingMetricAvg => 'Mas kimanta mafi girma';
+
+  @override
+  String ratingStaffCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'ma\'aikata $count',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ratingTableTitle => 'Kowanne ma\'aikaci';
+
+  @override
+  String ratingTableVisitsValue(int n) {
+    return 'ziyara $n';
+  }
+
+  @override
+  String ratingTableRatingsValue(int n) {
+    return 'kimantawa $n';
+  }
+
+  @override
+  String ratingTableEngagementValue(int n) {
+    return 'shiga %$n';
+  }
+
+  @override
+  String ratingTableNoShowValue(int n) {
+    return 'rashin zuwa %$n';
+  }
+
+  @override
+  String get ratingPeriodWeek => 'Mako';
+
+  @override
+  String get ratingPeriodMonth => 'Wata';
+
+  @override
+  String get ratingPeriodQuarter => 'Kwata';
+
+  @override
+  String get ratingPeriodCustom => 'Na musamman';
+
+  @override
+  String ratingCustomSince(String date) {
+    return 'Daga: $date';
+  }
+
+  @override
+  String ratingCustomUntil(String date) {
+    return 'Zuwa: $date';
+  }
+
+  @override
+  String get ratingCustomRangeInvalid =>
+      'Zangon ba daidai ba ne — tabbatar ranar farawa ta gabaci ranar ƙarshe';
+
+  @override
+  String get ratingExportLocaleLabel => 'Harshen rahoto';
+
+  @override
+  String get localeNameAr => 'العربية';
+
+  @override
+  String get localeNameEn => 'English';
+
+  @override
+  String get localeNameUr => 'اردو';
+
+  @override
+  String get localeNameHa => 'Hausa';
+
+  @override
+  String get localeNameFil => 'Filipino';
+
+  @override
+  String get localeNameBn => 'বাংলা';
+
+  @override
+  String get ratingTopIssuesTitle => 'Matsalolin da suka fi maimaituwa';
+
+  @override
+  String get ratingFilterUnhandled => 'Ana jira';
+
+  @override
+  String get ratingFilterAll => 'Duka';
+
+  @override
+  String get ratingFilterHandled => 'An warware';
+
+  @override
+  String get ratingStarsAll => 'Duk taurari';
+
+  @override
+  String get ratingLoadFailedTitle => 'An kasa loda kimantawa';
+
+  @override
+  String get ratingEmptyTitle => 'Babu kimantawa tukuna';
+
+  @override
+  String get ratingLoadMore => 'Nuna ƙari';
+
+  @override
+  String get ratingHandledPlain => 'An warware';
+
+  @override
+  String get ratingMarkHandled => 'Yi alama an warware';
+
+  @override
+  String get ratingMarkHandledHint =>
+      'Ana rikodin wannan har abada — ba za a iya soke shi daga baya ba.';
+
+  @override
+  String get ratingHandledNoteLabel => 'Bayani (na zaɓi)';
+
+  @override
+  String get ratingMarkHandledConfirm => 'Tabbatar';
+
+  @override
+  String get ratingActionFailed => 'An kasa kammala aikin, sake gwadawa.';
+
+  @override
+  String ratingWeightedAvgHint(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'daga kimantawa $count cikin kwanaki 30 da suka wuce',
+      zero: 'babu kimantawa cikin kwanaki 30 da suka wuce',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String ratingUnhandledCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Kimantawa $count suna jira',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String ratingVisitsShort(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ziyara $count',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String ratingIssueFilterLabel(String label) {
+    return 'Matsala: $label';
+  }
+
+  @override
+  String ratingByOperator(String name) {
+    return '$name ne yi masa hidima';
+  }
+
+  @override
+  String ratingHandledWithNote(String note) {
+    return 'An warware: $note';
+  }
+
+  @override
+  String get ratingQuadrantTitle => 'Kashin aiki';
+
+  @override
+  String get ratingQuadrantHint =>
+      'Inganci da yawan sadarwa — danna kowane digo don rikodin horar da ma\'aikacin.';
+
+  @override
+  String get ratingQuadrantStars => 'Taurari';
+
+  @override
+  String get ratingQuadrantUnderused => 'Ba a amfani da shi sosai ba';
+
+  @override
+  String get ratingQuadrantNeedsCoaching => 'Yana buƙatar horo';
+
+  @override
+  String get ratingQuadrantAtRisk => 'Yana cikin haɗari';
+
+  @override
+  String get ratingTrainingTitle => 'Rikodin horo';
+
+  @override
+  String get ratingTrainingNoAccess => 'Ba ka da izinin ganin wannan.';
+
+  @override
+  String get ratingTrainingClean =>
+      'Tsaftataccen rikodi — babu matsalolin da suka maimaita.';
+
+  @override
+  String ratingEngagementPercent(int percent) {
+    return '%$percent sadarwa';
+  }
+
+  @override
+  String get ratingTabOverview => 'Bayyani';
+
+  @override
+  String get ratingTabFeed => 'Duk kimantawa';
+
+  @override
+  String get ratingOverviewEmpty =>
+      'Babu bayanan aiki tukuna cikin kwanaki 30 da suka wuce.';
+
+  @override
+  String get ratingExportTitle => 'Fitar da rahoto';
+
+  @override
+  String get ratingExportHint =>
+      'Rahoton aikin ƙungiya na lokacin da aka zaɓa, a shirye don rabawa.';
+
+  @override
+  String get ratingExportFailed => 'An kasa fitar da rahoto, sake gwadawa.';
+
+  @override
+  String get customersPrivacyRequestsTitle => 'Buƙatun keɓantawa';
+
+  @override
+  String get customersPrivacyRequestErase => 'Buƙatar share bayanai';
+
+  @override
+  String get customersPrivacyRequestCopy => 'Buƙatar kwafin bayanai';
+
+  @override
+  String customersPrivacyRequestGeneric(String type) {
+    return 'Buƙata: $type';
+  }
+
+  @override
+  String get customersPrivacyRequestClose => 'Rufe';
+
+  @override
+  String get customersLoyaltyHistoryTitle => 'Tarihin maki';
+
+  @override
+  String get customersLoyaltyHistoryNoReason => 'Ba a bayar da dalili ba';
+
+  @override
+  String get customersLoyaltyReasonRedeem => 'An maida lada';
+
+  @override
+  String get customersLoyaltyReasonAdjust => 'Gyaran hannu';
+
+  @override
+  String get customersLoyaltyReasonEarn => 'Maki daga ziyara';
+
+  @override
+  String get customersLoyaltyReasonExpire => 'Ya ƙare';
+
+  @override
+  String get readCustomersFailed =>
+      'An kasa samun bayanan abokan ciniki yanzu, sake gwadawa.';
+
+  @override
+  String readCustomersTotal(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Kana da abokan ciniki $count da aka yi wa rijista.',
+      zero: 'Babu abokan ciniki da aka yi wa rijista tukuna.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readCustomersOverdueCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Abokan cinikinka $count sun jinkirta a zagayowarsu.',
+      zero: 'Babu abokin ciniki da ya jinkirta a zagayowarsa yanzu.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get readMobileRequestsFailed =>
+      'An kasa samun buƙatun keɓaɓɓu yanzu, sake gwadawa.';
+
+  @override
+  String readMobileRequestsPendingCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Kana da buƙatu $count da ke jiran yanke shawara.',
+      zero: 'Babu buƙatun keɓaɓɓu da ke jiran yanke shawara.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readMobileRequestsNeedsDecisionCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Buƙatu $count suna buƙatar yanke shawararka yanzu.',
+      zero: 'Babu buƙatu da ke buƙatar yanke shawararka yanzu.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get readRatingFailed =>
+      'An kasa samun bayanan kimantawa yanzu, sake gwadawa.';
+
+  @override
+  String get readRatingNone =>
+      'Babu kimantawa a cikin kwanaki 30 da suka wuce tukuna.';
+
+  @override
+  String readRatingAverage(String avg, int count) {
+    return 'Matsakaicin kimantawarka a cikin kwanaki 30 da suka wuce $avg daga cikin 5, daga kimantawa $count.';
+  }
+
+  @override
+  String readRatingUnhandledCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Kana da kimantawa $count da ke jira.',
+      zero: 'Babu kimantawa da ke jira.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readRatingTopStaff(String name, String avg) {
+    return 'Ma\'aikaci mafi kyawun kimantawa a cikin kwanaki 30 da suka wuce shine $name, matsakaicin $avg daga 5.';
+  }
+
+  @override
+  String readMobileRequestsCompletedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ka kammala $count a wannan wata.',
+      zero: 'Ba ka kammala wata buƙatar keɓaɓɓu a wannan wata ba tukuna.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readMobileRequestsTodayCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Buƙatu $count sun zo yau.',
+      zero: 'Babu buƙatar keɓaɓɓu da ta zo yau tukuna.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get readOperatorsFailed =>
+      'An kasa samun adadin ma\'aikata yanzu, sake gwadawa.';
+
+  @override
+  String readOperatorsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Kana da ma\'aikata $count a ƙungiyarka.',
+      zero: 'Babu ma\'aikata da aka yi wa rijista tukuna.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readBranchesDisconnectedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Kana da rassa $count da WhatsApp ba ya aiki.',
+      zero:
+          'Duk rassanka masu aiki suna da WhatsApp da aka haɗa kuma yana aiki.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get readCustomersRecentNone =>
+      'Ba ka da wani abokin ciniki da aka yi wa rijista tukuna.';
+
+  @override
+  String readCustomersRecentName(String name) {
+    return 'Abokin cinikinka na baya-bayan nan shine $name.';
+  }
+
+  @override
+  String readRatingCriticalIssuesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Kana da kimantawa $count da ke jira masu matsala mai tsanani.',
+      zero: 'Babu kimantawar da ke jira mai matsala mai tsanani.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get readPerBranchModeOn =>
+      'Ee, shagonka yana aiki cikin yanayin rassa da yawa.';
+
+  @override
+  String get readPerBranchModeOff =>
+      'A\'a, shagonka yana aiki azaman reshe ɗaya kawai.';
+
+  @override
+  String get readBillingOverdueYes =>
+      'Ee, kana da lissafin da bai biya ba — biya don kauce wa dakatar da hidimominka.';
+
+  @override
+  String get readBillingOverdueNo =>
+      'A\'a, biyan kuɗinka yana da kyau, babu lissafin da bai biya ba.';
+
+  @override
+  String get readServicesFailed =>
+      'An kasa samun adadin ayyuka yanzu, sake gwadawa.';
+
+  @override
+  String readServicesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Kana da ayyuka $count a jerinka.',
+      zero: 'Babu wani sabis a jerinka tukuna.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readCustomersTodayCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Sabbin abokan ciniki $count sun zo yau.',
+      zero: 'Babu sabon abokin ciniki da ya zo yau tukuna.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readMobileRequestsRejectedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ka ƙi $count a wannan wata.',
+      zero: 'Ba ka ƙi wata buƙatar keɓaɓɓu a wannan wata ba.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readMobileRequestsNoShowCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Abokan ciniki $count ba su zo ba a wannan wata.',
+      zero: 'Babu abokin ciniki da bai zo ba a wannan wata.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readRatingFiveStarCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Kana da kimantawa $count na taurari biyar.',
+      zero: 'Babu kimantawar taurari biyar tukuna.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String readBranchesActiveCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Kana da rassa $count masu aiki.',
+      zero: 'Babu reshe mai aiki a yanzu.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get servicesTitle => 'Ayyukana';
+
+  @override
+  String get servicesUnnamedGlyph => '?';
+
+  @override
+  String get servicesSearchHint => 'Nema da sunan sabis';
+
+  @override
+  String get servicesTabActive => 'Masu aiki';
+
+  @override
+  String get servicesTabStopped => 'An dakatar';
+
+  @override
+  String get servicesLoadFailedTitle => 'An kasa loda ayyuka';
+
+  @override
+  String get servicesEmptyActive => 'Babu ayyuka masu aiki tukuna';
+
+  @override
+  String get servicesEmptyStopped => 'Babu ayyukan da aka dakatar';
+
+  @override
+  String get servicesAddOpen => 'Ƙara sabis';
+
+  @override
+  String get servicesNoPrice => 'Ba a saita farashi ba';
+
+  @override
+  String get servicesNoDuration => 'Ba a saita ba';
+
+  @override
+  String get servicesNoCycle => 'Babu zagaye';
+
+  @override
+  String get servicesStopTitle => 'Dakatar da sabis';
+
+  @override
+  String get servicesStopConfirm => 'Dakatar';
+
+  @override
+  String get servicesActionFailed => 'An kasa kammala aikin, sake gwadawa.';
+
+  @override
+  String get servicesEditTitle => 'Gyara sabis';
+
+  @override
+  String get servicesAddTitle => 'Ƙara sabon sabis';
+
+  @override
+  String get servicesNameLabel => 'Sunan sabis';
+
+  @override
+  String get servicesPriceLabel => 'Farashi (na zaɓi)';
+
+  @override
+  String get servicesDurationLabel => 'Tsawon lokaci a mintuna (na zaɓi)';
+
+  @override
+  String get servicesCycleLabel => 'Zagayen tunatarwa a kwanaki (na zaɓi)';
+
+  @override
+  String get servicesDescriptionLabel => 'Gajeren bayani (na zaɓi)';
+
+  @override
+  String get servicesSaving => 'Ana ajiyewa...';
+
+  @override
+  String get servicesSave => 'Ajiye';
+
+  @override
+  String get servicesNameRequired => 'Sunan sabis ana buƙata';
+
+  @override
+  String servicesActiveCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Kana da ayyuka $count masu aiki.',
+      zero: 'Babu sabis mai aiki tukuna.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String servicesDurationMinutes(int count) {
+    return 'Mintuna $count';
+  }
+
+  @override
+  String servicesCycleDays(int count) {
+    return 'Kowace kwana $count';
+  }
+
+  @override
+  String servicesStopWarning(String name) {
+    return 'Wannan zai dakatar da \"$name\" — ba za ta bayyana don sabon ziyara ba, kuma tunatarwarta za su tsaya. Ba a taɓa share bayananta ba.';
+  }
+
+  @override
+  String get servicesPhotoPickFailed => 'An kasa zaɓar hoto';
+
+  @override
+  String get servicesPhotoUploadFailed => 'An ajiye, amma an kasa loda hoto';
+
+  @override
+  String get servicesPhotoLabel => 'Hoton sabis (na zaɓi)';
+
+  @override
+  String get servicesUploadPhoto => 'Loda hoto';
+
+  @override
+  String get servicesChangePhoto => 'Canza hoto';
+
+  @override
+  String get servicesRemovePhoto => 'Cire';
+
+  @override
+  String get servicesAssignmentLabel => 'Wa ke bayar da wannan sabis?';
+
+  @override
+  String get servicesAssignmentAuto => 'Duk wani ma\'aikaci da ke akwai';
+
+  @override
+  String get servicesAssignmentNamed => 'Takamaiman ma\'aikata';
+
+  @override
+  String get servicesChecklistLabel => 'Matakan aiki';
+
+  @override
+  String get servicesChecklistEmpty => 'Babu matakai tukuna — ƙara na farko';
+
+  @override
+  String get servicesStepAddTitle => 'Ƙara mataki';
+
+  @override
+  String get servicesGeneralSettingsTitle => 'Saitin gama-gari';
+
+  @override
+  String get servicesGeneralSettingsHint =>
+      'Ƙimar da kowane sabis da ba a keɓance ba yake bi';
+
+  @override
+  String get servicesFollowUpLabel => 'Kwanakin bibiya bayan ziyara';
+
+  @override
+  String get servicesPointsLabel => 'Maki a kowace ziyara';
+
+  @override
+  String get servicesGroupThem => 'Haɗa su';
+
+  @override
+  String get servicesGroupNameHint => 'Sunan rukuni';
+
+  @override
+  String get servicesAllGroups => 'Duka';
+
+  @override
+  String get servicesStepEditTitle => 'Gyara mataki';
+
+  @override
+  String get servicesStepCriticalLabel => 'Muhimmin mataki';
+
+  @override
+  String get servicesStepRetire => 'Dakatar da wannan mataki';
+
+  @override
+  String get servicesStepEditHint =>
+      'Riƙe kowane mataki na dogon lokaci don gyara ko dakatar da shi';
+
+  @override
+  String get servicesAdvancedTitle => 'Ci-gaba na saituna';
+
+  @override
+  String get servicesAdvancedHint =>
+      'Keɓance wannan sabis daga saitin gama-gari — zagaye, maki, da haɗawa';
+
+  @override
+  String get servicesGroupLabel => 'Rukuni';
+
+  @override
+  String get servicesNoGroup => 'Babu rukuni';
+
+  @override
+  String get servicesNewGroup => 'Sabon rukuni';
+
+  @override
+  String get servicesFollowGeneralAction => 'Bi na gama-gari';
+
+  @override
+  String get servicesCustomizeAction => 'Keɓance';
+
+  @override
+  String servicesFollowUpDays(int n) {
+    return 'Bibiya bayan kwanaki $n';
+  }
+
+  @override
+  String servicesPointsPerVisit(int n) {
+    return 'Maki $n';
+  }
+
+  @override
+  String servicesSuggestionText(int n) {
+    return 'Sabis $n suna da ƙima ɗaya — haɗa su cikin rukuni ɗaya yana sauƙaƙa gyara su tare daga baya.';
+  }
+
+  @override
+  String servicesFollowsGeneral(String hint) {
+    return 'Yana bin gama-gari — $hint';
+  }
+
+  @override
+  String get servicesPageTabServices => 'Ayyuka';
+
+  @override
+  String get servicesPageTabPackages => 'Fakiti';
+
+  @override
+  String get servicesPackageAdd => 'Ƙara fakiti';
+
+  @override
+  String get servicesPackageNeedsTwoServices =>
+      'Fakiti yana buƙatar aƙalla ayyuka biyu masu aiki';
+
+  @override
+  String get servicesPackageEmpty => 'Babu fakiti tukuna';
+
+  @override
+  String get servicesPackageEditTitle => 'Gyara fakiti';
+
+  @override
+  String get servicesPackageAddTitle => 'Ƙara sabon fakiti';
+
+  @override
+  String get servicesPackageNameLabel => 'Sunan fakiti';
+
+  @override
+  String get servicesPackagePriceRequired =>
+      'Ana buƙatar farashin fakiti, sama da sifili';
+
+  @override
+  String get servicesPackageServicesLabel => 'Ayyukan da aka haɗa';
+
+  @override
+  String get servicesImportTitle => 'Shigo da ayyuka daga fayil';
+
+  @override
+  String get servicesImportHint =>
+      'Fayil CSV mai ginshiƙai: name, price, duration_minutes, cycle_days, description';
+
+  @override
+  String get servicesImportPickFile => 'Zaɓi fayil CSV';
+
+  @override
+  String get servicesImportReadFailed => 'An kasa karanta fayil';
+
+  @override
+  String get servicesImportParseFailed =>
+      'Fayil ba shi da ginshiƙin name, ko tsarinsa ba daidai ba ne';
+
+  @override
+  String get servicesImportDeactivateMissing =>
+      'Dakatar da ayyukan da ba su nan a fayil';
+
+  @override
+  String get servicesImportDeactivateMissingHint =>
+      'Duk wani sabis da kake da shi a halin yanzu wanda ba ya cikin wannan fayil za a dakatar da shi ta atomatik';
+
+  @override
+  String get servicesImportConfirm => 'Shigo da su';
+
+  @override
+  String get servicesImportClose => 'An gama';
+
+  @override
+  String servicesImportRowCount(int n) {
+    return 'Layuka $n a shirye don shigowa';
+  }
+
+  @override
+  String servicesImportDone(int created, int updated, int reactivated) {
+    return 'An ƙara $created, an sabunta $updated, an sake kunna $reactivated.';
+  }
+
+  @override
+  String get visitPackagesSectionTitle => 'Fakiti masu fice';
+
+  @override
+  String get visitNameFieldHint => 'Sunan abokin ciniki (na zaɓi)';
+
+  @override
+  String get visitMeterFieldHint => 'Karatun mita';
+
+  @override
+  String get visitQuantityDialogTitle => 'Yawa';
+
+  @override
+  String get visitCouponCheckboxLabel => 'Ba wani shago kubo na rangwame';
+
+  @override
+  String get visitCouponPhoneHint => 'Wayar mai shago';
+
+  @override
+  String get visitClearAllButton => 'Share duka';
+
+  @override
+  String visitServicesSelectedCount(int n) {
+    return 'An zaɓi ayyuka $n';
+  }
+
+  @override
+  String get visitTodayBookingsTitle => 'Alkawuran yau';
+
+  @override
+  String get visitBookingAttendFailed =>
+      'An kasa tabbatar da halarta, sake gwadawa';
+
+  @override
+  String get branchSwitcherChooseBranch => 'Zaɓi reshe';
+
+  @override
+  String get branchSwitcherTitle => 'Reshen yanzu';
+
+  @override
+  String get branchSwitcherHint =>
+      'Duk abin da ka buɗe bayan wannan na wannan reshe ne';
+
+  @override
+  String get proceduresPrintFailed => 'An kasa qirqirar takarda';
+
+  @override
+  String get proceduresTitle => 'Matakan Aiki';
+
+  @override
+  String get proceduresSubtitle =>
+      'Saita jerin matakan aiki na kowace sabis, ko kula da dukan dakin karatu na gama gari. Latsa na dade don zaba don bugawa';
+
+  @override
+  String get proceduresLibraryLink => 'Dakin karatun matakai';
+
+  @override
+  String get proceduresPrint => 'Buga';
+
+  @override
+  String get proceduresEmptyTitle => 'Babu sabis mai aiki tukuna';
+
+  @override
+  String get servicesStepSeverityNormal => 'Na yau da kullun';
+
+  @override
+  String get servicesStepSeverityCritical => 'Mai muhimmanci';
+
+  @override
+  String get proceduresSaveFailed => 'An kasa ajiyewa';
+
+  @override
+  String get proceduresDrawerSubtitle =>
+      'Ja don sake tsari, ko qara mataki daga dakin karatu';
+
+  @override
+  String get proceduresDrawerEmpty => 'Babu matakai na wannan sabis tukuna';
+
+  @override
+  String get proceduresDrawerAddButton => 'Qara daga dakin karatu';
+
+  @override
+  String get proceduresPickTitle => 'Zabi mataki';
+
+  @override
+  String get proceduresPickClose => 'Rufe';
+
+  @override
+  String get proceduresPickApply => 'Qara';
+
+  @override
+  String get proceduresPickSearch => 'Nema matakai';
+
+  @override
+  String get proceduresPickEmpty => 'Babu sakamako';
+
+  @override
+  String get proceduresPickCreatePlaceholder => 'Sabon mataki...';
+
+  @override
+  String get proceduresLibrarySaveFailed => 'An kasa ajiyewa';
+
+  @override
+  String get proceduresLibraryTitle => 'Dakin karatun matakai';
+
+  @override
+  String get proceduresLibrarySubtitle =>
+      'Kowane mataki anan an raba shi tsakanin duk sabis da ke amfani da shi - gyara shi yana canza shi kowa inda';
+
+  @override
+  String get proceduresLibraryNewPlaceholder => 'Rubutun sabon mataki';
+
+  @override
+  String get proceduresLibraryAdd => 'Qara';
+
+  @override
+  String get proceduresLibraryShowRetired => 'Nuna wadanda aka dakatar';
+
+  @override
+  String get proceduresLibraryEmpty => 'Babu matakai tukuna';
+
+  @override
+  String get proceduresLibraryRetired => 'An dakatar';
+
+  @override
+  String get proceduresLibraryRetire => 'Dakatar';
+
+  @override
+  String get proceduresLibraryReactivate => 'Sake kunnawa';
+
+  @override
+  String get proceduresSeverityHint =>
+      'Ana haskaka muhimmin mataki wa maaikaci kuma ba za a iya tsallake shi ba yayin aiwatar da sabis';
+
+  @override
+  String proceduresSelectedCount(int n) {
+    return 'An zabi $n';
+  }
+
+  @override
+  String proceduresStepCount(int n) {
+    return 'Matakai $n';
+  }
+
+  @override
+  String proceduresUsedIn(int n) {
+    return 'Ana amfani a sabis $n';
+  }
+
+  @override
+  String get referralProposeButton => 'Baiwa shawarar hadin gwiwa';
+
+  @override
+  String get referralTitle => 'Hadin Gwiwar Dabaru';
+
+  @override
+  String get referralSubtitle =>
+      'Tura abokan ciniki na gaske tsakanin ku da sauran shaguna, ta yarjejeniya tsakanin bangarorin biyu';
+
+  @override
+  String get referralRoleAll => 'Duka';
+
+  @override
+  String get referralRoleReferrer => 'A matsayin mai tura';
+
+  @override
+  String get referralRoleBeneficiary => 'A matsayin mai amfana';
+
+  @override
+  String get referralLoadFailed => 'An kasa loda hadin gwiwa';
+
+  @override
+  String get referralEmptyTitle => 'Babu hadin gwiwa tukuna';
+
+  @override
+  String get referralKpiAsReferrer => 'A matsayin mai tura';
+
+  @override
+  String get referralKpiAsBeneficiary => 'A matsayin mai amfana';
+
+  @override
+  String get referralKpiSent => 'An tura';
+
+  @override
+  String get referralKpiRedeemed => 'An fanshi';
+
+  @override
+  String get referralKpiRate => 'Adadin fansa';
+
+  @override
+  String get referralConfirm => 'Tabbatar';
+
+  @override
+  String get referralGrantDiscountBlanket => 'Rangwame akan dukan ziyara';
+
+  @override
+  String get referralStatusProposed => 'An bayar da shawara';
+
+  @override
+  String get referralStatusActive => 'Mai aiki';
+
+  @override
+  String get referralStatusPaused => 'An dakatar na wucin gadi';
+
+  @override
+  String get referralStatusCancelRequested => 'An nemi soke';
+
+  @override
+  String get referralStatusEnded => 'Ya kare';
+
+  @override
+  String get referralStatusRejected => 'An ki amincewa';
+
+  @override
+  String get referralStatusExpiredUnanswered => 'Ya kare ba tare da amsa ba';
+
+  @override
+  String get referralEventProposed => 'An bayar da shawarar hadin gwiwa';
+
+  @override
+  String get referralEventAccepted => 'An amince da hadin gwiwa';
+
+  @override
+  String get referralEventRejected => 'An ki amincewa da hadin gwiwa';
+
+  @override
+  String get referralEventActivated => 'An kunna hadin gwiwa';
+
+  @override
+  String get referralEventCancelRequested => 'An nemi soke';
+
+  @override
+  String get referralEventCancelConfirmed => 'An tabbatar da sokewa';
+
+  @override
+  String get referralEventExpiredUnanswered => 'Ya kare ba tare da amsa ba';
+
+  @override
+  String get referralEventPaused => 'An dakatar na wucin gadi';
+
+  @override
+  String get referralEventResumed => 'An sake farawa';
+
+  @override
+  String get referralEventEndedTerm => 'Lokaci ya kare';
+
+  @override
+  String get referralEventGrantCreated => 'Sabon kyauta';
+
+  @override
+  String get referralEventGrantRedeemed => 'An fanshi kyauta';
+
+  @override
+  String get referralActivityActive => 'Mai aiki';
+
+  @override
+  String get referralActivityPaused => 'An dakatar na wucin gadi';
+
+  @override
+  String get referralActivityPending => 'Ana jiran amsa';
+
+  @override
+  String get referralActivityInactive => 'Ba mai aiki ba';
+
+  @override
+  String get referralScorecardTitle => 'Aiki';
+
+  @override
+  String get referralScorecardFailed => 'An kasa loda aiki';
+
+  @override
+  String get referralActivityTitle => 'Ayyukan kwanan nan';
+
+  @override
+  String get referralActivityEmpty => 'Babu ayyuka tukuna';
+
+  @override
+  String get referralAgreementsTitle => 'Yarjejeniyoyi';
+
+  @override
+  String get referralConfirmCancel =>
+      'Tabbatar da kawo karshen wannan hadin gwiwa har abada?';
+
+  @override
+  String get referralActionAccept => 'Amince';
+
+  @override
+  String get referralActionReject => 'Ki amincewa';
+
+  @override
+  String get referralActionWaitingThem => 'Ana jiran daya bangaren';
+
+  @override
+  String get referralActionCancelRequest => 'Nema a kawo karshen';
+
+  @override
+  String get referralActionCancelConfirm => 'Tabbatar da kawo karshen';
+
+  @override
+  String get referralProposeTitle => 'Baiwa sabon shawarar hadin gwiwa';
+
+  @override
+  String get referralProposePhoneLabel => 'Lambar wayar sauran shago';
+
+  @override
+  String get referralProposeConditionLabel => 'Sharadin cancanta a shagon ku';
+
+  @override
+  String get referralConditionMinTotal => 'Mafi karancin kudin biya';
+
+  @override
+  String get referralConditionServiceId => 'Takamaiman sabis';
+
+  @override
+  String get referralProposeConditionValueRiyals => 'Adadin (Riyal)';
+
+  @override
+  String get referralProposeConditionValueService => 'Sabis';
+
+  @override
+  String get referralProposeValidityLabel => 'Ingancin (kwanaki)';
+
+  @override
+  String get referralProposeDurationLabel => 'Tsawon (kwanaki)';
+
+  @override
+  String get referralProposeCapLabel => 'Iyaka / kwana 30';
+
+  @override
+  String get referralProposeGrantTypeLabel => 'Nau\'in kyauta';
+
+  @override
+  String get referralGrantTypeDiscount => 'Rangwame';
+
+  @override
+  String get referralGrantTypeGift => 'Kyauta';
+
+  @override
+  String get referralScopeBlanket => 'Dukan ziyara';
+
+  @override
+  String get referralScopeItem => 'Takamaiman sabis';
+
+  @override
+  String get referralScopeGroup => 'Kungiya/kunshin';
+
+  @override
+  String get referralProposeServiceLabel => 'Sabis';
+
+  @override
+  String get referralProposeGroupLabel => 'Kungiya';
+
+  @override
+  String get referralProposeImmutableNote =>
+      'Sharuddan kyauta sun tabbata bayan aikawa — sabon tayi yana bukatar sabuwar yarjejeniya';
+
+  @override
+  String get referralProposeSubmitting => 'Ana aikawa...';
+
+  @override
+  String get referralProposeSubmit => 'Aika shawara';
+
+  @override
+  String referralGrantGift(String name) {
+    return 'Kyauta: $name';
+  }
+
+  @override
+  String referralGrantDiscountItem(String name) {
+    return 'Rangwame akan: $name';
+  }
+
+  @override
+  String referralGrantDiscountGroup(String name) {
+    return 'Rangwame akan kungiya: $name';
+  }
+
+  @override
+  String referralPartnerCount(int n) {
+    return 'Yarjejeniya $n';
+  }
+
+  @override
+  String get referralProposeResultFail => 'An kasa aika shawara';
+
+  @override
+  String get referralRefusal402 =>
+      'Shagon ku bai yi rajista da app na Hadin Gwiwar Dabaru ba — yi rajista daga shagon aikace-aikace tukuna';
+
+  @override
+  String get referralRefusal403 => 'Ba ka da izinin wannan aikin';
+
+  @override
+  String get referralRefusal400 =>
+      'Bayanan shawara ba daidai ba ne — duba sharadin, ko kana bayar da shawarar hadin gwiwa da kanka';
+
+  @override
+  String get referralRefusal404 =>
+      'Ba a sami shago da wannan lambar ba, ko sabis/kungiyar da aka zaba babu su a cikin kundin sauran shagon';
+
+  @override
+  String get referralRefusal409 =>
+      'Ka kai iyakar hadin gwiwa 3 masu aiki, ko yanayin hadin gwiwa ya canza';
+
+  @override
+  String get referralRefusal503 =>
+      'Ba a samun sabis na kudi na wucin gadi, sake gwadawa daga baya';
+
+  @override
+  String get appStoreTitle => 'Kantin App';
+
+  @override
+  String get appStoreSubtitle =>
+      'Bunkasa shagon ka da apps na gaske, ɗaya bayan ɗaya';
+
+  @override
+  String get appStoreTabMine => 'Apps na';
+
+  @override
+  String get appStoreTabAll => 'Kantin App';
+
+  @override
+  String get appStoreDetails => 'Cikakkun bayanai';
+
+  @override
+  String get appStorePerMonth => 'kowane wata';
+
+  @override
+  String get appStorePerMonthShort => '/wata';
+
+  @override
+  String get appStoreActive => 'Mai aiki';
+
+  @override
+  String get appStoreTrialing => 'Gwaji';
+
+  @override
+  String get appStoreSubscribe => 'Yi rajista yanzu';
+
+  @override
+  String get appStoreCancelRenewal => 'Dakatar da sabuntawa';
+
+  @override
+  String get appStoreUndoCancel => 'Soke bata';
+
+  @override
+  String get appStoreConfirmCancel =>
+      'Dakatar da sabunta wannan app? Zai ci gaba da aiki har zuwa ƙarshen lokacin da aka biya';
+
+  @override
+  String appStoreCartCount(int n) {
+    return '$n a keken saya';
+  }
+
+  @override
+  String get appStoreCheckout => 'Kammala Siye';
+
+  @override
+  String get appStoreCheckingOut => 'Ana kammala siye...';
+
+  @override
+  String get appStoreRefusal402 =>
+      'Biyan kuɗi ba a kunna ba a asusun ka yanzu — tuntube mu don kunna shi';
+
+  @override
+  String get appStoreRefusal403 => 'Ba ka da izinin kammala wannan sayayya';
+
+  @override
+  String get appStoreRefusal404 =>
+      'Ba a sami shirin da ake nema ba — sabunta sannan a sake gwadawa';
+
+  @override
+  String get appStoreRefusal409 =>
+      'An riga an mallaki wannan app, ko yanayinsa ya canza yayin sayayya';
+
+  @override
+  String get appStoreRefusalGeneric => 'An kasa kammala sayayya, sake gwadawa';
+
+  @override
+  String get appStoreCapacityTitle => 'Iyaka';
+
+  @override
+  String appStoreCapacityConfirmRemove(String name) {
+    return 'Cire raka na ƙarshe na \"$name\"? Wannan zai dakatar da sabuntawarsa gaba ɗaya';
+  }
 }
