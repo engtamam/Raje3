@@ -401,6 +401,16 @@
       "loyalty.rewards.update"
     ]
   },
+  "nav.whatsapp_assistant": {
+    "name": "open_whatsapp_assistant",
+    "description": "يفتح شاشة المساعد الذكي عبر واتساب — تشغيله/إيقافه، ملاحظات المحل، حد كلمات الرسالة، والتسجيل التلقائي لجهات الاتصال.",
+    "scope": "navigation",
+    "route": "whatsapp_assistant",
+    "kb_entry": "whatsapp-assistant",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": []
+  },
   "nav.referral_partnership": {
     "name": "open_referral_partnership",
     "description": "يفتح شاشة «شراكة استراتيجية» — تحالفات محلك مع محلات ثانية، عرض شراكة جديدة، وقبول أو رفض العروض الواردة.",

@@ -2872,4 +2872,82 @@ class SAr extends S {
   String appStoreCapacityConfirmRemove(String name) {
     return 'هل تريد إزالة آخر وحدة من \"$name\"؟ هذا يوقف تجديده بالكامل';
   }
+
+  @override
+  String get whatsappAssistantTitle => 'المساعد الذكي';
+
+  @override
+  String get whatsappAssistantSubtitle =>
+      'يرد على عملائك بواتساب نيابة عنك، ويقترح عليهم باقاتك ونقاطهم في الوقت المناسب.';
+
+  @override
+  String get whatsappAssistantLoadFailed =>
+      'تعذّر تحميل إعدادات المساعد الذكي.';
+
+  @override
+  String get whatsappAssistantConfirm => 'تأكيد';
+
+  @override
+  String get whatsappAssistantSaveFailed => 'تعذّر الحفظ، حاول مرة أخرى.';
+
+  @override
+  String get whatsappAssistantToggleTitle => 'المساعد يرد الآن';
+
+  @override
+  String get whatsappAssistantToggleDesc =>
+      'إيقافه يقفل المساعد تمامًا، بدون إلغاء اشتراكك — ترجعه متى شئت.';
+
+  @override
+  String get whatsappAssistantToggleConfirmEnableTitle =>
+      'تشغيل المساعد الذكي؟';
+
+  @override
+  String get whatsappAssistantToggleConfirmEnableBody =>
+      'بيبدأ يرد على عملائك بواتساب فورًا.';
+
+  @override
+  String get whatsappAssistantToggleConfirmDisableTitle =>
+      'إيقاف المساعد الذكي؟';
+
+  @override
+  String get whatsappAssistantToggleConfirmDisableBody =>
+      'بيتوقف عن الرد تمامًا، وكأنك غير مشترك فيه — بدون إلغاء الاشتراك نفسه.';
+
+  @override
+  String get whatsappAssistantNotesTitle => 'ملاحظات المحل';
+
+  @override
+  String get whatsappAssistantNotesDesc =>
+      'ما تكتبه هنا يساعد المساعد الذكي يخدم عملاءك بمعلومات إضافية عن محلك.';
+
+  @override
+  String get whatsappAssistantWordLimitTitle => 'حد كلمات رسالة العميل';
+
+  @override
+  String get whatsappAssistantWordLimitDesc =>
+      'أطول رسالة يقبلها المساعد من العميل قبل ما يطلب منه اختصارها.';
+
+  @override
+  String get whatsappAssistantAutoRegisterTitle =>
+      'تسجيل جهات الاتصال تلقائيًا';
+
+  @override
+  String get whatsappAssistantAutoRegisterDesc =>
+      'أي رقم جديد يراسل واتسابك يُسجَّل تلقائيًا كجهة اتصال حقيقية.';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmEnableTitle =>
+      'تفعيل التسجيل التلقائي؟';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmEnableBody =>
+      'كل من يراسل رقمك بواتساب راح يُسجَّل تلقائيًا كجهة اتصال، حتى لو رسالة وحدة.';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmDisableTitle =>
+      'إيقاف التسجيل التلقائي؟';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmDisableBody =>
+      'الأرقام الجديدة ما راح تُسجَّل كجهات اتصال تلقائيًا بعد الآن.';
 }

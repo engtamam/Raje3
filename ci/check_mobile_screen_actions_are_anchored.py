@@ -145,6 +145,13 @@ EXEMPT_LINES: dict[str, set[str]] = {
         "TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(s.mobileRequestsRejectCancel)),",
         "TextButton(onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()), child: Text(s.mobileRequestsRejectConfirm)),",
     },
+    "apps/mobile/lib/features/whatsapp_assistant/whatsapp_assistant_screen.dart": {
+        # The shared toggle-confirm dialog's own cancel/confirm — the toggle card right above
+        # (anchored) already names the real setting being flipped; "cancel" and "confirm" need no
+        # separate entry.
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.cancel)),",
+        "TextButton(",
+    },
 }
 
 

@@ -2894,4 +2894,81 @@ class SEn extends S {
   String appStoreCapacityConfirmRemove(String name) {
     return 'Remove the last unit of \"$name\"? This stops its renewal entirely';
   }
+
+  @override
+  String get whatsappAssistantTitle => 'AI Assistant';
+
+  @override
+  String get whatsappAssistantSubtitle =>
+      'Replies to your customers on WhatsApp for you, suggesting your plans and their points at the right moment.';
+
+  @override
+  String get whatsappAssistantLoadFailed =>
+      'Couldn\'t load the assistant\'s settings.';
+
+  @override
+  String get whatsappAssistantConfirm => 'Confirm';
+
+  @override
+  String get whatsappAssistantSaveFailed => 'Couldn\'t save, try again.';
+
+  @override
+  String get whatsappAssistantToggleTitle => 'Assistant is replying';
+
+  @override
+  String get whatsappAssistantToggleDesc =>
+      'Turning it off locks the assistant completely, without cancelling your subscription — turn it back on any time.';
+
+  @override
+  String get whatsappAssistantToggleConfirmEnableTitle =>
+      'Turn on the AI assistant?';
+
+  @override
+  String get whatsappAssistantToggleConfirmEnableBody =>
+      'It will start replying to your customers on WhatsApp right away.';
+
+  @override
+  String get whatsappAssistantToggleConfirmDisableTitle =>
+      'Turn off the AI assistant?';
+
+  @override
+  String get whatsappAssistantToggleConfirmDisableBody =>
+      'It stops replying entirely, as if you weren\'t subscribed at all — without cancelling the subscription itself.';
+
+  @override
+  String get whatsappAssistantNotesTitle => 'Shop notes';
+
+  @override
+  String get whatsappAssistantNotesDesc =>
+      'What you write here helps the assistant serve your customers with extra context about your shop.';
+
+  @override
+  String get whatsappAssistantWordLimitTitle => 'Customer message word limit';
+
+  @override
+  String get whatsappAssistantWordLimitDesc =>
+      'The longest message the assistant accepts from a customer before asking him to shorten it.';
+
+  @override
+  String get whatsappAssistantAutoRegisterTitle => 'Auto-register contacts';
+
+  @override
+  String get whatsappAssistantAutoRegisterDesc =>
+      'Any new number that messages your WhatsApp is automatically saved as a real contact.';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmEnableTitle =>
+      'Turn on auto-registration?';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmEnableBody =>
+      'Everyone who messages your WhatsApp number will be automatically saved as a contact, even from a single message.';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmDisableTitle =>
+      'Turn off auto-registration?';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmDisableBody =>
+      'New numbers will no longer be automatically saved as contacts.';
 }

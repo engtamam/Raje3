@@ -2858,4 +2858,82 @@ class SBn extends S {
   String appStoreCapacityConfirmRemove(String name) {
     return '\"$name\" এর শেষ ইউনিট সরাতে চান? এটি সম্পূর্ণভাবে এর নবায়ন বন্ধ করবে';
   }
+
+  @override
+  String get whatsappAssistantTitle => 'এআই সহকারী';
+
+  @override
+  String get whatsappAssistantSubtitle =>
+      'আপনার পক্ষ থেকে হোয়াটসঅ্যাপে গ্রাহকদের জবাব দেয়, সঠিক মুহূর্তে আপনার প্ল্যান ও তাদের পয়েন্ট সাজেস্ট করে।';
+
+  @override
+  String get whatsappAssistantLoadFailed => 'সহকারীর সেটিংস লোড করা যায়নি।';
+
+  @override
+  String get whatsappAssistantConfirm => 'নিশ্চিত করুন';
+
+  @override
+  String get whatsappAssistantSaveFailed =>
+      'সংরক্ষণ করা যায়নি, আবার চেষ্টা করুন।';
+
+  @override
+  String get whatsappAssistantToggleTitle => 'সহকারী উত্তর দিচ্ছে';
+
+  @override
+  String get whatsappAssistantToggleDesc =>
+      'বন্ধ করলে সহকারী সম্পূর্ণভাবে বন্ধ হয়ে যায়, সাবস্ক্রিপশন বাতিল ছাড়াই — যেকোনো সময় আবার চালু করুন।';
+
+  @override
+  String get whatsappAssistantToggleConfirmEnableTitle =>
+      'এআই সহকারী চালু করবেন?';
+
+  @override
+  String get whatsappAssistantToggleConfirmEnableBody =>
+      'এটি এখনই আপনার গ্রাহকদের হোয়াটসঅ্যাপে উত্তর দেওয়া শুরু করবে।';
+
+  @override
+  String get whatsappAssistantToggleConfirmDisableTitle =>
+      'এআই সহকারী বন্ধ করবেন?';
+
+  @override
+  String get whatsappAssistantToggleConfirmDisableBody =>
+      'এটি সম্পূর্ণভাবে উত্তর দেওয়া বন্ধ করে দেবে, সাবস্ক্রিপশন বাতিল না করেই।';
+
+  @override
+  String get whatsappAssistantNotesTitle => 'দোকানের নোট';
+
+  @override
+  String get whatsappAssistantNotesDesc =>
+      'এখানে যা লিখবেন তা সহকারীকে আপনার দোকান সম্পর্কে অতিরিক্ত তথ্য দিয়ে গ্রাহকদের সেবা দিতে সাহায্য করে।';
+
+  @override
+  String get whatsappAssistantWordLimitTitle => 'গ্রাহক বার্তার শব্দসীমা';
+
+  @override
+  String get whatsappAssistantWordLimitDesc =>
+      'সংক্ষিপ্ত করতে বলার আগে সহকারী গ্রাহকের কাছ থেকে সর্বোচ্চ যত শব্দের বার্তা গ্রহণ করে।';
+
+  @override
+  String get whatsappAssistantAutoRegisterTitle =>
+      'স্বয়ংক্রিয় যোগাযোগ নিবন্ধন';
+
+  @override
+  String get whatsappAssistantAutoRegisterDesc =>
+      'আপনার হোয়াটসঅ্যাপে বার্তা পাঠানো যেকোনো নতুন নম্বর স্বয়ংক্রিয়ভাবে একটি প্রকৃত পরিচিতি হিসেবে সংরক্ষিত হয়।';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmEnableTitle =>
+      'স্বয়ংক্রিয় নিবন্ধন চালু করবেন?';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmEnableBody =>
+      'আপনার হোয়াটসঅ্যাপ নম্বরে বার্তা পাঠানো প্রত্যেকে স্বয়ংক্রিয়ভাবে পরিচিতি হিসেবে সংরক্ষিত হবে, এমনকি একটি বার্তা থেকেও।';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmDisableTitle =>
+      'স্বয়ংক্রিয় নিবন্ধন বন্ধ করবেন?';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmDisableBody =>
+      'নতুন নম্বরগুলো আর স্বয়ংক্রিয়ভাবে পরিচিতি হিসেবে সংরক্ষিত হবে না।';
 }

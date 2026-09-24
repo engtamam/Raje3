@@ -4856,6 +4856,132 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'هل تريد إزالة آخر وحدة من \"{name}\"؟ هذا يوقف تجديده بالكامل'**
   String appStoreCapacityConfirmRemove(String name);
+
+  /// No description provided for @whatsappAssistantTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'المساعد الذكي'**
+  String get whatsappAssistantTitle;
+
+  /// No description provided for @whatsappAssistantSubtitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'يرد على عملائك بواتساب نيابة عنك، ويقترح عليهم باقاتك ونقاطهم في الوقت المناسب.'**
+  String get whatsappAssistantSubtitle;
+
+  /// No description provided for @whatsappAssistantLoadFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تحميل إعدادات المساعد الذكي.'**
+  String get whatsappAssistantLoadFailed;
+
+  /// No description provided for @whatsappAssistantConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد'**
+  String get whatsappAssistantConfirm;
+
+  /// No description provided for @whatsappAssistantSaveFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر الحفظ، حاول مرة أخرى.'**
+  String get whatsappAssistantSaveFailed;
+
+  /// No description provided for @whatsappAssistantToggleTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'المساعد يرد الآن'**
+  String get whatsappAssistantToggleTitle;
+
+  /// No description provided for @whatsappAssistantToggleDesc.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقافه يقفل المساعد تمامًا، بدون إلغاء اشتراكك — ترجعه متى شئت.'**
+  String get whatsappAssistantToggleDesc;
+
+  /// No description provided for @whatsappAssistantToggleConfirmEnableTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تشغيل المساعد الذكي؟'**
+  String get whatsappAssistantToggleConfirmEnableTitle;
+
+  /// No description provided for @whatsappAssistantToggleConfirmEnableBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'بيبدأ يرد على عملائك بواتساب فورًا.'**
+  String get whatsappAssistantToggleConfirmEnableBody;
+
+  /// No description provided for @whatsappAssistantToggleConfirmDisableTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف المساعد الذكي؟'**
+  String get whatsappAssistantToggleConfirmDisableTitle;
+
+  /// No description provided for @whatsappAssistantToggleConfirmDisableBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'بيتوقف عن الرد تمامًا، وكأنك غير مشترك فيه — بدون إلغاء الاشتراك نفسه.'**
+  String get whatsappAssistantToggleConfirmDisableBody;
+
+  /// No description provided for @whatsappAssistantNotesTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'ملاحظات المحل'**
+  String get whatsappAssistantNotesTitle;
+
+  /// No description provided for @whatsappAssistantNotesDesc.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما تكتبه هنا يساعد المساعد الذكي يخدم عملاءك بمعلومات إضافية عن محلك.'**
+  String get whatsappAssistantNotesDesc;
+
+  /// No description provided for @whatsappAssistantWordLimitTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'حد كلمات رسالة العميل'**
+  String get whatsappAssistantWordLimitTitle;
+
+  /// No description provided for @whatsappAssistantWordLimitDesc.
+  ///
+  /// In ar, this message translates to:
+  /// **'أطول رسالة يقبلها المساعد من العميل قبل ما يطلب منه اختصارها.'**
+  String get whatsappAssistantWordLimitDesc;
+
+  /// No description provided for @whatsappAssistantAutoRegisterTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تسجيل جهات الاتصال تلقائيًا'**
+  String get whatsappAssistantAutoRegisterTitle;
+
+  /// No description provided for @whatsappAssistantAutoRegisterDesc.
+  ///
+  /// In ar, this message translates to:
+  /// **'أي رقم جديد يراسل واتسابك يُسجَّل تلقائيًا كجهة اتصال حقيقية.'**
+  String get whatsappAssistantAutoRegisterDesc;
+
+  /// No description provided for @whatsappAssistantAutoRegisterConfirmEnableTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تفعيل التسجيل التلقائي؟'**
+  String get whatsappAssistantAutoRegisterConfirmEnableTitle;
+
+  /// No description provided for @whatsappAssistantAutoRegisterConfirmEnableBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'كل من يراسل رقمك بواتساب راح يُسجَّل تلقائيًا كجهة اتصال، حتى لو رسالة وحدة.'**
+  String get whatsappAssistantAutoRegisterConfirmEnableBody;
+
+  /// No description provided for @whatsappAssistantAutoRegisterConfirmDisableTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف التسجيل التلقائي؟'**
+  String get whatsappAssistantAutoRegisterConfirmDisableTitle;
+
+  /// No description provided for @whatsappAssistantAutoRegisterConfirmDisableBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'الأرقام الجديدة ما راح تُسجَّل كجهات اتصال تلقائيًا بعد الآن.'**
+  String get whatsappAssistantAutoRegisterConfirmDisableBody;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

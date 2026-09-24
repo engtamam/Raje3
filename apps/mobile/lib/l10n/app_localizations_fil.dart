@@ -2924,4 +2924,83 @@ class SFil extends S {
   String appStoreCapacityConfirmRemove(String name) {
     return 'Alisin ang huling unit ng \"$name\"? Ihihinto nito ang buong renewal';
   }
+
+  @override
+  String get whatsappAssistantTitle => 'AI Assistant';
+
+  @override
+  String get whatsappAssistantSubtitle =>
+      'Sumasagot sa mga customer mo sa WhatsApp para sa iyo, iminumungkahi ang mga plano mo at ang points nila sa tamang sandali.';
+
+  @override
+  String get whatsappAssistantLoadFailed =>
+      'Hindi na-load ang settings ng assistant.';
+
+  @override
+  String get whatsappAssistantConfirm => 'Kumpirmahin';
+
+  @override
+  String get whatsappAssistantSaveFailed => 'Hindi na-save, subukan ulit.';
+
+  @override
+  String get whatsappAssistantToggleTitle => 'Sumasagot ang assistant';
+
+  @override
+  String get whatsappAssistantToggleDesc =>
+      'Ang pag-off ay kumpletong iki-lock ang assistant, nang hindi kinakansela ang subscription mo — buksan muli anumang oras.';
+
+  @override
+  String get whatsappAssistantToggleConfirmEnableTitle =>
+      'I-on ang AI assistant?';
+
+  @override
+  String get whatsappAssistantToggleConfirmEnableBody =>
+      'Magsisimula itong sumagot sa mga customer mo sa WhatsApp agad.';
+
+  @override
+  String get whatsappAssistantToggleConfirmDisableTitle =>
+      'I-off ang AI assistant?';
+
+  @override
+  String get whatsappAssistantToggleConfirmDisableBody =>
+      'Hihinto itong sumagot nang tuluyan, na parang hindi ka nag-subscribe — nang hindi kinakansela ang subscription mismo.';
+
+  @override
+  String get whatsappAssistantNotesTitle => 'Mga tala ng tindahan';
+
+  @override
+  String get whatsappAssistantNotesDesc =>
+      'Ang isinusulat mo dito ay tumutulong sa assistant na paglingkuran ang mga customer mo nang may karagdagang konteksto tungkol sa tindahan mo.';
+
+  @override
+  String get whatsappAssistantWordLimitTitle =>
+      'Limitasyon ng salita ng mensahe ng customer';
+
+  @override
+  String get whatsappAssistantWordLimitDesc =>
+      'Ang pinakamahabang mensaheng tinatanggap ng assistant mula sa customer bago hilingin sa kanyang paikliin ito.';
+
+  @override
+  String get whatsappAssistantAutoRegisterTitle =>
+      'Awtomatikong pagrehistro ng contact';
+
+  @override
+  String get whatsappAssistantAutoRegisterDesc =>
+      'Anumang bagong numerong magme-message sa WhatsApp mo ay awtomatikong ise-save bilang tunay na contact.';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmEnableTitle =>
+      'I-on ang awtomatikong pagrehistro?';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmEnableBody =>
+      'Ang lahat ng magme-message sa WhatsApp number mo ay awtomatikong ise-save bilang contact, kahit sa iisang mensahe lang.';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmDisableTitle =>
+      'I-off ang awtomatikong pagrehistro?';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmDisableBody =>
+      'Ang mga bagong numero ay hindi na awtomatikong ise-save bilang contact.';
 }

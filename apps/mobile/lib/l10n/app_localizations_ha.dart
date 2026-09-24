@@ -2858,4 +2858,82 @@ class SHa extends S {
   String appStoreCapacityConfirmRemove(String name) {
     return 'Cire raka na ƙarshe na \"$name\"? Wannan zai dakatar da sabuntawarsa gaba ɗaya';
   }
+
+  @override
+  String get whatsappAssistantTitle => 'Mataimakin AI';
+
+  @override
+  String get whatsappAssistantSubtitle =>
+      'Yana amsa wa abokan cinikinka a WhatsApp maimakonka, yana ba da shawarar shirye-shiryenka da maki nasu a daidai lokaci.';
+
+  @override
+  String get whatsappAssistantLoadFailed => 'An kasa loda saitunan mataimaki.';
+
+  @override
+  String get whatsappAssistantConfirm => 'Tabbatar';
+
+  @override
+  String get whatsappAssistantSaveFailed => 'An kasa ajiyewa, a sake gwadawa.';
+
+  @override
+  String get whatsappAssistantToggleTitle => 'Mataimaki yana amsawa';
+
+  @override
+  String get whatsappAssistantToggleDesc =>
+      'Kashe shi zai kulle mataimaki gaba ɗaya, ba tare da soke biyan kuɗinka ba — sake kunna shi kowane lokaci.';
+
+  @override
+  String get whatsappAssistantToggleConfirmEnableTitle =>
+      'Kunna mataimakin AI?';
+
+  @override
+  String get whatsappAssistantToggleConfirmEnableBody =>
+      'Zai fara amsa wa abokan cinikinka a WhatsApp nan take.';
+
+  @override
+  String get whatsappAssistantToggleConfirmDisableTitle =>
+      'Kashe mataimakin AI?';
+
+  @override
+  String get whatsappAssistantToggleConfirmDisableBody =>
+      'Zai daina amsawa gaba ɗaya, kamar ba ka biya ba — ba tare da soke biyan kuɗin da kansa ba.';
+
+  @override
+  String get whatsappAssistantNotesTitle => 'Bayanan shago';
+
+  @override
+  String get whatsappAssistantNotesDesc =>
+      'Abin da ka rubuta a nan yana taimaka wa mataimaki ya yi wa abokan cinikinka hidima da ƙarin bayani game da shagonka.';
+
+  @override
+  String get whatsappAssistantWordLimitTitle =>
+      'Iyakar kalmomin saƙon abokin ciniki';
+
+  @override
+  String get whatsappAssistantWordLimitDesc =>
+      'Mafi tsayin saƙon da mataimaki zai karɓa daga abokin ciniki kafin ya nemi ya taƙaita shi.';
+
+  @override
+  String get whatsappAssistantAutoRegisterTitle =>
+      'Rijistar mutane ta atomatik';
+
+  @override
+  String get whatsappAssistantAutoRegisterDesc =>
+      'Duk sabon lambar da ta aiko wa WhatsApp ɗinka za a ajiye ta atomatik a matsayin lamba ta gaske.';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmEnableTitle =>
+      'Kunna rijista ta atomatik?';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmEnableBody =>
+      'Duk wanda ya aiko saƙo zuwa lambar WhatsApp ɗinka za a ajiye shi a matsayin lamba ta atomatik, ko da saƙo ɗaya ne kawai.';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmDisableTitle =>
+      'Kashe rijista ta atomatik?';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmDisableBody =>
+      'Sabbin lambobi ba za a ƙara ajiye su a matsayin lambobi ta atomatik ba.';
 }

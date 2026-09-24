@@ -25,6 +25,8 @@ class RouteNames {
   static const String branches = 'branches';
   static const String branchDetail = 'branch_detail';
   static const String billing = 'billing';
+  static const String customerDetail = 'customer_detail';
+  static const String whatsappAssistant = 'whatsapp_assistant';
 
   // ── ROUTE PATHS ───────────────────────────────────────────────────────────
   static const String loginPath = '/login';
@@ -63,4 +65,12 @@ class RouteNames {
   /// billing fact belongs to the whole account, not one branch or the shop's identity). Own back
   /// button, no bottom bar, same drill-down pattern as every other account sub-screen.
   static const String billingPath = '/account/billing';
+  /// `:customerId` — pushed FROM «عملائي», own back button, no bottom bar, same drill-down
+  /// pattern as every other detail screen in this app.
+  static const String customerDetailPath = '/customers/:customerId';
+  static String customerDetailPathFor(String customerId) => '/customers/$customerId';
+  /// «المساعد الذكي عبر واتساب» — pushed FROM the app store's own «تطبيقاتي»/«المتجر» row
+  /// (`apps_store_screen.dart`'s `AppRow.route`), own back button, no bottom bar — this app has
+  /// no `feature.*` nav section of its own, same drill-down pattern as billing.
+  static const String whatsappAssistantPath = '/whatsapp-assistant';
 }

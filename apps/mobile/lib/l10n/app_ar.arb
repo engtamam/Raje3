@@ -2968,5 +2968,26 @@
         "type": "String"
       }
     }
-  }
+  },
+  "whatsappAssistantTitle": "المساعد الذكي",
+  "whatsappAssistantSubtitle": "يرد على عملائك بواتساب نيابة عنك، ويقترح عليهم باقاتك ونقاطهم في الوقت المناسب.",
+  "whatsappAssistantLoadFailed": "تعذّر تحميل إعدادات المساعد الذكي.",
+  "whatsappAssistantConfirm": "تأكيد",
+  "whatsappAssistantSaveFailed": "تعذّر الحفظ، حاول مرة أخرى.",
+  "whatsappAssistantToggleTitle": "المساعد يرد الآن",
+  "whatsappAssistantToggleDesc": "إيقافه يقفل المساعد تمامًا، بدون إلغاء اشتراكك — ترجعه متى شئت.",
+  "whatsappAssistantToggleConfirmEnableTitle": "تشغيل المساعد الذكي؟",
+  "whatsappAssistantToggleConfirmEnableBody": "بيبدأ يرد على عملائك بواتساب فورًا.",
+  "whatsappAssistantToggleConfirmDisableTitle": "إيقاف المساعد الذكي؟",
+  "whatsappAssistantToggleConfirmDisableBody": "بيتوقف عن الرد تمامًا، وكأنك غير مشترك فيه — بدون إلغاء الاشتراك نفسه.",
+  "whatsappAssistantNotesTitle": "ملاحظات المحل",
+  "whatsappAssistantNotesDesc": "ما تكتبه هنا يساعد المساعد الذكي يخدم عملاءك بمعلومات إضافية عن محلك.",
+  "whatsappAssistantWordLimitTitle": "حد كلمات رسالة العميل",
+  "whatsappAssistantWordLimitDesc": "أطول رسالة يقبلها المساعد من العميل قبل ما يطلب منه اختصارها.",
+  "whatsappAssistantAutoRegisterTitle": "تسجيل جهات الاتصال تلقائيًا",
+  "whatsappAssistantAutoRegisterDesc": "أي رقم جديد يراسل واتسابك يُسجَّل تلقائيًا كجهة اتصال حقيقية.",
+  "whatsappAssistantAutoRegisterConfirmEnableTitle": "تفعيل التسجيل التلقائي؟",
+  "whatsappAssistantAutoRegisterConfirmEnableBody": "كل من يراسل رقمك بواتساب راح يُسجَّل تلقائيًا كجهة اتصال، حتى لو رسالة وحدة.",
+  "whatsappAssistantAutoRegisterConfirmDisableTitle": "إيقاف التسجيل التلقائي؟",
+  "whatsappAssistantAutoRegisterConfirmDisableBody": "الأرقام الجديدة ما راح تُسجَّل كجهات اتصال تلقائيًا بعد الآن."
 }

@@ -1883,6 +1883,66 @@
       "loyalty.rewards.update"
     ]
   },
+  "whatsapp-assistant": {
+    "title": {
+      "ar": "المساعد الذكي عبر واتساب",
+      "en": "WhatsApp AI assistant"
+    },
+    "body": {
+      "ar": "يرد على عملائك بواتساب نيابة عنك، ويقترح عليهم باقاتك ونقاطهم بالوقت المناسب. هنا تتحكم بتشغيله، ملاحظاته، وحدوده.",
+      "en": "Replies to your customers on WhatsApp for you, suggesting your plans and their points at the right moment. Here you control turning it on, its notes, and its limits."
+    },
+    "kind": "screen",
+    "anchor": "whatsapp-assistant"
+  },
+  "whatsapp-assistant.toggle": {
+    "title": {
+      "ar": "تشغيل/إيقاف المساعد",
+      "en": "Turn the assistant on/off"
+    },
+    "body": {
+      "ar": "إيقافه يقفل المساعد تمامًا وكأنك غير مشترك فيه، بدون إلغاء اشتراك التطبيق نفسه — ترجعه متى شئت.",
+      "en": "Turning it off locks the assistant completely, as if you weren't subscribed at all, without cancelling the app subscription itself — turn it back on any time."
+    },
+    "kind": "action",
+    "anchor": "whatsapp-assistant.toggle"
+  },
+  "whatsapp-assistant.notes_field": {
+    "title": {
+      "ar": "ملاحظات المحل",
+      "en": "Shop notes"
+    },
+    "body": {
+      "ar": "معلومات إضافية عن محلك يستخدمها المساعد وهو يرد على عملائك — لا تكتب هنا بيانات شخصية لعملائك.",
+      "en": "Extra context about your shop the assistant uses while replying to your customers — never write your customers' own personal data here."
+    },
+    "kind": "field",
+    "anchor": "whatsapp-assistant.notes_field"
+  },
+  "whatsapp-assistant.word_limit_field": {
+    "title": {
+      "ar": "حد كلمات رسالة العميل",
+      "en": "Customer message word limit"
+    },
+    "body": {
+      "ar": "أطول رسالة يقبلها المساعد من العميل قبل ما يطلب منه اختصارها — بين 20 و300 كلمة.",
+      "en": "The longest message the assistant accepts from a customer before asking him to shorten it — between 20 and 300 words."
+    },
+    "kind": "field",
+    "anchor": "whatsapp-assistant.word_limit_field"
+  },
+  "whatsapp-assistant.auto_register_toggle": {
+    "title": {
+      "ar": "تسجيل جهات الاتصال تلقائيًا",
+      "en": "Auto-register contacts"
+    },
+    "body": {
+      "ar": "أي رقم جديد يراسل واتسابك يُسجَّل تلقائيًا كجهة اتصال حقيقية، حتى لو رسالة وحدة.",
+      "en": "Any new number that messages your WhatsApp is automatically saved as a real contact, even from a single message."
+    },
+    "kind": "action",
+    "anchor": "whatsapp-assistant.auto_register_toggle"
+  },
   "referral-partnership": {
     "title": {
       "ar": "شراكة استراتيجية",

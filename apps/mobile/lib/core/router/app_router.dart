@@ -5,15 +5,25 @@ import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/router/route_names.dart';
 import 'package:raje3_mobile/features/account/account_screen.dart';
+import 'package:raje3_mobile/features/apps/apps_store_screen.dart';
 import 'package:raje3_mobile/features/account/billing_screen.dart';
 import 'package:raje3_mobile/features/account/branch_detail_screen.dart';
 import 'package:raje3_mobile/features/account/branches_screen.dart';
 import 'package:raje3_mobile/features/account/shop_identity_screen.dart';
 import 'package:raje3_mobile/features/auth/login_screen.dart';
 import 'package:raje3_mobile/features/auth/signup_screen.dart';
+import 'package:raje3_mobile/features/customers/customer_detail_screen.dart';
+import 'package:raje3_mobile/features/customers/customers_screen.dart';
 import 'package:raje3_mobile/features/home/home_screen.dart';
+import 'package:raje3_mobile/features/mobile_requests/mobile_requests_screen.dart';
+import 'package:raje3_mobile/features/points/points_screen.dart';
+import 'package:raje3_mobile/features/rating/rating_screen.dart';
+import 'package:raje3_mobile/features/referral/referral_partnership_screen.dart';
+
+import 'package:raje3_mobile/features/services/services_screen.dart';
 import 'package:raje3_mobile/features/shell/main_shell.dart';
 import 'package:raje3_mobile/features/visit/visit_screen.dart';
+import 'package:raje3_mobile/features/whatsapp_assistant/whatsapp_assistant_screen.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
@@ -79,6 +89,17 @@ class AppRouter {
           name: RouteNames.billing,
           builder: (context, state) => const BillingScreen(),
         ),
+        GoRoute(
+          path: RouteNames.customerDetailPath,
+          name: RouteNames.customerDetail,
+          builder: (context, state) =>
+              CustomerDetailScreen(customerId: state.pathParameters['customerId']!),
+        ),
+        GoRoute(
+          path: RouteNames.whatsappAssistantPath,
+          name: RouteNames.whatsappAssistant,
+          builder: (context, state) => const WhatsappAssistantScreen(),
+        ),
         ShellRoute(
           navigatorKey: _shellNavKey,
           builder: (context, state, child) => MainShell(child: child),
@@ -91,9 +112,9 @@ class AppRouter {
             GoRoute(
               path: RouteNames.appsPath,
               name: RouteNames.apps,
-              builder: (context, state) => KbAnchor(
+              builder: (context, state) => const KbAnchor(
                 id: 'apps',
-                child: _NotYetOnMobile(label: S.of(context)!.navAppsLabel),
+                child: AppsStoreScreen(),
               ),
             ),
             GoRoute(
@@ -117,6 +138,18 @@ class AppRouter {
     switch (section.id) {
       case 'visit':
         return const VisitScreen();
+      case 'mobile-requests':
+        return const MobileRequestsScreen();
+      case 'customers':
+        return const CustomersScreen();
+      case 'rating':
+        return const RatingScreen();
+      case 'services':
+        return const ServicesScreen();
+      case 'points':
+        return const PointsScreen();
+      case 'referral-partnership':
+        return const ReferralPartnershipScreen();
       default:
         return _NotYetOnMobile(label: section.label);
     }

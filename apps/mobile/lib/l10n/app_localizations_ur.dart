@@ -2859,4 +2859,82 @@ class SUr extends S {
   String appStoreCapacityConfirmRemove(String name) {
     return '\"$name\" کی آخری یونٹ ہٹانا چاہتے ہیں؟ یہ اس کی تجدید مکمل طور پر روک دے گا';
   }
+
+  @override
+  String get whatsappAssistantTitle => 'اے آئی اسسٹنٹ';
+
+  @override
+  String get whatsappAssistantSubtitle =>
+      'آپ کی جانب سے واٹس ایپ پر آپ کے گاہکوں کو جواب دیتا ہے، صحیح وقت پر آپ کے پلانز اور ان کے پوائنٹس تجویز کرتا ہے۔';
+
+  @override
+  String get whatsappAssistantLoadFailed =>
+      'اسسٹنٹ کی ترتیبات لوڈ نہیں ہو سکیں۔';
+
+  @override
+  String get whatsappAssistantConfirm => 'تصدیق کریں';
+
+  @override
+  String get whatsappAssistantSaveFailed =>
+      'محفوظ نہیں ہو سکا، دوبارہ کوشش کریں۔';
+
+  @override
+  String get whatsappAssistantToggleTitle => 'اسسٹنٹ جواب دے رہا ہے';
+
+  @override
+  String get whatsappAssistantToggleDesc =>
+      'اسے بند کرنے سے اسسٹنٹ مکمل طور پر بند ہو جاتا ہے، بغیر سبسکرپشن منسوخ کیے — کسی بھی وقت دوبارہ چالو کریں۔';
+
+  @override
+  String get whatsappAssistantToggleConfirmEnableTitle =>
+      'اے آئی اسسٹنٹ چالو کریں؟';
+
+  @override
+  String get whatsappAssistantToggleConfirmEnableBody =>
+      'یہ فوراً آپ کے گاہکوں کو واٹس ایپ پر جواب دینا شروع کر دے گا۔';
+
+  @override
+  String get whatsappAssistantToggleConfirmDisableTitle =>
+      'اے آئی اسسٹنٹ بند کریں؟';
+
+  @override
+  String get whatsappAssistantToggleConfirmDisableBody =>
+      'یہ مکمل طور پر جواب دینا بند کر دے گا، جیسے آپ سبسکرائب ہی نہیں ہیں — بغیر سبسکرپشن منسوخ کیے۔';
+
+  @override
+  String get whatsappAssistantNotesTitle => 'دکان کے نوٹس';
+
+  @override
+  String get whatsappAssistantNotesDesc =>
+      'یہاں جو لکھیں گے وہ اسسٹنٹ کو آپ کی دکان کے بارے میں اضافی معلومات کے ساتھ گاہکوں کی خدمت میں مدد دیتا ہے۔';
+
+  @override
+  String get whatsappAssistantWordLimitTitle => 'گاہک کے پیغام کی الفاظ کی حد';
+
+  @override
+  String get whatsappAssistantWordLimitDesc =>
+      'سب سے لمبا پیغام جو اسسٹنٹ گاہک سے قبول کرتا ہے، مختصر کرنے کی درخواست سے پہلے۔';
+
+  @override
+  String get whatsappAssistantAutoRegisterTitle => 'خودکار رابطہ رجسٹریشن';
+
+  @override
+  String get whatsappAssistantAutoRegisterDesc =>
+      'کوئی بھی نیا نمبر جو آپ کے واٹس ایپ پر پیغام بھیجے خودکار طور پر ایک حقیقی رابطے کے طور پر محفوظ ہو جاتا ہے۔';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmEnableTitle =>
+      'خودکار رجسٹریشن چالو کریں؟';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmEnableBody =>
+      'آپ کے واٹس ایپ نمبر پر پیغام بھیجنے والا ہر شخص خودکار طور پر رابطے کے طور پر محفوظ ہو جائے گا، ایک ہی پیغام سے بھی۔';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmDisableTitle =>
+      'خودکار رجسٹریشن بند کریں؟';
+
+  @override
+  String get whatsappAssistantAutoRegisterConfirmDisableBody =>
+      'نئے نمبرز اب خودکار طور پر رابطوں کے طور پر محفوظ نہیں ہوں گے۔';
 }
