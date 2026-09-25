@@ -26,7 +26,7 @@ image:
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
   repository: ghcr.io/engtamam/raje3/operations
-  digest: "sha256:e9db80e47854f58497799a087ddd55e81e3702f0fc200004ac73e13b37699fcd"   # 86df41a3, published by publish-images.sh
+  digest: "sha256:8f9e180c1ed6fd9af01c26c3586859dcb8168486f92df3a99a4848b0e56bdb56"   # 4453e439, published by publish-images.sh
 
 replicas: 1
 
@@ -264,17 +264,6 @@ env:
   # can say what came from where. A service present in PRIVACY_TARGETS but missing from this list
   # is reachable by the dispatcher and invisible to the map — the erase never runs, and the DSAR
   # still reports complete. That is the precise failure mode this list is written against.
-  # ── the payment gateway, as far as the SCREEN is concerned ────────────────────────────────
-  #
-  # EMPTY IS A DECISION, NOT A GAP. With no key the plans page says «الدفع مغلق مؤقتاً» and sells
-  # nothing; nobody walks between paid tiers for free because there is no till. The day we sign
-  # with a provider this is the ONLY edit on our side — the browser key goes here, the SECRET key
-  # goes into billing-service's secret, and the product starts selling with no code change.
-  #
-  # PUBLISHABLE ON PURPOSE: this key can mint a single-use card token and do nothing else. The
-  # secret key is billing-service's alone and never reaches a browser or a response.
-  PAYMENT_PUBLISHABLE_KEY: ""
-  PAYMENT_PROVIDER: "moyasar"
 
   TENANT_DATA_MAP: "operations:visits,operations:customers,reminders:messages,loyalty:points,campaigns:campaigns,insights:analytics,portal:pages,identity-service:accounts,tenant-service:tenant,authz-service:roles,audit-service:audit,notification-service:notifications,search-service:search,billing-service:billing,onboarding-service:onboarding,ticket-service:tickets,job-service:jobs,wallet-service:wallet,analytics-service:events,webhook-service:deliveries,connector-service:connections,feature-flag-service:flags,backup-service:archives,bookings:bookings,whatsapp-assistant:conversations,affiliate-service:affiliates,assistant-service:conversations,error-collector:signals"
 

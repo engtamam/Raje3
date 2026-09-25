@@ -39,6 +39,11 @@ apps/*/dist/
 # Playwright artefacts — screenshots and traces of a run, never source.
 apps/console/test-results/
 apps/console/playwright-report/
+# The MCP Playwright tool's own scratch output (screenshots, console/network logs) when driven
+# from the repo root — found live: an un-gitignored 7MB+ log here crashed check_deploy_wiring.py's
+# Arabic-Indic scan with a MemoryError, failing a real deploy ("nothing built, nothing shipped")
+# for a reason with zero relation to deploy wiring.
+.playwright-mcp/
 apps/console/e2e/.session.json
 apps/console/e2e/.session.phone
 apps/console/e2e/.import-session.json

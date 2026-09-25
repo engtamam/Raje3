@@ -424,7 +424,7 @@
     },
     {
       "_": [
-        "REFERRAL PARTNERSHIP — a cross-tenant customer-referral engine, backend only for now",
+        "REFERRAL PARTNERSHIP — a cross-tenant customer-referral engine",
         "(docs/خطة-شراكة-استراتيجية-الإحالة.md). Two shops agree that a customer meeting a",
         "condition at shop A becomes automatically eligible for a discount at shop B — NEVER a",
         "money/billing feature (unlike «ولاء الشركاء» above, which discounts OUR OWN subscription):",
@@ -433,8 +433,9 @@
         "",
         "`plan.standalone` — same posture as ولاء الشركاء/خدمات متنقلة: no other app is required first.",
         "",
-        "`screen: 'referral-partnership'` in core/apps.py names the console section a later,",
-        "UI-only pass wires up — ci/check_listed_apps_are_wired.py checks against it once listed."
+        "`screen: 'referral-partnership'` in core/apps.py names the console section — a real screen",
+        "(apps/console/src/screens/ReferralPartnership.tsx), live since 2026-09-16. Mobile has none",
+        "yet — see parity/referral.md."
       ],
       "name": "شراكة استراتيجية (إحالة عملاء)",
       "amount": 9900,
