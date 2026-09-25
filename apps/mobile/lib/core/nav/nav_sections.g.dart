@@ -67,7 +67,7 @@ const List<NavSectionDef> kNavSections = [
   NavSectionDef(
     id: 'customers',
     path: '/customers',
-    label: 'عملائي',
+    label: 'جهات الاتصال',
     icon: Icons.people_outline,
     requires: ['operations.recent'],
     service: 'operations',
@@ -81,11 +81,19 @@ const List<NavSectionDef> kNavSections = [
     service: 'operations',
   ),
   NavSectionDef(
-    id: 'coupons',
-    path: '/coupons',
-    label: 'تحالف استراتيجي',
+    id: 'partner-loyalty',
+    path: '/partner-loyalty',
+    label: 'ولاء الشركاء',
     icon: Icons.handshake_outlined,
     requires: ['operations.coupons_page'],
+    service: 'operations',
+  ),
+  NavSectionDef(
+    id: 'referral-partnership',
+    path: '/referral-partnership',
+    label: 'شراكة استراتيجية',
+    icon: Icons.volunteer_activism_outlined,
+    requires: ['operations.referral_partnership_list'],
     service: 'operations',
   ),
   NavSectionDef(
@@ -115,7 +123,7 @@ const List<NavSectionDef> kNavSections = [
   NavSectionDef(
     id: 'points',
     path: '/points',
-    label: 'نقاطي',
+    label: 'نقاط الولاء',
     icon: Icons.card_giftcard_outlined,
     requires: ['loyalty.rewards.update'],
     service: 'loyalty',

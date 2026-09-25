@@ -1194,7 +1194,7 @@ class SHa extends S {
       'Ana karanta wuri daga hanyar...';
 
   @override
-  String get customersTitle => 'Abokan cinikina';
+  String get customersTitle => 'Masu Tuntuɓa';
 
   @override
   String get customersAddOpen => 'Ƙara abokin ciniki';

@@ -95,11 +95,6 @@ class AppRouter {
           builder: (context, state) =>
               CustomerDetailScreen(customerId: state.pathParameters['customerId']!),
         ),
-        GoRoute(
-          path: RouteNames.whatsappAssistantPath,
-          name: RouteNames.whatsappAssistant,
-          builder: (context, state) => const WhatsappAssistantScreen(),
-        ),
         ShellRoute(
           navigatorKey: _shellNavKey,
           builder: (context, state, child) => MainShell(child: child),
@@ -121,6 +116,15 @@ class AppRouter {
               path: RouteNames.accountPath,
               name: RouteNames.account,
               builder: (context, state) => const AccountScreen(),
+            ),
+            // INSIDE the shell, same bottom bar every other app gets (owner's own catch,
+            // 2026-09-24) — was a standalone top-level route with its own back button before;
+            // moved here instead of adding it to `kNavSections` (that list is auto-generated
+            // from the console's own catalogue, not a place to hand-add a mobile-only route).
+            GoRoute(
+              path: RouteNames.whatsappAssistantPath,
+              name: RouteNames.whatsappAssistant,
+              builder: (context, state) => const WhatsappAssistantScreen(),
             ),
             for (final section in kNavSections)
               GoRoute(

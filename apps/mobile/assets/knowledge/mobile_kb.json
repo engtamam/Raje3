@@ -1021,8 +1021,8 @@
   },
   "customers": {
     "title": {
-      "ar": "عملائي",
-      "en": "My customers"
+      "ar": "جهات الاتصال",
+      "en": "Contacts"
     },
     "body": {
       "ar": "دفتر عملاء المحل — بحث فوري، تبويب «من تأخّر» عن موعده المعتاد، وإضافة عميل جديد.",
@@ -1918,18 +1918,6 @@
     },
     "kind": "field",
     "anchor": "whatsapp-assistant.notes_field"
-  },
-  "whatsapp-assistant.word_limit_field": {
-    "title": {
-      "ar": "حد كلمات رسالة العميل",
-      "en": "Customer message word limit"
-    },
-    "body": {
-      "ar": "أطول رسالة يقبلها المساعد من العميل قبل ما يطلب منه اختصارها — بين 20 و300 كلمة.",
-      "en": "The longest message the assistant accepts from a customer before asking him to shorten it — between 20 and 300 words."
-    },
-    "kind": "field",
-    "anchor": "whatsapp-assistant.word_limit_field"
   },
   "whatsapp-assistant.auto_register_toggle": {
     "title": {

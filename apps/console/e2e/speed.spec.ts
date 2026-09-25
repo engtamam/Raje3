@@ -22,9 +22,9 @@ const BUDGET: [string, string, number][] = [
   // working, with a customer waiting.
   ['/visit', 'تسجيل زيارة', 4_000],
   ['/', 'اليوم', 6_000],
-  ['/customers', 'عملائي', 6_000],
+  ['/customers', 'جهات الاتصال', 6_000],
   ['/services', 'خدماتي ومنتجاتي', 6_000],
-  ['/points', 'نقاطي', 6_000],
+  ['/points', 'نقاط الولاء', 6_000],
   ['/messages', 'رسائلي', 6_000],
   ['/team', 'فريقي', 6_000],
   ['/account', 'حسابي', 6_000],

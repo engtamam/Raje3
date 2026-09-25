@@ -1193,7 +1193,7 @@ class SUr extends S {
       'لنک سے مقام پڑھا جا رہا ہے...';
 
   @override
-  String get customersTitle => 'میرے گاہک';
+  String get customersTitle => 'رابطے';
 
   @override
   String get customersAddOpen => 'گاہک شامل کریں';

@@ -27,8 +27,8 @@ test('the owner reaches every section in the rail, and the list is not written i
     // and the rail was nine labels tall on a phone. Neither was deleted: /account and /team are
     // still routes, and the two tests below still open them.
     const nav = shop.getByRole('navigation');
-    for (const label of ['اليوم', 'تسجيل زيارة', 'عملائي', 'محلّي', 'خدماتي ومنتجاتي',
-                         'رسائلي', 'نقاطي']) {
+    for (const label of ['اليوم', 'تسجيل زيارة', 'جهات الاتصال', 'محلّي', 'خدماتي ومنتجاتي',
+                         'رسائلي', 'نقاط الولاء']) {
       await expect(nav.getByRole('link', { name: label })).toBeVisible();
     }
     for (const gone of ['فريقي', 'حسابي']) {
@@ -74,7 +74,7 @@ test('every nav entry actually leads somewhere — no link to a screen that does
 
 test('the sections come from the catalogue, so removing an action removes the section', async ({ shop }) => {
   /**
-   * THE DERIVATION ITSELF, asserted by breaking it. `loyalty.rewards.update` is what «نقاطي» is
+   * THE DERIVATION ITSELF, asserted by breaking it. `loyalty.rewards.update` is what «نقاط الولاء» is
    * gated on — gated on the WRITE and not the read, because listing rewards is a capability an
    * operator holds and a section whose every control is inert is worse than an absent one.
    *
@@ -96,7 +96,7 @@ test('the sections come from the catalogue, so removing an action removes the se
   await shop.evaluate(() => sessionStorage.clear());
   await open(shop, '/');
 
-  await expect(shop.getByRole('navigation').getByRole('link', { name: 'نقاطي' })).toHaveCount(0);
+  await expect(shop.getByRole('navigation').getByRole('link', { name: 'نقاط الولاء' })).toHaveCount(0);
   // And the rest of the application is untouched — this removed one section, not the derivation.
   await expect(shop.getByRole('navigation').getByRole('link', { name: 'اليوم' })).toBeVisible();
 });

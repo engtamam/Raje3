@@ -2,17 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
+import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/services/whatsapp_assistant_service.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
-import 'package:raje3_mobile/widgets/app_back_button.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
+import 'package:raje3_mobile/widgets/brand_loading_indicator.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 
 /// «المساعد الذكي عبر واتساب» — a FRESH design, never a port of the console's own gold/VIP
 /// `WhatsAppAssistant.tsx` (the owner's own instruction, 2026-09-24: different layout entirely,
-/// a WhatsApp-brand identity instead). Same four real doors that screen's cards already call
-/// (`AiToggleCard`/`AiNotesCard`/`MsgWordLimitCard`/`WhatsAppAutoRegisterCard`), zero backend work.
+/// a WhatsApp-brand identity instead). Same three real doors that screen's cards already call
+/// (`AiToggleCard`/`AiNotesCard`/`WhatsAppAutoRegisterCard`), zero backend work.
+///
+/// NO WORD-LIMIT CARD HERE, DELIBERATELY (2026-09-24): `MsgWordLimitCard` only gates our own
+/// legacy chat engine (whatsapp-assistant/core/conversation.py::handle_inbound_text), which does
+/// not run against real customer traffic by default (WHATSAPP_DEFAULT_HANDOVER_MODE=meta) and has
+/// no equivalent in Meta Business Agent's own API — showing it would imply an effect it does not
+/// have. See the same note on the console's own `WhatsAppAssistant.tsx`.
 ///
 /// NO RECEIPT NUMBERS HERE, DELIBERATELY (the owner's own call, same pass) — the console shows
 /// conversations/AI-bookings/wallet-credit-remaining alongside these controls; none of that is
@@ -39,8 +46,6 @@ class _WhatsappAssistantScreenState extends State<WhatsappAssistantScreen> {
   bool _aiEnabledLoaded = false;
   String? _notes;
   bool _notesLoaded = false;
-  int? _wordLimit;
-  bool _wordLimitLoaded = false;
   bool? _autoRegister;
   bool _autoRegisterLoaded = false;
 
@@ -54,7 +59,6 @@ class _WhatsappAssistantScreenState extends State<WhatsappAssistantScreen> {
     final results = await Future.wait([
       _service.fetchAiEnabled(),
       _service.fetchAiNotes(),
-      _service.fetchWordLimit(),
       _service.fetchAutoRegister(),
     ]);
     if (!mounted) return;
@@ -63,9 +67,7 @@ class _WhatsappAssistantScreenState extends State<WhatsappAssistantScreen> {
       _aiEnabledLoaded = true;
       _notes = results[1] as String?;
       _notesLoaded = true;
-      _wordLimit = results[2] as int?;
-      _wordLimitLoaded = true;
-      _autoRegister = results[3] as bool?;
+      _autoRegister = results[2] as bool?;
       _autoRegisterLoaded = true;
     });
   }
@@ -73,6 +75,15 @@ class _WhatsappAssistantScreenState extends State<WhatsappAssistantScreen> {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context)!;
+    // REAL GAP FOUND AND CLOSED HERE (2026-09-26, permission-gate app-by-app pass) — this whole
+    // screen had ZERO capability checks: any signed-in operator could flip the AI toggle, save
+    // shop notes, or flip auto-register, regardless of role. Console's own AccountPanes.tsx cards
+    // this screen otherwise mirrors DISABLE (never hide) each control on its own `set_*` write
+    // action — `AiToggleCard`'s `disabled={busy || !write}` is the exact precedent followed here.
+    final catalog = context.watch<NavProvider>().catalog;
+    final canToggleAi = catalog.hasAll(['operations.set_ai_toggle']);
+    final canSaveNotes = catalog.hasAll(['operations.set_ai_notes']);
+    final canToggleAutoRegister = catalog.hasAll(['operations.set_whatsapp_auto_register']);
     return KbAnchor(
       id: 'whatsapp-assistant',
       child: Scaffold(
@@ -84,18 +95,12 @@ class _WhatsappAssistantScreenState extends State<WhatsappAssistantScreen> {
               padding: const EdgeInsets.fromLTRB(
                   AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.xxl),
               children: [
-                Row(
-                  children: [
-                    AppBackButton(onPressed: () => Navigator.of(context).maybePop()),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.sm),
                 _Header(s: s),
                 const SizedBox(height: AppSpacing.lg),
                 if (!_aiEnabledLoaded)
                   const Padding(
                     padding: EdgeInsets.only(top: AppSpacing.xl),
-                    child: Center(child: AppLoadingIndicator()),
+                    child: BrandLoadingIndicator(),
                   )
                 else if (_aiEnabled == null)
                   EmptyState(
@@ -112,6 +117,7 @@ class _WhatsappAssistantScreenState extends State<WhatsappAssistantScreen> {
                     title: s.whatsappAssistantToggleTitle,
                     desc: s.whatsappAssistantToggleDesc,
                     value: _aiEnabled == true,
+                    enabled: canToggleAi,
                     onChanged: (next) => _confirmToggle(
                       title: next
                           ? s.whatsappAssistantToggleConfirmEnableTitle
@@ -130,17 +136,15 @@ class _WhatsappAssistantScreenState extends State<WhatsappAssistantScreen> {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   if (_notesLoaded && _notes != null)
-                    _NotesCard(s: s, initial: _notes!, service: _service),
+                    _NotesCard(s: s, initial: _notes!, service: _service, canSave: canSaveNotes),
                   if (_notesLoaded && _notes != null) const SizedBox(height: AppSpacing.md),
-                  if (_wordLimitLoaded && _wordLimit != null)
-                    _WordLimitCard(s: s, initial: _wordLimit!, service: _service),
-                  if (_wordLimitLoaded && _wordLimit != null) const SizedBox(height: AppSpacing.md),
                   if (_autoRegisterLoaded && _autoRegister != null)
                     KbAnchor(
                       id: 'whatsapp-assistant.auto_register_toggle',
                       child: _ToggleCard(
                       icon: Icons.person_add_alt_1_rounded,
                       title: s.whatsappAssistantAutoRegisterTitle,
+                      enabled: canToggleAutoRegister,
                       desc: s.whatsappAssistantAutoRegisterDesc,
                       value: _autoRegister == true,
                       onChanged: (next) => _confirmToggle(
@@ -243,13 +247,16 @@ class _Header extends StatelessWidget {
 class _ToggleCard extends StatelessWidget {
   const _ToggleCard({
     required this.icon, required this.title, required this.desc,
-    required this.value, required this.onChanged,
+    required this.value, required this.onChanged, this.enabled = true,
   });
   final IconData icon;
   final String title;
   final String desc;
   final bool value;
   final ValueChanged<bool> onChanged;
+  // DISABLED, NEVER HIDDEN, WHEN THE OPERATOR LACKS THE WRITE CAPABILITY — same choice console's
+  // own `AiToggleCard`/`WhatsAppAutoRegisterCard` already make (`disabled={busy || !write}`).
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -283,7 +290,7 @@ class _ToggleCard extends StatelessWidget {
                 ],
               ),
             ),
-            Switch(value: value, onChanged: onChanged, activeThumbColor: _kWaGreenDark),
+            Switch(value: value, onChanged: enabled ? onChanged : null, activeThumbColor: _kWaGreenDark),
           ],
         ),
     );
@@ -291,10 +298,11 @@ class _ToggleCard extends StatelessWidget {
 }
 
 class _NotesCard extends StatefulWidget {
-  const _NotesCard({required this.s, required this.initial, required this.service});
+  const _NotesCard({required this.s, required this.initial, required this.service, this.canSave = true});
   final S s;
   final String initial;
   final WhatsappAssistantService service;
+  final bool canSave;
 
   @override
   State<_NotesCard> createState() => _NotesCardState();
@@ -353,14 +361,15 @@ class _NotesCardState extends State<_NotesCard> {
             const SizedBox(height: 2),
             Text(s.whatsappAssistantNotesDesc, style: AppTextStyles.caption.copyWith(color: colors.textSecondary)),
             const SizedBox(height: AppSpacing.sm),
+            // NO HAND-ROLLED DECORATION — a flat grey fill with no border was the mistake (the
+            // owner's own catch, 2026-09-24): `ThemeData.inputDecorationTheme`
+            // (app_theme.dart::_inputDecorationTheme) already styles every field app-wide
+            // (tonal resting border, a real focus ring, a distinct error state), so a bare
+            // `TextField` here inherits the SAME look every other screen's fields already carry.
             TextField(
               controller: _controller,
               maxLines: 5,
               onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                filled: true, fillColor: colors.surfaceAlt,
-                border: OutlineInputBorder(borderRadius: AppRadius.standardRadius, borderSide: BorderSide.none),
-              ),
             ),
             const SizedBox(height: 4),
             Text('${_controller.text.length} / $_kAiNotesMax',
@@ -373,7 +382,7 @@ class _NotesCardState extends State<_NotesCard> {
             Align(
               alignment: AlignmentDirectional.centerStart,
               child: FilledButton(
-                onPressed: (!_dirty || _overCap || _busy) ? null : _save,
+                onPressed: (!widget.canSave || !_dirty || _overCap || _busy) ? null : _save,
                 style: FilledButton.styleFrom(backgroundColor: _kWaGreenDark),
                 child: _busy
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -387,92 +396,3 @@ class _NotesCardState extends State<_NotesCard> {
   }
 }
 
-const _kWordLimitMin = 20;
-const _kWordLimitMax = 300;
-
-class _WordLimitCard extends StatefulWidget {
-  const _WordLimitCard({required this.s, required this.initial, required this.service});
-  final S s;
-  final int initial;
-  final WhatsappAssistantService service;
-
-  @override
-  State<_WordLimitCard> createState() => _WordLimitCardState();
-}
-
-class _WordLimitCardState extends State<_WordLimitCard> {
-  late int _value = widget.initial;
-  late int _saved = widget.initial;
-  bool _busy = false;
-  String _error = '';
-
-  Future<void> _save() async {
-    if (_busy) return;
-    setState(() { _busy = true; _error = ''; });
-    final out = await widget.service.saveWordLimit(_value);
-    if (!mounted) return;
-    setState(() {
-      _busy = false;
-      if (out != null) {
-        _saved = out;
-        _value = out;
-      } else {
-        _error = widget.s.whatsappAssistantSaveFailed;
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final s = widget.s;
-    final colors = context.appColors;
-    return KbAnchor(
-      id: 'whatsapp-assistant.word_limit_field',
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          border: Border.all(color: colors.borderSubtle),
-          borderRadius: AppRadius.standardRadius,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(s.whatsappAssistantWordLimitTitle, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 2),
-            Text(s.whatsappAssistantWordLimitDesc, style: AppTextStyles.caption.copyWith(color: colors.textSecondary)),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: [
-                IconButton(
-                  onPressed: _value > _kWordLimitMin ? () => setState(() => _value -= 10) : null,
-                  icon: const Icon(Icons.remove_circle_outline_rounded),
-                ),
-                SizedBox(
-                  width: 70,
-                  child: Text('$_value', textAlign: TextAlign.center, style: AppTextStyles.headlineSmall),
-                ),
-                IconButton(
-                  onPressed: _value < _kWordLimitMax ? () => setState(() => _value += 10) : null,
-                  icon: const Icon(Icons.add_circle_outline_rounded),
-                ),
-                const Spacer(),
-                FilledButton(
-                  onPressed: (_value == _saved || _busy) ? null : _save,
-                  style: FilledButton.styleFrom(backgroundColor: _kWaGreenDark),
-                  child: _busy
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Text(s.servicesSave),
-                ),
-              ],
-            ),
-            if (_error.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(_error, style: AppTextStyles.caption.copyWith(color: AppColors.danger)),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}

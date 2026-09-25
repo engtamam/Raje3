@@ -1190,7 +1190,7 @@ class SEn extends S {
       'Reading the location from the link...';
 
   @override
-  String get customersTitle => 'My customers';
+  String get customersTitle => 'Contacts';
 
   @override
   String get customersAddOpen => 'Add customer';

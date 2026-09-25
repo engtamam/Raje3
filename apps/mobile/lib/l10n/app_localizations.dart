@@ -2250,7 +2250,7 @@ abstract class S {
   /// customersTitle
   ///
   /// In ar, this message translates to:
-  /// **'عملائي'**
+  /// **'جهات الاتصال'**
   String get customersTitle;
 
   /// customersAddOpen

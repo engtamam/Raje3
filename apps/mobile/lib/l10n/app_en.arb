@@ -357,7 +357,7 @@
   "mobileRequestsAddError": "Couldn't add the request, try again.",
   "mobileRequestsBannerText": "{count, plural, one{1 request needs your decision now} other{{count} requests need your decision now}}",
   "mobileRequestsAddMapsLinkResolving": "Reading the location from the link...",
-  "customersTitle": "My customers",
+  "customersTitle": "Contacts",
   "customersAddOpen": "Add customer",
   "customersSearchHint": "Search by name or phone",
   "customersTabAll": "All",

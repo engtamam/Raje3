@@ -1177,7 +1177,7 @@ class SAr extends S {
       'جارٍ قراءة الموقع من الرابط...';
 
   @override
-  String get customersTitle => 'عملائي';
+  String get customersTitle => 'جهات الاتصال';
 
   @override
   String get customersAddOpen => 'إضافة عميل';

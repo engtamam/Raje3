@@ -1211,7 +1211,7 @@ class SFil extends S {
       'Binabasa ang lokasyon mula sa link...';
 
   @override
-  String get customersTitle => 'Mga customer ko';
+  String get customersTitle => 'Mga Kontak';
 
   @override
   String get customersAddOpen => 'Magdagdag ng customer';

@@ -859,7 +859,7 @@
   "@mobileRequestsAddMapsLinkResolving": {
     "description": "mobileRequestsAddMapsLinkResolving"
   },
-  "customersTitle": "عملائي",
+  "customersTitle": "جهات الاتصال",
   "@customersTitle": {
     "description": "customersTitle"
   },

@@ -1192,7 +1192,7 @@ class SBn extends S {
       'লিঙ্ক থেকে অবস্থান পড়া হচ্ছে...';
 
   @override
-  String get customersTitle => 'আমার গ্রাহক';
+  String get customersTitle => 'পরিচিতি';
 
   @override
   String get customersAddOpen => 'গ্রাহক যোগ করুন';

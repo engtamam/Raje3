@@ -357,7 +357,7 @@
   "mobileRequestsAddError": "درخواست شامل نہیں ہو سکی، دوبارہ کوشش کریں۔",
   "mobileRequestsBannerText": "{count, plural, other{{count} درخواستیں ابھی آپ کے فیصلے کی منتظر ہیں}}",
   "mobileRequestsAddMapsLinkResolving": "لنک سے مقام پڑھا جا رہا ہے...",
-  "customersTitle": "میرے گاہک",
+  "customersTitle": "رابطے",
   "customersAddOpen": "گاہک شامل کریں",
   "customersSearchHint": "نام یا فون سے تلاش کریں",
   "customersTabAll": "تمام",

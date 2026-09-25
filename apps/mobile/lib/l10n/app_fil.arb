@@ -357,7 +357,7 @@
   "mobileRequestsAddError": "Hindi naidagdag ang hiling, subukan ulit.",
   "mobileRequestsBannerText": "{count, plural, one{1 hiling ang nangangailangan ng desisyon mo ngayon} other{{count} hiling ang nangangailangan ng desisyon mo ngayon}}",
   "mobileRequestsAddMapsLinkResolving": "Binabasa ang lokasyon mula sa link...",
-  "customersTitle": "Mga customer ko",
+  "customersTitle": "Mga Kontak",
   "customersAddOpen": "Magdagdag ng customer",
   "customersSearchHint": "Maghanap sa pangalan o telepono",
   "customersTabAll": "Lahat",

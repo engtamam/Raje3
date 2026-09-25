@@ -357,7 +357,7 @@
   "mobileRequestsAddError": "অনুরোধ যোগ করা যায়নি, আবার চেষ্টা করুন।",
   "mobileRequestsBannerText": "{count, plural, other{{count}টি অনুরোধ এখন আপনার সিদ্ধান্তের অপেক্ষায়}}",
   "mobileRequestsAddMapsLinkResolving": "লিঙ্ক থেকে অবস্থান পড়া হচ্ছে...",
-  "customersTitle": "আমার গ্রাহক",
+  "customersTitle": "পরিচিতি",
   "customersAddOpen": "গ্রাহক যোগ করুন",
   "customersSearchHint": "নাম বা ফোন দিয়ে খুঁজুন",
   "customersTabAll": "সব",

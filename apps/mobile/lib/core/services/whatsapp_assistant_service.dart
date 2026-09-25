@@ -3,16 +3,21 @@ import 'package:dio/dio.dart';
 import 'package:raje3_mobile/core/network/api_client.dart';
 
 /// «المساعد الذكي عبر واتساب» — mirrors `services/operations/app/api/v1/staff.py`'s own
-/// `/ai-toggle`, `/ai-notes`, `/msg-word-limit`, `/whatsapp-auto-register` routes exactly, the
-/// SAME four real doors the console's own `AccountPanes.tsx` cards already call (zero backend
-/// work for this mobile build). The receipt numbers `WhatsAppAssistant.tsx` shows alongside them
-/// (conversations, AI bookings, wallet credit remaining) are deliberately NOT mirrored here — the
-/// owner's own call, 2026-09-24: Meta now runs the AI directly, so a manually-metered usage
-/// number is a stale concept this screen has no business resurrecting.
+/// `/ai-toggle`, `/ai-notes`, `/whatsapp-auto-register` routes exactly, the SAME real doors the
+/// console's own `AccountPanes.tsx` cards already call (zero backend work for this mobile build).
+/// The receipt numbers `WhatsAppAssistant.tsx` shows alongside them (conversations, AI bookings,
+/// wallet credit remaining) are deliberately NOT mirrored here — the owner's own call,
+/// 2026-09-24: Meta now runs the AI directly, so a manually-metered usage number is a stale
+/// concept this screen has no business resurrecting.
 ///
-/// `ai_notes`/`msg_word_limit` can come back 404 on a deployment with that feature flag off
-/// (console's own comment: "absent from the catalog entirely") — read as `null`, same posture as
-/// every other optional read in this service, never a crash.
+/// `/msg-word-limit` is DELIBERATELY NOT wrapped here, same date: it only gates our own legacy
+/// chat engine (whatsapp-assistant/core/conversation.py::handle_inbound_text), which does not run
+/// against real customer traffic by default (WHATSAPP_DEFAULT_HANDOVER_MODE=meta) and has no
+/// equivalent in Meta Business Agent's own API.
+///
+/// `ai_notes` can come back 404 on a deployment with that feature flag off (console's own
+/// comment: "absent from the catalog entirely") — read as `null`, same posture as every other
+/// optional read in this service, never a crash.
 class WhatsappAssistantService {
   WhatsappAssistantService({required this.apiClient});
   final ApiClient apiClient;
@@ -58,29 +63,6 @@ class WhatsappAssistantService {
       if (response.statusCode != 200) return null;
       final body = response.data;
       return body is Map ? (body['text'] as String? ?? text) : text;
-    } on DioException {
-      return null;
-    }
-  }
-
-  Future<int?> fetchWordLimit() async {
-    try {
-      final response = await apiClient.dio.get<dynamic>('/api/v1/staff/msg-word-limit');
-      if (response.statusCode != 200) return null;
-      final body = response.data;
-      return body is Map ? (body['limit'] as num?)?.toInt() : null;
-    } on DioException {
-      return null;
-    }
-  }
-
-  Future<int?> saveWordLimit(int limit) async {
-    try {
-      final response = await apiClient.dio
-          .put<dynamic>('/api/v1/staff/msg-word-limit', data: {'limit': limit});
-      if (response.statusCode != 200) return null;
-      final body = response.data;
-      return body is Map ? (body['limit'] as num?)?.toInt() ?? limit : limit;
     } on DioException {
       return null;
     }
