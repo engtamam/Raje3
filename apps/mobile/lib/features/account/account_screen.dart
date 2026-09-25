@@ -9,6 +9,7 @@ import 'package:raje3_mobile/core/utils/validators.dart';
 import 'package:raje3_mobile/features/home/app_tone.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
 
@@ -134,15 +135,18 @@ class AccountScreen extends StatelessWidget {
               const SizedBox(height: AppSpacing.xl),
               _SectionLabel(text: s.accountSecuritySectionTitle),
               const SizedBox(height: AppSpacing.sm),
-              _Reveal(
-                index: 5,
-                child: KbAnchor(
-                  id: 'account.change_password_row',
-                  child: _Row(
-                    icon: Icons.lock_rounded,
-                    tone: AppTone.warning,
-                    label: s.accountChangePasswordRow,
-                    onTap: () => _openChangePassword(context),
+              CapabilityGate(
+                requires: const ['identity.change_password'],
+                child: _Reveal(
+                  index: 5,
+                  child: KbAnchor(
+                    id: 'account.change_password_row',
+                    child: _Row(
+                      icon: Icons.lock_rounded,
+                      tone: AppTone.warning,
+                      label: s.accountChangePasswordRow,
+                      onTap: () => _openChangePassword(context),
+                    ),
                   ),
                 ),
               ),

@@ -11,6 +11,7 @@ import 'package:raje3_mobile/models/points_model.dart';
 import 'package:raje3_mobile/models/service_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/effects/game_effects.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 
@@ -134,22 +135,29 @@ class _PointsScreenState extends State<PointsScreen> {
   Widget build(BuildContext context) {
     final s = S.of(context)!;
     final catalog = context.watch<NavProvider>().catalog;
-    final canAdd = catalog.hasAll(['loyalty.rewards.create']);
+    // REAL GAP FOUND AND CLOSED HERE (2026-09-26, permission-gate unification pass) — a reward
+    // card's tap opened a fully editable/savable sheet regardless of `loyalty.rewards.update`,
+    // matching the console's own `canEdit` gate (Points.tsx) which this mobile screen had never
+    // mirrored. Disables the tap rather than hiding the card entirely — there is no separate
+    // read-only view mode built here, same reasoning `procedures_tab.dart`'s own edit-disable
+    // already uses, never `CapabilityGate` (which hides, not disables).
+    final canEditRewards = catalog.hasAll(['loyalty.rewards.update']);
 
     return KbAnchor(
       id: 'points',
       child: Scaffold(
         backgroundColor: AppColors.surface0,
-        floatingActionButton: canAdd
-            ? KbAnchor(
-                id: 'points.add_button',
-                child: FloatingActionButton.extended(
-                  onPressed: _openAddSheet,
-                  icon: const Icon(Icons.auto_awesome_rounded),
-                  label: Text(s.pointsAddReward),
-                ),
-              )
-            : null,
+        floatingActionButton: CapabilityGate(
+          requires: const ['loyalty.rewards.create'],
+          child: KbAnchor(
+            id: 'points.add_button',
+            child: FloatingActionButton.extended(
+              onPressed: _openAddSheet,
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: Text(s.pointsAddReward),
+            ),
+          ),
+        ),
         body: RefreshIndicator(
           onRefresh: _load,
           child: CustomScrollView(
@@ -185,7 +193,10 @@ class _PointsScreenState extends State<PointsScreen> {
                     ),
                   ),
                 ),
-              if (_tab == _Tab.rewards) ..._rewardsSlivers(s) else ..._leaderboardSlivers(s),
+              if (_tab == _Tab.rewards)
+                ..._rewardsSlivers(s, canEditRewards)
+              else
+                ..._leaderboardSlivers(s),
             ],
           ),
         ),
@@ -193,7 +204,7 @@ class _PointsScreenState extends State<PointsScreen> {
     );
   }
 
-  List<Widget> _rewardsSlivers(S s) {
+  List<Widget> _rewardsSlivers(S s, bool canEditRewards) {
     if (_rewards == null) {
       return [
         const SliverPadding(
@@ -240,7 +251,7 @@ class _PointsScreenState extends State<PointsScreen> {
             serviceName: sorted[i].type == RewardType.service
                 ? (_services.where((sv) => sv.id == sorted[i].serviceId).map((sv) => sv.name).firstOrNull ?? '')
                 : '',
-            onTap: () => _openEditSheet(sorted[i]),
+            onTap: canEditRewards ? () => _openEditSheet(sorted[i]) : null,
           ),
         ),
       ),
@@ -459,7 +470,7 @@ class _RewardCard extends StatelessWidget {
   const _RewardCard({required this.reward, required this.serviceName, required this.onTap});
   final Reward reward;
   final String serviceName;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

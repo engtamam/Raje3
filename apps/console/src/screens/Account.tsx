@@ -122,7 +122,11 @@ function tabsFor(t: (key: string) => string): { id: Pane; label: string; hint: s
     // receipts, and a person arriving for a receipt scrolled past the shop. Two errands, and
     // only one of them is browsing.
     { id: 'invoices', label: t('account.tab.invoices.label'), hint: t('account.tab.invoices.hint') },
-    { id: 'data', label: t('account.tab.data.label'), hint: t('account.tab.data.hint') },
+    // «حقوقك في بياناتك» TAB HIDDEN (2026-09-22, owner's own call) — the DSAR buttons it showed
+    // are replaced with one line in the privacy policy itself: every request, including deletion,
+    // goes to the same DPO email already named there. Kept out of the visible tab list rather
+    // than deleted (DataPane/AccountPanes.tsx, the 'data' Pane id) in case it earns a real purpose
+    // again.
   ];
 }
 

@@ -9,6 +9,8 @@ import 'package:raje3_mobile/models/referral_partnership_model.dart';
 import 'package:raje3_mobile/models/service_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
+import 'package:raje3_mobile/widgets/brand_loading_indicator.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/effects/game_effects.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
@@ -109,10 +111,13 @@ class _ReferralPartnershipScreenState extends State<ReferralPartnershipScreen> {
       id: 'referral-partnership',
       child: Scaffold(
       backgroundColor: AppColors.surface0,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openPropose,
-        icon: const Icon(Icons.add_rounded),
-        label: Text(s.referralProposeButton),
+      floatingActionButton: CapabilityGate(
+        requires: const ['operations.referral_partnership_propose'],
+        child: FloatingActionButton.extended(
+          onPressed: _openPropose,
+          icon: const Icon(Icons.add_rounded),
+          label: Text(s.referralProposeButton),
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -165,7 +170,7 @@ class _ReferralPartnershipScreenState extends State<ReferralPartnershipScreen> {
               ),
             ),
             if (_rows == null && !_failed)
-              const SliverFillRemaining(hasScrollBody: false, child: AppLoadingIndicator())
+              const SliverFillRemaining(hasScrollBody: false, child: BrandLoadingIndicator())
             else if (_failed)
               SliverFillRemaining(
                 hasScrollBody: false,
@@ -680,8 +685,14 @@ class _AgreementRow extends StatelessWidget {
               padding: const EdgeInsets.only(top: 6),
               child: Row(
                 children: [
-                  TextButton(onPressed: onAccept, child: Text(s.referralActionAccept)),
-                  TextButton(onPressed: onReject, child: Text(s.referralActionReject, style: const TextStyle(color: AppColors.danger))),
+                  CapabilityGate(
+                    requires: const ['operations.referral_partnership_accept'],
+                    child: TextButton(onPressed: onAccept, child: Text(s.referralActionAccept)),
+                  ),
+                  CapabilityGate(
+                    requires: const ['operations.referral_partnership_reject'],
+                    child: TextButton(onPressed: onReject, child: Text(s.referralActionReject, style: const TextStyle(color: AppColors.danger))),
+                  ),
                 ],
               ),
               ),
@@ -698,7 +709,10 @@ class _AgreementRow extends StatelessWidget {
               padding: const EdgeInsets.only(top: 6),
               child: Align(
                 alignment: AlignmentDirectional.centerStart,
-                child: TextButton(onPressed: onCancelRequest, child: Text(s.referralActionCancelRequest)),
+                child: CapabilityGate(
+                  requires: const ['operations.referral_partnership_cancel_request'],
+                  child: TextButton(onPressed: onCancelRequest, child: Text(s.referralActionCancelRequest)),
+                ),
               ),
               ),
             )
@@ -711,9 +725,12 @@ class _AgreementRow extends StatelessWidget {
                       id: 'referral.row_cancel_confirm',
                       child: Align(
                       alignment: AlignmentDirectional.centerStart,
-                      child: TextButton(
-                          onPressed: onCancelConfirm,
-                          child: Text(s.referralActionCancelConfirm, style: const TextStyle(color: AppColors.danger))),
+                      child: CapabilityGate(
+                        requires: const ['operations.referral_partnership_cancel_confirm'],
+                        child: TextButton(
+                            onPressed: onCancelConfirm,
+                            child: Text(s.referralActionCancelConfirm, style: const TextStyle(color: AppColors.danger))),
+                      ),
                       ),
                     ),
             ),

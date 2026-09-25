@@ -630,7 +630,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
         <div className="mb-3 break-inside-avoid">
           <Section title={t('shop.section.nextStep')} session={session} helpAnchor="shop.next_step">
             {data.next_step ? (
-              <NextStepView step={data.next_step} onDismiss={dismissNextStep} busy={dismissingStep} />
+              <NextStepView step={data.next_step} onDismiss={dismissNextStep} busy={dismissingStep} catalog={catalog} />
             ) : null}
           </Section>
         </div>
@@ -1572,10 +1572,11 @@ export function topEntitiesByDay(
 /** THE ONE CARD "الخطوة التالية" EVER RENDERS, plus a second quiet line when the engine found a
  *  genuinely different thing worth mentioning. Neither line invents its own wording — both are
  *  exactly what `next_step.pick()` returned; this component only chooses colours from `tone`. */
-function NextStepView({ step, onDismiss, busy }: {
+function NextStepView({ step, onDismiss, busy, catalog }: {
   step: NextStep;
   onDismiss: (id: string) => void;
   busy: boolean;
+  catalog: Catalog;
 }) {
   const { t } = useOperatorI18n();
   // «info» USED TO STAY PLAIN WHITE — the one card the screen guarantees always has something to
@@ -1636,15 +1637,17 @@ function NextStepView({ step, onDismiss, busy }: {
       )}
       {/* «ليس الآن» — لا زر بارز، سطر خفيف: هذا ليس تجاهل معلومة، هو طلب يظهر شي آخر بدلها الآن،
           وترجع هي بنفسها لو ظلّت صحيحة بعد فترة (تبريد، لا حذف — core/next_step.py). */}
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => onDismiss(p.id)}
-        className="self-start text-[11px] underline underline-offset-2"
-        style={{ color: 'var(--sh-ink-faint)' }}
-      >
-        {t('shop.nextStep.dismiss')}
-      </button>
+      {action(catalog, 'insights.dismiss_next_step') ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onDismiss(p.id)}
+          className="self-start text-[11px] underline underline-offset-2"
+          style={{ color: 'var(--sh-ink-faint)' }}
+        >
+          {t('shop.nextStep.dismiss')}
+        </button>
+      ) : null}
       {step.secondary ? (
         <p className="px-1 text-[11.5px]" style={{ color: 'var(--sh-ink-faint)' }}>
           {tf(t, 'shop.nextStep.also', { msg: step.secondary.message })}

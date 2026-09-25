@@ -317,7 +317,7 @@ export function Connect({
         </form>
       ) : null}
 
-      {connected ? null : (
+      {connected || !action(catalog, 'whatsapp.connect') ? null : (
         <div className="flex flex-col gap-2">
           <Button
             disabled={busy || sdk === 'loading' || sdk === 'unconfigured'}

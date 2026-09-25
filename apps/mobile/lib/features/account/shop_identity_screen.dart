@@ -11,6 +11,7 @@ import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_back_button.dart';
 import 'package:raje3_mobile/widgets/brand_loading_indicator.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
 
@@ -418,17 +419,20 @@ class _BrandCardState extends State<_BrandCard> with WidgetsBindingObserver {
           ],
 
           const SizedBox(height: AppSpacing.md),
-          KbAnchor(
-            id: 'account.shop.brand_save',
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(
-                        width: 18, height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(s.shopIdentitySave),
+          CapabilityGate(
+            requires: const ['tenant.update_branding'],
+            child: KbAnchor(
+              id: 'account.shop.brand_save',
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _saving ? null : _save,
+                  child: _saving
+                      ? const SizedBox(
+                          width: 18, height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Text(s.shopIdentitySave),
+                ),
               ),
             ),
           ),
@@ -498,7 +502,9 @@ class _VehicleTrackingCardState extends State<_VehicleTrackingCard> {
     final surface = dark ? AppDarkColors.surface1 : AppColors.surface1;
     final border = dark ? AppDarkColors.borderSubtle : AppColors.borderSubtle;
 
-    return KbAnchor(
+    return CapabilityGate(
+      requires: const ['operations.set_shop_vehicles'],
+      child: KbAnchor(
       id: 'account.shop.vehicle_toggle',
       child: RjSheen(
       borderRadius: AppRadius.cardRadius,
@@ -561,6 +567,7 @@ class _VehicleTrackingCardState extends State<_VehicleTrackingCard> {
             Text(_error!, style: AppTextStyles.bodySmall.copyWith(color: AppColors.danger)),
           ],
         ],
+      ),
       ),
       ),
       ),

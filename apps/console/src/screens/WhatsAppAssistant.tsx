@@ -10,9 +10,14 @@
  * paying for a "VIP" app deserves the receipt, not a gauge with no needle.
  *
  * EVERY CONTROL BELOW IS THE SAME REAL LOGIC `AccountPanes.tsx` ALREADY HAD — `AiToggleCard`,
- * `AiNotesCard`, `MsgWordLimitCard`, `WhatsAppAutoRegisterCard` are reused as-is (real actions,
- * real state, real confirm dialogs); only the SHELL around them — the hero, the section framing,
- * the analytics — is new.
+ * `AiNotesCard`, `WhatsAppAutoRegisterCard` are reused as-is (real actions, real state, real
+ * confirm dialogs); only the SHELL around them — the hero, the section framing, the analytics —
+ * is new.
+ *
+ * `MsgWordLimitCard` is DELIBERATELY NOT rendered here. It only gates our own legacy chat engine
+ * (whatsapp-assistant/core/conversation.py::handle_inbound_text), which does not run against real
+ * customer traffic by default (WHATSAPP_DEFAULT_HANDOVER_MODE=meta) and has no equivalent in Meta
+ * Business Agent's own API — showing it would imply an effect it does not have.
  */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -24,7 +29,7 @@ import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { AppGate } from './Locked';
 import {
-  AiNotesCard, AiToggleCard, MsgWordLimitCard, WhatsAppAutoRegisterCard,
+  AiNotesCard, AiToggleCard, WhatsAppAutoRegisterCard,
 } from './AccountPanes';
 import type { ShopImpact } from './Shop';
 import { unitsLabel, type WalletBalance } from './Wallet';
@@ -182,10 +187,7 @@ export function WhatsAppAssistant({ session, catalog, owned }: {
         </SectionShell>
 
         <SectionShell icon={Brain} title={t('whatsappAssistant.section.brain.title')} desc={t('whatsappAssistant.section.brain.desc')}>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <AiNotesCard session={session} catalog={catalog} />
-            <MsgWordLimitCard session={session} catalog={catalog} />
-          </div>
+          <AiNotesCard session={session} catalog={catalog} />
         </SectionShell>
 
         <SectionShell icon={Sparkles} title={t('whatsappAssistant.section.automations.title')} desc={t('whatsappAssistant.section.automations.desc')}>

@@ -739,7 +739,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
 
   // A DIFFERENT PEER FROM THE OTHER THREE ROWS IN THIS SAME CARD — reminders owns the cycle and
   // the follow-up, loyalty owns the points, and the card only exists to be "one place for every
-  // service-wide default" (the owner's own ask: he was setting this on «نقاطي» and had no reason
+  // service-wide default" (the owner's own ask: he was setting this on «نقاط الولاء» and had no reason
   // to expect a second, separate general setting to live on a different screen entirely).
   const setGeneralPoints = async (n: number) => {
     const a = action(catalog, 'loyalty.settings.general');

@@ -131,11 +131,12 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
       <VehiclesCard session={session} catalog={catalog} />
 
       {/* WHAT THE OWNER WANTS THE WHATSAPP AI ASSISTANT TO KNOW, AND HOW LONG A CUSTOMER'S MESSAGE
-          MAY BE — moved to «ربط واتساب» 2026-09-07 (a shop owner found them under «الهوية
+          MAY BE — moved OUT of this pane 2026-09-07 (a shop owner found them under «الهوية
           والإعدادات», where neither belongs: both configure the WhatsApp assistant's own
-          behaviour, not the establishment's identity). Rendered from Account.tsx's own `whatsapp`
-          sub-tab now, alongside `ConnectByBranch` — see AiNotesCard/MsgWordLimitCard below, both
-          exported for that reason. */}
+          behaviour, not the establishment's identity). They do NOT live in «حسابي» at all any
+          more: since 2026-09-16 «المساعد الذكي عبر واتساب» is its own dedicated, subscription-
+          gated app (`WhatsAppAssistant.tsx`, opened from متجر التطبيقات) — AiNotesCard/
+          MsgWordLimitCard are exported from this file and rendered there, not here. */}
 
     </div>
   );
@@ -734,21 +735,29 @@ function Fact({ label, value, wide, hint, icon }:
  */
 export function DataPane({ session, catalog }: { session: Session; catalog: Catalog }) {
   const { t } = useOperatorI18n();
-  const [busy, setBusy] = useState('');
+  const [busy, setBusy] = useState(false);
   const [said, setSaid] = useState('');
   const [error, setError] = useState('');
+  const [confirming, setConfirming] = useState(false);
   const canAsk = action(catalog, 'compliance.open_my_dsar');
 
-  /**
-   * `type`, NOT `kind` — read off compliance-service rather than guessed, which is how the first
-   * version of this shipped a 422 to a button an owner pressed. The four values are the service's
-   * own DSAR_TYPES (access / export / erasure / correction), i.e. the PDPL rights themselves.
-   */
-  const ask = async (type: string, label: string) => {
+  // ONLY ERASURE HAS A BUTTON HERE — owner's own explicit simplification (2026-09-22): access,
+  // export, and correction are rare enough that a real button for each cost more screen than it
+  // saved, on both console and mobile. Erasure alone stays a button because it is the one request
+  // that actually needs its own real confirmation step, not a sentence to write in an email.
+  // Every other right still routes through the SAME real channel PDPL requires — the Data
+  // Protection Officer's own address, already the one the privacy policy itself names
+  // (deploy/seed/legal/privacy-policy.md's own §9/§10) — never a second, invented contact point.
+  const DPO_EMAIL = 'mang.raje3@gmail.com';
+
+  const askErasure = async () => {
     if (!canAsk) return;
-    setBusy(type); setError(''); setSaid('');
+    setBusy(true); setError(''); setSaid(''); setConfirming(false);
     try {
-      await call<{ id?: string; dsar_id?: string }>(session, canAsk, { type });
+      // `type`, NOT `kind` — read off compliance-service rather than guessed, which is how the
+      // first version of this shipped a 422 to a button an owner pressed. `erasure` is one of the
+      // service's own DSAR_TYPES.
+      await call<{ id?: string; dsar_id?: string }>(session, canAsk, { type: 'erasure' });
 
       // NO CODE DELIVERY TODAY (2026-09-13) — `reminders.send_dsar_code` was deleted along with
       // the customer-facing WhatsApp code flow it shared a template with, since that flow let a
@@ -757,15 +766,13 @@ export function DataPane({ session, catalog }: { session: Session; catalog: Cata
       // later confirmed — a replacement delivery channel is a separate, smaller piece of work.
       //
       // WHAT IT ACTUALLY DOES, and no more. The request is recorded — that part is real and the
-      // 30-day clock in the regulation starts from it. What it does NOT do yet is hand him a file:
-      // access and export stay `verified: false` until identity is confirmed by some channel, and
-      // no service is registered as a data target on this cluster, so a dispatch would find
-      // nobody to ask. Saying «نردّ خلال 30 يوماً» was a promise nothing behind it could keep.
-      setSaid(tf(t, 'accountPanes.dsar.recordedNoCode', { label }));
+      // 30-day clock in the regulation starts from it. Saying «نردّ خلال 30 يوماً» was a promise
+      // nothing behind it could keep, so this says only that the request landed.
+      setSaid(tf(t, 'accountPanes.dsar.recordedNoCode', { label: t('accountPanes.dsar.erasure') }));
     } catch (e) {
       setError(e instanceof Error ? e.message : t('accountPanes.dsar.requestFailed'));
     } finally {
-      setBusy('');
+      setBusy(false);
     }
   };
 
@@ -784,28 +791,29 @@ export function DataPane({ session, catalog }: { session: Session; catalog: Cata
           <p className="text-sm text-text-secondary">
             {t('accountPanes.dsar.desc')}
           </p>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="ghost" disabled={Boolean(busy)}
-                    onClick={() => ask('access', t('accountPanes.dsar.access'))}>
-              {t('accountPanes.dsar.access')}
-            </Button>
-            <Button type="button" variant="ghost" disabled={Boolean(busy)}
-                    onClick={() => ask('export', t('accountPanes.dsar.export'))}>
-              {t('accountPanes.dsar.export')}
-            </Button>
-            <Button type="button" variant="ghost" disabled={Boolean(busy)}
-                    onClick={() => ask('correction', t('accountPanes.dsar.correction'))}>
-              {t('accountPanes.dsar.correction')}
-            </Button>
-            {/* ERASURE SITS APART AND IS NOT STYLED AS DANGER — it is a right, not an accident.
-                What it must not be is adjacent to a routine button by a few pixels. */}
-            <Button type="button" variant="ghost" disabled={Boolean(busy)}
-                    onClick={() => ask('erasure', t('accountPanes.dsar.erasure'))}>
+          {/* ERASURE ALONE, NOT STYLED AS DANGER — it is a right, not an accident. The confirm
+              dialog below is what actually protects against a stray tap, not a red button. */}
+          <div>
+            <Button type="button" variant="ghost" disabled={busy}
+                    onClick={() => setConfirming(true)}>
               {t('accountPanes.dsar.erasure')}
             </Button>
           </div>
+          <p className="text-sm text-text-secondary">
+            {tf(t, 'accountPanes.dsar.otherRequests', { email: DPO_EMAIL })}
+          </p>
           {error ? <p className="text-sm text-danger">{error}</p> : null}
           {said ? <p className="text-sm">{said}</p> : null}
+          <ConfirmDialog
+            open={confirming}
+            onClose={() => setConfirming(false)}
+            onConfirm={askErasure}
+            title={t('accountPanes.dsar.erasure')}
+            body={t('accountPanes.dsar.erasureConfirmBody')}
+            confirmLabel={t('accountPanes.dsar.erasure')}
+            danger={false}
+            busy={busy}
+          />
         </Card>
       ) : null}
 

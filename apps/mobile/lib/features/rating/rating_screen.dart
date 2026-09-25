@@ -15,6 +15,8 @@ import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/models/rating_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
+import 'package:raje3_mobile/widgets/brand_loading_indicator.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:go_router/go_router.dart';
 
@@ -323,10 +325,6 @@ class _RatingScreenState extends State<RatingScreen> {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context)!;
-    final catalog = context.watch<NavProvider>().catalog;
-    final canHandle = catalog.hasAll(['operations.mark_rating_handled']);
-    final canExport = catalog.hasAll(['operations.staff_performance_export']);
-
     final totalRatings = _staff?.fold<int>(0, (a, b) => a + b.ratings) ?? 0;
     final weightedAvg = totalRatings > 0
         ? (_staff!.fold<double>(0, (a, b) => a + b.averageRating * b.ratings) / totalRatings)
@@ -353,7 +351,6 @@ class _RatingScreenState extends State<RatingScreen> {
                   totalRatings: totalRatings,
                   staffCount: _staff?.length ?? 0,
                   unhandledCount: unhandledCount,
-                  canExport: canExport,
                   exporting: _exporting,
                   onExport: _openExportSheet,
                 ),
@@ -416,7 +413,7 @@ class _RatingScreenState extends State<RatingScreen> {
               if (_tab == _MainTab.overview)
                 ..._overviewSlivers(topIssues)
               else
-                ..._feedSlivers(s, canHandle),
+                ..._feedSlivers(s),
             ],
           ),
         ),
@@ -477,7 +474,7 @@ class _RatingScreenState extends State<RatingScreen> {
     ];
   }
 
-  List<Widget> _feedSlivers(S s, bool canHandle) {
+  List<Widget> _feedSlivers(S s) {
     return [
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
@@ -531,7 +528,7 @@ class _RatingScreenState extends State<RatingScreen> {
         ),
       ),
       if (_rows == null)
-        const SliverFillRemaining(hasScrollBody: false, child: AppLoadingIndicator())
+        const SliverFillRemaining(hasScrollBody: false, child: BrandLoadingIndicator())
       else if (_rowsFailed)
         SliverFillRemaining(
           hasScrollBody: false,
@@ -555,7 +552,6 @@ class _RatingScreenState extends State<RatingScreen> {
             separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
             itemBuilder: (context, i) => _RatingCard(
               r: _rows![i],
-              canHandle: canHandle,
               onMarkHandled: (note) => _markHandled(_rows![i], note),
               onOpenCustomer: _rows![i].customerId.isEmpty
                   ? null
@@ -656,7 +652,6 @@ class _RatingHero extends StatelessWidget {
     required this.totalRatings,
     required this.staffCount,
     required this.unhandledCount,
-    required this.canExport,
     required this.exporting,
     required this.onExport,
   });
@@ -664,7 +659,6 @@ class _RatingHero extends StatelessWidget {
   final int totalRatings;
   final int staffCount;
   final int unhandledCount;
-  final bool canExport;
   final bool exporting;
   final VoidCallback onExport;
 
@@ -715,8 +709,9 @@ class _RatingHero extends StatelessWidget {
                           child: Text(s.ratingTitle,
                               style: AppTextStyles.displaySmall.copyWith(color: Colors.white)),
                         ),
-                        if (canExport)
-                          KbAnchor(
+                        CapabilityGate(
+                          requires: const ['operations.staff_performance_export'],
+                          child: KbAnchor(
                             id: 'rating.export_button',
                             child: Material(
                               color: Colors.white.withValues(alpha: 0.18),
@@ -738,6 +733,7 @@ class _RatingHero extends StatelessWidget {
                               ),
                             ),
                           ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: AppSpacing.md),
@@ -1227,12 +1223,10 @@ class _TopIssuesRow extends StatelessWidget {
 class _RatingCard extends StatelessWidget {
   const _RatingCard({
     required this.r,
-    required this.canHandle,
     required this.onMarkHandled,
     required this.onOpenCustomer,
   });
   final RatingRow r;
-  final bool canHandle;
   final ValueChanged<String> onMarkHandled;
   final VoidCallback? onOpenCustomer;
 
@@ -1345,15 +1339,18 @@ class _RatingCard extends StatelessWidget {
                   ),
                 ],
               )
-            else if (canHandle)
-              KbAnchor(
-                id: 'rating.mark_handled_button',
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _openHandleSheet(context, s),
-                    icon: const Icon(Icons.check_rounded, size: 16),
-                    label: Text(s.ratingMarkHandled),
+            else
+              CapabilityGate(
+                requires: const ['operations.mark_rating_handled'],
+                child: KbAnchor(
+                  id: 'rating.mark_handled_button',
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openHandleSheet(context, s),
+                      icon: const Icon(Icons.check_rounded, size: 16),
+                      label: Text(s.ratingMarkHandled),
+                    ),
                   ),
                 ),
               ),

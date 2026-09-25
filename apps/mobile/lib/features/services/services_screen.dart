@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
+import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/services/auth_service.dart' show BranchTeamMember;
 import 'package:raje3_mobile/core/services/services_catalogue_service.dart';
 import 'package:raje3_mobile/core/utils/formatters.dart';
@@ -12,6 +13,8 @@ import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/models/service_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
+import 'package:raje3_mobile/widgets/brand_loading_indicator.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
 
@@ -432,7 +435,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                 ),
               ),
               if (_services == null)
-                const SliverFillRemaining(hasScrollBody: false, child: AppLoadingIndicator())
+                const SliverFillRemaining(hasScrollBody: false, child: BrandLoadingIndicator())
               else if (_failed)
                 SliverFillRemaining(
                   hasScrollBody: false,
@@ -579,10 +582,13 @@ class _ServiceCard extends StatelessWidget {
                   end: 8,
                   child: Transform.scale(
                     scale: 0.72,
-                    child: Switch(
-                      value: item.active,
-                      onChanged: (_) => onToggleActive(),
-                      activeThumbColor: dark ? AppDarkColors.accent : AppColors.accent,
+                    child: CapabilityGate(
+                      requires: const ['operations.update_service'],
+                      child: Switch(
+                        value: item.active,
+                        onChanged: (_) => onToggleActive(),
+                        activeThumbColor: dark ? AppDarkColors.accent : AppColors.accent,
+                      ),
                     ),
                   ),
                 ),
@@ -1104,10 +1110,13 @@ class _GeneralSettingsSheetState extends State<_GeneralSettingsSheet> {
               AppAlert(type: AlertType.error, message: _error!),
             ],
             const SizedBox(height: AppSpacing.lg),
-            PrimaryButton(
-              text: _saving ? s.servicesSaving : s.servicesSave,
-              isLoading: _saving,
-              onPressed: _saving ? null : _submit,
+            CapabilityGate(
+              requires: const ['operations.manage_services'],
+              child: PrimaryButton(
+                text: _saving ? s.servicesSaving : s.servicesSave,
+                isLoading: _saving,
+                onPressed: _saving ? null : _submit,
+              ),
             ),
           ],
         ),
@@ -1623,7 +1632,9 @@ class _ServiceFormSheetState extends State<_ServiceFormSheet> {
                             _selectedStepIds.add(st.id);
                           }
                         }),
-                        onLongPress: () => _editStep(st),
+                        onLongPress: context.read<NavProvider>().catalog.hasAll(['operations.update_procedure_step'])
+                            ? () => _editStep(st)
+                            : null,
                       );
                     }).toList(),
                   ),
@@ -1700,10 +1711,15 @@ class _ServiceFormSheetState extends State<_ServiceFormSheet> {
                   AppAlert(type: AlertType.error, message: _error!),
                 ],
                 const SizedBox(height: AppSpacing.lg),
-                PrimaryButton(
-                  text: _uploadingPhoto ? s.servicesSaving : (_saving ? s.servicesSaving : s.servicesSave),
-                  isLoading: _saving,
-                  onPressed: _saving ? null : _submit,
+                CapabilityGate(
+                  requires: [widget.existing != null
+                      ? 'operations.update_service'
+                      : 'operations.create_service'],
+                  child: PrimaryButton(
+                    text: _uploadingPhoto ? s.servicesSaving : (_saving ? s.servicesSaving : s.servicesSave),
+                    isLoading: _saving,
+                    onPressed: _saving ? null : _submit,
+                  ),
                 ),
               ],
             ),

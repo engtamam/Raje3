@@ -282,7 +282,7 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
             {justPaid ? t('billingStatus.paymentConfirming') : t('billingStatus.pastDue')}
           </p>
           <div className="flex flex-wrap gap-2">
-            {openInvoice ? (
+            {openInvoice && action(catalog, 'billing.invoice_pay_link') ? (
               <Button type="button" variant="danger" size="sm" disabled={payLinkBusy} onClick={() => void payByLink()}>
                 {payLinkBusy ? t('billingStatus.openingPayLink') : t('billingStatus.payNow')}
               </Button>
@@ -349,10 +349,12 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
           ))}
           {/* ONE BUTTON FOR THE WHOLE GROUP, never per app — mirrors the mobile screen's own
               single button below its renewal-preview section (billing_screen.dart). */}
-          <Button type="button" variant="outline" size="sm" disabled={renewingSubId === 'all'}
-                  onClick={() => void renewNow()}>
-            {renewingSubId === 'all' ? t('billingStatus.renewingNow') : t('billingStatus.renewNow')}
-          </Button>
+          {action(catalog, 'subscription.renew_now') ? (
+            <Button type="button" variant="outline" size="sm" disabled={renewingSubId === 'all'}
+                    onClick={() => void renewNow()}>
+              {renewingSubId === 'all' ? t('billingStatus.renewingNow') : t('billingStatus.renewNow')}
+            </Button>
+          ) : null}
           {renewError ? <p className="text-xs text-danger">{renewError}</p> : null}
         </div>
       ) : null}

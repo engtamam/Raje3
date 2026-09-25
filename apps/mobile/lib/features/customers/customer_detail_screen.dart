@@ -10,6 +10,8 @@ import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/models/customer_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
+import 'package:raje3_mobile/widgets/brand_loading_indicator.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 
 /// This customer's own rhythm, computed client-side from his real visits — the exact formula
@@ -210,7 +212,9 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   Widget build(BuildContext context) {
     final s = S.of(context)!;
     final catalog = context.watch<NavProvider>().catalog;
-    final canRename = catalog.hasAll(['operations.rename_customer']);
+    // A SPREAD, NOT A SINGLE WIDGET — gates two list items (a spacer + the button) inside a
+    // `...[...]` section below, which `CapabilityGate` (one widget in, one widget out) cannot
+    // stand in for without leaving a stray gap when hidden. Stays a plain `hasAll` check.
     final canErase = catalog.hasAll(['operations.manage']) &&
         catalog.hasAll(['operations.erase_customer']);
 
@@ -222,7 +226,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           children: [
             _DetailHero(
               record: _record,
-              canRename: canRename,
               onBack: () => Navigator.of(context).pop(),
               onRename: _openRename,
             ),
@@ -237,7 +240,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                             actionText: s.mobileRequestsRetry,
                             onAction: _load,
                           )
-                        : const AppLoadingIndicator())
+                        : const BrandLoadingIndicator())
                     : RefreshIndicator(
                         onRefresh: _load,
                         child: ListView(
@@ -260,7 +263,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       const SizedBox(height: AppSpacing.sm),
                       _LoyaltyCard(
                         balance: _balance,
-                        canAdjust: catalog.hasAll(['loyalty.adjust']),
                         onAdjust: _openAdjustLoyalty,
                       ),
                     ],
@@ -320,13 +322,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
 class _DetailHero extends StatelessWidget {
   const _DetailHero({
     required this.record,
-    required this.canRename,
     required this.onBack,
     required this.onRename,
   });
 
   final CustomerRecord? record;
-  final bool canRename;
   final VoidCallback onBack;
   final VoidCallback onRename;
 
@@ -381,10 +381,13 @@ class _DetailHero extends StatelessWidget {
                           onTap: onBack,
                         ),
                         const Spacer(),
-                        if (canRename && record != null)
-                          KbAnchor(
-                            id: 'customer_detail.rename_button',
-                            child: _GlassIconButton(icon: Icons.edit_outlined, onTap: onRename),
+                        if (record != null)
+                          CapabilityGate(
+                            requires: const ['operations.rename_customer'],
+                            child: KbAnchor(
+                              id: 'customer_detail.rename_button',
+                              child: _GlassIconButton(icon: Icons.edit_outlined, onTap: onRename),
+                            ),
                           ),
                       ],
                     ),
@@ -637,9 +640,8 @@ class _AssetsCard extends StatelessWidget {
 }
 
 class _LoyaltyCard extends StatelessWidget {
-  const _LoyaltyCard({required this.balance, required this.canAdjust, required this.onAdjust});
+  const _LoyaltyCard({required this.balance, required this.onAdjust});
   final LoyaltyBalance? balance;
-  final bool canAdjust;
   final VoidCallback onAdjust;
 
   @override
@@ -673,11 +675,13 @@ class _LoyaltyCard extends StatelessWidget {
               ],
             ),
           ),
-          if (canAdjust)
-            KbAnchor(
+          CapabilityGate(
+            requires: const ['loyalty.adjust'],
+            child: KbAnchor(
               id: 'customer_detail.adjust_loyalty_button',
               child: TextButton(onPressed: onAdjust, child: Text(s.customersLoyaltyAdjust)),
             ),
+          ),
         ],
       ),
     );

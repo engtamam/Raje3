@@ -16,6 +16,8 @@ import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/models/mobile_request_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
+import 'package:raje3_mobile/widgets/brand_loading_indicator.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/date_time_picker_sheet.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 
@@ -238,7 +240,12 @@ class _MobileRequestsScreenState extends State<MobileRequestsScreen> {
   Widget build(BuildContext context) {
     final s = S.of(context)!;
     final catalog = context.watch<NavProvider>().catalog;
-    final canCreate = catalog.hasAll(['operations.mobile_request_create']);
+    // KEPT AS `hasAll`, NOT `CapabilityGate`, ON PURPOSE — each of these five feeds a spacer
+    // between two buttons that only appears when BOTH show (e.g. `if (canAccept && canReject)
+    // SizedBox(width:...)`, below). `CapabilityGate` swaps one widget for `SizedBox.shrink()`;
+    // it cannot answer "are both of these two OTHER gates open", so the spacing logic still
+    // needs the plain booleans. Converting only the individual buttons and leaving the spacer
+    // reading a mix of the old and new mechanism would be more confusing, not less.
     final canAccept = catalog.hasAll(['operations.mobile_request_accept']);
     final canReject = catalog.hasAll(['operations.mobile_request_reject']);
     final canComplete = catalog.hasAll(['operations.mobile_request_complete']);
@@ -250,16 +257,17 @@ class _MobileRequestsScreenState extends State<MobileRequestsScreen> {
       child: Scaffold(
         backgroundColor: AppColors.surface0,
         appBar: AppBar(title: Text(s.mobileRequestsTitle)),
-        floatingActionButton: canCreate
-            ? KbAnchor(
-                id: 'mobile-requests.add_button',
-                child: FloatingActionButton.extended(
-                  onPressed: _openAddSheet,
-                  icon: const Icon(Icons.add_rounded),
-                  label: Text(s.mobileRequestsAddOpen),
-                ),
-              )
-            : null,
+        floatingActionButton: CapabilityGate(
+          requires: const ['operations.mobile_request_create'],
+          child: KbAnchor(
+            id: 'mobile-requests.add_button',
+            child: FloatingActionButton.extended(
+              onPressed: _openAddSheet,
+              icon: const Icon(Icons.add_rounded),
+              label: Text(s.mobileRequestsAddOpen),
+            ),
+          ),
+        ),
         body: RefreshIndicator(
           onRefresh: _load,
           child: CustomScrollView(
@@ -357,7 +365,7 @@ class _MobileRequestsScreenState extends State<MobileRequestsScreen> {
                 ),
               ),
               if (_rows == null)
-                const SliverFillRemaining(hasScrollBody: false, child: AppLoadingIndicator())
+                const SliverFillRemaining(hasScrollBody: false, child: BrandLoadingIndicator())
               else if (_loadFailed)
                 SliverFillRemaining(
                   hasScrollBody: false,

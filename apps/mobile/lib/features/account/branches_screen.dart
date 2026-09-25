@@ -11,6 +11,7 @@ import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_back_button.dart';
 import 'package:raje3_mobile/widgets/brand_loading_indicator.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
 
@@ -384,7 +385,9 @@ class _AddBranchSheetState extends State<_AddBranchSheet> {
               Text(_error!, style: AppTextStyles.bodySmall.copyWith(color: AppColors.danger)),
             ],
             const SizedBox(height: AppSpacing.lg),
-            KbAnchor(
+            CapabilityGate(
+              requires: const ['operations.create_branch'],
+              child: KbAnchor(
               id: 'account.shop.branches.add_sheet.submit',
               child: SizedBox(
                 width: double.infinity,
@@ -396,6 +399,7 @@ class _AddBranchSheetState extends State<_AddBranchSheet> {
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : Text(s.save),
                 ),
+              ),
               ),
             ),
           ],

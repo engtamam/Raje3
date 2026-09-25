@@ -1,5 +1,5 @@
 /**
- * «نقاطي» — the rewards table, and what a visit is worth.
+ * «نقاط الولاء» — the rewards table, and what a visit is worth.
  *
  * IT ARRIVES PRE-FILLED ("100 points = an exterior wash, 300 = polish"). He edits a
  * number, switches one off, or adds one — and never starts from a blank page (§10.8). So the empty

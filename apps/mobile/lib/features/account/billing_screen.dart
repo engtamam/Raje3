@@ -10,6 +10,7 @@ import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_back_button.dart';
 import 'package:raje3_mobile/widgets/brand_loading_indicator.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
 import 'package:go_router/go_router.dart';
@@ -247,16 +248,19 @@ class _BillingScreenState extends State<BillingScreen> {
                             // ONE BUTTON FOR THE WHOLE GROUP, never per app (the owner's own
                             // call, 2026-09-22) — renewing early means the whole together-billed
                             // cycle, exactly what the automatic sweep would do on the real date.
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton(
-                                style: ToneColors.of(context, AppTone.accent).outlinedStyle(),
-                                onPressed: _renewingAll ? null : () => _renewAllNow(context),
-                                child: _renewingAll
-                                    ? const SizedBox(
-                                        width: 16, height: 16,
-                                        child: CircularProgressIndicator(strokeWidth: 2))
-                                    : Text(s.billingRenewNow),
+                            CapabilityGate(
+                              requires: const ['subscription.renew_now'],
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton(
+                                  style: ToneColors.of(context, AppTone.accent).outlinedStyle(),
+                                  onPressed: _renewingAll ? null : () => _renewAllNow(context),
+                                  child: _renewingAll
+                                      ? const SizedBox(
+                                          width: 16, height: 16,
+                                          child: CircularProgressIndicator(strokeWidth: 2))
+                                      : Text(s.billingRenewNow),
+                                ),
                               ),
                             ),
                           ],
@@ -540,16 +544,19 @@ class _SubscriptionCard extends StatelessWidget {
                       ? const Padding(
                           padding: EdgeInsets.all(6),
                           child: CircularProgressIndicator(strokeWidth: 2))
-                      : IconButton(
-                          padding: EdgeInsets.zero,
-                          iconSize: 18,
-                          tooltip: stopping ? s.billingUndoStopRenewal : s.billingStopRenewal,
-                          style: IconButton.styleFrom(
-                            backgroundColor: actionColors.soft,
-                            foregroundColor: actionColors.solid,
+                      : CapabilityGate(
+                          requires: const ['billing.cancel', 'billing.undo_cancel'],
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            iconSize: 18,
+                            tooltip: stopping ? s.billingUndoStopRenewal : s.billingStopRenewal,
+                            style: IconButton.styleFrom(
+                              backgroundColor: actionColors.soft,
+                              foregroundColor: actionColors.solid,
+                            ),
+                            onPressed: stopping ? onUndoCancel : onCancel,
+                            icon: Icon(stopping ? Icons.refresh_rounded : Icons.pause_rounded),
                           ),
-                          onPressed: stopping ? onUndoCancel : onCancel,
-                          icon: Icon(stopping ? Icons.refresh_rounded : Icons.pause_rounded),
                         ),
                 ),
               ],
@@ -730,12 +737,15 @@ class _InvoiceRow extends StatelessWidget {
                   .copyWith(fontWeight: FontWeight.w700, fontFeatures: const [FontFeature.tabularFigures()])),
           if (invoice.isPayable) ...[
             const SizedBox(width: AppSpacing.sm),
-            TextButton(
-              style: colors.textStyle(),
-              onPressed: busy ? null : onPay,
-              child: busy
-                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(s.billingPayNow),
+            CapabilityGate(
+              requires: const ['billing.invoice_pay_link'],
+              child: TextButton(
+                style: colors.textStyle(),
+                onPressed: busy ? null : onPay,
+                child: busy
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Text(s.billingPayNow),
+              ),
             ),
           ],
         ],

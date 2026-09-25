@@ -6,6 +6,7 @@ import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/models/service_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 
 /// «الباقات» — mobile mirror of apps/console/src/screens/PackagesTab.tsx's own DATA contract:
@@ -190,10 +191,13 @@ class _PackageCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                     ),
-                    Switch(
-                      value: pkg.active,
-                      onChanged: (_) => onToggleActive(),
-                      activeThumbColor: dark ? AppDarkColors.accent : AppColors.accent,
+                    CapabilityGate(
+                      requires: const ['operations.update_package'],
+                      child: Switch(
+                        value: pkg.active,
+                        onChanged: (_) => onToggleActive(),
+                        activeThumbColor: dark ? AppDarkColors.accent : AppColors.accent,
+                      ),
                     ),
                   ],
                 ),
@@ -356,10 +360,15 @@ class _PackageFormSheetState extends State<_PackageFormSheet> {
                 AppAlert(type: AlertType.error, message: _error!),
               ],
               const SizedBox(height: AppSpacing.lg),
-              PrimaryButton(
-                text: _saving ? s.servicesSaving : s.servicesSave,
-                isLoading: _saving,
-                onPressed: _saving ? null : _submit,
+              CapabilityGate(
+                requires: [widget.existing != null
+                    ? 'operations.update_package'
+                    : 'operations.create_package'],
+                child: PrimaryButton(
+                  text: _saving ? s.servicesSaving : s.servicesSave,
+                  isLoading: _saving,
+                  onPressed: _saving ? null : _submit,
+                ),
               ),
             ],
           ),

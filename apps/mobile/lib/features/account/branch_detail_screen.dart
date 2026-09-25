@@ -12,6 +12,7 @@ import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_back_button.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
 import 'package:raje3_mobile/widgets/brand_loading_indicator.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/date_time_picker_sheet.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
@@ -255,46 +256,52 @@ class _BranchInfoCardState extends State<_BranchInfoCard> {
             Text(_error!, style: AppTextStyles.bodySmall.copyWith(color: AppColors.danger)),
           ],
           const SizedBox(height: AppSpacing.md),
-          KbAnchor(
-            id: 'account.shop.branches.detail.save_button',
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _saveDetails,
-                child: _saving
-                    ? const SizedBox(
-                        width: 18, height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(s.save),
+          CapabilityGate(
+            requires: const ['operations.update_branch'],
+            child: KbAnchor(
+              id: 'account.shop.branches.detail.save_button',
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _saving ? null : _saveDetails,
+                  child: _saving
+                      ? const SizedBox(
+                          width: 18, height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Text(s.save),
+                ),
               ),
             ),
           ),
           const Divider(height: AppSpacing.xl),
-          KbAnchor(
-            id: 'account.shop.branches.detail.status_toggle',
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(s.branchesStatusLabel,
-                          style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
-                      if (widget.branch.isMain)
-                        Text(s.branchesMainCannotClose,
-                            style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
-                    ],
+          CapabilityGate(
+            requires: const ['operations.update_branch'],
+            child: KbAnchor(
+              id: 'account.shop.branches.detail.status_toggle',
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(s.branchesStatusLabel,
+                            style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
+                        if (widget.branch.isMain)
+                          Text(s.branchesMainCannotClose,
+                              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
+                      ],
+                    ),
                   ),
-                ),
-                if (_busyToggle)
-                  const SizedBox(
-                      width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                else
-                  Switch(
-                    value: widget.branch.active,
-                    onChanged: widget.branch.isMain ? null : _toggleActive,
-                  ),
-              ],
+                  if (_busyToggle)
+                    const SizedBox(
+                        width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  else
+                    Switch(
+                      value: widget.branch.active,
+                      onChanged: widget.branch.isMain ? null : _toggleActive,
+                    ),
+                ],
+              ),
             ),
           ),
         ],
@@ -694,7 +701,9 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
                 ),
               ],
               const SizedBox(height: AppSpacing.lg),
-              KbAnchor(
+              CapabilityGate(
+                requires: const ['operations.hire_member'],
+                child: KbAnchor(
                 id: 'account.shop.branches.detail.add_member.submit',
                 child: SizedBox(
                 width: double.infinity,
@@ -707,6 +716,7 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
                       : Text(s.save),
                 ),
                 ),
+              ),
               ),
             ],
           ),
@@ -978,29 +988,35 @@ class _EditMemberSheetState extends State<_EditMemberSheet> {
                 AppAlert(type: AlertType.error, message: _error!),
               ],
               const SizedBox(height: AppSpacing.lg),
-              KbAnchor(
-                id: 'account.shop.branches.detail.edit_member.save',
-                child: SizedBox(
-                  width: double.infinity,
-                  child: PrimaryButton(
-                    text: s.save,
-                    isLoading: _saving,
-                    onPressed: _saving ? null : _submit,
+              CapabilityGate(
+                requires: const ['operations.update_operator'],
+                child: KbAnchor(
+                  id: 'account.shop.branches.detail.edit_member.save',
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: PrimaryButton(
+                      text: s.save,
+                      isLoading: _saving,
+                      onPressed: _saving ? null : _submit,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              KbAnchor(
-                id: 'account.shop.branches.detail.edit_member.stop_reactivate',
-                child: SizedBox(
-                  width: double.infinity,
-                  child: TextButton.icon(
-                    onPressed: _saving ? null : (m.active ? _confirmStop : _tryReactivate),
-                    icon: Icon(m.active ? Icons.person_off_outlined : Icons.person_add_alt_1_outlined,
-                        color: m.active ? AppColors.danger : null),
-                    label: Text(
-                      m.active ? s.branchesStopMember : s.branchesReactivateMember,
-                      style: TextStyle(color: m.active ? AppColors.danger : null),
+              CapabilityGate(
+                requires: const ['operations.update_operator'],
+                child: KbAnchor(
+                  id: 'account.shop.branches.detail.edit_member.stop_reactivate',
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      onPressed: _saving ? null : (m.active ? _confirmStop : _tryReactivate),
+                      icon: Icon(m.active ? Icons.person_off_outlined : Icons.person_add_alt_1_outlined,
+                          color: m.active ? AppColors.danger : null),
+                      label: Text(
+                        m.active ? s.branchesStopMember : s.branchesReactivateMember,
+                        style: TextStyle(color: m.active ? AppColors.danger : null),
+                      ),
                     ),
                   ),
                 ),
@@ -1167,27 +1183,33 @@ class _WorkingHoursSheetState extends State<_WorkingHoursSheet> {
                 AppAlert(type: AlertType.error, message: _error!),
               ],
               const SizedBox(height: AppSpacing.lg),
-              KbAnchor(
-                id: 'account.shop.branches.detail.working_hours.save',
-                child: SizedBox(
-                  width: double.infinity,
-                  child: PrimaryButton(
-                    text: s.save,
-                    isLoading: _saving,
-                    onPressed: (_saving || _clearing) ? null : _save,
+              CapabilityGate(
+                requires: const ['operations.set_staff_hours'],
+                child: KbAnchor(
+                  id: 'account.shop.branches.detail.working_hours.save',
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: PrimaryButton(
+                      text: s.save,
+                      isLoading: _saving,
+                      onPressed: (_saving || _clearing) ? null : _save,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              KbAnchor(
-                id: 'account.shop.branches.detail.working_hours.clear',
-                child: SizedBox(
-                  width: double.infinity,
-                  child: TextButton(
-                    onPressed: (_saving || _clearing) ? null : _clear,
-                    child: Text(s.branchesHoursClear),
+              CapabilityGate(
+                requires: const ['operations.clear_staff_hours'],
+                child: KbAnchor(
+                  id: 'account.shop.branches.detail.working_hours.clear',
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      onPressed: (_saving || _clearing) ? null : _clear,
+                      child: Text(s.branchesHoursClear),
                   ),
                 ),
+              ),
               ),
             ],
           ),

@@ -10,6 +10,8 @@ import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/models/app_store_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
+import 'package:raje3_mobile/widgets/brand_loading_indicator.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
 
@@ -275,7 +277,7 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
               ),
             ),
             if (_owned == null)
-              const SliverFillRemaining(hasScrollBody: false, child: AppLoadingIndicator())
+              const SliverFillRemaining(hasScrollBody: false, child: BrandLoadingIndicator())
             else
               SliverPadding(
                 // EXTRA TOP PADDING — the poster card's own add-to-cart button now overlaps its
@@ -283,8 +285,13 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
                 // needs the same clearance the row below already gets from `mainAxisSpacing`.
                 padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, AppSpacing.xxl),
                 sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2, mainAxisSpacing: AppSpacing.lg, crossAxisSpacing: AppSpacing.sm, childAspectRatio: 0.92,
+                  // «متجر التطبيقات» (_tab true) cards carry an extra price row + «التفاصيل» pill
+                  // the «تطبيقاتي» ones don't (showBilling: _tab below) — a single aspect ratio
+                  // sized for the taller variant left the shorter one mostly empty gradient (the
+                  // owner's own catch, 2026-09-24: "البطاقة كبيرة وفاضية والكلام صغير جدا").
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2, mainAxisSpacing: AppSpacing.lg, crossAxisSpacing: AppSpacing.sm,
+                    childAspectRatio: _tab ? 0.95 : 1.55,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, i) {
@@ -542,7 +549,7 @@ class _AppCardState extends State<_AppCard> {
                   const Spacer(),
                   Text(
                     widget.row.name, maxLines: 2, overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w900, color: Colors.white, height: 1.15),
+                    style: AppTextStyles.headlineSmall.copyWith(fontWeight: FontWeight.w900, color: Colors.white, height: 1.15),
                   ),
                   if (widget.showBilling && widget.plan != null) ...[
                     const SizedBox(height: 6),
@@ -645,7 +652,9 @@ class _CapacityCardState extends State<_CapacityCard> {
     final qty = widget.sub?.quantity ?? 0;
 
     if (_confirming && widget.sub != null) {
-      return KbAnchor(
+      return CapabilityGate(
+        requires: const ['billing.self'],
+        child: KbAnchor(
         id: 'apps.capacity_confirm_remove',
         child: Container(
           padding: const EdgeInsets.all(AppSpacing.sm),
@@ -667,10 +676,13 @@ class _CapacityCardState extends State<_CapacityCard> {
             ],
           ),
         ),
+        ),
       );
     }
 
-    return KbAnchor(
+    return CapabilityGate(
+      requires: const ['billing.self'],
+      child: KbAnchor(
       id: 'apps.capacity_stepper',
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.sm),
@@ -703,6 +715,7 @@ class _CapacityCardState extends State<_CapacityCard> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -765,11 +778,14 @@ class _CartBar extends StatelessWidget {
               Text(error, style: AppTextStyles.caption.copyWith(color: AppColors.danger)),
             ],
             const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: PrimaryButton(
-                text: busy ? s.appStoreCheckingOut : s.appStoreCheckout,
-                onPressed: busy ? null : onCheckout,
+            CapabilityGate(
+              requires: const ['billing.self'],
+              child: SizedBox(
+                width: double.infinity,
+                child: PrimaryButton(
+                  text: busy ? s.appStoreCheckingOut : s.appStoreCheckout,
+                  onPressed: busy ? null : onCheckout,
+                ),
               ),
             ),
           ],
@@ -842,35 +858,44 @@ class _AppDetailsSheet extends StatelessWidget {
                       if (owned == true) ...[
                         if (sub?.cancelAtPeriodEnd == true) ...[
                           if (onUndoCancel != null)
-                            KbAnchor(
-                              id: 'apps.details_undo_cancel',
-                              child: SizedBox(width: double.infinity, child: OutlinedButton(onPressed: onUndoCancel, child: Text(s.appStoreUndoCancel))),
+                            CapabilityGate(
+                              requires: const ['billing.self'],
+                              child: KbAnchor(
+                                id: 'apps.details_undo_cancel',
+                                child: SizedBox(width: double.infinity, child: OutlinedButton(onPressed: onUndoCancel, child: Text(s.appStoreUndoCancel))),
+                              ),
                             ),
                         ] else if (onCancel != null)
-                          KbAnchor(
-                            id: 'apps.details_cancel',
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton(
-                                onPressed: () => showDialog<void>(
-                                  context: context,
-                                  builder: (dialogContext) => AlertDialog(
-                                    content: Text(s.appStoreConfirmCancel),
-                                    actions: [
-                                      TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(s.mobileRequestsRejectCancel)),
-                                      TextButton(
-                                        onPressed: () { Navigator.of(dialogContext).pop(); onCancel!(); },
-                                        child: Text(s.appStoreCancelRenewal, style: const TextStyle(color: AppColors.danger)),
-                                      ),
-                                    ],
+                          CapabilityGate(
+                            requires: const ['billing.self'],
+                            child: KbAnchor(
+                              id: 'apps.details_cancel',
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton(
+                                  onPressed: () => showDialog<void>(
+                                    context: context,
+                                    builder: (dialogContext) => AlertDialog(
+                                      content: Text(s.appStoreConfirmCancel),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(s.mobileRequestsRejectCancel)),
+                                        TextButton(
+                                          onPressed: () { Navigator.of(dialogContext).pop(); onCancel!(); },
+                                          child: Text(s.appStoreCancelRenewal, style: const TextStyle(color: AppColors.danger)),
+                                        ),
+                                      ],
+                                    ),
                                   ),
+                                  child: Text(s.appStoreCancelRenewal, style: const TextStyle(color: AppColors.danger)),
                                 ),
-                                child: Text(s.appStoreCancelRenewal, style: const TextStyle(color: AppColors.danger)),
                               ),
                             ),
                           ),
                       ] else if (onSubscribe != null)
-                        SizedBox(width: double.infinity, child: PrimaryButton(text: s.appStoreSubscribe, onPressed: onSubscribe)),
+                        CapabilityGate(
+                          requires: const ['billing.self'],
+                          child: SizedBox(width: double.infinity, child: PrimaryButton(text: s.appStoreSubscribe, onPressed: onSubscribe)),
+                        ),
                     ],
                   ],
                 ),

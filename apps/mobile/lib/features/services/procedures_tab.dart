@@ -2,13 +2,16 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/services/services_catalogue_service.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/models/service_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
 
@@ -633,11 +636,14 @@ class _ServiceStepsSheetState extends State<_ServiceStepsSheet> {
               const Spacer(),
               TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(s.mobileRequestsRejectCancel)),
               const SizedBox(width: 4),
-              FilledButton(
-                onPressed: (!_dirty || _saving) ? null : _save,
-                child: _saving
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : Text(s.servicesSave),
+              CapabilityGate(
+                requires: const ['operations.update_service'],
+                child: FilledButton(
+                  onPressed: (!_dirty || _saving) ? null : _save,
+                  child: _saving
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Text(s.servicesSave),
+                ),
               ),
             ],
             ),
@@ -896,11 +902,14 @@ class _StepPickerSheetState extends State<_StepPickerSheet> {
               const SizedBox(width: 8),
               _SeverityToggle(value: _newSeverity, onChanged: (v) => setState(() => _newSeverity = v)),
               const SizedBox(width: 6),
-              IconButton(
-                onPressed: (_creating || _newTextController.text.trim().isEmpty) ? null : _create,
-                icon: _creating
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.add_rounded),
+              CapabilityGate(
+                requires: const ['operations.create_procedure_step'],
+                child: IconButton(
+                  onPressed: (_creating || _newTextController.text.trim().isEmpty) ? null : _create,
+                  icon: _creating
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.add_rounded),
+                ),
               ),
             ],
             ),
@@ -1008,6 +1017,8 @@ class _LibrarySheetState extends State<_LibrarySheet> {
     final s = S.of(context)!;
     final colors = context.appColors;
     final visible = _localSteps.where((st) => _showRetired || st.active).toList();
+    final canEditSteps =
+        context.watch<NavProvider>().catalog.hasAll(['operations.update_procedure_step']);
 
     return _SheetShell(
       title: s.proceduresLibraryTitle,
@@ -1037,9 +1048,12 @@ class _LibrarySheetState extends State<_LibrarySheet> {
               const SizedBox(width: 8),
               _SeverityToggle(value: _newSeverity, onChanged: (v) => setState(() => _newSeverity = v)),
               const SizedBox(width: 6),
-              FilledButton(
-                onPressed: _newTextController.text.trim().isEmpty ? null : _add,
-                child: Text(s.proceduresLibraryAdd),
+              CapabilityGate(
+                requires: const ['operations.create_procedure_step'],
+                child: FilledButton(
+                  onPressed: _newTextController.text.trim().isEmpty ? null : _add,
+                  child: Text(s.proceduresLibraryAdd),
+                ),
               ),
             ],
             ),
@@ -1120,7 +1134,7 @@ class _LibrarySheetState extends State<_LibrarySheet> {
                                           children: [
                                             Expanded(
                                               child: InkWell(
-                                                onTap: (busy || !st.active) ? null : () => _renameStep(st),
+                                                onTap: (busy || !st.active || !canEditSteps) ? null : () => _renameStep(st),
                                                 child: Padding(
                                                   padding: const EdgeInsets.symmetric(vertical: 4),
                                                   child: Text(st.text,
@@ -1143,9 +1157,9 @@ class _LibrarySheetState extends State<_LibrarySheet> {
                                         Row(
                                           children: [
                                             IgnorePointer(
-                                              ignoring: busy || !st.active,
+                                              ignoring: busy || !st.active || !canEditSteps,
                                               child: Opacity(
-                                                opacity: (busy || !st.active) ? 0.5 : 1,
+                                                opacity: (busy || !st.active || !canEditSteps) ? 0.5 : 1,
                                                 child: _SeverityToggle(
                                                   value: st.severity,
                                                   onChanged: (v) => _patch(st.id, severity: v),
@@ -1161,7 +1175,7 @@ class _LibrarySheetState extends State<_LibrarySheet> {
                                             const Spacer(),
                                             InkWell(
                                               borderRadius: BorderRadius.circular(AppRadius.pill),
-                                              onTap: busy ? null : () => _patch(st.id, active: !st.active),
+                                              onTap: (busy || !canEditSteps) ? null : () => _patch(st.id, active: !st.active),
                                               child: Padding(
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                 child: Row(
