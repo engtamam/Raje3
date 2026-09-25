@@ -33,6 +33,13 @@ const CUSTOMER: CustomerHit = { id: 'cus1', phone: '0500000001', name: 'سالم
 const SERVICES = [
   { id: 'svc1', name: 'قص شعر', duration_minutes: 30, price_minor: 5000, active: true },
 ];
+// `canWrite` reads this single id — present here so the save button renders in every test.
+const CATALOG = {
+  services: [{ service: 'bookings', actions: [
+    { id: 'bookings.create', label: '', method: 'POST' as const, path: '/api/v1/bookings', capability: 'bookings.write' },
+  ] }],
+  unreachable: [],
+};
 
 // BookingDialog now reads `useOperatorI18n()` — wrap once so `open()` stays unchanged.
 function open() {
@@ -40,6 +47,7 @@ function open() {
     <OperatorI18nProvider session={{} as never}>
     <BookingDialog
       session={{} as never}
+      catalog={CATALOG}
       branchId="brn1"
       date="2026-09-05"
       initialCustomer={CUSTOMER}

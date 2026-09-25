@@ -165,6 +165,12 @@ export function BookingSettingsDialog({ session, weekly, assignment, staff, onCl
               })}
             </div>
             {hoursError ? <p className="text-sm text-danger">{hoursError}</p> : null}
+            {/* NO CATALOGUE ACTION TO GATE ON — PATCH /bookings/working-hours enforces
+                `bookings.manage` (services/bookings/app/api/v1/bookings.py's `_MANAGE`), a
+                capability the catalogue never declares an action id for (only the coarser
+                `bookings.write` ids are declared in user_actions.py). A real, pre-existing,
+                frontend-unfixable gap — same category as the loyalty-redeem gap documented
+                elsewhere; the backend still refuses correctly either way. */}
             <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-3">
               <Button variant="ghost" onClick={onClose}>{t('bookingSettings.cancel')}</Button>
               <Button disabled={hoursSaving} onClick={saveHours}>{hoursSaving ? t('bookingSettings.saving') : t('bookingSettings.save')}</Button>
@@ -211,6 +217,8 @@ export function BookingSettingsDialog({ session, weekly, assignment, staff, onCl
             ) : null}
 
             {assignError ? <p className="text-sm text-danger">{assignError}</p> : null}
+            {/* SAME GAP AS THE HOURS SAVE ABOVE — PATCH /bookings/assignment-settings also
+                enforces `bookings.manage`, with no declared catalogue action id to gate on. */}
             <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-3">
               <Button variant="ghost" onClick={onClose}>{t('bookingSettings.cancel')}</Button>
               <Button disabled={assignSaving} onClick={saveAssignment}>{assignSaving ? t('bookingSettings.saving') : t('bookingSettings.save')}</Button>

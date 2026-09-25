@@ -32,6 +32,7 @@ import {
   nearestSlot, nearestSlotsAny, type NoShowRisk, noShowRisk, offerFor, pointsByService, rescheduleBooking,
   sentenceFor, setServiceDuration, setServicePrice, suggestByPrefix, type WeeklyHours,
 } from '../api';
+import { action, type Catalog } from '../catalog';
 import { asLocal } from '../phone';
 import { halalas, riyals } from '../money';
 import { PAYMENT_ORDER, paymentLabel, type PaymentStatus } from '../bookingPayment';
@@ -45,6 +46,7 @@ import './booking-dialog-i18n';
 
 export interface BookingDialogProps {
   session: Session;
+  catalog: Catalog;
   branchId: string;
   /** The grid's own day, prefilled — he is already looking at it. */
   date: string;
@@ -108,7 +110,7 @@ interface Slot { operatorId: string; startsAt: number }
 const SLOTS_PER_DAY = 6;
 
 export function BookingDialog(
-  { session, branchId, date, initialOperatorId, initialStartsAt, initialCustomer,
+  { session, catalog, branchId, date, initialOperatorId, initialStartsAt, initialCustomer,
    initialServiceIds, services, staff, weekly, onClose, onCreated,
    editingBooking, editingCustomerLabel }: BookingDialogProps,
 ) {
@@ -320,6 +322,11 @@ export function BookingDialog(
   const ready = Boolean(!phoneMissing && !servicesMissing && !missingDuration
     && !operatorMissing && !operatorIneligible && !noCommonOperator && !timeMissing
     && !depositAmountMissing);
+  // ONE CAPABILITY BEHIND EVERY WRITE THIS DIALOG MAKES — create, reschedule, edit-services,
+  // edit-note, edit-payment and edit-reward all enforce the SAME backend capability
+  // (`bookings.write`, services/bookings/app/api/v1/bookings.py's `_WRITE`), so any one declared
+  // catalogue id stands for all of them; there is no finer-grained id to ask for.
+  const canWrite = Boolean(action(catalog, 'bookings.create'));
 
   // ── THE MERGED TIME PICKER ────────────────────────────────────────────────────────────────
   //
@@ -838,9 +845,11 @@ export function BookingDialog(
 
         <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-3">
           <Button variant="ghost" onClick={onClose}>{t('bookingDialog.cancel')}</Button>
-          <Button disabled={saving} onClick={save} className="shadow-glow">
-            {saving ? t('bookingDialog.saving') : editing ? t('bookingDialog.saveEdit') : t('bookingDialog.bookNow')}
-          </Button>
+          {canWrite ? (
+            <Button disabled={saving} onClick={save} className="shadow-glow">
+              {saving ? t('bookingDialog.saving') : editing ? t('bookingDialog.saveEdit') : t('bookingDialog.bookNow')}
+            </Button>
+          ) : null}
         </div>
       </div>
     </Modal>
