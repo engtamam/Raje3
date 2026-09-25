@@ -1400,6 +1400,16 @@ jobs:
       - name: every interactive widget on a mobile screen is anchored
         run: python3 ci/check_mobile_screen_actions_are_anchored.py
 
+      # PHASE 4 of the permission-gate effort — a real, blocking gate, built on
+      # ci/report_action_level_gating.py's own PHASE 2 report (never wired here, on purpose: its
+      # coverage-ratio bucket isn't precise enough to auto-fail on). This only fails on that
+      # report's other, unambiguous signal — a screen with a real write control and ZERO
+      # catalogue checks anywhere in the file — and only when the file is not in this script's
+      # own EXEMPT map with a stated, verified reason. Covers both apps/console/src/screens and
+      # apps/mobile/lib/features. See project memory [[permission-gate-phase4-console-11-gaps]].
+      - name: every screen's write controls are gated by a real catalogue capability
+        run: python3 ci/check_action_level_gating.py
+
       # The mobile app's own half of check_branch_scope.py's guarantee — every service call
       # reading data from a domain branch_domains.py marks branch-scoped passes the selected
       # branch, or carries a reasoned `// branch-scope-exempt:` comment.
