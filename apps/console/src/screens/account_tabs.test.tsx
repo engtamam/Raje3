@@ -46,8 +46,13 @@ function render(ui: ReactElement) {
 describe('«حسابي» — the tab that went, and where its parts landed', () => {
   it('offers no «دخولي» tab any more', async () => {
     render(<AccountScreen session={session} catalog={catalog} />);
-    await screen.findByText('بياناتي');
+    // «بياناتي» ITSELF WENT DARK TOO (2026-09-22, owner's own call — see `tabsFor`'s own comment
+    // in Account.tsx): its DSAR buttons were replaced with one line pointing to the DPO email
+    // already in the privacy policy, and the tab was hidden rather than deleted. So the visible
+    // tab list now opens on «منشأتي» — the first tab everyone has — not «بياناتي».
+    await screen.findByText('منشأتي');
     expect(screen.queryByText('دخولي')).toBeNull();
+    expect(screen.queryByText('بياناتي')).toBeNull();
   });
 
   it('sends an old ?tab=login link to «منشأتي» rather than dropping it on the default', () => {

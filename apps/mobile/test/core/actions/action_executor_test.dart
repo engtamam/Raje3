@@ -89,12 +89,59 @@ void main() {
       'read_billing_status',
       'read_branch_count',
       'read_vehicle_tracking_status',
+      'read_operators_count',
+      'read_branches_disconnected_count',
+      'read_per_branch_mode',
+      'read_billing_overdue',
+      'read_services_count',
+      'read_branches_active_count',
     ]) {
       test('$name resolves to ActionRunNow with no route', () {
         final decision = executor.resolve(AiActionProposed(name, const {}), catalogWith(const []));
         expect(decision, isA<ActionRunNow>());
         expect((decision as ActionRunNow).action.route, isNull);
         expect(decision.action.requiresConfirmation, isFalse);
+      });
+    }
+  });
+
+  group('ActionExecutor — read actions with a capability requirement', () {
+    // Same "prove the wiring, never hit the network" rule as the group above — these seven all
+    // declare a real `requires` array (unlike the three above), so each needs its own matching
+    // capability in the catalog to resolve at all.
+    const withCapability = {
+      'read_customers_total': 'operations.recent',
+      'read_customers_overdue_count': 'reminders.list_schedule',
+      'read_mobile_requests_pending_count': 'operations.mobile_requests_list',
+      'read_mobile_requests_needs_decision_count': 'operations.mobile_requests_list',
+      'read_rating_average': 'operations.staff_performance',
+      'read_rating_unhandled_count': 'operations.ratings',
+      'read_rating_top_staff': 'operations.staff_performance',
+      'read_mobile_requests_completed_count': 'operations.mobile_requests_list',
+      'read_mobile_requests_today_count': 'operations.mobile_requests_list',
+      'read_customers_recent_name': 'operations.recent',
+      'read_rating_critical_issues_count': 'operations.ratings',
+      'read_customers_today_count': 'operations.recent',
+      'read_mobile_requests_rejected_count': 'operations.mobile_requests_list',
+      'read_mobile_requests_no_show_count': 'operations.mobile_requests_list',
+      'read_rating_five_star_count': 'operations.ratings',
+    };
+
+    for (final entry in withCapability.entries) {
+      test('${entry.key} resolves to ActionRunNow with the right capability', () {
+        final decision = executor.resolve(
+          AiActionProposed(entry.key, const {}),
+          catalogWith([entry.value]),
+        );
+        expect(decision, isA<ActionRunNow>());
+        expect((decision as ActionRunNow).action.route, isNull);
+        expect(decision.action.requiresConfirmation, isFalse);
+      });
+
+      test('${entry.key} is unavailable without ${entry.value} — never trusted from a stale '
+          'tool list', () {
+        final decision = executor.resolve(AiActionProposed(entry.key, const {}), Catalog.empty);
+        expect(decision, isA<ActionUnavailable>());
       });
     }
   });

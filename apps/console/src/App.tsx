@@ -188,7 +188,7 @@ export function App() {
     // NOT AN ERROR WHEN ABSENT — but not silence either. Only the owner's catalogue carries this
     // action; for anybody else the state used to stay at its initial value for ever, and the gate
     // reads that as «still loading» and draws a skeleton. A manager holding `loyalty.manage` and
-    // not `billing.self` therefore met a grey rectangle on «نقاطي» that never resolved: no
+    // not `billing.self` therefore met a grey rectangle on «نقاط الولاء» that never resolved: no
     // programme, no lock, no reason (م · قاطع).
     if (!a) { setOwned(DENIED); return; }
     call<Owned>(session, a)

@@ -18,6 +18,7 @@ import 'package:raje3_mobile/core/wakeword/wake_word_model.dart';
 import 'package:raje3_mobile/core/providers/ai_entitlement_provider.dart';
 import 'package:raje3_mobile/core/providers/app_state_provider.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
+import 'package:raje3_mobile/core/providers/branch_provider.dart';
 import 'package:raje3_mobile/core/providers/locale_provider.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/providers/tenant_provider.dart';
@@ -156,6 +157,10 @@ class Raje3App extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AppStateProvider()),
         ChangeNotifierProvider(
           create: (_) => NavProvider(apiClient: apiClient, localStorage: localStorage),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, BranchProvider>(
+          create: (_) => BranchProvider(localStorage: localStorage),
+          update: (context, auth, previous) => previous!..updateAuth(auth),
         ),
       ],
       child: const _AppShell(),

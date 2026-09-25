@@ -70,6 +70,13 @@ class AppConstants {
   /// lands somewhere on-screen after a rotation or a different device.
   static const String micButtonPositionKey = 'mic_button_position';
 
+  /// The operator's own chosen branch (local storage, per-device — same
+  /// "no backend field for a single-device preference" reasoning
+  /// [customNavSlotKey] already documents). Every screen that scopes data
+  /// by branch (today's appointments, later: customers/requests) reads this
+  /// through [BranchProvider] rather than re-implementing its own picker.
+  static const String selectedBranchIdKey = 'selected_branch_id';
+
   // NOTE: the reference project also kept keys here for its own streak-card
   // display settings and BLE/WiFi device pairing — those are product
   // features (gamification, hardware scanners), not reusable storage

@@ -57,7 +57,7 @@ export interface LauncherApp {
 //                خدمات متنقلة — moved here 2026-09-22 from growth: a service delivery channel,
 //                same as bookings, not a way to reach new customers).
 //   customers  — the relationship itself: who they are, what they thought, why they come back
-//                (عملائي, التقييم, نقاطي, ولاء الشركاء — moved here 2026-09-22 from growth: the
+//                (عملائي, التقييم, نقاط الولاء, ولاء الشركاء — moved here 2026-09-22 from growth: the
 //                 owner's own framing is that a discount extended to a partner shop is an
 //                 indirect LOYALTY mechanic between businesses, not customer acquisition).
 //   growth     — reaching NEW attention or NEW revenue from outside the existing relationship

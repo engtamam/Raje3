@@ -24,6 +24,28 @@ import 'package:raje3_mobile/core/providers/theme_provider.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 
+/// The minimum gap a scroll-controlled bottom sheet always leaves above it — a real status-bar
+/// inset on a phone, but ALSO a floor on a device that reports none (Chrome/Edge web have no
+/// notch, so `MediaQuery.paddingOf(context).top` is 0 there). Without the floor the sheet's grab
+/// handle sits flush against the browser's own top edge on web — found live testing in real
+/// Chrome, not the headless web-server device this had first been checked against.
+const double _appSheetMinTopGap = 44;
+
+/// The one cap every scroll-controlled bottom sheet in this app uses for a long form's
+/// `Container(constraints: BoxConstraints(maxHeight: ...))`. A literal fraction of screen height
+/// (`* 0.9`, `* 0.92`) leaves a gap the screen BEHIND the sheet shows through — found live: a
+/// hero header peeking above a tall form sheet, because the sheet's own cap stopped short of the
+/// real usable height. This instead caps at the real usable height — the larger of the status
+/// bar's own inset and [_appSheetMinTopGap] — so the sheet's rounded top corner always reads as a
+/// sheet, never bare screen height (which a notch/camera cutout would push the grab handle
+/// straight into, and which a web browser with no inset at all would touch outright).
+double appSheetMaxHeight(BuildContext context) {
+  final size = MediaQuery.sizeOf(context);
+  final topInset = MediaQuery.paddingOf(context).top;
+  final topGap = topInset > _appSheetMinTopGap ? topInset : _appSheetMinTopGap;
+  return size.height - topGap;
+}
+
 /// ═══════════════════════════════════════════════════════════════════════════
 /// PRIMARY BUTTON — the one call to action per screen.
 /// ═══════════════════════════════════════════════════════════════════════════
@@ -258,11 +280,11 @@ class AppTextField extends StatelessWidget {
         contentPadding: const EdgeInsets.all(AppSpacing.md),
         border: OutlineInputBorder(
           borderRadius: AppRadius.standardRadius,
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: colors.borderSubtle),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppRadius.standardRadius,
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: colors.borderSubtle),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadius.standardRadius,
@@ -507,6 +529,195 @@ class EmptyState extends StatelessWidget {
               PrimaryButton(text: actionText!, onPressed: onAction, width: 200),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ═══════════════════════════════════════════════════════════════════════════
+/// KPI TILE — one small stat card (icon + number + label), a real dashboard's
+/// summary row — see features/mobile_requests for its first real use.
+/// ═══════════════════════════════════════════════════════════════════════════
+enum KpiTone { info, warning, success, neutral }
+
+class KpiTile extends StatelessWidget {
+  const KpiTile({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.tone = KpiTone.neutral,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final KpiTone tone;
+
+  (Color soft, Color onSoft) _colors(bool isDark) {
+    switch (tone) {
+      case KpiTone.info:
+        return (isDark ? AppDarkColors.infoSoft : AppColors.infoSoft,
+            isDark ? AppDarkColors.infoOnSoft : AppColors.infoOnSoft);
+      case KpiTone.warning:
+        return (isDark ? AppDarkColors.warningSoft : AppColors.warningSoft,
+            isDark ? AppDarkColors.warningOnSoft : AppColors.warningOnSoft);
+      case KpiTone.success:
+        return (isDark ? AppDarkColors.successSoft : AppColors.successSoft,
+            isDark ? AppDarkColors.successOnSoft : AppColors.successOnSoft);
+      case KpiTone.neutral:
+        return (isDark ? AppDarkColors.accentSoft : AppColors.accentSoft,
+            isDark ? AppDarkColors.accentOnSoft : AppColors.accentOnSoft);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final isDark = context.isDark;
+    final (soft, onSoft) = _colors(isDark);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: AppRadius.cardRadius,
+        border: Border.all(color: colors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(color: soft, borderRadius: BorderRadius.circular(AppRadius.sm)),
+            child: Icon(icon, size: 17, color: onSoft),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(value,
+              style: AppTextStyles.headlineSmall.copyWith(
+                color: colors.textPrimary,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              )),
+          const SizedBox(height: 2),
+          Text(label,
+              style: AppTextStyles.caption.copyWith(color: colors.textSecondary),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+}
+
+/// ═══════════════════════════════════════════════════════════════════════════
+/// SEGMENTED FILTER — a horizontally-scrolling row of pill filter chips, each
+/// optionally carrying a small count badge. The one filter-row style every
+/// list screen (mobile requests, and whatever list screen comes after it)
+/// should compose from rather than hand-rolling its own chip row.
+/// ═══════════════════════════════════════════════════════════════════════════
+class SegmentedFilterOption<T> {
+  final T value;
+  final String label;
+  final int? badge;
+  const SegmentedFilterOption({required this.value, required this.label, this.badge});
+}
+
+class SegmentedFilter<T> extends StatelessWidget {
+  const SegmentedFilter({
+    super.key,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final List<SegmentedFilterOption<T>> options;
+  final T value;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final accent = context.isDark ? AppDarkColors.accent : AppColors.accent;
+    final onAccent = context.isDark ? AppDarkColors.accentContrast : AppColors.accentContrast;
+
+    final isDark = context.isDark;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final option in options) ...[
+            _FilterChip(
+              label: option.label,
+              badge: option.badge,
+              selected: option.value == value,
+              accent: accent,
+              onAccent: onAccent,
+              colors: colors,
+              isDark: isDark,
+              onTap: () => onChanged(option.value),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.badge,
+    required this.selected,
+    required this.accent,
+    required this.onAccent,
+    required this.colors,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final String label;
+  final int? badge;
+  final bool selected;
+  final Color accent;
+  final Color onAccent;
+  final AppThemeColors colors;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = selected ? onAccent : colors.textSecondary;
+    final badgeBg = isDark ? AppDarkColors.surface3 : AppColors.surface3;
+    return Material(
+      color: selected ? accent : colors.surfaceAlt,
+      borderRadius: BorderRadius.circular(AppRadius.pill),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: AppTextStyles.labelMedium.copyWith(color: fg)),
+              if (badge != null) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: selected ? onAccent.withValues(alpha: 0.22) : badgeBg,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                  child: Text('$badge',
+                      style: AppTextStyles.caption.copyWith(color: fg, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

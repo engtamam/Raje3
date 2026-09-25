@@ -266,8 +266,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
     textSecondary: AppColors.textSecondary,
     textMuted: AppColors.textMuted,
     borderSubtle: AppColors.borderSubtle,
-    inputFill: AppColors.surface2,
-    inputFillDisabled: AppColors.surface3,
+    inputFill: AppColors.surface1,
+    inputFillDisabled: AppColors.surface2,
   );
 
   static const dark = AppThemeColors(
@@ -367,7 +367,7 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: AppRadius.cardRadius),
       ),
       inputDecorationTheme: _inputDecorationTheme(
-        fill: AppColors.surface2,
+        fill: AppColors.surface1,
         border: AppColors.borderSubtle,
         accent: AppColors.accent,
         danger: AppColors.danger,

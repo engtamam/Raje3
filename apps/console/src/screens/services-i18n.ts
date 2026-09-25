@@ -82,7 +82,7 @@ registerOperatorStrings({
     'services.followUp.meaning': 'رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها.',
     'services.followUp.preview': 'سؤال بعد {n} يوماً من الزيارة',
     'services.followUp.zero': 'لا نسأل — إلا لخدمة خصّصتها',
-    // SAME SETTING «نقاطي» ALREADY OFFERS (loyalty.settings.general), added here too — one place
+    // SAME SETTING «نقاط الولاء» ALREADY OFFERS (loyalty.settings.general), added here too — one place
     // for every service-wide default was the whole point of this card, and the owner had no
     // reason to expect this particular number to live on a different screen than the other two.
     'services.pointsPerVisit.label': 'نقاط لكل زيارة',

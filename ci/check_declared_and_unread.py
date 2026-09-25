@@ -11,7 +11,7 @@ WHY THIS EXISTS (م · النمط 3). Two of these shipped side by side:
   · `catalog.unreachable` was declared with the same care — «named, never silent: a section missing
     because a service is down must be distinguishable from a section missing because this person
     may not have it» — and its only reader was `isOutage`, which fires only when EVERY service is
-    down. So loyalty falling over by itself deleted «نقاطي» from the rail without a word, and the
+    down. So loyalty falling over by itself deleted «نقاط الولاء» from the rail without a word, and the
     owner who pays for it phoned support about his permissions.
 
 Both are the same defect: the product decided what to say, wrote the place to keep it, and never

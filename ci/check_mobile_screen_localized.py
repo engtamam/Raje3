@@ -51,6 +51,20 @@ SCREENS = [
     "apps/mobile/lib/core/utils/url_helper.dart",
     "apps/mobile/lib/core/utils/snackbar_helper.dart",
     "apps/mobile/lib/core/router/app_router.dart",
+    "apps/mobile/lib/features/mobile_requests/mobile_requests_screen.dart",
+    "apps/mobile/lib/widgets/date_time_picker_sheet.dart",
+    "apps/mobile/lib/features/customers/customers_screen.dart",
+    "apps/mobile/lib/features/customers/customer_detail_screen.dart",
+    "apps/mobile/lib/features/rating/rating_screen.dart",
+    "apps/mobile/lib/features/rating/staff_quadrant.dart",
+    "apps/mobile/lib/features/services/services_screen.dart",
+    "apps/mobile/lib/features/services/packages_tab.dart",
+    "apps/mobile/lib/features/services/procedures_tab.dart",
+    "apps/mobile/lib/features/services/bulk_import_sheet.dart",
+    "apps/mobile/lib/widgets/branch_switcher.dart",
+    "apps/mobile/lib/features/points/points_screen.dart",
+    "apps/mobile/lib/features/referral/referral_partnership_screen.dart",
+    "apps/mobile/lib/features/apps/apps_store_screen.dart",
 ]
 
 ARABIC = re.compile(r"[؀-ۿ]")

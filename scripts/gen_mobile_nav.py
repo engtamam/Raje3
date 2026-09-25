@@ -59,6 +59,7 @@ ICON_MAP = {
     "Users": "Icons.people_outline",
     "Star": "Icons.star_outline",
     "Handshake": "Icons.handshake_outlined",
+    "HandHeart": "Icons.volunteer_activism_outlined",
     "Truck": "Icons.local_shipping_outlined",
     "Wrench": "Icons.build_outlined",
     "Megaphone": "Icons.campaign_outlined",

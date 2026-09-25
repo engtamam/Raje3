@@ -7,6 +7,7 @@ import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/features/home/app_tone.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/branch_switcher.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/notification_bell.dart';
 
@@ -185,6 +186,8 @@ class _HeroHeader extends StatelessWidget {
                                   fontFamily: AppTextStyles.englishFont,
                                 )),
                           ],
+                          const SizedBox(height: AppSpacing.sm),
+                          const BranchChip(),
                         ],
                       ),
                     ),

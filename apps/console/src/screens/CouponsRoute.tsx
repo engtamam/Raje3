@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { CouponsScreen } from './Coupons';
 import { AppGate } from './Locked';
 
-/** «ولاء الشركاء» — the whole section is the app here, same posture as «التقييم»/«نقاطي». */
+/** «ولاء الشركاء» — the whole section is the app here, same posture as «التقييم»/«نقاط الولاء». */
 export function Coupons() {
   const { session, catalog, owned } = useOutletContext<ShellContext>();
   return (

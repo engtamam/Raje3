@@ -13,7 +13,7 @@ import { registerOperatorStrings } from '../operator-i18n';
 
 registerOperatorStrings({
   ar: {
-    'points.title': 'نقاطي',
+    'points.title': 'نقاط الولاء',
     'points.percentValue': '{n}٪',
     'points.type.service.label': 'من خدماتي',
     'points.type.service.hint': 'يختار ما يحصل عليه مما تقدّمه — خدمةً كان أو منتجاً',
