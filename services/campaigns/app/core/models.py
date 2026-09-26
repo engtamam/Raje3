@@ -80,8 +80,22 @@ GOAL_TEMPLATE = {
     # A SHARED-COHORT REVEAL, NOT A PER-CUSTOMER SEND — the template still needs Meta approval and
     # a "catalogue"/"reward" fill like any offer template; nothing about the "جماعي" mechanic
     # changes what a WhatsApp template IS, only how the recipient list is built (core/milestone.py).
+    #
+    # THIS IS THE REVEAL'S OWN TEMPLATE ONLY — the LAUNCH announcement (the challenge exists, come
+    # take part) is a genuinely different message, sent once at creation, never through this row —
+    # see `MILESTONE_LAUNCH_TEMPLATE_TYPE` below and `api/v1/campaigns.py::create()`'s own
+    # one-off broadcast.
     "community_milestone": ("mkt_community_milestone", "marketing"),
 }
+
+#: The LAUNCH broadcast's own template type — "a challenge just started, come take part", sent
+#: ONCE at creation via a synthetic `goal="announce"`-shaped one-off fire
+#: (`api/v1/campaigns.py::create()`), never through `GOAL_TEMPLATE`/the ordinary milestone tick
+#: cycle (that one is the REVEAL's own template, `GOAL_TEMPLATE["community_milestone"]` above).
+#: A plain module-level constant, not a `GOAL_TEMPLATE` row, because this is not a goal at all —
+#: it is one campaign's own second, one-off message, the same reason `service_due`'s template
+#: lives entirely outside this dict too (its own comment explains why).
+MILESTONE_LAUNCH_TEMPLATE_TYPE = "mkt_community_milestone_launch"
 
 # WHICH GOALS PUT SOMETHING ON THE TABLE, and therefore must carry an end date.
 #

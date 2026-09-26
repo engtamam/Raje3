@@ -27,10 +27,10 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.goals import GOAL_CATEGORIES, cards, resolve_goal
-from app.core.models import (GOAL_TEMPLATE, REWARD_ENABLED_GOALS, Campaign, as_row,
-                             offers_something, validate_loyalty_window,
-                             validate_milestone_recurrence, validate_milestone_threshold,
-                             validate_reward, validate_window)
+from app.core.models import (GOAL_TEMPLATE, MILESTONE_LAUNCH_TEMPLATE_TYPE,
+                             REWARD_ENABLED_GOALS, Campaign, as_row, offers_something,
+                             validate_loyalty_window, validate_milestone_recurrence,
+                             validate_milestone_threshold, validate_reward, validate_window)
 from app.core import service_due_settings as SDS
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.goal_stats import read_goal_stats, record_use
@@ -704,6 +704,45 @@ async def create(request: Request, body: CampaignIn,
         await record_use(c.datastore, campaign.tenant, campaign.goal)
     except Exception:
         pass
+
+    # THE LAUNCH ANNOUNCEMENT — "جماعي" ONLY, a genuinely different message from the REVEAL
+    # (`campaign.template_type`, sent later by the ordinary milestone tick cycle once the
+    # threshold crosses). Sent ONCE, here, regardless of what happens next below (a future
+    # `fire_at` handed to job-service, or simply falling through — a milestone's own trigger is
+    # never "manual") — the challenge exists and is worth announcing the moment it is created,
+    # whether counting itself starts today or on a future date.
+    #
+    # A SYNTHETIC "announce"-SHAPED FIRE, NEVER THE REAL CAMPAIGN ROW AS-IS — same broadcast
+    # audience rule "أعلن جديدك" already uses (`_match_broadcast`, everyone the gate allows), but
+    # under its OWN id (`f"{campaign.id}_launch"`), never the real `campaign.id`. Reusing the real
+    # id would make every customer who received THIS broadcast count as "already reached" against
+    # the REVEAL's own dedup ledger (`dispatch.py`'s `_already_reached`) — silently excluding a
+    # genuine winner from ever getting their congratulations message for the sole reason that
+    # they already saw the launch announcement.
+    #
+    # BEST-EFFORT, LIKE EVERY OTHER SIDE-EFFECT ON THIS ROUTE — a missing/unapproved launch
+    # template, or any peer failure, must never cost the shop the challenge itself.
+    #
+    # A KNOWN, ACCEPTED COST: `goal="announce"` HERE MEANS THIS BROADCAST'S OWN REACH BUMPS
+    # `goal_stats.py`'s "announce" ROW, NOT "community_milestone"'s — `_save()` (dispatch.py) reads
+    # the same `goal` field this resolver dispatch needs, and there is no second field to
+    # distinguish "which mechanic resolves this" from "which goal's rail counter this reach
+    # belongs to". Accepted because `goal_stats` is explicitly a COSMETIC side counter (its own
+    # docstring), never load-bearing — unlike `campaign_reached`'s own dedup ledger, which the
+    # synthetic id above already keeps correctly isolated.
+    if body.goal == "community_milestone":
+        try:
+            launch_template = await c.templates.pick(_tenant(principal),
+                                                      MILESTONE_LAUNCH_TEMPLATE_TYPE)
+            if launch_template is not None:
+                launch_share = await _todays_share(c, _tenant(principal))
+                launch_row = {**as_row(campaign), "id": f"{campaign.id}_launch",
+                             "goal": "announce", "template_type": MILESTONE_LAUNCH_TEMPLATE_TYPE}
+                await c.dispatcher.fire(
+                    launch_row, now=now, fired_by=principal.subject,
+                    daily_share=launch_share.per_day if launch_share.known else None)
+        except Exception:      # noqa: BLE001 — best-effort; the challenge itself must still exist
+            pass
 
     # A FUTURE `fire_at` — ANY GOAL NOW, not only «مناسبة عميلك» (2026-09-12). Best-effort handed
     # to job-service (platform/services/job-service) so it fires close to the exact moment

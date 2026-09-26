@@ -83,6 +83,15 @@ SLEEPING = {
     # `reason_types()`/`campaign_types()` never scan — they read only reminders' reasons.py and
     # campaigns' models.py. A checker gap, not a dead template.
     "wa_catalog_carousel": "يُطلَق مباشرة من whatsapp-assistant (CarouselSender)، خارج ما يفحصه هذا الملف",
+    # NOT ACTUALLY ASLEEP EITHER — the "جماعي" milestone goal's own LAUNCH announcement, fired
+    # once at creation via a synthetic `goal="announce"`-shaped one-off dispatch
+    # (services/campaigns/app/api/v1/campaigns.py::create(), keyed on
+    # `models.MILESTONE_LAUNCH_TEMPLATE_TYPE`) — never through `GOAL_TEMPLATE`/reasons.py's own
+    # registry, which is all `campaign_types()`/`reason_types()` below ever scan. The REVEAL
+    # template for this same goal (`mkt_community_milestone`) IS a real `GOAL_TEMPLATE` row and
+    # needs no exemption; only this second, one-off message does.
+    "mkt_community_milestone_launch": ("يُطلَق مرة واحدة عند إنشاء الحملة، من create() مباشرة — "
+                                       "خارج GOAL_TEMPLATE/reasons.py اللي يفحصهما هذا الملف"),
 }
 
 

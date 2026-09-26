@@ -135,7 +135,9 @@
         "type": "URL",
         "text": "قيّم زيارتك",
         "url": "https://my.raje3.sa/r/{{1}}",
-        "example": ["rate:vis_demo00000000"]
+        "example": [
+          "rate:vis_demo00000000"
+        ]
       },
       "fills": [
         "system",
@@ -175,7 +177,9 @@
         "type": "URL",
         "text": "قيّم زيارتك",
         "url": "https://my.raje3.sa/r/{{1}}",
-        "example": ["rate:vis_demo00000000"]
+        "example": [
+          "rate:vis_demo00000000"
+        ]
       },
       "fills": [
         "system",
@@ -1558,6 +1562,162 @@
         "type": "QUICK_REPLY",
         "text": "احجزي الآن"
       }
+    },
+    {
+      "name": "mkt_community_milestone_masculine",
+      "type": "mkt_community_milestone",
+      "tone": "masculine",
+      "label": "اكتمال هدف جماعي",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "بشارة {{1}}! 🎉 وصلنا الهدف الجماعي في {{2}} وكسرنا الرقم! نصيبك من الفوز: {{3}} 🔥 لإيقاف العروض: {{4}} ✋",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "استلم مكافأتك الآن",
+      "fills": [
+        "system",
+        "system",
+        "reward",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "خصم/عرض بلا أي علاقة بنظام نقاط — يصلح لأي محل بغض النظر عن نموذجه.",
+      "active": true,
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غسلة خارجية مجانية",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ],
+      "flow_button": {
+        "flow_name": "booking_flow"
+      },
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE"
+    },
+    {
+      "name": "mkt_community_milestone_feminine",
+      "type": "mkt_community_milestone",
+      "tone": "feminine",
+      "label": "اكتمال هدف جماعي",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "بشارة {{1}}! 🎉 وصلنا الهدف الجماعي في {{2}} وكسرنا الرقم! نصيبك من الفوز: {{3}} 🔥 لإيقاف العروض: {{4}} ✋",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "استلمي مكافأتك الآن",
+      "fills": [
+        "system",
+        "system",
+        "reward",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "خصم/عرض بلا أي علاقة بنظام نقاط — يصلح لأي محل بغض النظر عن نموذجه.",
+      "active": true,
+      "deferral": "defer",
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "قصة شعر مجانية",
+        "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
+      ],
+      "flow_button": {
+        "flow_name": "booking_flow"
+      },
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE"
+    },
+    {
+      "name": "mkt_community_milestone_launch_masculine",
+      "type": "mkt_community_milestone_launch",
+      "tone": "masculine",
+      "label": "إطلاق هدف جماعي",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "يا هلا {{1}}! 🎯 تحدٍ جديد بدأ في {{2}} — {{3}}. شارك التحدي مع أصحابك ونوصل أسرع! لإيقاف العروض: {{4}} ✋",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "شارك التحدي الآن",
+      "fills": [
+        "system",
+        "system",
+        "reward",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "خصم/عرض بلا أي علاقة بنظام نقاط — يصلح لأي محل بغض النظر عن نموذجه.",
+      "active": true,
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "لو وصلنا 100 سيارة هالأسبوع، الكل ياخذ غسلة مجانية",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ],
+      "flow_button": {
+        "flow_name": "booking_flow"
+      },
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE"
+    },
+    {
+      "name": "mkt_community_milestone_launch_feminine",
+      "type": "mkt_community_milestone_launch",
+      "tone": "feminine",
+      "label": "إطلاق هدف جماعي",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "يا هلا {{1}}! 🎯 تحدٍ جديد بدأ في {{2}} — {{3}}. شاركي التحدي مع صديقاتك ونوصل أسرع! لإيقاف العروض: {{4}} ✋",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "شاركي التحدي الآن",
+      "fills": [
+        "system",
+        "system",
+        "reward",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "خصم/عرض بلا أي علاقة بنظام نقاط — يصلح لأي محل بغض النظر عن نموذجه.",
+      "active": true,
+      "deferral": "defer",
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "لو وصلنا 100 قصة هالأسبوع، الكل تاخذ خصم 50%",
+        "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
+      ],
+      "flow_button": {
+        "flow_name": "booking_flow"
+      },
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE"
     }
   ]
 }

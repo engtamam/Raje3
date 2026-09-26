@@ -35,7 +35,9 @@ def client():
         {"type": "mkt_community_milestone", "name": "mkt_community_milestone",
          "fills": ["reward"], "variables": [3], "body": "وصلنا الهدف! {{3}}"},
     ])
-    yield TestClient(app, raise_server_exceptions=False)
+    tc = TestClient(app, raise_server_exceptions=False)
+    tc.container = app.state.container
+    yield tc
     os.environ.clear()
     os.environ.update(saved)
     get_settings.cache_clear()
@@ -199,3 +201,78 @@ def test_a_repeated_press_with_the_same_threshold_is_the_same_campaign(client):
     id2 = (r2.json().get("campaign") or r2.json()).get("id")
     assert id1 == id2
     assert r2.json().get("duplicate") is True
+
+
+# ── the launch announcement — a genuinely different message, sent once at creation ──────────
+def test_no_launch_template_registered_is_a_harmless_no_op(client):
+    """The reveal template alone is registered (this file's own fixture) — creation must still
+    succeed with nothing extra sent, best-effort exactly like every other side-effect here."""
+    from app.adapters.peers import NullAudience
+
+    client.container.audience._c = NullAudience(rows=[
+        {"subject_ref": "ref_1", "last_visit": 0, "visit_count": 0},
+    ])
+    r = client.post("/api/v1/campaigns", json=_body(milestone_threshold=201), headers=_auth())
+    assert r.status_code in (200, 201), r.text
+
+
+def test_registering_the_launch_template_actually_broadcasts_it(client):
+    from app.adapters.peers import NullAudience, NullTemplates
+
+    client.container.templates = NullTemplates([
+        {"type": "mkt_community_milestone", "name": "mkt_community_milestone",
+         "fills": ["reward"], "variables": [3], "body": "وصلنا الهدف! {{3}}"},
+        {"type": "mkt_community_milestone_launch", "name": "mkt_community_milestone_launch",
+         "fills": ["reward"], "variables": [3], "body": "تحدٍ جديد بدأ! {{3}}"},
+    ])
+    client.container.audience._c = NullAudience(rows=[
+        {"subject_ref": "ref_1", "last_visit": 0, "visit_count": 0},
+        {"subject_ref": "ref_2", "last_visit": 0, "visit_count": 0},
+    ])
+    r = client.post("/api/v1/campaigns", json=_body(milestone_threshold=202), headers=_auth())
+    assert r.status_code in (200, 201), r.text
+    sent = client.container.sender.sent
+    launch_sends = [s for s in sent if s.get("template_type") == "mkt_community_milestone_launch"]
+    assert len(launch_sends) == 2
+    assert {s["subject_ref"] for s in launch_sends} == {"ref_1", "ref_2"}
+
+
+def test_the_launch_broadcast_never_pollutes_the_reveals_own_reached_ledger(client):
+    """The isolated `f\"{campaign.id}_launch\"` id, proven end to end — a real customer who
+    received the launch announcement must still be a valid recipient of the reveal later, never
+    silently excluded by dispatch.py's own `_already_reached` set."""
+    from app.adapters.peers import NullAudience, NullTemplates
+
+    client.container.templates = NullTemplates([
+        {"type": "mkt_community_milestone", "name": "mkt_community_milestone",
+         "fills": ["reward"], "variables": [3], "body": "وصلنا الهدف! {{3}}"},
+        {"type": "mkt_community_milestone_launch", "name": "mkt_community_milestone_launch",
+         "fills": ["reward"], "variables": [3], "body": "تحدٍ جديد بدأ! {{3}}"},
+    ])
+    client.container.audience._c = NullAudience(rows=[
+        {"subject_ref": "ref_1", "last_visit": 0, "visit_count": 0},
+    ])
+    r = client.post("/api/v1/campaigns", json=_body(milestone_threshold=2), headers=_auth())
+    assert r.status_code in (200, 201), r.text
+    cid = (r.json().get("campaign") or r.json()).get("id")
+
+    import asyncio
+
+    from app.core import milestone
+
+    async def _run():
+        await milestone.record_contribution(client.container.datastore, tenant=TENANT,
+                                            campaign_id=cid, threshold=2, subject_ref="ref_1",
+                                            now=1)
+        return await milestone.resolve_milestone(
+            {"tenant": TENANT, "id": cid, "cls": "marketing"}, already_reached=set(), now=2,
+            audience=client.container.audience, store=client.container.datastore)
+
+    asyncio.run(_run())
+    # `ref_1` GOT THE LAUNCH BROADCAST ABOVE — the real proof of isolation is that the REVEAL
+    # campaign's own reached ledger (keyed by the REAL `cid`, never the synthetic
+    # f"{cid}_launch") has never recorded `ref_1`, so a later reveal pass would still see them as
+    # a valid, un-reached recipient rather than silently excluding a genuine winner.
+    reached = asyncio.run(client.container.datastore.get(
+        "campaign_reached", f"{TENANT}|{cid}|ref_1"))
+    assert reached is None, "ref_1 must not appear in the REVEAL campaign's own reached ledger"
