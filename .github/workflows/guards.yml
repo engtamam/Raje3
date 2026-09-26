@@ -1410,6 +1410,13 @@ jobs:
       - name: every screen's write controls are gated by a real catalogue capability
         run: python3 ci/check_action_level_gating.py
 
+      # "الشاشة اللي تتفتح ما تتجاوز ارتفاع معين" (the owner's own standing rule, confirmed live
+      # after a tall form sheet once grew past the usable screen height) — every
+      # showModalBottomSheet caller caps its sheet with appSheetMaxHeight/DraggableScrollableSheet,
+      # or is exempted here with a reason checked against that sheet's own real content.
+      - name: every mobile sheet caps its own height
+        run: python3 ci/check_mobile_sheet_max_height.py
+
       # The mobile app's own half of check_branch_scope.py's guarantee — every service call
       # reading data from a domain branch_domains.py marks branch-scoped passes the selected
       # branch, or carries a reasoned `// branch-scope-exempt:` comment.

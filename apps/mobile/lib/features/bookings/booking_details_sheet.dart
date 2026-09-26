@@ -74,6 +74,7 @@ class _BookingDetailsSheetState extends State<BookingDetailsSheet> {
     final time = TimeOfDay.fromDateTime(DateTime.fromMillisecondsSinceEpoch(b.startsAt * 1000));
 
     return Container(
+      constraints: BoxConstraints(maxHeight: appSheetMaxHeight(context)),
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: colors.surface,
@@ -81,6 +82,7 @@ class _BookingDetailsSheetState extends State<BookingDetailsSheet> {
       ),
       child: SafeArea(
         top: false,
+        child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -162,6 +164,7 @@ class _BookingDetailsSheetState extends State<BookingDetailsSheet> {
               Text('لا إجراءات إضافية — الحجز ${tone.label}',
                   style: AppTextStyles.bodySmall.copyWith(color: colors.textSecondary)),
           ],
+        ),
         ),
       ),
     );
