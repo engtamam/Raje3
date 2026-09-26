@@ -7,7 +7,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
 import { OperatorI18nProvider } from '../operator-i18n';
-import { WhatsAppAutoRegisterCard } from './AccountPanes';
+import { WhatsAppAutoRegisterCard } from './whatsapp-assistant-cards';
 
 const SESSION = { tenant: 't1', operator: '', operatorName: '', token: 'tok' } as never;
 

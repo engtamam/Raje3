@@ -235,7 +235,7 @@ export function MessagePreview({
    * control that was not there either. The tone lives on the tenant's branding — the same
    * record the logo and the colour live in — and `rendering.choose` has always preferred it.
    *
-   * MERGED, NEVER REPLACED, and the reason is written next door in AccountPanes: `branding` is
+   * MERGED, NEVER REPLACED, and the reason is written next door in account/IdentityPane.tsx: `branding` is
    * a free-form record, and sending our one field alone would drop his logo and his colour.
    * So the current record is read first and the tone laid on top of it.
    */

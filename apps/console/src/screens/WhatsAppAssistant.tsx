@@ -9,7 +9,7 @@
  * REAL bookings the bot closed, a REAL average invoice, a REAL upsell-acceptance rate. A shop
  * paying for a "VIP" app deserves the receipt, not a gauge with no needle.
  *
- * EVERY CONTROL BELOW IS THE SAME REAL LOGIC `AccountPanes.tsx` ALREADY HAD — `AiToggleCard`,
+ * EVERY CONTROL BELOW IS THE SAME REAL LOGIC `whatsapp-assistant-cards.tsx` ALREADY HAS — `AiToggleCard`,
  * `AiNotesCard`, `WhatsAppAutoRegisterCard` are reused as-is (real actions, real state, real
  * confirm dialogs); only the SHELL around them — the hero, the section framing, the analytics —
  * is new.
@@ -30,7 +30,7 @@ import type { Session } from '../session';
 import { AppGate } from './Locked';
 import {
   AiNotesCard, AiToggleCard, WhatsAppAutoRegisterCard,
-} from './AccountPanes';
+} from './whatsapp-assistant-cards';
 import type { ShopImpact } from './Shop';
 import { unitsLabel, type WalletBalance } from './Wallet';
 import { riyalsLabel } from '../money';

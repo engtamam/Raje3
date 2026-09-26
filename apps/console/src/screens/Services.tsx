@@ -556,7 +556,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   };
 
   /** A picked file, read as base64 and sent as-is — the server (catalogue_image.py) is the one
-   *  place that validates type/size, matching AccountPanes.tsx's own "the server decides" posture
+   *  place that validates type/size, matching account/IdentityPane.tsx's own "the server decides" posture
    *  for a write this small; no client-side resize needed for a product photo (unlike the shop
    *  logo, which is inlined directly and so had to be shrunk by hand). */
   const uploadServiceImage = async (id: string, file: File) => {

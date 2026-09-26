@@ -94,7 +94,7 @@ export function Connect({
   state: ConnectState | null | undefined;
   onChange: (s: ConnectState) => void;
   /** ABSENT FOR EVERY SHOP IN THE DEFAULT MODE — one card, the establishment's own number, byte
-   *  for byte what this screen has always been. Set only by `AccountPanes`'s per-branch list once
+   *  for byte what this screen has always been. Set only by `account/BranchesPane.tsx`'s per-branch list once
    *  a chain has deliberately moved to `shop_mode: per_branch` (core/shop_mode.py on the server);
    *  threaded into every call below exactly as the backend routes already expect it
    *  (`SignupResultIn.branch_id`, `RegisterIn.branch_id`, `GET /connect?branch_id=`). */

@@ -29,7 +29,7 @@ vi.mock('../catalog', async (importOriginal) => {
   };
 });
 
-const { AccountScreen } = await import('./Account');
+const { AccountScreen } = await import('./account/AccountScreen');
 
 afterEach(() => { cleanup(); });
 

@@ -6,7 +6,7 @@
  * SCOPED TO WHAT IS REAL. The research's full recommended list also names per-category
  * notification toggles and a support/legal section — neither exists anywhere in affiliate-service
  * (confirmed by direct inventory). Building UI for them would be exactly the failure
- * `AccountPanes.tsx`'s own convention warns against — a screen that "says so plainly" when a
+ * `account/IdentityPane.tsx`'s own convention warns against — a screen that "says so plainly" when a
  * section has nothing behind it, never a control that quietly does nothing. Password-change WAS
  * missing at first inventory time; it now has a real backend (see `change-password`'s own commit)
  * and gets its own section here.

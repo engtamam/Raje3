@@ -22,7 +22,7 @@ vi.mock('../catalog', async (importOriginal) => {
   };
 });
 
-const { MsgWordLimitCard } = await import('./AccountPanes');
+const { MsgWordLimitCard } = await import('./whatsapp-assistant-cards');
 
 afterEach(() => { cleanup(); });
 

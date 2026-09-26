@@ -23,7 +23,7 @@ vi.mock('../catalog', async (importOriginal) => {
   };
 });
 
-const { AiNotesCard } = await import('./AccountPanes');
+const { AiNotesCard } = await import('./whatsapp-assistant-cards');
 
 afterEach(() => { cleanup(); });
 
