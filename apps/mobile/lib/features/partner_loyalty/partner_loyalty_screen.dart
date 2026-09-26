@@ -19,7 +19,7 @@ import 'package:raje3_mobile/widgets/kb_anchor.dart';
 /// module docstring): this screen never learns the beneficiary's identity beyond the phone-check
 /// hint and the grant result.
 ///
-/// NOT «شراكة استراتيجية» (`referral-partnership`) — that moves real customers between two shops'
+/// NOT «تبادل منافع» (`mutual-benefit`) — that moves real customers between two shops'
 /// own catalogues; this is a subscription-price perk between us and two shops, nothing a customer
 /// ever sees.
 ///
