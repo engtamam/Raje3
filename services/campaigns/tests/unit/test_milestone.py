@@ -12,6 +12,7 @@ from app.adapters.datastore.memory import MemoryDataStore
 from app.core.audience import Candidate
 from app.core.milestone import (
     MilestoneProgress,
+    contribute_from_event,
     contribution_matches,
     read_progress,
     record_contribution,
@@ -314,6 +315,92 @@ def test_package_takes_priority_over_a_stray_service_scope():
 def test_an_event_with_no_service_or_package_never_matches_a_scoped_goal():
     assert contribution_matches({"service_id": "svc_1"}) is False
     assert contribution_matches({"package_id": "pkg_1"}) is False
+
+
+# ── contribute_from_event: the single per-event fan-out ──────────────────────────────────────
+async def _save_campaign(st, **kw):
+    row = {"id": "cmp_1", "tenant": "t1", "goal": "community_milestone", "state": "active",
+          "milestone_threshold": 5, "service_id": "", "scope_service_ids": [], "package_id": "",
+          "created": 1}
+    row.update(kw)
+    await st.put("campaigns", f"{row['tenant']}|{row['id']}", row)
+    return row
+
+
+def test_no_tenant_or_subject_is_a_safe_no_op():
+    st = MemoryDataStore()
+    assert run(contribute_from_event(st, tenant="", subject_ref="a")) == []
+    assert run(contribute_from_event(st, tenant="t1", subject_ref="")) == []
+
+
+def test_an_unscoped_active_campaign_receives_any_event():
+    st = MemoryDataStore()
+    run(_save_campaign(st))
+    out = run(contribute_from_event(st, tenant="t1", subject_ref="cust_1"))
+    assert len(out) == 1
+    assert out[0].count == 1
+
+
+def test_a_paused_campaign_is_never_counted():
+    """`drain(..., {"state": "active", ...})` — the same "only active campaigns are ticked"
+    filter `tick.py`'s own drain already applies, reused here for the same reason."""
+    st = MemoryDataStore()
+    run(_save_campaign(st, state="paused"))
+    assert run(contribute_from_event(st, tenant="t1", subject_ref="cust_1")) == []
+
+
+def test_a_non_milestone_goal_is_never_counted():
+    """The drain itself is filtered to `goal="community_milestone"` — an ordinary win_back/
+    reward_loyal campaign must never be mistaken for one with a shared counter."""
+    st = MemoryDataStore()
+    run(_save_campaign(st, goal="win_back"))
+    assert run(contribute_from_event(st, tenant="t1", subject_ref="cust_1")) == []
+
+
+def test_one_event_fans_out_to_every_matching_campaign():
+    st = MemoryDataStore()
+    run(_save_campaign(st, id="cmp_1"))
+    run(_save_campaign(st, id="cmp_2", service_id="svc_wash"))
+    run(_save_campaign(st, id="cmp_3", service_id="svc_oil"))
+    out = run(contribute_from_event(st, tenant="t1", subject_ref="cust_1",
+                                   service_ids=["svc_wash"]))
+    ids = {p.campaign_id for p in out}
+    assert ids == {"cmp_1", "cmp_2"}, "cmp_1 (unscoped) and cmp_2 (scoped to svc_wash) both count"
+
+
+def test_an_event_matching_nothing_contributes_to_nobody():
+    st = MemoryDataStore()
+    run(_save_campaign(st, service_id="svc_wash"))
+    out = run(contribute_from_event(st, tenant="t1", subject_ref="cust_1",
+                                   service_ids=["svc_oil"]))
+    assert out == []
+
+
+def test_one_locked_out_campaign_does_not_stop_the_others():
+    """A lock-claim failure on ONE campaign (a genuinely never-claimable mutex) must not prevent
+    the same real event from still being counted toward every other campaign it also matches."""
+    st = MemoryDataStore()
+    run(_save_campaign(st, id="cmp_1"))
+    run(_save_campaign(st, id="cmp_2"))
+
+    real_claim = st.claim
+
+    async def _boom_for_cmp_1(collection, key, value, *, ttl_seconds, now):
+        if key == "t1|cmp_1":
+            return False
+        return await real_claim(collection, key, value, ttl_seconds=ttl_seconds, now=now)
+
+    st.claim = _boom_for_cmp_1
+    # `record_contribution` retries 150 times at 10ms — patch the sleep away so this test does
+    # not actually wait ~1.5s for cmp_1's lock to exhaust its own retry budget.
+    import app.core.milestone as _m
+    orig_attempts = _m._MUTEX_RETRY_ATTEMPTS
+    _m._MUTEX_RETRY_ATTEMPTS = 2
+    try:
+        out = run(contribute_from_event(st, tenant="t1", subject_ref="cust_1"))
+    finally:
+        _m._MUTEX_RETRY_ATTEMPTS = orig_attempts
+    assert [p.campaign_id for p in out] == ["cmp_2"]
 
 
 # ── resolve_milestone: the resolver contract every mechanic shares ───────────────────────────

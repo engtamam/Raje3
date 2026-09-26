@@ -203,6 +203,66 @@ def contribution_matches(campaign: dict[str, Any], *, service_id: str = "",
     return bool(service_id) and service_id in ids
 
 
+def _event_matches(campaign: dict[str, Any], *, service_ids: list[str] | None,
+                   package_id: str) -> bool:
+    """One real event can carry SEVERAL services at once (a visit's own `service_ids` list) — it
+    counts toward a scoped campaign if ANY ONE of them is in scope, the same "ready for even one
+    is ready for the campaign" reasoning `audience.resolve`'s own cycle-lock note gives the
+    individual mechanic for a multi-service offer."""
+    if not service_ids:
+        return contribution_matches(campaign, package_id=package_id)
+    return any(contribution_matches(campaign, service_id=sid, package_id=package_id)
+              for sid in service_ids)
+
+
+async def contribute_from_event(store: Any, *, tenant: str, subject_ref: str,
+                                service_ids: list[str] | None = None, package_id: str = "",
+                                now: int | None = None) -> list[MilestoneProgress]:
+    """The ONE entry point a peer service calls, once per real event — never once per campaign.
+    Fans out to every active `community_milestone` campaign this tenant holds, counting the event
+    toward whichever ones it matches (`_event_matches`) and leaving the rest untouched.
+
+    WHY THIS LIVES HERE, NOT IN THE CALLER. The caller (operations' own `record_visit`, the single
+    point-of-sale every channel — the field screen, an integrated till, bookings — already goes
+    through) must not learn this service's own scoping rules or its "campaigns" collection's
+    shape; it reports one plain fact ("this event happened, for this tenant, these services/this
+    package") and this file decides what, if anything, it counts toward. The same boundary
+    `core/service_due_settings.py`'s own peer client already draws for reminders.
+
+    BOUNDED, LIKE EVERY OTHER SCAN IN THIS SERVICE — `drain()` refuses rather than silently
+    truncating a tenant with an unusually large number of active milestone campaigns, the same
+    discipline `tick.py`'s own `_active_tenants` already follows.
+
+    FAILURES OF ONE CAMPAIGN'S OWN CONTRIBUTION MUST NOT COST ANOTHER'S — a lock-claim failure on
+    one campaign (see `record_contribution`'s own docstring on why THAT raises) must not stop the
+    same real event from still being counted toward every other campaign it also matches.
+    """
+    from app.adapters.datastore.drain import drain
+
+    if not tenant or not subject_ref:
+        return []
+    rows = await drain(store, "campaigns",
+                       {"tenant": tenant, "state": "active", "goal": "community_milestone"},
+                       sort=("created", "asc"))
+    out: list[MilestoneProgress] = []
+    for row in rows:
+        if not _event_matches(row, service_ids=service_ids, package_id=package_id):
+            continue
+        threshold = int(row.get("milestone_threshold") or 0)
+        cid = str(row.get("id") or "")
+        try:
+            progress = await record_contribution(store, tenant=tenant, campaign_id=cid,
+                                                 threshold=threshold, subject_ref=subject_ref,
+                                                 now=now)
+        except RuntimeError:
+            # ONE CAMPAIGN'S LOCK CONTENTION MUST NOT COST THE OTHERS — see this function's own
+            # docstring. The caller (operations' own visit hook) already swallows ITS OWN
+            # failure to reach this endpoint at all; this is the same posture one level in.
+            continue
+        out.append(progress)
+    return out
+
+
 async def resolve_milestone(campaign: dict[str, Any], *, already_reached, now: int,
                             audience: Any = None, store: Any = None) -> Audience:
     """The "جماعي" mechanic's own resolver — same signature every mechanic in

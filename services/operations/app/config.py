@@ -338,6 +338,13 @@ class Settings(BaseSettings):
     # THE EVIDENCE FILE'S OTHER HALF (task 283): consent transitions and the send log, read from
     # the service that writes them. A copy of either here would be evidence about our copy.
     REMINDERS_EVIDENCE_PATH: str = "/internal/reminders/evidence"
+    # WHERE A REAL VISIT REPORTS ITSELF TOWARD A SHOP'S OWN "جماعي" MILESTONE CAMPAIGNS (a shared
+    # counter crossing a threshold — see campaigns' own core/milestone.py). Fire-and-forget from
+    # `record_visit`'s own hook, same posture as the mutual-benefit one right beside it: empty
+    # disables the hook entirely rather than guessing, and any failure to reach it must never cost
+    # the visit itself.
+    CAMPAIGNS_SERVICE_URL: str = ""           # e.g. http://campaigns:8000
+    CAMPAIGNS_MILESTONE_VISIT_PATH: str = "/internal/campaigns/milestone/visit-recorded"
     COMPLIANCE_SERVICE_URL: str = ""         # e.g. http://compliance-service:8000
     # THE ONE QUESTION ASKED OF `bookings`: the shop's own working hours, so a staff member's
     # custom hours can be refused at write time if they reach outside them. Empty means this

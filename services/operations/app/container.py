@@ -380,6 +380,15 @@ def build_container(settings: Settings) -> Container:
         default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
     container.operations.with_mutual_benefit_engine(container.mutual_benefit)
 
+    # THE "جماعي" MILESTONE HOOK — a separate service (campaigns), reached over HTTP, unlike the
+    # in-process mutual-benefit engine just above. `build_milestone_peer` returns a silent no-op
+    # when `CAMPAIGNS_SERVICE_URL` is unset, the same "empty means disabled, not a guess" posture
+    # every other optional peer in this fleet already takes.
+    from app.adapters.milestone_peer import build_milestone_peer
+
+    container.milestone_peer = build_milestone_peer(settings)
+    container.operations.with_milestone_peer(container.milestone_peer)
+
     # THE ONE AGGREGATION POINT `apply_offer` now consults instead of calling the reminders
     # chooser directly — see core/entitlements.py's own module docstring for the tie-break rule
     # (referral outranks a campaign offer) and why a future single-use-entitlement source joins

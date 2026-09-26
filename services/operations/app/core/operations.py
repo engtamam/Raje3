@@ -89,6 +89,11 @@ class Operations:
         # wires one simply has nothing to call, same posture `_choose_offer` takes before
         # `with_offer_chooser` runs.
         self._mutual_benefit_engine: Any = None
+        # THE "جماعي" MILESTONE HOOK — campaigns' own shared counter (core/milestone.py), reported
+        # to over HTTP since campaigns is a separate service, unlike the in-process mutual-benefit
+        # engine above. `None` until `with_milestone_peer` installs it; a caller that never wires
+        # one simply has nothing to call, same posture every optional peer here already takes.
+        self._milestone_peer: Any = None
         # `core/entitlements.py::EntitlementGateway` — `None` until `with_entitlement_gateway`
         # installs it, same posture as `_mutual_benefit_engine`/`_choose_offer` above.
         self._entitlement_gateway: Any = None
@@ -221,6 +226,13 @@ class Operations:
 
             self._entitlement_gateway = EntitlementGateway(
                 mutual_benefit_engine=engine, campaign_chooser=self._choose_offer)
+        return self
+
+    def with_milestone_peer(self, peer) -> "Operations":
+        """Install the "جماعي" milestone hook — a separate service (campaigns), reached over
+        HTTP, unlike the in-process `_mutual_benefit_engine` above. Set at wiring for the same
+        reason every other post-construction setter here is."""
+        self._milestone_peer = peer
         return self
 
     def with_entitlement_gateway(self, gateway) -> "Operations":
@@ -553,6 +565,22 @@ class Operations:
                 new_mutual_benefit_grant = await self._mutual_benefit_engine.on_visit_recorded(
                     tenant=tenant, customer_phone=customer.phone, service_ids=list(service_ids),
                     total_minor=int(total_minor or 0), visit_id=visit.id)
+            except Exception:                                                  # noqa: BLE001
+                pass
+
+        # THE "جماعي" MILESTONE HOOK — the SAME single choke point every channel (field screen,
+        # integrated till, bookings) already reaches for the mutual-benefit hook above, extended
+        # to a second, separate service. Swallowed here too, and ALSO inside the peer itself
+        # (`HttpMilestonePeer.on_visit_recorded` never raises) — belt and braces, the same double
+        # guard the mutual-benefit block already has, because this is a completely different paid
+        # feature and a bug in it must never cost a shop the one fact this product cannot survive
+        # losing: the visit itself.
+        if self._milestone_peer is not None:
+            try:
+                await self._milestone_peer.on_visit_recorded(
+                    tenant=tenant, subject_ref=customer.subject_ref,
+                    service_ids=list(service_ids), package_id=package_id,
+                    occurred_at=visit.occurred_at)
             except Exception:                                                  # noqa: BLE001
                 pass
 
