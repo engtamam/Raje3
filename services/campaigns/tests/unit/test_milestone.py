@@ -16,9 +16,15 @@ from app.core.milestone import (
     contribution_matches,
     read_progress,
     record_contribution,
+    reset_progress,
     resolve_milestone,
+    within_window,
 )
-from app.core.models import MIN_MILESTONE_THRESHOLD, validate_milestone_threshold
+from app.core.models import (
+    MIN_MILESTONE_THRESHOLD,
+    validate_milestone_recurrence,
+    validate_milestone_threshold,
+)
 
 
 def run(c):
@@ -35,6 +41,47 @@ def test_a_threshold_below_the_minimum_is_refused():
 def test_a_threshold_at_or_above_the_minimum_is_accepted():
     assert validate_milestone_threshold(MIN_MILESTONE_THRESHOLD) == ""
     assert validate_milestone_threshold(100) == ""
+
+
+def test_a_non_recurring_campaign_needs_no_dates_at_all():
+    assert validate_milestone_recurrence(recurring=False, fire_at=0, expires_at=0) == ""
+
+
+def test_recurring_refuses_a_missing_start_or_end():
+    assert validate_milestone_recurrence(recurring=True, fire_at=0, expires_at=1000) != ""
+    assert validate_milestone_recurrence(recurring=True, fire_at=1000, expires_at=0) != ""
+    assert validate_milestone_recurrence(recurring=True, fire_at=0, expires_at=0) != ""
+
+
+def test_recurring_refuses_a_start_at_or_after_the_end():
+    assert validate_milestone_recurrence(recurring=True, fire_at=1000, expires_at=1000) != ""
+    assert validate_milestone_recurrence(recurring=True, fire_at=2000, expires_at=1000) != ""
+
+
+def test_recurring_with_a_real_period_is_accepted():
+    assert validate_milestone_recurrence(recurring=True, fire_at=1000, expires_at=2000) == ""
+
+
+# ── within_window ─────────────────────────────────────────────────────────────────────────────
+def test_no_dates_at_all_is_always_within_window():
+    assert within_window({}, now=123456) is True
+
+
+def test_before_the_start_date_is_outside_the_window():
+    assert within_window({"fire_at": 2000, "expires_at": 3000}, now=1000) is False
+
+
+def test_after_the_end_date_is_outside_the_window():
+    assert within_window({"fire_at": 1000, "expires_at": 2000}, now=2001) is False
+
+
+def test_exactly_at_the_boundaries_is_inside_the_window():
+    assert within_window({"fire_at": 1000, "expires_at": 2000}, now=1000) is True
+    assert within_window({"fire_at": 1000, "expires_at": 2000}, now=2000) is True
+
+
+def test_a_zero_fire_at_means_started_at_creation():
+    assert within_window({"fire_at": 0, "expires_at": 2000}, now=1) is True
 
 
 # ── read_progress ─────────────────────────────────────────────────────────────────────────────
@@ -374,6 +421,53 @@ def test_an_event_matching_nothing_contributes_to_nobody():
     out = run(contribute_from_event(st, tenant="t1", subject_ref="cust_1",
                                    service_ids=["svc_oil"]))
     assert out == []
+
+
+def test_an_event_before_the_challenge_starts_is_not_counted():
+    st = MemoryDataStore()
+    run(_save_campaign(st, fire_at=5000, expires_at=6000))
+    out = run(contribute_from_event(st, tenant="t1", subject_ref="cust_1", now=4000))
+    assert out == []
+
+
+def test_an_event_after_the_deadline_is_not_counted():
+    st = MemoryDataStore()
+    run(_save_campaign(st, fire_at=1000, expires_at=2000))
+    out = run(contribute_from_event(st, tenant="t1", subject_ref="cust_1", now=2001))
+    assert out == []
+
+
+def test_an_event_inside_the_window_is_counted():
+    st = MemoryDataStore()
+    run(_save_campaign(st, fire_at=1000, expires_at=2000))
+    out = run(contribute_from_event(st, tenant="t1", subject_ref="cust_1", now=1500))
+    assert len(out) == 1
+
+
+# ── reset_progress: recurrence ────────────────────────────────────────────────────────────────
+def test_reset_progress_clears_a_finished_round_completely():
+    st = MemoryDataStore()
+    run(record_contribution(st, tenant="t1", campaign_id="cmp_1", threshold=2,
+                           subject_ref="a", now=1))
+    run(record_contribution(st, tenant="t1", campaign_id="cmp_1", threshold=2,
+                           subject_ref="b", now=2))
+    fired = run(read_progress(st, "t1", "cmp_1"))
+    assert fired.fired is True
+
+    run(reset_progress(st, "t1", "cmp_1"))
+    assert run(read_progress(st, "t1", "cmp_1")) is None
+
+
+def test_a_contribution_after_reset_starts_a_brand_new_round():
+    st = MemoryDataStore()
+    run(record_contribution(st, tenant="t1", campaign_id="cmp_1", threshold=1,
+                           subject_ref="a", now=1))
+    run(reset_progress(st, "t1", "cmp_1"))
+    p = run(record_contribution(st, tenant="t1", campaign_id="cmp_1", threshold=1,
+                               subject_ref="b", now=2))
+    assert p.count == 1
+    assert p.contributor_refs == ["b"], "the previous round's own contributor must not linger"
+    assert p.fired is True
 
 
 def test_one_locked_out_campaign_does_not_stop_the_others():

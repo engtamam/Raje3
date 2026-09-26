@@ -400,3 +400,29 @@ def test_the_sender_receives_the_rewards_own_fields(st):
     run(d.fire(campaign, now=NOW))
     assert sender.calls[0]["reward_type"] == "gift"
     assert sender.calls[0]["reward_points"] == 0
+
+
+# ── the spread refusal never applies to a "جماعي" (milestone) reveal ─────────────────────────
+def test_an_ordinary_goal_refuses_when_it_cannot_finish_before_its_own_expiry(st):
+    """Baseline, unchanged — ten recipients against a per-pass share of one, with an offer that
+    ends before day ten could possibly arrive, is refused rather than partially sent."""
+    subjects = [f"c{i}" for i in range(10)]
+    campaign = {**CAMPAIGN, "expires_at": NOW + 86400}   # one day left, ten days needed
+    d = Dispatcher(store=st, sender=Sender(), audience_resolver=resolver(*subjects), batch=1)
+    res = run(d.fire(campaign, now=NOW))
+    assert res.run.sent == 0
+    assert res.run.reasons
+
+
+def test_a_milestone_reveal_is_never_refused_by_the_same_spread_check(st):
+    """The exact same shape (a large cohort, a tight per-pass cap, an `expires_at` already at or
+    past `now`) — but `trigger="milestone"` means `expires_at` is the deadline to CROSS the
+    threshold, already happened by the time this fires, not a deadline to finish notifying the
+    cohort. Refusing here would tell a shop that just won its own challenge that the win could
+    not be announced."""
+    subjects = [f"c{i}" for i in range(10)]
+    campaign = {**CAMPAIGN, "trigger": "milestone", "expires_at": NOW - 1}
+    d = Dispatcher(store=st, sender=Sender(), audience_resolver=resolver(*subjects), batch=1)
+    res = run(d.fire(campaign, now=NOW))
+    assert res.run.sent == 1   # bounded by batch=1, same as any other goal — just not REFUSED
+    assert not res.run.reasons

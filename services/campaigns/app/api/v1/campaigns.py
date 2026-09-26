@@ -29,7 +29,8 @@ from app.api.ratelimit import rate_limit
 from app.core.goals import GOAL_CATEGORIES, cards, resolve_goal
 from app.core.models import (GOAL_TEMPLATE, REWARD_ENABLED_GOALS, Campaign, as_row,
                              offers_something, validate_loyalty_window,
-                             validate_milestone_threshold, validate_reward, validate_window)
+                             validate_milestone_recurrence, validate_milestone_threshold,
+                             validate_reward, validate_window)
 from app.core import service_due_settings as SDS
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.goal_stats import read_goal_stats, record_use
@@ -149,6 +150,10 @@ class CampaignIn(BaseModel):
     # a real milestone campaign with too small a target, not this bound (which only stops pydantic
     # accepting something absurd before that real check ever runs).
     milestone_threshold: int = Field(default=0, ge=0, le=1_000_000)
+    # "جماعي" ONLY — restarts a fresh round the moment one round's own `expires_at` passes,
+    # whether it fired or not (see Campaign.milestone_recurring's own docstring, and
+    # `validate_milestone_recurrence` for why recurring needs both `fire_at`/`expires_at` explicit).
+    milestone_recurring: bool = Field(default=False)
 
 
 def _combine_ids_and_names(single_id: str, ids: list[str], single_name: str,
@@ -295,6 +300,20 @@ async def preview(request: Request, body: CampaignIn,
         if threshold_error:
             return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                                 content={"error": "BAD_REQUEST", "reason": threshold_error})
+        # `fire_at` IS THIS CHALLENGE'S OWN START (0 = counting from the moment it is created),
+        # `expires_at` IS ITS DEADLINE — the SAME two fields every other offer goal already has
+        # (`OFFER_GOALS` now includes this goal), checked here for basic date-order coherence on
+        # the screen he is looking at, same reasoning every other check in this route follows.
+        if body.fire_at and body.expires_at and body.fire_at >= body.expires_at:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST",
+                                         "reason": "تاريخ البداية يجب أن يكون قبل تاريخ النهاية"})
+        recurrence_error = validate_milestone_recurrence(
+            recurring=body.milestone_recurring, fire_at=body.fire_at,
+            expires_at=body.expires_at)
+        if recurrence_error:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST", "reason": recurrence_error})
         from app.core.audience import Audience
         audience = Audience()
     else:
@@ -506,13 +525,7 @@ async def create(request: Request, body: CampaignIn,
     # reaches the sanitiser, yet an `offer_value` sent with it was stored unvalidated — invisible
     # only because no such template has an `amount` slot to render it into.
     offer_value = ""
-    # "جماعي" GOALS TOO (`community_milestone`), EVEN THOUGH THEY ARE NOT IN `OFFER_GOALS` —
-    # `OFFER_GOALS` means "carries a calendar EXPIRY" (checked right below), a genuinely different
-    # question from "may need a typed discount value for its reward". A milestone campaign has no
-    # expiry (it fires once, whenever its shared counter crosses the threshold — see
-    # core/milestone.py's own docstring) but can still choose reward_type="discount", which
-    # `validate_reward` below refuses without a real offer_value.
-    if offers_something(body.goal) or body.goal == "community_milestone":
+    if offers_something(body.goal):
         try:
             from app.core.preview import sanitise_offer_value
             # REQUIRED ONLY WHEN THE TEMPLATE HAS A SLOT FOR IT. «أعلن جديدك» promises nothing and
@@ -524,18 +537,14 @@ async def create(request: Request, body: CampaignIn,
             return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                                 content={"error": "BAD_REQUEST",
                                          "reason": str(exc)})
-        # THE EXPIRY CHECK IS `OFFER_GOALS`-ONLY, DELIBERATELY NOT EXTENDED TO
-        # `community_milestone` — its "end" is the threshold crossing, not a calendar date; see
-        # this block's own comment above.
-        if offers_something(body.goal):
-            if not body.expires_at:
-                return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
-                                    content={"error": "BAD_REQUEST",
-                                             "reason": "حدّد تاريخ انتهاء العرض — عرض بلا نهاية خصمٌ دائم."})
-            if body.expires_at <= now:
-                return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
-                                    content={"error": "BAD_REQUEST",
-                                             "reason": "تاريخ الانتهاء مضى — اختر وقتاً قادماً."})
+        if not body.expires_at:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST",
+                                         "reason": "حدّد تاريخ انتهاء العرض — عرض بلا نهاية خصمٌ دائم."})
+        if body.expires_at <= now:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST",
+                                         "reason": "تاريخ الانتهاء مضى — اختر وقتاً قادماً."})
 
     # WHICH OF THREE REWARDS THIS CAMPAIGN GIVES — `REWARD_ENABLED_GOALS` only, for now; every
     # other goal still gives exactly the discount it always has, so this is skipped for them
@@ -576,6 +585,19 @@ async def create(request: Request, body: CampaignIn,
         if milestone_error:
             return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                                 content={"error": "BAD_REQUEST", "reason": milestone_error})
+        # `fire_at`/`expires_at` ALREADY REQUIRED BY `OFFER_GOALS`'S OWN CHECK ABOVE — this is
+        # the extra date-ORDER coherence check that generic block does not know to make (it only
+        # knows "expires_at must be set and in the future", never anything about `fire_at`).
+        if body.fire_at and body.fire_at >= body.expires_at:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST",
+                                         "reason": "تاريخ البداية يجب أن يكون قبل تاريخ النهاية"})
+        recurrence_error = validate_milestone_recurrence(
+            recurring=body.milestone_recurring, fire_at=body.fire_at,
+            expires_at=body.expires_at)
+        if recurrence_error:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST", "reason": recurrence_error})
 
     # ── one press, one campaign ──────────────────────────────────────────────────────────────
     # See core/press.py for why. In short: everything that stops a customer receiving the same
@@ -588,7 +610,8 @@ async def create(request: Request, body: CampaignIn,
         expires_at=body.expires_at or 0, fire_at=body.fire_at or 0,
         package_id=body.package_id or "", window_start_hour=body.window_start_hour,
         window_end_hour=body.window_end_hour, window_weekdays=body.window_weekdays,
-        milestone_threshold=body.milestone_threshold or 0)
+        milestone_threshold=body.milestone_threshold or 0,
+        milestone_recurring=bool(body.milestone_recurring))
     taken = await press.claim(c.datastore, _tenant(principal), press_key, now=now)
     if not taken.first:
         if taken.in_flight:
@@ -644,6 +667,8 @@ async def create(request: Request, body: CampaignIn,
                         # same "not yet decided" convention every optional numeric field here uses.
                         milestone_threshold=(body.milestone_threshold
                                             if body.goal == "community_milestone" else 0),
+                        milestone_recurring=(bool(body.milestone_recurring)
+                                            if body.goal == "community_milestone" else False),
                         # EVERY CHOSEN NAME, empties dropped (a name that sanitised to "" — never
                         # sent in the first place — is not named). SEVERAL, since 2026-09-13: one
                         # per selected service or package, in the order chosen — the same order

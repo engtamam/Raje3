@@ -169,7 +169,17 @@ class Dispatcher:
         #
         # AT FIRE, so both paths are covered: the press and the cron. A refusal from the button
         # alone would be the same defect with better odds.
-        if per_pass > 0 and int(campaign.get("expires_at") or 0):
+        #
+        # NEVER FOR A "جماعي" (milestone) CAMPAIGN — its own `expires_at` means something entirely
+        # different from every other goal's: the deadline to CROSS the shared threshold, not a
+        # deadline by which every recipient must be notified. Once the threshold crosses (often
+        # close to, or even at, that very deadline — the whole point of a challenge with a
+        # countdown), the reveal is a promise already earned and must go out regardless of how many
+        # days it takes to reach everyone; refusing it here would be telling a shop that just won
+        # its own challenge that the win could not be announced because the clock that measured the
+        # win had also run out.
+        if (campaign.get("trigger") != "milestone" and per_pass > 0
+                and int(campaign.get("expires_at") or 0)):
             sp = plan_spread(audience=audience.count, available_per_day=per_pass,
                              expires_at=int(campaign.get("expires_at") or 0), now=now)
             if sp.refused:

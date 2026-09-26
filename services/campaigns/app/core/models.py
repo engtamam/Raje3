@@ -98,7 +98,17 @@ GOAL_TEMPLATE = {
 #
 # An offer without an end is a price change nobody decided on, and it is also the only thing the
 # counter can be asked to honour.
-OFFER_GOALS = ("service_offer", "package_offer", "win_back", "reward_loyal", "occasion")
+#
+# `community_milestone` JOINED (2026-09-27, reversing the v1-simplest launch decision on the
+# owner's own direct instruction: "نفس المحرك ينطبق عليها بالكامل") — the SAME two fields every
+# other offer goal already has, reused verbatim rather than invented twice: `fire_at` is when
+# counting STARTS (0 = immediately, the same "no future date means now" every other goal's
+# `fire_at` already means), `expires_at` is the challenge's own deadline — reached without
+# crossing the threshold, the campaign expires without ever revealing anyone (see
+# core/milestone.py's own docstring on the window check, and core/tick.py's own milestone branch
+# on the expiry-vs-recurrence decision).
+OFFER_GOALS = ("service_offer", "package_offer", "win_back", "reward_loyal", "occasion",
+              "community_milestone")
 
 
 def offers_something(goal: str) -> bool:
@@ -186,6 +196,24 @@ def validate_milestone_threshold(threshold: int) -> str:
     `validate_window`/`validate_loyalty_window`/`validate_reward` above."""
     if threshold < MIN_MILESTONE_THRESHOLD:
         return f"الهدف الجماعي يجب أن يكون {MIN_MILESTONE_THRESHOLD} على الأقل"
+    return ""
+
+
+def validate_milestone_recurrence(*, recurring: bool, fire_at: int, expires_at: int) -> str:
+    """One Arabic sentence naming what is wrong with a recurring milestone's own start/end, or ""
+    when it is coherent. A NON-recurring milestone needs nothing here — `expires_at` alone (via
+    `OFFER_GOALS`'s own ordinary "an offer without an end" check) is enough for a one-shot
+    challenge. RECURRING NEEDS BOTH DATES EXPLICIT, because the period the next round repeats is
+    `expires_at - fire_at` — a recurring challenge with no real start has no real period to repeat,
+    and guessing one (from `Campaign.created`, say) would make two owners who launched the "same"
+    weekly challenge on different days silently repeat on different schedules.
+    """
+    if not recurring:
+        return ""
+    if not fire_at or not expires_at:
+        return "التكرار يحتاج تاريخ بداية ونهاية واضحين لكل جولة"
+    if fire_at >= expires_at:
+        return "تاريخ البداية يجب أن يكون قبل تاريخ النهاية"
     return ""
 
 
@@ -418,6 +446,12 @@ class Campaign:
     # other goal, `0` for every campaign that predates this field, same "not yet decided" convention
     # every other optional numeric field on this dataclass already uses.
     milestone_threshold: int = 0
+    # `community_milestone` ONLY — restarts a fresh round (same `fire_at`→`expires_at` period,
+    # counter reset to 0) the moment one round's own `expires_at` passes, whether it fired or not.
+    # `False` (every other goal's default) means a one-shot challenge — reaches `done` at its
+    # deadline (expired, never crossed the threshold) or once its reveal fully drains (crossed and
+    # sent), exactly like every other offer goal's own end.
+    milestone_recurring: bool = False
     created: int = field(default_factory=_now)
     updated: int = field(default_factory=_now)
 

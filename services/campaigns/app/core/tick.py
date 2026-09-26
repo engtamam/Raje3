@@ -169,19 +169,45 @@ class Tick:
             # the reveal the moment it happens, not up to a day late.
             res.evaluated += 1
             result = await self._fire(campaign, now=now, res=res)
-            if result.finished:
-                # `finished=True` HERE MEANS "this pass did not hit its per-pass send cap" — true
-                # of every ordinary no-op pass while the counter is still climbing, so it is NOT
-                # by itself "done" the way it is for a `scheduled` campaign. Only the progress
-                # record says whether the one-shot reveal has fully drained: fired, AND this pass
-                # matched nobody new to send (`resolve_milestone` returns the full cohort minus
-                # `already_reached` every time, so "matched 0" here means everyone is already in
-                # that ledger). A single-key read, not a scan.
-                progress = await milestone.read_progress(
-                    self._s, campaign.get("tenant", ""), campaign.get("id", ""))
-                if progress is not None and progress.fired and result.run.matched == 0:
-                    campaign["state"] = "done"
-                    await self._save(campaign, now)
+            if not result.finished:
+                # STILL MID-COHORT (a large reveal against a small per-pass cap) — more to send
+                # next pass, same resumable shape a large `scheduled` campaign already has. Never
+                # ends the round early over this.
+                return
+            tenant, cid = campaign.get("tenant", ""), campaign.get("id", "")
+            # `finished=True` HERE MEANS "this pass did not hit its per-pass send cap" — true of
+            # every ordinary no-op pass while the counter is still climbing, so it is NOT by
+            # itself "the round is over" the way it is for a `scheduled` campaign. Only the
+            # progress record (fully drained) or the campaign's own deadline (passed, never
+            # crossed) actually ends a round. A single-key progress read, not a scan.
+            progress = await milestone.read_progress(self._s, tenant, cid)
+            fully_drained = progress is not None and progress.fired and result.run.matched == 0
+            expires_at = int(campaign.get("expires_at") or 0)
+            deadline_passed = (not fully_drained and (progress is None or not progress.fired)
+                              and bool(expires_at) and now > expires_at)
+            if not fully_drained and not deadline_passed:
+                # STILL COUNTING, STILL WITHIN ITS WINDOW — the ordinary, harmless case on every
+                # tick until one of the two real endings above actually happens.
+                return
+            if campaign.get("milestone_recurring"):
+                # A FRESH ROUND, BACK TO BACK — the next period starts exactly when this one
+                # ended (`expires_at`, not `now`), so a tick that runs a little late never lets
+                # gaps or drift creep into a repeating schedule. Same period length
+                # (`expires_at - fire_at`) every round; `validate_milestone_recurrence` already
+                # refused a recurring campaign with no real period to repeat.
+                period = expires_at - int(campaign.get("fire_at") or 0)
+                campaign["fire_at"] = expires_at
+                campaign["expires_at"] = expires_at + max(period, 1)
+                await milestone.reset_progress(self._s, tenant, cid)
+                await self._save(campaign, now)
+                return
+            # ONE-SHOT, AND THIS ROUND IS OVER — either the whole earned cohort has been sent
+            # (success), or the deadline passed with the threshold never crossed (the challenge
+            # simply did not happen in time). Both are `done`; nothing here distinguishes them
+            # further — `progress.fired` on the last-read row already tells the two apart for
+            # anyone building a screen around this later.
+            campaign["state"] = "done"
+            await self._save(campaign, now)
             return
 
         if trigger == "standing":

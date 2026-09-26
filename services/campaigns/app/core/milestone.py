@@ -9,12 +9,17 @@ would mean `audience.resolve()` learning about state that lives nowhere near a c
 it here means the individual mechanic's file stays exactly what its own docstring already promises,
 and this one is free to have a genuinely different contract.
 
-FIXED THRESHOLD ONLY, DELIBERATELY (v1, 2026-09-27) — no rolling window, no re-arming, no dynamic
-target. A milestone campaign counts from the moment it is created until its own threshold is
-crossed, fires ONCE, and is done — the same one-shot shape a `scheduled` campaign already has, just
-triggered by a count instead of a clock. A shop that wants another round creates a new campaign;
-teaching this one to reset itself is a real, separate feature this file does not build by guessing
-what "reset" should mean (calendar week? rolling 7 days? manual re-arm?).
+A FIXED TARGET, A REAL START/END, AND OPTIONAL RECURRENCE (2026-09-27, the owner's own direct
+correction to this file's original "no window at all" v1) — `Campaign.fire_at`/`expires_at`, the
+SAME two fields `service_offer`/`win_back`/every other offer goal already has, reused verbatim: a
+contribution outside `[fire_at, expires_at]` (see `within_window` below) simply does not count.
+`Campaign.milestone_recurring` decides what happens when `expires_at` passes without the threshold
+ever crossing (or after it fires and fully drains) — `core/tick.py`'s own milestone branch is what
+actually resets the round (`reset_progress` below) and advances the window by its own period
+(`expires_at - fire_at`, unchanged) rather than marking the campaign `done`. THE TARGET ITSELF
+(`threshold`) stays fixed for the life of the campaign either way — a recurring challenge repeats
+the SAME target every round; a shop that wants a different one creates a new campaign, still never
+teaching this file to guess what a changing target across rounds should mean.
 
 THE COUNTER IS LOAD-BEARING, NOT A DISPLAY NUMBER — unlike `goal_stats.py`'s own `uses`/`reach`
 (cosmetic; a lock failure there is swallowed on purpose, `dispatch.py::Dispatcher._save`'s own
@@ -114,6 +119,35 @@ async def read_progress(store: Any, tenant: str, campaign_id: str) -> MilestoneP
     if not row:
         return None
     return _row_to_progress(row, tenant=tenant, campaign_id=campaign_id)
+
+
+async def reset_progress(store: Any, tenant: str, campaign_id: str) -> None:
+    """Start a fresh round — `community_milestone`'s own recurrence (`Campaign.milestone_recurring`,
+    `core/tick.py`'s own milestone branch, which is the only caller). A plain delete, not a
+    zeroed-out `put`: the next `record_contribution` recreates the row from nothing the same way
+    a campaign's very first-ever contribution already does, so there is only one code path that
+    builds a fresh `MilestoneProgress`, never two that could drift.
+    """
+    await store.delete(MILESTONE_PROGRESS, f"{tenant}|{campaign_id}")
+
+
+def within_window(campaign: dict[str, Any], *, now: int) -> bool:
+    """Is `now` inside this milestone's own `[fire_at, expires_at]`?
+
+    `fire_at == 0` MEANS "started at creation" — the same "no future date means now" convention
+    every other goal's own `fire_at` already carries; a milestone with no explicit start counts
+    from the moment it exists. `expires_at == 0` MEANS NO DEADLINE AT ALL — refused at creation by
+    `OFFER_GOALS`'s own ordinary "an offer without an end" check in practice, but this function
+    itself stays permissive for that case rather than assume the caller already enforced it,
+    matching `models.in_window`'s own "untouched fields mean no restriction" default.
+    """
+    fire_at = int(campaign.get("fire_at") or 0)
+    expires_at = int(campaign.get("expires_at") or 0)
+    if fire_at and now < fire_at:
+        return False
+    if expires_at and now > expires_at:
+        return False
+    return True
 
 
 async def record_contribution(store: Any, *, tenant: str, campaign_id: str, threshold: int,
@@ -244,16 +278,22 @@ async def contribute_from_event(store: Any, *, tenant: str, subject_ref: str,
     rows = await drain(store, "campaigns",
                        {"tenant": tenant, "state": "active", "goal": "community_milestone"},
                        sort=("created", "asc"))
+    when = now if now is not None else int(time.time())
     out: list[MilestoneProgress] = []
     for row in rows:
         if not _event_matches(row, service_ids=service_ids, package_id=package_id):
+            continue
+        # OUTSIDE THIS ROUND'S OWN [fire_at, expires_at] — a real event that happens before a
+        # future-dated challenge starts, or after one has already expired (and not yet reset by
+        # `tick.py`'s own recurrence branch), must not count. See `within_window`'s own docstring.
+        if not within_window(row, now=when):
             continue
         threshold = int(row.get("milestone_threshold") or 0)
         cid = str(row.get("id") or "")
         try:
             progress = await record_contribution(store, tenant=tenant, campaign_id=cid,
                                                  threshold=threshold, subject_ref=subject_ref,
-                                                 now=now)
+                                                 now=when)
         except RuntimeError:
             # ONE CAMPAIGN'S LOCK CONTENTION MUST NOT COST THE OTHERS — see this function's own
             # docstring. The caller (operations' own visit hook) already swallows ITS OWN

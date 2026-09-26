@@ -49,9 +49,13 @@ def _auth(caps=("campaigns.read", "campaigns.manage")):
     return {"Authorization": f"Bearer {tok}"}
 
 
+def _future(seconds=7 * 86400):
+    return int(dt.datetime.now(dt.timezone.utc).timestamp()) + seconds
+
+
 def _body(**kw):
     body = {"goal": "community_milestone", "milestone_threshold": 100,
-           "reward_type": "discount", "offer_value": "20%"}
+           "reward_type": "discount", "offer_value": "20%", "expires_at": _future()}
     body.update(kw)
     return body
 
@@ -134,11 +138,63 @@ def test_two_different_thresholds_are_two_different_campaigns_not_one_repress(cl
     assert id1 != id2
 
 
+def test_create_refuses_a_missing_expiry_date(client):
+    """`community_milestone` joined `OFFER_GOALS` (2026-09-27) — an "offer" without an end is
+    refused the same way for every goal in it now, milestone included."""
+    body = _body()
+    body.pop("expires_at")
+    r = client.post("/api/v1/campaigns", json=body, headers=_auth())
+    assert r.status_code == 400, r.text
+
+
+def test_create_refuses_a_start_date_after_the_end_date(client):
+    r = client.post("/api/v1/campaigns",
+                    json=_body(fire_at=_future(10 * 86400), expires_at=_future(5 * 86400)),
+                    headers=_auth())
+    assert r.status_code == 400, r.text
+    assert "قبل" in r.json()["reason"]
+
+
+def test_create_stores_a_real_start_date(client):
+    start = _future(86400)
+    end = _future(8 * 86400)
+    r = client.post("/api/v1/campaigns",
+                    json=_body(fire_at=start, expires_at=end), headers=_auth())
+    assert r.status_code in (200, 201), r.text
+    cid = (r.json().get("campaign") or r.json()).get("id")
+    listed = client.get("/api/v1/campaigns", headers=_auth())
+    row = next(c for c in listed.json()["campaigns"] if c["id"] == cid)
+    assert row["fire_at"] == start
+    assert row["expires_at"] == end
+
+
+def test_recurring_requires_both_dates_explicit(client):
+    r = client.post("/api/v1/campaigns",
+                    json=_body(milestone_recurring=True, fire_at=0), headers=_auth())
+    assert r.status_code == 400, r.text
+    assert "التكرار" in r.json()["reason"]
+
+
+def test_recurring_with_real_dates_is_accepted(client):
+    r = client.post(
+        "/api/v1/campaigns",
+        json=_body(milestone_recurring=True, fire_at=_future(0), expires_at=_future(7 * 86400)),
+        headers=_auth())
+    assert r.status_code in (200, 201), r.text
+    cid = (r.json().get("campaign") or r.json()).get("id")
+    listed = client.get("/api/v1/campaigns", headers=_auth())
+    row = next(c for c in listed.json()["campaigns"] if c["id"] == cid)
+    assert row["milestone_recurring"] is True
+
+
 def test_a_repeated_press_with_the_same_threshold_is_the_same_campaign(client):
-    r1 = client.post("/api/v1/campaigns",
-                     json=_body(milestone_threshold=63, owner_text=""), headers=_auth())
-    r2 = client.post("/api/v1/campaigns",
-                     json=_body(milestone_threshold=63, owner_text=""), headers=_auth())
+    # ONE SHARED expires_at FOR BOTH PRESSES — `_body()`'s own default calls `_future()` fresh
+    # each time, and two real presses of the same button do not necessarily land in the same
+    # second; a press key that (correctly) joins `expires_at` must see the SAME one twice here to
+    # prove a genuine re-press, not two campaigns that merely look alike.
+    shared = _body(milestone_threshold=63, owner_text="")
+    r1 = client.post("/api/v1/campaigns", json=shared, headers=_auth())
+    r2 = client.post("/api/v1/campaigns", json=shared, headers=_auth())
     id1 = (r1.json().get("campaign") or r1.json()).get("id")
     id2 = (r2.json().get("campaign") or r2.json()).get("id")
     assert id1 == id2
