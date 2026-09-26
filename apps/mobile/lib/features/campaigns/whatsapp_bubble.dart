@@ -9,10 +9,9 @@ import 'package:raje3_mobile/theme/app_theme.dart';
 /// surface, so what renders here matches what actually arrives on a real phone regardless of
 /// which theme the shop picked for itself.
 class WhatsAppBubble extends StatelessWidget {
-  const WhatsAppBubble({super.key, required this.text, this.caption, this.buttons = const []});
+  const WhatsAppBubble({super.key, required this.text, this.buttons = const []});
 
   final String text;
-  final String? caption;
   /// Drawn OUTSIDE the bubble, exactly where Meta actually renders them — never inside the
   /// message text. Static labels only this pass: opening a Flow for real stays deferred (see
   /// this feature's own build notes) — a shop owner still sees exactly which button ships with
@@ -74,13 +73,6 @@ class WhatsAppBubble extends StatelessWidget {
               ],
             ),
           ),
-        if (caption != null) ...[
-          const SizedBox(height: 4),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(caption!, style: AppTextStyles.caption),
-          ),
-        ],
       ],
     );
   }

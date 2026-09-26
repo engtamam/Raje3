@@ -11,7 +11,15 @@ import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
 import 'package:raje3_mobile/features/campaigns/campaigns_i18n.dart';
 import 'package:raje3_mobile/features/campaigns/campaigns_style.dart';
+import 'package:raje3_mobile/features/campaigns/message_preview_sheet.dart';
 import 'package:raje3_mobile/features/campaigns/whatsapp_bubble.dart';
+
+/// THE OTHER DIRECTION FROM `kReasonGoal` (messages_model.dart) — goal → its shared reason id,
+/// so the wizard can open the SAME preview/retext screen «القوالب» itself uses for the three
+/// goals that share one, instead of building a second, smaller preview just for this screen.
+const Map<String, String> _kGoalReasonId = {
+  'win_back': 'gone_missing', 'occasion': 'personal_occasion', 'reward_loyal': 'loyal_customer',
+};
 
 /// Launching a campaign — a full-screen, step-by-step wizard (Launch.tsx's own job, rebuilt for
 /// a phone instead of a wide rail+canvas+phone triptych). Three steps, and the middle one is the
@@ -59,6 +67,9 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
   List<GoalRow>? _goals;
   GoalRow? _picked;
   List<ServiceItem> _services = const [];
+  // ONLY TO LEARN which of the three shared goals has a real reason to cross-link to — never
+  // read for anything else here, «القوالب» itself owns switching/retexting a reason.
+  List<ReasonRow>? _reasons;
 
   final _ownerTextController = TextEditingController();
   final _offerAmountController = TextEditingController();
@@ -90,6 +101,9 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
     _service = MessagesService(apiClient: apiClient);
     _catalogueService = ServicesCatalogueService(apiClient: apiClient);
     _loadGoals();
+    _service.reasons().then((r) {
+      if (mounted) setState(() => _reasons = r);
+    });
   }
 
   @override
@@ -247,6 +261,7 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
             ),
           _Step.fields => _FieldsStep(
               goal: _picked!,
+              linkedReason: (_reasons ?? const []).where((r) => r.id == _kGoalReasonId[_picked!.goal]).firstOrNull,
               services: _services,
               ownerTextController: _ownerTextController,
               offerAmountController: _offerAmountController,
@@ -341,6 +356,7 @@ class _GoalStep extends StatelessWidget {
 class _FieldsStep extends StatelessWidget {
   const _FieldsStep({
     required this.goal,
+    required this.linkedReason,
     required this.services,
     required this.ownerTextController,
     required this.offerAmountController,
@@ -356,6 +372,7 @@ class _FieldsStep extends StatelessWidget {
   });
 
   final GoalRow goal;
+  final ReasonRow? linkedReason;
   final List<ServiceItem> services;
   final TextEditingController ownerTextController;
   final TextEditingController offerAmountController;
@@ -377,6 +394,20 @@ class _FieldsStep extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(AppSpacing.md),
             children: [
+              // THE CROSS-LINK, THE OTHER DIRECTION — «القوالب»'s own card for this exact
+              // shared template opens with a link into this wizard (Messages.tsx's own
+              // `REASON_GOAL`); this is the same door from this side, reusing the identical
+              // preview/retext sheet whole rather than a second, smaller one built just here.
+              if (linkedReason != null) ...[
+                SecondaryButton(
+                  text: ct(context, 'viewOrEditMessage'),
+                  icon: Icons.visibility_outlined,
+                  onPressed: () => showMessagePreviewSheet(
+                    context, label: linkedReason!.label, when: linkedReason!.when, reasonId: linkedReason!.id,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
               if (goal.goal == 'service_offer') ...[
                 Text(ct(context, 'whichService'), style: AppTextStyles.labelMedium),
                 const SizedBox(height: AppSpacing.sm),

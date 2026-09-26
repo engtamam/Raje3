@@ -266,7 +266,11 @@ class _OptionCard extends StatelessWidget {
               ),
           ]),
           if (chip != null || sending) const SizedBox(height: AppSpacing.sm),
-          WhatsAppBubble(text: option.text, caption: caption, buttons: option.buttons),
+          WhatsAppPhoneFrame(
+            child: WhatsAppBubble(text: option.text, buttons: option.buttons),
+          ),
+          const SizedBox(height: 4),
+          Text(caption, style: AppTextStyles.caption),
           // THE SHAPE, THEN THE FILLED EXAMPLE — shown only when it actually differs, so a
           // customer never reads «[اسم العميل]» as the shop's own words: the blanks are named,
           // never numbered, so one word describes the same blank everywhere.

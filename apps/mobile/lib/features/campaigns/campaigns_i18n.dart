@@ -458,6 +458,19 @@ const Map<String, Map<String, String>> _kCampaignsStrings = {
     'bn': 'এই মুহূর্তে লগ পড়া যায়নি।', 'ur': 'ابھی لاگ پڑھا نہیں جا سکا۔', 'ha': 'An kasa karanta bayanan tarihi a yanzu.',
     'fil': 'Hindi nabasa ang log ngayon.',
   },
+  'viewOrEditMessage': {
+    'ar': 'اعرض/عدّل الرسالة الآلية', 'en': 'View/edit the automatic message', 'bn': 'স্বয়ংক্রিয় বার্তা দেখুন/সম্পাদনা করুন',
+    'ur': 'خودکار پیغام دیکھیں/ترمیم کریں', 'ha': 'Duba/gyara saƙon atomatik', 'fil': 'Tingnan/i-edit ang awtomatikong mensahe',
+  },
+  'urgencySoon': {
+    'ar': 'قريب', 'en': 'Soon', 'bn': 'শীঘ্রই', 'ur': 'جلد', 'ha': 'Nan gaba kadan', 'fil': 'Malapit na',
+  },
+  'urgencyToday': {
+    'ar': 'اليوم', 'en': 'Today', 'bn': 'আজ', 'ur': 'آج', 'ha': 'Yau', 'fil': 'Ngayon',
+  },
+  'urgencyLater': {
+    'ar': 'لاحقًا', 'en': 'Later', 'bn': 'পরে', 'ur': 'بعد میں', 'ha': 'Daga baya', 'fil': 'Mamaya',
+  },
   'allBranches': {
     'ar': 'كل الفروع', 'en': 'All branches', 'bn': 'সব শাখা', 'ur': 'تمام شاخیں', 'ha': 'Duk rassa',
     'fil': 'Lahat ng sangay',

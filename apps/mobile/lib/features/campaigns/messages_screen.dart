@@ -660,13 +660,29 @@ class _TemplateCardTileState extends State<_TemplateCardTile> {
 
 /// «القادمة» — real people, by name, waiting for a message; swipe to cancel ONE of them, never
 /// the rule behind it.
-class _QueueTab extends StatelessWidget {
+class _QueueTab extends StatefulWidget {
   const _QueueTab({required this.schedule, required this.who, required this.service, required this.onChanged});
 
   final List<ScheduleRow>? schedule;
   final Map<String, Customer> who;
   final MessagesService service;
   final VoidCallback onChanged;
+
+  @override
+  State<_QueueTab> createState() => _QueueTabState();
+}
+
+enum _Urgency { soon, today, later }
+
+class _QueueTabState extends State<_QueueTab> {
+  String _urgencyFilter = '';
+
+  _Urgency _urgencyOf(int dueAt) {
+    final secondsLeft = dueAt - DateTime.now().millisecondsSinceEpoch / 1000;
+    if (secondsLeft <= 3600) return _Urgency.soon;
+    if (secondsLeft <= 86400) return _Urgency.today;
+    return _Urgency.later;
+  }
 
   String _dueIn(BuildContext context, int at) {
     final secondsLeft = at - DateTime.now().millisecondsSinceEpoch / 1000;
@@ -694,65 +710,92 @@ class _QueueTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (schedule == null) return const Center(child: CircularProgressIndicator());
-    if (schedule!.isEmpty) {
+    if (widget.schedule == null) return const Center(child: CircularProgressIndicator());
+    if (widget.schedule!.isEmpty) {
       return EmptyState(icon: Icons.schedule_outlined, title: ct(context, 'queueEmpty'));
     }
-    final rows = [...schedule!]..sort((a, b) => a.dueAt.compareTo(b.dueAt));
-    return ListView.separated(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      itemCount: rows.length,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, i) {
-        final r = rows[i];
-        final person = who[r.subjectRef];
-        final title = person?.name.isNotEmpty == true ? person!.name : (person?.phone ?? ct(context, 'customerFallback'));
-        final urgent = r.dueAt - DateTime.now().millisecondsSinceEpoch / 1000 <= 3600;
-        return Dismissible(
-          key: ValueKey(r.id),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            decoration: BoxDecoration(
-                color: context.isDark ? AppDarkColors.danger : AppColors.danger,
-                borderRadius: AppRadius.cardRadius),
-            child: const Icon(Icons.close, color: Colors.white),
-          ),
-          confirmDismiss: (_) async {
-            final ok = await service.cancelSchedule(r.id);
-            if (ok) onChanged();
-            return ok;
-          },
-          child: AppCard(
-            hasShadow: false,
-            child: Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: urgent
-                        ? (context.isDark ? AppDarkColors.danger : AppColors.danger)
-                        : (context.isDark ? AppDarkColors.warning : AppColors.warning),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
+    final allRows = [...widget.schedule!]..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    final rows = _urgencyFilter.isEmpty
+        ? allRows
+        : allRows.where((r) => _urgencyOf(r.dueAt).name == _urgencyFilter).toList();
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: SegmentedFilter<String>(
+            value: _urgencyFilter,
+            onChanged: (v) => setState(() => _urgencyFilter = v),
+            options: [
+              SegmentedFilterOption(value: '', label: ct(context, 'classAll'), badge: allRows.length),
+              for (final u in _Urgency.values)
+                SegmentedFilterOption(
+                  value: u.name,
+                  label: ct(context, 'urgency${u.name[0].toUpperCase()}${u.name.substring(1)}'),
+                  badge: allRows.where((r) => _urgencyOf(r.dueAt) == u).length,
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            ],
+          ),
+        ),
+        Expanded(
+          child: rows.isEmpty
+              ? EmptyState(icon: Icons.filter_alt_off_outlined, title: ct(context, 'queueEmpty'))
+              : ListView.separated(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+            itemCount: rows.length,
+            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+            itemBuilder: (context, i) {
+              final r = rows[i];
+              final person = widget.who[r.subjectRef];
+              final title = person?.name.isNotEmpty == true ? person!.name : (person?.phone ?? ct(context, 'customerFallback'));
+              final urgent = _urgencyOf(r.dueAt) == _Urgency.soon;
+              return Dismissible(
+                key: ValueKey(r.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  decoration: BoxDecoration(
+                      color: context.isDark ? AppDarkColors.danger : AppColors.danger,
+                      borderRadius: AppRadius.cardRadius),
+                  child: const Icon(Icons.close, color: Colors.white),
+                ),
+                confirmDismiss: (_) async {
+                  final ok = await widget.service.cancelSchedule(r.id);
+                  if (ok) widget.onChanged();
+                  return ok;
+                },
+                child: AppCard(
+                  hasShadow: false,
+                  child: Row(
                     children: [
-                      Text(title, style: AppTextStyles.bodyMedium),
-                      Text('${_occasion(context, r.kind)} · ${_dueIn(context, r.dueAt)}', style: AppTextStyles.caption),
+                      Container(
+                        width: 8,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: urgent
+                              ? (context.isDark ? AppDarkColors.danger : AppColors.danger)
+                              : (context.isDark ? AppDarkColors.warning : AppColors.warning),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(title, style: AppTextStyles.bodyMedium),
+                            Text('${_occasion(context, r.kind)} · ${_dueIn(context, r.dueAt)}', style: AppTextStyles.caption),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ],
-            ),
+              );
+            },
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }
