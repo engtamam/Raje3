@@ -270,6 +270,11 @@ def describe_when(*, trigger: str, inside_window: bool, next_open_hour: int = 7,
     one still only fires within them once its `fire_at` arrives.
     """
     suffix = f" تُرسَل فقط {own_window}." if own_window else ""
+    if trigger == "milestone":
+        # NEVER "تُرسَل الآن" — a "جماعي" campaign sends nothing at creation; it accumulates a
+        # shared count and reveals the whole cohort together the instant it crosses its own
+        # threshold, which could be minutes or weeks away. See core/milestone.py's own docstring.
+        return "تجمع حتى تصل هدفها، ثم ترسل للجميع دفعة واحدة." + suffix
     if trigger == "standing":
         return "تعمل تلقائياً كل يوم، وتصل من تنطبق عليه." + suffix
     if not inside_window:

@@ -28,8 +28,8 @@ from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.goals import GOAL_CATEGORIES, cards, resolve_goal
 from app.core.models import (GOAL_TEMPLATE, REWARD_ENABLED_GOALS, Campaign, as_row,
-                             offers_something, validate_loyalty_window, validate_reward,
-                             validate_window)
+                             offers_something, validate_loyalty_window,
+                             validate_milestone_threshold, validate_reward, validate_window)
 from app.core import service_due_settings as SDS
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.goal_stats import read_goal_stats, record_use
@@ -143,6 +143,12 @@ class CampaignIn(BaseModel):
     # and `REWARD_ENABLED_GOALS` below.
     reward_type: str = Field(default="discount", max_length=16)
     reward_points: int = Field(default=0, ge=0, le=100000)
+    # "جماعي" ONLY (`community_milestone`) — the fixed shared target the whole cohort is revealed
+    # together at (see core/milestone.py's own docstring: fixed at creation, v1, no reset). `0` is
+    # every other goal's own no-op default; `validate_milestone_threshold` is what actually refuses
+    # a real milestone campaign with too small a target, not this bound (which only stops pydantic
+    # accepting something absurd before that real check ever runs).
+    milestone_threshold: int = Field(default=0, ge=0, le=1_000_000)
 
 
 def _combine_ids_and_names(single_id: str, ids: list[str], single_name: str,
@@ -278,14 +284,28 @@ async def preview(request: Request, body: CampaignIn,
             body.scope_service_ids if body.goal == "package_offer" else []))),
         body.package_name, body.package_names)
 
-    # THE CLASS THE CAMPAIGN WILL ACTUALLY BE SENT UNDER (ج-1). Not the resolver's default: the
-    # preview exists to tell the owner what will happen, and a preview run under different rules
-    # than the send is a number that is worse than no number.
-    audience = await c.audience.resolve_for(
-        _tenant(principal), goal=body.goal, now=_now(), cls=spec["cls"],
-        already_reached=set(), service_id=body.service_id, service_ids=service_ids_all,
-        branch_id=body.branch_id,
-        window_days=body.loyalty_window_days, min_visits=body.loyalty_min_visits)
+    # "جماعي" GOALS DO NOT MATCH CUSTOMERS ONE AT A TIME — see core/milestone.py's own module
+    # docstring. A campaign that does not exist yet has, by definition, a shared counter sitting
+    # at 0 — there is no per-customer predicate to resolve, and asking `audience.resolve_for` would
+    # silently degrade to "matched nobody" through `_MATCHERS`'s own unknown-goal fallback rather
+    # than an honest, intentional empty answer. Validated here too, the same "refused on the screen
+    # he is looking at" reasoning every other coherence check in this route already follows.
+    if body.goal == "community_milestone":
+        threshold_error = validate_milestone_threshold(body.milestone_threshold)
+        if threshold_error:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST", "reason": threshold_error})
+        from app.core.audience import Audience
+        audience = Audience()
+    else:
+        # THE CLASS THE CAMPAIGN WILL ACTUALLY BE SENT UNDER (ج-1). Not the resolver's default:
+        # the preview exists to tell the owner what will happen, and a preview run under different
+        # rules than the send is a number that is worse than no number.
+        audience = await c.audience.resolve_for(
+            _tenant(principal), goal=body.goal, now=_now(), cls=spec["cls"],
+            already_reached=set(), service_id=body.service_id, service_ids=service_ids_all,
+            branch_id=body.branch_id,
+            window_days=body.loyalty_window_days, min_visits=body.loyalty_min_visits)
 
     try:
         p = build_preview(
@@ -486,7 +506,13 @@ async def create(request: Request, body: CampaignIn,
     # reaches the sanitiser, yet an `offer_value` sent with it was stored unvalidated — invisible
     # only because no such template has an `amount` slot to render it into.
     offer_value = ""
-    if offers_something(body.goal):
+    # "جماعي" GOALS TOO (`community_milestone`), EVEN THOUGH THEY ARE NOT IN `OFFER_GOALS` —
+    # `OFFER_GOALS` means "carries a calendar EXPIRY" (checked right below), a genuinely different
+    # question from "may need a typed discount value for its reward". A milestone campaign has no
+    # expiry (it fires once, whenever its shared counter crosses the threshold — see
+    # core/milestone.py's own docstring) but can still choose reward_type="discount", which
+    # `validate_reward` below refuses without a real offer_value.
+    if offers_something(body.goal) or body.goal == "community_milestone":
         try:
             from app.core.preview import sanitise_offer_value
             # REQUIRED ONLY WHEN THE TEMPLATE HAS A SLOT FOR IT. «أعلن جديدك» promises nothing and
@@ -498,14 +524,18 @@ async def create(request: Request, body: CampaignIn,
             return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                                 content={"error": "BAD_REQUEST",
                                          "reason": str(exc)})
-        if not body.expires_at:
-            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
-                                content={"error": "BAD_REQUEST",
-                                         "reason": "حدّد تاريخ انتهاء العرض — عرض بلا نهاية خصمٌ دائم."})
-        if body.expires_at <= now:
-            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
-                                content={"error": "BAD_REQUEST",
-                                         "reason": "تاريخ الانتهاء مضى — اختر وقتاً قادماً."})
+        # THE EXPIRY CHECK IS `OFFER_GOALS`-ONLY, DELIBERATELY NOT EXTENDED TO
+        # `community_milestone` — its "end" is the threshold crossing, not a calendar date; see
+        # this block's own comment above.
+        if offers_something(body.goal):
+            if not body.expires_at:
+                return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                    content={"error": "BAD_REQUEST",
+                                             "reason": "حدّد تاريخ انتهاء العرض — عرض بلا نهاية خصمٌ دائم."})
+            if body.expires_at <= now:
+                return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                    content={"error": "BAD_REQUEST",
+                                             "reason": "تاريخ الانتهاء مضى — اختر وقتاً قادماً."})
 
     # WHICH OF THREE REWARDS THIS CAMPAIGN GIVES — `REWARD_ENABLED_GOALS` only, for now; every
     # other goal still gives exactly the discount it always has, so this is skipped for them
@@ -538,6 +568,15 @@ async def create(request: Request, body: CampaignIn,
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "BAD_REQUEST", "reason": loyalty_error})
 
+    # "جماعي" GOALS ONLY (`community_milestone`) — the fixed shared target, refused here before
+    # anything is written, same "a coherence error is the owner's to fix, not a draft he now has
+    # to clean up" reasoning every other validation in this route already follows.
+    if body.goal == "community_milestone":
+        milestone_error = validate_milestone_threshold(body.milestone_threshold)
+        if milestone_error:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST", "reason": milestone_error})
+
     # ── one press, one campaign ──────────────────────────────────────────────────────────────
     # See core/press.py for why. In short: everything that stops a customer receiving the same
     # thing twice is keyed on `campaign_id`, and this route minted a new one on every request —
@@ -548,7 +587,8 @@ async def create(request: Request, body: CampaignIn,
         branch_id=body.branch_id or "", offer_value=body.offer_value or "",
         expires_at=body.expires_at or 0, fire_at=body.fire_at or 0,
         package_id=body.package_id or "", window_start_hour=body.window_start_hour,
-        window_end_hour=body.window_end_hour, window_weekdays=body.window_weekdays)
+        window_end_hour=body.window_end_hour, window_weekdays=body.window_weekdays,
+        milestone_threshold=body.milestone_threshold or 0)
     taken = await press.claim(c.datastore, _tenant(principal), press_key, now=now)
     if not taken.first:
         if taken.in_flight:
@@ -600,6 +640,10 @@ async def create(request: Request, body: CampaignIn,
                         # preview. Meaningless for every goal but `reward_loyal`.
                         loyalty_window_days=body.loyalty_window_days,
                         loyalty_min_visits=body.loyalty_min_visits,
+                        # "جماعي" ONLY (`community_milestone`) — `0` for every other goal, the
+                        # same "not yet decided" convention every optional numeric field here uses.
+                        milestone_threshold=(body.milestone_threshold
+                                            if body.goal == "community_milestone" else 0),
                         # EVERY CHOSEN NAME, empties dropped (a name that sanitised to "" — never
                         # sent in the first place — is not named). SEVERAL, since 2026-09-13: one
                         # per selected service or package, in the order chosen — the same order

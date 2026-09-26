@@ -197,6 +197,11 @@ def cards(*, fills_by_type: dict[str, list[str]] | None = None,
 
 def _behaviour(goal: str) -> str:
     trigger = GOAL_TRIGGER.get(goal, "manual")
+    if trigger == "milestone":
+        # NEVER "تُرسَل مرة واحدة" ALONE — technically true (it does fire once) but silent about
+        # the one fact that makes this goal different: it waits for a shared count, not a press or
+        # a clock. See core/milestone.py's own docstring and preview.describe_when's sibling note.
+        return "تنتظر حتى يصل الهدف الجماعي، ثم تُرسَل مرة واحدة للجميع"
     if trigger == "standing":
         return "تعمل تلقائياً كل يوم"
     if trigger == "scheduled":
@@ -207,11 +212,19 @@ def _behaviour(goal: str) -> str:
 def resolve_goal(goal: str) -> dict[str, Any]:
     """Everything the system needs from a goal the owner pressed.
 
-    One place, so a new goal is a row in CARDS and a row in GOAL_TEMPLATE — not a change in four
-    files where the fourth is forgotten.
+    One place, so a new goal is a row in GOAL_TEMPLATE (and, once its own launch screen exists, a
+    row in CARDS too) — not a change in four files where the fourth is forgotten.
+
+    VALID AGAINST `GOAL_TEMPLATE` (every real goal), NOT `CARDS` (only the ones with a
+    launch-screen card) — `POST /campaigns`/`/preview` must accept a real, wired, cardless goal
+    like `community_milestone` (real machinery, no console/mobile screen yet — see
+    `core/milestone.py`'s own docstring) or `service_due` would, if it ever needed this route
+    instead of its own settings-only one. A goal only reachable through `CARDS` would make an
+    owner's screen the definition of which goals exist, which is exactly backwards — the same fix
+    `core/mechanics.py::resolver_for` already made for the identical reason.
     """
-    if goal not in CARDS:
-        raise ValueError(f"unknown goal {goal!r} — one of {sorted(CARDS)}")
+    if goal not in GOAL_TEMPLATE:
+        raise ValueError(f"unknown goal {goal!r} — one of {sorted(GOAL_TEMPLATE)}")
     template_type, cls = GOAL_TEMPLATE[goal]
     return {"goal": goal, "template_type": template_type, "cls": cls,
             "trigger": GOAL_TRIGGER.get(goal, "manual"), "behaviour": _behaviour(goal),
