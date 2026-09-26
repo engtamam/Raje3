@@ -383,7 +383,14 @@ class Dispatcher:
         # copied into. `goal` is empty only for a campaign row so old it predates the field
         # entirely — that run's own `sent` is simply never counted under any goal, never guessed.
         if run.sent:
-            await record_reach(self._s, run.tenant, goal, run.sent)
+            # BEST-EFFORT, DELIBERATELY. `run` is already persisted above — a display counter
+            # that could not claim its own lock under heavy contention must never turn into an
+            # exception out of `_save`, which every caller (the tick, the inline fire) treats as
+            # "the send itself failed".
+            try:
+                await record_reach(self._s, run.tenant, goal, run.sent)
+            except Exception:
+                pass
 
 
 def _count(reasons: dict[str, int], reason: str) -> None:

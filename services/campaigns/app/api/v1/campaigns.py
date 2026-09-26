@@ -627,7 +627,14 @@ async def create(request: Request, body: CampaignIn,
     # campaign history (see app.core.goal_stats's own docstring, same move `record_lock` already
     # made). Counted here, once, on an actual creation — never on a re-press the idempotency claim
     # above already resolved to the SAME campaign.
-    await record_use(c.datastore, campaign.tenant, campaign.goal)
+    #
+    # BEST-EFFORT, DELIBERATELY. The campaign itself is already written and its claim already
+    # settled above — a display counter that could not claim its own lock under heavy contention
+    # must never turn into a 500 on a campaign that was, in fact, created.
+    try:
+        await record_use(c.datastore, campaign.tenant, campaign.goal)
+    except Exception:
+        pass
 
     # A FUTURE `fire_at` — ANY GOAL NOW, not only «مناسبة عميلك» (2026-09-12). Best-effort handed
     # to job-service (platform/services/job-service) so it fires close to the exact moment
