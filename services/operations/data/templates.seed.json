@@ -1596,9 +1596,6 @@
         "غسلة خارجية مجانية",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
       ],
-      "flow_button": {
-        "flow_name": "booking_flow"
-      },
       "footer": "للأوقات والتفاصيل، راسلنا",
       "shape_category": "INVITE"
     },
@@ -1635,9 +1632,6 @@
         "قصة شعر مجانية",
         "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
       ],
-      "flow_button": {
-        "flow_name": "booking_flow"
-      },
       "footer": "للأوقات والتفاصيل، راسلنا",
       "shape_category": "INVITE"
     },
@@ -1674,9 +1668,6 @@
         "لو وصلنا 100 سيارة هالأسبوع، الكل ياخذ غسلة مجانية",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
       ],
-      "flow_button": {
-        "flow_name": "booking_flow"
-      },
       "footer": "للأوقات والتفاصيل، راسلنا",
       "shape_category": "INVITE"
     },
@@ -1713,9 +1704,6 @@
         "لو وصلنا 100 قصة هالأسبوع، الكل تاخذ خصم 50%",
         "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
       ],
-      "flow_button": {
-        "flow_name": "booking_flow"
-      },
       "footer": "للأوقات والتفاصيل، راسلنا",
       "shape_category": "INVITE"
     }
