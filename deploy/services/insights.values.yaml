@@ -168,7 +168,7 @@ env:
   # shown a recommendation we have stopped believing.
   ASSOC_STRONG_LIFT: "1.5"
   ASSOC_WEAK_LIFT: "1.2"
-  ASSOC_MIN_BASKETS: "200"
+  ASSOC_MIN_BASKETS: "100"
   ASSOC_MIN_PAIR_SUPPORT: "5"
   # After this the panel LABELS the number stale. It is still served — a figure from this morning
   # beats a spinner — but the owner is told its age, because one who compares ours to his till at

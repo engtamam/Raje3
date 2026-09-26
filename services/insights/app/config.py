@@ -308,7 +308,7 @@ class Settings(BaseSettings):
     # shop is being shown a recommendation we no longer believe.
     ASSOC_STRONG_LIFT: float = 1.5          # above this, more than chance explains, by enough to act
     ASSOC_WEAK_LIFT: float = 1.2            # below this, absent enough to call absent
-    ASSOC_MIN_BASKETS: int = 200            # under this we say we are still learning
+    ASSOC_MIN_BASKETS: int = 100            # under this we say we are still learning (owner: was 200, 2026-09-26)
     ASSOC_MIN_PAIR_SUPPORT: int = 5         # a pair seen twice in a year is noise, not a rule
     # The floor below which a real pair is not yet an opportunity worth naming. A count of PEOPLE
     # rather than a share, because "twenty customers" is a thing an owner can picture — and twenty
