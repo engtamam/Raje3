@@ -1340,5 +1340,10 @@
   "shopOptOutRate": "{p}% ang humiling na itigil ang mensahe",
   "@shopOptOutRate": { "placeholders": { "p": { "type": "String" } } },
   "shopHoldoutNoMessages": "Walang mensahe",
-  "shopHoldoutReached": "Na-message"
+  "shopHoldoutReached": "Na-message",
+  "shopHoldoutOff": "Naka-off ang pagsukat ng epekto ng mensahe — natatanggap ng lahat ng customer mo ang lahat, kaya walang grupong maikukumpara.",
+  "shopHoldoutMeasuring": "Sinusukat pa namin ang epekto ng mensahe sa tindahan mo — {min} sa {need} sa mas maliit na grupo.",
+  "@shopHoldoutMeasuring": {
+    "placeholders": { "min": { "type": "int" }, "need": { "type": "int" } }
+  }
 }

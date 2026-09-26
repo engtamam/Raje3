@@ -5702,6 +5702,18 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'راسلناهم'**
   String get shopHoldoutReached;
+
+  /// No description provided for @shopHoldoutOff.
+  ///
+  /// In ar, this message translates to:
+  /// **'قياس أثر الرسائل غير مُفعَّل — كل عملائك يصلهم كل شيء، فلا مجموعة نقارن بها.'**
+  String get shopHoldoutOff;
+
+  /// No description provided for @shopHoldoutMeasuring.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما زلنا نقيس أثر الرسائل على محلّك — {min} من {need} في أصغر المجموعتين.'**
+  String shopHoldoutMeasuring(int min, int need);
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

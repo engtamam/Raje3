@@ -1340,5 +1340,10 @@
   "shopOptOutRate": "{p}% نے پیغامات بند کرنے کو کہا",
   "@shopOptOutRate": { "placeholders": { "p": { "type": "String" } } },
   "shopHoldoutNoMessages": "بلا پیغام",
-  "shopHoldoutReached": "پیغام بھیجا گیا"
+  "shopHoldoutReached": "پیغام بھیجا گیا",
+  "shopHoldoutOff": "پیغامات کے اثر کی پیمائش بند ہے — سب گاہکوں کو سب کچھ پہنچتا ہے، تو موازنے کے لیے کوئی گروہ نہیں۔",
+  "shopHoldoutMeasuring": "ہم ابھی بھی آپ کی دکان پر پیغامات کا اثر ماپ رہے ہیں — چھوٹے گروہ میں {need} میں سے {min}۔",
+  "@shopHoldoutMeasuring": {
+    "placeholders": { "min": { "type": "int" }, "need": { "type": "int" } }
+  }
 }

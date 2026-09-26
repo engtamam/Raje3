@@ -3347,4 +3347,13 @@ class SAr extends S {
 
   @override
   String get shopHoldoutReached => 'راسلناهم';
+
+  @override
+  String get shopHoldoutOff =>
+      'قياس أثر الرسائل غير مُفعَّل — كل عملائك يصلهم كل شيء، فلا مجموعة نقارن بها.';
+
+  @override
+  String shopHoldoutMeasuring(int min, int need) {
+    return 'ما زلنا نقيس أثر الرسائل على محلّك — $min من $need في أصغر المجموعتين.';
+  }
 }

@@ -3341,4 +3341,13 @@ class SUr extends S {
 
   @override
   String get shopHoldoutReached => 'پیغام بھیجا گیا';
+
+  @override
+  String get shopHoldoutOff =>
+      'پیغامات کے اثر کی پیمائش بند ہے — سب گاہکوں کو سب کچھ پہنچتا ہے، تو موازنے کے لیے کوئی گروہ نہیں۔';
+
+  @override
+  String shopHoldoutMeasuring(int min, int need) {
+    return 'ہم ابھی بھی آپ کی دکان پر پیغامات کا اثر ماپ رہے ہیں — چھوٹے گروہ میں $need میں سے $min۔';
+  }
 }

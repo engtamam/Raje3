@@ -3347,4 +3347,13 @@ class SHa extends S {
 
   @override
   String get shopHoldoutReached => 'An aika saƙo';
+
+  @override
+  String get shopHoldoutOff =>
+      'Auna tasirin saƙonni a kashe yake — duk abokan cinikinka suna karɓar komai, don haka babu ƙungiyar kwatantawa.';
+
+  @override
+  String shopHoldoutMeasuring(int min, int need) {
+    return 'Muna ci gaba da auna tasirin saƙonni a shagonka — $min daga cikin $need a ƙaramar ƙungiya.';
+  }
 }

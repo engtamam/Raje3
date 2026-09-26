@@ -1340,5 +1340,10 @@
   "shopOptOutRate": "{p}% sun nemi a daina musu saƙonni",
   "@shopOptOutRate": { "placeholders": { "p": { "type": "String" } } },
   "shopHoldoutNoMessages": "Babu saƙo",
-  "shopHoldoutReached": "An aika saƙo"
+  "shopHoldoutReached": "An aika saƙo",
+  "shopHoldoutOff": "Auna tasirin saƙonni a kashe yake — duk abokan cinikinka suna karɓar komai, don haka babu ƙungiyar kwatantawa.",
+  "shopHoldoutMeasuring": "Muna ci gaba da auna tasirin saƙonni a shagonka — {min} daga cikin {need} a ƙaramar ƙungiya.",
+  "@shopHoldoutMeasuring": {
+    "placeholders": { "min": { "type": "int" }, "need": { "type": "int" } }
+  }
 }

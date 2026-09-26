@@ -3374,4 +3374,13 @@ class SEn extends S {
 
   @override
   String get shopHoldoutReached => 'Messaged';
+
+  @override
+  String get shopHoldoutOff =>
+      'Message-impact measurement is off — all your customers receive everything, so there\'s no group to compare against.';
+
+  @override
+  String shopHoldoutMeasuring(int min, int need) {
+    return 'We\'re still measuring your messages\' impact — $min of $need in the smaller group.';
+  }
 }

@@ -3337,4 +3337,13 @@ class SBn extends S {
 
   @override
   String get shopHoldoutReached => 'বার্তা পাঠানো হয়েছে';
+
+  @override
+  String get shopHoldoutOff =>
+      'বার্তার প্রভাব পরিমাপ বন্ধ আছে — আপনার সব গ্রাহকের কাছে সবকিছু পৌঁছায়, তাই তুলনা করার কোনো দল নেই।';
+
+  @override
+  String shopHoldoutMeasuring(int min, int need) {
+    return 'আমরা এখনও আপনার দোকানে বার্তার প্রভাব পরিমাপ করছি — ছোট দলে $need-এর মধ্যে $min জন।';
+  }
 }

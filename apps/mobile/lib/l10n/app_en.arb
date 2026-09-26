@@ -1340,5 +1340,10 @@
   "shopOptOutRate": "{p}% asked to stop receiving messages",
   "@shopOptOutRate": { "placeholders": { "p": { "type": "String" } } },
   "shopHoldoutNoMessages": "No messages",
-  "shopHoldoutReached": "Messaged"
+  "shopHoldoutReached": "Messaged",
+  "shopHoldoutOff": "Message-impact measurement is off — all your customers receive everything, so there's no group to compare against.",
+  "shopHoldoutMeasuring": "We're still measuring your messages' impact — {min} of {need} in the smaller group.",
+  "@shopHoldoutMeasuring": {
+    "placeholders": { "min": { "type": "int" }, "need": { "type": "int" } }
+  }
 }

@@ -1135,7 +1135,9 @@ class _MessageFlowCard extends StatelessWidget {
           if (eff != null && eff!.ready)
             Text(s.shopReturnedAfterReminder(eff!.visits ?? 0, eff!.windowDays ?? 0), style: AppTextStyles.bodySmall)
           else if (eff != null)
-            Text(eff!.reason ?? '', style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
+            // `eff.reason` is a raw backend code — console's own MessageFlow never shows it,
+            // always falling back to a fixed "no data" sentence regardless of the reason.
+            Text(s.shopMutedMessageFlowNote, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
           if (opt != null && opt!.ready) ...[
             const SizedBox(height: 4),
             Text(
@@ -1158,7 +1160,15 @@ class _HoldoutCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     if (!h.ready) {
-      return _MutedCard(title: s.shopHoldoutTitle, note: h.reason ?? s.shopMutedHoldoutNote);
+      // `h.reason` is a raw backend code (`holdout_off`, or absent while still measuring) —
+      // never shown verbatim, matching Shop.tsx's own `reason === 'holdout_off'` branch.
+      final note = h.reason == 'holdout_off'
+          ? s.shopHoldoutOff
+          : s.shopHoldoutMeasuring(
+              (h.held ?? 0) < (h.reached ?? 0) ? (h.held ?? 0) : (h.reached ?? 0),
+              h.need ?? 0,
+            );
+      return _MutedCard(title: s.shopHoldoutTitle, note: note);
     }
     final heldRate = h.heldRate ?? 0;
     final reachedRate = h.reachedRate ?? 0;

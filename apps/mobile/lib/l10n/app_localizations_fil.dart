@@ -3419,4 +3419,13 @@ class SFil extends S {
 
   @override
   String get shopHoldoutReached => 'Na-message';
+
+  @override
+  String get shopHoldoutOff =>
+      'Naka-off ang pagsukat ng epekto ng mensahe — natatanggap ng lahat ng customer mo ang lahat, kaya walang grupong maikukumpara.';
+
+  @override
+  String shopHoldoutMeasuring(int min, int need) {
+    return 'Sinusukat pa namin ang epekto ng mensahe sa tindahan mo — $min sa $need sa mas maliit na grupo.';
+  }
 }
