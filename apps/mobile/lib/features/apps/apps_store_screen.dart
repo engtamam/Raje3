@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
-import 'package:raje3_mobile/core/services/auth_service.dart' show BillingOverview, BillingPlan, BillingSubscription;
+import 'package:raje3_mobile/core/services/auth_service.dart' show BillingOverview, BillingPlan, BillingSubscription, DiscountInfo;
 import 'package:raje3_mobile/features/apps/payment_webview_screen.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/models/app_store_model.dart';
@@ -43,8 +43,17 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
   bool _cartPreviewBusy = false;
   bool _checkingOut = false;
   String _error = '';
+  String _cartNotice = '';
   String _capacityBusyPlanId = '';
   String _capacityError = '';
+  Map<String, DiscountInfo> _discountApplied = const {};
+  Map<String, DiscountInfo> _discountPotential = const {};
+
+  /// billingShared.tsx's own PREREQ_KEYS/DEPENDENT_KEYS — client-side cascade rule, same one
+  /// `useAppBilling.ts::cascadeTargets` follows: cancelling the shop's LAST prerequisite (تسجيل
+  /// زيارة/الحجوزات) takes down every app that names one of them in `plan.requires_any`.
+  static const _prereqKeys = ['feature.visit', 'feature.bookings'];
+  static const _dependentKeys = ['feature.loyalty', 'feature.rating', 'feature.insights.engine', 'feature.campaigns'];
 
   @override
   void initState() {
@@ -54,13 +63,63 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
 
   Future<void> _load() async {
     final auth = context.read<AuthProvider>();
+    final (applied, potential) = await auth.fetchDiscountPreview();
     final results = await Future.wait([auth.fetchOwnership(), auth.fetchPurchasablePlans(), auth.fetchBillingOverview()]);
     if (!mounted) return;
     setState(() {
       _owned = results[0] as Owned?;
       _plans = results[1] as List<BillingPlan>?;
       _subs = (results[2] as BillingOverview?)?.subscriptions;
+      _discountApplied = applied;
+      _discountPotential = potential;
     });
+  }
+
+  /// The real app name behind a discount's `owning_key` — resolved from [kAppRows], never
+  /// invented (mirrors AppLauncher.tsx's own `appNameOf`).
+  String _appNameForKey(String key) => kAppRows.where((r) => r.key == key).map((r) => r.name).firstOrNull ?? key;
+
+  /// billingShared.tsx's own `REQUIRES_ANY_KEYS` short names, falling back to the raw key for one
+  /// this screen doesn't name yet — never a blank space where a real requirement should read.
+  String _requiresAnyLabel(S s, String key) {
+    switch (key) {
+      case 'feature.visit': return s.appStoreRequiresAnyVisit;
+      case 'feature.bookings': return s.appStoreRequiresAnyBookings;
+      case 'feature.contacts': return s.appStoreRequiresAnyContacts;
+      default: return key;
+    }
+  }
+
+  /// billingShared.tsx's own `missingRequirement` — empty when the plan has no dependency, or the
+  /// shop already holds one of the keys it names.
+  String _missingRequirement(S s, BillingPlan plan) {
+    final need = plan.requiresAny;
+    if (need.isEmpty || _owned == null) return '';
+    if (need.any((k) => _owned!.owns(k) == true)) return '';
+    final names = need.map((k) => _requiresAnyLabel(s, k)).join(' ${s.appStoreOr} ');
+    return s.appStoreMissingRequirement(names);
+  }
+
+  /// useAppBilling.ts's own `cascadeTargets` — the OTHER active app subscriptions that would lose
+  /// their last prerequisite if [cancelling] goes through, so they must be named and cancelled
+  /// alongside it, never silently orphaned still charging for a feature with no foundation left.
+  List<BillingSubscription> _cascadeTargets(BillingSubscription cancelling) {
+    final plans = _plans ?? const <BillingPlan>[];
+    final subs = _subs ?? const <BillingSubscription>[];
+    final cancelledPlan = plans.where((p) => p.id == cancelling.planId).firstOrNull;
+    final cancelledKey = cancelledPlan?.appKey ?? '';
+    if (!_prereqKeys.contains(cancelledKey)) return const [];
+    final stillHasPrereq = _prereqKeys.where((k) => k != cancelledKey).any((k) {
+      final p = plans.where((pp) => pp.appKey == k).firstOrNull;
+      if (p == null) return false;
+      return subs.any((s) => s.planId == p.id && s.id != cancelling.id && s.status != 'canceled' && !s.cancelAtPeriodEnd);
+    });
+    if (stillHasPrereq) return const [];
+    return subs.where((s) {
+      if (s.id == cancelling.id || s.status == 'canceled' || s.cancelAtPeriodEnd) return false;
+      final p = plans.where((pp) => pp.id == s.planId).firstOrNull;
+      return p != null && _dependentKeys.contains(p.appKey);
+    }).toList(growable: false);
   }
 
   BillingPlan? _planFor(String key) {
@@ -150,14 +209,41 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
     }
   }
 
+  /// useAppBilling.ts's own `toggleCart` — ADDING a plan whose own `plan.requires_any` is not
+  /// already held OR already in the cart auto-adds the first plan that grants one of those keys.
+  /// The owner's own instruction: never a text-only suggestion, the dependency travels in the
+  /// same cart. Removing a plan never removes what it auto-added — the shop chose it, or it
+  /// stays because something else still needs it.
   void _toggleCart(String planId) {
     HapticFeedback.selectionClick();
+    if (_cart.contains(planId)) {
+      setState(() { _cart.remove(planId); _cartNotice = ''; });
+      _refreshCartPreview();
+      return;
+    }
+    final plan = (_plans ?? const <BillingPlan>[]).where((p) => p.id == planId).firstOrNull;
+    var notice = '';
     setState(() {
-      if (_cart.contains(planId)) {
-        _cart.remove(planId);
-      } else {
-        _cart.add(planId);
+      _cart.add(planId);
+      final need = plan?.requiresAny ?? const <String>[];
+      if (need.isNotEmpty) {
+        final satisfied = need.any((k) => _owned?.owns(k) == true) ||
+            need.any((k) => _cart.any((id) {
+                  final p = (_plans ?? const <BillingPlan>[]).where((pp) => pp.id == id).firstOrNull;
+                  return p?.appKey == k;
+                }));
+        if (!satisfied) {
+          final provider = need
+              .map((k) => (_plans ?? const <BillingPlan>[]).where((p) => p.appKey == k).firstOrNull)
+              .whereType<BillingPlan>()
+              .firstOrNull;
+          if (provider != null) {
+            _cart.add(provider.id);
+            notice = S.of(context)!.appStoreAutoAdded(provider.name, plan!.name);
+          }
+        }
       }
+      _cartNotice = notice;
     });
     _refreshCartPreview();
   }
@@ -315,6 +401,7 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
                           owned: owned,
                           plan: plan,
                           sub: sub,
+                          discountPercent: plan != null ? _discountApplied[plan.id]?.percent : null,
                           showBilling: _tab,
                           inCart: plan != null && _cart.contains(plan.id),
                           onToggleCart: plan != null && owned != true ? () => _toggleCart(plan.id) : null,
@@ -372,6 +459,8 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
               previewBusy: _cartPreviewBusy,
               busy: _checkingOut,
               error: _error,
+              notice: _cartNotice,
+              discounts: _discountApplied,
               onRemove: _toggleCart,
               onCheckout: _openCheckout,
             )
@@ -388,14 +477,37 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
 
   void _showDetails(AppRow row, BillingPlan? plan, bool? owned, BillingSubscription? sub) {
     final auth = context.read<AuthProvider>();
+    final cascade = sub != null ? _cascadeTargets(sub) : const <BillingSubscription>[];
+    final cascadeNames = cascade
+        .map((s) => (_plans ?? const <BillingPlan>[]).where((p) => p.id == s.planId).firstOrNull?.name)
+        .whereType<String>()
+        .toList(growable: false);
+    final discount = plan != null ? _discountApplied[plan.id] : null;
+    final potential = plan != null && discount == null ? _discountPotential[plan.id] : null;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _AppDetailsSheet(
         row: row, plan: plan, owned: owned, sub: sub,
-        onSubscribe: plan != null ? () => _quickSubscribe(plan) : null,
-        onCancel: sub != null ? () async { final ok = await auth.cancelSubscription(sub.id); if (ok) await _load(); } : null,
+        missingRequirement: plan != null ? _missingRequirement(S.of(context)!, plan) : '',
+        cascadeNames: cascadeNames,
+        discountPercent: discount?.percent,
+        discountAppName: discount != null ? _appNameForKey(discount.owningKey) : null,
+        potentialDiscountPercent: potential?.percent,
+        potentialDiscountAppName: potential != null ? _appNameForKey(potential.owningKey) : null,
+        onSubscribe: plan != null && _missingRequirement(S.of(context)!, plan).isEmpty ? () => _quickSubscribe(plan) : null,
+        onCancel: sub != null
+            ? () async {
+                final ok = await auth.cancelSubscription(sub.id);
+                if (ok) {
+                  for (final target in cascade) {
+                    await auth.cancelSubscription(target.id);
+                  }
+                }
+                if (ok) await _load();
+              }
+            : null,
         onUndoCancel: sub != null && sub.cancelAtPeriodEnd
             ? () async { final ok = await auth.undoCancelSubscription(sub.id); if (ok) await _load(); }
             : null,
@@ -465,6 +577,7 @@ Color _appAccent(String id) {
 class _AppCard extends StatefulWidget {
   const _AppCard({
     required this.row, required this.owned, required this.plan, required this.sub,
+    this.discountPercent,
     required this.showBilling, required this.inCart, required this.onToggleCart,
     required this.onOpen, required this.onTapDetails,
   });
@@ -472,6 +585,9 @@ class _AppCard extends StatefulWidget {
   final bool? owned;
   final BillingPlan? plan;
   final BillingSubscription? sub;
+  /// billingShared's own applied-discount percent for this plan — a small ribbon on the card
+  /// face itself, never something the shop only learns after opening details.
+  final int? discountPercent;
   final bool showBilling;
   final bool inCart;
   final VoidCallback? onToggleCart;
@@ -553,17 +669,30 @@ class _AppCardState extends State<_AppCard> {
                   ),
                   if (widget.showBilling && widget.plan != null) ...[
                     const SizedBox(height: 6),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(_riyals(widget.plan!.monthlyAmountMinor),
-                            style: AppTextStyles.headlineSmall.copyWith(fontWeight: FontWeight.w900, color: Colors.white)),
-                        const SizedBox(width: 3),
-                        Text(S.of(context)!.appStorePerMonthShort,
-                            style: AppTextStyles.bodySmall.copyWith(color: Colors.white.withValues(alpha: 0.85), fontWeight: FontWeight.w600)),
-                      ],
-                    ),
+                    if (widget.discountPercent != null)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(_riyals(widget.plan!.monthlyAmountMinor),
+                              style: AppTextStyles.bodySmall.copyWith(color: Colors.white.withValues(alpha: 0.65), decoration: TextDecoration.lineThrough)),
+                          const SizedBox(width: 5),
+                          Text(S.of(context)!.appStoreDiscountedShort(widget.discountPercent!),
+                              style: AppTextStyles.headlineSmall.copyWith(fontWeight: FontWeight.w900, color: const Color(0xFF8CF5C9))),
+                        ],
+                      )
+                    else
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(_riyals(widget.plan!.monthlyAmountMinor),
+                              style: AppTextStyles.headlineSmall.copyWith(fontWeight: FontWeight.w900, color: Colors.white)),
+                          const SizedBox(width: 3),
+                          Text(S.of(context)!.appStorePerMonthShort,
+                              style: AppTextStyles.bodySmall.copyWith(color: Colors.white.withValues(alpha: 0.85), fontWeight: FontWeight.w600)),
+                        ],
+                      ),
                   ],
                   if (widget.showBilling) ...[
                     const SizedBox(height: 8),
@@ -653,7 +782,12 @@ class _CapacityCardState extends State<_CapacityCard> {
 
     if (_confirming && widget.sub != null) {
       return CapabilityGate(
-        requires: const ['billing.self'],
+        // `billing.self` IS A CAPABILITY, NOT A CATALOGUE ACTION ID — `hasAll` checks action ids
+        // (billing_screen.dart's own `billing.cancel`/`billing.undo_cancel` usage is the real
+        // convention), so this literal string never matched anything and silently hid every
+        // purchase/cancel/checkout control on this screen. Found live 2026-09-26 verifying the
+        // gap-closure work above; fixed here with the real action id each button actually calls.
+        requires: const ['billing.cancel'],
         child: KbAnchor(
         id: 'apps.capacity_confirm_remove',
         child: Container(
@@ -681,7 +815,7 @@ class _CapacityCardState extends State<_CapacityCard> {
     }
 
     return CapabilityGate(
-      requires: const ['billing.self'],
+      requires: const ['subscription.activate'],
       child: KbAnchor(
       id: 'apps.capacity_stepper',
       child: Container(
@@ -724,7 +858,8 @@ class _CapacityCardState extends State<_CapacityCard> {
 class _CartBar extends StatelessWidget {
   const _CartBar({
     required this.plans, required this.listTotal, required this.preview, required this.previewBusy,
-    required this.busy, required this.error, required this.onRemove, required this.onCheckout,
+    required this.busy, required this.error, required this.notice, required this.discounts,
+    required this.onRemove, required this.onCheckout,
   });
   final List<BillingPlan> plans;
   final int listTotal;
@@ -732,6 +867,12 @@ class _CartBar extends StatelessWidget {
   final bool previewBusy;
   final bool busy;
   final String error;
+  /// useAppBilling.ts's own `cartNotice` — the auto-add sentence, shown once and cleared the
+  /// next time the cart changes (the caller's own `_toggleCart` resets it).
+  final String notice;
+  /// Known discounts, keyed by plan id — shown per item as a badge, never folded silently into
+  /// the total with nothing explaining where it came from (CartBar.tsx's own rule).
+  final Map<String, DiscountInfo> discounts;
   final ValueChanged<String> onRemove;
   final VoidCallback onCheckout;
 
@@ -773,13 +914,66 @@ class _CartBar extends StatelessWidget {
                 ),
               ],
             ),
+            // ONE LINE PER PLAN, WITH ITS OWN DISCOUNT BADGE WHEN IT HAS ONE — never a bare
+            // count folded into a single number; CartBar.tsx's own rule.
+            const SizedBox(height: 6),
+            for (final p in plans)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 1),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(p.name, style: AppTextStyles.caption.copyWith(color: colors.textSecondary), overflow: TextOverflow.ellipsis),
+                    ),
+                    if (discounts[p.id] != null)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 6),
+                        child: Text(s.appStoreCartItemDiscount(discounts[p.id]!.percent),
+                            style: AppTextStyles.caption.copyWith(color: AppColors.success, fontWeight: FontWeight.w700)),
+                      ),
+                    GestureDetector(
+                      onTap: () => onRemove(p.id),
+                      child: Icon(Icons.close_rounded, size: 14, color: colors.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+            // THE REAL BREAKDOWN, ONCE THE SERVER HAS ANSWERED — subtotal/discount/tax, each its
+            // own line straight off `CartPreview`, never a locally-summed total pretending to be
+            // final (useAppBilling.ts's own rule: the server's number always wins).
+            if (preview != null) ...[
+              const SizedBox(height: 6),
+              Divider(height: 1, color: colors.borderSubtle),
+              const SizedBox(height: 6),
+              _CartLine(label: s.appStoreCartSubtotal, value: preview!.subtotalMinor, colors: colors),
+              if (preview!.discountMinor > 0)
+                _CartLine(label: s.appStoreCartDiscount, value: -preview!.discountMinor, colors: colors, good: true),
+              if (preview!.taxMinor > 0) _CartLine(label: s.appStoreCartTax, value: preview!.taxMinor, colors: colors),
+              _CartLine(label: s.appStoreCartTotal, value: preview!.totalMinor, colors: colors, bold: true),
+              const SizedBox(height: 4),
+              Text(s.appStoreCartDiscountCaveat, style: AppTextStyles.caption.copyWith(color: colors.textMuted, fontSize: 10)),
+            ],
+            if (notice.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.08), borderRadius: AppRadius.standardRadius),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded, size: 14, color: AppColors.accent),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(notice, style: AppTextStyles.caption.copyWith(color: AppColors.accent))),
+                  ],
+                ),
+              ),
+            ],
             if (error.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(error, style: AppTextStyles.caption.copyWith(color: AppColors.danger)),
             ],
             const SizedBox(height: 8),
             CapabilityGate(
-              requires: const ['billing.self'],
+              requires: const ['subscription.checkout_cart_link'],
               child: SizedBox(
                 width: double.infinity,
                 child: PrimaryButton(
@@ -795,15 +989,55 @@ class _CartBar extends StatelessWidget {
   }
 }
 
+class _CartLine extends StatelessWidget {
+  final String label;
+  final int value;
+  final AppThemeColors colors;
+  final bool good;
+  final bool bold;
+  const _CartLine({required this.label, required this.value, required this.colors, this.good = false, this.bold = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = good ? AppColors.success : (bold ? null : colors.textSecondary);
+    final style = bold
+        ? AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w800, color: color)
+        : AppTextStyles.caption.copyWith(color: color);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: style),
+          Text('${value < 0 ? '-' : ''}${_riyals(value.abs())}', textDirection: TextDirection.ltr, style: style),
+        ],
+      ),
+    );
+  }
+}
+
 class _AppDetailsSheet extends StatelessWidget {
   const _AppDetailsSheet({
     required this.row, required this.plan, required this.owned, required this.sub,
+    this.missingRequirement = '', this.cascadeNames = const [],
+    this.discountPercent, this.discountAppName,
+    this.potentialDiscountPercent, this.potentialDiscountAppName,
     this.onSubscribe, this.onCancel, this.onUndoCancel,
   });
   final AppRow row;
   final BillingPlan? plan;
   final bool? owned;
   final BillingSubscription? sub;
+  /// billingShared.tsx's own `missingRequirement` — the sentence naming what to activate first,
+  /// empty when this plan has no dependency or the shop already holds it.
+  final String missingRequirement;
+  /// useAppBilling.ts's own `cascadeTargets`, resolved to real names — the other apps this cancel
+  /// would take down with it, named in the confirm dialog, never a silent side effect.
+  final List<String> cascadeNames;
+  final int? discountPercent;
+  final String? discountAppName;
+  final int? potentialDiscountPercent;
+  final String? potentialDiscountAppName;
   final VoidCallback? onSubscribe;
   final VoidCallback? onCancel;
   final VoidCallback? onUndoCancel;
@@ -845,21 +1079,45 @@ class _AppDetailsSheet extends StatelessWidget {
                     Text(row.what, style: AppTextStyles.bodySmall.copyWith(color: colors.textSecondary)),
                     if (plan != null) ...[
                       const SizedBox(height: AppSpacing.md),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(_riyals(plan!.monthlyAmountMinor), style: AppTextStyles.headlineSmall),
-                          const SizedBox(width: 4),
-                          Text(s.appStorePerMonth, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
-                        ],
-                      ),
+                      if (discountPercent != null)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(_riyals(plan!.monthlyAmountMinor),
+                                style: AppTextStyles.bodySmall.copyWith(color: colors.textMuted, decoration: TextDecoration.lineThrough)),
+                            const SizedBox(width: 6),
+                            Text(
+                              discountAppName != null
+                                  ? s.appStoreDiscountBadgeWithApp(discountPercent!, discountAppName!)
+                                  : s.appStoreDiscountedShort(discountPercent!),
+                              style: AppTextStyles.headlineSmall.copyWith(color: AppColors.success, fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        )
+                      else
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(_riyals(plan!.monthlyAmountMinor), style: AppTextStyles.headlineSmall),
+                            const SizedBox(width: 4),
+                            Text(s.appStorePerMonth, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
+                          ],
+                        ),
+                      // THE GOLD TEASER — same luxury treatment shop_screen.dart's own whatsapp_ai_teaser
+                      // gets: a real, computed cross-sell rule, never plain text, because it names money
+                      // the shop is one subscription away from saving.
+                      if (potentialDiscountPercent != null && potentialDiscountAppName != null) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        _OfferChip(percent: potentialDiscountPercent!, appName: potentialDiscountAppName!),
+                      ],
                       const SizedBox(height: AppSpacing.sm),
                       if (owned == true) ...[
                         if (sub?.cancelAtPeriodEnd == true) ...[
                           if (onUndoCancel != null)
                             CapabilityGate(
-                              requires: const ['billing.self'],
+                              requires: const ['billing.undo_cancel'],
                               child: KbAnchor(
                                 id: 'apps.details_undo_cancel',
                                 child: SizedBox(width: double.infinity, child: OutlinedButton(onPressed: onUndoCancel, child: Text(s.appStoreUndoCancel))),
@@ -867,7 +1125,7 @@ class _AppDetailsSheet extends StatelessWidget {
                             ),
                         ] else if (onCancel != null)
                           CapabilityGate(
-                            requires: const ['billing.self'],
+                            requires: const ['billing.cancel'],
                             child: KbAnchor(
                               id: 'apps.details_cancel',
                               child: SizedBox(
@@ -876,7 +1134,20 @@ class _AppDetailsSheet extends StatelessWidget {
                                   onPressed: () => showDialog<void>(
                                     context: context,
                                     builder: (dialogContext) => AlertDialog(
-                                      content: Text(s.appStoreConfirmCancel),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(s.appStoreConfirmCancel),
+                                          if (cascadeNames.isNotEmpty) ...[
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              s.appStoreCascadeWarning(cascadeNames.join('، ')),
+                                              style: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w700),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                       actions: [
                                         TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(s.mobileRequestsRejectCancel)),
                                         TextButton(
@@ -891,14 +1162,74 @@ class _AppDetailsSheet extends StatelessWidget {
                               ),
                             ),
                           ),
-                      ] else if (onSubscribe != null)
+                      ] else if (missingRequirement.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(AppSpacing.sm),
+                          decoration: BoxDecoration(color: colors.surfaceAlt, borderRadius: AppRadius.standardRadius),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline_rounded, size: 16, color: colors.textMuted),
+                              const SizedBox(width: 6),
+                              Expanded(child: Text(missingRequirement, style: AppTextStyles.caption.copyWith(color: colors.textSecondary))),
+                            ],
+                          ),
+                        )
+                      else if (onSubscribe != null)
                         CapabilityGate(
-                          requires: const ['billing.self'],
+                          requires: const ['subscription.activate'],
                           child: SizedBox(width: double.infinity, child: PrimaryButton(text: s.appStoreSubscribe, onPressed: onSubscribe)),
                         ),
                     ],
                   ],
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// billingShared.tsx's own `OfferChip` — a gold-on-charcoal teaser with a continuous light-sweep
+/// (`RjSheen`), the same identity `_AppCard`'s own VIP tile already carries, so a real cross-sell
+/// offer reads as unmistakably premium rather than one more grey info box.
+class _OfferChip extends StatelessWidget {
+  final int percent;
+  final String appName;
+  const _OfferChip({required this.percent, required this.appName});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context)!;
+    return RjSheen(
+      borderRadius: AppRadius.standardRadius,
+      tint: const Color(0xFFD4AF37),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: AppRadius.standardRadius,
+          gradient: const LinearGradient(colors: [Color(0xFF1A1207), Color(0xFF2F210C), Color(0xFF4A3512)]),
+          border: Border.all(color: const Color(0x80D4AF37)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 32, height: 32,
+              decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0x33D4AF37)),
+              alignment: Alignment.center,
+              child: const Icon(Icons.auto_awesome_rounded, size: 16, color: Color(0xFFF4E2A4)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(s.appStoreOfferTitle(percent),
+                      style: AppTextStyles.bodySmall.copyWith(color: const Color(0xFFF4E2A4), fontWeight: FontWeight.w800)),
+                  Text(s.appStoreOfferDesc(appName),
+                      style: AppTextStyles.caption.copyWith(color: const Color(0xD9D4AF37))),
+                ],
               ),
             ),
           ],

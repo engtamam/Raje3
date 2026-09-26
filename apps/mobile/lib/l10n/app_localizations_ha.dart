@@ -2876,6 +2876,79 @@ class SHa extends S {
   }
 
   @override
+  String get appStoreCartSubtotal => 'Jimillar farko';
+
+  @override
+  String get appStoreCartDiscount => 'Ragi';
+
+  @override
+  String get appStoreCartTax => 'Haraji';
+
+  @override
+  String get appStoreCartTotal => 'Jimilla';
+
+  @override
+  String get appStoreCartDiscountCaveat =>
+      'Wannan farashin ba shi da ragi da haraji tukuna; ainihin adadin za a nuna lokacin biya.';
+
+  @override
+  String appStoreCartItemDiscount(int percent) {
+    return '(ragi $percent٪)';
+  }
+
+  @override
+  String appStoreAutoAdded(String added, String trigger) {
+    return 'An ƙara \"$added\" kai tsaye domin \"$trigger\" yana buƙatarsa.';
+  }
+
+  @override
+  String appStoreMissingRequirement(String names) {
+    return 'Yana buƙatar kunna $names tukuna.';
+  }
+
+  @override
+  String get appStoreRequiresAnyVisit => 'Rubuta Ziyara';
+
+  @override
+  String get appStoreRequiresAnyBookings => 'Ajiya';
+
+  @override
+  String get appStoreRequiresAnyContacts => 'Ma\'amaloli';
+
+  @override
+  String get appStoreOr => 'ko';
+
+  @override
+  String appStoreCascadeWarning(String names) {
+    return 'Wadannan ma za su dakata: $names';
+  }
+
+  @override
+  String appStoreDiscountBadge(int percent) {
+    return 'An yi ragi na $percent٪';
+  }
+
+  @override
+  String appStoreDiscountBadgeWithApp(int percent, String app) {
+    return 'An yi ragi na $percent٪ daga $app';
+  }
+
+  @override
+  String appStoreDiscountedShort(int percent) {
+    return 'Ragi $percent٪';
+  }
+
+  @override
+  String appStoreOfferTitle(int percent) {
+    return 'Ragin $percent٪ yana jiranka';
+  }
+
+  @override
+  String appStoreOfferDesc(String app) {
+    return 'Zai kunna kansa idan ka yi rijistar $app';
+  }
+
+  @override
   String get whatsappAssistantTitle => 'Mataimakin AI';
 
   @override
@@ -3541,4 +3614,43 @@ class SHa extends S {
 
   @override
   String get shopCustomerFallback => 'Abokin ciniki';
+
+  @override
+  String get shopKpiActiveCustomers => 'Abokan ciniki masu aiki';
+
+  @override
+  String get shopKpiReturnCycle => 'Zagayen dawowa';
+
+  @override
+  String shopDaysSuffix(int n) {
+    return 'kwana $n';
+  }
+
+  @override
+  String get shopKpiChurnRate => 'Barin abokan ciniki';
+
+  @override
+  String get shopTileServicesPerVisit => 'Ayyuka a kowace ziyara';
+
+  @override
+  String get shopTileExpectedNextWeek => 'Ana tsammani mako mai zuwa';
+
+  @override
+  String get shopTileCycleCompletion => 'Bin zagayen komowa';
+
+  @override
+  String get shopPerVisitMutedTitle => 'Ayyuka a kowace ziyara, da bin zagaye';
+
+  @override
+  String get shopPerVisitMutedNote =>
+      'Ana buƙatar ziyara na gaske tukuna don lissafawa.';
+
+  @override
+  String get shopLeadConversionTitle =>
+      'Sauyawar waɗanda suka fara tuntuɓar ka';
+
+  @override
+  String shopLeadConversionDetail(int converted, int total) {
+    return '$converted daga cikin $total sun zama ziyara ta gaske';
+  }
 }

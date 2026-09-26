@@ -4887,6 +4887,114 @@ abstract class S {
   /// **'هل تريد إزالة آخر وحدة من \"{name}\"؟ هذا يوقف تجديده بالكامل'**
   String appStoreCapacityConfirmRemove(String name);
 
+  /// No description provided for @appStoreCartSubtotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإجمالي الفرعي'**
+  String get appStoreCartSubtotal;
+
+  /// No description provided for @appStoreCartDiscount.
+  ///
+  /// In ar, this message translates to:
+  /// **'الخصم'**
+  String get appStoreCartDiscount;
+
+  /// No description provided for @appStoreCartTax.
+  ///
+  /// In ar, this message translates to:
+  /// **'الضريبة'**
+  String get appStoreCartTax;
+
+  /// No description provided for @appStoreCartTotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإجمالي'**
+  String get appStoreCartTotal;
+
+  /// No description provided for @appStoreCartDiscountCaveat.
+  ///
+  /// In ar, this message translates to:
+  /// **'السعر المعروض قبل الخصم والضريبة؛ المبلغ الفعلي يُحسب ويظهر عند الدفع.'**
+  String get appStoreCartDiscountCaveat;
+
+  /// No description provided for @appStoreCartItemDiscount.
+  ///
+  /// In ar, this message translates to:
+  /// **'(خصم {percent}٪)'**
+  String appStoreCartItemDiscount(int percent);
+
+  /// No description provided for @appStoreAutoAdded.
+  ///
+  /// In ar, this message translates to:
+  /// **'أُضيف \"{added}\" تلقائيًا لأن \"{trigger}\" يحتاج إليه.'**
+  String appStoreAutoAdded(String added, String trigger);
+
+  /// No description provided for @appStoreMissingRequirement.
+  ///
+  /// In ar, this message translates to:
+  /// **'يحتاج تفعيل {names} أولاً.'**
+  String appStoreMissingRequirement(String names);
+
+  /// No description provided for @appStoreRequiresAnyVisit.
+  ///
+  /// In ar, this message translates to:
+  /// **'تسجيل زيارة'**
+  String get appStoreRequiresAnyVisit;
+
+  /// No description provided for @appStoreRequiresAnyBookings.
+  ///
+  /// In ar, this message translates to:
+  /// **'الحجوزات'**
+  String get appStoreRequiresAnyBookings;
+
+  /// No description provided for @appStoreRequiresAnyContacts.
+  ///
+  /// In ar, this message translates to:
+  /// **'جهات الاتصال'**
+  String get appStoreRequiresAnyContacts;
+
+  /// No description provided for @appStoreOr.
+  ///
+  /// In ar, this message translates to:
+  /// **'أو'**
+  String get appStoreOr;
+
+  /// No description provided for @appStoreCascadeWarning.
+  ///
+  /// In ar, this message translates to:
+  /// **'سيتوقف معه أيضًا: {names}'**
+  String appStoreCascadeWarning(String names);
+
+  /// No description provided for @appStoreDiscountBadge.
+  ///
+  /// In ar, this message translates to:
+  /// **'خصم {percent}٪ مطبَّق'**
+  String appStoreDiscountBadge(int percent);
+
+  /// No description provided for @appStoreDiscountBadgeWithApp.
+  ///
+  /// In ar, this message translates to:
+  /// **'خصم {percent}٪ مطبَّق من {app}'**
+  String appStoreDiscountBadgeWithApp(int percent, String app);
+
+  /// No description provided for @appStoreDiscountedShort.
+  ///
+  /// In ar, this message translates to:
+  /// **'خصم {percent}٪'**
+  String appStoreDiscountedShort(int percent);
+
+  /// No description provided for @appStoreOfferTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'خصم {percent}٪ بانتظارك'**
+  String appStoreOfferTitle(int percent);
+
+  /// No description provided for @appStoreOfferDesc.
+  ///
+  /// In ar, this message translates to:
+  /// **'فعّله تلقائياً باشتراكك في {app}'**
+  String appStoreOfferDesc(String app);
+
   /// No description provided for @whatsappAssistantTitle.
   ///
   /// In ar, this message translates to:
@@ -6014,6 +6122,72 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'عميل'**
   String get shopCustomerFallback;
+
+  /// No description provided for @shopKpiActiveCustomers.
+  ///
+  /// In ar, this message translates to:
+  /// **'عملاء نشطون'**
+  String get shopKpiActiveCustomers;
+
+  /// No description provided for @shopKpiReturnCycle.
+  ///
+  /// In ar, this message translates to:
+  /// **'دورة العودة'**
+  String get shopKpiReturnCycle;
+
+  /// No description provided for @shopDaysSuffix.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} يومًا'**
+  String shopDaysSuffix(int n);
+
+  /// No description provided for @shopKpiChurnRate.
+  ///
+  /// In ar, this message translates to:
+  /// **'التسرّب'**
+  String get shopKpiChurnRate;
+
+  /// No description provided for @shopTileServicesPerVisit.
+  ///
+  /// In ar, this message translates to:
+  /// **'خدمات لكل زيارة'**
+  String get shopTileServicesPerVisit;
+
+  /// No description provided for @shopTileExpectedNextWeek.
+  ///
+  /// In ar, this message translates to:
+  /// **'متوقّع الأسبوع الجاي'**
+  String get shopTileExpectedNextWeek;
+
+  /// No description provided for @shopTileCycleCompletion.
+  ///
+  /// In ar, this message translates to:
+  /// **'التزام الدورة الدورية'**
+  String get shopTileCycleCompletion;
+
+  /// No description provided for @shopPerVisitMutedTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'خدماتك لكل زيارة، والالتزام بالدورة'**
+  String get shopPerVisitMutedTitle;
+
+  /// No description provided for @shopPerVisitMutedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحتاج زياراتٍ حقيقية أولاً لتُحسب.'**
+  String get shopPerVisitMutedNote;
+
+  /// No description provided for @shopLeadConversionTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحوّل من تواصلوا معك أول مرة'**
+  String get shopLeadConversionTitle;
+
+  /// No description provided for @shopLeadConversionDetail.
+  ///
+  /// In ar, this message translates to:
+  /// **'{converted} من {total} تحوّل لزيارة حقيقية'**
+  String shopLeadConversionDetail(int converted, int total);
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

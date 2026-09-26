@@ -2889,6 +2889,79 @@ class SAr extends S {
   }
 
   @override
+  String get appStoreCartSubtotal => 'الإجمالي الفرعي';
+
+  @override
+  String get appStoreCartDiscount => 'الخصم';
+
+  @override
+  String get appStoreCartTax => 'الضريبة';
+
+  @override
+  String get appStoreCartTotal => 'الإجمالي';
+
+  @override
+  String get appStoreCartDiscountCaveat =>
+      'السعر المعروض قبل الخصم والضريبة؛ المبلغ الفعلي يُحسب ويظهر عند الدفع.';
+
+  @override
+  String appStoreCartItemDiscount(int percent) {
+    return '(خصم $percent٪)';
+  }
+
+  @override
+  String appStoreAutoAdded(String added, String trigger) {
+    return 'أُضيف \"$added\" تلقائيًا لأن \"$trigger\" يحتاج إليه.';
+  }
+
+  @override
+  String appStoreMissingRequirement(String names) {
+    return 'يحتاج تفعيل $names أولاً.';
+  }
+
+  @override
+  String get appStoreRequiresAnyVisit => 'تسجيل زيارة';
+
+  @override
+  String get appStoreRequiresAnyBookings => 'الحجوزات';
+
+  @override
+  String get appStoreRequiresAnyContacts => 'جهات الاتصال';
+
+  @override
+  String get appStoreOr => 'أو';
+
+  @override
+  String appStoreCascadeWarning(String names) {
+    return 'سيتوقف معه أيضًا: $names';
+  }
+
+  @override
+  String appStoreDiscountBadge(int percent) {
+    return 'خصم $percent٪ مطبَّق';
+  }
+
+  @override
+  String appStoreDiscountBadgeWithApp(int percent, String app) {
+    return 'خصم $percent٪ مطبَّق من $app';
+  }
+
+  @override
+  String appStoreDiscountedShort(int percent) {
+    return 'خصم $percent٪';
+  }
+
+  @override
+  String appStoreOfferTitle(int percent) {
+    return 'خصم $percent٪ بانتظارك';
+  }
+
+  @override
+  String appStoreOfferDesc(String app) {
+    return 'فعّله تلقائياً باشتراكك في $app';
+  }
+
+  @override
   String get whatsappAssistantTitle => 'المساعد الذكي';
 
   @override
@@ -3539,4 +3612,41 @@ class SAr extends S {
 
   @override
   String get shopCustomerFallback => 'عميل';
+
+  @override
+  String get shopKpiActiveCustomers => 'عملاء نشطون';
+
+  @override
+  String get shopKpiReturnCycle => 'دورة العودة';
+
+  @override
+  String shopDaysSuffix(int n) {
+    return '$n يومًا';
+  }
+
+  @override
+  String get shopKpiChurnRate => 'التسرّب';
+
+  @override
+  String get shopTileServicesPerVisit => 'خدمات لكل زيارة';
+
+  @override
+  String get shopTileExpectedNextWeek => 'متوقّع الأسبوع الجاي';
+
+  @override
+  String get shopTileCycleCompletion => 'التزام الدورة الدورية';
+
+  @override
+  String get shopPerVisitMutedTitle => 'خدماتك لكل زيارة، والالتزام بالدورة';
+
+  @override
+  String get shopPerVisitMutedNote => 'تحتاج زياراتٍ حقيقية أولاً لتُحسب.';
+
+  @override
+  String get shopLeadConversionTitle => 'تحوّل من تواصلوا معك أول مرة';
+
+  @override
+  String shopLeadConversionDetail(int converted, int total) {
+    return '$converted من $total تحوّل لزيارة حقيقية';
+  }
 }

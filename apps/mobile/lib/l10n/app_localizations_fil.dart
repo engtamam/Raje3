@@ -2942,6 +2942,79 @@ class SFil extends S {
   }
 
   @override
+  String get appStoreCartSubtotal => 'Subtotal';
+
+  @override
+  String get appStoreCartDiscount => 'Diskwento';
+
+  @override
+  String get appStoreCartTax => 'Buwis';
+
+  @override
+  String get appStoreCartTotal => 'Kabuuan';
+
+  @override
+  String get appStoreCartDiscountCaveat =>
+      'Ipinapakita bago ang diskwento at buwis; ang eksaktong halaga ay kakalkulahin at ipapakita sa checkout.';
+
+  @override
+  String appStoreCartItemDiscount(int percent) {
+    return '($percent% diskwento)';
+  }
+
+  @override
+  String appStoreAutoAdded(String added, String trigger) {
+    return 'Naidagdag ang \"$added\" awtomatiko dahil kailangan ito ng \"$trigger\".';
+  }
+
+  @override
+  String appStoreMissingRequirement(String names) {
+    return 'Kailangan munang paganahin ang $names.';
+  }
+
+  @override
+  String get appStoreRequiresAnyVisit => 'I-record ang Bisita';
+
+  @override
+  String get appStoreRequiresAnyBookings => 'Mga Booking';
+
+  @override
+  String get appStoreRequiresAnyContacts => 'Mga Contact';
+
+  @override
+  String get appStoreOr => 'o';
+
+  @override
+  String appStoreCascadeWarning(String names) {
+    return 'Ihihinto rin ito: $names';
+  }
+
+  @override
+  String appStoreDiscountBadge(int percent) {
+    return '$percent% na diskwento ang naaplay';
+  }
+
+  @override
+  String appStoreDiscountBadgeWithApp(int percent, String app) {
+    return '$percent% na diskwento mula sa $app';
+  }
+
+  @override
+  String appStoreDiscountedShort(int percent) {
+    return '$percent% na diskwento';
+  }
+
+  @override
+  String appStoreOfferTitle(int percent) {
+    return 'May naghihintay na $percent% na diskwento';
+  }
+
+  @override
+  String appStoreOfferDesc(String app) {
+    return 'Awtomatikong ma-a-unlock kapag nag-subscribe ka sa $app';
+  }
+
+  @override
   String get whatsappAssistantTitle => 'AI Assistant';
 
   @override
@@ -3615,4 +3688,44 @@ class SFil extends S {
 
   @override
   String get shopCustomerFallback => 'Customer';
+
+  @override
+  String get shopKpiActiveCustomers => 'Aktibong customer';
+
+  @override
+  String get shopKpiReturnCycle => 'Return cycle';
+
+  @override
+  String shopDaysSuffix(int n) {
+    return '$n araw';
+  }
+
+  @override
+  String get shopKpiChurnRate => 'Churn';
+
+  @override
+  String get shopTileServicesPerVisit => 'Serbisyo kada bisita';
+
+  @override
+  String get shopTileExpectedNextWeek => 'Inaasahan sa susunod na linggo';
+
+  @override
+  String get shopTileCycleCompletion => 'Pagsunod sa cycle';
+
+  @override
+  String get shopPerVisitMutedTitle =>
+      'Serbisyo kada bisita, at pagsunod sa cycle';
+
+  @override
+  String get shopPerVisitMutedNote =>
+      'Kailangan muna ng totoong mga pagbisita para makuwenta.';
+
+  @override
+  String get shopLeadConversionTitle =>
+      'Pagbabago ng mga unang beses na nakipag-ugnayan';
+
+  @override
+  String shopLeadConversionDetail(int converted, int total) {
+    return '$converted sa $total ang naging tunay na bisita';
+  }
 }

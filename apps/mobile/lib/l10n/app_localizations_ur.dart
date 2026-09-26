@@ -2877,6 +2877,79 @@ class SUr extends S {
   }
 
   @override
+  String get appStoreCartSubtotal => 'ذیلی مجموعہ';
+
+  @override
+  String get appStoreCartDiscount => 'رعایت';
+
+  @override
+  String get appStoreCartTax => 'ٹیکس';
+
+  @override
+  String get appStoreCartTotal => 'کل';
+
+  @override
+  String get appStoreCartDiscountCaveat =>
+      'دکھائی گئی رقم رعایت اور ٹیکس سے پہلے کی ہے؛ حتمی رقم ادائیگی کے وقت طے ہوگی۔';
+
+  @override
+  String appStoreCartItemDiscount(int percent) {
+    return '($percent٪ رعایت)';
+  }
+
+  @override
+  String appStoreAutoAdded(String added, String trigger) {
+    return '\"$added\" خودکار شامل ہوا کیونکہ \"$trigger\" کو اس کی ضرورت ہے۔';
+  }
+
+  @override
+  String appStoreMissingRequirement(String names) {
+    return 'پہلے $names فعال ہونا ضروری ہے۔';
+  }
+
+  @override
+  String get appStoreRequiresAnyVisit => 'وزٹ ریکارڈ کریں';
+
+  @override
+  String get appStoreRequiresAnyBookings => 'بکنگز';
+
+  @override
+  String get appStoreRequiresAnyContacts => 'رابطے';
+
+  @override
+  String get appStoreOr => 'یا';
+
+  @override
+  String appStoreCascadeWarning(String names) {
+    return 'یہ بھی بند ہو جائیں گی: $names';
+  }
+
+  @override
+  String appStoreDiscountBadge(int percent) {
+    return '$percent٪ رعایت لاگو';
+  }
+
+  @override
+  String appStoreDiscountBadgeWithApp(int percent, String app) {
+    return '$app کی طرف سے $percent٪ رعایت لاگو';
+  }
+
+  @override
+  String appStoreDiscountedShort(int percent) {
+    return '$percent٪ رعایت';
+  }
+
+  @override
+  String appStoreOfferTitle(int percent) {
+    return '$percent٪ رعایت آپ کی منتظر ہے';
+  }
+
+  @override
+  String appStoreOfferDesc(String app) {
+    return '$app سبسکرائب کرنے پر خودکار فعال ہوگی';
+  }
+
+  @override
   String get whatsappAssistantTitle => 'اے آئی اسسٹنٹ';
 
   @override
@@ -3534,4 +3607,41 @@ class SUr extends S {
 
   @override
   String get shopCustomerFallback => 'گاہک';
+
+  @override
+  String get shopKpiActiveCustomers => 'فعال گاہک';
+
+  @override
+  String get shopKpiReturnCycle => 'واپسی کا چکر';
+
+  @override
+  String shopDaysSuffix(int n) {
+    return '$n دن';
+  }
+
+  @override
+  String get shopKpiChurnRate => 'چھوڑنے کی شرح';
+
+  @override
+  String get shopTileServicesPerVisit => 'فی وزٹ خدمات';
+
+  @override
+  String get shopTileExpectedNextWeek => 'اگلے ہفتے متوقع';
+
+  @override
+  String get shopTileCycleCompletion => 'چکر کی پابندی';
+
+  @override
+  String get shopPerVisitMutedTitle => 'فی وزٹ خدمات، اور چکر کی پابندی';
+
+  @override
+  String get shopPerVisitMutedNote => 'شمار کے لیے پہلے حقیقی وزٹس درکار ہیں۔';
+
+  @override
+  String get shopLeadConversionTitle => 'پہلی بار رابطہ کرنے والوں کی تبدیلی';
+
+  @override
+  String shopLeadConversionDetail(int converted, int total) {
+    return '$total میں سے $converted حقیقی وزٹ میں تبدیل ہوئے';
+  }
 }

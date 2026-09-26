@@ -308,6 +308,16 @@ class BillingPlan {
   }
 
   bool get isCapacity => appKey.isEmpty;
+
+  /// billingShared.tsx::requiresAny — the OTHER feature keys this plan's own row says at least
+  /// one of must already be held, straight off `plan.limits['plan.requires_any'].list`. Empty
+  /// when the plan declares no dependency at all.
+  List<String> get requiresAny {
+    final raw = limits['plan.requires_any'];
+    final list = raw is Map ? raw['list'] : null;
+    if (list is! List) return const [];
+    return list.whereType<String>().where((k) => k.isNotEmpty).toList(growable: false);
+  }
 }
 
 /// One subscribed app/capacity — `Subscription.to_dict()`. `planId` is the only link back to a
@@ -336,6 +346,19 @@ class BillingSubscription {
         quantity: (json['quantity'] as num?)?.toInt() ?? 1,
         currentPeriodEnd: (json['current_period_end'] as num?)?.toDouble() ?? 0,
         cancelAtPeriodEnd: json['cancel_at_period_end'] as bool? ?? false,
+      );
+}
+
+/// `GET /api/v1/billing/discount-preview` — one rule's percent + the OTHER app whose ownership
+/// earns/would-earn it (`owning_key`), mirrors billingShared.tsx's own `{percent, owning_key}`.
+class DiscountInfo {
+  final int percent;
+  final String owningKey;
+  const DiscountInfo({required this.percent, required this.owningKey});
+
+  factory DiscountInfo.fromJson(Map<String, dynamic> j) => DiscountInfo(
+        percent: (j['percent'] as num?)?.toInt() ?? 0,
+        owningKey: j['owning_key'] as String? ?? '',
       );
 }
 
@@ -1132,6 +1155,25 @@ class AuthService {
           .toList();
     } on DioException {
       return null;
+    }
+  }
+
+  /// `GET /api/v1/billing/discount-preview` — `(applied, potential)`, keyed by plan id. `applied`
+  /// means the shop already qualifies (owns the `owning_key` app) and the discount is real today;
+  /// `potential` is a marketing teaser for a plan not yet owned ("X% off if you also get Y").
+  Future<(Map<String, DiscountInfo>, Map<String, DiscountInfo>)> fetchDiscountPreview() async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/billing/discount-preview');
+      final body = response.data;
+      if (body is! Map) return (const <String, DiscountInfo>{}, const <String, DiscountInfo>{});
+      Map<String, DiscountInfo> parse(String key) {
+        final m = body[key];
+        if (m is! Map) return const {};
+        return m.map((k, v) => MapEntry(k.toString(), DiscountInfo.fromJson(Map<String, dynamic>.from(v as Map))));
+      }
+      return (parse('applied'), parse('potential'));
+    } on DioException {
+      return (const <String, DiscountInfo>{}, const <String, DiscountInfo>{});
     }
   }
 

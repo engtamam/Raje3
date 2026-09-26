@@ -2912,6 +2912,79 @@ class SEn extends S {
   }
 
   @override
+  String get appStoreCartSubtotal => 'Subtotal';
+
+  @override
+  String get appStoreCartDiscount => 'Discount';
+
+  @override
+  String get appStoreCartTax => 'Tax';
+
+  @override
+  String get appStoreCartTotal => 'Total';
+
+  @override
+  String get appStoreCartDiscountCaveat =>
+      'Shown before discount and tax; the exact amount is computed and shown at checkout.';
+
+  @override
+  String appStoreCartItemDiscount(int percent) {
+    return '($percent% off)';
+  }
+
+  @override
+  String appStoreAutoAdded(String added, String trigger) {
+    return '\"$added\" was added automatically because \"$trigger\" needs it.';
+  }
+
+  @override
+  String appStoreMissingRequirement(String names) {
+    return 'Needs $names enabled first.';
+  }
+
+  @override
+  String get appStoreRequiresAnyVisit => 'Record Visit';
+
+  @override
+  String get appStoreRequiresAnyBookings => 'Bookings';
+
+  @override
+  String get appStoreRequiresAnyContacts => 'Contacts';
+
+  @override
+  String get appStoreOr => 'or';
+
+  @override
+  String appStoreCascadeWarning(String names) {
+    return 'This will also stop: $names';
+  }
+
+  @override
+  String appStoreDiscountBadge(int percent) {
+    return '$percent% discount applied';
+  }
+
+  @override
+  String appStoreDiscountBadgeWithApp(int percent, String app) {
+    return '$percent% discount applied from $app';
+  }
+
+  @override
+  String appStoreDiscountedShort(int percent) {
+    return '$percent% off';
+  }
+
+  @override
+  String appStoreOfferTitle(int percent) {
+    return '$percent% discount awaits';
+  }
+
+  @override
+  String appStoreOfferDesc(String app) {
+    return 'Unlocks automatically when you subscribe to $app';
+  }
+
+  @override
   String get whatsappAssistantTitle => 'AI Assistant';
 
   @override
@@ -3567,4 +3640,42 @@ class SEn extends S {
 
   @override
   String get shopCustomerFallback => 'Customer';
+
+  @override
+  String get shopKpiActiveCustomers => 'Active customers';
+
+  @override
+  String get shopKpiReturnCycle => 'Return cycle';
+
+  @override
+  String shopDaysSuffix(int n) {
+    return '$n days';
+  }
+
+  @override
+  String get shopKpiChurnRate => 'Churn';
+
+  @override
+  String get shopTileServicesPerVisit => 'Services per visit';
+
+  @override
+  String get shopTileExpectedNextWeek => 'Expected next week';
+
+  @override
+  String get shopTileCycleCompletion => 'Cycle-return adherence';
+
+  @override
+  String get shopPerVisitMutedTitle =>
+      'Services per visit, and cycle adherence';
+
+  @override
+  String get shopPerVisitMutedNote => 'Needs real visits first to compute.';
+
+  @override
+  String get shopLeadConversionTitle => 'Conversion of first-time contacts';
+
+  @override
+  String shopLeadConversionDetail(int converted, int total) {
+    return '$converted of $total became a real visit';
+  }
 }

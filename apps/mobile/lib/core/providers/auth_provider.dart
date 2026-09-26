@@ -262,6 +262,8 @@ class AuthProvider extends ChangeNotifier {
   Future<Owned?> fetchOwnership() => _authService.fetchOwnership();
   Future<List<BillingPlan>?> fetchPurchasablePlans() => _authService.fetchPurchasablePlans();
   Future<CartPreview?> checkoutPreview(List<String> planIds) => _authService.checkoutPreview(planIds);
+  Future<(Map<String, DiscountInfo>, Map<String, DiscountInfo>)> fetchDiscountPreview() =>
+      _authService.fetchDiscountPreview();
   Future<(bool, int?)> subscribeToApp({required String planId, int quantity = 1}) =>
       _authService.subscribeToApp(planId: planId, quantity: quantity);
   Future<(String?, int?)> checkoutLink({required String planId, int quantity = 1}) =>
