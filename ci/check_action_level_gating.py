@@ -83,6 +83,12 @@ EXEMPT: dict[str, str] = {
     "apps/mobile/lib/features/auth/verify_phone_screen.dart":
         "reached before any session/catalogue exists — its controls submit/resend an OTP code, "
         "not a catalogue write.",
+    "apps/mobile/lib/features/bookings/booking_settings_sheet.dart":
+        "mirrors BookingSettingsDialog.tsx's own two save buttons exactly — both PATCH routes "
+        "(/bookings/working-hours, /bookings/assignment-settings) enforce bookings.manage, a "
+        "capability user_actions.py never declares an action id for. The up/down reorder "
+        "IconButtons are local list reordering, not a write on their own. Same documented gap as "
+        "the console file, not a mobile-only oversight.",
     "apps/mobile/lib/features/bookings/new_booking_sheet.dart":
         "its 4 IconButtons are day-navigation chevrons and a quantity +/- stepper — local state "
         "only, not writes. The sheet's real write (create/reschedule) fires from PrimaryButton, "

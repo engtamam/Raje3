@@ -91,6 +91,30 @@ class NoShowRisk {
       );
 }
 
+/// The shop's own "auto" tie-breaker — which of an "auto" service's several free, eligible
+/// operators actually gets a given slot. Mirrors `AssignmentSettings` in apps/console/src/api.ts
+/// exactly. `manualOrder` only means anything when `algorithm == 'manual_order'`.
+class AssignmentSettings {
+  final String algorithm; // nearest | least_loaded | manual_order
+  final List<String> manualOrder;
+
+  const AssignmentSettings({required this.algorithm, required this.manualOrder});
+
+  factory AssignmentSettings.fromJson(Map<String, dynamic> json) => AssignmentSettings(
+        algorithm: json['algorithm'] as String? ?? 'nearest',
+        manualOrder: ((json['manual_order'] as List?) ?? const [])
+            .map((e) => e.toString())
+            .toList(growable: false),
+      );
+
+  Map<String, dynamic> toJson() => {'algorithm': algorithm, 'manual_order': manualOrder};
+
+  AssignmentSettings copyWith({String? algorithm, List<String>? manualOrder}) => AssignmentSettings(
+        algorithm: algorithm ?? this.algorithm,
+        manualOrder: manualOrder ?? this.manualOrder,
+      );
+}
+
 /// One real, open slot the «أي متاح» merge found — always names the operator it belongs to.
 class BookingSlot {
   final String operatorId;

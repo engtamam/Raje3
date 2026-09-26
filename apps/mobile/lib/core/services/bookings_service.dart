@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:raje3_mobile/core/network/api_client.dart';
+import 'package:raje3_mobile/core/services/auth_service.dart' show WorkingHours;
 import 'package:raje3_mobile/models/booking_model.dart';
 
 /// «الحجوزات» — every route apps/console/src/screens/Bookings.tsx/BookingDialog.tsx already
@@ -182,4 +183,58 @@ class BookingsService {
       '/api/v1/bookings/${Uri.encodeComponent(id)}/no-show', {if (reason != null) 'reason': reason});
 
   String _quantitiesJson(Map<String, int> quantities) => jsonEncode(quantities);
+
+  /// `GET /api/v1/bookings/working-hours` — ONE shop-wide weekly policy, shared by every
+  /// branch. NOT the same thing as a single employee's own hours (`AuthProvider.setWorkingHours`
+  /// — a different route entirely, `/staff/operators/{id}/working-hours`).
+  Future<WorkingHours?> workingHours() async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/bookings/working-hours');
+      final body = response.data;
+      if (body is! Map) return null;
+      return WorkingHours.fromJson(Map<String, dynamic>.from(body));
+    } on DioException {
+      return null;
+    }
+  }
+
+  /// `PATCH /api/v1/bookings/working-hours` — `bookings.manage` only; a 403 here is expected
+  /// for most staff and the caller shows it as a sentence, not a crash.
+  Future<WorkingHours?> setWorkingHours(WorkingHours hours) async {
+    try {
+      final response = await apiClient.dio
+          .patch<dynamic>('/api/v1/bookings/working-hours', data: hours.toJson());
+      final body = response.data;
+      if (body is! Map) return null;
+      return WorkingHours.fromJson(Map<String, dynamic>.from(body));
+    } on DioException {
+      return null;
+    }
+  }
+
+  /// `GET /api/v1/bookings/assignment-settings` — the "auto" tie-breaker among an "auto"
+  /// service's several eligible operators.
+  Future<AssignmentSettings?> assignmentSettings() async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/bookings/assignment-settings');
+      final body = response.data;
+      if (body is! Map) return null;
+      return AssignmentSettings.fromJson(Map<String, dynamic>.from(body));
+    } on DioException {
+      return null;
+    }
+  }
+
+  /// `PATCH /api/v1/bookings/assignment-settings` — same `bookings.manage` gate as the hours PATCH.
+  Future<AssignmentSettings?> setAssignmentSettings(AssignmentSettings settings) async {
+    try {
+      final response = await apiClient.dio
+          .patch<dynamic>('/api/v1/bookings/assignment-settings', data: settings.toJson());
+      final body = response.data;
+      if (body is! Map) return null;
+      return AssignmentSettings.fromJson(Map<String, dynamic>.from(body));
+    } on DioException {
+      return null;
+    }
+  }
 }

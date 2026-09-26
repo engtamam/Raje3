@@ -15,6 +15,7 @@ import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
 
 import 'booking_details_sheet.dart';
+import 'booking_settings_sheet.dart';
 import 'booking_status.dart';
 import 'new_booking_sheet.dart';
 
@@ -136,6 +137,18 @@ class _BookingsScreenState extends State<BookingsScreen> {
     }
   }
 
+  Future<void> _openSettings() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => BookingSettingsSheet(
+        bookingsService: _bookingsService,
+        staff: _staff ?? const [],
+      ),
+    );
+  }
+
   Future<void> _openNewBooking() async {
     final created = await showModalBottomSheet<Booking>(
       context: context,
@@ -169,7 +182,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _Header(count: _visible.length),
+            _Header(count: _visible.length, onSettings: _openSettings),
             _DateStrip(selected: _selectedDate, onChanged: _changeDate),
             if ((_staff ?? const []).isNotEmpty)
               KbAnchor(
@@ -256,7 +269,8 @@ String dateKey(DateTime d) =>
 
 class _Header extends StatelessWidget {
   final int count;
-  const _Header({required this.count});
+  final VoidCallback onSettings;
+  const _Header({required this.count, required this.onSettings});
 
   @override
   Widget build(BuildContext context) {
@@ -278,6 +292,14 @@ class _Header extends StatelessWidget {
                       style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
                   Text('$count حجز اليوم', style: const TextStyle(color: Colors.white70, fontSize: 13)),
                 ],
+              ),
+            ),
+            KbAnchor(
+              id: 'bookings.settings_button',
+              child: IconButton(
+                icon: const Icon(Icons.tune_rounded, color: Colors.white),
+                tooltip: 'إعدادات الحجوزات',
+                onPressed: onSettings,
               ),
             ),
           ],

@@ -2434,5 +2434,110 @@
     "requires": [
       "bookings.create"
     ]
+  },
+  "bookings.settings_button": {
+    "title": {
+      "ar": "إعدادات الحجوزات",
+      "en": "Booking settings"
+    },
+    "body": {
+      "ar": "يفتح إعدادات ساعات فتح الحجوزات للمحل وطريقة توزيع الحجوزات التلقائي.",
+      "en": "Opens the shop's booking hours and the auto-assignment settings."
+    },
+    "kind": "action",
+    "anchor": "bookings.settings_button",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.settings.tabs": {
+    "title": {
+      "ar": "التبديل بين الإعدادين",
+      "en": "Switch settings tab"
+    },
+    "body": {
+      "ar": "التبديل بين ساعات العمل وطريقة التوزيع.",
+      "en": "Switches between working hours and the assignment method."
+    },
+    "kind": "action",
+    "anchor": "bookings.settings.tabs",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.settings.hours.time_pickers": {
+    "title": {
+      "ar": "ساعات فتح الحجوزات",
+      "en": "Booking hours"
+    },
+    "body": {
+      "ar": "يفتح/يغلق يومًا للحجوزات، ويضبط وقت البداية والنهاية — للمحل كله، مو موظف واحد.",
+      "en": "Opens/closes a day for bookings, and sets its start/end time — for the whole shop, not one employee."
+    },
+    "kind": "action",
+    "anchor": "bookings.settings.hours.time_pickers",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.settings.hours.save": {
+    "title": {
+      "ar": "حفظ ساعات العمل",
+      "en": "Save working hours"
+    },
+    "body": {
+      "ar": "يحفظ ساعات فتح الحجوزات الأسبوعية للمحل.",
+      "en": "Saves the shop's weekly booking hours."
+    },
+    "kind": "action",
+    "anchor": "bookings.settings.hours.save",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.settings.assignment.algorithm": {
+    "title": {
+      "ar": "طريقة التوزيع التلقائي",
+      "en": "Auto-assignment method"
+    },
+    "body": {
+      "ar": "يختار كيف يُوزَّع الحجز تلقائيًا بين الموظفين المؤهلين: الأقرب دورًا، الأقل ازدحامًا، أو ترتيب يدوي.",
+      "en": "Chooses how a booking auto-assigns among eligible staff: nearest turn, least busy, or a manual order."
+    },
+    "kind": "action",
+    "anchor": "bookings.settings.assignment.algorithm",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.settings.assignment.manual_order": {
+    "title": {
+      "ar": "ترتيب التوزيع اليدوي",
+      "en": "Manual assignment order"
+    },
+    "body": {
+      "ar": "يرتّب أولوية الموظفين بالتوزيع اليدوي بالأسهم.",
+      "en": "Reorders staff priority for manual assignment with the arrows."
+    },
+    "kind": "action",
+    "anchor": "bookings.settings.assignment.manual_order",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.settings.assignment.save": {
+    "title": {
+      "ar": "حفظ طريقة التوزيع",
+      "en": "Save assignment method"
+    },
+    "body": {
+      "ar": "يحفظ طريقة التوزيع التلقائي المختارة.",
+      "en": "Saves the chosen auto-assignment method."
+    },
+    "kind": "action",
+    "anchor": "bookings.settings.assignment.save",
+    "requires": [
+      "bookings.list"
+    ]
   }
 }
