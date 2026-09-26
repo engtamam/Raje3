@@ -3604,4 +3604,15 @@ class SFil extends S {
 
   @override
   String get shopDay6Full => 'Sabado';
+
+  @override
+  String get shopMissedTitle =>
+      'Mga customer na hindi pa nasubukan ang lahat ng angkop sa kanila';
+
+  @override
+  String get shopMissedMutedNote =>
+      'Wala pang malinaw na customer na kulang sa serbisyong karaniwang binibili kasama ng kanila.';
+
+  @override
+  String get shopCustomerFallback => 'Customer';
 }

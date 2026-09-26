@@ -3530,4 +3530,15 @@ class SHa extends S {
 
   @override
   String get shopDay6Full => 'Asabar';
+
+  @override
+  String get shopMissedTitle =>
+      'Abokan ciniki da ba su gwada duk abin da ya dace da su ba';
+
+  @override
+  String get shopMissedMutedNote =>
+      'Babu abokan ciniki bayyanannu tukuna waɗanda suka rasa sabis da ake saye tare da nasu.';
+
+  @override
+  String get shopCustomerFallback => 'Abokin ciniki';
 }

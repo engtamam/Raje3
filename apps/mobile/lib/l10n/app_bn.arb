@@ -1392,5 +1392,8 @@
   "shopDay0Short": "রবি", "shopDay1Short": "সোম", "shopDay2Short": "মঙ্গল", "shopDay3Short": "বুধ",
   "shopDay4Short": "বৃহঃ", "shopDay5Short": "শুক্র", "shopDay6Short": "শনি",
   "shopDay0Full": "রবিবার", "shopDay1Full": "সোমবার", "shopDay2Full": "মঙ্গলবার",
-  "shopDay3Full": "বুধবার", "shopDay4Full": "বৃহস্পতিবার", "shopDay5Full": "শুক্রবার", "shopDay6Full": "শনিবার"
+  "shopDay3Full": "বুধবার", "shopDay4Full": "বৃহস্পতিবার", "shopDay5Full": "শুক্রবার", "shopDay6Full": "শনিবার",
+  "shopMissedTitle": "যেসব গ্রাহক তাদের উপযোগী সবকিছু চেষ্টা করেননি",
+  "shopMissedMutedNote": "এখনও কোনো স্পষ্ট গ্রাহক নেই যারা তাদের সেবার সাথে সাধারণত কেনা একটি সেবা মিস করছে।",
+  "shopCustomerFallback": "গ্রাহক"
 }

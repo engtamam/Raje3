@@ -3529,4 +3529,14 @@ class SAr extends S {
 
   @override
   String get shopDay6Full => 'السبت';
+
+  @override
+  String get shopMissedTitle => 'عملاء ما جرّبوا كل اللي يناسبهم';
+
+  @override
+  String get shopMissedMutedNote =>
+      'لا عملاء واضحين بعد ناقصين خدمة تُشترى عادة مع خدماتهم.';
+
+  @override
+  String get shopCustomerFallback => 'عميل';
 }

@@ -1392,5 +1392,8 @@
   "shopDay0Short": "Lin", "shopDay1Short": "Lun", "shopDay2Short": "Mar", "shopDay3Short": "Miy",
   "shopDay4Short": "Huw", "shopDay5Short": "Biy", "shopDay6Short": "Sab",
   "shopDay0Full": "Linggo", "shopDay1Full": "Lunes", "shopDay2Full": "Martes",
-  "shopDay3Full": "Miyerkules", "shopDay4Full": "Huwebes", "shopDay5Full": "Biyernes", "shopDay6Full": "Sabado"
+  "shopDay3Full": "Miyerkules", "shopDay4Full": "Huwebes", "shopDay5Full": "Biyernes", "shopDay6Full": "Sabado",
+  "shopMissedTitle": "Mga customer na hindi pa nasubukan ang lahat ng angkop sa kanila",
+  "shopMissedMutedNote": "Wala pang malinaw na customer na kulang sa serbisyong karaniwang binibili kasama ng kanila.",
+  "shopCustomerFallback": "Customer"
 }

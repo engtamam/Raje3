@@ -5996,6 +5996,24 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'السبت'**
   String get shopDay6Full;
+
+  /// No description provided for @shopMissedTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'عملاء ما جرّبوا كل اللي يناسبهم'**
+  String get shopMissedTitle;
+
+  /// No description provided for @shopMissedMutedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا عملاء واضحين بعد ناقصين خدمة تُشترى عادة مع خدماتهم.'**
+  String get shopMissedMutedNote;
+
+  /// No description provided for @shopCustomerFallback.
+  ///
+  /// In ar, this message translates to:
+  /// **'عميل'**
+  String get shopCustomerFallback;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

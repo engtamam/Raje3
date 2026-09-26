@@ -3186,5 +3186,8 @@
   "shopDay0Short": "ح", "shopDay1Short": "ن", "shopDay2Short": "ث", "shopDay3Short": "ر",
   "shopDay4Short": "خ", "shopDay5Short": "ج", "shopDay6Short": "س",
   "shopDay0Full": "الأحد", "shopDay1Full": "الإثنين", "shopDay2Full": "الثلاثاء",
-  "shopDay3Full": "الأربعاء", "shopDay4Full": "الخميس", "shopDay5Full": "الجمعة", "shopDay6Full": "السبت"
+  "shopDay3Full": "الأربعاء", "shopDay4Full": "الخميس", "shopDay5Full": "الجمعة", "shopDay6Full": "السبت",
+  "shopMissedTitle": "عملاء ما جرّبوا كل اللي يناسبهم",
+  "shopMissedMutedNote": "لا عملاء واضحين بعد ناقصين خدمة تُشترى عادة مع خدماتهم.",
+  "shopCustomerFallback": "عميل"
 }

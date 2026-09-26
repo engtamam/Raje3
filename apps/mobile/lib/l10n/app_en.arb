@@ -1392,5 +1392,8 @@
   "shopDay0Short": "Su", "shopDay1Short": "Mo", "shopDay2Short": "Tu", "shopDay3Short": "We",
   "shopDay4Short": "Th", "shopDay5Short": "Fr", "shopDay6Short": "Sa",
   "shopDay0Full": "Sunday", "shopDay1Full": "Monday", "shopDay2Full": "Tuesday",
-  "shopDay3Full": "Wednesday", "shopDay4Full": "Thursday", "shopDay5Full": "Friday", "shopDay6Full": "Saturday"
+  "shopDay3Full": "Wednesday", "shopDay4Full": "Thursday", "shopDay5Full": "Friday", "shopDay6Full": "Saturday",
+  "shopMissedTitle": "Customers who haven't tried everything that suits them",
+  "shopMissedMutedNote": "No clear customers yet missing a service usually bought with theirs.",
+  "shopCustomerFallback": "Customer"
 }

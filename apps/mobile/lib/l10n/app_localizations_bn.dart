@@ -3521,4 +3521,14 @@ class SBn extends S {
 
   @override
   String get shopDay6Full => 'শনিবার';
+
+  @override
+  String get shopMissedTitle => 'যেসব গ্রাহক তাদের উপযোগী সবকিছু চেষ্টা করেননি';
+
+  @override
+  String get shopMissedMutedNote =>
+      'এখনও কোনো স্পষ্ট গ্রাহক নেই যারা তাদের সেবার সাথে সাধারণত কেনা একটি সেবা মিস করছে।';
+
+  @override
+  String get shopCustomerFallback => 'গ্রাহক';
 }

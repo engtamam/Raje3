@@ -3523,4 +3523,15 @@ class SUr extends S {
 
   @override
   String get shopDay6Full => 'ہفتہ';
+
+  @override
+  String get shopMissedTitle =>
+      'وہ گاہک جنہوں نے اپنے لیے موزوں ہر چیز نہیں آزمائی';
+
+  @override
+  String get shopMissedMutedNote =>
+      'ابھی ایسے واضح گاہک نہیں جو اپنی خدمات کے ساتھ عام طور پر خریدی جانے والی خدمت سے محروم ہوں۔';
+
+  @override
+  String get shopCustomerFallback => 'گاہک';
 }

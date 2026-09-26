@@ -3556,4 +3556,15 @@ class SEn extends S {
 
   @override
   String get shopDay6Full => 'Saturday';
+
+  @override
+  String get shopMissedTitle =>
+      'Customers who haven\'t tried everything that suits them';
+
+  @override
+  String get shopMissedMutedNote =>
+      'No clear customers yet missing a service usually bought with theirs.';
+
+  @override
+  String get shopCustomerFallback => 'Customer';
 }

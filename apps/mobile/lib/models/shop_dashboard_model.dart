@@ -468,6 +468,21 @@ class Pairs {
   }
 }
 
+class MissedOpp {
+  final String subjectRef;
+  final String has;
+  final String missing;
+  final String verdict; // 'real' | 'temporal' | other
+  const MissedOpp({required this.subjectRef, required this.has, required this.missing, required this.verdict});
+
+  factory MissedOpp.fromJson(Map<String, dynamic> j) => MissedOpp(
+        subjectRef: j['subject_ref'] as String? ?? '',
+        has: j['has'] as String? ?? '',
+        missing: j['missing'] as String? ?? '',
+        verdict: j['verdict'] as String? ?? '',
+      );
+}
+
 class Bundle {
   final String? a;
   final String? b;
@@ -637,6 +652,17 @@ class ShopDashboard {
   List<DayHeatmapRow> get branchDayRows {
     final v = values['branch_day_heatmap'];
     return v is Map ? topEntitiesByDay(Map<String, dynamic>.from(v), branchNames, 6) : const [];
+  }
+
+  /// `null` when the key itself is absent (no real or temporal pair exists yet to be missing
+  /// FROM — Shop.tsx's own `missed && missed.length > 0 ? … : missed ? muted(…) : null` never even
+  /// shows a muted card for this case), an empty list when present but nobody currently qualifies,
+  /// and real rows otherwise. The three states are genuinely different, never collapsed into one.
+  List<MissedOpp>? get missedOpportunities {
+    if (!values.containsKey('missed_opportunities')) return null;
+    final v = values['missed_opportunities'];
+    if (v is! List) return null;
+    return v.whereType<Map>().map((m) => MissedOpp.fromJson(Map<String, dynamic>.from(m))).toList(growable: false);
   }
 }
 

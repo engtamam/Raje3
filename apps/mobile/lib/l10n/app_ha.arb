@@ -1392,5 +1392,8 @@
   "shopDay0Short": "Lh", "shopDay1Short": "Li", "shopDay2Short": "Ta", "shopDay3Short": "La",
   "shopDay4Short": "Al", "shopDay5Short": "Ju", "shopDay6Short": "As",
   "shopDay0Full": "Lahadi", "shopDay1Full": "Litinin", "shopDay2Full": "Talata",
-  "shopDay3Full": "Laraba", "shopDay4Full": "Alhamis", "shopDay5Full": "Jumma'a", "shopDay6Full": "Asabar"
+  "shopDay3Full": "Laraba", "shopDay4Full": "Alhamis", "shopDay5Full": "Jumma'a", "shopDay6Full": "Asabar",
+  "shopMissedTitle": "Abokan ciniki da ba su gwada duk abin da ya dace da su ba",
+  "shopMissedMutedNote": "Babu abokan ciniki bayyanannu tukuna waɗanda suka rasa sabis da ake saye tare da nasu.",
+  "shopCustomerFallback": "Abokin ciniki"
 }

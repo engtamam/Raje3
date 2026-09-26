@@ -1392,5 +1392,8 @@
   "shopDay0Short": "اتوار", "shopDay1Short": "پیر", "shopDay2Short": "منگل", "shopDay3Short": "بدھ",
   "shopDay4Short": "جمعرات", "shopDay5Short": "جمعہ", "shopDay6Short": "ہفتہ",
   "shopDay0Full": "اتوار", "shopDay1Full": "پیر", "shopDay2Full": "منگل",
-  "shopDay3Full": "بدھ", "shopDay4Full": "جمعرات", "shopDay5Full": "جمعہ", "shopDay6Full": "ہفتہ"
+  "shopDay3Full": "بدھ", "shopDay4Full": "جمعرات", "shopDay5Full": "جمعہ", "shopDay6Full": "ہفتہ",
+  "shopMissedTitle": "وہ گاہک جنہوں نے اپنے لیے موزوں ہر چیز نہیں آزمائی",
+  "shopMissedMutedNote": "ابھی ایسے واضح گاہک نہیں جو اپنی خدمات کے ساتھ عام طور پر خریدی جانے والی خدمت سے محروم ہوں۔",
+  "shopCustomerFallback": "گاہک"
 }

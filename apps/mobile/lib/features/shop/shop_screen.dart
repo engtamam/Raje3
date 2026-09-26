@@ -61,6 +61,7 @@ class _ShopScreenState extends State<ShopScreen> {
   bool _dashboardFailed = false;
   ShopImpact? _impact;
   List<Customer>? _atRiskCustomers;
+  List<Customer>? _missedCustomers;
   bool _refreshing = false;
   bool _dismissing = false;
   _Deck _deck = _Deck.urgent;
@@ -94,6 +95,13 @@ class _ShopScreenState extends State<ShopScreen> {
     if (atRisk != null && atRisk.isNotEmpty) {
       final rows = await _customers.byRefs(atRisk.map((r) => r.subjectRef).toList());
       if (mounted) setState(() => _atRiskCustomers = rows ?? const []);
+    }
+    final missed = dash.missedOpportunities;
+    if (missed != null && missed.isNotEmpty) {
+      // Capped at 8 resolutions, same reasoning AtRiskCard's own cap follows — a PII lookup grows
+      // with the list, and the folded section is not the place for it to grow unbounded.
+      final rows = await _customers.byRefs(missed.take(8).map((r) => r.subjectRef).toList());
+      if (mounted) setState(() => _missedCustomers = rows ?? const []);
     }
   }
 
@@ -219,7 +227,7 @@ class _ShopScreenState extends State<ShopScreen> {
       case _Deck.week:
         return _WeekDeck(dashboard: dash, service: _service, s: s);
       case _Deck.opportunities:
-        return _OpportunitiesDeck(dashboard: dash, service: _service, s: s);
+        return _OpportunitiesDeck(dashboard: dash, service: _service, missedCustomers: _missedCustomers, s: s);
     }
   }
 }
@@ -945,9 +953,13 @@ class _AtRiskCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
+                      // NEVER THE RAW `subject_ref` PSEUDONYM ITSELF — a resolution failure falls
+                      // back to the same generic "عميل" label Shop.tsx's own `customerFallback`
+                      // uses, not the internal id, matching `_MissedOpportunitiesCard`'s identical
+                      // fallback below.
                       byRef[r.subjectRef]?.name.isNotEmpty == true
                           ? byRef[r.subjectRef]!.name
-                          : (byRef[r.subjectRef]?.phone ?? r.subjectRef),
+                          : (byRef[r.subjectRef]?.phone.isNotEmpty == true ? byRef[r.subjectRef]!.phone : s.shopCustomerFallback),
                       style: AppTextStyles.bodySmall,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1297,8 +1309,14 @@ class _StaffCompareCard extends StatelessWidget {
 class _OpportunitiesDeck extends StatelessWidget {
   final ShopDashboard dashboard;
   final ShopDashboardService service;
+  final List<Customer>? missedCustomers;
   final S s;
-  const _OpportunitiesDeck({required this.dashboard, required this.service, required this.s});
+  const _OpportunitiesDeck({
+    required this.dashboard,
+    required this.service,
+    required this.missedCustomers,
+    required this.s,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1378,9 +1396,141 @@ class _OpportunitiesDeck extends StatelessWidget {
             return _AssociationsCard(pairs: pairs.pairs, names: names, s: s);
           },
         ),
+        Builder(builder: (context) {
+          final missed = dashboard.missedOpportunities;
+          if (missed == null) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.md),
+            child: missed.isEmpty
+                ? _MutedCard(title: s.shopMissedTitle, note: s.shopMissedMutedNote)
+                : _MissedOpportunitiesCard(rows: missed, customers: missedCustomers, names: names, s: s),
+          );
+        }),
         const SizedBox(height: AppSpacing.lg),
         _RecentVisits(s: s),
       ],
+    );
+  }
+}
+
+/// THE INVERSE OF «ما يُطلب معًا» — Shop.tsx's own `MissedOpportunities` names a specific customer
+/// standing on one side of an association without the other; this card gives that a genuinely
+/// mobile-native visual rather than a plain text row (console just prints "عنده X — ما جرّب Y"): a
+/// broken-chain metaphor — the service he DOES buy as a solid filled chip, a dashed connector with
+/// a link-off glyph at its break, then the service he has NEVER tried as a hollow dashed chip. The
+/// two chips ARE the sentence; nothing here invents data the backend did not already send.
+class _MissedOpportunitiesCard extends StatelessWidget {
+  final List<MissedOpp> rows;
+  final List<Customer>? customers;
+  final Map<String, String> names;
+  final S s;
+  const _MissedOpportunitiesCard({required this.rows, required this.customers, required this.names, required this.s});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final accent = context.isDark ? AppDarkColors.accent : AppColors.accent;
+    final byRef = {for (final c in customers ?? const <Customer>[]) c.subjectRef: c};
+    final shown = rows.take(8).toList();
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(s.shopMissedTitle, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w800)),
+          for (var i = 0; i < shown.length; i++)
+            Padding(
+              padding: EdgeInsets.only(top: i > 0 ? AppSpacing.md : AppSpacing.sm),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 20,
+                        height: 20,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(shape: BoxShape.circle, color: accent.withValues(alpha: 0.15)),
+                        child: Text(
+                          _label(byRef[shown[i].subjectRef]).substring(0, 1),
+                          style: AppTextStyles.caption.copyWith(color: accent, fontWeight: FontWeight.w800, fontSize: 10),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(_label(byRef[shown[i].subjectRef]),
+                            style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w700),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      _MissedChip(label: names[shown[i].has] ?? shown[i].has, filled: true),
+                      _dashes(colors.borderSubtle),
+                      Icon(Icons.link_off_rounded, size: 13, color: colors.textMuted),
+                      _dashes(colors.borderSubtle),
+                      _MissedChip(label: names[shown[i].missing] ?? shown[i].missing, filled: false),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _label(Customer? c) {
+    if (c != null && c.name.isNotEmpty) return c.name;
+    if (c != null && c.phone.isNotEmpty) return c.phone;
+    return s.shopCustomerFallback;
+  }
+
+  Widget _dashes(Color color) => Expanded(
+        child: LayoutBuilder(builder: (context, constraints) {
+          const dashWidth = 4.0, gap = 3.0;
+          final count = (constraints.maxWidth / (dashWidth + gap)).floor().clamp(1, 999);
+          return Row(
+            children: [
+              for (var i = 0; i < count; i++) ...[
+                Container(width: dashWidth, height: 1.5, color: color),
+                if (i < count - 1) const SizedBox(width: gap),
+              ],
+            ],
+          );
+        }),
+      );
+}
+
+class _MissedChip extends StatelessWidget {
+  final String label;
+  final bool filled;
+  const _MissedChip({required this.label, required this.filled});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final tealFg = context.isDark ? AppDarkColors.successOnSoft : AppColors.success;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 96),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: filled ? tealFg.withValues(alpha: 0.12) : null,
+          border: filled ? null : Border.all(color: colors.borderSubtle, style: BorderStyle.solid),
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTextStyles.caption.copyWith(
+            color: filled ? tealFg : colors.textMuted,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
     );
   }
 }
