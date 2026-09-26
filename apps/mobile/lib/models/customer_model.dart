@@ -1,3 +1,5 @@
+import 'package:raje3_mobile/models/points_model.dart' show Reward;
+
 /// Lenient int read — found live: `CustomerAsset.year` came back as `""` (empty string) on a
 /// real record, not `0` or absent, and a bare `as num?` cast throws a real `TypeError` on any
 /// String value rather than returning null. Every numeric field in this file reads through this
@@ -208,15 +210,27 @@ class LoyaltyBalance {
   final int points;
   final int toNextReward;
   final int expiresAt;
+  /// Redeemable rewards — the SAME route console's `balanceFor` already reads this field from;
+  /// this model simply used to stop at `points` and never parse it, so nothing on mobile could
+  /// ever offer «نية استرجاع مكافأة» at booking time.
+  final List<Reward> rewards;
 
-  const LoyaltyBalance(
-      {required this.points, required this.toNextReward, required this.expiresAt});
+  const LoyaltyBalance({
+    required this.points,
+    required this.toNextReward,
+    required this.expiresAt,
+    this.rewards = const [],
+  });
 
   factory LoyaltyBalance.fromJson(Map<String, dynamic> json) {
     return LoyaltyBalance(
       points: _toInt(json['points']),
       toNextReward: _toInt(json['to_next_reward']),
       expiresAt: _toInt(json['expires_at']),
+      rewards: ((json['rewards'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((m) => Reward.fromJson(Map<String, dynamic>.from(m)))
+          .toList(growable: false),
     );
   }
 }

@@ -67,6 +67,21 @@ class CustomersService {
     }
   }
 
+  /// `GET /api/v1/field/customers/by-phone` — resolves an already-picked customer's own
+  /// `subject_ref`, the pseudonym offers/loyalty balance are actually keyed on. `null` on no
+  /// match, same as a phone nobody has ever ensured.
+  Future<Customer?> byPhone(String phone) async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/field/customers/by-phone',
+          queryParameters: {'phone': phone});
+      final body = response.data;
+      if (body is! Map || body['customer'] == null) return null;
+      return Customer.fromJson(Map<String, dynamic>.from(body['customer'] as Map));
+    } on DioException {
+      return null;
+    }
+  }
+
   /// `GET /api/v1/field/customers/{id}` — 404 (deliberately) if the customer isn't this tenant's.
   Future<CustomerRecord?> record(String customerId) async {
     try {

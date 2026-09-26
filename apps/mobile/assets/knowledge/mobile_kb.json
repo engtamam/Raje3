@@ -2539,5 +2539,20 @@
     "requires": [
       "bookings.list"
     ]
+  },
+  "bookings.new_sheet.reward_field": {
+    "title": {
+      "ar": "نية استرجاع مكافأة",
+      "en": "Reward redemption intent"
+    },
+    "body": {
+      "ar": "يسجّل نية العميل استرجاع مكافأة عند هذا الحجز — الصرف الفعلي يصير فقط لمّا يُسجَّل حضوره.",
+      "en": "Records the customer's intent to redeem a reward for this booking — the actual spend happens only once he's marked attended."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.reward_field",
+    "requires": [
+      "bookings.create"
+    ]
   }
 }

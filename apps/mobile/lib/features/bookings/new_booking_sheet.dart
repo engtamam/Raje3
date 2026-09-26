@@ -9,6 +9,7 @@ import 'package:raje3_mobile/core/services/bookings_service.dart';
 import 'package:raje3_mobile/core/services/customers_service.dart';
 import 'package:raje3_mobile/models/booking_model.dart';
 import 'package:raje3_mobile/models/customer_model.dart';
+import 'package:raje3_mobile/models/points_model.dart' show Reward;
 import 'package:raje3_mobile/models/service_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
@@ -60,6 +61,11 @@ class _NewBookingSheetState extends State<NewBookingSheet> {
   List<CustomerHit> _suggestions = const [];
   Timer? _debounce;
   NoShowRisk? _risk;
+  // «نية استرجاع مكافأة» (bookings.edit_reward) — chosen now, spent only on attend(), same
+  // "intent recorded up front, redemption deferred" rule BookingDialog.tsx's own reward step
+  // documents. `null` while still loading, empty list once resolved with nothing redeemable.
+  List<Reward>? _redeemableRewards;
+  String _intendedRewardId = '';
 
   // services step
   final Set<String> _chosen = {};
@@ -105,8 +111,34 @@ class _NewBookingSheetState extends State<NewBookingSheet> {
       if (editing.depositAmountMinor != null) {
         _depositController.text = (editing.depositAmountMinor! / 100).toStringAsFixed(0);
       }
+      _intendedRewardId = editing.intendedRewardId ?? '';
+      _loadRewardsForCustomerId(editing.customerId);
     }
     _page = _isEditing ? 0 : 0;
+  }
+
+  /// Resolves the subject_ref behind either an EXISTING booking's own customer id (edit mode)
+  /// or a freshly-picked suggestion's phone (create mode), then reads what that customer may
+  /// redeem. Silent on failure, same posture as every other secondary read in this sheet — a
+  /// customer with a real reward whose read simply failed looks like one with none, never a
+  /// crash.
+  Future<void> _loadRewardsForCustomerId(String customerId) async {
+    final record = await _customersService.record(customerId);
+    if (record == null || !mounted) return;
+    await _loadRewardsForSubjectRef(record.customer.subjectRef);
+  }
+
+  Future<void> _loadRewardsForPhone(String phone) async {
+    final customer = await _customersService.byPhone(phone);
+    if (customer == null || !mounted) return;
+    await _loadRewardsForSubjectRef(customer.subjectRef);
+  }
+
+  Future<void> _loadRewardsForSubjectRef(String subjectRef) async {
+    if (subjectRef.isEmpty) return;
+    final balance = await _customersService.loyaltyBalance(subjectRef);
+    if (!mounted) return;
+    setState(() => _redeemableRewards = balance?.rewards ?? const []);
   }
 
   @override
@@ -196,6 +228,7 @@ class _NewBookingSheetState extends State<NewBookingSheet> {
     });
     final risk = await widget.bookingsService.risk(hit.id);
     if (mounted) setState(() => _risk = risk);
+    await _loadRewardsForPhone(hit.phone);
   }
 
   // ── slots ────────────────────────────────────────────────────────────────────────────────
@@ -326,6 +359,10 @@ class _NewBookingSheetState extends State<NewBookingSheet> {
           booking = await widget.bookingsService.editPayment(editing.id, _paymentStatus,
               depositAmountMinor: _paymentStatus == 'deposit' ? _depositMinor : null);
         }
+        if (_intendedRewardId != (editing.intendedRewardId ?? '')) {
+          booking = await widget.bookingsService
+              .editReward(editing.id, _intendedRewardId.isEmpty ? null : _intendedRewardId);
+        }
         if (booking == null) {
           setState(() => _error = 'تعذّر حفظ التعديل');
           return;
@@ -353,6 +390,7 @@ class _NewBookingSheetState extends State<NewBookingSheet> {
         note: _noteController.text.trim(),
         paymentStatus: _paymentStatus,
         depositAmountMinor: _paymentStatus == 'deposit' ? _depositMinor : null,
+        intendedRewardId: _intendedRewardId.isEmpty ? null : _intendedRewardId,
       );
       if (created == null) {
         setState(() => _error = 'تعذّر إتمام الحجز — حاول مرة أخرى');
@@ -744,6 +782,35 @@ class _NewBookingSheetState extends State<NewBookingSheet> {
                 controller: _depositController,
                 keyboardType: TextInputType.number,
                 textDirection: TextDirection.ltr,
+              ),
+            ),
+          ],
+          if ((_redeemableRewards ?? const []).isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text('نية استرجاع مكافأة',
+                style: AppTextStyles.labelMedium.copyWith(color: colors.textPrimary)),
+            const SizedBox(height: 4),
+            Text('يُختار الآن، يُصرف فعليًا فقط عند «حضر» — نقاطه ما تُخصم لزيارة لسه ما صارت.',
+                style: AppTextStyles.bodySmall.copyWith(color: colors.textMuted)),
+            const SizedBox(height: AppSpacing.sm),
+            KbAnchor(
+              id: 'bookings.new_sheet.reward_field',
+              child: Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  ChoiceChip(
+                    label: const Text('بدون'),
+                    selected: _intendedRewardId.isEmpty,
+                    onSelected: (_) => setState(() => _intendedRewardId = ''),
+                  ),
+                  for (final reward in _redeemableRewards!)
+                    ChoiceChip(
+                      label: Text('${reward.name} — ${reward.cost} نقطة'),
+                      selected: _intendedRewardId == reward.id,
+                      onSelected: (_) => setState(() => _intendedRewardId = reward.id),
+                    ),
+                ],
               ),
             ),
           ],
