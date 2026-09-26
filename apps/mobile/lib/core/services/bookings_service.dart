@@ -13,6 +13,26 @@ class BookingsService {
 
   BookingsService({required this.apiClient});
 
+  /// `GET /api/v1/bookings/counts` — how many bookings land on each day of a range, never the
+  /// bookings themselves (the month view's own read). Keys missing from the result mean zero,
+  /// same as an explicit `0` — the caller reads a missing day as empty.
+  Future<Map<String, int>?> counts({
+    required String branchId,
+    required String start,
+    required String end,
+  }) async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/bookings/counts',
+          queryParameters: {'branch_id': branchId, 'start': start, 'end': end});
+      final body = response.data;
+      if (body is! Map) return null;
+      final counts = (body['counts'] as Map?) ?? const {};
+      return counts.map((k, v) => MapEntry(k.toString(), v is num ? v.toInt() : 0));
+    } on DioException {
+      return null;
+    }
+  }
+
   /// `GET /api/v1/bookings` — every booking for one branch, one business day (`YYYY-MM-DD`).
   Future<List<Booking>?> list({required String branchId, required String date}) async {
     try {

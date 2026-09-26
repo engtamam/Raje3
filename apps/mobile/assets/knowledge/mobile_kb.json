@@ -2554,5 +2554,50 @@
     "requires": [
       "bookings.create"
     ]
+  },
+  "bookings.month_button": {
+    "title": {
+      "ar": "عرض الشهر",
+      "en": "Month view"
+    },
+    "body": {
+      "ar": "يفتح شهرًا كاملًا يظهر فيه عدد الحجوزات الحقيقي بكل يوم، وتضغط أي يوم فتنتقل له مباشرة.",
+      "en": "Opens a full month showing the real booking count on each day; tapping a day jumps straight to it."
+    },
+    "kind": "action",
+    "anchor": "bookings.month_button",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.month_sheet.month_nav": {
+    "title": {
+      "ar": "التنقّل بين الشهور",
+      "en": "Navigate months"
+    },
+    "body": {
+      "ar": "ينتقل شهرًا للأمام أو للخلف.",
+      "en": "Moves a month forward or back."
+    },
+    "kind": "action",
+    "anchor": "bookings.month_sheet.month_nav",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.month_sheet.day_cell": {
+    "title": {
+      "ar": "يوم بالشهر",
+      "en": "A day in the month"
+    },
+    "body": {
+      "ar": "يعرض عدد الحجوزات الحقيقي بهذا اليوم بلون يعكس ازدحامه؛ الضغط عليه ينقلك لأجندة ذاك اليوم.",
+      "en": "Shows that day's real booking count, tinted by how busy it is; tapping it jumps to that day's agenda."
+    },
+    "kind": "action",
+    "anchor": "bookings.month_sheet.day_cell",
+    "requires": [
+      "bookings.list"
+    ]
   }
 }

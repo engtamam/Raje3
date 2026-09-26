@@ -80,6 +80,10 @@ EXEMPT: dict[str, str] = {
     "apps/mobile/lib/features/auth/verify_phone_screen.dart":
         "reached before any session/catalogue exists — its controls submit/resend an OTP code, "
         "not a catalogue write.",
+    "apps/mobile/lib/features/bookings/booking_month_sheet.dart":
+        "its 2 IconButtons are prev/next month navigation — local state only, no write. Tapping "
+        "a day just pops the picked date; the actual read (bookings.counts) is nav-level gated "
+        "the same as every other read call in this app, no separate write control here at all.",
     "apps/mobile/lib/features/bookings/new_booking_sheet.dart":
         "its 4 IconButtons are day-navigation chevrons and a quantity +/- stepper — local state "
         "only, not writes. The sheet's real write (create/reschedule) fires from PrimaryButton, "
