@@ -2179,5 +2179,260 @@
     },
     "kind": "action",
     "anchor": "points.open_earn_settings_button"
+  },
+  "bookings": {
+    "title": {
+      "ar": "الحجوزات",
+      "en": "Bookings"
+    },
+    "body": {
+      "ar": "شاشة الحجوزات: جدول اليوم بترتيب الوقت، فلترة حسب الموظف، وإضافة حجز جديد.",
+      "en": "The bookings screen: today's schedule in time order, filter by staff member, and add a new booking."
+    },
+    "kind": "screen",
+    "anchor": "bookings",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.new_button": {
+    "title": {
+      "ar": "حجز جديد",
+      "en": "New booking"
+    },
+    "body": {
+      "ar": "يفتح خطوات حجز جديد: الخدمات، الموظف، الوقت، ثم التأكيد.",
+      "en": "Opens the new-booking steps: services, staff, time, then confirmation."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_button",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.staff_filter": {
+    "title": {
+      "ar": "فلترة حسب الموظف",
+      "en": "Filter by staff"
+    },
+    "body": {
+      "ar": "يعرض حجوزات موظف واحد بس، أو الكل.",
+      "en": "Shows only one staff member's bookings, or everyone's."
+    },
+    "kind": "action",
+    "anchor": "bookings.staff_filter",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.booking_card": {
+    "title": {
+      "ar": "بطاقة الحجز",
+      "en": "Booking card"
+    },
+    "body": {
+      "ar": "يفتح تفاصيل الحجز والإجراءات المتاحة له (حضر، لم يحضر، إلغاء، تعديل).",
+      "en": "Opens the booking's details and its available actions (attend, no-show, cancel, edit)."
+    },
+    "kind": "action",
+    "anchor": "bookings.booking_card",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.today_button": {
+    "title": {
+      "ar": "اذهب لليوم",
+      "en": "Jump to today"
+    },
+    "body": {
+      "ar": "يرجّع شريط التاريخ لليوم الحالي.",
+      "en": "Jumps the date strip back to today."
+    },
+    "kind": "action",
+    "anchor": "bookings.today_button",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.details.status_actions": {
+    "title": {
+      "ar": "تعديل / حضر",
+      "en": "Edit / attend"
+    },
+    "body": {
+      "ar": "تعديل الحجز، أو تسجيله كحضر.",
+      "en": "Edit the booking, or mark it as attended."
+    },
+    "kind": "action",
+    "anchor": "bookings.details.status_actions",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.details.negative_actions": {
+    "title": {
+      "ar": "لم يحضر / إلغاء",
+      "en": "No-show / cancel"
+    },
+    "body": {
+      "ar": "تسجيل الحجز كـ«لم يحضر»، أو إلغاؤه نهائيًا.",
+      "en": "Mark the booking as a no-show, or cancel it entirely."
+    },
+    "kind": "action",
+    "anchor": "bookings.details.negative_actions",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.phone_field": {
+    "title": {
+      "ar": "جوال العميل",
+      "en": "Customer phone"
+    },
+    "body": {
+      "ar": "يبحث عن عميل موجود برقم جواله، أو يجهّز حجزًا لعميل جديد.",
+      "en": "Searches for an existing customer by phone, or prepares a booking for a new one."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.phone_field",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.name_field": {
+    "title": {
+      "ar": "اسم العميل الجديد",
+      "en": "New customer's name"
+    },
+    "body": {
+      "ar": "اسم اختياري لعميل جديد ما زال غير مسجّل.",
+      "en": "An optional name for a new, not-yet-registered customer."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.name_field",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.services_grid": {
+    "title": {
+      "ar": "اختيار الخدمات",
+      "en": "Choose services"
+    },
+    "body": {
+      "ar": "يختار خدمة أو أكثر للحجز، مع عدد كل خدمة.",
+      "en": "Selects one or more services for the booking, with a quantity for each."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.services_grid",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.quantity_stepper": {
+    "title": {
+      "ar": "عدد الخدمة",
+      "en": "Service quantity"
+    },
+    "body": {
+      "ar": "كم مرة من نفس الخدمة بهذا الحجز — مثل 2× غسيل خارجي.",
+      "en": "How many times this same service appears in the booking — e.g. 2× exterior wash."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.quantity_stepper",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.staff_field": {
+    "title": {
+      "ar": "اختيار الموظف",
+      "en": "Choose staff"
+    },
+    "body": {
+      "ar": "يختار موظفًا معيّنًا يقدر يسوي كل الخدمات المختارة، أو «أي متاح».",
+      "en": "Picks one staff member who can perform every chosen service together, or \"anyone available\"."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.staff_field",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.day_nav": {
+    "title": {
+      "ar": "تغيير اليوم",
+      "en": "Change day"
+    },
+    "body": {
+      "ar": "ينتقل يومًا للأمام أو للخلف أثناء البحث عن موعد.",
+      "en": "Moves a day forward or back while searching for a slot."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.day_nav",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.time_slots": {
+    "title": {
+      "ar": "اختيار الوقت",
+      "en": "Choose a time"
+    },
+    "body": {
+      "ar": "يعرض كل المواعيد الفاضية فعلًا لليوم المختار — الضغط يثبّت الوقت والموظف معًا.",
+      "en": "Shows every slot that's actually free on the chosen day — tapping one fixes both the time and the staff member."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.time_slots",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.note_field": {
+    "title": {
+      "ar": "ملاحظة الحجز",
+      "en": "Booking note"
+    },
+    "body": {
+      "ar": "ملاحظة اختيارية تُحفظ مع الحجز.",
+      "en": "An optional note saved with the booking."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.note_field",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.payment_field": {
+    "title": {
+      "ar": "حالة الدفع",
+      "en": "Payment status"
+    },
+    "body": {
+      "ar": "بدون دفع، عربون، أو مدفوع بالكامل.",
+      "en": "No payment, a deposit, or paid in full."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.payment_field",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.deposit_field": {
+    "title": {
+      "ar": "مبلغ العربون",
+      "en": "Deposit amount"
+    },
+    "body": {
+      "ar": "المبلغ المطلوب كعربون لهذا الحجز.",
+      "en": "The amount required as a deposit for this booking."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.deposit_field",
+    "requires": [
+      "bookings.create"
+    ]
   }
 }

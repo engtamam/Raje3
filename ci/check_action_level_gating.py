@@ -83,6 +83,12 @@ EXEMPT: dict[str, str] = {
     "apps/mobile/lib/features/auth/verify_phone_screen.dart":
         "reached before any session/catalogue exists — its controls submit/resend an OTP code, "
         "not a catalogue write.",
+    "apps/mobile/lib/features/bookings/new_booking_sheet.dart":
+        "its 4 IconButtons are day-navigation chevrons and a quantity +/- stepper — local state "
+        "only, not writes. The sheet's real write (create/reschedule) fires from PrimaryButton, "
+        "outside this scanner's control list, and is reachable only through an entry point "
+        "(bookings_screen.dart's FAB / booking_details_sheet.dart's edit button) already gated "
+        "on 'bookings.create'.",
 }
 
 

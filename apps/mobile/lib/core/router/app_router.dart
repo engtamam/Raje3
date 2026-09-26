@@ -11,6 +11,7 @@ import 'package:raje3_mobile/features/account/branch_detail_screen.dart';
 import 'package:raje3_mobile/features/account/branches_screen.dart';
 import 'package:raje3_mobile/features/account/shop_identity_screen.dart';
 import 'package:raje3_mobile/features/auth/login_screen.dart';
+import 'package:raje3_mobile/features/bookings/bookings_screen.dart';
 import 'package:raje3_mobile/features/auth/signup_screen.dart';
 import 'package:raje3_mobile/features/customers/customer_detail_screen.dart';
 import 'package:raje3_mobile/features/customers/customers_screen.dart';
@@ -142,6 +143,8 @@ class AppRouter {
     switch (section.id) {
       case 'visit':
         return const VisitScreen();
+      case 'bookings':
+        return const BookingsScreen();
       case 'mobile-requests':
         return const MobileRequestsScreen();
       case 'customers':

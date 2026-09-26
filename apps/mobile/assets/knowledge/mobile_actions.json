@@ -422,5 +422,17 @@
     "requires": [
       "operations.referral_partnership_list"
     ]
+  },
+  "nav.bookings": {
+    "name": "open_bookings",
+    "description": "يفتح شاشة الحجوزات — جدول اليوم وإضافة حجز جديد.",
+    "scope": "navigation",
+    "route": "bookings",
+    "kb_entry": "bookings",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "bookings.list"
+    ]
   }
 }
