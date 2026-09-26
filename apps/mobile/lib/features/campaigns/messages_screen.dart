@@ -175,7 +175,14 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _TemplatesTab(reasons: _reasons, goals: _goals, service: _service, onChanged: _loadAll),
+                  _TemplatesTab(
+                    reasons: _reasons,
+                    goals: _goals,
+                    service: _service,
+                    owned: _owned,
+                    onChanged: _loadAll,
+                    onCrossLink: () => _tabController.animateTo(2),
+                  ),
                   _QueueTab(schedule: _schedule, who: _who, service: _service, onChanged: _loadAll),
                   _CampaignsTab(
                     campaigns: _campaigns,
@@ -353,52 +360,111 @@ class _HeroStat extends StatelessWidget {
 /// accent per Messages.tsx's own class taxonomy (service/personal/marketing) plus `offers` for
 /// goal-only cards. Console's dense filterable table becomes swipeable/scrollable grouped cards —
 /// this pass's own mobile-native brief.
-class _TemplatesTab extends StatelessWidget {
-  const _TemplatesTab({required this.reasons, required this.goals, required this.service, required this.onChanged});
+class _TemplatesTab extends StatefulWidget {
+  const _TemplatesTab({
+    required this.reasons,
+    required this.goals,
+    required this.service,
+    required this.owned,
+    required this.onChanged,
+    required this.onCrossLink,
+  });
 
   final List<ReasonRow>? reasons;
   final List<GoalRow>? goals;
   final MessagesService service;
+  final Owned? owned;
   final VoidCallback onChanged;
+  final VoidCallback onCrossLink;
 
+  @override
+  State<_TemplatesTab> createState() => _TemplatesTabState();
+}
+
+class _TemplatesTabState extends State<_TemplatesTab> {
   static const _order = ['service', 'personal', 'marketing', 'offers'];
   static const _sectionLabelKey = {
     'service': 'sectionService', 'personal': 'sectionPersonal',
     'marketing': 'sectionMarketing', 'offers': 'sectionOffers',
   };
+  String _classFilter = '';
 
   @override
   Widget build(BuildContext context) {
-    if (reasons == null) return const Center(child: CircularProgressIndicator());
-    final cards = mergeTemplateCards(reasons!, goals ?? const []);
+    if (widget.reasons == null) return const Center(child: CircularProgressIndicator());
+    final cards = mergeTemplateCards(widget.reasons!, widget.goals ?? const []);
     if (cards.isEmpty) {
       return EmptyState(icon: Icons.forum_outlined, title: ct(context, 'templatesEmpty'));
     }
-    return ListView(
-      padding: const EdgeInsets.all(AppSpacing.md),
+    // THE RAIL AS A HORIZONTAL CHIP BAR (Google Maps' own category-filter pattern: one
+    // horizontally-scrollable row, each chip toggled, counted so a shop can see what's worth
+    // opening before tapping it — never a hidden count that could go stale) — a phone has no
+    // room for the console's own side-by-side rail-and-canvas layout.
+    final sections = _order.where((s) => cards.any((c) => c.cls == s)).toList();
+    final visible = _classFilter.isEmpty ? cards : cards.where((c) => c.cls == _classFilter).toList();
+    return Column(
       children: [
-        for (final section in _order)
-          if (cards.any((c) => c.cls == section)) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              child: Text(ct(context, _sectionLabelKey[section]!), style: AppTextStyles.labelMedium),
+        if (sections.length > 1)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+            child: SegmentedFilter<String>(
+              value: _classFilter,
+              onChanged: (v) => setState(() => _classFilter = v),
+              options: [
+                SegmentedFilterOption(value: '', label: ct(context, 'classAll'), badge: cards.length),
+                for (final s in sections)
+                  SegmentedFilterOption(
+                    value: s, label: ct(context, _sectionLabelKey[s]!),
+                    badge: cards.where((c) => c.cls == s).length,
+                  ),
+              ],
             ),
-            for (final c in cards.where((c) => c.cls == section))
+          ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            children: [
+              for (final section in (_classFilter.isEmpty ? sections : [_classFilter]))
+                if (visible.any((c) => c.cls == section)) ...[
+                  if (_classFilter.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                      child: Text(ct(context, _sectionLabelKey[section]!), style: AppTextStyles.labelMedium),
+                    ),
+                  for (final c in visible.where((c) => c.cls == section))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: _TemplateCardTile(
+                        card: c, service: widget.service, owned: widget.owned,
+                        onChanged: widget.onChanged, onCrossLink: widget.onCrossLink,
+                      ),
+                    ),
+                ],
               Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: _TemplateCardTile(card: c, service: service, onChanged: onChanged),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                child: Text(ct(context, 'templatesFootnote'), style: AppTextStyles.caption),
               ),
-          ],
+            ],
+          ),
+        ),
       ],
     );
   }
 }
 
 class _TemplateCardTile extends StatefulWidget {
-  const _TemplateCardTile({required this.card, required this.service, required this.onChanged});
+  const _TemplateCardTile({
+    required this.card,
+    required this.service,
+    required this.owned,
+    required this.onChanged,
+    required this.onCrossLink,
+  });
   final TemplateCard card;
   final MessagesService service;
+  final Owned? owned;
   final VoidCallback onChanged;
+  final VoidCallback onCrossLink;
 
   @override
   State<_TemplateCardTile> createState() => _TemplateCardTileState();
@@ -406,6 +472,11 @@ class _TemplateCardTile extends StatefulWidget {
 
 class _TemplateCardTileState extends State<_TemplateCardTile> {
   bool _busy = false;
+
+  static const _tplStatusKey = {
+    'approved': 'tplApproved', 'pending': 'tplPending', 'paused': 'tplPaused',
+    'disabled': 'tplDisabled', 'rejected': 'tplRejected', 'not_registered': 'tplNotRegistered',
+  };
 
   Future<void> _flip(bool on) async {
     setState(() => _busy = true);
@@ -419,6 +490,11 @@ class _TemplateCardTileState extends State<_TemplateCardTile> {
   Widget build(BuildContext context) {
     final c = widget.card;
     final style = msgClassStyle(c.cls, context.isDark);
+    // THE APP THIS REASON DEPENDS ON, IF ANY — never hides the card, only replaces the switch
+    // with a lock, same rule the console's own `apps_store_screen.dart` paywall-bypass fix
+    // established: a locked feature must still be reachable and explainable, never invisible.
+    final appKey = kReasonApp[c.reason?.id ?? ''];
+    final appLocked = appKey != null && widget.owned?.owns(appKey) == false;
     return AppCard(
       hasShadow: false,
       onTap: () => showMessagePreviewSheet(context,
@@ -441,21 +517,43 @@ class _TemplateCardTileState extends State<_TemplateCardTile> {
               children: [
                 Row(children: [
                   Expanded(child: Text(c.label, style: AppTextStyles.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                ]),
+                Text(c.when, style: AppTextStyles.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+                Wrap(spacing: 4, runSpacing: 4, children: [
                   AppBadge(text: c.auto && c.manual
                       ? ct(context, 'tagBoth')
                       : c.auto ? ct(context, 'tagAuto') : ct(context, 'tagManual'),
                       backgroundColor: style.soft, textColor: style.onSoft),
+                  if (_tplStatusKey.containsKey(c.templateStatus))
+                    AppBadge(text: ct(context, _tplStatusKey[c.templateStatus]!)),
+                  if (c.reason?.template.isNotEmpty == true)
+                    AppBadge(text: ct(context, 'yourText')),
+                  if (c.goal != null)
+                    GestureDetector(
+                      onTap: widget.onCrossLink,
+                      child: AppBadge(
+                        icon: Icons.arrow_outward_rounded,
+                        text: ct(context, 'crossLink', {'goal': c.label}),
+                      ),
+                    ),
                 ]),
-                Text(c.when, style: AppTextStyles.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
           if (c.reason != null) ...[
             const SizedBox(width: AppSpacing.sm),
-            if (c.reason!.canSwitch)
+            if (appLocked)
+              Column(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.lock_outline, size: 18),
+                Text(ct(context, 'afterPurchase'), style: AppTextStyles.caption),
+              ])
+            else if (c.reason!.canSwitch)
               Switch(value: c.reason!.on, onChanged: _busy ? null : _flip, activeThumbColor: style.solid)
             else
-              const Icon(Icons.lock_outline, size: 18),
+              Column(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.lock_outline, size: 18),
+                Text(ct(context, 'customerRight'), style: AppTextStyles.caption),
+              ]),
           ],
         ],
       ),

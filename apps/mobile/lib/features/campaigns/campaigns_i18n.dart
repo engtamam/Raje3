@@ -358,6 +358,51 @@ const Map<String, Map<String, String>> _kCampaignsStrings = {
   'toneFeminine': {
     'ar': 'مؤنث', 'en': 'Feminine', 'bn': 'স্ত্রীলিঙ্গ', 'ur': 'مؤنث', 'ha': 'Mace', 'fil': 'Pambabae',
   },
+  'tplApproved': {
+    'ar': 'جاهزة', 'en': 'Approved', 'bn': 'অনুমোদিত', 'ur': 'منظور شدہ', 'ha': 'An amince', 'fil': 'Aprubado',
+  },
+  'tplPending': {
+    'ar': 'بانتظار المراجعة', 'en': 'Under review', 'bn': 'পর্যালোচনাধীন', 'ur': 'زیرِ جائزہ',
+    'ha': 'Ana dubawa', 'fil': 'Sinusuri pa',
+  },
+  'tplPaused': {
+    'ar': 'جودتها منخفضة', 'en': 'Low quality', 'bn': 'নিম্নমানের', 'ur': 'کم معیار', 'ha': 'Ƙarancin inganci',
+    'fil': 'Mababang kalidad',
+  },
+  'tplDisabled': {
+    'ar': 'معطّلة', 'en': 'Disabled', 'bn': 'নিষ্ক্রিয়', 'ur': 'غیر فعال', 'ha': 'An kashe', 'fil': 'Naka-disable',
+  },
+  'tplRejected': {
+    'ar': 'مرفوضة', 'en': 'Rejected', 'bn': 'প্রত্যাখ্যাত', 'ur': 'مسترد', 'ha': 'An ƙi', 'fil': 'Tinanggihan',
+  },
+  'tplNotRegistered': {
+    'ar': 'لم تُرفع بعد', 'en': 'Not submitted', 'bn': 'জমা হয়নি', 'ur': 'ابھی جمع نہیں',
+    'ha': 'Ba a mika ba', 'fil': 'Hindi pa naisumite',
+  },
+  'afterPurchase': {
+    'ar': 'بعد الشراء', 'en': 'After purchase', 'bn': 'কেনার পরে', 'ur': 'خریداری کے بعد',
+    'ha': 'Bayan siyan', 'fil': 'Pagkatapos bumili',
+  },
+  'customerRight': {
+    'ar': 'حق العميل', 'en': "Customer's own choice", 'bn': 'গ্রাহকের নিজস্ব অধিকার', 'ur': 'گاہک کا اپنا حق',
+    'ha': 'Zaɓin abokin ciniki', 'fil': 'Sariling pili ng kustomer',
+  },
+  'crossLink': {
+    'ar': 'أطلقها كحملة: {goal}', 'en': 'Launch as a campaign: {goal}', 'bn': 'ক্যাম্পেইন হিসেবে চালু করুন: {goal}',
+    'ur': 'مہم کے طور پر شروع کریں: {goal}', 'ha': 'Kaddamar da shi a matsayin yaƙin talla: {goal}',
+    'fil': 'Ilunsad bilang kampanya: {goal}',
+  },
+  'templatesFootnote': {
+    'ar': 'كل رسالة هنا يرسلها النظام باسم محلك — تلقائيًا حين يحين وقتها، أو حين تطلقها بنفسك.',
+    'en': 'Every message here is sent in your shop\'s name — automatically when its moment comes, or when you launch it yourself.',
+    'bn': 'এখানে প্রতিটি বার্তা আপনার দোকানের নামে পাঠানো হয় — সময় হলে স্বয়ংক্রিয়ভাবে, অথবা আপনি নিজে চালু করলে।',
+    'ur': 'یہاں ہر پیغام آپ کی دکان کے نام پر بھیجا جاتا ہے — وقت آنے پر خودکار طور پر، یا جب آپ خود شروع کریں۔',
+    'ha': 'Kowane saƙo a nan ana aikawa da sunan shagon ku — ta atomatik lokacin da lokacinsa ya yi, ko lokacin da ku kanku kuka kaddamar da shi.',
+    'fil': 'Bawat mensahe dito ay ipinapadala sa pangalan ng iyong tindahan — awtomatiko pagdating ng oras nito, o kapag ikaw mismo ang naglunsad.',
+  },
+  'classAll': {
+    'ar': 'الكل', 'en': 'All', 'bn': 'সব', 'ur': 'تمام', 'ha': 'Duka', 'fil': 'Lahat',
+  },
 };
 
 /// Looks up [key] in the current [BuildContext]'s locale, falling back to Arabic (this feature's

@@ -64,6 +64,10 @@ class ReasonRow {
   final String cls;
   final String clsLabel;
   final String templateStatus;
+  /// The name of the owner's own approved text for this reason, when he has pointed it at one
+  /// (`reason_choices.py`'s own `row["template"]`) — empty means "sending ours". Drives the
+  /// «نصّك أنت» badge, same signal `MessagePreview.tsx`'s own `customTextBadge` reads.
+  final String template;
 
   const ReasonRow({
     required this.id,
@@ -75,6 +79,7 @@ class ReasonRow {
     required this.cls,
     required this.clsLabel,
     required this.templateStatus,
+    this.template = '',
   });
 
   factory ReasonRow.fromJson(Map<String, dynamic> json) => ReasonRow(
@@ -87,6 +92,7 @@ class ReasonRow {
         cls: (json['cls'] as String?) ?? '',
         clsLabel: (json['cls_label'] as String?) ?? '',
         templateStatus: (json['template_status'] as String?) ?? 'unknown',
+        template: (json['template'] as String?) ?? '',
       );
 
   ReasonRow copyWith({bool? on}) => ReasonRow(
@@ -99,8 +105,17 @@ class ReasonRow {
         cls: cls,
         clsLabel: clsLabel,
         templateStatus: templateStatus,
+        template: template,
       );
 }
+
+/// Which app a reason's message depends on, when it does — `booking_confirmed`/`rating_requested`
+/// are the only two (Messages.tsx's own hand-mapped `REASON_APP`, kept in sync by hand: this table
+/// is small and rarely changes, not worth a network round trip for exactly one screen).
+const Map<String, String> kReasonApp = {
+  'booking_confirmed': 'feature.bookings',
+  'rating_requested': 'feature.rating',
+};
 
 /// One of the 5 manual goals with no automatic reason of its own — `campaigns.goals`.
 class GoalRow {
