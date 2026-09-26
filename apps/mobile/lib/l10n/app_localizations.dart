@@ -67,7 +67,7 @@ import 'app_localizations_ur.dart';
 /// property.
 abstract class S {
   S(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -89,11 +89,11 @@ abstract class S {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
@@ -102,7 +102,7 @@ abstract class S {
     Locale('ur'),
     Locale('ha'),
     Locale('fil'),
-    Locale('bn'),
+    Locale('bn')
   ];
 
   /// App name shown in app bar and about page
@@ -5490,7 +5490,7 @@ abstract class S {
   /// No description provided for @shopRetentionPrefix10.
   ///
   /// In ar, this message translates to:
-  /// **'من كل ١٠ عملاء زاروك،'**
+  /// **'من كل 10 عملاء زاروك،'**
   String get shopRetentionPrefix10;
 
   /// No description provided for @shopRetentionSuffix.
@@ -6212,13 +6212,13 @@ class _SDelegate extends LocalizationsDelegate<S> {
 
   @override
   bool isSupported(Locale locale) => <String>[
-    'ar',
-    'bn',
-    'en',
-    'fil',
-    'ha',
-    'ur',
-  ].contains(locale.languageCode);
+        'ar',
+        'bn',
+        'en',
+        'fil',
+        'ha',
+        'ur'
+      ].contains(locale.languageCode);
 
   @override
   bool shouldReload(_SDelegate old) => false;
@@ -6242,9 +6242,8 @@ S lookupS(Locale locale) {
   }
 
   throw FlutterError(
-    'S.delegate failed to load unsupported locale "$locale". This is likely '
-    'an issue with the localizations generation tool. Please file an issue '
-    'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
-  );
+      'S.delegate failed to load unsupported locale "$locale". This is likely '
+      'an issue with the localizations generation tool. Please file an issue '
+      'on GitHub with a reproducible sample app and the gen-l10n configuration '
+      'that was used.');
 }

@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -3239,7 +3238,7 @@ class SUr extends S {
   String get shopRegisterFirstVisit => 'پہلی وزٹ درج کریں';
 
   @override
-  String get shopRetentionPrefix10 => 'ہر ١٠ گاہکوں میں سے جو آپ کے پاس آئے،';
+  String get shopRetentionPrefix10 => 'ہر 10 گاہکوں میں سے جو آپ کے پاس آئے،';
 
   @override
   String get shopRetentionSuffix => 'واپس آتے ہیں';

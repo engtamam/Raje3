@@ -508,8 +508,14 @@ class EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
+    // SCROLLABLE, NEVER A HARD OVERFLOW — a tab body's own available height is not guaranteed
+    // (a short viewport, a small window, a phone rotated to landscape), and this widget is shared
+    // across the whole app. Found live 2026-09-26: the Campaigns tab's own empty state overflowed
+    // by 34px in a short browser window because `Center` + fixed-size `Column` assumes unlimited
+    // height. `SingleChildScrollView` costs nothing when there IS enough room (nothing to scroll)
+    // and just works when there is not.
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

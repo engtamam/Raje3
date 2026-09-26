@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -3250,7 +3249,7 @@ class SAr extends S {
   String get shopRegisterFirstVisit => 'سجّل أول زيارة';
 
   @override
-  String get shopRetentionPrefix10 => 'من كل ١٠ عملاء زاروك،';
+  String get shopRetentionPrefix10 => 'من كل 10 عملاء زاروك،';
 
   @override
   String get shopRetentionSuffix => 'يرجعون لك';

@@ -3100,7 +3100,7 @@
   "shopRetentionMutedNote": "لسا ما فيه زيارات كافية لحساب هذا الرقم.",
   "shopRetentionBrandNew": "سجّل أول زيارة عشان تبدأ نشوف نسبة رجوع عملائك.",
   "shopRegisterFirstVisit": "سجّل أول زيارة",
-  "shopRetentionPrefix10": "من كل ١٠ عملاء زاروك،",
+  "shopRetentionPrefix10": "من كل 10 عملاء زاروك،",
   "shopRetentionSuffix": "يرجعون لك",
   "shopOneCustomer": "عميل واحد زارك",
   "shopNCustomers": "{n} عميل زاروك",
