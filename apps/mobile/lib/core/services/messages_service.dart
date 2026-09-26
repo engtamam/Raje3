@@ -1,0 +1,209 @@
+import 'package:dio/dio.dart';
+import 'package:raje3_mobile/core/network/api_client.dart';
+import 'package:raje3_mobile/models/messages_model.dart';
+
+/// «الحملات» — every real route Messages.tsx/MessagePreview.tsx/Launch.tsx call, ported 1:1.
+/// See parity/messages.md for the full feature catalogue and the action-id table this mirrors.
+class MessagesService {
+  final ApiClient apiClient;
+
+  MessagesService({required this.apiClient});
+
+  Future<TodayStatus?> today() async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/reminders/today');
+      final body = response.data;
+      if (body is! Map) return null;
+      return TodayStatus.fromJson(Map<String, dynamic>.from(body));
+    } on DioException {
+      return null;
+    }
+  }
+
+  Future<List<ReasonRow>?> reasons() async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/reminders/reasons');
+      final body = response.data;
+      if (body is! Map) return null;
+      final rows = (body['reasons'] as List?) ?? const [];
+      return rows.whereType<Map>().map((m) => ReasonRow.fromJson(Map<String, dynamic>.from(m))).toList();
+    } on DioException {
+      return null;
+    }
+  }
+
+  Future<List<GoalRow>?> goals() async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/campaigns/goals');
+      final body = response.data;
+      if (body is! Map) return null;
+      final rows = (body['goals'] as List?) ?? const [];
+      return rows.whereType<Map>().map((m) => GoalRow.fromJson(Map<String, dynamic>.from(m))).toList();
+    } on DioException {
+      return null;
+    }
+  }
+
+  /// `PUT /api/v1/reminders/reasons/{id}` — turns one automatic reason on/off, optionally
+  /// pointing it at a custom text (`template`, empty means "use ours"). Returns the server's own
+  /// refusal sentence on failure, `null` on success.
+  Future<String?> setReason(String reasonId, bool on, {String template = ''}) async {
+    try {
+      final response = await apiClient.dio.put<dynamic>(
+        '/api/v1/reminders/reasons/$reasonId',
+        data: {'on': on, if (template.isNotEmpty) 'template': template},
+      );
+      final status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) return null;
+      return _refusal(response.data);
+    } on DioException catch (e) {
+      return _refusal(e.response?.data);
+    }
+  }
+
+  /// `GET /api/v1/reminders/reasons/{id}/preview` — the real wordings for an automatic reason.
+  Future<List<MessageOption>?> previewReason(String reasonId) async {
+    try {
+      final response =
+          await apiClient.dio.get<dynamic>('/api/v1/reminders/reasons/$reasonId/preview');
+      final body = response.data;
+      if (body is! Map) return null;
+      final rows = (body['options'] as List?) ?? const [];
+      return rows.whereType<Map>().map((m) => MessageOption.fromJson(Map<String, dynamic>.from(m))).toList();
+    } on DioException {
+      return null;
+    }
+  }
+
+  /// `GET /api/v1/reminders/templates/by-type/{type}/preview` — same engine, no reason id: the
+  /// goals with no automatic counterpart yet (announce/service_offer/package_offer).
+  Future<List<MessageOption>?> previewByType(String templateType) async {
+    try {
+      final response = await apiClient.dio
+          .get<dynamic>('/api/v1/reminders/templates/by-type/$templateType/preview');
+      final body = response.data;
+      if (body is! Map) return null;
+      final rows = (body['options'] as List?) ?? const [];
+      return rows.whereType<Map>().map((m) => MessageOption.fromJson(Map<String, dynamic>.from(m))).toList();
+    } on DioException {
+      return null;
+    }
+  }
+
+  Future<List<ScheduleRow>?> schedule() async {
+    try {
+      final response = await apiClient.dio
+          .get<dynamic>('/api/v1/reminders/schedule', queryParameters: {'state': 'pending', 'limit': 200});
+      final body = response.data;
+      if (body is! Map) return null;
+      final rows = (body['schedule'] as List?) ?? const [];
+      return rows.whereType<Map>().map((m) => ScheduleRow.fromJson(Map<String, dynamic>.from(m))).toList();
+    } on DioException {
+      return null;
+    }
+  }
+
+  /// `DELETE /api/v1/reminders/schedule/{id}` — cancels ONE queued message, never the rule
+  /// behind it: the next visit still schedules a new one.
+  Future<bool> cancelSchedule(String id) async {
+    try {
+      final response = await apiClient.dio.delete<dynamic>('/api/v1/reminders/schedule/$id');
+      final status = response.statusCode ?? 0;
+      return status >= 200 && status < 300;
+    } on DioException {
+      return false;
+    }
+  }
+
+  Future<List<MessageLogRow>?> log({String outcome = '', String branchId = ''}) async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/reminders/log', queryParameters: {
+        'limit': 100,
+        if (outcome.isNotEmpty) 'outcome': outcome,
+        if (branchId.isNotEmpty) 'branch_id': branchId,
+      });
+      final body = response.data;
+      if (body is! Map) return null;
+      final rows = (body['log'] as List?) ?? const [];
+      return rows.whereType<Map>().map((m) => MessageLogRow.fromJson(Map<String, dynamic>.from(m))).toList();
+    } on DioException {
+      return null;
+    }
+  }
+
+  Future<List<Campaign>?> campaigns() async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/campaigns');
+      final body = response.data;
+      if (body is! Map) return null;
+      final rows = (body['campaigns'] as List?) ?? const [];
+      return rows.whereType<Map>().map((m) => Campaign.fromJson(Map<String, dynamic>.from(m))).toList();
+    } on DioException {
+      return null;
+    }
+  }
+
+  /// `POST /api/v1/campaigns/preview` — the message and the real reach count, computed but
+  /// never saved. This is the step that must never be skipped before a real send.
+  Future<CampaignPreview?> previewCampaign(Map<String, dynamic> body) async {
+    try {
+      final response = await apiClient.dio.post<dynamic>('/api/v1/campaigns/preview', data: body);
+      final data = response.data;
+      if (data is! Map) return null;
+      return CampaignPreview.fromJson(Map<String, dynamic>.from(data));
+    } on DioException catch (e) {
+      // THE SERVER'S OWN REFUSAL SENTENCE ("لا يوجد قالب مفعّل لهذا الهدف" etc.) rides the error
+      // body, same shape a success would carry — a refusal is still an answer worth showing.
+      final data = e.response?.data;
+      if (data is Map) return CampaignPreview.fromJson(Map<String, dynamic>.from(data));
+      return null;
+    }
+  }
+
+  /// `POST /api/v1/campaigns` — creates AND fires (or schedules), one press. Returns the
+  /// server's own refusal sentence on failure, `null` on success.
+  Future<String?> createCampaign(Map<String, dynamic> body) async {
+    try {
+      final response = await apiClient.dio.post<dynamic>('/api/v1/campaigns', data: body);
+      final status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) return null;
+      return _refusal(response.data);
+    } on DioException catch (e) {
+      return _refusal(e.response?.data);
+    }
+  }
+
+  Future<String?> pauseCampaign(String id) async {
+    try {
+      final response = await apiClient.dio.post<dynamic>('/api/v1/campaigns/$id/pause');
+      final status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) return null;
+      return _refusal(response.data);
+    } on DioException catch (e) {
+      return _refusal(e.response?.data);
+    }
+  }
+
+  Future<(List<CampaignRun>, Map<String, int>)?> runs(String campaignId) async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/campaigns/$campaignId/runs');
+      final body = response.data;
+      if (body is! Map) return null;
+      final rows = (body['runs'] as List?) ?? const [];
+      final totals = (body['totals'] as Map?) ?? const {};
+      return (
+        rows.whereType<Map>().map((m) => CampaignRun.fromJson(Map<String, dynamic>.from(m))).toList(),
+        totals.map((k, v) => MapEntry(k.toString(), (v as num?)?.toInt() ?? 0)),
+      );
+    } on DioException {
+      return null;
+    }
+  }
+
+  String _refusal(dynamic data) {
+    if (data is! Map) return '';
+    final message = data['message'] as String?;
+    final reason = data['reason'] as String?;
+    return (message?.isNotEmpty == true ? message : reason) ?? '';
+  }
+}

@@ -41,7 +41,7 @@ const List<AppRow> kAppRows = [
   AppRow(
     id: 'campaigns', key: 'feature.campaigns', name: 'الحملات',
     what: 'يعيد إليك عملاءك على وشك مغادرتك، فيكبر إيرادك من قاعدة عملائك الحالية بدل الاعتماد على زبون جديد فقط.',
-    icon: 'megaphone',
+    route: 'messages', icon: 'megaphone',
   ),
   AppRow(
     id: 'loyalty', key: 'feature.loyalty', name: 'برنامج النقاط',
