@@ -37,8 +37,9 @@ GOAL_CATEGORIES = ["عروض وخصومات", "ولاء وعودة", "مناسب
 # MECHANIC LIVES ON `models.GOAL_MECHANIC`, NOT HERE — HOW a goal decides who it reaches is a
 # property of the goal itself, held for EVERY real goal (`models.GOALS`, including `service_due`,
 # which has no card at all), the same way `GOAL_TEMPLATE`/`GOAL_TRIGGER` already are. A goal with no
-# launch-screen card yet (a "جماعي" one still in backend-only development) still has a real,
-# CI-checked mechanic — putting it here instead would mean a goal is only as real as its UI.
+# launch-screen card (`service_due` — a standing settings record, never something to launch) still
+# has a real, CI-checked mechanic — putting it here instead would mean a goal is only as real as
+# its UI.
 CARDS = {
     "win_back": {
         "title": "رجّع اللي غابوا",
@@ -80,6 +81,14 @@ CARDS = {
         "line": "روّج لباقة كاملة بسعرها الحقيقي",
         "icon": "tag",
         "category": "عروض وخصومات",
+    },
+    "community_milestone": {
+        "title": "هدف جماعي",
+        # THE LINE NAMES THE SHAPE, NOT THE MECHANISM — an owner reads "يفتح للجميع"، never
+        # "عتبة" أو "عدّاد مشترك". The number itself is his own choice on the launch screen.
+        "line": "يفتح للجميع أول ما يوصلون العدد اللي تحدّده",
+        "icon": "target",
+        "category": "إعلانات وتوعية",
     },
 }
 

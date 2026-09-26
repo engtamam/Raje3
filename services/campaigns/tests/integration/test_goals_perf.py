@@ -94,10 +94,10 @@ def test_the_goals_screen_still_carries_every_type_the_active_templates_covered(
     from app.core.models import GOAL_TEMPLATE
     # `service_due` (2026-09-13) IS DELIBERATELY NOT A CARD — it has no card in `goals.py::CARDS`:
     # no audience, no send count, nothing to launch, only a standing settings record
-    # (`/campaigns/service-due-settings`). `community_milestone` (2026-09-27) is the same shape,
-    # backend-only until the console/mobile phase gives it a launch screen (`core/milestone.py`'s
-    # own docstring). Two fewer cards than `GOAL_TEMPLATE` entries is therefore correct now, not a
-    # regression of this screen's own completeness check.
-    assert len(goals) == len(GOAL_TEMPLATE) - 2
+    # (`/campaigns/service-due-settings`). `community_milestone` (2026-09-27) GOT ITS OWN CARD
+    # once the console's own launch screen learned to draw it (2026-09-27) — `service_due` is now
+    # the only goal still deliberately cardless. One fewer card than `GOAL_TEMPLATE` entries is
+    # therefore correct now, not a regression of this screen's own completeness check.
+    assert len(goals) == len(GOAL_TEMPLATE) - 1
 
 
