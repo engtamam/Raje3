@@ -45,8 +45,14 @@ class _MessagePreviewSheet extends StatefulWidget {
 
 class _MessagePreviewSheetState extends State<_MessagePreviewSheet> {
   late final MessagesService _service;
-  List<MessageOption>? _options;
+  PreviewAnswer? _answer;
   bool _failed = false;
+  String _saving = '';
+
+  /// Only a REASON has a shop-wide voice to pick or a customer text to point it at — a bare
+  /// goal (`templateType` with no `reasonId`) has neither, same scope Launch.tsx's own
+  /// `byGoal` flag already narrows on the console side.
+  bool get _hasReason => widget.reasonId != null;
 
   @override
   void initState() {
@@ -56,14 +62,43 @@ class _MessagePreviewSheetState extends State<_MessagePreviewSheet> {
   }
 
   Future<void> _load() async {
-    final options = widget.reasonId != null
+    final answer = widget.reasonId != null
         ? await _service.previewReason(widget.reasonId!)
         : await _service.previewByType(widget.templateType!);
     if (!mounted) return;
     setState(() {
-      _options = options;
-      _failed = options == null;
+      _answer = answer;
+      _failed = answer == null;
     });
+  }
+
+  Future<void> _chooseTone(String tone) async {
+    if (_answer == null || tone == _answer!.tone) return;
+    setState(() => _saving = 'tone:$tone');
+    await _service.chooseTone(tone);
+    if (!mounted) return;
+    setState(() => _saving = '');
+    _load();
+  }
+
+  Future<void> _useCustomerText(String name) async {
+    if (widget.reasonId == null) return;
+    setState(() => _saving = name);
+    await _service.setReason(widget.reasonId!, true, template: name);
+    if (!mounted) return;
+    setState(() => _saving = '');
+    _load();
+  }
+
+  Future<void> _revertToOurs() async {
+    if (widget.reasonId == null) return;
+    setState(() => _saving = 'ours');
+    // EMPTY STRING DELETES THE STORED CUSTOM TEMPLATE (reason_choices.py's own `ChoiceStore.set`,
+    // never a stored blank) — "point this reason back at ours".
+    await _service.setReason(widget.reasonId!, true, template: '');
+    if (!mounted) return;
+    setState(() => _saving = '');
+    _load();
   }
 
   @override
@@ -105,7 +140,7 @@ class _MessagePreviewSheetState extends State<_MessagePreviewSheet> {
             ),
             const Divider(height: 1),
             Flexible(
-              child: _options == null
+              child: _answer == null
                   ? const Padding(
                       padding: EdgeInsets.all(AppSpacing.xl),
                       child: Center(child: CircularProgressIndicator()),
@@ -115,18 +150,35 @@ class _MessagePreviewSheetState extends State<_MessagePreviewSheet> {
                           padding: const EdgeInsets.all(AppSpacing.xl),
                           child: Text(ct(context, 'previewLoadFailed'), style: AppTextStyles.bodyMedium),
                         )
-                      : (_options ?? const []).isEmpty
+                      : _answer!.options.isEmpty
+                          // THREE REASONS, THREE SENTENCES (MessagePreview.tsx's own header
+                          // note) — never one sentence shown for all three: "under review"
+                          // said about a text that was never submitted sends an owner to wait
+                          // on Meta for a refusal that was ours.
                           ? Padding(
                               padding: const EdgeInsets.all(AppSpacing.xl),
-                              child: Text(ct(context, 'noWordingAvailable')),
+                              child: Text(switch (_answer!.emptyBecause) {
+                                'unread' => ct(context, 'emptyUnread'),
+                                'pending' => ct(context, 'emptyPending'),
+                                _ => ct(context, 'emptyNone'),
+                              }),
                             )
                           : ListView(
                               shrinkWrap: true,
                               padding: const EdgeInsets.all(AppSpacing.md),
-                              children: (_options ?? const [])
+                              children: _answer!.options
                                   .map((o) => Padding(
                                         padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                                        child: _OptionCard(option: o),
+                                        child: _OptionCard(
+                                          option: o,
+                                          hasReason: _hasReason,
+                                          sending: o.mine ? _answer!.chosen == o.name : (_answer!.chosen.isEmpty && o.tone == _answer!.tone),
+                                          chosen: _answer!.chosen,
+                                          saving: _saving,
+                                          onChooseTone: () => _chooseTone(o.tone),
+                                          onUseCustomerText: () => _useCustomerText(o.name),
+                                          onRevertToOurs: _revertToOurs,
+                                        ),
                                       ))
                                   .toList(),
                             ),
@@ -139,9 +191,27 @@ class _MessagePreviewSheetState extends State<_MessagePreviewSheet> {
 }
 
 class _OptionCard extends StatelessWidget {
-  const _OptionCard({required this.option});
+  const _OptionCard({
+    required this.option,
+    required this.hasReason,
+    required this.sending,
+    required this.chosen,
+    required this.saving,
+    required this.onChooseTone,
+    required this.onUseCustomerText,
+    required this.onRevertToOurs,
+  });
 
   final MessageOption option;
+  final bool hasReason;
+  final bool sending;
+  /// The shop's own chosen custom-text name — empty means "sending ours" (the tone-based
+  /// default), non-empty names which of his own texts is active.
+  final String chosen;
+  final String saving;
+  final VoidCallback onChooseTone;
+  final VoidCallback onUseCustomerText;
+  final VoidCallback onRevertToOurs;
 
   (String, Color, Color)? _statusChip(BuildContext context) {
     final isDark = context.isDark;
@@ -175,20 +245,40 @@ class _OptionCard extends StatelessWidget {
         : (option.tone == 'masculine'
             ? ct(context, 'toneMasculine')
             : option.tone == 'feminine' ? ct(context, 'toneFeminine') : option.tone);
+    final isDark = context.isDark;
+    final busy = saving == option.name || saving == 'tone:${option.tone}' || saving == 'ours';
     return AppCard(
       hasShadow: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (chip != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: AppBadge(text: chip.$1, textColor: chip.$2, backgroundColor: chip.$3),
-            ),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            if (chip != null) AppBadge(text: chip.$1, textColor: chip.$2, backgroundColor: chip.$3),
+            // THE ACTIVE VOICE IS ALWAYS NAMED, NEVER JUST "READY" — the chosen one used to lose
+            // its own status once it became the sending option; this badge is additive, so the
+            // owner can still see BOTH which voice this is and that it is the one going out.
+            if (sending)
+              AppBadge(
+                text: ct(context, 'sendingNow'),
+                icon: Icons.check_circle_outline,
+                backgroundColor: isDark ? AppDarkColors.accentSoft : AppColors.accentSoft,
+                textColor: isDark ? AppDarkColors.accentOnSoft : AppColors.accentOnSoft,
+              ),
+          ]),
+          if (chip != null || sending) const SizedBox(height: AppSpacing.sm),
           WhatsAppBubble(text: option.text, caption: caption),
           if (option.reason.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(option.reason, style: AppTextStyles.caption),
+          ],
+          if (hasReason && !sending) ...[
+            const SizedBox(height: AppSpacing.sm),
+            if (option.mine)
+              SecondaryButton(text: ct(context, 'useIt'), onPressed: busy ? null : onUseCustomerText)
+            else if (chosen.isEmpty)
+              SecondaryButton(text: ct(context, 'makeMyTone'), onPressed: busy ? null : onChooseTone)
+            else
+              SecondaryButton(text: ct(context, 'backToOurs'), onPressed: busy ? null : onRevertToOurs),
           ],
         ],
       ),

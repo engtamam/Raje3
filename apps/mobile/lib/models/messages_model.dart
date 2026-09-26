@@ -407,6 +407,35 @@ class CampaignPreview {
   }
 }
 
+/// The whole answer `reminders.preview_reason`/`preview_by_type` gives — not just the options list,
+/// which used to be all this app read. `chosen`/`tone` decide which option carries the "sending
+/// now" badge; `emptyBecause` is the SERVER'S OWN REASON for an empty list (never guessed here —
+/// MessagePreview.tsx's own header note: conflating "under review" with "never submitted" sends an
+/// owner to wait on Meta for a refusal that was ours).
+class PreviewAnswer {
+  final List<MessageOption> options;
+  final String chosen;
+  final String tone;
+  final String emptyBecause;
+
+  const PreviewAnswer({
+    required this.options,
+    required this.chosen,
+    required this.tone,
+    required this.emptyBecause,
+  });
+
+  factory PreviewAnswer.fromJson(Map<String, dynamic> json) {
+    final rows = (json['options'] as List?) ?? const [];
+    return PreviewAnswer(
+      options: rows.whereType<Map>().map((m) => MessageOption.fromJson(Map<String, dynamic>.from(m))).toList(),
+      chosen: (json['chosen'] as String?) ?? '',
+      tone: (json['tone'] as String?) ?? 'masculine',
+      emptyBecause: (json['empty_because'] as String?) ?? '',
+    );
+  }
+}
+
 /// One wording option in the message-preview sheet — `reminders.preview_reason`/`preview_by_type`.
 class MessageOption {
   final String name;

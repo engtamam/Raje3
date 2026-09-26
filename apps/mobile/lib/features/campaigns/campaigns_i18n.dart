@@ -403,6 +403,43 @@ const Map<String, Map<String, String>> _kCampaignsStrings = {
   'classAll': {
     'ar': 'الكل', 'en': 'All', 'bn': 'সব', 'ur': 'تمام', 'ha': 'Duka', 'fil': 'Lahat',
   },
+  'sendingNow': {
+    'ar': 'تُرسَل الآن', 'en': 'Sending now', 'bn': 'এখন পাঠানো হচ্ছে', 'ur': 'ابھی بھیجی جا رہی ہے',
+    'ha': 'Ana aikawa yanzu', 'fil': 'Ipinapadala ngayon',
+  },
+  'emptyUnread': {
+    'ar': 'القوالب تُراجَع لدى واتساب، وقد تستغرق ساعات.',
+    'en': 'Templates are under WhatsApp\'s review, which can take hours.',
+    'bn': 'টেমপ্লেটগুলো হোয়াটসঅ্যাপের পর্যালোচনাধীন, যা ঘন্টা লাগতে পারে।',
+    'ur': 'سانچے واٹس ایپ کے پاس زیرِ جائزہ ہیں، جس میں گھنٹے لگ سکتے ہیں۔',
+    'ha': 'Samfura suna hannun WhatsApp don dubawa, wanda zai iya ɗaukar sa\'o\'i.',
+    'fil': 'Nasa ilalim ng review ng WhatsApp ang mga template, na maaaring tumagal ng ilang oras.',
+  },
+  'emptyPending': {
+    'ar': 'لم تُرفع أي صيغة لهذه الرسالة بعد.', 'en': 'No wording has been submitted for this message yet.',
+    'bn': 'এই বার্তার জন্য এখনও কোনো ভাষা জমা দেওয়া হয়নি।', 'ur': 'اس پیغام کے لیے ابھی تک کوئی عبارت جمع نہیں ہوئی۔',
+    'ha': 'Ba a mika wata magana da ta dace da wannan saƙo ba tukuna.',
+    'fil': 'Wala pang naisumiteng pagkakasabi para sa mensaheng ito.',
+  },
+  'emptyNone': {
+    'ar': 'لا صيغة متاحة لهذه الرسالة الآن.', 'en': 'No wording is available for this message right now.',
+    'bn': 'এই বার্তার জন্য এখন কোনো ভাষা উপলব্ধ নেই।', 'ur': 'اس پیغام کے لیے ابھی کوئی عبارت دستیاب نہیں۔',
+    'ha': 'Babu wata magana da ta dace da wannan saƙo a yanzu.',
+    'fil': 'Walang available na pagkakasabi para sa mensaheng ito ngayon.',
+  },
+  'makeMyTone': {
+    'ar': 'اجعل هذا صوت المحل', 'en': 'Make this my shop\'s voice', 'bn': 'এটিকে আমার দোকানের কণ্ঠ বানান',
+    'ur': 'اسے میری دکان کی آواز بنائیں', 'ha': 'Mai da wannan muryar shagona',
+    'fil': 'Gawing tinig ng aking tindahan ito',
+  },
+  'useIt': {
+    'ar': 'استخدم هذا النص', 'en': 'Use this text', 'bn': 'এই লেখাটি ব্যবহার করুন', 'ur': 'یہ متن استعمال کریں',
+    'ha': 'Yi amfani da wannan rubutu', 'fil': 'Gamitin ang tekstong ito',
+  },
+  'backToOurs': {
+    'ar': 'ارجع لنصّنا', 'en': 'Go back to ours', 'bn': 'আমাদেরটায় ফিরে যান', 'ur': 'ہمارے پر واپس جائیں',
+    'ha': 'Koma zuwa namu', 'fil': 'Bumalik sa amin',
+  },
 };
 
 /// Looks up [key] in the current [BuildContext]'s locale, falling back to Arabic (this feature's

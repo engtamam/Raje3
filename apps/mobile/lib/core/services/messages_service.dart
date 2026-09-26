@@ -61,15 +61,16 @@ class MessagesService {
     }
   }
 
-  /// `GET /api/v1/reminders/reasons/{id}/preview` — the real wordings for an automatic reason.
-  Future<List<MessageOption>?> previewReason(String reasonId) async {
+  /// `GET /api/v1/reminders/reasons/{id}/preview` — the real wordings for an automatic reason,
+  /// AND which one is sending now (`chosen`/`tone`) AND why the list is empty when it is
+  /// (`empty_because`) — the whole answer, not just the options list.
+  Future<PreviewAnswer?> previewReason(String reasonId) async {
     try {
       final response =
           await apiClient.dio.get<dynamic>('/api/v1/reminders/reasons/$reasonId/preview');
       final body = response.data;
       if (body is! Map) return null;
-      final rows = (body['options'] as List?) ?? const [];
-      return rows.whereType<Map>().map((m) => MessageOption.fromJson(Map<String, dynamic>.from(m))).toList();
+      return PreviewAnswer.fromJson(Map<String, dynamic>.from(body));
     } on DioException {
       return null;
     }
@@ -77,16 +78,35 @@ class MessagesService {
 
   /// `GET /api/v1/reminders/templates/by-type/{type}/preview` — same engine, no reason id: the
   /// goals with no automatic counterpart yet (announce/service_offer/package_offer).
-  Future<List<MessageOption>?> previewByType(String templateType) async {
+  Future<PreviewAnswer?> previewByType(String templateType) async {
     try {
       final response = await apiClient.dio
           .get<dynamic>('/api/v1/reminders/templates/by-type/$templateType/preview');
       final body = response.data;
       if (body is! Map) return null;
-      final rows = (body['options'] as List?) ?? const [];
-      return rows.whereType<Map>().map((m) => MessageOption.fromJson(Map<String, dynamic>.from(m))).toList();
+      return PreviewAnswer.fromJson(Map<String, dynamic>.from(body));
     } on DioException {
       return null;
+    }
+  }
+
+  /// «اجعل هذا الصوت صوتك» (#326) — the tenant's own branding record carries the tone, merged
+  /// never replaced (same reasoning `AuthService.setBranding` already documents for logo/accent:
+  /// a bare `{tone: ...}` body would drop the shop's own logo). Reads the current record first so
+  /// this is safe to call without the caller having read it itself.
+  Future<bool> chooseTone(String tone) async {
+    try {
+      final read = await apiClient.dio.get<dynamic>('/api/v1/tenant');
+      final data = read.data;
+      final current = data is Map && data['branding'] is Map
+          ? Map<String, dynamic>.from(data['branding'] as Map)
+          : <String, dynamic>{};
+      await apiClient.dio.put<dynamic>('/api/v1/tenant/branding', data: {
+        'branding': {...current, 'tone': tone},
+      });
+      return true;
+    } on DioException {
+      return false;
     }
   }
 
