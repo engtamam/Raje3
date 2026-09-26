@@ -28,20 +28,24 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from app.core import goals as _goals
+from app.core import milestone as _milestone
+from app.core import models as _models
 
-# A resolver's real shape: (campaign, *, already_reached, now, audience) -> Awaitable[Audience].
-# `audience` is the container's own `_AudienceFacade` — the one peer that actually knows how to
-# read a shop's customers — handed to every mechanic alike, whether or not it ends up using it.
+# A resolver's real shape: (campaign, *, already_reached, now, audience, store) ->
+# Awaitable[Audience]. `audience` is the container's own `_AudienceFacade` — the one peer that
+# actually knows how to read a shop's customers; `store` is the raw campaigns datastore. Every
+# mechanic gets both, whether or not it ends up using either — "فردي" only ever needs `audience`,
+# "جماعي" only ever needs `store`, and a future mechanic mixing both is not a signature change.
 Resolver = Callable[..., Any]
 
 
 async def resolve_individual(campaign: dict[str, Any], *, already_reached, now: int,
-                             audience) -> Any:
-    """"فردي" — the mechanic every goal uses today: one audience row, matched independently of
-    every other, via `app.core.audience.resolve` (reached here through the container's own
-    `_AudienceFacade.resolve_for`). Moved verbatim out of `container.py`'s own closure — nothing
-    about WHAT this does changed, only that it now has a name a registry can hold.
+                             audience, store: Any = None) -> Any:
+    """"فردي" — the mechanic every goal used until 2026-09-27: one audience row, matched
+    independently of every other, via `app.core.audience.resolve` (reached here through the
+    container's own `_AudienceFacade.resolve_for`). Moved verbatim out of `container.py`'s own
+    closure — nothing about WHAT this does changed, only that it now has a name a registry can
+    hold.
     """
     return await audience.resolve_for(
         campaign.get("tenant", ""), goal=campaign.get("goal", ""), now=now,
@@ -58,10 +62,21 @@ async def resolve_individual(campaign: dict[str, Any], *, already_reached, now: 
         min_visits=int(campaign.get("loyalty_min_visits") or 3))
 
 
-# ONE ENTRY PER MECHANIC NAME IN `goals.MECHANICS` — checked for completeness by
+async def resolve_community_milestone(campaign: dict[str, Any], *, already_reached, now: int,
+                                      audience: Any = None, store: Any = None) -> Any:
+    """"جماعي" — the first sibling mechanic (2026-09-27). A thin, named pass-through to
+    `core/milestone.py::resolve_milestone`, kept here (rather than pointed at directly) so every
+    entry in `MECHANIC_RESOLVERS` has the exact same shape and this file stays the one place that
+    lists what exists, the same reason `goals.py::CARDS` never imports a screen's own component."""
+    return await _milestone.resolve_milestone(campaign, already_reached=already_reached, now=now,
+                                              audience=audience, store=store)
+
+
+# ONE ENTRY PER MECHANIC NAME IN `models.GOAL_MECHANIC` — checked for completeness by
 # `ci/check_campaign_mechanics.py`, never assumed here.
 MECHANIC_RESOLVERS: dict[str, Resolver] = {
     "فردي": resolve_individual,
+    "جماعي": resolve_community_milestone,
 }
 
 
@@ -70,11 +85,15 @@ def resolver_for(goal: str) -> Resolver:
     assumed to be `resolve_individual` for everything. Raises loudly on an unknown goal or an
     unregistered mechanic, the same "a typo here must fail loudly" discipline
     `branch_domains.is_branch_scoped` already holds for branch data.
+
+    LOOKED UP AGAINST `models.GOAL_MECHANIC`, NOT `goals.CARDS` — every REAL goal has a mechanic
+    (`service_due` and `community_milestone` included), whether or not it has a launch-screen card
+    yet. A goal only reachable through `goals.CARDS` would make an owner's screen the definition of
+    which goals exist, which is exactly backwards.
     """
-    meta = _goals.CARDS.get(goal)
-    if meta is None:
-        raise ValueError(f"unknown goal {goal!r} — one of {sorted(_goals.CARDS)}")
-    mechanic = meta.get("mechanic", "")
+    if goal not in _models.GOAL_MECHANIC:
+        raise ValueError(f"unknown goal {goal!r} — one of {sorted(_models.GOAL_MECHANIC)}")
+    mechanic = _models.GOAL_MECHANIC[goal]
     fn = MECHANIC_RESOLVERS.get(mechanic)
     if fn is None:
         raise ValueError(

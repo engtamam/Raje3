@@ -312,7 +312,7 @@ def build_container(settings: Settings) -> Container:
         # separate code path, not a branch squeezed into this one.
         fn = resolver_for(campaign.get("goal", ""))
         return await fn(campaign, already_reached=already_reached, now=now,
-                        audience=container.audience)
+                        audience=container.audience, store=container.datastore)
 
     from app.core.licence import build_licence
     from app.core.shape import BOOKINGS_KEY
@@ -448,6 +448,13 @@ class _AudienceFacade:
                                    # `window_days` for its own unrelated fallback-cycle meaning,
                                    # which the 90-day default leaves exactly as it always was.
                                    window_days=window_days, min_visits=min_visits)
+
+    async def gate_check(self, tenant: str, subject: str, cls: str) -> bool:
+        """Same door every mechanic's audience must pass through — reminders' own consent/cooldown/
+        opt-out gate (spec §8.4.2), exposed directly for a mechanic (the "جماعي" milestone one)
+        whose own resolver does not go through `resolve_for`'s customer-matching path at all but
+        must still never message someone who opted out."""
+        return await self._c.allows(tenant, subject, cls)
 
     async def redeemed(self, tenant: str, reached: list[dict]) -> int:
         """Passthrough to the peer (ط-3) — see `HttpAudience.redeemed` for the join it makes."""

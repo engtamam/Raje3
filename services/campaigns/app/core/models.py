@@ -34,8 +34,14 @@ CAMPAIGNS = "campaigns"
 RUNS = "campaign_runs"
 
 # What the owner picks. Not a taxonomy they learn — four cards with two words each (spec §10.9).
+#
+# `community_milestone` (2026-09-27) HAS NO CARD YET, same as `service_due` — real, wired,
+# CI-checked machinery (GOAL_TEMPLATE/GOAL_TRIGGER/GOAL_MECHANIC rows below, a real resolver in
+# `core/milestone.py`, a real `tick.py` branch), reachable only through this file and direct tests
+# until the console/mobile phase gives it a launch screen. See `core/mechanics.py`'s own docstring
+# for why this is a SIBLING mechanic to the one every other goal uses, not a branch inside it.
 GOALS = ("win_back", "reward_loyal", "announce", "occasion", "service_offer",
-        "package_offer", "service_due")
+        "package_offer", "service_due", "community_milestone")
 
 # Which template type each goal sends, and its regulatory class. The class is NOT the owner's
 # choice: every campaign here is promotional (marketing).
@@ -71,6 +77,10 @@ GOAL_TEMPLATE = {
     # time (services/reminders' own new peer client) rather than fired by this service's own
     # tick/dispatch. See the one settings record's own note below (`SERVICE_DUE_SETTINGS_ID`).
     "service_due": ("svc_service_reminder", "marketing"),
+    # A SHARED-COHORT REVEAL, NOT A PER-CUSTOMER SEND — the template still needs Meta approval and
+    # a "catalogue"/"reward" fill like any offer template; nothing about the "جماعي" mechanic
+    # changes what a WhatsApp template IS, only how the recipient list is built (core/milestone.py).
+    "community_milestone": ("mkt_community_milestone", "marketing"),
 }
 
 # WHICH GOALS PUT SOMETHING ON THE TABLE, and therefore must carry an end date.
@@ -161,7 +171,22 @@ REWARD_TYPES = ("discount", "gift", "points")
 #: regexes this whole file, unscoped, for a two-quoted-string pair inside parentheses to find
 #: `GOAL_TEMPLATE`'s own goal-to-class entries; a tuple of two strings here reads as a second,
 #: bogus entry of that same shape and corrupts that check. Curly braces do not match it.
-REWARD_ENABLED_GOALS = {"occasion", "win_back", "service_offer", "package_offer"}
+REWARD_ENABLED_GOALS = {"occasion", "win_back", "service_offer", "package_offer",
+                        "community_milestone"}
+
+#: THE NARROWEST SANE SHARED TARGET — a "milestone" of 1 is an ordinary single-customer send with
+#: extra steps, and a target of 0 or less can never be crossed by an increasing counter, which
+#: would be a campaign that can NEVER fire, silently, forever.
+MIN_MILESTONE_THRESHOLD = 2
+
+
+def validate_milestone_threshold(threshold: int) -> str:
+    """One Arabic sentence naming what is wrong with a `community_milestone` campaign's own shared
+    target, or "" when it is coherent — same shape and calling convention as
+    `validate_window`/`validate_loyalty_window`/`validate_reward` above."""
+    if threshold < MIN_MILESTONE_THRESHOLD:
+        return f"الهدف الجماعي يجب أن يكون {MIN_MILESTONE_THRESHOLD} على الأقل"
+    return ""
 
 
 def validate_reward(*, reward_type: str, reward_points: int, scope_service_ids: list,
@@ -206,7 +231,14 @@ def in_window(*, start_hour: int, end_hour: int, weekdays: list[int] | None, now
     return start_hour <= local.hour < end_hour
 
 # Who fires it. Derived from the goal, never asked.
-TRIGGERS = ("manual", "scheduled", "standing")
+#
+# "milestone" (2026-09-27) IS ITS OWN TRIGGER, NOT "standing" — a standing campaign is throttled to
+# once a Riyadh calendar day (`tick.same_day`'s whole reason for existing); a milestone campaign
+# must be checked EVERY tick (a shared counter can cross its threshold at any minute), and it is
+# only ever "done" once its one-shot reveal has fully drained — a genuinely different shape
+# `tick.py`'s own `milestone` branch handles on its own terms, never squeezed into `standing`'s
+# once-a-day guard or `scheduled`'s "finished means done" shortcut.
+TRIGGERS = ("manual", "scheduled", "standing", "milestone")
 
 GOAL_TRIGGER = {
     "win_back": "standing",        # absence is continuous; a one-off win-back is a missed month
@@ -227,6 +259,29 @@ GOAL_TRIGGER = {
     # or a report DOES ask "how does this goal behave", the honest answer is here rather than a
     # `KeyError` or a silent `.get(..., "manual")` default that would describe it wrong.
     "service_due": "standing",
+    "community_milestone": "milestone",
+}
+
+# HOW A GOAL DECIDES WHO IT REACHES — held for EVERY real goal, the same way GOAL_TEMPLATE/
+# GOAL_TRIGGER already are, including `service_due` (no card, no audience, no mechanic that ever
+# actually runs — kept anyway for the same "the honest answer is here, not a KeyError" reason
+# GOAL_TRIGGER's own comment gives it). "فردي" is the one mechanic every launchable goal used until
+# 2026-09-27: one candidate row, matched independently, via `core/audience.py::resolve`. "جماعي" is
+# the first sibling — a shared counter crossing a fixed threshold, then a batch reveal to the whole
+# earned cohort at once (`core/milestone.py`). See `core/mechanics.py` for the registry that turns
+# this word into a real resolver function, and `ci/check_campaign_mechanics.py` for the gate that
+# keeps every goal here honestly wired to one.
+MECHANICS = ("فردي", "جماعي")
+
+GOAL_MECHANIC = {
+    "win_back": "فردي",
+    "reward_loyal": "فردي",
+    "announce": "فردي",
+    "occasion": "فردي",
+    "service_offer": "فردي",
+    "package_offer": "فردي",
+    "service_due": "فردي",
+    "community_milestone": "جماعي",
 }
 
 # draft → active → paused → done. A STANDING campaign is never done: it has no end, only a pause.
@@ -358,6 +413,11 @@ class Campaign:
     # on why these are named/scoped separately from `win_back`'s unrelated use of `window_days`.
     loyalty_window_days: int = 90
     loyalty_min_visits: int = 3
+    # `community_milestone` ONLY — the fixed shared target (2026-09-27, v1: fixed at creation, no
+    # reset, no re-arming; see `core/milestone.py`'s own docstring for why). Meaningless for every
+    # other goal, `0` for every campaign that predates this field, same "not yet decided" convention
+    # every other optional numeric field on this dataclass already uses.
+    milestone_threshold: int = 0
     created: int = field(default_factory=_now)
     updated: int = field(default_factory=_now)
 

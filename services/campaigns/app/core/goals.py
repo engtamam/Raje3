@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.core.models import GOAL_TEMPLATE, GOAL_TRIGGER, offers_something
+from app.core.models import GOAL_MECHANIC, GOAL_TEMPLATE, GOAL_TRIGGER, offers_something
 
 # THE KINDS HE FILLS HIMSELF. `system` is ours — his name, the shop, a balance — and never a
 # question. `catalogue` is a tap on his own service list rather than typing; the two typed ones
@@ -32,44 +32,37 @@ MANUAL_BLANKS = ("catalogue", "amount", "date", "owner")
 # with it — no screen anywhere invents its own grouping.
 GOAL_CATEGORIES = ["عروض وخصومات", "ولاء وعودة", "مناسبات", "إعلانات وتوعية"]
 
-# THE MECHANICS A GOAL CAN NAME — HOW it decides who it reaches, as opposed to WHICH rule (the
-# goal itself). "فردي" is every goal that exists today: one candidate row, matched independently of
-# every other, via `app.core.audience.resolve` — see `app.core.mechanics` for the registry that
-# turns this word into the real resolver function, and `ci/check_campaign_mechanics.py` for the
-# gate that keeps every CARDS row honestly wired to one. A future goal naming a mechanic that isn't
-# here yet (a shared counter crossing a threshold, say) is a NEW row in `MECHANICS` plus a new
-# resolver in `app.core.mechanics` — never a branch bolted onto `audience.py`'s own per-row shape.
-MECHANICS = ("فردي",)
-
 # What each card says. Two words and a line — the owner is choosing, not reading.
+#
+# MECHANIC LIVES ON `models.GOAL_MECHANIC`, NOT HERE — HOW a goal decides who it reaches is a
+# property of the goal itself, held for EVERY real goal (`models.GOALS`, including `service_due`,
+# which has no card at all), the same way `GOAL_TEMPLATE`/`GOAL_TRIGGER` already are. A goal with no
+# launch-screen card yet (a "جماعي" one still in backend-only development) still has a real,
+# CI-checked mechanic — putting it here instead would mean a goal is only as real as its UI.
 CARDS = {
     "win_back": {
         "title": "رجّع اللي غابوا",
         "line": "من تأخّر عن موعده المعتاد",
         "icon": "return",
         "category": "ولاء وعودة",
-        "mechanic": "فردي",
     },
     "reward_loyal": {
         "title": "كافئ المخلصين",
         "line": "الأكثر زيارة عندك",
         "icon": "gift",
         "category": "ولاء وعودة",
-        "mechanic": "فردي",
     },
     "announce": {
         "title": "أعلن جديدك",
         "line": "خبر أو عرض للجميع",
         "icon": "megaphone",
         "category": "إعلانات وتوعية",
-        "mechanic": "فردي",
     },
     "occasion": {
         "title": "هنّئ في مناسبة",
         "line": "رسالة في يوم يخصّه",
         "icon": "cake",
         "category": "مناسبات",
-        "mechanic": "فردي",
     },
     "service_offer": {
         "title": "عرض على خدمة",
@@ -78,7 +71,6 @@ CARDS = {
         "line": "لمن قارب موعد خدمة معيّنة",
         "icon": "tag",
         "category": "عروض وخصومات",
-        "mechanic": "فردي",
     },
     "package_offer": {
         "title": "عرض على باقة",
@@ -88,7 +80,6 @@ CARDS = {
         "line": "روّج لباقة كاملة بسعرها الحقيقي",
         "icon": "tag",
         "category": "عروض وخصومات",
-        "mechanic": "فردي",
     },
 }
 
@@ -224,4 +215,4 @@ def resolve_goal(goal: str) -> dict[str, Any]:
     template_type, cls = GOAL_TEMPLATE[goal]
     return {"goal": goal, "template_type": template_type, "cls": cls,
             "trigger": GOAL_TRIGGER.get(goal, "manual"), "behaviour": _behaviour(goal),
-            "mechanic": CARDS[goal].get("mechanic", "")}
+            "mechanic": GOAL_MECHANIC.get(goal, "")}
