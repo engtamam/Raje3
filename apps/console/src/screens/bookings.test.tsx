@@ -149,6 +149,8 @@ const session = {} as never;
 const catalog = {
   services: [{ service: 'bookings', actions: [
     { id: 'bookings.create', label: '', method: 'POST' as const, path: '/api/v1/bookings', capability: 'bookings.write' },
+    { id: 'bookings.set_working_hours', label: '', method: 'PATCH' as const, path: '/api/v1/bookings/working-hours', capability: 'bookings.manage' },
+    { id: 'bookings.set_assignment_settings', label: '', method: 'PATCH' as const, path: '/api/v1/bookings/assignment-settings', capability: 'bookings.manage' },
   ] }],
   unreachable: [],
 };

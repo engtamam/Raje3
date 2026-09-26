@@ -65,7 +65,14 @@ def build_manifest(
         # matching app/core/licence.py's own read/write asymmetry: read opens the grid, write is
         # everything that grows or changes a commitment (create/edit/cancel), and licence itself
         # decides underneath which of those a lapsed subscription may still do (attend/no_show).
-        "capabilities": ["platform.secrets", "platform.config", "bookings.read", "bookings.write"],
+        # `bookings.manage` (Stage 8/9): the shop-wide policy underneath the grid — its own weekly
+        # working hours and the "auto" tie-breaker among an "auto" service's eligible operators.
+        # Was enforced by `api/v1/bookings.py`'s `_MANAGE` from day one but never advertised here —
+        # an under-declaration, not a design choice: the two routes below existed, worked, and
+        # refused correctly, but no console/mobile screen could ever ask the catalogue "may this
+        # operator save these" — the button had to render unconditionally or not at all.
+        "capabilities": ["platform.secrets", "platform.config", "bookings.read", "bookings.write",
+                         "bookings.manage"],
         "endpoints": [
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
@@ -98,8 +105,21 @@ def build_manifest(
             # app/core/operations.py::BookingOperations exposes.
             {"path": "/api/v1/bookings", "tier": "user", "method": "GET"},
             {"path": "/api/v1/bookings", "tier": "user", "method": "POST"},
+            # The month/year view's own read (docs/خطة-تصميم-تقويم-الحجوزات.md §1) — how many
+            # bookings land on each day of a range, never the bookings themselves.
+            {"path": "/api/v1/bookings/counts", "tier": "user", "method": "GET"},
             # Stage 8 (docs/وصف-تطبيق-الحجوزات.md §2.6/§6.2): read at the moment it is useful.
             {"path": "/api/v1/bookings/risk", "tier": "user", "method": "GET"},
+            # His own history, newest first, across every branch (customer page's own section).
+            {"path": "/api/v1/bookings/for-customer", "tier": "user", "method": "GET"},
+            # THE SHOP'S OWN WEEKLY POLICY (`bookings.manage` guards the write half only — reading
+            # it needs no more than the grid itself already holds).
+            {"path": "/api/v1/bookings/working-hours", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/bookings/working-hours", "tier": "user", "method": "PATCH"},
+            # THE "AUTO" TIE-BREAKER among an "auto" service's several eligible operators — same
+            # `bookings.manage` gate as the hours PATCH above.
+            {"path": "/api/v1/bookings/assignment-settings", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/bookings/assignment-settings", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/bookings/nearest", "tier": "user", "method": "GET"},
             # THE «أي متاح» MERGE (app/core/assignment.py, Phase 0) — one call across several
             # eligible operators, replacing BookingDialog.tsx's own sequential loop against the
@@ -108,6 +128,8 @@ def build_manifest(
             {"path": "/api/v1/bookings/{}/reschedule", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/bookings/{}/services", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/bookings/{}/note", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/bookings/{}/payment", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/bookings/{}/reward", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/bookings/{}/cancel", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/bookings/{}/attend", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/bookings/{}/no-show", "tier": "user", "method": "PATCH"},

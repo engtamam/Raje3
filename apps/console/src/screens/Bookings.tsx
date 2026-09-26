@@ -1444,6 +1444,7 @@ export function BookingsScreen({ session, catalog, branch, branches, onBranch }:
       {settingsDialogOpen ? (
         <BookingSettingsDialog
           session={session}
+          catalog={catalog}
           weekly={weekly ?? {}}
           assignment={assignSettings ?? { algorithm: 'nearest', manual_order: [] }}
           staff={(staff ?? []).filter((s) => s.active !== false && s.role === 'operator')}

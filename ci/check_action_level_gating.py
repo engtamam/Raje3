@@ -49,9 +49,6 @@ from report_action_level_gating import scan_console, scan_mobile  # noqa: E402
 # a real permission gap, verified control-by-control at the time it was added here.
 EXEMPT: dict[str, str] = {
     # ── console ──────────────────────────────────────────────────────────────────────────────
-    "apps/console/src/screens/BookingSettingsDialog.tsx":
-        "hours/assignment PATCH routes enforce bookings.manage, a capability user_actions.py "
-        "never declares an action id for — nothing in the catalogue to check against.",
     "apps/console/src/screens/BookingsMonthView.tsx":
         "day/month navigation only (onSelectDay/onSelectMonth) — no API call in the file at all.",
     "apps/console/src/screens/BookingsYearView.tsx":
@@ -83,12 +80,6 @@ EXEMPT: dict[str, str] = {
     "apps/mobile/lib/features/auth/verify_phone_screen.dart":
         "reached before any session/catalogue exists — its controls submit/resend an OTP code, "
         "not a catalogue write.",
-    "apps/mobile/lib/features/bookings/booking_settings_sheet.dart":
-        "mirrors BookingSettingsDialog.tsx's own two save buttons exactly — both PATCH routes "
-        "(/bookings/working-hours, /bookings/assignment-settings) enforce bookings.manage, a "
-        "capability user_actions.py never declares an action id for. The up/down reorder "
-        "IconButtons are local list reordering, not a write on their own. Same documented gap as "
-        "the console file, not a mobile-only oversight.",
     "apps/mobile/lib/features/bookings/new_booking_sheet.dart":
         "its 4 IconButtons are day-navigation chevrons and a quantity +/- stepper — local state "
         "only, not writes. The sheet's real write (create/reschedule) fires from PrimaryButton, "

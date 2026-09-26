@@ -5,6 +5,7 @@ import 'package:raje3_mobile/core/services/bookings_service.dart';
 import 'package:raje3_mobile/models/booking_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/date_time_picker_sheet.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 
@@ -17,11 +18,11 @@ import 'package:raje3_mobile/widgets/kb_anchor.dart';
 /// gear button beside its filter row) — NEVER from "منشأتي"/team settings. Confirmed against
 /// Bookings.tsx before building this: the gear icon lives in that screen's own header.
 ///
-/// NO CAPABILITY GATE ON EITHER SAVE BUTTON, ON PURPOSE — both PATCH routes enforce
-/// `bookings.manage`, a capability the catalogue never declares an action id for (same
-/// documented gap as BookingSettingsDialog.tsx's own two save buttons; see
-/// ci/check_action_level_gating.py's EXEMPT entry for this file). The backend still refuses
-/// safely either way.
+/// BOTH SAVE BUTTONS ARE CAPABILITY-GATED (`bookings.set_working_hours` /
+/// `bookings.set_assignment_settings`) — the manifest used to under-declare `bookings.manage`
+/// entirely (a real backend bug: the two PATCH routes enforced it since day one but the service
+/// never advertised it, so no catalogue id could ever exist for it); fixed at the source
+/// (services/bookings/app/manifest.py + user_actions.py) rather than left as a frontend gap.
 class BookingSettingsSheet extends StatefulWidget {
   final BookingsService bookingsService;
   final List<BranchTeamMember> staff;
@@ -263,9 +264,12 @@ class _BookingSettingsSheetState extends State<BookingSettingsSheet> {
         AppAlert(type: AlertType.error, message: _hoursError!),
       ],
       const SizedBox(height: AppSpacing.lg),
-      KbAnchor(
-        id: 'bookings.settings.hours.save',
-        child: PrimaryButton(text: 'حفظ', isLoading: _hoursSaving, onPressed: _hoursSaving ? null : _saveHours),
+      CapabilityGate(
+        requires: const ['bookings.set_working_hours'],
+        child: KbAnchor(
+          id: 'bookings.settings.hours.save',
+          child: PrimaryButton(text: 'حفظ', isLoading: _hoursSaving, onPressed: _hoursSaving ? null : _saveHours),
+        ),
       ),
     ];
   }
@@ -324,9 +328,12 @@ class _BookingSettingsSheetState extends State<BookingSettingsSheet> {
         AppAlert(type: AlertType.error, message: _assignError!),
       ],
       const SizedBox(height: AppSpacing.lg),
-      KbAnchor(
-        id: 'bookings.settings.assignment.save',
-        child: PrimaryButton(text: 'حفظ', isLoading: _assignSaving, onPressed: _assignSaving ? null : _saveAssignment),
+      CapabilityGate(
+        requires: const ['bookings.set_assignment_settings'],
+        child: KbAnchor(
+          id: 'bookings.settings.assignment.save',
+          child: PrimaryButton(text: 'حفظ', isLoading: _assignSaving, onPressed: _assignSaving ? null : _saveAssignment),
+        ),
       ),
     ];
   }
