@@ -468,6 +468,30 @@ class Pairs {
   }
 }
 
+/// `{current, previous}` — `previous` is nullable (no earlier window covered yet), never
+/// defaulted to a fabricated 0 that would draw a fake trend arrow.
+class Trend {
+  final double? current;
+  final double? previous;
+  const Trend({required this.current, required this.previous});
+
+  factory Trend.fromJson(Map<String, dynamic> j) => Trend(
+        current: (j['current'] as num?)?.toDouble(),
+        previous: (j['previous'] as num?)?.toDouble(),
+      );
+}
+
+class LeadSource {
+  final int total;
+  final int converted;
+  const LeadSource({required this.total, required this.converted});
+
+  factory LeadSource.fromJson(Map<String, dynamic> j) => LeadSource(
+        total: (j['total'] as num?)?.toInt() ?? 0,
+        converted: (j['converted'] as num?)?.toInt() ?? 0,
+      );
+}
+
 class MissedOpp {
   final String subjectRef;
   final String has;
@@ -658,6 +682,37 @@ class ShopDashboard {
   /// FROM — Shop.tsx's own `missed && missed.length > 0 ? … : missed ? muted(…) : null` never even
   /// shows a muted card for this case), an empty list when present but nobody currently qualifies,
   /// and real rows otherwise. The three states are genuinely different, never collapsed into one.
+  int? get returnCycleDays => (values['return_cycle_days'] as num?)?.toInt();
+  double? get churnRate => (values['churn_rate'] as num?)?.toDouble();
+  double? get servicesPerVisit => (values['services_per_visit'] as num?)?.toDouble();
+  int? get expectedFlow => (values['expected_flow'] as num?)?.toInt();
+  double? get cycleCompletion => (values['cycle_completion'] as num?)?.toDouble();
+
+  Trend? get activeCustomersTrend {
+    final v = values['active_customers_trend'];
+    return v is Map ? Trend.fromJson(Map<String, dynamic>.from(v)) : null;
+  }
+
+  Trend? get churnRateTrend {
+    final v = values['churn_rate_trend'];
+    return v is Map ? Trend.fromJson(Map<String, dynamic>.from(v)) : null;
+  }
+
+  /// `null` when the shop has no lead channel at all (WhatsApp auto-register never turned on) —
+  /// Shop.tsx's own `LeadConversionCard` renders NOTHING in that case, never a muted placeholder
+  /// about a feature nobody opted into. `"manual"` is excluded before the caller ever sees it —
+  /// every staff-typed customer, not a lead who might or might not convert.
+  Map<String, LeadSource>? get leadConversionBySource {
+    final v = values['lead_conversion'];
+    if (v is! Map) return null;
+    final out = <String, LeadSource>{};
+    v.forEach((k, val) {
+      if (k == 'manual' || val is! Map) return;
+      out[k.toString()] = LeadSource.fromJson(Map<String, dynamic>.from(val));
+    });
+    return out;
+  }
+
   List<MissedOpp>? get missedOpportunities {
     if (!values.containsKey('missed_opportunities')) return null;
     final v = values['missed_opportunities'];

@@ -183,6 +183,10 @@ class _ShopScreenState extends State<ShopScreen> {
                 const SizedBox(height: AppSpacing.sm),
                 if (_today != null) _TodayStrip(today: _today!, s: s),
                 const SizedBox(height: AppSpacing.md),
+                if (dash.activeCustomers != null || dash.returnCycleDays != null || dash.churnRate != null) ...[
+                  _SurroundingKpisRow(dashboard: dash, s: s),
+                  const SizedBox(height: AppSpacing.md),
+                ],
                 if (dash.nextStep != null)
                   KbAnchor(
                     id: 'shop.next_step',
@@ -667,6 +671,266 @@ class _TodayStrip extends StatelessWidget {
   }
 }
 
+enum _Tone { violet, teal, coral, flat }
+
+/// THE SHARED STAT TILE — same shape Shop.tsx's own `Tile` gives every surrounding-KPI and
+/// per-visit number: a soft-tinted panel (never a flat white box), a trend pill when there is an
+/// earlier period to compare against, and a dashed "empty" treatment (with an optional tap target)
+/// for a shop too new to have a real reading yet — never a fabricated zero.
+class _StatTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final _Tone tone;
+  final double? deltaCurrent;
+  final double? deltaPrevious;
+  final bool goodIsUp;
+  final bool percent;
+  final bool empty;
+  final String? hint;
+  final VoidCallback? onTap;
+  const _StatTile({
+    required this.label,
+    required this.value,
+    required this.tone,
+    this.deltaCurrent,
+    this.deltaPrevious,
+    this.goodIsUp = true,
+    this.percent = false,
+    this.empty = false,
+    this.hint,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final dark = context.isDark;
+    final Color soft, fg;
+    switch (tone) {
+      case _Tone.violet:
+        fg = dark ? AppDarkColors.accent : AppColors.accent;
+        soft = fg.withValues(alpha: 0.12);
+      case _Tone.teal:
+        fg = AppColors.success;
+        soft = fg.withValues(alpha: 0.12);
+      case _Tone.coral:
+        fg = AppColors.danger;
+        soft = fg.withValues(alpha: 0.12);
+      case _Tone.flat:
+        fg = colors.textPrimary;
+        soft = colors.surfaceAlt;
+    }
+    final diff = deltaCurrent != null && deltaPrevious != null ? deltaCurrent! - deltaPrevious! : null;
+    final good = diff != null ? (goodIsUp ? diff >= 0 : diff <= 0) : null;
+    final body = Container(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm, horizontal: 4),
+      decoration: BoxDecoration(
+        color: empty ? null : soft,
+        border: empty ? Border.all(color: colors.borderSubtle, style: BorderStyle.solid) : null,
+        borderRadius: AppRadius.standardRadius,
+      ),
+      child: Column(
+        children: [
+          Text(value,
+              textDirection: TextDirection.ltr,
+              style: AppTextStyles.bodyMedium.copyWith(color: empty ? colors.textMuted : fg, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text(label,
+              style: AppTextStyles.caption.copyWith(color: empty ? colors.textMuted : colors.textSecondary),
+              textAlign: TextAlign.center),
+          if (empty && hint != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(hint!,
+                  style: AppTextStyles.caption.copyWith(color: dark ? AppDarkColors.accent : AppColors.accent, fontSize: 9),
+                  textAlign: TextAlign.center),
+            ),
+          if (diff != null && !empty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                '${diff == 0 ? '' : (diff > 0 ? '↑' : '↓')} ${percent ? '${(diff.abs() * 100).round()}%' : diff.abs().round()}',
+                textDirection: TextDirection.ltr,
+                style: AppTextStyles.caption.copyWith(
+                  color: diff == 0 ? colors.textMuted : (good == true ? AppColors.success : AppColors.danger),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+    return Expanded(child: onTap != null ? InkWell(borderRadius: AppRadius.standardRadius, onTap: onTap, child: body) : body);
+  }
+}
+
+/// «العملاء النشطون / دورة الرجوع / التسرّب» — Shop.tsx's own `SurroundingKpis`, three tiles right
+/// beside the hero, weighted so «عملاء نشطون» keeps more room whether it is high or low today
+/// (a design choice, not a data one — same reasoning the console's own comment gives).
+class _SurroundingKpisRow extends StatelessWidget {
+  final ShopDashboard dashboard;
+  final S s;
+  const _SurroundingKpisRow({required this.dashboard, required this.s});
+
+  @override
+  Widget build(BuildContext context) {
+    final justStarted = dashboard.activeCustomers == 0;
+    final activeTrend = dashboard.activeCustomersTrend;
+    final churnTrend = dashboard.churnRateTrend;
+    return Row(
+      children: [
+        if (dashboard.activeCustomers != null) ...[
+          Expanded(
+            flex: 13,
+            child: _StatTile(
+              label: s.shopKpiActiveCustomers,
+              value: '${dashboard.activeCustomers}',
+              tone: _Tone.violet,
+              empty: justStarted,
+              hint: justStarted ? s.shopRegisterFirstVisit : null,
+              onTap: justStarted ? () => context.goNamed('visit') : null,
+              deltaCurrent: justStarted ? null : activeTrend?.current,
+              deltaPrevious: justStarted ? null : activeTrend?.previous,
+            ),
+          ),
+          const SizedBox(width: 6),
+        ],
+        if (dashboard.returnCycleDays != null) ...[
+          Expanded(
+            child: _StatTile(
+              label: s.shopKpiReturnCycle,
+              value: s.shopDaysSuffix(dashboard.returnCycleDays!),
+              tone: _Tone.flat,
+              empty: justStarted,
+            ),
+          ),
+          const SizedBox(width: 6),
+        ],
+        if (dashboard.churnRate != null)
+          Expanded(
+            child: _StatTile(
+              label: s.shopKpiChurnRate,
+              value: '${(dashboard.churnRate! * 100).round()}%',
+              tone: _Tone.coral,
+              empty: justStarted,
+              goodIsUp: false,
+              percent: true,
+              deltaCurrent: justStarted ? null : churnTrend?.current,
+              deltaPrevious: justStarted ? null : churnTrend?.previous,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// «خدمات لكل زيارة / التدفق المتوقع / اكتمال الدورة» — Shop.tsx's own third KPI row, shown only
+/// when at least one of the three has a real reading (never three dashes pretending to be data).
+class _PerVisitRow extends StatelessWidget {
+  final ShopDashboard dashboard;
+  final S s;
+  const _PerVisitRow({required this.dashboard, required this.s});
+
+  @override
+  Widget build(BuildContext context) {
+    final perVisit = dashboard.servicesPerVisit;
+    final flow = dashboard.expectedFlow;
+    final completion = dashboard.cycleCompletion;
+    return Row(
+      children: [
+        if (perVisit != null) ...[
+          Expanded(child: _StatTile(label: s.shopTileServicesPerVisit, value: '${perVisit.round()}', tone: _Tone.flat)),
+          const SizedBox(width: 6),
+        ],
+        if (flow != null) ...[
+          Expanded(child: _StatTile(label: s.shopTileExpectedNextWeek, value: '$flow', tone: _Tone.violet)),
+          const SizedBox(width: 6),
+        ],
+        if (completion != null)
+          Expanded(
+            child: _StatTile(label: s.shopTileCycleCompletion, value: '${(completion * 100).round()}%', tone: _Tone.teal),
+          ),
+      ],
+    );
+  }
+}
+
+/// A RADIAL GAUGE, NOT A BARE PERCENTAGE — the conversion rate drawn as a small arc (how much of
+/// the circle is "closed the loop"), the same number Shop.tsx's own plain "{rate}%" states, given
+/// a genuinely mobile-native visual rather than a literal port of the desktop's inline number.
+class _LeadConversionCard extends StatelessWidget {
+  final int converted;
+  final int total;
+  final S s;
+  const _LeadConversionCard({required this.converted, required this.total, required this.s});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final accent = context.isDark ? AppDarkColors.accent : AppColors.accent;
+    final rate = total > 0 ? converted / total : 0.0;
+    return _Card(
+      child: Row(
+        children: [
+          SizedBox(
+            width: 56,
+            height: 56,
+            child: CustomPaint(
+              painter: _RadialGaugePainter(fraction: rate, color: accent, track: colors.surfaceAlt),
+              child: Center(
+                child: Text('${(rate * 100).round()}%',
+                    textDirection: TextDirection.ltr,
+                    style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w800, color: accent)),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(s.shopLeadConversionTitle, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(s.shopLeadConversionDetail(converted, total),
+                    style: AppTextStyles.caption.copyWith(color: colors.textSecondary)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RadialGaugePainter extends CustomPainter {
+  final double fraction;
+  final Color color;
+  final Color track;
+  const _RadialGaugePainter({required this.fraction, required this.color, required this.track});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - 8) / 2;
+    final trackPaint = Paint()
+      ..color = track
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6;
+    canvas.drawCircle(center, radius, trackPaint);
+    final arcPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), -1.5708, fraction.clamp(0, 1) * 6.28319, false, arcPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RadialGaugePainter oldDelegate) =>
+      oldDelegate.fraction != fraction || oldDelegate.color != color;
+}
+
 class _NextStepCard extends StatelessWidget {
   final NextStep step;
   final bool busy;
@@ -1042,6 +1306,24 @@ class _WeekDeck extends StatelessWidget {
         (split != null && (split.newCustomers + split.returning) > 0)
             ? _NewVsReturningCard(newCustomers: split.newCustomers, returning: split.returning, s: s)
             : _MutedCard(title: s.shopNewReturningMutedTitle, note: s.shopNewReturningMutedNote),
+        Builder(builder: (context) {
+          final bySource = dashboard.leadConversionBySource;
+          if (bySource == null || bySource.isEmpty) return const SizedBox.shrink();
+          final total = bySource.values.fold(0, (sum, v) => sum + v.total);
+          final converted = bySource.values.fold(0, (sum, v) => sum + v.converted);
+          if (total <= 0) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.md),
+            child: _LeadConversionCard(converted: converted, total: total, s: s),
+          );
+        }),
+        if (dashboard.servicesPerVisit != null || dashboard.expectedFlow != null || dashboard.cycleCompletion != null) ...[
+          const SizedBox(height: AppSpacing.md),
+          _PerVisitRow(dashboard: dashboard, s: s),
+        ] else ...[
+          const SizedBox(height: AppSpacing.md),
+          _MutedCard(title: s.shopPerVisitMutedTitle, note: s.shopPerVisitMutedNote),
+        ],
         const SizedBox(height: AppSpacing.md),
         FutureBuilder<Branches?>(
           future: service.branches(),
