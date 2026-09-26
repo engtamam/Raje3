@@ -458,6 +458,10 @@ const Map<String, Map<String, String>> _kCampaignsStrings = {
     'bn': 'এই মুহূর্তে লগ পড়া যায়নি।', 'ur': 'ابھی لاگ پڑھا نہیں جا سکا۔', 'ha': 'An kasa karanta bayanan tarihi a yanzu.',
     'fil': 'Hindi nabasa ang log ngayon.',
   },
+  'goalSearchHint': {
+    'ar': 'ابحث عن هدف…', 'en': 'Search goals…', 'bn': 'লক্ষ্য খুঁজুন…', 'ur': 'مقاصد تلاش کریں…',
+    'ha': 'Bincika manufa…', 'fil': 'Maghanap ng layunin…',
+  },
   'whichPackage': {
     'ar': 'أي باقة؟', 'en': 'Which package?', 'bn': 'কোন প্যাকেজ?', 'ur': 'کون سا پیکج؟', 'ha': 'Wane fakiti?',
     'fil': 'Aling package?',

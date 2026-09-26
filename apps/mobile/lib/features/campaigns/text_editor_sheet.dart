@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
@@ -16,11 +17,14 @@ import 'package:raje3_mobile/features/campaigns/campaigns_i18n.dart';
 /// value for. So he never types a number: he taps a named chip and the numbering is generated from
 /// the order the chips sit in when he saves.
 ///
-/// SIMPLIFIED FROM THE CONSOLE'S OWN CONTENTEDITABLE PORT (documented, not hidden): a chip can only
-/// be appended after whatever he has already typed, never inserted mid-sentence at an arbitrary
-/// caret position — Flutter has no inline-widget-inside-a-text-field primitive the way a browser's
-/// `contenteditable` does. Re-ordering a message still works; it just means typing the words before
-/// a blank BEFORE tapping that blank's chip, not tapping it and going back to insert words earlier.
+/// A CHIP INSERTS AT THE REAL CARET, mid-sentence, not just appended — the same freedom the
+/// console's own `contenteditable` port gives. The trick: a chip's own label text is inserted into
+/// the field LITERALLY (so the string the caret walks and the text he reads are the exact same
+/// characters — no cursor-math hack), wrapped in a pair of zero-width-space markers (`U+200B`,
+/// invisible, never typed by a human by accident) so the save step can tell "the shop's own words"
+/// apart from "a chip's label that happens to read the same" without ambiguity. A custom
+/// [TextEditingController] restyles exactly the text between a marker pair as a highlighted chip,
+/// live, while he keeps typing around it.
 Future<void> showTextEditorSheet(
   BuildContext context, {
   required String reasonId,
@@ -42,61 +46,72 @@ Future<void> showTextEditorSheet(
   );
 }
 
-/// One piece of the composed message: either a literal run of text, or a named chip.
-class _Part {
-  final String? text;
-  final Slot? slot;
-  const _Part.text(this.text) : slot = null;
-  const _Part.chip(this.slot) : text = null;
-  bool get isChip => slot != null;
-}
+const String _kMarker = '​';
+final RegExp _kChipPattern = RegExp('$_kMarker(.*?)$_kMarker');
 
-/// Splits an already-saved `{{n}}`-numbered body back into parts, so re-editing a text opens on
-/// what was actually written rather than a blank box — the other direction from [_serialize].
-List<_Part> _parse(String body, List<Slot> slots) {
-  final parts = <_Part>[];
-  final pattern = RegExp(r'\{\{(\d+)\}\}');
-  var last = 0;
-  for (final m in pattern.allMatches(body)) {
-    if (m.start > last) parts.add(_Part.text(body.substring(last, m.start)));
+/// Turns an already-saved `{{n}}`-numbered body into the editor's own marker-wrapped display
+/// text, so re-editing opens on what was actually written rather than a blank box. A number with
+/// no slot behind it (a template we no longer understand) is kept as literal text rather than
+/// silently dropped — same rule the console's own `toHtml` keeps.
+String _toDisplayText(String body, List<Slot> slots) {
+  return body.replaceAllMapped(RegExp(r'\{\{(\d+)\}\}'), (m) {
     final n = int.parse(m.group(1)!);
     final slot = n >= 1 && n <= slots.length ? slots[n - 1] : null;
-    // A number with no slot behind it (a template we no longer understand) is kept as literal
-    // text rather than silently dropped — same rule the console's own `toHtml` keeps.
-    parts.add(slot != null ? _Part.chip(slot) : _Part.text(m.group(0)!));
-    last = m.end;
-  }
-  if (last < body.length) parts.add(_Part.text(body.substring(last)));
-  return parts;
+    return slot != null ? '$_kMarker${slot.label}$_kMarker' : m.group(0)!;
+  });
 }
 
-/// The other direction — parts back into WhatsApp's own `{{n}}` numbering, generated from
+/// The other direction — display text back into WhatsApp's own `{{n}}` numbering, generated from
 /// POSITION, never typed by the shop (a gap or a wrong number is impossible this way).
-({String body, List<String> fills}) _serialize(List<_Part> parts) {
+({String body, List<String> fills}) _serialize(String displayText, List<Slot> slots) {
+  final byLabel = {for (final s in slots) s.label: s};
   final fills = <String>[];
-  final buf = StringBuffer();
-  for (final p in parts) {
-    if (p.isChip) {
-      fills.add(p.slot!.id);
-      buf.write('{{${fills.length}}}');
-    } else {
-      buf.write(p.text ?? '');
-    }
-  }
-  return (body: buf.toString().trim(), fills: fills);
+  final body = displayText.replaceAllMapped(_kChipPattern, (m) {
+    final slot = byLabel[m.group(1)];
+    if (slot == null) return m.group(1) ?? ''; // an orphaned marker: keep the plain words
+    fills.add(slot.id);
+    return '{{${fills.length}}}';
+  });
+  return (body: body.trim(), fills: fills);
 }
 
 /// What the customer would actually read — the same substitution the preview does, done live.
-String _sample(List<_Part> parts, Mandatory? mandatory) {
-  final buf = StringBuffer();
-  for (final p in parts) {
-    buf.write(p.isChip ? (p.slot!.sample.isNotEmpty ? p.slot!.sample : p.slot!.label) : (p.text ?? ''));
-  }
-  var shown = buf.toString();
+String _sample(String displayText, List<Slot> slots, Mandatory? mandatory) {
+  final byLabel = {for (final s in slots) s.label: s};
+  var shown = displayText.replaceAllMapped(_kChipPattern, (m) {
+    final slot = byLabel[m.group(1)];
+    if (slot == null) return m.group(1) ?? '';
+    return slot.sample.isNotEmpty ? slot.sample : slot.label;
+  });
   if (mandatory != null) {
     shown = '$shown ${mandatory.sample.isNotEmpty ? mandatory.sample : mandatory.label}';
   }
   return shown;
+}
+
+/// Restyles exactly the text between a marker pair as a highlighted chip — a real, single string
+/// of real characters, so the caret's own position math is never touched; only the paint colour
+/// changes per run.
+class _ChipEditingController extends TextEditingController {
+  _ChipEditingController({super.text});
+
+  @override
+  TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
+    final chipStyle = style?.copyWith(
+      backgroundColor: context.isDark ? AppDarkColors.accentSoft : AppColors.accentSoft,
+      color: context.isDark ? AppDarkColors.accentOnSoft : AppColors.accentOnSoft,
+      fontWeight: FontWeight.w600,
+    );
+    final spans = <InlineSpan>[];
+    var last = 0;
+    for (final m in _kChipPattern.allMatches(text)) {
+      if (m.start > last) spans.add(TextSpan(text: text.substring(last, m.start), style: style));
+      spans.add(TextSpan(text: m.group(1), style: chipStyle));
+      last = m.end;
+    }
+    if (last < text.length) spans.add(TextSpan(text: text.substring(last), style: style));
+    return TextSpan(style: style, children: spans);
+  }
 }
 
 class _TextEditorSheet extends StatefulWidget {
@@ -124,8 +139,7 @@ class _TextEditorSheet extends StatefulWidget {
 
 class _TextEditorSheetState extends State<_TextEditorSheet> {
   late final MessagesService _service;
-  late List<_Part> _parts;
-  final _trailingController = TextEditingController();
+  late final _ChipEditingController _controller;
   bool _saving = false;
   String _error = '';
 
@@ -133,37 +147,33 @@ class _TextEditorSheetState extends State<_TextEditorSheet> {
   void initState() {
     super.initState();
     _service = MessagesService(apiClient: context.read<AuthProvider>().apiClient);
-    _parts = _parse(widget.initialBody, widget.slots);
-    // THE TRAILING TEXT IS ITS OWN FIELD, not the last item of `_parts` — a `TextField` needs a
-    // stable controller to type into; folding it back into `_parts` happens once, at save/insert.
-    if (_parts.isNotEmpty && !_parts.last.isChip) {
-      _trailingController.text = _parts.removeLast().text ?? '';
-    }
+    _controller = _ChipEditingController(text: _toDisplayText(widget.initialBody, widget.slots));
+    _controller.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
-    _trailingController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
-  List<_Part> get _allParts => [
-        ..._parts,
-        if (_trailingController.text.isNotEmpty) _Part.text(_trailingController.text),
-      ];
-
+  /// Inserts AT THE REAL CARET — where he was actually typing, not always the end. Falls back to
+  /// the end only when the field has never been focused yet (a fresh, empty selection).
   void _insertChip(Slot slot) {
-    setState(() {
-      if (_trailingController.text.isNotEmpty) {
-        _parts.add(_Part.text(_trailingController.text));
-        _trailingController.clear();
-      }
-      _parts.add(_Part.chip(slot));
-    });
+    final chip = '$_kMarker${slot.label}$_kMarker';
+    final sel = _controller.selection;
+    final at = sel.isValid ? sel.start : _controller.text.length;
+    final end = sel.isValid ? sel.end : _controller.text.length;
+    final newText = _controller.text.replaceRange(at, end, chip);
+    _controller.value = _controller.value.copyWith(
+      text: newText,
+      selection: TextSelection.collapsed(offset: at + chip.length),
+      composing: TextRange.empty,
+    );
   }
 
   Future<void> _save() async {
-    final (:body, :fills) = _serialize(_allParts);
+    final (:body, :fills) = _serialize(_controller.text, widget.slots);
     if (body.trim().isEmpty) {
       setState(() => _error = ct(context, 'textEditorEmptyError'));
       return;
@@ -190,6 +200,7 @@ class _TextEditorSheetState extends State<_TextEditorSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final sample = _sample(_controller.text, widget.slots, widget.mandatory);
     return Container(
       constraints: BoxConstraints(maxHeight: appSheetMaxHeight(context)),
       decoration: BoxDecoration(
@@ -212,7 +223,7 @@ class _TextEditorSheetState extends State<_TextEditorSheet> {
               const SizedBox(height: AppSpacing.md),
               // THE PALETTE — only what THIS message can fill (never a blank this message has no
               // value for; a wording that then renders nothing is exactly the failure the
-              // reason registry exists to prevent).
+              // reason registry exists to prevent). Inserts at wherever he is actually typing.
               Wrap(spacing: 6, runSpacing: 6, children: [
                 for (final s in widget.slots)
                   ActionChip(
@@ -222,25 +233,24 @@ class _TextEditorSheetState extends State<_TextEditorSheet> {
                   ),
               ]),
               const SizedBox(height: AppSpacing.sm),
-              // THE COMPOSED MESSAGE SO FAR — chips as real chips, never raw `{{1}}`.
-              if (_parts.isNotEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(AppSpacing.sm),
-                  decoration: BoxDecoration(color: colors.surfaceAlt, borderRadius: AppRadius.standardRadius),
-                  child: Wrap(spacing: 4, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                    for (final p in _parts)
-                      p.isChip
-                          ? Chip(label: Text(p.slot!.label), visualDensity: VisualDensity.compact)
-                          : Text(p.text ?? '', style: AppTextStyles.bodySmall),
-                  ]),
+              // ONE REAL TEXT FIELD — chips are the exact same characters he can see and the
+              // caret walks, only restyled where a marker pair wraps them (`_ChipEditingController`).
+              TextField(
+                controller: _controller,
+                maxLines: 4,
+                minLines: 3,
+                inputFormatters: [
+                  // A HUMAN NEVER TYPES A ZERO-WIDTH SPACE — refusing it here means the marker
+                  // alphabet stays exclusively ours, so a chip run can never be forged by typing.
+                  FilteringTextInputFormatter.deny(_kMarker),
+                ],
+                style: const TextStyle(fontFamily: 'Cairo', fontSize: 14, height: 1.5),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: colors.inputFill,
+                  hintText: ct(context, 'textEditorContinueHint'),
+                  border: OutlineInputBorder(borderRadius: AppRadius.standardRadius, borderSide: BorderSide(color: colors.borderSubtle)),
                 ),
-              const SizedBox(height: AppSpacing.sm),
-              AppTextField(
-                controller: _trailingController,
-                maxLines: 3,
-                hintText: ct(context, 'textEditorContinueHint'),
-                onChanged: (_) => setState(() {}),
               ),
               // THE ONE BLANK HE DOES NOT CHOOSE, shown rather than hidden — an owner who does
               // not see it in his text believes it is not in his text.
@@ -249,7 +259,7 @@ class _TextEditorSheetState extends State<_TextEditorSheet> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 6),
                   decoration: BoxDecoration(
-                    border: Border.all(color: colors.borderSubtle, style: BorderStyle.solid),
+                    border: Border.all(color: colors.borderSubtle),
                     borderRadius: AppRadius.standardRadius,
                   ),
                   child: Row(children: [
@@ -275,7 +285,7 @@ class _TextEditorSheetState extends State<_TextEditorSheet> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  _sample(_allParts, widget.mandatory).isEmpty ? '…' : _sample(_allParts, widget.mandatory),
+                  sample.isEmpty ? '…' : sample,
                   style: const TextStyle(color: Color(0xFF111B21), fontSize: 14, height: 1.5, fontFamily: 'Cairo'),
                 ),
               ),

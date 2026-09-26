@@ -426,19 +426,71 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
   }
 }
 
-class _GoalStep extends StatelessWidget {
+class _GoalStep extends StatefulWidget {
   const _GoalStep({required this.goals, required this.icons, required this.onPick});
   final List<GoalRow>? goals;
   final Map<String, IconData> icons;
   final ValueChanged<GoalRow> onPick;
 
   @override
+  State<_GoalStep> createState() => _GoalStepState();
+}
+
+/// A search box for a handful of goals is a step that saves nothing — this is real code, not a
+/// hardcoded skip: both thresholds are read from the goal list itself, so the search box and the
+/// category rail appear on their own the day `campaigns.goals` ever grows past what a glance can
+/// already scan, with zero further work here.
+const int _kGoalSearchThreshold = 8;
+const int _kGoalCategoryMinDistinct = 2;
+
+class _GoalStepState extends State<_GoalStep> {
+  String _search = '';
+  String _category = '';
+
+  @override
   Widget build(BuildContext context) {
+    final goals = widget.goals;
+    final icons = widget.icons;
     if (goals == null) return const Center(child: CircularProgressIndicator());
-    if (goals!.isEmpty) {
+    if (goals.isEmpty) {
       return EmptyState(icon: Icons.campaign_outlined, title: ct(context, 'noGoalsAvailable'));
     }
-    return GridView.builder(
+    final categories = goals.map((g) => g.category).where((c) => c.isNotEmpty).toSet().toList();
+    final showSearch = goals.length > _kGoalSearchThreshold;
+    final showCategories = categories.length >= _kGoalCategoryMinDistinct;
+    final q = _search.trim();
+    final visible = goals
+        .where((g) => _category.isEmpty || g.category == _category)
+        .where((g) => q.isEmpty || g.title.contains(q) || g.line.contains(q))
+        .toList();
+    return Column(
+      children: [
+        if (showSearch)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+            child: AppTextField(
+              hintText: ct(context, 'goalSearchHint'),
+              prefixIcon: Icons.search,
+              onChanged: (v) => setState(() => _search = v),
+            ),
+          ),
+        if (showCategories)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+            child: SegmentedFilter<String>(
+              value: _category,
+              onChanged: (v) => setState(() => _category = v),
+              options: [
+                SegmentedFilterOption(value: '', label: ct(context, 'classAll'), badge: goals.length),
+                for (final c in categories)
+                  SegmentedFilterOption(value: c, label: c, badge: goals.where((g) => g.category == c).length),
+              ],
+            ),
+          ),
+        Expanded(
+          child: visible.isEmpty
+              ? EmptyState(icon: Icons.search_off_outlined, title: ct(context, 'noGoalsAvailable'))
+              : GridView.builder(
       padding: const EdgeInsets.all(AppSpacing.md),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
@@ -446,12 +498,12 @@ class _GoalStep extends StatelessWidget {
         mainAxisSpacing: AppSpacing.sm,
         childAspectRatio: 0.95,
       ),
-      itemCount: goals!.length,
+      itemCount: visible.length,
       itemBuilder: (context, i) {
-        final g = goals![i];
+        final g = visible[i];
         final style = msgClassStyle(g.goal == 'announce' ? 'marketing' : 'offers', context.isDark);
         return AppCard(
-          onTap: g.available ? () => onPick(g) : null,
+          onTap: g.available ? () => widget.onPick(g) : null,
           child: Opacity(
             opacity: g.available ? 1 : 0.5,
             child: Column(
@@ -484,6 +536,9 @@ class _GoalStep extends StatelessWidget {
           ),
         );
       },
+              ),
+        ),
+      ],
     );
   }
 }

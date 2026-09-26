@@ -132,6 +132,9 @@ class GoalRow {
   /// (Launch.tsx's own `hasBlank()`). Drives which fields the wizard shows: a goal with no
   /// `date` blank must never ask for an end date it cannot use.
   final List<String> blanks;
+  /// ONE OF `campaigns.goals`'s own `categories` list (goals.py::GOAL_CATEGORIES) — how a
+  /// rail/filter groups this card, never invented on the screen.
+  final String category;
 
   const GoalRow({
     required this.goal,
@@ -144,6 +147,7 @@ class GoalRow {
     required this.unavailableReason,
     required this.icon,
     required this.blanks,
+    this.category = '',
   });
 
   bool hasBlank(String kind) => blanks.contains(kind);
@@ -159,6 +163,7 @@ class GoalRow {
         unavailableReason: (json['unavailable_reason'] as String?) ?? '',
         icon: (json['icon'] as String?) ?? '',
         blanks: ((json['blanks'] as List?) ?? const []).map((e) => e.toString()).toList(),
+        category: (json['category'] as String?) ?? '',
       );
 }
 
