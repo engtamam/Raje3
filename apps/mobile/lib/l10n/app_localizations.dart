@@ -5012,6 +5012,696 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'الأرقام الجديدة ما راح تُسجَّل كجهات اتصال تلقائيًا بعد الآن.'**
   String get whatsappAssistantAutoRegisterConfirmDisableBody;
+
+  /// No description provided for @partnerLoyaltyTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'ولاء الشركاء'**
+  String get partnerLoyaltyTitle;
+
+  /// No description provided for @partnerLoyaltySubtitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'كوّن تحالفاً مع محل آخر مسجّل عندنا وامنحه امتيازاً على اشتراكه معنا'**
+  String get partnerLoyaltySubtitle;
+
+  /// No description provided for @partnerLoyaltyCapLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'سقفك الحالي'**
+  String get partnerLoyaltyCapLabel;
+
+  /// No description provided for @partnerLoyaltyPrefsTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'خانة تكوين التحالف أثناء تسجيل الزيارة'**
+  String get partnerLoyaltyPrefsTitle;
+
+  /// No description provided for @partnerLoyaltyPrefsDesc.
+  ///
+  /// In ar, this message translates to:
+  /// **'تشغيلها يسمح لأي موظف يسجّل زيارة إنه يكوّن تحالفاً بنفس اللحظة.'**
+  String get partnerLoyaltyPrefsDesc;
+
+  /// No description provided for @partnerLoyaltyGrantTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'كوّن تحالفاً'**
+  String get partnerLoyaltyGrantTitle;
+
+  /// No description provided for @partnerLoyaltyPhoneLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم جوال المحل الشريك'**
+  String get partnerLoyaltyPhoneLabel;
+
+  /// No description provided for @partnerLoyaltyPhoneHintOk.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا تحالف بينكما هذا الشهر'**
+  String get partnerLoyaltyPhoneHintOk;
+
+  /// No description provided for @partnerLoyaltyPhoneHintAlready.
+  ///
+  /// In ar, this message translates to:
+  /// **'عندك تحالف معه هذا الشهر بالفعل'**
+  String get partnerLoyaltyPhoneHintAlready;
+
+  /// No description provided for @partnerLoyaltyPhoneHintUnregistered.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا الرقم ليس محلاً مسجّلاً عندنا'**
+  String get partnerLoyaltyPhoneHintUnregistered;
+
+  /// No description provided for @partnerLoyaltyPercentLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'نسبة الامتياز'**
+  String get partnerLoyaltyPercentLabel;
+
+  /// No description provided for @partnerLoyaltyCapLine.
+  ///
+  /// In ar, this message translates to:
+  /// **'أقصى نسبة تقدر تمنحها الآن: {p}%'**
+  String partnerLoyaltyCapLine(int p);
+
+  /// No description provided for @partnerLoyaltyScopeLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'يشمل'**
+  String get partnerLoyaltyScopeLabel;
+
+  /// No description provided for @partnerLoyaltyScopeAll.
+  ///
+  /// In ar, this message translates to:
+  /// **'الكل'**
+  String get partnerLoyaltyScopeAll;
+
+  /// No description provided for @partnerLoyaltySubmit.
+  ///
+  /// In ar, this message translates to:
+  /// **'كوّن التحالف'**
+  String get partnerLoyaltySubmit;
+
+  /// No description provided for @partnerLoyaltySubmitting.
+  ///
+  /// In ar, this message translates to:
+  /// **'يُرسَل…'**
+  String get partnerLoyaltySubmitting;
+
+  /// No description provided for @partnerLoyaltyResultSuccess.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم تكوين التحالف — سيُطبَّق تلقائياً عند تجديد اشتراك المحل القادم.'**
+  String get partnerLoyaltyResultSuccess;
+
+  /// No description provided for @partnerLoyaltyResultPartial.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحالف جزئي — بعض التطبيقات رُفضت، افتح «السجل» للتفاصيل.'**
+  String get partnerLoyaltyResultPartial;
+
+  /// No description provided for @partnerLoyaltyOutcomeGranted.
+  ///
+  /// In ar, this message translates to:
+  /// **'نجح'**
+  String get partnerLoyaltyOutcomeGranted;
+
+  /// No description provided for @partnerLoyaltyOutcomeInvalidPercent.
+  ///
+  /// In ar, this message translates to:
+  /// **'نسبة الامتياز غير صحيحة'**
+  String get partnerLoyaltyOutcomeInvalidPercent;
+
+  /// No description provided for @partnerLoyaltyOutcomeInvalidScope.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر تطبيقاً حقيقياً'**
+  String get partnerLoyaltyOutcomeInvalidScope;
+
+  /// No description provided for @partnerLoyaltyOutcomeOverCap.
+  ///
+  /// In ar, this message translates to:
+  /// **'تجاوزت سقفك الحالي'**
+  String get partnerLoyaltyOutcomeOverCap;
+
+  /// No description provided for @partnerLoyaltyOutcomeNoAccount.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا الرقم ليس محلاً مسجّلاً عندنا'**
+  String get partnerLoyaltyOutcomeNoAccount;
+
+  /// No description provided for @partnerLoyaltyOutcomeNotSubscribed.
+  ///
+  /// In ar, this message translates to:
+  /// **'المحل لا يملك أي تطبيق ضمن ما اخترته'**
+  String get partnerLoyaltyOutcomeNotSubscribed;
+
+  /// No description provided for @partnerLoyaltyOutcomeBillingUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر إتمام العملية، حاول مرة أخرى'**
+  String get partnerLoyaltyOutcomeBillingUnavailable;
+
+  /// No description provided for @partnerLoyaltyOutcomeAlreadyHasBetterCoupon.
+  ///
+  /// In ar, this message translates to:
+  /// **'عنده امتياز أقوى بالفعل'**
+  String get partnerLoyaltyOutcomeAlreadyHasBetterCoupon;
+
+  /// No description provided for @partnerLoyaltyOutcomeCouponExpired.
+  ///
+  /// In ar, this message translates to:
+  /// **'الامتياز منتهٍ'**
+  String get partnerLoyaltyOutcomeCouponExpired;
+
+  /// No description provided for @partnerLoyaltyOutcomeCouponExhausted.
+  ///
+  /// In ar, this message translates to:
+  /// **'الامتياز استُنفد'**
+  String get partnerLoyaltyOutcomeCouponExhausted;
+
+  /// No description provided for @partnerLoyaltyOutcomeCouponUnknown.
+  ///
+  /// In ar, this message translates to:
+  /// **'امتياز غير معروف'**
+  String get partnerLoyaltyOutcomeCouponUnknown;
+
+  /// No description provided for @partnerLoyaltyOutcomePlanMismatch.
+  ///
+  /// In ar, this message translates to:
+  /// **'الامتياز لا يطابق هذا التطبيق'**
+  String get partnerLoyaltyOutcomePlanMismatch;
+
+  /// No description provided for @partnerLoyaltyOutcomeCouponDisabled.
+  ///
+  /// In ar, this message translates to:
+  /// **'الامتياز معطّل'**
+  String get partnerLoyaltyOutcomeCouponDisabled;
+
+  /// No description provided for @partnerLoyaltyOutcomeCouponScheduled.
+  ///
+  /// In ar, this message translates to:
+  /// **'الامتياز لم يبدأ بعد'**
+  String get partnerLoyaltyOutcomeCouponScheduled;
+
+  /// No description provided for @partnerLoyaltyTabLog.
+  ///
+  /// In ar, this message translates to:
+  /// **'السجل'**
+  String get partnerLoyaltyTabLog;
+
+  /// No description provided for @partnerLoyaltyTabStats.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإحصائيات'**
+  String get partnerLoyaltyTabStats;
+
+  /// No description provided for @partnerLoyaltyLogSearchHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'بحث بآخر 4 أرقام'**
+  String get partnerLoyaltyLogSearchHint;
+
+  /// No description provided for @partnerLoyaltyLogFilterAll.
+  ///
+  /// In ar, this message translates to:
+  /// **'كل الحالات'**
+  String get partnerLoyaltyLogFilterAll;
+
+  /// No description provided for @partnerLoyaltyLogFilterOk.
+  ///
+  /// In ar, this message translates to:
+  /// **'ناجح فقط'**
+  String get partnerLoyaltyLogFilterOk;
+
+  /// No description provided for @partnerLoyaltyLogFilterFail.
+  ///
+  /// In ar, this message translates to:
+  /// **'فاشل فقط'**
+  String get partnerLoyaltyLogFilterFail;
+
+  /// No description provided for @partnerLoyaltyLogEmptyTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا تحالفات بعد'**
+  String get partnerLoyaltyLogEmptyTitle;
+
+  /// No description provided for @partnerLoyaltyLogEmptyDesc.
+  ///
+  /// In ar, this message translates to:
+  /// **'أول تحالف تكوّنه يظهر هنا.'**
+  String get partnerLoyaltyLogEmptyDesc;
+
+  /// No description provided for @partnerLoyaltyLogReadFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّرت قراءة السجل'**
+  String get partnerLoyaltyLogReadFailed;
+
+  /// No description provided for @partnerLoyaltyStatsKpiMonth.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحالفات هذا الشهر'**
+  String get partnerLoyaltyStatsKpiMonth;
+
+  /// No description provided for @partnerLoyaltyStatsKpiCap.
+  ///
+  /// In ar, this message translates to:
+  /// **'سقفك الحالي'**
+  String get partnerLoyaltyStatsKpiCap;
+
+  /// No description provided for @partnerLoyaltyStatsKpiCeiling.
+  ///
+  /// In ar, this message translates to:
+  /// **'السقف الأقصى بالمنصة'**
+  String get partnerLoyaltyStatsKpiCeiling;
+
+  /// No description provided for @partnerLoyaltyStatsLadderTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'مكانك بالسلّم'**
+  String get partnerLoyaltyStatsLadderTitle;
+
+  /// No description provided for @partnerLoyaltyStatsLadderNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} تحالفاً هذا الشهر — باقي {left} عشان توصل لشريحة الـ{p}%'**
+  String partnerLoyaltyStatsLadderNote(int n, int left, int p);
+
+  /// No description provided for @partnerLoyaltyStatsLadderAtTop.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} تحالفاً هذا الشهر — أنت بأعلى شريحة'**
+  String partnerLoyaltyStatsLadderAtTop(int n);
+
+  /// No description provided for @partnerLoyaltyStatsCeilingNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'السقف الأقصى بالمنصة {p}% — ما يتجاوزه أي محل بأي حال'**
+  String partnerLoyaltyStatsCeilingNote(int p);
+
+  /// No description provided for @partnerLoyaltyStatsChartTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'عدد التحالفات آخر 6 أشهر'**
+  String get partnerLoyaltyStatsChartTitle;
+
+  /// No description provided for @partnerLoyaltyReadFailedTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّرت قراءة بياناتك'**
+  String get partnerLoyaltyReadFailedTitle;
+
+  /// No description provided for @partnerLoyaltyReadFailedDesc.
+  ///
+  /// In ar, this message translates to:
+  /// **'حاول بعد قليل.'**
+  String get partnerLoyaltyReadFailedDesc;
+
+  /// No description provided for @shopReadFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّرت قراءة مؤشرات محلّك'**
+  String get shopReadFailed;
+
+  /// No description provided for @shopMultiBranchTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر فرعًا'**
+  String get shopMultiBranchTitle;
+
+  /// No description provided for @shopMultiBranchDesc.
+  ///
+  /// In ar, this message translates to:
+  /// **'عندك أكثر من فرع — اختر واحدًا لعرض مؤشراته.'**
+  String get shopMultiBranchDesc;
+
+  /// No description provided for @shopEmptyBranchTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما فيه بيانات لهذا الفرع بعد'**
+  String get shopEmptyBranchTitle;
+
+  /// No description provided for @shopRetentionTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'نسبة رجوع عملائك'**
+  String get shopRetentionTitle;
+
+  /// No description provided for @shopRetentionMutedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'لسا ما فيه زيارات كافية لحساب هذا الرقم.'**
+  String get shopRetentionMutedNote;
+
+  /// No description provided for @shopRetentionBrandNew.
+  ///
+  /// In ar, this message translates to:
+  /// **'سجّل أول زيارة عشان تبدأ نشوف نسبة رجوع عملائك.'**
+  String get shopRetentionBrandNew;
+
+  /// No description provided for @shopRegisterFirstVisit.
+  ///
+  /// In ar, this message translates to:
+  /// **'سجّل أول زيارة'**
+  String get shopRegisterFirstVisit;
+
+  /// No description provided for @shopRetentionPrefix10.
+  ///
+  /// In ar, this message translates to:
+  /// **'من كل ١٠ عملاء زاروك،'**
+  String get shopRetentionPrefix10;
+
+  /// No description provided for @shopRetentionSuffix.
+  ///
+  /// In ar, this message translates to:
+  /// **'يرجعون لك'**
+  String get shopRetentionSuffix;
+
+  /// No description provided for @shopOneCustomer.
+  ///
+  /// In ar, this message translates to:
+  /// **'عميل واحد زارك'**
+  String get shopOneCustomer;
+
+  /// No description provided for @shopNCustomers.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} عميل زاروك'**
+  String shopNCustomers(int n);
+
+  /// No description provided for @shopRetentionSmallPrefix.
+  ///
+  /// In ar, this message translates to:
+  /// **'{base}، منهم'**
+  String shopRetentionSmallPrefix(String base);
+
+  /// No description provided for @shopOverNMonths.
+  ///
+  /// In ar, this message translates to:
+  /// **'خلال {n} أشهر'**
+  String shopOverNMonths(int n);
+
+  /// No description provided for @shopUnlimited.
+  ///
+  /// In ar, this message translates to:
+  /// **'بلا حد'**
+  String get shopUnlimited;
+
+  /// No description provided for @shopTileSentToday.
+  ///
+  /// In ar, this message translates to:
+  /// **'أُرسلت اليوم'**
+  String get shopTileSentToday;
+
+  /// No description provided for @shopTileWaiting.
+  ///
+  /// In ar, this message translates to:
+  /// **'بالانتظار'**
+  String get shopTileWaiting;
+
+  /// No description provided for @shopTileCeilingRemaining.
+  ///
+  /// In ar, this message translates to:
+  /// **'المتبقي اليوم'**
+  String get shopTileCeilingRemaining;
+
+  /// No description provided for @shopNextStepLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'الخطوة التالية'**
+  String get shopNextStepLabel;
+
+  /// No description provided for @shopNotNow.
+  ///
+  /// In ar, this message translates to:
+  /// **'ليس الآن'**
+  String get shopNotNow;
+
+  /// No description provided for @shopDeckUrgent.
+  ///
+  /// In ar, this message translates to:
+  /// **'عاجل'**
+  String get shopDeckUrgent;
+
+  /// No description provided for @shopDeckWeek.
+  ///
+  /// In ar, this message translates to:
+  /// **'الأسبوع'**
+  String get shopDeckWeek;
+
+  /// No description provided for @shopDeckOpportunities.
+  ///
+  /// In ar, this message translates to:
+  /// **'فرص'**
+  String get shopDeckOpportunities;
+
+  /// No description provided for @shopComputedNow.
+  ///
+  /// In ar, this message translates to:
+  /// **'احتُسبت الآن'**
+  String get shopComputedNow;
+
+  /// No description provided for @shopComputedHoursAgo.
+  ///
+  /// In ar, this message translates to:
+  /// **'احتُسبت قبل {n} ساعة'**
+  String shopComputedHoursAgo(int n);
+
+  /// No description provided for @shopStale.
+  ///
+  /// In ar, this message translates to:
+  /// **'قديمة'**
+  String get shopStale;
+
+  /// No description provided for @shopRefreshAction.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحديث'**
+  String get shopRefreshAction;
+
+  /// No description provided for @shopComputingTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'جاري احتساب مؤشراتك'**
+  String get shopComputingTitle;
+
+  /// No description provided for @shopComputeLoading.
+  ///
+  /// In ar, this message translates to:
+  /// **'يُحتسب…'**
+  String get shopComputeLoading;
+
+  /// No description provided for @shopComputeAction.
+  ///
+  /// In ar, this message translates to:
+  /// **'احتسب الآن'**
+  String get shopComputeAction;
+
+  /// No description provided for @shopAtRiskTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'عملاء على وشك الابتعاد'**
+  String get shopAtRiskTitle;
+
+  /// No description provided for @shopAtRiskMutedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'لسا ما فيه بيانات كافية.'**
+  String get shopAtRiskMutedNote;
+
+  /// No description provided for @shopAtRiskAllGood.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما فيه عميل متأخر عن موعده الآن — كله تمام'**
+  String get shopAtRiskAllGood;
+
+  /// No description provided for @shopWaNotConnected.
+  ///
+  /// In ar, this message translates to:
+  /// **'واتساب محلك غير مربوط بعد'**
+  String get shopWaNotConnected;
+
+  /// No description provided for @shopWaNotVerified.
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم واتساب محلك غير موثّق بعد'**
+  String get shopWaNotVerified;
+
+  /// No description provided for @shopCeilingReached.
+  ///
+  /// In ar, this message translates to:
+  /// **'وصلت الحد الأقصى للرسائل اليوم'**
+  String get shopCeilingReached;
+
+  /// No description provided for @shopDaysOverdue.
+  ///
+  /// In ar, this message translates to:
+  /// **'متأخر {n} يوم'**
+  String shopDaysOverdue(int n);
+
+  /// No description provided for @shopAtRiskCta.
+  ///
+  /// In ar, this message translates to:
+  /// **'أرسل حملة استرجاع'**
+  String get shopAtRiskCta;
+
+  /// No description provided for @shopAiImpactTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'أثر المساعد الذكي عبر واتساب'**
+  String get shopAiImpactTitle;
+
+  /// No description provided for @shopAiConversations.
+  ///
+  /// In ar, this message translates to:
+  /// **'محادثات'**
+  String get shopAiConversations;
+
+  /// No description provided for @shopAiBookings.
+  ///
+  /// In ar, this message translates to:
+  /// **'حجوزات'**
+  String get shopAiBookings;
+
+  /// No description provided for @shopAiUpsellRate.
+  ///
+  /// In ar, this message translates to:
+  /// **'قبول العروض'**
+  String get shopAiUpsellRate;
+
+  /// No description provided for @shopWeekMutedTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'زيارات الأسبوع'**
+  String get shopWeekMutedTitle;
+
+  /// No description provided for @shopWeekMutedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'لسا ما فيه بيانات كافية.'**
+  String get shopWeekMutedNote;
+
+  /// No description provided for @shopNewReturningMutedTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'عملاء جدد مقابل عائدين'**
+  String get shopNewReturningMutedTitle;
+
+  /// No description provided for @shopNewReturningMutedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'لسا ما فيه بيانات كافية.'**
+  String get shopNewReturningMutedNote;
+
+  /// No description provided for @shopBranchCompareTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'مقارنة الفروع'**
+  String get shopBranchCompareTitle;
+
+  /// No description provided for @shopBranchCompareMutedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحتاج فرعين على الأقل عشان تقارن.'**
+  String get shopBranchCompareMutedNote;
+
+  /// No description provided for @shopStaffCompareTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'مقارنة الموظفين'**
+  String get shopStaffCompareTitle;
+
+  /// No description provided for @shopStaffCompareMutedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحتاج موظفين على الأقل عشان تقارن.'**
+  String get shopStaffCompareMutedNote;
+
+  /// No description provided for @shopWeekTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'زيارات هذا الأسبوع'**
+  String get shopWeekTitle;
+
+  /// No description provided for @shopNewReturningTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'جدد مقابل عائدين'**
+  String get shopNewReturningTitle;
+
+  /// No description provided for @shopNewLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'جدد:'**
+  String get shopNewLabel;
+
+  /// No description provided for @shopReturningLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'عائدين:'**
+  String get shopReturningLabel;
+
+  /// No description provided for @shopServicesTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'خدماتك'**
+  String get shopServicesTitle;
+
+  /// No description provided for @shopServicesMutedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'لسا ما فيه بيانات كافية.'**
+  String get shopServicesMutedNote;
+
+  /// No description provided for @shopMessageFlowTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'أثر رسائل التذكير'**
+  String get shopMessageFlowTitle;
+
+  /// No description provided for @shopMutedMessageFlowNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'لسا ما فيه بيانات كافية.'**
+  String get shopMutedMessageFlowNote;
+
+  /// No description provided for @shopHoldoutTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'مقارنة: من راسلناه مقابل من لا'**
+  String get shopHoldoutTitle;
+
+  /// No description provided for @shopMutedHoldoutNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'لسا يُقاس.'**
+  String get shopMutedHoldoutNote;
+
+  /// No description provided for @shopReturnedAfterReminder.
+  ///
+  /// In ar, this message translates to:
+  /// **'{visits} زيارة خلال {days} يوم بعد التذكير'**
+  String shopReturnedAfterReminder(int visits, int days);
+
+  /// No description provided for @shopOptOutRate.
+  ///
+  /// In ar, this message translates to:
+  /// **'{p}% طلبوا التوقف عن الرسائل'**
+  String shopOptOutRate(String p);
+
+  /// No description provided for @shopHoldoutNoMessages.
+  ///
+  /// In ar, this message translates to:
+  /// **'بلا رسائل'**
+  String get shopHoldoutNoMessages;
+
+  /// No description provided for @shopHoldoutReached.
+  ///
+  /// In ar, this message translates to:
+  /// **'راسلناهم'**
+  String get shopHoldoutReached;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

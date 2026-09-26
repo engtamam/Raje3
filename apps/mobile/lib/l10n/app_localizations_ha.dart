@@ -2952,4 +2952,399 @@ class SHa extends S {
   @override
   String get whatsappAssistantAutoRegisterConfirmDisableBody =>
       'Sabbin lambobi ba za a ƙara ajiye su a matsayin lambobi ta atomatik ba.';
+
+  @override
+  String get partnerLoyaltyTitle => 'Amincin Abokan Hulɗa';
+
+  @override
+  String get partnerLoyaltySubtitle =>
+      'Kafa kawance da wani shago da aka yi masa rajista tare da mu, ka ba shi rangwame a kan biyan kuɗinsa';
+
+  @override
+  String get partnerLoyaltyCapLabel => 'Iyakar ka ta yanzu';
+
+  @override
+  String get partnerLoyaltyPrefsTitle =>
+      'Akwatin kafa kawance lokacin rikodin ziyara';
+
+  @override
+  String get partnerLoyaltyPrefsDesc =>
+      'Kunna shi yana bawa duk wani ma\'aikacin da yake rikodin ziyara damar kafa kawance a lokaci guda.';
+
+  @override
+  String get partnerLoyaltyGrantTitle => 'Kafa kawance';
+
+  @override
+  String get partnerLoyaltyPhoneLabel => 'Lambar wayar shagon abokin tarayya';
+
+  @override
+  String get partnerLoyaltyPhoneHintOk => 'Babu kawance da shi a wannan watan';
+
+  @override
+  String get partnerLoyaltyPhoneHintAlready =>
+      'Kana da kawance da shi a wannan watan tuni';
+
+  @override
+  String get partnerLoyaltyPhoneHintUnregistered =>
+      'Wannan lambar ba shago ne da aka yi masa rajista tare da mu ba';
+
+  @override
+  String get partnerLoyaltyPercentLabel => 'Kason rangwame';
+
+  @override
+  String partnerLoyaltyCapLine(int p) {
+    return 'Mafi girman kaso da za ka iya bayarwa yanzu: $p%';
+  }
+
+  @override
+  String get partnerLoyaltyScopeLabel => 'Ya haɗa da';
+
+  @override
+  String get partnerLoyaltyScopeAll => 'Duka';
+
+  @override
+  String get partnerLoyaltySubmit => 'Kafa kawancen';
+
+  @override
+  String get partnerLoyaltySubmitting => 'Ana tura…';
+
+  @override
+  String get partnerLoyaltyResultSuccess =>
+      'An kafa kawance — zai shiga aiki kai tsaye a lokacin sabunta biyan kuɗin shagon na gaba.';
+
+  @override
+  String get partnerLoyaltyResultPartial =>
+      'An kafa wani ɓangare — an ƙi wasu app, buɗe «Rikodi» don ƙarin bayani.';
+
+  @override
+  String get partnerLoyaltyOutcomeGranted => 'Nasara';
+
+  @override
+  String get partnerLoyaltyOutcomeInvalidPercent =>
+      'Kason rangwame ba daidai ba ne';
+
+  @override
+  String get partnerLoyaltyOutcomeInvalidScope => 'Zaɓi app na gaske';
+
+  @override
+  String get partnerLoyaltyOutcomeOverCap => 'Ya wuce iyakar ka ta yanzu';
+
+  @override
+  String get partnerLoyaltyOutcomeNoAccount =>
+      'Wannan lambar ba shago ne da aka yi masa rajista tare da mu ba';
+
+  @override
+  String get partnerLoyaltyOutcomeNotSubscribed =>
+      'Shagon ba shi da wani app daga cikin abin da ka zaɓa';
+
+  @override
+  String get partnerLoyaltyOutcomeBillingUnavailable =>
+      'Ba a kammala ba, sake gwadawa';
+
+  @override
+  String get partnerLoyaltyOutcomeAlreadyHasBetterCoupon =>
+      'Yana da rangwame mafi ƙarfi tuni';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponExpired => 'Rangwame ya ƙare';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponExhausted =>
+      'An gama amfani da rangwame';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponUnknown =>
+      'Rangwame wanda ba a sani ba';
+
+  @override
+  String get partnerLoyaltyOutcomePlanMismatch =>
+      'Rangwame bai dace da wannan app ba';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponDisabled => 'An kashe rangwame';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponScheduled =>
+      'Rangwame bai fara ba tukuna';
+
+  @override
+  String get partnerLoyaltyTabLog => 'Rikodi';
+
+  @override
+  String get partnerLoyaltyTabStats => 'Ƙidaya';
+
+  @override
+  String get partnerLoyaltyLogSearchHint => 'Bincika ta lambobi 4 na ƙarshe';
+
+  @override
+  String get partnerLoyaltyLogFilterAll => 'Dukan matsayi';
+
+  @override
+  String get partnerLoyaltyLogFilterOk => 'Masu nasara kawai';
+
+  @override
+  String get partnerLoyaltyLogFilterFail => 'Masu gazawa kawai';
+
+  @override
+  String get partnerLoyaltyLogEmptyTitle => 'Babu wani kawance tukuna';
+
+  @override
+  String get partnerLoyaltyLogEmptyDesc =>
+      'Kawancen ka na farko zai bayyana anan.';
+
+  @override
+  String get partnerLoyaltyLogReadFailed => 'Ba a iya karanta rikodin ba';
+
+  @override
+  String get partnerLoyaltyStatsKpiMonth => 'Kawance a wannan watan';
+
+  @override
+  String get partnerLoyaltyStatsKpiCap => 'Iyakar ka ta yanzu';
+
+  @override
+  String get partnerLoyaltyStatsKpiCeiling => 'Babbar iyaka ta dandali';
+
+  @override
+  String get partnerLoyaltyStatsLadderTitle => 'Matsayinka a kan matakala';
+
+  @override
+  String partnerLoyaltyStatsLadderNote(int n, int left, int p) {
+    return 'Kawance $n a wannan watan — sauran $left don kai matakin $p%';
+  }
+
+  @override
+  String partnerLoyaltyStatsLadderAtTop(int n) {
+    return 'Kawance $n a wannan watan — kana kan matakin da ya fi girma';
+  }
+
+  @override
+  String partnerLoyaltyStatsCeilingNote(int p) {
+    return 'Babbar iyaka ta dandali $p% — babu shagon da ya taɓa wucewa';
+  }
+
+  @override
+  String get partnerLoyaltyStatsChartTitle =>
+      'Kawance a cikin watanni 6 na ƙarshe';
+
+  @override
+  String get partnerLoyaltyReadFailedTitle => 'Ba a iya karanta bayanan ka ba';
+
+  @override
+  String get partnerLoyaltyReadFailedDesc => 'Sake gwadawa bayan ɗan lokaci.';
+
+  @override
+  String get shopReadFailed => 'Ba a iya karanta alamun shagon ka ba';
+
+  @override
+  String get shopMultiBranchTitle => 'Zaɓi reshe';
+
+  @override
+  String get shopMultiBranchDesc =>
+      'Kana da fiye da reshe ɗaya — zaɓi ɗaya don ganin alamunsa.';
+
+  @override
+  String get shopEmptyBranchTitle => 'Babu bayani na wannan reshe tukuna';
+
+  @override
+  String get shopRetentionTitle => 'Yawan dawowar abokan cinikin ka';
+
+  @override
+  String get shopRetentionMutedNote =>
+      'Babu isassun ziyara don lissafa wannan tukuna.';
+
+  @override
+  String get shopRetentionBrandNew =>
+      'Yi rijistar ziyara ta farko don fara ganin yawan dawowar abokan ciniki.';
+
+  @override
+  String get shopRegisterFirstVisit => 'Yi rijistar ziyara ta farko';
+
+  @override
+  String get shopRetentionPrefix10 =>
+      'Daga cikin kowane abokan ciniki 10 da suka ziyarce ka,';
+
+  @override
+  String get shopRetentionSuffix => 'suke dawowa';
+
+  @override
+  String get shopOneCustomer => 'Abokin ciniki ɗaya ya ziyarce ka';
+
+  @override
+  String shopNCustomers(int n) {
+    return 'Abokan ciniki $n sun ziyarce ka';
+  }
+
+  @override
+  String shopRetentionSmallPrefix(String base) {
+    return '$base, daga cikinsu';
+  }
+
+  @override
+  String shopOverNMonths(int n) {
+    return 'cikin watanni $n';
+  }
+
+  @override
+  String get shopUnlimited => 'Ba iyaka';
+
+  @override
+  String get shopTileSentToday => 'An aika yau';
+
+  @override
+  String get shopTileWaiting => 'Ana jira';
+
+  @override
+  String get shopTileCeilingRemaining => 'Sauran yau';
+
+  @override
+  String get shopNextStepLabel => 'Mataki na gaba';
+
+  @override
+  String get shopNotNow => 'Ba yanzu ba';
+
+  @override
+  String get shopDeckUrgent => 'Gaggawa';
+
+  @override
+  String get shopDeckWeek => 'Wannan makon';
+
+  @override
+  String get shopDeckOpportunities => 'Damarmaki';
+
+  @override
+  String get shopComputedNow => 'An lissafa yanzu';
+
+  @override
+  String shopComputedHoursAgo(int n) {
+    return 'An lissafa awa $n da suka wuce';
+  }
+
+  @override
+  String get shopStale => 'Tsohuwa';
+
+  @override
+  String get shopRefreshAction => 'Sabunta';
+
+  @override
+  String get shopComputingTitle => 'Ana lissafa alamunka';
+
+  @override
+  String get shopComputeLoading => 'Ana lissafawa…';
+
+  @override
+  String get shopComputeAction => 'Lissafa yanzu';
+
+  @override
+  String get shopAtRiskTitle => 'Abokan ciniki kusa da barin ka';
+
+  @override
+  String get shopAtRiskMutedNote => 'Babu isassun bayanai tukuna.';
+
+  @override
+  String get shopAtRiskAllGood =>
+      'Babu abokin ciniki da ya makara yanzu — komai lafiya';
+
+  @override
+  String get shopWaNotConnected => 'WhatsApp na shagon ka bai haɗu ba tukuna';
+
+  @override
+  String get shopWaNotVerified =>
+      'Lambar WhatsApp ta shagon ka ba a tabbatar da ita ba tukuna';
+
+  @override
+  String get shopCeilingReached => 'Ka kai iyakar saƙonni na yau';
+
+  @override
+  String shopDaysOverdue(int n) {
+    return 'Kwana $n da suka wuce';
+  }
+
+  @override
+  String get shopAtRiskCta => 'Aika yaƙin neman dawowa';
+
+  @override
+  String get shopAiImpactTitle => 'Tasirin Mataimaki na AI ta WhatsApp';
+
+  @override
+  String get shopAiConversations => 'Tattaunawa';
+
+  @override
+  String get shopAiBookings => 'Ajiye lokaci';
+
+  @override
+  String get shopAiUpsellRate => 'Karɓar ƙarin tayi';
+
+  @override
+  String get shopWeekMutedTitle => 'Ziyarar wannan makon';
+
+  @override
+  String get shopWeekMutedNote => 'Babu isassun bayanai tukuna.';
+
+  @override
+  String get shopNewReturningMutedTitle =>
+      'Sabbin abokan ciniki da masu dawowa';
+
+  @override
+  String get shopNewReturningMutedNote => 'Babu isassun bayanai tukuna.';
+
+  @override
+  String get shopBranchCompareTitle => 'Kwatanta rassa';
+
+  @override
+  String get shopBranchCompareMutedNote =>
+      'Ana buƙatar rassa biyu a kalla don kwatantawa.';
+
+  @override
+  String get shopStaffCompareTitle => 'Kwatanta ma\'aikata';
+
+  @override
+  String get shopStaffCompareMutedNote =>
+      'Ana buƙatar ma\'aikata biyu a kalla don kwatantawa.';
+
+  @override
+  String get shopWeekTitle => 'Ziyara a wannan makon';
+
+  @override
+  String get shopNewReturningTitle => 'Sabbi da masu dawowa';
+
+  @override
+  String get shopNewLabel => 'Sabbi:';
+
+  @override
+  String get shopReturningLabel => 'Masu dawowa:';
+
+  @override
+  String get shopServicesTitle => 'Ayyukanka';
+
+  @override
+  String get shopServicesMutedNote => 'Babu isassun bayanai tukuna.';
+
+  @override
+  String get shopMessageFlowTitle => 'Tasirin saƙon tuni';
+
+  @override
+  String get shopMutedMessageFlowNote => 'Babu isassun bayanai tukuna.';
+
+  @override
+  String get shopHoldoutTitle =>
+      'Kwatanta wanda aka aika masa da wanda ba a aika masa ba';
+
+  @override
+  String get shopMutedHoldoutNote => 'Ana auna har yanzu.';
+
+  @override
+  String shopReturnedAfterReminder(int visits, int days) {
+    return 'Ziyara $visits cikin kwanaki $days bayan tuni';
+  }
+
+  @override
+  String shopOptOutRate(String p) {
+    return '$p% sun nemi a daina musu saƙonni';
+  }
+
+  @override
+  String get shopHoldoutNoMessages => 'Babu saƙo';
+
+  @override
+  String get shopHoldoutReached => 'An aika saƙo';
 }

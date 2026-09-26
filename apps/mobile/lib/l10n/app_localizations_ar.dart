@@ -2965,4 +2965,386 @@ class SAr extends S {
   @override
   String get whatsappAssistantAutoRegisterConfirmDisableBody =>
       'الأرقام الجديدة ما راح تُسجَّل كجهات اتصال تلقائيًا بعد الآن.';
+
+  @override
+  String get partnerLoyaltyTitle => 'ولاء الشركاء';
+
+  @override
+  String get partnerLoyaltySubtitle =>
+      'كوّن تحالفاً مع محل آخر مسجّل عندنا وامنحه امتيازاً على اشتراكه معنا';
+
+  @override
+  String get partnerLoyaltyCapLabel => 'سقفك الحالي';
+
+  @override
+  String get partnerLoyaltyPrefsTitle =>
+      'خانة تكوين التحالف أثناء تسجيل الزيارة';
+
+  @override
+  String get partnerLoyaltyPrefsDesc =>
+      'تشغيلها يسمح لأي موظف يسجّل زيارة إنه يكوّن تحالفاً بنفس اللحظة.';
+
+  @override
+  String get partnerLoyaltyGrantTitle => 'كوّن تحالفاً';
+
+  @override
+  String get partnerLoyaltyPhoneLabel => 'رقم جوال المحل الشريك';
+
+  @override
+  String get partnerLoyaltyPhoneHintOk => 'لا تحالف بينكما هذا الشهر';
+
+  @override
+  String get partnerLoyaltyPhoneHintAlready =>
+      'عندك تحالف معه هذا الشهر بالفعل';
+
+  @override
+  String get partnerLoyaltyPhoneHintUnregistered =>
+      'هذا الرقم ليس محلاً مسجّلاً عندنا';
+
+  @override
+  String get partnerLoyaltyPercentLabel => 'نسبة الامتياز';
+
+  @override
+  String partnerLoyaltyCapLine(int p) {
+    return 'أقصى نسبة تقدر تمنحها الآن: $p%';
+  }
+
+  @override
+  String get partnerLoyaltyScopeLabel => 'يشمل';
+
+  @override
+  String get partnerLoyaltyScopeAll => 'الكل';
+
+  @override
+  String get partnerLoyaltySubmit => 'كوّن التحالف';
+
+  @override
+  String get partnerLoyaltySubmitting => 'يُرسَل…';
+
+  @override
+  String get partnerLoyaltyResultSuccess =>
+      'تم تكوين التحالف — سيُطبَّق تلقائياً عند تجديد اشتراك المحل القادم.';
+
+  @override
+  String get partnerLoyaltyResultPartial =>
+      'تحالف جزئي — بعض التطبيقات رُفضت، افتح «السجل» للتفاصيل.';
+
+  @override
+  String get partnerLoyaltyOutcomeGranted => 'نجح';
+
+  @override
+  String get partnerLoyaltyOutcomeInvalidPercent => 'نسبة الامتياز غير صحيحة';
+
+  @override
+  String get partnerLoyaltyOutcomeInvalidScope => 'اختر تطبيقاً حقيقياً';
+
+  @override
+  String get partnerLoyaltyOutcomeOverCap => 'تجاوزت سقفك الحالي';
+
+  @override
+  String get partnerLoyaltyOutcomeNoAccount =>
+      'هذا الرقم ليس محلاً مسجّلاً عندنا';
+
+  @override
+  String get partnerLoyaltyOutcomeNotSubscribed =>
+      'المحل لا يملك أي تطبيق ضمن ما اخترته';
+
+  @override
+  String get partnerLoyaltyOutcomeBillingUnavailable =>
+      'تعذّر إتمام العملية، حاول مرة أخرى';
+
+  @override
+  String get partnerLoyaltyOutcomeAlreadyHasBetterCoupon =>
+      'عنده امتياز أقوى بالفعل';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponExpired => 'الامتياز منتهٍ';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponExhausted => 'الامتياز استُنفد';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponUnknown => 'امتياز غير معروف';
+
+  @override
+  String get partnerLoyaltyOutcomePlanMismatch =>
+      'الامتياز لا يطابق هذا التطبيق';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponDisabled => 'الامتياز معطّل';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponScheduled => 'الامتياز لم يبدأ بعد';
+
+  @override
+  String get partnerLoyaltyTabLog => 'السجل';
+
+  @override
+  String get partnerLoyaltyTabStats => 'الإحصائيات';
+
+  @override
+  String get partnerLoyaltyLogSearchHint => 'بحث بآخر 4 أرقام';
+
+  @override
+  String get partnerLoyaltyLogFilterAll => 'كل الحالات';
+
+  @override
+  String get partnerLoyaltyLogFilterOk => 'ناجح فقط';
+
+  @override
+  String get partnerLoyaltyLogFilterFail => 'فاشل فقط';
+
+  @override
+  String get partnerLoyaltyLogEmptyTitle => 'لا تحالفات بعد';
+
+  @override
+  String get partnerLoyaltyLogEmptyDesc => 'أول تحالف تكوّنه يظهر هنا.';
+
+  @override
+  String get partnerLoyaltyLogReadFailed => 'تعذّرت قراءة السجل';
+
+  @override
+  String get partnerLoyaltyStatsKpiMonth => 'تحالفات هذا الشهر';
+
+  @override
+  String get partnerLoyaltyStatsKpiCap => 'سقفك الحالي';
+
+  @override
+  String get partnerLoyaltyStatsKpiCeiling => 'السقف الأقصى بالمنصة';
+
+  @override
+  String get partnerLoyaltyStatsLadderTitle => 'مكانك بالسلّم';
+
+  @override
+  String partnerLoyaltyStatsLadderNote(int n, int left, int p) {
+    return '$n تحالفاً هذا الشهر — باقي $left عشان توصل لشريحة الـ$p%';
+  }
+
+  @override
+  String partnerLoyaltyStatsLadderAtTop(int n) {
+    return '$n تحالفاً هذا الشهر — أنت بأعلى شريحة';
+  }
+
+  @override
+  String partnerLoyaltyStatsCeilingNote(int p) {
+    return 'السقف الأقصى بالمنصة $p% — ما يتجاوزه أي محل بأي حال';
+  }
+
+  @override
+  String get partnerLoyaltyStatsChartTitle => 'عدد التحالفات آخر 6 أشهر';
+
+  @override
+  String get partnerLoyaltyReadFailedTitle => 'تعذّرت قراءة بياناتك';
+
+  @override
+  String get partnerLoyaltyReadFailedDesc => 'حاول بعد قليل.';
+
+  @override
+  String get shopReadFailed => 'تعذّرت قراءة مؤشرات محلّك';
+
+  @override
+  String get shopMultiBranchTitle => 'اختر فرعًا';
+
+  @override
+  String get shopMultiBranchDesc =>
+      'عندك أكثر من فرع — اختر واحدًا لعرض مؤشراته.';
+
+  @override
+  String get shopEmptyBranchTitle => 'ما فيه بيانات لهذا الفرع بعد';
+
+  @override
+  String get shopRetentionTitle => 'نسبة رجوع عملائك';
+
+  @override
+  String get shopRetentionMutedNote =>
+      'لسا ما فيه زيارات كافية لحساب هذا الرقم.';
+
+  @override
+  String get shopRetentionBrandNew =>
+      'سجّل أول زيارة عشان تبدأ نشوف نسبة رجوع عملائك.';
+
+  @override
+  String get shopRegisterFirstVisit => 'سجّل أول زيارة';
+
+  @override
+  String get shopRetentionPrefix10 => 'من كل ١٠ عملاء زاروك،';
+
+  @override
+  String get shopRetentionSuffix => 'يرجعون لك';
+
+  @override
+  String get shopOneCustomer => 'عميل واحد زارك';
+
+  @override
+  String shopNCustomers(int n) {
+    return '$n عميل زاروك';
+  }
+
+  @override
+  String shopRetentionSmallPrefix(String base) {
+    return '$base، منهم';
+  }
+
+  @override
+  String shopOverNMonths(int n) {
+    return 'خلال $n أشهر';
+  }
+
+  @override
+  String get shopUnlimited => 'بلا حد';
+
+  @override
+  String get shopTileSentToday => 'أُرسلت اليوم';
+
+  @override
+  String get shopTileWaiting => 'بالانتظار';
+
+  @override
+  String get shopTileCeilingRemaining => 'المتبقي اليوم';
+
+  @override
+  String get shopNextStepLabel => 'الخطوة التالية';
+
+  @override
+  String get shopNotNow => 'ليس الآن';
+
+  @override
+  String get shopDeckUrgent => 'عاجل';
+
+  @override
+  String get shopDeckWeek => 'الأسبوع';
+
+  @override
+  String get shopDeckOpportunities => 'فرص';
+
+  @override
+  String get shopComputedNow => 'احتُسبت الآن';
+
+  @override
+  String shopComputedHoursAgo(int n) {
+    return 'احتُسبت قبل $n ساعة';
+  }
+
+  @override
+  String get shopStale => 'قديمة';
+
+  @override
+  String get shopRefreshAction => 'تحديث';
+
+  @override
+  String get shopComputingTitle => 'جاري احتساب مؤشراتك';
+
+  @override
+  String get shopComputeLoading => 'يُحتسب…';
+
+  @override
+  String get shopComputeAction => 'احتسب الآن';
+
+  @override
+  String get shopAtRiskTitle => 'عملاء على وشك الابتعاد';
+
+  @override
+  String get shopAtRiskMutedNote => 'لسا ما فيه بيانات كافية.';
+
+  @override
+  String get shopAtRiskAllGood => 'ما فيه عميل متأخر عن موعده الآن — كله تمام';
+
+  @override
+  String get shopWaNotConnected => 'واتساب محلك غير مربوط بعد';
+
+  @override
+  String get shopWaNotVerified => 'رقم واتساب محلك غير موثّق بعد';
+
+  @override
+  String get shopCeilingReached => 'وصلت الحد الأقصى للرسائل اليوم';
+
+  @override
+  String shopDaysOverdue(int n) {
+    return 'متأخر $n يوم';
+  }
+
+  @override
+  String get shopAtRiskCta => 'أرسل حملة استرجاع';
+
+  @override
+  String get shopAiImpactTitle => 'أثر المساعد الذكي عبر واتساب';
+
+  @override
+  String get shopAiConversations => 'محادثات';
+
+  @override
+  String get shopAiBookings => 'حجوزات';
+
+  @override
+  String get shopAiUpsellRate => 'قبول العروض';
+
+  @override
+  String get shopWeekMutedTitle => 'زيارات الأسبوع';
+
+  @override
+  String get shopWeekMutedNote => 'لسا ما فيه بيانات كافية.';
+
+  @override
+  String get shopNewReturningMutedTitle => 'عملاء جدد مقابل عائدين';
+
+  @override
+  String get shopNewReturningMutedNote => 'لسا ما فيه بيانات كافية.';
+
+  @override
+  String get shopBranchCompareTitle => 'مقارنة الفروع';
+
+  @override
+  String get shopBranchCompareMutedNote => 'تحتاج فرعين على الأقل عشان تقارن.';
+
+  @override
+  String get shopStaffCompareTitle => 'مقارنة الموظفين';
+
+  @override
+  String get shopStaffCompareMutedNote => 'تحتاج موظفين على الأقل عشان تقارن.';
+
+  @override
+  String get shopWeekTitle => 'زيارات هذا الأسبوع';
+
+  @override
+  String get shopNewReturningTitle => 'جدد مقابل عائدين';
+
+  @override
+  String get shopNewLabel => 'جدد:';
+
+  @override
+  String get shopReturningLabel => 'عائدين:';
+
+  @override
+  String get shopServicesTitle => 'خدماتك';
+
+  @override
+  String get shopServicesMutedNote => 'لسا ما فيه بيانات كافية.';
+
+  @override
+  String get shopMessageFlowTitle => 'أثر رسائل التذكير';
+
+  @override
+  String get shopMutedMessageFlowNote => 'لسا ما فيه بيانات كافية.';
+
+  @override
+  String get shopHoldoutTitle => 'مقارنة: من راسلناه مقابل من لا';
+
+  @override
+  String get shopMutedHoldoutNote => 'لسا يُقاس.';
+
+  @override
+  String shopReturnedAfterReminder(int visits, int days) {
+    return '$visits زيارة خلال $days يوم بعد التذكير';
+  }
+
+  @override
+  String shopOptOutRate(String p) {
+    return '$p% طلبوا التوقف عن الرسائل';
+  }
+
+  @override
+  String get shopHoldoutNoMessages => 'بلا رسائل';
+
+  @override
+  String get shopHoldoutReached => 'راسلناهم';
 }

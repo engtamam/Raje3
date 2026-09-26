@@ -81,7 +81,7 @@ const List<AppRow> kAppRows = [
   AppRow(
     id: 'partner-loyalty', key: 'feature.partner_loyalty', name: 'ولاء الشركاء',
     what: 'كوّن تحالفاً حقيقياً مع محل آخر مسجّل عندنا — امنحه امتيازاً على اشتراكه معنا يُطبَّق تلقائياً عند تجديده القادم.',
-    icon: 'users',
+    route: 'partner-loyalty', icon: 'users',
   ),
   AppRow(
     id: 'referral-partnership', key: 'feature.referral_partnership', name: 'شراكة استراتيجية',

@@ -1187,6 +1187,37 @@
     "kind": "action",
     "anchor": "customer_detail.erase_button"
   },
+  "shop": {
+    "title": {
+      "ar": "محلّي",
+      "en": "My shop"
+    },
+    "body": {
+      "ar": "نظرة عامة على أداء محلك — نسبة رجوع عملائك، عملاء على وشك الابتعاد، الخطوة التالية المقترحة، وأداء الأسبوع والفروع والموظفين والخدمات، مقسّمة حسب الإلحاح لا حسب النوع.",
+      "en": "An overview of your shop's performance — your customer return rate, customers about to drift away, the suggested next step, and this week's/branches'/staff's/services' performance, grouped by urgency not by data type."
+    },
+    "kind": "screen",
+    "anchor": "shop",
+    "requires": [
+      "reminders.today",
+      "insights.dashboard"
+    ]
+  },
+  "shop.next_step": {
+    "title": {
+      "ar": "الخطوة التالية",
+      "en": "Next step"
+    },
+    "body": {
+      "ar": "الفعل الواحد اللي المحرك رتّبه كأهم شي تسويه الحين، مبني من بيانات محلك الحقيقية — مو نص ثابت.",
+      "en": "The single action the engine ranked as the most important thing to do right now, built from your shop's real data — never a fixed line of text."
+    },
+    "kind": "action",
+    "anchor": "shop.next_step",
+    "requires": [
+      "insights.dashboard"
+    ]
+  },
   "rating": {
     "title": {
       "ar": "التقييم",
@@ -1930,6 +1961,51 @@
     },
     "kind": "action",
     "anchor": "whatsapp-assistant.auto_register_toggle"
+  },
+  "partner-loyalty": {
+    "title": {
+      "ar": "ولاء الشركاء",
+      "en": "Partner loyalty"
+    },
+    "body": {
+      "ar": "كوّن تحالفاً مع محل آخر مسجّل عندنا — تمنحه امتيازاً على اشتراكه معنا يُطبَّق تلقائياً عند تجديده القادم. غير محدَّث عندك؟ راجع سجل المحاولات والإحصائيات بالتبويبين أدناه.",
+      "en": "Form an alliance with another registered shop — you grant it a perk on its subscription with us, applied automatically at its next renewal. Check the log and stats tabs below for your history."
+    },
+    "kind": "screen",
+    "anchor": "partner-loyalty",
+    "requires": [
+      "operations.coupons_page"
+    ]
+  },
+  "partner-loyalty.grant_form": {
+    "title": {
+      "ar": "نموذج تكوين التحالف",
+      "en": "Alliance grant form"
+    },
+    "body": {
+      "ar": "رقم جوال المحل الشريك، نسبة الامتياز، والتطبيقات المشمولة — تحقّق سريع من الرقم يظهر فور ما تكتبه.",
+      "en": "The partner shop's phone number, the perk percent, and which apps it covers — a quick check on the number appears as you type it."
+    },
+    "kind": "action",
+    "anchor": "partner-loyalty.grant_form",
+    "requires": [
+      "operations.grant_coupon_direct"
+    ]
+  },
+  "partner-loyalty.prefs_toggle": {
+    "title": {
+      "ar": "خانة تكوين التحالف أثناء تسجيل الزيارة",
+      "en": "Alliance checkbox during visit recording"
+    },
+    "body": {
+      "ar": "تشغيلها يسمح لأي موظف يسجّل زيارة إنه يكوّن تحالفاً بنفس اللحظة، بدون فتح هذي الشاشة.",
+      "en": "Turning it on lets any staff member recording a visit form an alliance at the same moment, without opening this screen."
+    },
+    "kind": "action",
+    "anchor": "partner-loyalty.prefs_toggle",
+    "requires": [
+      "operations.grant_coupon_direct"
+    ]
   },
   "referral-partnership": {
     "title": {

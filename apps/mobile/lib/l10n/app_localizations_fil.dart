@@ -3019,4 +3019,404 @@ class SFil extends S {
   @override
   String get whatsappAssistantAutoRegisterConfirmDisableBody =>
       'Ang mga bagong numero ay hindi na awtomatikong ise-save bilang contact.';
+
+  @override
+  String get partnerLoyaltyTitle => 'Katapatan ng Kasosyo';
+
+  @override
+  String get partnerLoyaltySubtitle =>
+      'Bumuo ng alyansa sa ibang tindahang nakarehistro sa amin at bigyan ito ng benepisyo sa subscription nito';
+
+  @override
+  String get partnerLoyaltyCapLabel => 'Kasalukuyang limitasyon mo';
+
+  @override
+  String get partnerLoyaltyPrefsTitle =>
+      'Checkbox ng alyansa habang nagre-record ng bisita';
+
+  @override
+  String get partnerLoyaltyPrefsDesc =>
+      'Ang pag-on dito ay nagbibigay-daan sa sinumang staff na nagre-record ng bisita na bumuo ng alyansa sa parehong sandali.';
+
+  @override
+  String get partnerLoyaltyGrantTitle => 'Bumuo ng alyansa';
+
+  @override
+  String get partnerLoyaltyPhoneLabel =>
+      'Numero ng telepono ng katuwang na tindahan';
+
+  @override
+  String get partnerLoyaltyPhoneHintOk =>
+      'Walang alyansa sa kanila ngayong buwan';
+
+  @override
+  String get partnerLoyaltyPhoneHintAlready =>
+      'May alyansa ka na sa kanila ngayong buwan';
+
+  @override
+  String get partnerLoyaltyPhoneHintUnregistered =>
+      'Hindi ito nakarehistrong tindahan sa amin';
+
+  @override
+  String get partnerLoyaltyPercentLabel => 'Porsyento ng benepisyo';
+
+  @override
+  String partnerLoyaltyCapLine(int p) {
+    return 'Pinakamataas na porsyentong maibibigay mo ngayon: $p%';
+  }
+
+  @override
+  String get partnerLoyaltyScopeLabel => 'Sakop';
+
+  @override
+  String get partnerLoyaltyScopeAll => 'Lahat';
+
+  @override
+  String get partnerLoyaltySubmit => 'Buuin ang alyansa';
+
+  @override
+  String get partnerLoyaltySubmitting => 'Ipinapadala…';
+
+  @override
+  String get partnerLoyaltyResultSuccess =>
+      'Nabuo ang alyansa — awtomatikong ilalapat sa susunod na pag-renew ng tindahan.';
+
+  @override
+  String get partnerLoyaltyResultPartial =>
+      'Bahagyang nabuo — may ilang app na tinanggihan, buksan ang «Log» para sa detalye.';
+
+  @override
+  String get partnerLoyaltyOutcomeGranted => 'Tagumpay';
+
+  @override
+  String get partnerLoyaltyOutcomeInvalidPercent =>
+      'Hindi tamang porsyento ng benepisyo';
+
+  @override
+  String get partnerLoyaltyOutcomeInvalidScope => 'Pumili ng tunay na app';
+
+  @override
+  String get partnerLoyaltyOutcomeOverCap =>
+      'Lampas sa kasalukuyang limitasyon mo';
+
+  @override
+  String get partnerLoyaltyOutcomeNoAccount =>
+      'Hindi ito nakarehistrong tindahan sa amin';
+
+  @override
+  String get partnerLoyaltyOutcomeNotSubscribed =>
+      'Wala sa mga piniling app ang taglay ng tindahang iyon';
+
+  @override
+  String get partnerLoyaltyOutcomeBillingUnavailable =>
+      'Hindi natapos, subukan muli';
+
+  @override
+  String get partnerLoyaltyOutcomeAlreadyHasBetterCoupon =>
+      'May mas malakas nang benepisyo';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponExpired => 'Expired na ang benepisyo';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponExhausted => 'Naubos na ang benepisyo';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponUnknown => 'Hindi kilalang benepisyo';
+
+  @override
+  String get partnerLoyaltyOutcomePlanMismatch =>
+      'Hindi tugma ang benepisyo sa app na ito';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponDisabled =>
+      'Naka-disable ang benepisyo';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponScheduled =>
+      'Hindi pa nagsisimula ang benepisyo';
+
+  @override
+  String get partnerLoyaltyTabLog => 'Log';
+
+  @override
+  String get partnerLoyaltyTabStats => 'Estadistika';
+
+  @override
+  String get partnerLoyaltyLogSearchHint =>
+      'Maghanap gamit ang huling 4 na digit';
+
+  @override
+  String get partnerLoyaltyLogFilterAll => 'Lahat ng status';
+
+  @override
+  String get partnerLoyaltyLogFilterOk => 'Matagumpay lang';
+
+  @override
+  String get partnerLoyaltyLogFilterFail => 'Nabigo lang';
+
+  @override
+  String get partnerLoyaltyLogEmptyTitle => 'Wala pang alyansa';
+
+  @override
+  String get partnerLoyaltyLogEmptyDesc => 'Lalabas dito ang unang alyansa mo.';
+
+  @override
+  String get partnerLoyaltyLogReadFailed => 'Hindi mabasa ang log';
+
+  @override
+  String get partnerLoyaltyStatsKpiMonth => 'Mga alyansa ngayong buwan';
+
+  @override
+  String get partnerLoyaltyStatsKpiCap => 'Kasalukuyang limitasyon mo';
+
+  @override
+  String get partnerLoyaltyStatsKpiCeiling =>
+      'Pinakamataas na limitasyon ng platform';
+
+  @override
+  String get partnerLoyaltyStatsLadderTitle => 'Ang posisyon mo sa hagdan';
+
+  @override
+  String partnerLoyaltyStatsLadderNote(int n, int left, int p) {
+    return '$n alyansa ngayong buwan — $left na lang para sa tier na $p%';
+  }
+
+  @override
+  String partnerLoyaltyStatsLadderAtTop(int n) {
+    return '$n alyansa ngayong buwan — nasa pinakamataas na tier ka na';
+  }
+
+  @override
+  String partnerLoyaltyStatsCeilingNote(int p) {
+    return 'Pinakamataas na limitasyon ng platform $p% — walang tindahang lalampas dito';
+  }
+
+  @override
+  String get partnerLoyaltyStatsChartTitle =>
+      'Bilang ng alyansa sa nakaraang 6 na buwan';
+
+  @override
+  String get partnerLoyaltyReadFailedTitle => 'Hindi mabasa ang datos mo';
+
+  @override
+  String get partnerLoyaltyReadFailedDesc =>
+      'Subukan muli sa ibang pagkakataon.';
+
+  @override
+  String get shopReadFailed => 'Hindi mabasa ang mga indikador ng tindahan mo';
+
+  @override
+  String get shopMultiBranchTitle => 'Pumili ng sangay';
+
+  @override
+  String get shopMultiBranchDesc =>
+      'May higit sa isang sangay ka — pumili ng isa para makita ang mga indikador nito.';
+
+  @override
+  String get shopEmptyBranchTitle => 'Wala pang datos para sa sangay na ito';
+
+  @override
+  String get shopRetentionTitle => 'Rate ng pagbalik ng mga customer mo';
+
+  @override
+  String get shopRetentionMutedNote =>
+      'Hindi pa sapat ang mga bisita para kalkulahin ito.';
+
+  @override
+  String get shopRetentionBrandNew =>
+      'I-rehistro ang unang bisita para makita ang rate ng pagbalik.';
+
+  @override
+  String get shopRegisterFirstVisit => 'Irehistro ang unang bisita';
+
+  @override
+  String get shopRetentionPrefix10 =>
+      'Sa bawat 10 customer na bumisita sa iyo,';
+
+  @override
+  String get shopRetentionSuffix => 'ang bumalik';
+
+  @override
+  String get shopOneCustomer => 'Isang customer ang bumisita sa iyo';
+
+  @override
+  String shopNCustomers(int n) {
+    return '$n customer ang bumisita sa iyo';
+  }
+
+  @override
+  String shopRetentionSmallPrefix(String base) {
+    return '$base, kung saan';
+  }
+
+  @override
+  String shopOverNMonths(int n) {
+    return 'sa loob ng $n buwan';
+  }
+
+  @override
+  String get shopUnlimited => 'Walang limitasyon';
+
+  @override
+  String get shopTileSentToday => 'Naipadala ngayon';
+
+  @override
+  String get shopTileWaiting => 'Naghihintay';
+
+  @override
+  String get shopTileCeilingRemaining => 'Natitira ngayon';
+
+  @override
+  String get shopNextStepLabel => 'Susunod na hakbang';
+
+  @override
+  String get shopNotNow => 'Hindi ngayon';
+
+  @override
+  String get shopDeckUrgent => 'Agaran';
+
+  @override
+  String get shopDeckWeek => 'Ngayong linggo';
+
+  @override
+  String get shopDeckOpportunities => 'Mga pagkakataon';
+
+  @override
+  String get shopComputedNow => 'Nakalkula ngayon';
+
+  @override
+  String shopComputedHoursAgo(int n) {
+    return 'Nakalkula $n oras ang nakalipas';
+  }
+
+  @override
+  String get shopStale => 'Luma na';
+
+  @override
+  String get shopRefreshAction => 'I-refresh';
+
+  @override
+  String get shopComputingTitle => 'Kinakalkula ang mga indikador mo';
+
+  @override
+  String get shopComputeLoading => 'Kinakalkula…';
+
+  @override
+  String get shopComputeAction => 'Kalkulahin ngayon';
+
+  @override
+  String get shopAtRiskTitle => 'Mga customer na malapit nang umalis';
+
+  @override
+  String get shopAtRiskMutedNote => 'Hindi pa sapat ang datos.';
+
+  @override
+  String get shopAtRiskAllGood =>
+      'Walang overdue na customer ngayon — maayos ang lahat';
+
+  @override
+  String get shopWaNotConnected =>
+      'Hindi pa nakakonekta ang WhatsApp ng tindahan mo';
+
+  @override
+  String get shopWaNotVerified =>
+      'Hindi pa na-verify ang numero ng WhatsApp ng tindahan mo';
+
+  @override
+  String get shopCeilingReached =>
+      'Naabot mo na ang limitasyon ng mensahe ngayong araw';
+
+  @override
+  String shopDaysOverdue(int n) {
+    return '$n araw na overdue';
+  }
+
+  @override
+  String get shopAtRiskCta => 'Magpadala ng win-back campaign';
+
+  @override
+  String get shopAiImpactTitle => 'Epekto ng AI assistant sa WhatsApp';
+
+  @override
+  String get shopAiConversations => 'Mga usapan';
+
+  @override
+  String get shopAiBookings => 'Mga booking';
+
+  @override
+  String get shopAiUpsellRate => 'Pagtanggap sa upsell';
+
+  @override
+  String get shopWeekMutedTitle => 'Mga bisita ngayong linggo';
+
+  @override
+  String get shopWeekMutedNote => 'Hindi pa sapat ang datos.';
+
+  @override
+  String get shopNewReturningMutedTitle =>
+      'Bago kumpara sa bumabalik na customer';
+
+  @override
+  String get shopNewReturningMutedNote => 'Hindi pa sapat ang datos.';
+
+  @override
+  String get shopBranchCompareTitle => 'Paghahambing ng sangay';
+
+  @override
+  String get shopBranchCompareMutedNote =>
+      'Kailangan ng hindi bababa sa dalawang sangay para maihambing.';
+
+  @override
+  String get shopStaffCompareTitle => 'Paghahambing ng staff';
+
+  @override
+  String get shopStaffCompareMutedNote =>
+      'Kailangan ng hindi bababa sa dalawang staff para maihambing.';
+
+  @override
+  String get shopWeekTitle => 'Mga bisita ngayong linggo';
+
+  @override
+  String get shopNewReturningTitle => 'Bago kumpara sa bumabalik';
+
+  @override
+  String get shopNewLabel => 'Bago:';
+
+  @override
+  String get shopReturningLabel => 'Bumabalik:';
+
+  @override
+  String get shopServicesTitle => 'Mga serbisyo mo';
+
+  @override
+  String get shopServicesMutedNote => 'Hindi pa sapat ang datos.';
+
+  @override
+  String get shopMessageFlowTitle => 'Epekto ng reminder message';
+
+  @override
+  String get shopMutedMessageFlowNote => 'Hindi pa sapat ang datos.';
+
+  @override
+  String get shopHoldoutTitle => 'Paghahambing: na-message kumpara sa hindi';
+
+  @override
+  String get shopMutedHoldoutNote => 'Sinusukat pa.';
+
+  @override
+  String shopReturnedAfterReminder(int visits, int days) {
+    return '$visits bisita sa loob ng $days araw pagkatapos ng reminder';
+  }
+
+  @override
+  String shopOptOutRate(String p) {
+    return '$p% ang humiling na itigil ang mensahe';
+  }
+
+  @override
+  String get shopHoldoutNoMessages => 'Walang mensahe';
+
+  @override
+  String get shopHoldoutReached => 'Na-message';
 }

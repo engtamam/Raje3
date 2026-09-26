@@ -17,8 +17,10 @@ import 'package:raje3_mobile/features/customers/customer_detail_screen.dart';
 import 'package:raje3_mobile/features/customers/customers_screen.dart';
 import 'package:raje3_mobile/features/home/home_screen.dart';
 import 'package:raje3_mobile/features/mobile_requests/mobile_requests_screen.dart';
+import 'package:raje3_mobile/features/partner_loyalty/partner_loyalty_screen.dart';
 import 'package:raje3_mobile/features/points/points_screen.dart';
 import 'package:raje3_mobile/features/rating/rating_screen.dart';
+import 'package:raje3_mobile/features/shop/shop_screen.dart';
 import 'package:raje3_mobile/features/referral/referral_partnership_screen.dart';
 
 import 'package:raje3_mobile/features/services/services_screen.dart';
@@ -151,10 +153,14 @@ class AppRouter {
         return const CustomersScreen();
       case 'rating':
         return const RatingScreen();
+      case 'shop':
+        return const ShopScreen();
       case 'services':
         return const ServicesScreen();
       case 'points':
         return const PointsScreen();
+      case 'partner-loyalty':
+        return const PartnerLoyaltyScreen();
       case 'referral-partnership':
         return const ReferralPartnershipScreen();
       default:

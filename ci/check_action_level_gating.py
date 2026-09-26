@@ -90,6 +90,14 @@ EXEMPT: dict[str, str] = {
         "outside this scanner's control list, and is reachable only through an entry point "
         "(bookings_screen.dart's FAB / booking_details_sheet.dart's edit button) already gated "
         "on 'bookings.create'.",
+    "apps/mobile/lib/features/shop/shop_screen.dart":
+        "whole screen is nav-level gated (NavSectionDef requires reminders.today+insights."
+        "dashboard); its own real writes (insights.refresh, insights.dismiss_next_step) both "
+        "carry the SAME 'insights.read' capability the page-level gate already checks "
+        "(services/insights/app/user_actions.py's own action table), so there is no stronger "
+        "capability left to gate a single button on — same precedent as Visit.tsx's own coupon "
+        "section exemption above. The rest of this screen's controls are plain navigation links "
+        "(context.push/goNamed), never writes.",
 }
 
 

@@ -2952,4 +2952,389 @@ class SBn extends S {
   @override
   String get whatsappAssistantAutoRegisterConfirmDisableBody =>
       'নতুন নম্বরগুলো আর স্বয়ংক্রিয়ভাবে পরিচিতি হিসেবে সংরক্ষিত হবে না।';
+
+  @override
+  String get partnerLoyaltyTitle => 'অংশীদার আনুগত্য';
+
+  @override
+  String get partnerLoyaltySubtitle =>
+      'আমাদের কাছে নিবন্ধিত অন্য একটি দোকানের সাথে জোট গঠন করুন এবং তার সাবস্ক্রিপশনে সুবিধা দিন';
+
+  @override
+  String get partnerLoyaltyCapLabel => 'আপনার বর্তমান সীমা';
+
+  @override
+  String get partnerLoyaltyPrefsTitle =>
+      'ভিজিট রেকর্ড করার সময় জোট গঠনের চেকবক্স';
+
+  @override
+  String get partnerLoyaltyPrefsDesc =>
+      'এটি চালু করলে ভিজিট রেকর্ডকারী যেকোনো স্টাফ একই মুহূর্তে জোট গঠন করতে পারবে।';
+
+  @override
+  String get partnerLoyaltyGrantTitle => 'জোট গঠন করুন';
+
+  @override
+  String get partnerLoyaltyPhoneLabel => 'অংশীদার দোকানের ফোন নম্বর';
+
+  @override
+  String get partnerLoyaltyPhoneHintOk => 'এই মাসে তাদের সাথে কোনো জোট নেই';
+
+  @override
+  String get partnerLoyaltyPhoneHintAlready =>
+      'এই মাসে তাদের সাথে ইতিমধ্যে জোট রয়েছে';
+
+  @override
+  String get partnerLoyaltyPhoneHintUnregistered =>
+      'এই নম্বরটি আমাদের কাছে নিবন্ধিত দোকান নয়';
+
+  @override
+  String get partnerLoyaltyPercentLabel => 'সুবিধার শতাংশ';
+
+  @override
+  String partnerLoyaltyCapLine(int p) {
+    return 'এখন আপনি সর্বোচ্চ যে শতাংশ দিতে পারবেন: $p%';
+  }
+
+  @override
+  String get partnerLoyaltyScopeLabel => 'অন্তর্ভুক্ত';
+
+  @override
+  String get partnerLoyaltyScopeAll => 'সব';
+
+  @override
+  String get partnerLoyaltySubmit => 'জোট গঠন করুন';
+
+  @override
+  String get partnerLoyaltySubmitting => 'পাঠানো হচ্ছে…';
+
+  @override
+  String get partnerLoyaltyResultSuccess =>
+      'জোট গঠিত হয়েছে — দোকানের পরবর্তী নবায়নে স্বয়ংক্রিয়ভাবে প্রয়োগ হবে।';
+
+  @override
+  String get partnerLoyaltyResultPartial =>
+      'আংশিকভাবে গঠিত হয়েছে — কিছু অ্যাপ প্রত্যাখ্যাত হয়েছে, বিস্তারিত জানতে «লগ» খুলুন।';
+
+  @override
+  String get partnerLoyaltyOutcomeGranted => 'সফল';
+
+  @override
+  String get partnerLoyaltyOutcomeInvalidPercent => 'সুবিধার শতাংশ সঠিক নয়';
+
+  @override
+  String get partnerLoyaltyOutcomeInvalidScope => 'একটি প্রকৃত অ্যাপ বেছে নিন';
+
+  @override
+  String get partnerLoyaltyOutcomeOverCap => 'আপনার বর্তমান সীমা অতিক্রম করেছে';
+
+  @override
+  String get partnerLoyaltyOutcomeNoAccount =>
+      'এই নম্বরটি আমাদের কাছে নিবন্ধিত দোকান নয়';
+
+  @override
+  String get partnerLoyaltyOutcomeNotSubscribed =>
+      'আপনার বাছাই করা কোনো অ্যাপ ওই দোকানের নেই';
+
+  @override
+  String get partnerLoyaltyOutcomeBillingUnavailable =>
+      'সম্পন্ন করা যায়নি, আবার চেষ্টা করুন';
+
+  @override
+  String get partnerLoyaltyOutcomeAlreadyHasBetterCoupon =>
+      'ইতিমধ্যে আরও শক্তিশালী সুবিধা রয়েছে';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponExpired => 'সুবিধার মেয়াদ শেষ';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponExhausted => 'সুবিধা শেষ হয়ে গেছে';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponUnknown => 'অজানা সুবিধা';
+
+  @override
+  String get partnerLoyaltyOutcomePlanMismatch =>
+      'সুবিধাটি এই অ্যাপের সাথে মেলে না';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponDisabled => 'সুবিধা নিষ্ক্রিয়';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponScheduled => 'সুবিধা এখনও শুরু হয়নি';
+
+  @override
+  String get partnerLoyaltyTabLog => 'লগ';
+
+  @override
+  String get partnerLoyaltyTabStats => 'পরিসংখ্যান';
+
+  @override
+  String get partnerLoyaltyLogSearchHint => 'শেষ ৪ সংখ্যা দিয়ে খুঁজুন';
+
+  @override
+  String get partnerLoyaltyLogFilterAll => 'সব অবস্থা';
+
+  @override
+  String get partnerLoyaltyLogFilterOk => 'শুধু সফল';
+
+  @override
+  String get partnerLoyaltyLogFilterFail => 'শুধু ব্যর্থ';
+
+  @override
+  String get partnerLoyaltyLogEmptyTitle => 'এখনও কোনো জোট নেই';
+
+  @override
+  String get partnerLoyaltyLogEmptyDesc => 'আপনার প্রথম জোট এখানে দেখা যাবে।';
+
+  @override
+  String get partnerLoyaltyLogReadFailed => 'লগ পড়া যায়নি';
+
+  @override
+  String get partnerLoyaltyStatsKpiMonth => 'এই মাসের জোট';
+
+  @override
+  String get partnerLoyaltyStatsKpiCap => 'আপনার বর্তমান সীমা';
+
+  @override
+  String get partnerLoyaltyStatsKpiCeiling => 'প্ল্যাটফর্মের সর্বোচ্চ সীমা';
+
+  @override
+  String get partnerLoyaltyStatsLadderTitle => 'সিঁড়িতে আপনার অবস্থান';
+
+  @override
+  String partnerLoyaltyStatsLadderNote(int n, int left, int p) {
+    return 'এই মাসে $nটি জোট — $p% স্তরে পৌঁছাতে আরও $leftটি বাকি';
+  }
+
+  @override
+  String partnerLoyaltyStatsLadderAtTop(int n) {
+    return 'এই মাসে $nটি জোট — আপনি সর্বোচ্চ স্তরে আছেন';
+  }
+
+  @override
+  String partnerLoyaltyStatsCeilingNote(int p) {
+    return 'প্ল্যাটফর্মের সর্বোচ্চ সীমা $p% — কোনো দোকান কখনো এটি অতিক্রম করে না';
+  }
+
+  @override
+  String get partnerLoyaltyStatsChartTitle => 'গত ৬ মাসের জোটের সংখ্যা';
+
+  @override
+  String get partnerLoyaltyReadFailedTitle => 'আপনার তথ্য পড়া যায়নি';
+
+  @override
+  String get partnerLoyaltyReadFailedDesc => 'কিছুক্ষণ পর আবার চেষ্টা করুন।';
+
+  @override
+  String get shopReadFailed => 'আপনার দোকানের সূচক পড়া যায়নি';
+
+  @override
+  String get shopMultiBranchTitle => 'একটি শাখা বেছে নিন';
+
+  @override
+  String get shopMultiBranchDesc =>
+      'আপনার একাধিক শাখা আছে — সূচক দেখতে একটি বেছে নিন।';
+
+  @override
+  String get shopEmptyBranchTitle => 'এই শাখার জন্য এখনও কোনো তথ্য নেই';
+
+  @override
+  String get shopRetentionTitle => 'আপনার গ্রাহক ফিরে আসার হার';
+
+  @override
+  String get shopRetentionMutedNote => 'এটি গণনা করার জন্য পর্যাপ্ত ভিজিট নেই।';
+
+  @override
+  String get shopRetentionBrandNew =>
+      'গ্রাহক ফিরে আসার হার দেখতে প্রথম ভিজিট নিবন্ধন করুন।';
+
+  @override
+  String get shopRegisterFirstVisit => 'প্রথম ভিজিট নিবন্ধন করুন';
+
+  @override
+  String get shopRetentionPrefix10 => 'প্রতি ১০ জন গ্রাহকের মধ্যে,';
+
+  @override
+  String get shopRetentionSuffix => 'ফিরে আসেন';
+
+  @override
+  String get shopOneCustomer => 'একজন গ্রাহক আপনাকে ভিজিট করেছেন';
+
+  @override
+  String shopNCustomers(int n) {
+    return '$n জন গ্রাহক আপনাকে ভিজিট করেছেন';
+  }
+
+  @override
+  String shopRetentionSmallPrefix(String base) {
+    return '$base, তাদের মধ্যে';
+  }
+
+  @override
+  String shopOverNMonths(int n) {
+    return '$n মাসে';
+  }
+
+  @override
+  String get shopUnlimited => 'সীমাহীন';
+
+  @override
+  String get shopTileSentToday => 'আজ পাঠানো হয়েছে';
+
+  @override
+  String get shopTileWaiting => 'অপেক্ষায়';
+
+  @override
+  String get shopTileCeilingRemaining => 'আজ বাকি আছে';
+
+  @override
+  String get shopNextStepLabel => 'পরবর্তী পদক্ষেপ';
+
+  @override
+  String get shopNotNow => 'এখন না';
+
+  @override
+  String get shopDeckUrgent => 'জরুরি';
+
+  @override
+  String get shopDeckWeek => 'এই সপ্তাহ';
+
+  @override
+  String get shopDeckOpportunities => 'সুযোগ';
+
+  @override
+  String get shopComputedNow => 'এখনই গণনা করা হয়েছে';
+
+  @override
+  String shopComputedHoursAgo(int n) {
+    return '$n ঘণ্টা আগে গণনা করা হয়েছে';
+  }
+
+  @override
+  String get shopStale => 'পুরনো';
+
+  @override
+  String get shopRefreshAction => 'রিফ্রেশ';
+
+  @override
+  String get shopComputingTitle => 'আপনার সূচক গণনা করা হচ্ছে';
+
+  @override
+  String get shopComputeLoading => 'গণনা করা হচ্ছে…';
+
+  @override
+  String get shopComputeAction => 'এখনই গণনা করুন';
+
+  @override
+  String get shopAtRiskTitle => 'চলে যাওয়ার পথে থাকা গ্রাহক';
+
+  @override
+  String get shopAtRiskMutedNote => 'পর্যাপ্ত তথ্য নেই।';
+
+  @override
+  String get shopAtRiskAllGood => 'এখন কোনো বিলম্বিত গ্রাহক নেই — সব ঠিক আছে';
+
+  @override
+  String get shopWaNotConnected =>
+      'আপনার দোকানের হোয়াটসঅ্যাপ এখনও সংযুক্ত নয়';
+
+  @override
+  String get shopWaNotVerified =>
+      'আপনার দোকানের হোয়াটসঅ্যাপ নম্বর এখনও যাচাই করা হয়নি';
+
+  @override
+  String get shopCeilingReached => 'আজকের বার্তার সীমায় পৌঁছেছেন';
+
+  @override
+  String shopDaysOverdue(int n) {
+    return '$n দিন বিলম্বিত';
+  }
+
+  @override
+  String get shopAtRiskCta => 'ফিরিয়ে আনার প্রচারণা পাঠান';
+
+  @override
+  String get shopAiImpactTitle => 'হোয়াটসঅ্যাপ এআই সহায়কের প্রভাব';
+
+  @override
+  String get shopAiConversations => 'কথোপকথন';
+
+  @override
+  String get shopAiBookings => 'বুকিং';
+
+  @override
+  String get shopAiUpsellRate => 'অতিরিক্ত অফার গ্রহণ';
+
+  @override
+  String get shopWeekMutedTitle => 'এই সপ্তাহের ভিজিট';
+
+  @override
+  String get shopWeekMutedNote => 'পর্যাপ্ত তথ্য নেই।';
+
+  @override
+  String get shopNewReturningMutedTitle => 'নতুন বনাম ফিরে আসা গ্রাহক';
+
+  @override
+  String get shopNewReturningMutedNote => 'পর্যাপ্ত তথ্য নেই।';
+
+  @override
+  String get shopBranchCompareTitle => 'শাখা তুলনা';
+
+  @override
+  String get shopBranchCompareMutedNote =>
+      'তুলনা করতে অন্তত দুটি শাখা প্রয়োজন।';
+
+  @override
+  String get shopStaffCompareTitle => 'কর্মী তুলনা';
+
+  @override
+  String get shopStaffCompareMutedNote =>
+      'তুলনা করতে অন্তত দুইজন কর্মী প্রয়োজন।';
+
+  @override
+  String get shopWeekTitle => 'এই সপ্তাহের ভিজিট';
+
+  @override
+  String get shopNewReturningTitle => 'নতুন বনাম ফিরে আসা';
+
+  @override
+  String get shopNewLabel => 'নতুন:';
+
+  @override
+  String get shopReturningLabel => 'ফিরে আসা:';
+
+  @override
+  String get shopServicesTitle => 'আপনার সেবা';
+
+  @override
+  String get shopServicesMutedNote => 'পর্যাপ্ত তথ্য নেই।';
+
+  @override
+  String get shopMessageFlowTitle => 'রিমাইন্ডার বার্তার প্রভাব';
+
+  @override
+  String get shopMutedMessageFlowNote => 'পর্যাপ্ত তথ্য নেই।';
+
+  @override
+  String get shopHoldoutTitle => 'বার্তা পাঠানো বনাম না পাঠানো তুলনা';
+
+  @override
+  String get shopMutedHoldoutNote => 'এখনও পরিমাপ করা হচ্ছে।';
+
+  @override
+  String shopReturnedAfterReminder(int visits, int days) {
+    return 'রিমাইন্ডারের পর $days দিনে $visitsটি ভিজিট';
+  }
+
+  @override
+  String shopOptOutRate(String p) {
+    return '$p% বার্তা বন্ধ করতে বলেছেন';
+  }
+
+  @override
+  String get shopHoldoutNoMessages => 'বার্তা ছাড়া';
+
+  @override
+  String get shopHoldoutReached => 'বার্তা পাঠানো হয়েছে';
 }

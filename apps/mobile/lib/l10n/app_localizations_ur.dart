@@ -2953,4 +2953,392 @@ class SUr extends S {
   @override
   String get whatsappAssistantAutoRegisterConfirmDisableBody =>
       'نئے نمبرز اب خودکار طور پر رابطوں کے طور پر محفوظ نہیں ہوں گے۔';
+
+  @override
+  String get partnerLoyaltyTitle => 'پارٹنر وفاداری';
+
+  @override
+  String get partnerLoyaltySubtitle =>
+      'ہمارے ہاں رجسٹرڈ کسی اور دکان کے ساتھ اتحاد بنائیں اور اسے اس کی سبسکرپشن پر مراعات دیں';
+
+  @override
+  String get partnerLoyaltyCapLabel => 'آپ کی موجودہ حد';
+
+  @override
+  String get partnerLoyaltyPrefsTitle =>
+      'وزٹ ریکارڈ کرتے وقت اتحاد بنانے کا خانہ';
+
+  @override
+  String get partnerLoyaltyPrefsDesc =>
+      'اسے آن کرنے سے وزٹ ریکارڈ کرنے والا کوئی بھی عملہ اسی لمحے اتحاد بنا سکتا ہے۔';
+
+  @override
+  String get partnerLoyaltyGrantTitle => 'اتحاد بنائیں';
+
+  @override
+  String get partnerLoyaltyPhoneLabel => 'شریک دکان کا فون نمبر';
+
+  @override
+  String get partnerLoyaltyPhoneHintOk => 'اس ماہ ان کے ساتھ کوئی اتحاد نہیں';
+
+  @override
+  String get partnerLoyaltyPhoneHintAlready =>
+      'اس ماہ آپ کا ان کے ساتھ پہلے ہی اتحاد موجود ہے';
+
+  @override
+  String get partnerLoyaltyPhoneHintUnregistered =>
+      'یہ نمبر ہمارے ہاں رجسٹرڈ دکان نہیں ہے';
+
+  @override
+  String get partnerLoyaltyPercentLabel => 'مراعات کا فیصد';
+
+  @override
+  String partnerLoyaltyCapLine(int p) {
+    return 'اب زیادہ سے زیادہ فیصد جو آپ دے سکتے ہیں: $p%';
+  }
+
+  @override
+  String get partnerLoyaltyScopeLabel => 'شامل ہے';
+
+  @override
+  String get partnerLoyaltyScopeAll => 'سب';
+
+  @override
+  String get partnerLoyaltySubmit => 'اتحاد بنائیں';
+
+  @override
+  String get partnerLoyaltySubmitting => 'بھیجا جا رہا ہے…';
+
+  @override
+  String get partnerLoyaltyResultSuccess =>
+      'اتحاد بن گیا — دکان کی اگلی تجدید پر خودکار طور پر لاگو ہوگا۔';
+
+  @override
+  String get partnerLoyaltyResultPartial =>
+      'جزوی طور پر بنا — کچھ ایپس مسترد ہوئیں، تفصیل کے لیے «لاگ» دیکھیں۔';
+
+  @override
+  String get partnerLoyaltyOutcomeGranted => 'کامیاب';
+
+  @override
+  String get partnerLoyaltyOutcomeInvalidPercent => 'مراعات کا فیصد غلط ہے';
+
+  @override
+  String get partnerLoyaltyOutcomeInvalidScope => 'ایک حقیقی ایپ چنیں';
+
+  @override
+  String get partnerLoyaltyOutcomeOverCap => 'آپ کی موجودہ حد سے زیادہ ہے';
+
+  @override
+  String get partnerLoyaltyOutcomeNoAccount =>
+      'یہ نمبر ہمارے ہاں رجسٹرڈ دکان نہیں ہے';
+
+  @override
+  String get partnerLoyaltyOutcomeNotSubscribed =>
+      'اس دکان کے پاس آپ کی چنی ہوئی کوئی ایپ نہیں';
+
+  @override
+  String get partnerLoyaltyOutcomeBillingUnavailable =>
+      'مکمل نہ ہو سکا، دوبارہ کوشش کریں';
+
+  @override
+  String get partnerLoyaltyOutcomeAlreadyHasBetterCoupon =>
+      'اس کے پاس پہلے سے بہتر مراعات موجود ہیں';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponExpired => 'مراعات ختم ہو چکی ہیں';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponExhausted =>
+      'مراعات استعمال ہو چکی ہیں';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponUnknown => 'نامعلوم مراعات';
+
+  @override
+  String get partnerLoyaltyOutcomePlanMismatch =>
+      'مراعات اس ایپ سے مطابقت نہیں رکھتیں';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponDisabled => 'مراعات غیر فعال ہیں';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponScheduled =>
+      'مراعات ابھی شروع نہیں ہوئیں';
+
+  @override
+  String get partnerLoyaltyTabLog => 'لاگ';
+
+  @override
+  String get partnerLoyaltyTabStats => 'اعداد و شمار';
+
+  @override
+  String get partnerLoyaltyLogSearchHint => 'آخری 4 ہندسوں سے تلاش کریں';
+
+  @override
+  String get partnerLoyaltyLogFilterAll => 'تمام حالتیں';
+
+  @override
+  String get partnerLoyaltyLogFilterOk => 'صرف کامیاب';
+
+  @override
+  String get partnerLoyaltyLogFilterFail => 'صرف ناکام';
+
+  @override
+  String get partnerLoyaltyLogEmptyTitle => 'ابھی تک کوئی اتحاد نہیں';
+
+  @override
+  String get partnerLoyaltyLogEmptyDesc => 'آپ کا پہلا اتحاد یہاں ظاہر ہوگا۔';
+
+  @override
+  String get partnerLoyaltyLogReadFailed => 'لاگ پڑھا نہیں جا سکا';
+
+  @override
+  String get partnerLoyaltyStatsKpiMonth => 'اس ماہ کے اتحاد';
+
+  @override
+  String get partnerLoyaltyStatsKpiCap => 'آپ کی موجودہ حد';
+
+  @override
+  String get partnerLoyaltyStatsKpiCeiling => 'پلیٹ فارم کی زیادہ سے زیادہ حد';
+
+  @override
+  String get partnerLoyaltyStatsLadderTitle => 'سیڑھی پر آپ کا مقام';
+
+  @override
+  String partnerLoyaltyStatsLadderNote(int n, int left, int p) {
+    return 'اس ماہ $n اتحاد — $p% سطح تک $left مزید باقی';
+  }
+
+  @override
+  String partnerLoyaltyStatsLadderAtTop(int n) {
+    return 'اس ماہ $n اتحاد — آپ سب سے اوپر والی سطح پر ہیں';
+  }
+
+  @override
+  String partnerLoyaltyStatsCeilingNote(int p) {
+    return 'پلیٹ فارم کی زیادہ سے زیادہ حد $p% — کوئی دکان اس سے تجاوز نہیں کرتی';
+  }
+
+  @override
+  String get partnerLoyaltyStatsChartTitle => 'پچھلے 6 مہینوں کے اتحاد';
+
+  @override
+  String get partnerLoyaltyReadFailedTitle => 'آپ کا ڈیٹا پڑھا نہیں جا سکا';
+
+  @override
+  String get partnerLoyaltyReadFailedDesc => 'تھوڑی دیر بعد دوبارہ کوشش کریں۔';
+
+  @override
+  String get shopReadFailed => 'آپ کی دکان کے اشارے پڑھے نہیں جا سکے';
+
+  @override
+  String get shopMultiBranchTitle => 'ایک شاخ منتخب کریں';
+
+  @override
+  String get shopMultiBranchDesc =>
+      'آپ کی ایک سے زیادہ شاخیں ہیں — اشارے دیکھنے کے لیے ایک منتخب کریں۔';
+
+  @override
+  String get shopEmptyBranchTitle => 'اس شاخ کے لیے ابھی کوئی ڈیٹا نہیں';
+
+  @override
+  String get shopRetentionTitle => 'آپ کے گاہکوں کی واپسی کی شرح';
+
+  @override
+  String get shopRetentionMutedNote =>
+      'اسے شمار کرنے کے لیے کافی وزٹ نہیں ہیں۔';
+
+  @override
+  String get shopRetentionBrandNew =>
+      'واپسی کی شرح دیکھنے کے لیے پہلی وزٹ درج کریں۔';
+
+  @override
+  String get shopRegisterFirstVisit => 'پہلی وزٹ درج کریں';
+
+  @override
+  String get shopRetentionPrefix10 => 'ہر ١٠ گاہکوں میں سے جو آپ کے پاس آئے،';
+
+  @override
+  String get shopRetentionSuffix => 'واپس آتے ہیں';
+
+  @override
+  String get shopOneCustomer => 'ایک گاہک نے آپ کے پاس وزٹ کیا';
+
+  @override
+  String shopNCustomers(int n) {
+    return '$n گاہکوں نے آپ کے پاس وزٹ کیا';
+  }
+
+  @override
+  String shopRetentionSmallPrefix(String base) {
+    return '$base، جن میں سے';
+  }
+
+  @override
+  String shopOverNMonths(int n) {
+    return '$n مہینوں میں';
+  }
+
+  @override
+  String get shopUnlimited => 'لامحدود';
+
+  @override
+  String get shopTileSentToday => 'آج بھیجے گئے';
+
+  @override
+  String get shopTileWaiting => 'زیرِ انتظار';
+
+  @override
+  String get shopTileCeilingRemaining => 'آج باقی';
+
+  @override
+  String get shopNextStepLabel => 'اگلا قدم';
+
+  @override
+  String get shopNotNow => 'ابھی نہیں';
+
+  @override
+  String get shopDeckUrgent => 'فوری';
+
+  @override
+  String get shopDeckWeek => 'اس ہفتے';
+
+  @override
+  String get shopDeckOpportunities => 'مواقع';
+
+  @override
+  String get shopComputedNow => 'ابھی شمار کیا گیا';
+
+  @override
+  String shopComputedHoursAgo(int n) {
+    return '$n گھنٹے پہلے شمار کیا گیا';
+  }
+
+  @override
+  String get shopStale => 'پرانا';
+
+  @override
+  String get shopRefreshAction => 'تازہ کریں';
+
+  @override
+  String get shopComputingTitle => 'آپ کے اشارے شمار کیے جا رہے ہیں';
+
+  @override
+  String get shopComputeLoading => 'شمار کیا جا رہا ہے…';
+
+  @override
+  String get shopComputeAction => 'ابھی شمار کریں';
+
+  @override
+  String get shopAtRiskTitle => 'جانے کے قریب گاہک';
+
+  @override
+  String get shopAtRiskMutedNote => 'ابھی کافی ڈیٹا نہیں۔';
+
+  @override
+  String get shopAtRiskAllGood => 'ابھی کوئی تاخیر شدہ گاہک نہیں — سب ٹھیک ہے';
+
+  @override
+  String get shopWaNotConnected => 'آپ کی دکان کا واٹس ایپ ابھی منسلک نہیں';
+
+  @override
+  String get shopWaNotVerified =>
+      'آپ کی دکان کا واٹس ایپ نمبر ابھی تصدیق شدہ نہیں';
+
+  @override
+  String get shopCeilingReached => 'آپ آج کی پیغام کی حد تک پہنچ گئے';
+
+  @override
+  String shopDaysOverdue(int n) {
+    return '$n دن تاخیر';
+  }
+
+  @override
+  String get shopAtRiskCta => 'واپسی مہم بھیجیں';
+
+  @override
+  String get shopAiImpactTitle => 'واٹس ایپ اے آئی اسسٹنٹ کا اثر';
+
+  @override
+  String get shopAiConversations => 'گفتگو';
+
+  @override
+  String get shopAiBookings => 'بکنگز';
+
+  @override
+  String get shopAiUpsellRate => 'اضافی پیشکش کی قبولیت';
+
+  @override
+  String get shopWeekMutedTitle => 'اس ہفتے کی وزٹس';
+
+  @override
+  String get shopWeekMutedNote => 'ابھی کافی ڈیٹا نہیں۔';
+
+  @override
+  String get shopNewReturningMutedTitle => 'نئے بمقابلہ واپس آنے والے گاہک';
+
+  @override
+  String get shopNewReturningMutedNote => 'ابھی کافی ڈیٹا نہیں۔';
+
+  @override
+  String get shopBranchCompareTitle => 'شاخوں کا موازنہ';
+
+  @override
+  String get shopBranchCompareMutedNote =>
+      'موازنے کے لیے کم از کم دو شاخیں درکار ہیں۔';
+
+  @override
+  String get shopStaffCompareTitle => 'عملے کا موازنہ';
+
+  @override
+  String get shopStaffCompareMutedNote =>
+      'موازنے کے لیے کم از کم دو عملے کے افراد درکار ہیں۔';
+
+  @override
+  String get shopWeekTitle => 'اس ہفتے کی وزٹس';
+
+  @override
+  String get shopNewReturningTitle => 'نئے بمقابلہ واپس آنے والے';
+
+  @override
+  String get shopNewLabel => 'نئے:';
+
+  @override
+  String get shopReturningLabel => 'واپس آنے والے:';
+
+  @override
+  String get shopServicesTitle => 'آپ کی سروسز';
+
+  @override
+  String get shopServicesMutedNote => 'ابھی کافی ڈیٹا نہیں۔';
+
+  @override
+  String get shopMessageFlowTitle => 'یاد دہانی پیغام کا اثر';
+
+  @override
+  String get shopMutedMessageFlowNote => 'ابھی کافی ڈیٹا نہیں۔';
+
+  @override
+  String get shopHoldoutTitle =>
+      'پیغام بھیجے گئے بمقابلہ نہ بھیجے گئے کا موازنہ';
+
+  @override
+  String get shopMutedHoldoutNote => 'ابھی ناپا جا رہا ہے۔';
+
+  @override
+  String shopReturnedAfterReminder(int visits, int days) {
+    return 'یاد دہانی کے بعد $days دنوں میں $visits وزٹس';
+  }
+
+  @override
+  String shopOptOutRate(String p) {
+    return '$p% نے پیغامات بند کرنے کو کہا';
+  }
+
+  @override
+  String get shopHoldoutNoMessages => 'بلا پیغام';
+
+  @override
+  String get shopHoldoutReached => 'پیغام بھیجا گیا';
 }

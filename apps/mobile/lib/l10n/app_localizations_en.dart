@@ -2987,4 +2987,391 @@ class SEn extends S {
   @override
   String get whatsappAssistantAutoRegisterConfirmDisableBody =>
       'New numbers will no longer be automatically saved as contacts.';
+
+  @override
+  String get partnerLoyaltyTitle => 'Partner Loyalty';
+
+  @override
+  String get partnerLoyaltySubtitle =>
+      'Form an alliance with another registered shop and grant it a perk on its subscription with us';
+
+  @override
+  String get partnerLoyaltyCapLabel => 'Your current cap';
+
+  @override
+  String get partnerLoyaltyPrefsTitle =>
+      'Alliance checkbox during visit recording';
+
+  @override
+  String get partnerLoyaltyPrefsDesc =>
+      'Turning it on lets any staff member recording a visit form an alliance at the same moment.';
+
+  @override
+  String get partnerLoyaltyGrantTitle => 'Form an alliance';
+
+  @override
+  String get partnerLoyaltyPhoneLabel => 'Partner shop\'s phone number';
+
+  @override
+  String get partnerLoyaltyPhoneHintOk => 'No alliance with them this month';
+
+  @override
+  String get partnerLoyaltyPhoneHintAlready =>
+      'Already allied with them this month';
+
+  @override
+  String get partnerLoyaltyPhoneHintUnregistered =>
+      'This number is not a registered shop with us';
+
+  @override
+  String get partnerLoyaltyPercentLabel => 'Perk percent';
+
+  @override
+  String partnerLoyaltyCapLine(int p) {
+    return 'Max percent you can grant now: $p%';
+  }
+
+  @override
+  String get partnerLoyaltyScopeLabel => 'Covers';
+
+  @override
+  String get partnerLoyaltyScopeAll => 'All';
+
+  @override
+  String get partnerLoyaltySubmit => 'Form the alliance';
+
+  @override
+  String get partnerLoyaltySubmitting => 'Sending…';
+
+  @override
+  String get partnerLoyaltyResultSuccess =>
+      'Alliance formed — applied automatically at the shop\'s next renewal.';
+
+  @override
+  String get partnerLoyaltyResultPartial =>
+      'Partially formed — some apps were refused, open the log for details.';
+
+  @override
+  String get partnerLoyaltyOutcomeGranted => 'Succeeded';
+
+  @override
+  String get partnerLoyaltyOutcomeInvalidPercent => 'Invalid perk percent';
+
+  @override
+  String get partnerLoyaltyOutcomeInvalidScope => 'Choose a real app';
+
+  @override
+  String get partnerLoyaltyOutcomeOverCap => 'Exceeds your current cap';
+
+  @override
+  String get partnerLoyaltyOutcomeNoAccount =>
+      'This number is not a registered shop with us';
+
+  @override
+  String get partnerLoyaltyOutcomeNotSubscribed =>
+      'That shop holds none of the apps you chose';
+
+  @override
+  String get partnerLoyaltyOutcomeBillingUnavailable =>
+      'Could not complete, try again';
+
+  @override
+  String get partnerLoyaltyOutcomeAlreadyHasBetterCoupon =>
+      'Already holds a stronger perk';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponExpired => 'Perk expired';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponExhausted => 'Perk exhausted';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponUnknown => 'Unknown perk';
+
+  @override
+  String get partnerLoyaltyOutcomePlanMismatch =>
+      'Perk doesn\'t match this app';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponDisabled => 'Perk disabled';
+
+  @override
+  String get partnerLoyaltyOutcomeCouponScheduled => 'Perk hasn\'t started yet';
+
+  @override
+  String get partnerLoyaltyTabLog => 'Log';
+
+  @override
+  String get partnerLoyaltyTabStats => 'Stats';
+
+  @override
+  String get partnerLoyaltyLogSearchHint => 'Search last 4 digits';
+
+  @override
+  String get partnerLoyaltyLogFilterAll => 'All statuses';
+
+  @override
+  String get partnerLoyaltyLogFilterOk => 'Succeeded only';
+
+  @override
+  String get partnerLoyaltyLogFilterFail => 'Failed only';
+
+  @override
+  String get partnerLoyaltyLogEmptyTitle => 'No alliances yet';
+
+  @override
+  String get partnerLoyaltyLogEmptyDesc => 'Your first alliance appears here.';
+
+  @override
+  String get partnerLoyaltyLogReadFailed => 'Could not read the log';
+
+  @override
+  String get partnerLoyaltyStatsKpiMonth => 'Alliances this month';
+
+  @override
+  String get partnerLoyaltyStatsKpiCap => 'Your current cap';
+
+  @override
+  String get partnerLoyaltyStatsKpiCeiling => 'Platform ceiling';
+
+  @override
+  String get partnerLoyaltyStatsLadderTitle => 'Your place on the ladder';
+
+  @override
+  String partnerLoyaltyStatsLadderNote(int n, int left, int p) {
+    return '$n alliance(s) this month — $left more to reach the $p% tier';
+  }
+
+  @override
+  String partnerLoyaltyStatsLadderAtTop(int n) {
+    return '$n alliance(s) this month — you are at the top tier';
+  }
+
+  @override
+  String partnerLoyaltyStatsCeilingNote(int p) {
+    return 'Platform ceiling $p% — no shop ever exceeds it';
+  }
+
+  @override
+  String get partnerLoyaltyStatsChartTitle =>
+      'Alliances over the last 6 months';
+
+  @override
+  String get partnerLoyaltyReadFailedTitle => 'Could not read your data';
+
+  @override
+  String get partnerLoyaltyReadFailedDesc => 'Try again shortly.';
+
+  @override
+  String get shopReadFailed => 'Could not read your shop\'s indicators';
+
+  @override
+  String get shopMultiBranchTitle => 'Choose a branch';
+
+  @override
+  String get shopMultiBranchDesc =>
+      'You have more than one branch — pick one to see its indicators.';
+
+  @override
+  String get shopEmptyBranchTitle => 'No data for this branch yet';
+
+  @override
+  String get shopRetentionTitle => 'Your customer return rate';
+
+  @override
+  String get shopRetentionMutedNote =>
+      'Not enough visits yet to calculate this.';
+
+  @override
+  String get shopRetentionBrandNew =>
+      'Register your first visit to start seeing your return rate.';
+
+  @override
+  String get shopRegisterFirstVisit => 'Register first visit';
+
+  @override
+  String get shopRetentionPrefix10 =>
+      'Out of every 10 customers who visited you,';
+
+  @override
+  String get shopRetentionSuffix => 'come back';
+
+  @override
+  String get shopOneCustomer => 'One customer visited you';
+
+  @override
+  String shopNCustomers(int n) {
+    return '$n customers visited you';
+  }
+
+  @override
+  String shopRetentionSmallPrefix(String base) {
+    return '$base, of whom';
+  }
+
+  @override
+  String shopOverNMonths(int n) {
+    return 'over $n months';
+  }
+
+  @override
+  String get shopUnlimited => 'Unlimited';
+
+  @override
+  String get shopTileSentToday => 'Sent today';
+
+  @override
+  String get shopTileWaiting => 'Waiting';
+
+  @override
+  String get shopTileCeilingRemaining => 'Remaining today';
+
+  @override
+  String get shopNextStepLabel => 'Next step';
+
+  @override
+  String get shopNotNow => 'Not now';
+
+  @override
+  String get shopDeckUrgent => 'Urgent';
+
+  @override
+  String get shopDeckWeek => 'This week';
+
+  @override
+  String get shopDeckOpportunities => 'Opportunities';
+
+  @override
+  String get shopComputedNow => 'Computed now';
+
+  @override
+  String shopComputedHoursAgo(int n) {
+    return 'Computed $n hour(s) ago';
+  }
+
+  @override
+  String get shopStale => 'Stale';
+
+  @override
+  String get shopRefreshAction => 'Refresh';
+
+  @override
+  String get shopComputingTitle => 'Computing your indicators';
+
+  @override
+  String get shopComputeLoading => 'Computing…';
+
+  @override
+  String get shopComputeAction => 'Compute now';
+
+  @override
+  String get shopAtRiskTitle => 'Customers about to drift away';
+
+  @override
+  String get shopAtRiskMutedNote => 'Not enough data yet.';
+
+  @override
+  String get shopAtRiskAllGood => 'No overdue customer right now — all good';
+
+  @override
+  String get shopWaNotConnected => 'Your shop\'s WhatsApp isn\'t connected yet';
+
+  @override
+  String get shopWaNotVerified =>
+      'Your shop\'s WhatsApp number isn\'t verified yet';
+
+  @override
+  String get shopCeilingReached => 'You\'ve reached today\'s message limit';
+
+  @override
+  String shopDaysOverdue(int n) {
+    return '$n day(s) overdue';
+  }
+
+  @override
+  String get shopAtRiskCta => 'Send a win-back campaign';
+
+  @override
+  String get shopAiImpactTitle => 'WhatsApp AI assistant impact';
+
+  @override
+  String get shopAiConversations => 'Conversations';
+
+  @override
+  String get shopAiBookings => 'Bookings';
+
+  @override
+  String get shopAiUpsellRate => 'Upsell acceptance';
+
+  @override
+  String get shopWeekMutedTitle => 'This week\'s visits';
+
+  @override
+  String get shopWeekMutedNote => 'Not enough data yet.';
+
+  @override
+  String get shopNewReturningMutedTitle => 'New vs returning customers';
+
+  @override
+  String get shopNewReturningMutedNote => 'Not enough data yet.';
+
+  @override
+  String get shopBranchCompareTitle => 'Branch comparison';
+
+  @override
+  String get shopBranchCompareMutedNote =>
+      'Needs at least two branches to compare.';
+
+  @override
+  String get shopStaffCompareTitle => 'Staff comparison';
+
+  @override
+  String get shopStaffCompareMutedNote =>
+      'Needs at least two staff members to compare.';
+
+  @override
+  String get shopWeekTitle => 'Visits this week';
+
+  @override
+  String get shopNewReturningTitle => 'New vs returning';
+
+  @override
+  String get shopNewLabel => 'New:';
+
+  @override
+  String get shopReturningLabel => 'Returning:';
+
+  @override
+  String get shopServicesTitle => 'Your services';
+
+  @override
+  String get shopServicesMutedNote => 'Not enough data yet.';
+
+  @override
+  String get shopMessageFlowTitle => 'Reminder message impact';
+
+  @override
+  String get shopMutedMessageFlowNote => 'Not enough data yet.';
+
+  @override
+  String get shopHoldoutTitle => 'Messaged vs not-messaged comparison';
+
+  @override
+  String get shopMutedHoldoutNote => 'Still measuring.';
+
+  @override
+  String shopReturnedAfterReminder(int visits, int days) {
+    return '$visits visit(s) within $days days after a reminder';
+  }
+
+  @override
+  String shopOptOutRate(String p) {
+    return '$p% asked to stop receiving messages';
+  }
+
+  @override
+  String get shopHoldoutNoMessages => 'No messages';
+
+  @override
+  String get shopHoldoutReached => 'Messaged';
 }

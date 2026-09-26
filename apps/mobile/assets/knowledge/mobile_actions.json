@@ -83,6 +83,19 @@
       "operations.recent"
     ]
   },
+  "nav.shop": {
+    "name": "open_shop",
+    "description": "يفتح شاشة «محلّي» — نسبة رجوع العملاء، عملاء على وشك الابتعاد، الخطوة التالية، وأداء الأسبوع والفروع والموظفين والخدمات.",
+    "scope": "navigation",
+    "route": "shop",
+    "kb_entry": "shop",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "reminders.today",
+      "insights.dashboard"
+    ]
+  },
   "nav.rating": {
     "name": "open_rating",
     "description": "يفتح شاشة «التقييم» — متوسط تقييم المحل، أفضل الموظفين، وأكثر الشكاوى تكراراً.",
@@ -410,6 +423,18 @@
     "enabled": true,
     "requires_confirmation": false,
     "requires": []
+  },
+  "nav.partner_loyalty": {
+    "name": "open_partner_loyalty",
+    "description": "يفتح شاشة «ولاء الشركاء» — تكوين تحالف مع محل آخر مسجّل عندنا، سجل المحاولات، والإحصائيات.",
+    "scope": "navigation",
+    "route": "partner-loyalty",
+    "kb_entry": "partner-loyalty",
+    "enabled": true,
+    "requires_confirmation": false,
+    "requires": [
+      "operations.coupons_page"
+    ]
   },
   "nav.referral_partnership": {
     "name": "open_referral_partnership",
