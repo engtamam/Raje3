@@ -4,10 +4,12 @@ import 'package:provider/provider.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/services/messages_service.dart';
 import 'package:raje3_mobile/core/services/services_catalogue_service.dart';
+import 'package:raje3_mobile/models/app_store_model.dart' show Owned;
 import 'package:raje3_mobile/models/messages_model.dart';
 import 'package:raje3_mobile/models/service_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
+import 'package:raje3_mobile/features/campaigns/campaigns_i18n.dart';
 import 'package:raje3_mobile/features/campaigns/campaigns_style.dart';
 import 'package:raje3_mobile/features/campaigns/whatsapp_bubble.dart';
 
@@ -30,7 +32,12 @@ import 'package:raje3_mobile/features/campaigns/whatsapp_bubble.dart';
 /// `fire_at == 0` guard treats a bare `occasion` campaign as "skip forever") — a correctness risk,
 /// not a UX one, so it stays off until its own scheduling step is built.
 class LaunchWizardScreen extends StatefulWidget {
-  const LaunchWizardScreen({super.key});
+  const LaunchWizardScreen({super.key, required this.owned});
+
+  /// Read once by the caller (`MessagesScreen`'s own `_loadAll`) rather than re-fetched here —
+  /// this screen is reached only ever from that one place, and re-asking would just cost a
+  /// second round trip for an answer the caller already has.
+  final Owned? owned;
 
   @override
   State<LaunchWizardScreen> createState() => _LaunchWizardScreenState();
@@ -143,7 +150,7 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
     setState(() {
       _loadingPreview = false;
       _preview = preview;
-      if (preview == null) _error = 'تعذّرت معاينة الرسالة الآن.';
+      if (preview == null) _error = ct(context, 'previewFailed');
     });
   }
 
@@ -166,12 +173,27 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // SAME LOCK, SAME REASON as MessagesScreen's own campaigns tab (this screen is reached from
+    // there, but a deep link or a stale nav stack could still land here directly) — never a
+    // wizard that lets an unowned shop preview and press "launch" only to be refused by the
+    // server at the very last step.
+    if (widget.owned?.owns('feature.campaigns') == false) {
+      return Scaffold(
+        appBar: AppBar(title: Text(ct(context, 'title'))),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Text(ct(context, 'lockedWizardMsg'), textAlign: TextAlign.center),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text(switch (_step) {
-          _Step.goal => 'اختر الهدف',
+          _Step.goal => ct(context, 'stepGoalTitle'),
           _Step.fields => _picked?.title ?? '',
-          _Step.preview => 'قبل الإرسال',
+          _Step.preview => ct(context, 'stepPreviewTitle'),
         }),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -235,7 +257,7 @@ class _GoalStep extends StatelessWidget {
   Widget build(BuildContext context) {
     if (goals == null) return const Center(child: CircularProgressIndicator());
     if (goals!.isEmpty) {
-      return const EmptyState(icon: Icons.campaign_outlined, title: 'لا أهداف متاحة الآن');
+      return EmptyState(icon: Icons.campaign_outlined, title: ct(context, 'noGoalsAvailable'));
     }
     return GridView.builder(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -323,7 +345,7 @@ class _FieldsStep extends StatelessWidget {
             padding: const EdgeInsets.all(AppSpacing.md),
             children: [
               if (goal.goal == 'service_offer') ...[
-                const Text('أي خدمة؟', style: AppTextStyles.labelMedium),
+                Text(ct(context, 'whichService'), style: AppTextStyles.labelMedium),
                 const SizedBox(height: AppSpacing.sm),
                 for (final s in services)
                   ListTile(
@@ -340,21 +362,21 @@ class _FieldsStep extends StatelessWidget {
                 const SizedBox(height: AppSpacing.md),
               ],
               if (rewardEnabled) ...[
-                const Text('مقدار الخصم', style: AppTextStyles.labelMedium),
+                Text(ct(context, 'discountAmount'), style: AppTextStyles.labelMedium),
                 const SizedBox(height: AppSpacing.sm),
                 AppTextField(
                   controller: offerValueController,
-                  hintText: 'مثال: 20% أو 15 ريال',
+                  hintText: ct(context, 'discountHint'),
                   keyboardType: TextInputType.text,
                 ),
                 const SizedBox(height: AppSpacing.md),
               ],
               if (goal.hasBlank('date')) ...[
-                const Text('ينتهي العرض', style: AppTextStyles.labelMedium),
+                Text(ct(context, 'endsOnLabel'), style: AppTextStyles.labelMedium),
                 const SizedBox(height: AppSpacing.sm),
                 SecondaryButton(
                   text: endsOn == null
-                      ? 'اختر تاريخ الانتهاء'
+                      ? ct(context, 'pickEndDate')
                       : '${endsOn!.year}-${endsOn!.month.toString().padLeft(2, '0')}-${endsOn!.day.toString().padLeft(2, '0')}',
                   icon: Icons.calendar_today_outlined,
                   onPressed: () async {
@@ -370,9 +392,9 @@ class _FieldsStep extends StatelessWidget {
                 const SizedBox(height: AppSpacing.md),
               ],
               if (goal.hasBlank('owner')) ...[
-                const Text('ما الجديد؟', style: AppTextStyles.labelMedium),
+                Text(ct(context, 'whatsNew'), style: AppTextStyles.labelMedium),
                 const SizedBox(height: AppSpacing.sm),
-                AppTextField(controller: ownerTextController, maxLines: 2, hintText: 'اكتب سطرك هنا'),
+                AppTextField(controller: ownerTextController, maxLines: 2, hintText: ct(context, 'ownerTextHint')),
                 const SizedBox(height: AppSpacing.md),
               ],
             ],
@@ -380,7 +402,7 @@ class _FieldsStep extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
-          child: PrimaryButton(text: 'التالي: المعاينة', onPressed: canContinue ? onContinue : null),
+          child: PrimaryButton(text: ct(context, 'nextPreview'), onPressed: canContinue ? onContinue : null),
         ),
       ],
     );
@@ -408,7 +430,7 @@ class _PreviewStep extends StatelessWidget {
     if (preview == null) {
       return Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
-        child: Text(error.isNotEmpty ? error : 'تعذّرت المعاينة.', style: AppTextStyles.bodyMedium),
+        child: Text(error.isNotEmpty ? error : ct(context, 'previewGenericFailed'), style: AppTextStyles.bodyMedium),
       );
     }
     final p = preview!;
@@ -424,7 +446,7 @@ class _PreviewStep extends StatelessWidget {
               Row(children: [
                 const Icon(Icons.people_outline_rounded, size: 18),
                 const SizedBox(width: 6),
-                Text('ستصل إلى ${p.reaches} عميلاً', style: AppTextStyles.labelMedium),
+                Text(ct(context, 'reachesLine', {'n': '${p.reaches}'}), style: AppTextStyles.labelMedium),
               ]),
               if (p.when.isNotEmpty) ...[
                 const SizedBox(height: 4),
@@ -432,11 +454,11 @@ class _PreviewStep extends StatelessWidget {
               ],
               if (p.excluded > 0) ...[
                 const SizedBox(height: 4),
-                Text('${p.excluded} تم استبعادهم', style: AppTextStyles.caption),
+                Text(ct(context, 'excludedLine', {'n': '${p.excluded}'}), style: AppTextStyles.caption),
               ],
               if (p.tooRecent > 0) ...[
                 const SizedBox(height: 4),
-                Text('${p.tooRecent} أخذوا هذه الخدمة مؤخرًا', style: AppTextStyles.caption),
+                Text(ct(context, 'tooRecentLine', {'n': '${p.tooRecent}'}), style: AppTextStyles.caption),
               ],
               if (!p.templateActive) ...[
                 const SizedBox(height: AppSpacing.md),
@@ -462,7 +484,7 @@ class _PreviewStep extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
           child: PrimaryButton(
-            text: 'أطلق الحملة الآن',
+            text: ct(context, 'launchNowButton'),
             isLoading: sending,
             onPressed: blocked ? null : onSend,
           ),

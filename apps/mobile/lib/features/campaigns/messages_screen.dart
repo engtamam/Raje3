@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/services/customers_service.dart';
 import 'package:raje3_mobile/core/services/messages_service.dart';
+import 'package:raje3_mobile/models/app_store_model.dart' show Owned;
 import 'package:raje3_mobile/models/customer_model.dart';
 import 'package:raje3_mobile/models/messages_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
 import 'package:raje3_mobile/widgets/capability_gate.dart';
+import 'package:raje3_mobile/features/campaigns/campaigns_i18n.dart';
 import 'package:raje3_mobile/features/campaigns/campaigns_style.dart';
 import 'package:raje3_mobile/features/campaigns/launch_wizard_screen.dart';
 import 'package:raje3_mobile/features/campaigns/message_preview_sheet.dart';
@@ -41,6 +44,7 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
   List<ScheduleRow>? _schedule;
   List<Campaign>? _campaigns;
   List<MessageLogRow>? _log;
+  Owned? _owned;
   final Map<String, Customer> _who = {};
   String _logFilter = '';
 
@@ -65,12 +69,14 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
   }
 
   Future<void> _loadAll() async {
+    final auth = context.read<AuthProvider>();
     final results = await Future.wait([
       _service.today(),
       _service.reasons(),
       _service.goals(),
       _service.schedule(),
       _service.campaigns(),
+      auth.fetchOwnership(),
     ]);
     if (!mounted) return;
     setState(() {
@@ -80,6 +86,7 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
       _goals = results[2] as List<GoalRow>?;
       _schedule = results[3] as List<ScheduleRow>?;
       _campaigns = results[4] as List<Campaign>?;
+      _owned = results[5] as Owned?;
     });
     _resolveWho();
   }
@@ -108,7 +115,7 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
 
   Future<void> _openWizard() async {
     final launched = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => const LaunchWizardScreen()),
+      MaterialPageRoute(builder: (_) => LaunchWizardScreen(owned: _owned)),
     );
     if (launched == true) {
       _loadAll();
@@ -122,7 +129,7 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
       backgroundColor: context.appColors.surface == AppColors.surface1
           ? AppColors.surface0
           : AppDarkColors.surface0,
-      appBar: AppBar(title: const Text('الحملات')),
+      appBar: AppBar(title: Text(ct(context, 'title'))),
       body: RefreshIndicator(
         onRefresh: () async {
           setState(() => _log = null);
@@ -139,7 +146,7 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
                     _TodayHero(status: _today, failed: _todayFailed),
                     const SizedBox(height: AppSpacing.md),
                     PrimaryButton(
-                      text: 'أطلق رسالة جديدة',
+                      text: ct(context, 'launchNew'),
                       icon: Icons.add_circle_outline,
                       onPressed: _openWizard,
                     ),
@@ -155,11 +162,11 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
                   controller: _tabController,
                   isScrollable: false,
                   labelStyle: AppTextStyles.labelMedium,
-                  tabs: const [
-                    Tab(text: 'القوالب'),
-                    Tab(text: 'القادمة'),
-                    Tab(text: 'الحملات'),
-                    Tab(text: 'السجل'),
+                  tabs: [
+                    Tab(text: ct(context, 'tabTemplates')),
+                    Tab(text: ct(context, 'tabQueue')),
+                    Tab(text: ct(context, 'title')),
+                    Tab(text: ct(context, 'tabLog')),
                   ],
                 ),
               ),
@@ -170,7 +177,13 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
                 children: [
                   _TemplatesTab(reasons: _reasons, goals: _goals, service: _service, onChanged: _loadAll),
                   _QueueTab(schedule: _schedule, who: _who, service: _service, onChanged: _loadAll),
-                  _CampaignsTab(campaigns: _campaigns, service: _service, onChanged: _loadAll),
+                  _CampaignsTab(
+                    campaigns: _campaigns,
+                    service: _service,
+                    owned: _owned,
+                    onChanged: _loadAll,
+                    onSubscribe: () => GoRouter.of(context).go('/apps'),
+                  ),
                   _LogTab(
                     log: _log,
                     who: _who,
@@ -230,7 +243,7 @@ class _TodayHero extends StatelessWidget {
           borderRadius: AppRadius.cardRadius,
         ),
         child: failed
-            ? const Center(child: Text('تعذّرت قراءة حالة اليوم.'))
+            ? Center(child: Text(ct(context, 'todayReadFailed')))
             : const Center(child: CircularProgressIndicator()),
       );
     }
@@ -253,7 +266,7 @@ class _TodayHero extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('الإرسال متوقف اليوم', style: AppTextStyles.labelMedium),
+                  Text(ct(context, 'blockedTitle'), style: AppTextStyles.labelMedium),
                   const SizedBox(height: 4),
                   Text(s.blocked, style: AppTextStyles.bodySmall),
                 ],
@@ -280,14 +293,15 @@ class _TodayHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('هل كل شيء يعمل اليوم؟',
-              style: TextStyle(color: Colors.white70, fontSize: 13, fontFamily: 'Cairo')),
+          Text(ct(context, 'heroQuestion'),
+              style: const TextStyle(color: Colors.white70, fontSize: 13, fontFamily: 'Cairo')),
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
-              Expanded(child: _HeroStat(value: s.sentToday, label: 'أُرسل')),
-              Expanded(child: _HeroStat(value: s.waiting, label: 'بالانتظار')),
-              Expanded(child: _HeroStat(value: s.retrying, label: 'يُعاد المحاولة', warn: s.retrying > 0)),
+              Expanded(child: _HeroStat(value: s.sentToday, label: ct(context, 'statSent'))),
+              Expanded(child: _HeroStat(value: s.waiting, label: ct(context, 'statWaiting'))),
+              Expanded(child: _HeroStat(
+                  value: s.retrying, label: ct(context, 'statRetrying'), warn: s.retrying > 0)),
             ],
           ),
           if (s.ceilingKnown && !s.ceilingUnlimited) ...[
@@ -296,7 +310,11 @@ class _TodayHero extends StatelessWidget {
               children: [
                 const Icon(Icons.speed_rounded, color: Colors.white70, size: 14),
                 const SizedBox(width: 6),
-                Text('المتبقي اليوم لدى واتساب: ${s.ceilingRemaining} من ${s.ceilingLimit}',
+                Text(
+                    ct(context, 'ceilingLine', {
+                      'remaining': '${s.ceilingRemaining}',
+                      'limit': '${s.ceilingLimit}',
+                    }),
                     style: const TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Cairo')),
               ],
             ),
@@ -344,8 +362,9 @@ class _TemplatesTab extends StatelessWidget {
   final VoidCallback onChanged;
 
   static const _order = ['service', 'personal', 'marketing', 'offers'];
-  static const _sectionLabel = {
-    'service': 'خدمية', 'personal': 'شخصية', 'marketing': 'تسويقية', 'offers': 'عروض',
+  static const _sectionLabelKey = {
+    'service': 'sectionService', 'personal': 'sectionPersonal',
+    'marketing': 'sectionMarketing', 'offers': 'sectionOffers',
   };
 
   @override
@@ -353,7 +372,7 @@ class _TemplatesTab extends StatelessWidget {
     if (reasons == null) return const Center(child: CircularProgressIndicator());
     final cards = mergeTemplateCards(reasons!, goals ?? const []);
     if (cards.isEmpty) {
-      return const EmptyState(icon: Icons.forum_outlined, title: 'لا رسائل مُعرَّفة بعد');
+      return EmptyState(icon: Icons.forum_outlined, title: ct(context, 'templatesEmpty'));
     }
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -362,7 +381,7 @@ class _TemplatesTab extends StatelessWidget {
           if (cards.any((c) => c.cls == section)) ...[
             Padding(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              child: Text(_sectionLabel[section]!, style: AppTextStyles.labelMedium),
+              child: Text(ct(context, _sectionLabelKey[section]!), style: AppTextStyles.labelMedium),
             ),
             for (final c in cards.where((c) => c.cls == section))
               Padding(
@@ -422,7 +441,9 @@ class _TemplateCardTileState extends State<_TemplateCardTile> {
               children: [
                 Row(children: [
                   Expanded(child: Text(c.label, style: AppTextStyles.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis)),
-                  AppBadge(text: c.auto && c.manual ? 'آلي ويدوي' : c.auto ? 'آلي' : 'يدوي',
+                  AppBadge(text: c.auto && c.manual
+                      ? ct(context, 'tagBoth')
+                      : c.auto ? ct(context, 'tagAuto') : ct(context, 'tagManual'),
                       backgroundColor: style.soft, textColor: style.onSoft),
                 ]),
                 Text(c.when, style: AppTextStyles.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -452,27 +473,27 @@ class _QueueTab extends StatelessWidget {
   final MessagesService service;
   final VoidCallback onChanged;
 
-  String _dueIn(int at) {
+  String _dueIn(BuildContext context, int at) {
     final secondsLeft = at - DateTime.now().millisecondsSinceEpoch / 1000;
-    if (secondsLeft <= 0) return 'متأخّرة';
+    if (secondsLeft <= 0) return ct(context, 'queueOverdue');
     final days = (secondsLeft / 86400).round();
-    if (days <= 0) return 'اليوم';
-    if (days == 1) return 'غدًا';
-    return 'خلال $days أيام';
+    if (days <= 0) return ct(context, 'dueToday');
+    if (days == 1) return ct(context, 'dueTomorrow');
+    return ct(context, 'dueInDays', {'n': '$days'});
   }
 
-  String _occasion(String kind) {
+  String _occasion(BuildContext context, String kind) {
     switch (kind) {
       case 'reminder':
-        return 'تذكير موعد';
+        return ct(context, 'occasionReminder');
       case 'follow_up':
-        return 'متابعة بعد الزيارة';
+        return ct(context, 'occasionFollowUp');
       case 'review_request':
-        return 'طلب تقييم';
+        return ct(context, 'occasionReview');
       case 'campaign':
-        return 'حملة';
+        return ct(context, 'occasionCampaign');
       default:
-        return 'رسالة';
+        return ct(context, 'occasionFallback');
     }
   }
 
@@ -480,7 +501,7 @@ class _QueueTab extends StatelessWidget {
   Widget build(BuildContext context) {
     if (schedule == null) return const Center(child: CircularProgressIndicator());
     if (schedule!.isEmpty) {
-      return const EmptyState(icon: Icons.schedule_outlined, title: 'لا رسائل بانتظار الخروج الآن');
+      return EmptyState(icon: Icons.schedule_outlined, title: ct(context, 'queueEmpty'));
     }
     final rows = [...schedule!]..sort((a, b) => a.dueAt.compareTo(b.dueAt));
     return ListView.separated(
@@ -490,7 +511,7 @@ class _QueueTab extends StatelessWidget {
       itemBuilder: (context, i) {
         final r = rows[i];
         final person = who[r.subjectRef];
-        final title = person?.name.isNotEmpty == true ? person!.name : (person?.phone ?? 'عميل');
+        final title = person?.name.isNotEmpty == true ? person!.name : (person?.phone ?? ct(context, 'customerFallback'));
         final urgent = r.dueAt - DateTime.now().millisecondsSinceEpoch / 1000 <= 3600;
         return Dismissible(
           key: ValueKey(r.id),
@@ -528,7 +549,7 @@ class _QueueTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(title, style: AppTextStyles.bodyMedium),
-                      Text('${_occasion(r.kind)} · ${_dueIn(r.dueAt)}', style: AppTextStyles.caption),
+                      Text('${_occasion(context, r.kind)} · ${_dueIn(context, r.dueAt)}', style: AppTextStyles.caption),
                     ],
                   ),
                 ),
@@ -544,19 +565,40 @@ class _QueueTab extends StatelessWidget {
 /// «الحملات» — launched campaigns as swipeable cards, never a dense table. Tap opens its own
 /// send-history detail; the "launch" action lives in the hero above, not duplicated here.
 class _CampaignsTab extends StatelessWidget {
-  const _CampaignsTab({required this.campaigns, required this.service, required this.onChanged});
+  const _CampaignsTab({
+    required this.campaigns,
+    required this.service,
+    required this.owned,
+    required this.onChanged,
+    required this.onSubscribe,
+  });
 
   final List<Campaign>? campaigns;
   final MessagesService service;
+  final Owned? owned;
   final VoidCallback onChanged;
+  final VoidCallback onSubscribe;
 
-  static const _goalTitle = {
-    'win_back': 'رجّع اللي غابوا', 'reward_loyal': 'كافئ المخلصين', 'announce': 'أعلن جديدك',
-    'occasion': 'هنّئ في مناسبة', 'service_offer': 'عرض على خدمة', 'package_offer': 'عرض على باقة',
+  static const _goalTitleKey = {
+    'win_back': 'goalWinBack', 'reward_loyal': 'goalRewardLoyal', 'announce': 'goalAnnounce',
+    'occasion': 'goalOccasion', 'service_offer': 'goalServiceOffer', 'package_offer': 'goalPackageOffer',
   };
 
   @override
   Widget build(BuildContext context) {
+    // LOCKED ON THE ENTITLEMENT, NOT THE CAPABILITY — the app itself may not be owned even when
+    // the operator's own role can see every `campaigns.*` action id (an owner always holds the
+    // capability, regardless of which apps the shop has bought). The card stays visible with a
+    // real way to buy it, same lesson `apps_store_screen.dart`'s own paywall-bypass fix already
+    // taught this app: never hide a feature nobody can then discover, and never let a locked
+    // feature be reached silently either.
+    final ownsIt = owned?.owns('feature.campaigns');
+    if (ownsIt == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (ownsIt == false) {
+      return _LockedCampaigns(onSubscribe: onSubscribe);
+    }
     if (campaigns == null) {
       return const CapabilityGate(
         requires: ['campaigns.list'],
@@ -564,8 +606,8 @@ class _CampaignsTab extends StatelessWidget {
       );
     }
     if (campaigns!.isEmpty) {
-      return const EmptyState(icon: Icons.campaign_outlined, title: 'لم تُطلق حملة بعد',
-          message: 'اضغط «أطلق رسالة جديدة» بالأعلى للبدء');
+      return EmptyState(icon: Icons.campaign_outlined, title: ct(context, 'campaignsEmptyTitle'),
+          message: ct(context, 'campaignsEmptyMsg'));
     }
     return ListView.separated(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -574,8 +616,8 @@ class _CampaignsTab extends StatelessWidget {
       itemBuilder: (context, i) {
         final c = campaigns![i];
         final state = msgStateStyle(c.state, c.isScheduled, context.isDark);
-        const stateLabels = {
-          'active': 'نشطة', 'paused': 'متوقفة', 'scheduled': 'مجدولة', 'done': 'انتهت',
+        final stateLabelKeys = {
+          'active': 'stateActive', 'paused': 'statePaused', 'scheduled': 'stateScheduled', 'done': 'stateDone',
         };
         return AppCard(
           hasShadow: false,
@@ -589,12 +631,14 @@ class _CampaignsTab extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_goalTitle[c.goal] ?? c.goal, style: AppTextStyles.bodyMedium),
-                    Text('وصلت ${c.sent} عميلاً', style: AppTextStyles.caption),
+                    Text(_goalTitleKey.containsKey(c.goal) ? ct(context, _goalTitleKey[c.goal]!) : c.goal,
+                        style: AppTextStyles.bodyMedium),
+                    Text(ct(context, 'reachedCount', {'n': '${c.sent}'}), style: AppTextStyles.caption),
                   ],
                 ),
               ),
-              AppBadge(text: stateLabels[c.isScheduled ? 'scheduled' : c.state] ?? c.state,
+              AppBadge(
+                  text: ct(context, stateLabelKeys[c.isScheduled ? 'scheduled' : c.state] ?? c.state),
                   backgroundColor: state.soft, textColor: state.onSoft),
               if (c.state == 'active') ...[
                 const SizedBox(width: 4),
@@ -622,6 +666,47 @@ class _CampaignsTab extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _CampaignDetailSheet(campaign: c, service: service),
+    );
+  }
+}
+
+/// THE TAB'S OWN LOCK STATE — always a real reason plus a real way to buy, never a blank/empty
+/// list that reads as "you have no campaigns" when the true answer is "you don't own this yet".
+class _LockedCampaigns extends StatelessWidget {
+  const _LockedCampaigns({required this.onSubscribe});
+  final VoidCallback onSubscribe;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = msgClassStyle('offers', context.isDark);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: style.gradient),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.lock_outline_rounded, color: Colors.white, size: 28),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(ct(context, 'lockedTitle'), style: AppTextStyles.headlineSmall, textAlign: TextAlign.center),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              ct(context, 'lockedDesc'),
+              style: AppTextStyles.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            PrimaryButton(text: ct(context, 'subscribeNow'), icon: Icons.storefront_outlined, onPressed: onSubscribe),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -661,7 +746,7 @@ class _CampaignDetailSheetState extends State<_CampaignDetailSheet> {
           : ListView(
               shrinkWrap: true,
               children: [
-                const Text('ماذا حدث', style: AppTextStyles.headlineSmall),
+                Text(ct(context, 'whatHappened'), style: AppTextStyles.headlineSmall),
                 const SizedBox(height: AppSpacing.sm),
                 if ((_data!.$2).isNotEmpty)
                   Wrap(spacing: AppSpacing.sm, runSpacing: AppSpacing.sm, children: [
@@ -676,12 +761,14 @@ class _CampaignDetailSheetState extends State<_CampaignDetailSheet> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('أُرسل ${r.sent} · امتنع ${r.suppressed}', style: AppTextStyles.bodySmall),
+                        Text(
+                            ct(context, 'runSummary', {'sent': '${r.sent}', 'suppressed': '${r.suppressed}'}),
+                            style: AppTextStyles.bodySmall),
                       ],
                     ),
                   ),
                 if (_data!.$1.isEmpty)
-                  const Text('لا سجل إرسال بعد', style: AppTextStyles.bodySmall),
+                  Text(ct(context, 'noRunsYet'), style: AppTextStyles.bodySmall),
               ],
             ),
     );
@@ -707,10 +794,10 @@ class _LogTab extends StatelessWidget {
           child: SegmentedFilter<String>(
             value: filter,
             onChanged: onFilterChanged,
-            options: const [
-              SegmentedFilterOption(value: '', label: 'الكل'),
-              SegmentedFilterOption(value: 'sent', label: 'أُرسل'),
-              SegmentedFilterOption(value: 'suppressed', label: 'امتنع'),
+            options: [
+              SegmentedFilterOption(value: '', label: ct(context, 'filterAll')),
+              SegmentedFilterOption(value: 'sent', label: ct(context, 'statSent')),
+              SegmentedFilterOption(value: 'suppressed', label: ct(context, 'filterSuppressed')),
             ],
           ),
         ),
@@ -718,7 +805,7 @@ class _LogTab extends StatelessWidget {
           child: log == null
               ? const Center(child: CircularProgressIndicator())
               : log!.isEmpty
-                  ? const EmptyState(icon: Icons.receipt_long_outlined, title: 'لا سجل إرسال بعد')
+                  ? EmptyState(icon: Icons.receipt_long_outlined, title: ct(context, 'noRunsYet'))
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
                       itemCount: log!.length,
@@ -726,15 +813,15 @@ class _LogTab extends StatelessWidget {
                       itemBuilder: (context, i) {
                         final r = log![i];
                         final person = who[r.subjectRef];
-                        final title = person?.name.isNotEmpty == true ? person!.name : (person?.phone ?? 'عميل');
+                        final title = person?.name.isNotEmpty == true ? person!.name : (person?.phone ?? ct(context, 'customerFallback'));
                         final color = msgOutcomeColor(r.outcome, r.deliveredAt > 0, r.readAt > 0, context.isDark);
                         final outcomeLabel = r.outcome != 'sent'
-                            ? 'امتنعت'
+                            ? ct(context, 'outcomeSuppressed')
                             : r.readAt > 0
-                                ? 'قرأها'
+                                ? ct(context, 'outcomeRead')
                                 : r.deliveredAt > 0
-                                    ? 'وصلت'
-                                    : 'خرجت';
+                                    ? ct(context, 'outcomeDelivered')
+                                    : ct(context, 'outcomeSent');
                         return AppCard(
                           hasShadow: false,
                           child: Row(

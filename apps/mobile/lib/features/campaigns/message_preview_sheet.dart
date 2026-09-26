@@ -6,6 +6,7 @@ import 'package:raje3_mobile/core/services/messages_service.dart';
 import 'package:raje3_mobile/models/messages_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
+import 'package:raje3_mobile/features/campaigns/campaigns_i18n.dart';
 import 'package:raje3_mobile/features/campaigns/whatsapp_bubble.dart';
 
 /// The message-preview bottom sheet — mirrors `MessagePreview.tsx`'s job (tap a card, read every
@@ -110,14 +111,14 @@ class _MessagePreviewSheetState extends State<_MessagePreviewSheet> {
                       child: Center(child: CircularProgressIndicator()),
                     )
                   : _failed
-                      ? const Padding(
-                          padding: EdgeInsets.all(AppSpacing.xl),
-                          child: Text('تعذّرت قراءة الرسالة الآن.', style: AppTextStyles.bodyMedium),
+                      ? Padding(
+                          padding: const EdgeInsets.all(AppSpacing.xl),
+                          child: Text(ct(context, 'previewLoadFailed'), style: AppTextStyles.bodyMedium),
                         )
                       : (_options ?? const []).isEmpty
-                          ? const Padding(
-                              padding: EdgeInsets.all(AppSpacing.xl),
-                              child: Text('لا صيغة متاحة لهذه الرسالة الآن.'),
+                          ? Padding(
+                              padding: const EdgeInsets.all(AppSpacing.xl),
+                              child: Text(ct(context, 'noWordingAvailable')),
                             )
                           : ListView(
                               shrinkWrap: true,
@@ -145,22 +146,22 @@ class _OptionCard extends StatelessWidget {
   (String, Color, Color)? _statusChip(BuildContext context) {
     final isDark = context.isDark;
     if (option.mine && option.status == 'rejected') {
-      return ('رفضها واتساب', isDark ? AppDarkColors.danger : AppColors.danger,
+      return (ct(context, 'statusRejected'), isDark ? AppDarkColors.danger : AppColors.danger,
           isDark ? AppDarkColors.dangerSoft : AppColors.dangerSoft);
     }
     if (option.mine && option.status == 'pending') {
-      return ('عند واتساب للمراجعة', isDark ? AppDarkColors.warning : AppColors.warning,
+      return (ct(context, 'statusPending'), isDark ? AppDarkColors.warning : AppColors.warning,
           isDark ? AppDarkColors.warningSoft : AppColors.warningSoft);
     }
     if (option.mine && option.status == 'draft') {
-      return ('لم تُرفَع بعد', context.appColors.textSecondary, context.appColors.surfaceAlt);
+      return (ct(context, 'statusDraft'), context.appColors.textSecondary, context.appColors.surfaceAlt);
     }
     if (option.approved == true) {
-      return ('جاهزة للإرسال', isDark ? AppDarkColors.success : AppColors.success,
+      return (ct(context, 'statusReady'), isDark ? AppDarkColors.success : AppColors.success,
           isDark ? AppDarkColors.successSoft : AppColors.successSoft);
     }
     if (option.approved == false) {
-      return ('بانتظار اعتماد واتساب', isDark ? AppDarkColors.warning : AppColors.warning,
+      return (ct(context, 'statusAwaiting'), isDark ? AppDarkColors.warning : AppColors.warning,
           isDark ? AppDarkColors.warningSoft : AppColors.warningSoft);
     }
     return null;
@@ -170,8 +171,10 @@ class _OptionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final chip = _statusChip(context);
     final caption = option.mine
-        ? 'نصّك أنت'
-        : (option.tone == 'masculine' ? 'مذكر' : option.tone == 'feminine' ? 'مؤنث' : option.tone);
+        ? ct(context, 'yourText')
+        : (option.tone == 'masculine'
+            ? ct(context, 'toneMasculine')
+            : option.tone == 'feminine' ? ct(context, 'toneFeminine') : option.tone);
     return AppCard(
       hasShadow: false,
       child: Column(
