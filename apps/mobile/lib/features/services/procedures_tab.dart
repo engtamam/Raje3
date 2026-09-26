@@ -30,7 +30,7 @@ import 'package:raje3_mobile/widgets/rj_sheen.dart';
 /// "مستخدمة بـN خدمات" usage count), and printing an ordered checklist (one service, or several
 /// merged and deduped) as a real document.
 class ProceduresTab extends StatefulWidget {
-  const ProceduresTab({required this.service, required this.services, required this.onChanged});
+  const ProceduresTab({super.key, required this.service, required this.services, required this.onChanged});
   final ServicesCatalogueService service;
   final List<ServiceItem> services;
   final VoidCallback onChanged;
@@ -326,7 +326,7 @@ class _ProceduresTabState extends State<ProceduresTab> {
                                                 ),
                                                 if (hasCritical) ...[
                                                   const SizedBox(width: 4),
-                                                  Icon(Icons.priority_high_rounded, size: 11, color: AppColors.danger),
+                                                  const Icon(Icons.priority_high_rounded, size: 11, color: AppColors.danger),
                                                 ],
                                               ],
                                             ),
@@ -338,7 +338,7 @@ class _ProceduresTabState extends State<ProceduresTab> {
                                 ),
                               ),
                               if (selected)
-                                PositionedDirectional(
+                                const PositionedDirectional(
                                   top: 6,
                                   end: 6,
                                   child: _SelectRing(selected: true),
@@ -469,9 +469,9 @@ class _SheetShell extends StatelessWidget {
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Container(
         constraints: BoxConstraints(maxHeight: appSheetMaxHeight(context) * maxHeightFactor),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.surface1,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.card)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.card)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -669,9 +669,8 @@ class _ServiceStepsSheetState extends State<_ServiceStepsSheet> {
               child: ReorderableListView.builder(
                 buildDefaultDragHandles: false,
                 itemCount: _order.length,
-                onReorder: (oldIndex, newIndex) {
+                onReorderItem: (oldIndex, newIndex) {
                   setState(() {
-                    if (newIndex > oldIndex) newIndex -= 1;
                     final id = _order.removeAt(oldIndex);
                     _order.insert(newIndex, id);
                   });

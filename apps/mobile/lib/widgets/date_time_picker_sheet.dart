@@ -215,8 +215,8 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
                 label: _pad2,
                 onChanged: (v) => _hour = v,
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6),
                 child: Text(':', style: AppTextStyles.headlineSmall),
               ),
               _NumberWheelColumn(

@@ -297,7 +297,7 @@ class _OperatorTrainingSheetState extends State<_OperatorTrainingSheet> {
             const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
-                Icon(Icons.star_rounded, size: 15, color: const Color(0xFFF6B93B)),
+                const Icon(Icons.star_rounded, size: 15, color: Color(0xFFF6B93B)),
                 const SizedBox(width: 4),
                 Text(p.averageRating.toStringAsFixed(1), style: AppTextStyles.bodySmall),
                 const SizedBox(width: AppSpacing.md),

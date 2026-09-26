@@ -448,7 +448,7 @@ class _NeedsDecisionBanner extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.warningOnSoft),
+              const Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.warningOnSoft),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
@@ -685,7 +685,7 @@ class _RequestCard extends StatelessWidget {
               const SizedBox(height: 6),
               Row(
                 children: [
-                  Icon(Icons.error_outline_rounded, size: 13, color: AppColors.danger),
+                  const Icon(Icons.error_outline_rounded, size: 13, color: AppColors.danger),
                   const SizedBox(width: 4),
                   Text(s.mobileRequestsRiskyCustomer,
                       style: AppTextStyles.caption
