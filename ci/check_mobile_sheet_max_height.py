@@ -59,10 +59,6 @@ EXEMPT: dict[str, str] = {
         "content, cannot grow.",
     "apps/mobile/lib/features/rating/staff_quadrant.dart":
         "_OperatorTrainingSheet is a fixed note field + submit — short, fixed content.",
-    "apps/mobile/lib/features/services/procedures_tab.dart":
-        "_LibrarySheet/_ServiceStepsSheet CAN grow with a long step list — a real candidate for a "
-        "cap, flagged here rather than fixed silently; out of scope for the pass that added this "
-        "gate. Fix before adding more content to either sheet.",
     "apps/mobile/lib/widgets/branch_switcher.dart":
         "_BranchSheet lists the shop's own branches — bounded by how many branches a shop "
         "realistically has, never user-generated content.",

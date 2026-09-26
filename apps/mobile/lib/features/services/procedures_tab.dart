@@ -468,7 +468,7 @@ class _SheetShell extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * maxHeightFactor),
+        constraints: BoxConstraints(maxHeight: appSheetMaxHeight(context) * maxHeightFactor),
         decoration: BoxDecoration(
           color: AppColors.surface1,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.card)),
