@@ -114,6 +114,13 @@ jobs:
       - name: every campaign goal names a real, wired mechanic
         run: python3 ci/check_campaign_mechanics.py
 
+      # A "جماعي" goal's own three real invariants, proven from the AST — not a comment, not a
+      # string search. Every one of these is the exact shape of silent regression this session's
+      # own reasoning found and fixed live (the spread refusal blocking a milestone's own win
+      # reveal near its deadline is the clearest example).
+      - name: every community-milestone goal keeps its deadline, spread exemption, and recurrence wired
+        run: python3 ci/check_campaign_milestone_wiring.py
+
       # `/internal/*` trusts one shared token and nothing else — no capability, no branch scope,
       # no user identity at all. Phase 4 of the multi-branch work added four such routes in one
       # sitting; this is the same posture check_a_route_with_no_token_is_open_at_the_door.py takes
