@@ -15,8 +15,10 @@ import { registerOperatorStrings } from '../operator-i18n';
 
 registerOperatorStrings({
   ar: {
-    'account.tab.shop.label': 'منشأتي',
-    'account.tab.shop.hint': 'هويّتك وفروعك وفريقك وربط واتساب',
+    'account.tab.identity.label': 'الهوية',
+    'account.tab.identity.hint': 'اسم منشأتك وشعارها ولونها، اسمك، كلمة المرور، ومفاتيح الربط',
+    'account.tab.branches.label': 'الفروع',
+    'account.tab.branches.hint': 'فروعك وفريقك وربط واتساب',
     'account.tab.billing.label': 'الفوترة',
     'account.tab.billing.hint': 'وسيلة الدفع وحالة اشتراكك',
     'account.tab.wallet.label': 'محفظتي',
@@ -30,7 +32,6 @@ registerOperatorStrings({
     'account.subtab.branches': 'الفروع',
     'account.subtab.branchesLocked': 'مقفل',
     'account.subtab.whatsapp': 'ربط واتساب',
-    'account.subtab.identity': 'الهوية والإعدادات',
 
     'account.pageTitle': 'حسابي',
     'account.myBranchReadFailed': 'تعذّرت قراءة فرعك',
@@ -39,7 +40,7 @@ registerOperatorStrings({
     'account.savingName': 'جارٍ الحفظ...',
     'account.cancelNameCta': 'إلغاء',
     'account.tabsAriaLabel': 'أقسام حسابي',
-    'account.shopSubtabsAriaLabel': 'أقسام منشأتي',
+    'account.branchesSubtabsAriaLabel': 'أقسام الفروع',
 
     'account.changePassword.title': 'تغيير كلمة المرور',
     'account.changePassword.mismatch': 'كلمتا المرور الجديدتان غير متطابقتين.',
@@ -52,8 +53,10 @@ registerOperatorStrings({
     'account.changePassword.cancel': 'إلغاء',
   },
   en: {
-    'account.tab.shop.label': 'My Establishment',
-    'account.tab.shop.hint': 'Your identity, branches, team, and WhatsApp connection',
+    'account.tab.identity.label': 'Identity',
+    'account.tab.identity.hint': "Your shop's name, logo, and colour, your own name, password, and connection keys",
+    'account.tab.branches.label': 'Branches',
+    'account.tab.branches.hint': 'Your branches, your team, and the WhatsApp connection',
     'account.tab.billing.label': 'Billing',
     'account.tab.billing.hint': 'Your payment method and subscription status',
     'account.tab.wallet.label': 'My Wallet',
@@ -67,7 +70,6 @@ registerOperatorStrings({
     'account.subtab.branches': 'Branches',
     'account.subtab.branchesLocked': 'Locked',
     'account.subtab.whatsapp': 'WhatsApp connection',
-    'account.subtab.identity': 'Identity and settings',
 
     'account.pageTitle': 'My Account',
     'account.myBranchReadFailed': "Couldn't read your branch",
@@ -76,7 +78,7 @@ registerOperatorStrings({
     'account.savingName': 'Saving...',
     'account.cancelNameCta': 'Cancel',
     'account.tabsAriaLabel': 'Account sections',
-    'account.shopSubtabsAriaLabel': 'My Establishment sections',
+    'account.branchesSubtabsAriaLabel': 'Branches sections',
 
     'account.changePassword.title': 'Change password',
     'account.changePassword.mismatch': "The two new passwords don't match.",
@@ -89,8 +91,10 @@ registerOperatorStrings({
     'account.changePassword.cancel': 'Cancel',
   },
   ur: {
-    'account.tab.shop.label': 'میرا ادارہ',
-    'account.tab.shop.hint': 'آپ کی شناخت، شاخیں، ٹیم، اور واٹس ایپ ربط',
+    'account.tab.identity.label': 'شناخت',
+    'account.tab.identity.hint': 'آپ کے ادارے کا نام، لوگو، رنگ، آپ کا نام، پاس ورڈ، اور ربط کی چابیاں',
+    'account.tab.branches.label': 'شاخیں',
+    'account.tab.branches.hint': 'آپ کی شاخیں، آپ کی ٹیم، اور واٹس ایپ ربط',
     'account.tab.billing.label': 'بلنگ',
     'account.tab.billing.hint': 'آپ کی ادائیگی کا طریقہ اور اشتراک کی حیثیت',
     'account.tab.wallet.label': 'میرا بٹوہ',
@@ -104,7 +108,6 @@ registerOperatorStrings({
     'account.subtab.branches': 'شاخیں',
     'account.subtab.branchesLocked': 'مقفل',
     'account.subtab.whatsapp': 'واٹس ایپ ربط',
-    'account.subtab.identity': 'شناخت اور ترتیبات',
 
     'account.pageTitle': 'میرا اکاؤنٹ',
     'account.myBranchReadFailed': 'آپ کی شاخ نہیں پڑھ سکے',
@@ -113,7 +116,7 @@ registerOperatorStrings({
     'account.savingName': 'محفوظ ہو رہا ہے...',
     'account.cancelNameCta': 'منسوخ کریں',
     'account.tabsAriaLabel': 'اکاؤنٹ کے حصے',
-    'account.shopSubtabsAriaLabel': 'میرا ادارہ کے حصے',
+    'account.branchesSubtabsAriaLabel': 'شاخوں کے حصے',
 
     'account.changePassword.title': 'پاس ورڈ تبدیل کریں',
     'account.changePassword.mismatch': 'دونوں نئے پاس ورڈ مماثل نہیں۔',
@@ -126,8 +129,10 @@ registerOperatorStrings({
     'account.changePassword.cancel': 'منسوخ کریں',
   },
   ha: {
-    'account.tab.shop.label': 'Kamfanina',
-    'account.tab.shop.hint': "Ainihinka, rassa, ƙungiya, da haɗin WhatsApp",
+    'account.tab.identity.label': 'Ainihi',
+    'account.tab.identity.hint': "Sunan kamfaninka, tambari, launi, sunanka, kalmar sirri, da maɓallan haɗi",
+    'account.tab.branches.label': 'Rassa',
+    'account.tab.branches.hint': "Rassanka, ƙungiyarka, da haɗin WhatsApp",
     'account.tab.billing.label': 'Biyan Kuɗi',
     'account.tab.billing.hint': 'Hanyar biyanka da matsayin biyan kuɗinka',
     'account.tab.wallet.label': 'Walat Ɗina',
@@ -141,7 +146,6 @@ registerOperatorStrings({
     'account.subtab.branches': 'Rassa',
     'account.subtab.branchesLocked': 'A kulle',
     'account.subtab.whatsapp': 'Haɗin WhatsApp',
-    'account.subtab.identity': 'Ainihi da saitunan',
 
     'account.pageTitle': 'Asusuna',
     'account.myBranchReadFailed': 'Ba a iya karanta reshenka ba',
@@ -150,7 +154,7 @@ registerOperatorStrings({
     'account.savingName': 'Ana ajiyewa...',
     'account.cancelNameCta': 'Soke',
     'account.tabsAriaLabel': 'Sassan asusu',
-    'account.shopSubtabsAriaLabel': 'Sassan Kamfanina',
+    'account.branchesSubtabsAriaLabel': 'Sassan rassa',
 
     'account.changePassword.title': 'Canza kalmar sirri',
     'account.changePassword.mismatch': "Sabbin kalmomin sirri guda biyu ba iri ɗaya ba ne.",
@@ -163,8 +167,10 @@ registerOperatorStrings({
     'account.changePassword.cancel': 'Soke',
   },
   fil: {
-    'account.tab.shop.label': 'Aking Establisemento',
-    'account.tab.shop.hint': 'Ang pagkakakilanlan, branch, team, at koneksyon sa WhatsApp mo',
+    'account.tab.identity.label': 'Pagkakakilanlan',
+    'account.tab.identity.hint': 'Ang pangalan, logo, at kulay ng shop mo, ang pangalan mo, password, at connection keys',
+    'account.tab.branches.label': 'Mga Branch',
+    'account.tab.branches.hint': 'Ang mga branch mo, team mo, at koneksyon sa WhatsApp',
     'account.tab.billing.label': 'Billing',
     'account.tab.billing.hint': 'Ang paraan ng pagbabayad at status ng subscription mo',
     'account.tab.wallet.label': 'Aking Wallet',
@@ -178,7 +184,6 @@ registerOperatorStrings({
     'account.subtab.branches': 'Mga Branch',
     'account.subtab.branchesLocked': 'Naka-lock',
     'account.subtab.whatsapp': 'Koneksyon sa WhatsApp',
-    'account.subtab.identity': 'Pagkakakilanlan at settings',
 
     'account.pageTitle': 'Aking Account',
     'account.myBranchReadFailed': "Hindi mabasa ang branch mo",
@@ -187,7 +192,7 @@ registerOperatorStrings({
     'account.savingName': 'Sine-save...',
     'account.cancelNameCta': 'Kanselahin',
     'account.tabsAriaLabel': 'Mga seksyon ng account',
-    'account.shopSubtabsAriaLabel': 'Mga seksyon ng Aking Establisemento',
+    'account.branchesSubtabsAriaLabel': 'Mga seksyon ng Mga Branch',
 
     'account.changePassword.title': 'Palitan ang password',
     'account.changePassword.mismatch': 'Hindi magkatugma ang dalawang bagong password.',
@@ -200,8 +205,10 @@ registerOperatorStrings({
     'account.changePassword.cancel': 'Kanselahin',
   },
   bn: {
-    'account.tab.shop.label': 'আমার প্রতিষ্ঠান',
-    'account.tab.shop.hint': 'আপনার পরিচয়, শাখা, দল ও হোয়াটসঅ্যাপ সংযোগ',
+    'account.tab.identity.label': 'পরিচয়',
+    'account.tab.identity.hint': 'আপনার প্রতিষ্ঠানের নাম, লোগো, রং, আপনার নাম, পাসওয়ার্ড ও সংযোগ কী',
+    'account.tab.branches.label': 'শাখা',
+    'account.tab.branches.hint': 'আপনার শাখা, দল ও হোয়াটসঅ্যাপ সংযোগ',
     'account.tab.billing.label': 'বিলিং',
     'account.tab.billing.hint': 'আপনার পেমেন্ট পদ্ধতি ও সাবস্ক্রিপশনের অবস্থা',
     'account.tab.wallet.label': 'আমার ওয়ালেট',
@@ -215,7 +222,6 @@ registerOperatorStrings({
     'account.subtab.branches': 'শাখা',
     'account.subtab.branchesLocked': 'লক করা',
     'account.subtab.whatsapp': 'হোয়াটসঅ্যাপ সংযোগ',
-    'account.subtab.identity': 'পরিচয় ও সেটিংস',
 
     'account.pageTitle': 'আমার অ্যাকাউন্ট',
     'account.myBranchReadFailed': 'আপনার শাখা পড়া যায়নি',
@@ -224,7 +230,7 @@ registerOperatorStrings({
     'account.savingName': 'সংরক্ষণ হচ্ছে...',
     'account.cancelNameCta': 'বাতিল',
     'account.tabsAriaLabel': 'অ্যাকাউন্টের বিভাগসমূহ',
-    'account.shopSubtabsAriaLabel': 'আমার প্রতিষ্ঠানের বিভাগসমূহ',
+    'account.branchesSubtabsAriaLabel': 'শাখার বিভাগসমূহ',
 
     'account.changePassword.title': 'পাসওয়ার্ড পরিবর্তন করুন',
     'account.changePassword.mismatch': 'নতুন দুটি পাসওয়ার্ড মিলছে না।',

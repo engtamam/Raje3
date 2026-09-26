@@ -7,11 +7,14 @@
  * template to «الحملات». Anything proposed here because it "found no place" is refused by that
  * sentence, and this comment exists so the refusal has something to point at.
  *
- * TABS ACROSS THE TOP, LIKE EVERY OTHER SECTION — and this replaced an index-and-detail layout
- * that was correct in isolation and wrong in the product. It was the only screen where choosing
- * meant leaving a list and coming back, so it read as a settings menu bolted on rather than as a
- * section of the same application. Sameness of shape is not decoration: a person who has learned
- * one screen has learned all of them.
+ * TABS ACROSS THE TOP, LIKE EVERY OTHER SECTION. And BRANCHES GOT A TAB OF ITS OWN (this pass),
+ * split out of the old «منشأتي» container it used to share with identity/WhatsApp/keys. The
+ * mobile app organises the same domain as a hub with dedicated branch/branch-detail/billing/
+ * shop-identity destinations, and burying "who works where, and can I see them" three sub-tabs
+ * deep under a generic establishment tab read as a settings menu rather than the second most
+ * asked question on this screen. Identity (name/logo/colour, the owner's own name, password,
+ * connection keys) stays its own tab too — a different concern from "which branches, and who
+ * works in them."
  *
  * AND THE STATUS IS READ WITHOUT A TAP. Two lines above the tabs answer the only question this
  * page exists for — is the relationship healthy — so the answer never depends on which tab
@@ -44,33 +47,32 @@ import { useOperatorI18n } from '../operator-i18n';
 import './account-i18n';
 
 /**
- * FOUR TABS, AND FOUR OLD NAMES THAT STILL RESOLVE.
+ * FIVE TABS, AND FIVE OLD NAMES THAT STILL RESOLVE.
  *
- * `whatsapp`, `team`, `keys` and `invoices` were tabs of their own and are now SECTIONS inside two
- * of these. They stay in the type because they are live URLs: «أضِفه إلى اشتراكي» links, a
- * bookmark, a message somebody sent a colleague. Dropping them would turn every one of those into
- * a page that opens on the wrong thing — which is exactly the failure a deep link exists to
- * prevent.
+ * `shop`, `whatsapp`, `team` and `keys` were tabs (or a shared sub-tab) of their own and are now
+ * split across `identity` and `branches`. `login` never was a tab any more (see MOVED below); it
+ * stays in the type only because it is a live URL. Dropping any of these would turn a bookmark,
+ * a colleague's message, or an «أضِفه إلى اشتراكي» lock into a page that opens on the wrong thing
+ * — exactly the failure a deep link exists to prevent.
  */
-export type Pane = 'shop' | 'billing' | 'wallet' | 'invoices' | 'data';
-export type PaneLink = Pane | 'login' | 'whatsapp' | 'team' | 'keys';
+export type Pane = 'identity' | 'branches' | 'billing' | 'wallet' | 'invoices' | 'data';
+export type PaneLink = Pane | 'login' | 'whatsapp' | 'team' | 'keys' | 'shop';
 
 /**
- * The tab a link opens on. Unknown and absent both land on «منشأتي».
+ * The tab a link opens on. Unknown and absent both land on «الهوية».
  *
  * NOT ON A HARDCODED 'billing', which is where this opened before: a manager who cannot read
  * billing arrived on a tab that was filtered away and the screen fell back a second time. The
- * establishment is the one tab anybody with any of its permissions holds.
+ * establishment identity is the one tab anybody with any of its permissions holds.
  */
 export function resolvePane(link?: string): Pane {
-  if (!link) return 'shop';
+  if (!link) return 'identity';
   // `hasOwn`, NOT a plain lookup. `?tab=` is a string a stranger types, and `MOVED['__proto__']`
   // answers with an object rather than undefined — which would leave `pane` holding something
   // that is not a tab at all.
   if (Object.hasOwn(MOVED, link)) return MOVED[link];
-  return (['shop', 'billing', 'wallet', 'invoices', 'data'] as const).includes(link as Pane)
-    ? (link as Pane)
-    : 'shop';
+  return (['identity', 'branches', 'billing', 'wallet', 'invoices', 'data'] as const)
+    .includes(link as Pane) ? (link as Pane) : 'identity';
 }
 
 /** Where a name that is no longer a tab now lives. */
@@ -78,19 +80,24 @@ export const MOVED: Record<string, Pane> = {
   // «دخولي» IS GONE, AND ONLY ONE THING ON IT WAS EVER USED. Three cards of prose explaining what
   // he cannot change here — that his phone is his login, that a session lasts 31 days, how to
   // reset a password — a page to read rather than a page to use. The switch that WAS used, his
-  // weekly report, moved to «بياناتي» first, and then to «منشأتي» (see ShopPane) — where he
-  // actually looks for it, next to the rest of what he set up about his establishment.
-  login: 'shop',
-  whatsapp: 'shop',
-  team: 'shop',
-  keys: 'shop',
+  // weekly report, has since been removed with the feature itself; nothing on this tab is left
+  // to carry, so the name simply resolves to the identity tab like every other unknown name.
+  login: 'identity',
+  // «منشأتي» SPLIT IN TWO. The four things it held (shop identity, staff, branches, WhatsApp
+  // connection) are now on two tabs: identity keeps the establishment's own facts, password, and
+  // connection keys; branches keeps the team and the branch list together, since "who works
+  // where" is one question, not two.
+  shop: 'identity',
+  keys: 'identity',
+  whatsapp: 'branches',
+  team: 'branches',
 };
 
 /**
  * The tabs, each with the sentence that says what is behind it.
  *
  * THE HINT SURVIVED THE REDESIGN, in the line under the tab strip rather than under a row. It is
- * what stops «دخولي» being a noun somebody has to open to understand — and the tab labels are
+ * what stops a tab being a noun somebody has to open to understand — and the tab labels are
  * short precisely because that line carries the meaning.
  */
 /**
@@ -100,27 +107,28 @@ export const MOVED: Record<string, Pane> = {
  */
 function tabsFor(t: (key: string) => string): { id: Pane; label: string; hint: string }[] {
   return [
-    // ONE TAB FOR THE ESTABLISHMENT, because its five parts answer one question — who and what may
-    // act in this shop, and under whose name. They were five separate tabs and a person looking for
-    // «who works here» had to guess which of them held it.
-    { id: 'shop', label: t('account.tab.shop.label'), hint: t('account.tab.shop.hint') },
-    // RENAMED AGAIN, 2026-09-19 — «متجر التطبيقات» WAS RIGHT ONCE, AND STOPPED BEING RIGHT. This
+    // WHAT THE ESTABLISHMENT IS, AND WHO HE IS — name/logo/colour, his own name, his password,
+    // and the machine keys that can act in his name. All per-person or per-establishment facts,
+    // none of them "which branch, which staff member".
+    { id: 'identity', label: t('account.tab.identity.label'), hint: t('account.tab.identity.hint') },
+    // A TAB OF ITS OWN, SPLIT OUT OF «منشأتي» — branches and the staff inside them, plus the
+    // WhatsApp number connection (itself a per-branch fact, `ConnectByBranch` renders one card a
+    // branch). "Who works where, and how do customers reach this branch" is one coherent errand.
+    { id: 'branches', label: t('account.tab.branches.label'), hint: t('account.tab.branches.hint') },
+    // RENAMED, 2026-09-19 — «متجر التطبيقات» WAS RIGHT ONCE, AND STOPPED BEING RIGHT. This
     // tab used to BE the store (subscribe/cancel/discounts/capacity add-ons all lived here), so
     // calling it that matched what the rest of the product already said. Then the whole store
     // moved to the launcher (`AppLauncher.tsx`, [[task-app-store-redesign-7-phases]]) and
     // `BillingStatusPane.tsx` is what remained: a failing charge, and the one control that fixes
-    // it — no apps, no subscribing, no browsing. Leaving the label as «متجر التطبيقات» after that
-    // move was found live as dead-looking-code: an owner clicking it landed on a payment-method
-    // fix screen, not a store, with nothing here explaining the two are different. Renamed to
-    // «الفوترة» — what is actually behind this tab now.
+    // it — no apps, no subscribing, no browsing. Renamed to «الفوترة» — what is actually behind
+    // this tab now.
     { id: 'billing', label: t('account.tab.billing.label'), hint: t('account.tab.billing.hint') },
     // «محفظتي» TAB HIDDEN (2026-09-22, owner's own call) — the wallet balance it showed has no
     // real use left in the product; kept out of the visible tab list rather than deleted
     // (WalletPane/Wallet.tsx, the 'wallet' Pane id) in case it earns a real purpose again.
     // THE INVOICES CAME OUT OF THE STORE AND BECAME A TAB. They were the second half of a tab
     // whose first half is a catalogue: a person arriving to buy an app scrolled past his
-    // receipts, and a person arriving for a receipt scrolled past the shop. Two errands, and
-    // only one of them is browsing.
+    // receipts, and a person arriving for a receipt scrolled past the shop.
     { id: 'invoices', label: t('account.tab.invoices.label'), hint: t('account.tab.invoices.hint') },
     // «حقوقك في بياناتك» TAB HIDDEN (2026-09-22, owner's own call) — the DSAR buttons it showed
     // are replaced with one line in the privacy policy itself: every request, including deletion,
@@ -149,7 +157,7 @@ export function AccountScreen(
   const { t } = useOperatorI18n();
   const TABS = tabsFor(t);
   // WHICH BRANCH IS HIS — a field operator landing here saw a page that never
-  // said who he is or where he works, because every tab that WOULD have said so («منشأتي») is
+  // said who he is or where he works, because every tab that WOULD have said so («الفروع») is
   // gated on capabilities his role does not hold. This reads independently of any tab, off the
   // SAME two-id read App.tsx's own branch switcher uses (staff.py::_READ_BRANCHES) — an owner/
   // manager/marketer via `operations.list_branches`, a field operator via
@@ -205,12 +213,20 @@ export function AccountScreen(
     // ITS OWN READ, NOT THE STORE'S. Offering «الفواتير» to somebody whose role cannot list them
     // is a tab that can only ever say «لا يشمل دورك فواتير المحل» — a door with a wall behind it.
     if (tab.id === 'invoices') return Boolean(action(catalog, 'billing.my_invoices'));
-    // OFFERED IF ANY ONE OF ITS SECTIONS IS. The tab is a container now, and gating it on the
-    // identity read alone would hide a manager's team and connection behind a permission he does
-    // not need for either.
-    if (tab.id === 'shop') {
+    // THE ESTABLISHMENT'S OWN FACTS AND PERSONAL SECURITY — gated on whichever of the three
+    // identity-shaped reads his role actually holds. `identity.change_password` is held by every
+    // human role (identity-service grants it per-person, not per-establishment), so in practice
+    // this tab is never hidden — which is correct: everyone can at least change their own password.
+    if (tab.id === 'identity') {
       return Boolean(action(catalog, 'tenant.view_self')
-        || action(catalog, 'whatsapp.connect_status')
+        || action(catalog, 'identity.change_password')
+        || action(catalog, 'identity.list_service_accounts'));
+    }
+    // WHO WORKS WHERE, AND HOW CUSTOMERS REACH THAT BRANCH. Offered if any one of its three
+    // sections is — a container tab gated on staff-management alone would hide WhatsApp
+    // connection from a role that manages neither hiring nor branches.
+    if (tab.id === 'branches') {
+      return Boolean(action(catalog, 'whatsapp.connect_status')
         || action(catalog, 'operations.create_operator')
         || action(catalog, 'operations.list_branches'));
     }
@@ -218,32 +234,28 @@ export function AccountScreen(
   });
 
   // OPENS ON THE FIRST TAB HE ACTUALLY HAS, not on a hardcoded 'billing' that a manager cannot
-  // read. `tabs` is never empty — «دخولي» and «بياناتي» are everyone's.
+  // read. `tabs` is never empty — «الهوية» is everyone's.
   // A LINK MAY NAME A SECTION THAT IS NO LONGER A TAB — see MOVED. It opens the tab that now
   // holds it, and the section itself is on that page.
   const [pane, setPane] = useState<Pane>(() => resolvePane(openOn));
   const active = tabs.some((tab) => tab.id === pane) ? pane : tabs[0].id;
 
-  /** «منشأتي» ITSELF SPLIT, at the product owner's own direction: it had grown into five sections
-   *  stacked in one long scroll, which is the same "everything with no home" problem this file's
-   *  own header comment warns the WHOLE page against, just one level down.
-   *
-   *  «العاملون»/«الفروع» ARE TWO OF THESE OPTIONS DIRECTLY, not a "الفروع والفريق" tab that then
-   *  nests `TeamScreen`'s own switcher under it — that nested a second tab strip directly under
-   *  this one, which the owner ruled out entirely regardless of level ("ممنوع اطلاقاً يطلع
-   *  شريطين تحت بعض"). `TeamScreen` renders in CONTROLLED mode here (a `tab`/`onChangeTab` pair)
-   *  so it draws no switcher of its own — see its own comment. */
+  /** «الفروع» ITSELF HOLDS THREE SECTIONS — staff, the branch list/detail, and the WhatsApp
+   *  number connection. Same Segmented-under-TabBar pattern the old «منشأتي» used, kept for the
+   *  same reason: the owner ruled out ever stacking two tab strips directly on top of each other
+   *  ("ممنوع اطلاقاً يطلع شريطين تحت بعض"). `TeamScreen` renders in CONTROLLED mode here (a
+   *  `tab`/`onChangeTab` pair) so it draws no switcher of its own — see its own comment. */
   // OPENS ON THE WHATSAPP SUB-TAB DIRECTLY when `openOn === 'whatsapp'` — the deep link
   // subscribeFlow.ts's own WHATSAPP_CONNECTION_REQUIRED handling now sends (`/account?tab=
   // whatsapp`), the one still missing half of "أضِفه إلى اشتراكي" already lands on the right TOP
-  // tab: without this it stopped one level short, on «العاملون» inside «منشأتي».
-  const [shopSub, setShopSub] = useState<'people' | 'branches' | 'whatsapp' | 'identity'>(
+  // tab: without this it stopped one level short, on «العاملون» inside «الفروع».
+  const [branchesSub, setBranchesSub] = useState<'people' | 'branches' | 'whatsapp'>(
     openOn === 'whatsapp' ? 'whatsapp' : 'people');
   // THE BRANCH TAB'S OWN LOCK (هـ-3, branchGate) — reported by `TeamScreen` once the branches
   // read resolves, since this file has no read of its own to compute it from. `'open'` is the
   // exact same "never lock on an unknown" default `branchGate` itself returns before that.
   const [branchGateState, setBranchGateState] = useState<BranchGate>('open');
-  const SHOP_SUBTABS = [
+  const BRANCHES_SUBTABS = [
     { value: 'people' as const, label: t('account.subtab.people') },
     // THE LOCK IS VISIBLE BEFORE HE PRESSES, not after — same reasoning as always, now through
     // Segmented's own `badge`/`badgeTone` (its 2026-09-07 redesign exists for exactly this: a
@@ -252,7 +264,6 @@ export function AccountScreen(
     { value: 'branches' as const, label: t('account.subtab.branches'),
      ...(branchGateState !== 'open' ? { badge: t('account.subtab.branchesLocked'), badgeTone: 'partial' as const } : {}) },
     { value: 'whatsapp' as const, label: t('account.subtab.whatsapp') },
-    { value: 'identity' as const, label: t('account.subtab.identity') },
   ];
 
   return (
@@ -260,7 +271,7 @@ export function AccountScreen(
       <PageHeader icon={UserCog} title={t('account.pageTitle')} />
 
       {/* ── who he is, and where he works — ALWAYS shown, regardless of tab. A field operator's
-          role often cannot reach «منشأتي» at all (it is gated on capabilities his role does not
+          role often cannot reach «الفروع» at all (it is gated on capabilities his role does not
           hold), so this cannot live behind that tab, let alone a sub-tab of it. Depends on no
           capability, only `session.operatorName` (never absent) and the branch read above.
           A COLOURED ICON CIRCLE, not a bare text block — the same "identity card" language every
@@ -308,11 +319,11 @@ export function AccountScreen(
 
       <div className="flex flex-col gap-1.5">
         {/* THE TOP-LEVEL SWITCHER FOR THE WHOLE PAGE — TabBar (rj-ui/TabBar.tsx), never Segmented:
-            the page's own «منشأتي» sub-tabs below are ALSO a Segmented strip, and two pill-track
+            the page's own «الفروع» sub-tabs below are ALSO a Segmented strip, and two pill-track
             rows stacked directly on each other is exactly "شريطين تحت بعض", the shape the owner
             ruled out entirely (Segmented's own module docstring, TabBar's own docstring). TabBar's
             underline shape reads as real navigation into a different section of the page; the
-            nested «منشأتي» row stays Segmented precisely because IT is a filter within one
+            nested «الفروع» row stays Segmented precisely because IT is a filter within one
             section, not a second copy of this row. */}
         <TabBar
           fullWidth
@@ -337,31 +348,41 @@ export function AccountScreen(
 
       {active === 'invoices' ? <InvoicesPane session={session} catalog={catalog} /> : null}
 
-      {active === 'shop' ? (
+      {active === 'identity' ? (
         <div className="flex flex-col gap-4">
-          {/* «منشأتي» split into four, at the product owner's own direction — it had grown into
-              five sections stacked in one long scroll. Same Segmented pattern as the top-level
-              tabs, one level down — `size="sm"` now marks it as exactly that: nested, not a
-              second copy of the top-level row (Segmented's own module docstring). FOUR options
-              now (was three): «العاملون»/«الفروع» joined directly instead of sitting behind one
-              "الفروع والفريق" tab — see the `shopSub` state's own comment above. */}
+          {/* ── change my own password — the capability behind it (identity.self) is
+              per-person rather than per-establishment, held by every human role. */}
+          {action(catalog, 'identity.change_password') ? (
+            <ChangePasswordCard session={session} catalog={catalog} />
+          ) : null}
+
+          <ShopPane session={session} catalog={catalog} />
+          <KeysPane session={session} catalog={catalog} />
+        </div>
+      ) : null}
+
+      {active === 'branches' ? (
+        <div className="flex flex-col gap-4">
+          {/* «الفروع» split into three, one level down from the top-level tab — same Segmented
+              pattern the top-level tabs use, `size="sm"` marking it as nested rather than a second
+              copy of the top-level row (Segmented's own module docstring). */}
           <Segmented
             size="sm"
-            className="grid w-full grid-cols-2 gap-1 sm:flex sm:flex-nowrap [&>button]:w-full [&>button]:truncate sm:[&>button]:flex-1"
-            ariaLabel={t('account.shopSubtabsAriaLabel')}
-            value={shopSub}
-            onChange={(v) => setShopSub(v as typeof shopSub)}
-            options={SHOP_SUBTABS}
+            className="grid w-full grid-cols-3 gap-1 sm:flex sm:flex-nowrap [&>button]:w-full [&>button]:truncate sm:[&>button]:flex-1"
+            ariaLabel={t('account.branchesSubtabsAriaLabel')}
+            value={branchesSub}
+            onChange={(v) => setBranchesSub(v as typeof branchesSub)}
+            options={BRANCHES_SUBTABS}
           />
 
-          {shopSub === 'people' || shopSub === 'branches' ? (
+          {branchesSub === 'people' || branchesSub === 'branches' ? (
             <div className="flex flex-col gap-6">
-              <TeamScreen session={session} catalog={catalog} tab={shopSub}
-                        onChangeTab={setShopSub} onBranchGateChange={setBranchGateState} />
+              <TeamScreen session={session} catalog={catalog} tab={branchesSub}
+                        onChangeTab={setBranchesSub} onBranchGateChange={setBranchGateState} />
             </div>
           ) : null}
 
-          {shopSub === 'whatsapp' ? (
+          {branchesSub === 'whatsapp' ? (
             <div className="flex flex-col gap-6">
               {/* THE REFUSAL SENTENCE ITSELF, CARRIED FROM THE ATTEMPT THAT SENT HIM HERE — see
                   `notice` prop's own comment above. Absent on every ordinary visit to this tab. */}
@@ -380,19 +401,6 @@ export function AccountScreen(
                   `WhatsAppAssistant.tsx`, reached from متجر التطبيقات like any other app, not
                   buried three tabs deep in «حسابي». */}
               <ConnectByBranch session={session} catalog={catalog} />
-            </div>
-          ) : null}
-
-          {shopSub === 'identity' ? (
-            <div className="flex flex-col gap-6">
-              {/* ── change my own password — the capability behind it (identity.self) is
-                  per-person rather than per-establishment, held by every human role. */}
-              {action(catalog, 'identity.change_password') ? (
-                <ChangePasswordCard session={session} catalog={catalog} />
-              ) : null}
-
-              <ShopPane session={session} catalog={catalog} />
-              <KeysPane session={session} catalog={catalog} />
             </div>
           ) : null}
         </div>
