@@ -436,16 +436,16 @@
       "operations.coupons_page"
     ]
   },
-  "nav.referral_partnership": {
-    "name": "open_referral_partnership",
-    "description": "يفتح شاشة «شراكة استراتيجية» — تحالفات محلك مع محلات ثانية، عرض شراكة جديدة، وقبول أو رفض العروض الواردة.",
+  "nav.mutual_benefit": {
+    "name": "open_mutual_benefit",
+    "description": "يفتح شاشة «تبادل منافع» — تحالفات محلك مع محلات ثانية، عرض شراكة جديدة، وقبول أو رفض العروض الواردة.",
     "scope": "navigation",
-    "route": "referral-partnership",
-    "kb_entry": "referral-partnership",
+    "route": "mutual-benefit",
+    "kb_entry": "mutual-benefit",
     "enabled": true,
     "requires_confirmation": false,
     "requires": [
-      "operations.referral_partnership_list"
+      "operations.mutual_benefit_list"
     ]
   },
   "nav.bookings": {

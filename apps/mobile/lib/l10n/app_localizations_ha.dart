@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -2539,262 +2540,265 @@ class SHa extends S {
   }
 
   @override
-  String get referralProposeButton => 'Baiwa shawarar hadin gwiwa';
+  String get mutualBenefitProposeButton => 'Baiwa shawarar hadin gwiwa';
 
   @override
-  String get referralTitle => 'Hadin Gwiwar Dabaru';
+  String get mutualBenefitTitle => 'Amfanin Juna';
 
   @override
-  String get referralSubtitle =>
+  String get mutualBenefitSubtitle =>
       'Tura abokan ciniki na gaske tsakanin ku da sauran shaguna, ta yarjejeniya tsakanin bangarorin biyu';
 
   @override
-  String get referralRoleAll => 'Duka';
+  String get mutualBenefitRoleAll => 'Duka';
 
   @override
-  String get referralRoleReferrer => 'A matsayin mai tura';
+  String get mutualBenefitRoleReferrer => 'A matsayin mai tura';
 
   @override
-  String get referralRoleBeneficiary => 'A matsayin mai amfana';
+  String get mutualBenefitRoleBeneficiary => 'A matsayin mai amfana';
 
   @override
-  String get referralLoadFailed => 'An kasa loda hadin gwiwa';
+  String get mutualBenefitLoadFailed => 'An kasa loda hadin gwiwa';
 
   @override
-  String get referralEmptyTitle => 'Babu hadin gwiwa tukuna';
+  String get mutualBenefitEmptyTitle => 'Babu hadin gwiwa tukuna';
 
   @override
-  String get referralKpiAsReferrer => 'A matsayin mai tura';
+  String get mutualBenefitKpiAsReferrer => 'A matsayin mai tura';
 
   @override
-  String get referralKpiAsBeneficiary => 'A matsayin mai amfana';
+  String get mutualBenefitKpiAsBeneficiary => 'A matsayin mai amfana';
 
   @override
-  String get referralKpiSent => 'An tura';
+  String get mutualBenefitKpiSent => 'An tura';
 
   @override
-  String get referralKpiRedeemed => 'An fanshi';
+  String get mutualBenefitKpiRedeemed => 'An fanshi';
 
   @override
-  String get referralKpiRate => 'Adadin fansa';
+  String get mutualBenefitKpiRate => 'Adadin fansa';
 
   @override
-  String get referralConfirm => 'Tabbatar';
+  String get mutualBenefitConfirm => 'Tabbatar';
 
   @override
-  String get referralGrantDiscountBlanket => 'Rangwame akan dukan ziyara';
+  String get mutualBenefitGrantDiscountBlanket => 'Rangwame akan dukan ziyara';
 
   @override
-  String get referralStatusProposed => 'An bayar da shawara';
+  String get mutualBenefitStatusProposed => 'An bayar da shawara';
 
   @override
-  String get referralStatusActive => 'Mai aiki';
+  String get mutualBenefitStatusActive => 'Mai aiki';
 
   @override
-  String get referralStatusPaused => 'An dakatar na wucin gadi';
+  String get mutualBenefitStatusPaused => 'An dakatar na wucin gadi';
 
   @override
-  String get referralStatusCancelRequested => 'An nemi soke';
+  String get mutualBenefitStatusCancelRequested => 'An nemi soke';
 
   @override
-  String get referralStatusEnded => 'Ya kare';
+  String get mutualBenefitStatusEnded => 'Ya kare';
 
   @override
-  String get referralStatusRejected => 'An ki amincewa';
+  String get mutualBenefitStatusRejected => 'An ki amincewa';
 
   @override
-  String get referralStatusExpiredUnanswered => 'Ya kare ba tare da amsa ba';
+  String get mutualBenefitStatusExpiredUnanswered =>
+      'Ya kare ba tare da amsa ba';
 
   @override
-  String get referralEventProposed => 'An bayar da shawarar hadin gwiwa';
+  String get mutualBenefitEventProposed => 'An bayar da shawarar hadin gwiwa';
 
   @override
-  String get referralEventAccepted => 'An amince da hadin gwiwa';
+  String get mutualBenefitEventAccepted => 'An amince da hadin gwiwa';
 
   @override
-  String get referralEventRejected => 'An ki amincewa da hadin gwiwa';
+  String get mutualBenefitEventRejected => 'An ki amincewa da hadin gwiwa';
 
   @override
-  String get referralEventActivated => 'An kunna hadin gwiwa';
+  String get mutualBenefitEventActivated => 'An kunna hadin gwiwa';
 
   @override
-  String get referralEventCancelRequested => 'An nemi soke';
+  String get mutualBenefitEventCancelRequested => 'An nemi soke';
 
   @override
-  String get referralEventCancelConfirmed => 'An tabbatar da sokewa';
+  String get mutualBenefitEventCancelConfirmed => 'An tabbatar da sokewa';
 
   @override
-  String get referralEventExpiredUnanswered => 'Ya kare ba tare da amsa ba';
+  String get mutualBenefitEventExpiredUnanswered =>
+      'Ya kare ba tare da amsa ba';
 
   @override
-  String get referralEventPaused => 'An dakatar na wucin gadi';
+  String get mutualBenefitEventPaused => 'An dakatar na wucin gadi';
 
   @override
-  String get referralEventResumed => 'An sake farawa';
+  String get mutualBenefitEventResumed => 'An sake farawa';
 
   @override
-  String get referralEventEndedTerm => 'Lokaci ya kare';
+  String get mutualBenefitEventEndedTerm => 'Lokaci ya kare';
 
   @override
-  String get referralEventGrantCreated => 'Sabon kyauta';
+  String get mutualBenefitEventGrantCreated => 'Sabon kyauta';
 
   @override
-  String get referralEventGrantRedeemed => 'An fanshi kyauta';
+  String get mutualBenefitEventGrantRedeemed => 'An fanshi kyauta';
 
   @override
-  String get referralActivityActive => 'Mai aiki';
+  String get mutualBenefitActivityActive => 'Mai aiki';
 
   @override
-  String get referralActivityPaused => 'An dakatar na wucin gadi';
+  String get mutualBenefitActivityPaused => 'An dakatar na wucin gadi';
 
   @override
-  String get referralActivityPending => 'Ana jiran amsa';
+  String get mutualBenefitActivityPending => 'Ana jiran amsa';
 
   @override
-  String get referralActivityInactive => 'Ba mai aiki ba';
+  String get mutualBenefitActivityInactive => 'Ba mai aiki ba';
 
   @override
-  String get referralScorecardTitle => 'Aiki';
+  String get mutualBenefitScorecardTitle => 'Aiki';
 
   @override
-  String get referralScorecardFailed => 'An kasa loda aiki';
+  String get mutualBenefitScorecardFailed => 'An kasa loda aiki';
 
   @override
-  String get referralActivityTitle => 'Ayyukan kwanan nan';
+  String get mutualBenefitActivityTitle => 'Ayyukan kwanan nan';
 
   @override
-  String get referralActivityEmpty => 'Babu ayyuka tukuna';
+  String get mutualBenefitActivityEmpty => 'Babu ayyuka tukuna';
 
   @override
-  String get referralAgreementsTitle => 'Yarjejeniyoyi';
+  String get mutualBenefitAgreementsTitle => 'Yarjejeniyoyi';
 
   @override
-  String get referralConfirmCancel =>
+  String get mutualBenefitConfirmCancel =>
       'Tabbatar da kawo karshen wannan hadin gwiwa har abada?';
 
   @override
-  String get referralActionAccept => 'Amince';
+  String get mutualBenefitActionAccept => 'Amince';
 
   @override
-  String get referralActionReject => 'Ki amincewa';
+  String get mutualBenefitActionReject => 'Ki amincewa';
 
   @override
-  String get referralActionWaitingThem => 'Ana jiran daya bangaren';
+  String get mutualBenefitActionWaitingThem => 'Ana jiran daya bangaren';
 
   @override
-  String get referralActionCancelRequest => 'Nema a kawo karshen';
+  String get mutualBenefitActionCancelRequest => 'Nema a kawo karshen';
 
   @override
-  String get referralActionCancelConfirm => 'Tabbatar da kawo karshen';
+  String get mutualBenefitActionCancelConfirm => 'Tabbatar da kawo karshen';
 
   @override
-  String get referralProposeTitle => 'Baiwa sabon shawarar hadin gwiwa';
+  String get mutualBenefitProposeTitle => 'Baiwa sabon shawarar hadin gwiwa';
 
   @override
-  String get referralProposePhoneLabel => 'Lambar wayar sauran shago';
+  String get mutualBenefitProposePhoneLabel => 'Lambar wayar sauran shago';
 
   @override
-  String get referralProposeConditionLabel => 'Sharadin cancanta a shagon ku';
+  String get mutualBenefitProposeConditionLabel =>
+      'Sharadin cancanta a shagon ku';
 
   @override
-  String get referralConditionMinTotal => 'Mafi karancin kudin biya';
+  String get mutualBenefitConditionMinTotal => 'Mafi karancin kudin biya';
 
   @override
-  String get referralConditionServiceId => 'Takamaiman sabis';
+  String get mutualBenefitConditionServiceId => 'Takamaiman sabis';
 
   @override
-  String get referralProposeConditionValueRiyals => 'Adadin (Riyal)';
+  String get mutualBenefitProposeConditionValueRiyals => 'Adadin (Riyal)';
 
   @override
-  String get referralProposeConditionValueService => 'Sabis';
+  String get mutualBenefitProposeConditionValueService => 'Sabis';
 
   @override
-  String get referralProposeValidityLabel => 'Ingancin (kwanaki)';
+  String get mutualBenefitProposeValidityLabel => 'Ingancin (kwanaki)';
 
   @override
-  String get referralProposeDurationLabel => 'Tsawon (kwanaki)';
+  String get mutualBenefitProposeDurationLabel => 'Tsawon (kwanaki)';
 
   @override
-  String get referralProposeCapLabel => 'Iyaka / kwana 30';
+  String get mutualBenefitProposeCapLabel => 'Iyaka / kwana 30';
 
   @override
-  String get referralProposeGrantTypeLabel => 'Nau\'in kyauta';
+  String get mutualBenefitProposeGrantTypeLabel => 'Nau\'in kyauta';
 
   @override
-  String get referralGrantTypeDiscount => 'Rangwame';
+  String get mutualBenefitGrantTypeDiscount => 'Rangwame';
 
   @override
-  String get referralGrantTypeGift => 'Kyauta';
+  String get mutualBenefitGrantTypeGift => 'Kyauta';
 
   @override
-  String get referralScopeBlanket => 'Dukan ziyara';
+  String get mutualBenefitScopeBlanket => 'Dukan ziyara';
 
   @override
-  String get referralScopeItem => 'Takamaiman sabis';
+  String get mutualBenefitScopeItem => 'Takamaiman sabis';
 
   @override
-  String get referralScopeGroup => 'Kungiya/kunshin';
+  String get mutualBenefitScopeGroup => 'Kungiya/kunshin';
 
   @override
-  String get referralProposeServiceLabel => 'Sabis';
+  String get mutualBenefitProposeServiceLabel => 'Sabis';
 
   @override
-  String get referralProposeGroupLabel => 'Kungiya';
+  String get mutualBenefitProposeGroupLabel => 'Kungiya';
 
   @override
-  String get referralProposeImmutableNote =>
+  String get mutualBenefitProposeImmutableNote =>
       'Sharuddan kyauta sun tabbata bayan aikawa — sabon tayi yana bukatar sabuwar yarjejeniya';
 
   @override
-  String get referralProposeSubmitting => 'Ana aikawa...';
+  String get mutualBenefitProposeSubmitting => 'Ana aikawa...';
 
   @override
-  String get referralProposeSubmit => 'Aika shawara';
+  String get mutualBenefitProposeSubmit => 'Aika shawara';
 
   @override
-  String referralGrantGift(String name) {
+  String mutualBenefitGrantGift(String name) {
     return 'Kyauta: $name';
   }
 
   @override
-  String referralGrantDiscountItem(String name) {
+  String mutualBenefitGrantDiscountItem(String name) {
     return 'Rangwame akan: $name';
   }
 
   @override
-  String referralGrantDiscountGroup(String name) {
+  String mutualBenefitGrantDiscountGroup(String name) {
     return 'Rangwame akan kungiya: $name';
   }
 
   @override
-  String referralPartnerCount(int n) {
+  String mutualBenefitPartnerCount(int n) {
     return 'Yarjejeniya $n';
   }
 
   @override
-  String get referralProposeResultFail => 'An kasa aika shawara';
+  String get mutualBenefitProposeResultFail => 'An kasa aika shawara';
 
   @override
-  String get referralRefusal402 =>
-      'Shagon ku bai yi rajista da app na Hadin Gwiwar Dabaru ba — yi rajista daga shagon aikace-aikace tukuna';
+  String get mutualBenefitRefusal402 =>
+      'Shagon ku bai yi rajista da app na Amfanin Juna ba — yi rajista daga shagon aikace-aikace tukuna';
 
   @override
-  String get referralRefusal403 => 'Ba ka da izinin wannan aikin';
+  String get mutualBenefitRefusal403 => 'Ba ka da izinin wannan aikin';
 
   @override
-  String get referralRefusal400 =>
+  String get mutualBenefitRefusal400 =>
       'Bayanan shawara ba daidai ba ne — duba sharadin, ko kana bayar da shawarar hadin gwiwa da kanka';
 
   @override
-  String get referralRefusal404 =>
+  String get mutualBenefitRefusal404 =>
       'Ba a sami shago da wannan lambar ba, ko sabis/kungiyar da aka zaba babu su a cikin kundin sauran shagon';
 
   @override
-  String get referralRefusal409 =>
+  String get mutualBenefitRefusal409 =>
       'Ka kai iyakar hadin gwiwa 3 masu aiki, ko yanayin hadin gwiwa ya canza';
 
   @override
-  String get referralRefusal503 =>
+  String get mutualBenefitRefusal503 =>
       'Ba a samun sabis na kudi na wucin gadi, sake gwadawa daga baya';
 
   @override

@@ -916,7 +916,7 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "staff stopped seeing it (or started) needs to see this was a deliberate switch",
     },
     {
-        "action": "referral_partnership.propose",
+        "action": "mutual_benefit.propose",
         "source": "internal",
         "critical": False,
         "resource": "referral_agreement",
@@ -924,7 +924,7 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "to see who on his side proposed a cross-tenant partnership, and when",
     },
     {
-        "action": "referral_partnership.accept",
+        "action": "mutual_benefit.accept",
         "source": "internal",
         "critical": True,
         "resource": "referral_agreement",
@@ -932,7 +932,7 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "act that turns an incoming proposal into a live commitment",
     },
     {
-        "action": "referral_partnership.reject",
+        "action": "mutual_benefit.reject",
         "source": "internal",
         "critical": False,
         "resource": "referral_agreement",
@@ -940,7 +940,7 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "other shop asks why nothing ever activated",
     },
     {
-        "action": "referral_partnership.cancel_request",
+        "action": "mutual_benefit.cancel_request",
         "source": "internal",
         "critical": False,
         "resource": "referral_agreement",
@@ -948,7 +948,7 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "until the other side confirms, but the request itself is a fact worth keeping",
     },
     {
-        "action": "referral_partnership.cancel_confirm",
+        "action": "mutual_benefit.cancel_confirm",
         "source": "internal",
         "critical": True,
         "resource": "referral_agreement",

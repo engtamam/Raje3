@@ -168,11 +168,11 @@ _PLATFORM_LEVEL: tuple[BranchDomainInfo, ...] = (
                   "applies to a cross-tenant subscription grant",
     ),
     BranchDomainInfo(
-        id="referral_partnership",
-        label_ar="شراكة استراتيجية",
+        id="mutual_benefit",
+        label_ar="تبادل منافع",
         branch_scoped=False,
         derived_from=None,
-        evidence="cross-tenant, company-wide by definition — core/referral_partnership.py's own "
+        evidence="cross-tenant, company-wide by definition — core/mutual_benefit.py's own "
                   "module docstring",
     ),
     BranchDomainInfo(

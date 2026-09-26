@@ -95,7 +95,7 @@
     "feature.contacts": "جهات الاتصال — a FREE standalone app that does one thing: it lets a shop with no other product at all resolve-or-create a customer by phone (POST /field/customers/ensure, services/operations). Carries `plan.standalone` for the same reason `feature.whatsapp` does",
     "feature.visit": "تسجيل زيارة — the visit register itself, sold as its own standalone app (services/operations/app/api/subscribed.py::subscribed_write_or_visit). Also GRANTS the reminders engine (adaptive rhythm, engagement scoring) as an included FEATURE, not a separate purchase — see services/reminders/app/api/subscribed.py::subscribed_write",
     "feature.mobile_requests": "خدمات متنقلة — a shop whose service travels to the customer (services/operations/app/core/mobile_requests.py). Standalone (plan.standalone) — the shop's own staff can type a request in by hand from day one; the WhatsApp bot is an additional door once feature.whatsapp is also bought, never a prerequisite",
-    "feature.referral_partnership": "شراكة استراتيجية (إحالة عملاء) — cross-tenant customer-referral eligibility detection between two consenting shops (services/operations/app/core/referral_partnership.py). Standalone (plan.standalone). NEVER a billing/money feature — the discount itself is applied by the beneficiary shop however it normally does; this app only organises the relationship and detects eligibility",
+    "feature.mutual_benefit": "تبادل منافع (إحالة عملاء) — cross-tenant customer-referral eligibility detection between two consenting shops (services/operations/app/core/mutual_benefit.py). Standalone (plan.standalone). NEVER a billing/money feature — the discount itself is applied by the beneficiary shop however it normally does; this app only organises the relationship and detects eligibility",
     "feature.mobile_ai_assistant": "المساعد الذكي (تطبيق الجوال) — on-device Gemma 4 assistant, apps/mobile only, no console screen. Standalone (plan.standalone). Priced at 0 on purpose (zero server inference cost to us) but a REAL subscribe/cancel-able plan, not an auto-grant — the owner's own explicit call, so a shop can turn it off like any other app and we can price it for real later with no code change"
   },
   "_removed": [
@@ -429,20 +429,20 @@
         "condition at shop A becomes automatically eligible for a discount at shop B — NEVER a",
         "money/billing feature (unlike «ولاء الشركاء» above, which discounts OUR OWN subscription):",
         "shop B applies its own discount however it normally does. We only detect eligibility and",
-        "notify. See services/operations/app/core/referral_partnership.py's own module docstring.",
+        "notify. See services/operations/app/core/mutual_benefit.py's own module docstring.",
         "",
         "`plan.standalone` — same posture as ولاء الشركاء/خدمات متنقلة: no other app is required first.",
         "",
-        "`screen: 'referral-partnership'` in core/apps.py names the console section — a real screen",
-        "(apps/console/src/screens/ReferralPartnership.tsx), live since 2026-09-16. Mobile has none",
-        "yet — see parity/referral.md."
+        "`screen: 'mutual-benefit'` in core/apps.py names the console section — a real screen",
+        "(apps/console/src/screens/MutualBenefit.tsx), live since 2026-09-16. Mobile has none",
+        "yet — see parity/mutual-benefit.md."
       ],
-      "name": "شراكة استراتيجية (إحالة عملاء)",
+      "name": "تبادل منافع (إحالة عملاء)",
       "amount": 9900,
       "trial_days": 30,
       "listed": true,
       "limits": {
-        "feature.referral_partnership": {
+        "feature.mutual_benefit": {
           "kind": "boolean",
           "limit": 1
         },
@@ -462,7 +462,7 @@
         "الاتصال» is (services/operations/app/core/signup.py's own `_start_contacts_grant`):",
         "the owner wants a shop to be able to turn this OFF like any other app, which an",
         "auto-grant can never express. Changing `amount` later is the ONLY step needed to start",
-        "charging for it — no code change, same promise `feature.referral_partnership`'s own row",
+        "charging for it — no code change, same promise `feature.mutual_benefit`'s own row",
         "above already keeps for its own price.",
         "",
         "`plan.standalone` — no other app is required first, same posture every free/standalone",

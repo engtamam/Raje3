@@ -63,7 +63,7 @@ SCREENS = [
     "apps/mobile/lib/features/services/bulk_import_sheet.dart",
     "apps/mobile/lib/widgets/branch_switcher.dart",
     "apps/mobile/lib/features/points/points_screen.dart",
-    "apps/mobile/lib/features/referral/referral_partnership_screen.dart",
+    "apps/mobile/lib/features/mutual_benefit/mutual_benefit_screen.dart",
     "apps/mobile/lib/features/apps/apps_store_screen.dart",
 ]
 

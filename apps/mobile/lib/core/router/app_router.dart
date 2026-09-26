@@ -22,7 +22,7 @@ import 'package:raje3_mobile/features/partner_loyalty/partner_loyalty_screen.dar
 import 'package:raje3_mobile/features/points/points_screen.dart';
 import 'package:raje3_mobile/features/rating/rating_screen.dart';
 import 'package:raje3_mobile/features/shop/shop_screen.dart';
-import 'package:raje3_mobile/features/referral/referral_partnership_screen.dart';
+import 'package:raje3_mobile/features/mutual_benefit/mutual_benefit_screen.dart';
 
 import 'package:raje3_mobile/features/services/services_screen.dart';
 import 'package:raje3_mobile/features/shell/main_shell.dart';
@@ -164,8 +164,8 @@ class AppRouter {
         return const MessagesScreen();
       case 'partner-loyalty':
         return const PartnerLoyaltyScreen();
-      case 'referral-partnership':
-        return const ReferralPartnershipScreen();
+      case 'mutual-benefit':
+        return const MutualBenefitScreen();
       default:
         return _NotYetOnMobile(label: section.label);
     }

@@ -2312,7 +2312,7 @@ async def set_coupon_preferences(request: Request, body: CouponPreferencesIn,
     return {"visit_grant_enabled": row.visit_grant_enabled}
 
 
-# ── referral partnership — NOT the same feature as coupons above, see core/referral_partnership.py
+# ── referral partnership — NOT the same feature as coupons above, see core/mutual_benefit.py
 # ── module docstring. TWO TIERS (owner's own explicit decision, 2026-09-21 — same split
 # ── `operations.grant_coupon`/`operations.grant_coupon_direct` already draws for coupons):
 # ── committing the shop to a partnership — propose/accept/reject/either cancel step — stays
@@ -2324,13 +2324,13 @@ async def set_coupon_preferences(request: Request, body: CouponPreferencesIn,
 # ── exactly a marketing metric this role should see, same reasoning `campaigns.read`/
 # ── `insights.read` already grant it visibility elsewhere — seeing performance is not the same
 # ── act as committing the shop's own services to a partner, and must not require the same key.
-from app.core.referral_partnership import ReferralError
+from app.core.mutual_benefit import MutualBenefitError
 
 _REFERRAL_MANAGE = require_capability("operations.manage")
 _REFERRAL_VIEW = require_capability("operations.read")
 
 
-def _referral_error(exc: ReferralError) -> HTTPException:
+def _mutual_benefit_error(exc: MutualBenefitError) -> HTTPException:
     code = str(exc.args[0]) if exc.args else "error"
     status_map = {
         "not_found": status.HTTP_404_NOT_FOUND,
@@ -2347,7 +2347,7 @@ def _referral_error(exc: ReferralError) -> HTTPException:
     return HTTPException(status_map.get(code, status.HTTP_400_BAD_REQUEST), code.upper())
 
 
-class ProposeReferralIn(BaseModel):
+class ProposeMutualBenefitIn(BaseModel):
     shop_b_phone: str = Field(min_length=3, max_length=32)
     condition_type: str = Field(min_length=1, max_length=32)
     condition_value: str = Field(min_length=1, max_length=64)
@@ -2355,7 +2355,7 @@ class ProposeReferralIn(BaseModel):
     agreement_duration_days: int = Field(gt=0, le=3650)
     per_period_cap: int = Field(default=0, ge=0)
     idempotency_key: str = Field(default="", max_length=128)
-    # NO FREE TEXT ANYWHERE — see core/referral_partnership.py's own "GRANT TYPE" module-docstring
+    # NO FREE TEXT ANYWHERE — see core/mutual_benefit.py's own "GRANT TYPE" module-docstring
     # section for the full, decided-once-and-immutable shape: "gift" (gift_service_id, a real
     # service from shop_b's own catalogue) or "discount" with discount_scope "item"
     # (gift_service_id, same as a gift), "blanket" (nothing else), or "group" (discount_group_id,
@@ -2366,11 +2366,11 @@ class ProposeReferralIn(BaseModel):
     discount_group_id: str = Field(default="", max_length=64)
 
 
-@router.post("/referral-partnership/agreements", dependencies=[Depends(rate_limit)])
-async def propose_referral_partnership(request: Request, body: ProposeReferralIn,
+@router.post("/mutual-benefit/agreements", dependencies=[Depends(rate_limit)])
+async def propose_mutual_benefit(request: Request, body: ProposeMutualBenefitIn,
                                        principal: Principal = Depends(_REFERRAL_MANAGE)):
     tenant = _tenant(principal)
-    engine = request.app.state.container.referral_partnership
+    engine = request.app.state.container.mutual_benefit
     try:
         agreement = await engine.propose(
             shop_a=tenant, shop_b_phone=body.shop_b_phone, operator_id=principal.subject,
@@ -2380,118 +2380,118 @@ async def propose_referral_partnership(request: Request, body: ProposeReferralIn
             per_period_cap=body.per_period_cap, idempotency_key=body.idempotency_key,
             grant_type=body.grant_type, gift_service_id=body.gift_service_id,
             discount_scope=body.discount_scope, discount_group_id=body.discount_group_id)
-    except ReferralError as exc:
-        raise _referral_error(exc) from exc
+    except MutualBenefitError as exc:
+        raise _mutual_benefit_error(exc) from exc
     await request.app.state.auditor.record(
-        "referral_partnership.propose", actor=principal.subject, tenant=tenant,
+        "mutual_benefit.propose", actor=principal.subject, tenant=tenant,
         resource=f"referral_agreement:{agreement.id}",
         ip=request.client.host if request.client else "")
     return agreement.public()
 
 
-@router.get("/referral-partnership/agreements", dependencies=[Depends(rate_limit)])
-async def list_referral_partnerships(request: Request,
+@router.get("/mutual-benefit/agreements", dependencies=[Depends(rate_limit)])
+async def list_mutual_benefits(request: Request,
                                      principal: Principal = Depends(_REFERRAL_VIEW)):
     tenant = _tenant(principal)
-    rows = await request.app.state.container.referral_partnership.agreements_for(tenant)
+    rows = await request.app.state.container.mutual_benefit.agreements_for(tenant)
     return {"agreements": [r.public() for r in rows]}
 
 
-@router.get("/referral-partnership/agreements/{agreement_id}", dependencies=[Depends(rate_limit)])
-async def get_referral_partnership(request: Request, agreement_id: str,
+@router.get("/mutual-benefit/agreements/{agreement_id}", dependencies=[Depends(rate_limit)])
+async def get_mutual_benefit(request: Request, agreement_id: str,
                                    principal: Principal = Depends(_REFERRAL_MANAGE)):
     tenant = _tenant(principal)
     try:
-        agreement = await request.app.state.container.referral_partnership.get(
+        agreement = await request.app.state.container.mutual_benefit.get(
             tenant, agreement_id)
-    except ReferralError as exc:
-        raise _referral_error(exc) from exc
+    except MutualBenefitError as exc:
+        raise _mutual_benefit_error(exc) from exc
     return agreement.public()
 
 
-@router.post("/referral-partnership/agreements/{agreement_id}/accept",
+@router.post("/mutual-benefit/agreements/{agreement_id}/accept",
             dependencies=[Depends(rate_limit)])
-async def accept_referral_partnership(request: Request, agreement_id: str,
+async def accept_mutual_benefit(request: Request, agreement_id: str,
                                       principal: Principal = Depends(_REFERRAL_MANAGE)):
     tenant = _tenant(principal)
     try:
-        agreement = await request.app.state.container.referral_partnership.accept(
+        agreement = await request.app.state.container.mutual_benefit.accept(
             tenant=tenant, agreement_id=agreement_id)
-    except ReferralError as exc:
-        raise _referral_error(exc) from exc
+    except MutualBenefitError as exc:
+        raise _mutual_benefit_error(exc) from exc
     await request.app.state.auditor.record(
-        "referral_partnership.accept", actor=principal.subject, tenant=tenant,
+        "mutual_benefit.accept", actor=principal.subject, tenant=tenant,
         resource=f"referral_agreement:{agreement_id}",
         ip=request.client.host if request.client else "")
     return agreement.public()
 
 
-@router.post("/referral-partnership/agreements/{agreement_id}/reject",
+@router.post("/mutual-benefit/agreements/{agreement_id}/reject",
             dependencies=[Depends(rate_limit)])
-async def reject_referral_partnership(request: Request, agreement_id: str,
+async def reject_mutual_benefit(request: Request, agreement_id: str,
                                       principal: Principal = Depends(_REFERRAL_MANAGE)):
     tenant = _tenant(principal)
     try:
-        agreement = await request.app.state.container.referral_partnership.reject(
+        agreement = await request.app.state.container.mutual_benefit.reject(
             tenant=tenant, agreement_id=agreement_id)
-    except ReferralError as exc:
-        raise _referral_error(exc) from exc
+    except MutualBenefitError as exc:
+        raise _mutual_benefit_error(exc) from exc
     await request.app.state.auditor.record(
-        "referral_partnership.reject", actor=principal.subject, tenant=tenant,
+        "mutual_benefit.reject", actor=principal.subject, tenant=tenant,
         resource=f"referral_agreement:{agreement_id}",
         ip=request.client.host if request.client else "")
     return agreement.public()
 
 
-@router.post("/referral-partnership/agreements/{agreement_id}/cancel-request",
+@router.post("/mutual-benefit/agreements/{agreement_id}/cancel-request",
             dependencies=[Depends(rate_limit)])
-async def cancel_request_referral_partnership(request: Request, agreement_id: str,
+async def cancel_request_mutual_benefit(request: Request, agreement_id: str,
                                               principal: Principal = Depends(_REFERRAL_MANAGE)):
     tenant = _tenant(principal)
     try:
-        agreement = await request.app.state.container.referral_partnership.cancel_request(
+        agreement = await request.app.state.container.mutual_benefit.cancel_request(
             tenant=tenant, agreement_id=agreement_id)
-    except ReferralError as exc:
-        raise _referral_error(exc) from exc
+    except MutualBenefitError as exc:
+        raise _mutual_benefit_error(exc) from exc
     await request.app.state.auditor.record(
-        "referral_partnership.cancel_request", actor=principal.subject, tenant=tenant,
+        "mutual_benefit.cancel_request", actor=principal.subject, tenant=tenant,
         resource=f"referral_agreement:{agreement_id}",
         ip=request.client.host if request.client else "")
     return agreement.public()
 
 
-@router.post("/referral-partnership/agreements/{agreement_id}/cancel-confirm",
+@router.post("/mutual-benefit/agreements/{agreement_id}/cancel-confirm",
             dependencies=[Depends(rate_limit)])
-async def cancel_confirm_referral_partnership(request: Request, agreement_id: str,
+async def cancel_confirm_mutual_benefit(request: Request, agreement_id: str,
                                               principal: Principal = Depends(_REFERRAL_MANAGE)):
     tenant = _tenant(principal)
     try:
-        agreement = await request.app.state.container.referral_partnership.cancel_confirm(
+        agreement = await request.app.state.container.mutual_benefit.cancel_confirm(
             tenant=tenant, agreement_id=agreement_id)
-    except ReferralError as exc:
-        raise _referral_error(exc) from exc
+    except MutualBenefitError as exc:
+        raise _mutual_benefit_error(exc) from exc
     await request.app.state.auditor.record(
-        "referral_partnership.cancel_confirm", actor=principal.subject, tenant=tenant,
+        "mutual_benefit.cancel_confirm", actor=principal.subject, tenant=tenant,
         resource=f"referral_agreement:{agreement_id}",
         ip=request.client.host if request.client else "")
     return agreement.public()
 
 
-@router.get("/referral-partnership/agreements/{agreement_id}/audit-log",
+@router.get("/mutual-benefit/agreements/{agreement_id}/audit-log",
            dependencies=[Depends(rate_limit)])
-async def referral_partnership_audit_log(request: Request, agreement_id: str,
+async def mutual_benefit_audit_log(request: Request, agreement_id: str,
                                          principal: Principal = Depends(_REFERRAL_VIEW)):
     tenant = _tenant(principal)
     try:
-        rows = await request.app.state.container.referral_partnership.audit_log(
+        rows = await request.app.state.container.mutual_benefit.audit_log(
             tenant, agreement_id)
-    except ReferralError as exc:
-        raise _referral_error(exc) from exc
+    except MutualBenefitError as exc:
+        raise _mutual_benefit_error(exc) from exc
     return {"entries": [r.public() for r in rows]}
 
 
-@router.get("/referral-partnership/kpis", dependencies=[Depends(rate_limit)])
-async def referral_partnership_kpis(request: Request,
+@router.get("/mutual-benefit/kpis", dependencies=[Depends(rate_limit)])
+async def mutual_benefit_kpis(request: Request,
                                     principal: Principal = Depends(_REFERRAL_VIEW)):
     tenant = _tenant(principal)
-    return await request.app.state.container.referral_partnership.kpis(tenant)
+    return await request.app.state.container.mutual_benefit.kpis(tenant)

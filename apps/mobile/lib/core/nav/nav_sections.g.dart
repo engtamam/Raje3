@@ -89,11 +89,11 @@ const List<NavSectionDef> kNavSections = [
     service: 'operations',
   ),
   NavSectionDef(
-    id: 'referral-partnership',
-    path: '/referral-partnership',
-    label: 'شراكة استراتيجية',
+    id: 'mutual-benefit',
+    path: '/mutual-benefit',
+    label: 'تبادل منافع',
     icon: Icons.volunteer_activism_outlined,
-    requires: ['operations.referral_partnership_list'],
+    requires: ['operations.mutual_benefit_list'],
     service: 'operations',
   ),
   NavSectionDef(

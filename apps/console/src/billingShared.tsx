@@ -99,7 +99,7 @@ export const LIMIT_KEYS: Record<string, { label: string; unit?: string }> = {
   'feature.whatsapp': { label: 'plans.limit.whatsapp.label' },
   'feature.partner_loyalty': { label: 'plans.limit.coupons.label' },
   'feature.mobile_requests': { label: 'plans.limit.mobileRequests.label' },
-  'feature.referral_partnership': { label: 'plans.limit.referralPartnership.label' },
+  'feature.mutual_benefit': { label: 'plans.limit.mutualBenefit.label' },
   'feature.mobile_ai_assistant': { label: 'plans.limit.mobileAiAssistant.label' },
   'plan.standalone': { label: 'plans.limit.standalone.label' },
   // `plan.requires_any` NEVER ACTUALLY PRINTS via `planLines` (its value is a list, never a

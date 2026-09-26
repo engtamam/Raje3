@@ -271,10 +271,10 @@ COUPONS_FEATURES: tuple[dict[str, Any], ...] = (
      },
 )
 
-# SHARE OF `feature.referral_partnership` — see docs/خطة-شراكة-استراتيجية-الإحالة.md and
-# core/referral_partnership.py's own module docstring. NOT `coupons.py`: a completely different
+# SHARE OF `feature.mutual_benefit` — see docs/خطة-شراكة-استراتيجية-الإحالة.md and
+# core/mutual_benefit.py's own module docstring. NOT `coupons.py`: a completely different
 # feature, financially unrelated — this one never touches money, pricing, or billing at all.
-REFERRAL_PARTNERSHIP_FEATURES: tuple[dict[str, Any], ...] = (
+MUTUAL_BENEFIT_FEATURES: tuple[dict[str, Any], ...] = (
     {"id": "referral.brings_you_ready_customers", "title": "يجلب لك عملاء جاهزين من محل تثق به",
      "detail": "عميل حقق شرطاً عند شريكك يصير مستحقاً لعرضك تلقائياً — بلا أي إثبات يحمله",
      "icon": "user-plus", "tone": "violet", "shared_with": [], "owned_by": ""},
@@ -352,17 +352,17 @@ APPS: tuple[dict[str, Any], ...] = (
              "فعلاً.",
      "features": list(MOBILE_REQUESTS_FEATURES)},
     # REFERRAL PARTNERSHIP — backend-only for now (this pass). See
-    # docs/خطة-شراكة-استراتيجية-الإحالة.md and core/referral_partnership.py's own module docstring.
-    # `screen: "referral-partnership"` names the console section a LATER, UI-only pass builds —
+    # docs/خطة-شراكة-استراتيجية-الإحالة.md and core/mutual_benefit.py's own module docstring.
+    # `screen: "mutual-benefit"` names the console section a LATER, UI-only pass builds —
     # declared here now so `ci/check_listed_apps_are_wired.py` never sees this row missing once the
     # plan is listed (same posture `feature.coupons`'s own row took, above).
-    {"key": "feature.referral_partnership", "name": "شراكة استراتيجية (إحالة عملاء)",
-     "screen": "referral-partnership",
+    {"key": "feature.mutual_benefit", "name": "تبادل منافع (إحالة عملاء)",
+     "screen": "mutual-benefit",
      "what": "عميل يحقق شرطاً عند محل تثق به يصير مستحقاً تلقائياً لعرضك — بموافقة الطرفين، بلا أي "
              "لمسة مالية منّا.",
-     "features": list(REFERRAL_PARTNERSHIP_FEATURES)},
+     "features": list(MUTUAL_BENEFIT_FEATURES)},
     # MOBILE AI ASSISTANT — on-device (apps/mobile only, Gemma 4 via flutter_gemma), no console
-    # screen AT ALL, ever — unlike `feature.referral_partnership`'s own row above (a console UI
+    # screen AT ALL, ever — unlike `feature.mutual_benefit`'s own row above (a console UI
     # that landed LATER), this app's whole surface lives on the phone, by design (owner's own
     # words: "كل شي بتطبيق الجوال لانه كل شي في تطبيق الجوال"). `screen` still names a real,
     # stable id (not a console route) purely so `ci/check_listed_apps_are_wired.py`'s own

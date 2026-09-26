@@ -813,349 +813,349 @@
       }
     }
   },
-  "referralProposeButton": "Mag-propose ng partnership",
-  "@referralProposeButton": {
-    "description": "referralProposeButton"
-  },
-  "referralTitle": "Strategic na Partnership",
-  "@referralTitle": {
-    "description": "referralTitle"
-  },
-  "referralSubtitle": "Ilipat ang tunay na customer sa pagitan mo at ibang tindahan, sa magkabilang pagsang-ayon",
-  "@referralSubtitle": {
-    "description": "referralSubtitle"
-  },
-  "referralRoleAll": "Lahat",
-  "@referralRoleAll": {
-    "description": "referralRoleAll"
-  },
-  "referralRoleReferrer": "Bilang referrer",
-  "@referralRoleReferrer": {
-    "description": "referralRoleReferrer"
-  },
-  "referralRoleBeneficiary": "Bilang beneficiary",
-  "@referralRoleBeneficiary": {
-    "description": "referralRoleBeneficiary"
-  },
-  "referralLoadFailed": "Hindi ma-load ang mga partnership",
-  "@referralLoadFailed": {
-    "description": "referralLoadFailed"
-  },
-  "referralEmptyTitle": "Wala pang partnership",
-  "@referralEmptyTitle": {
-    "description": "referralEmptyTitle"
-  },
-  "referralKpiAsReferrer": "Bilang referrer",
-  "@referralKpiAsReferrer": {
-    "description": "referralKpiAsReferrer"
-  },
-  "referralKpiAsBeneficiary": "Bilang beneficiary",
-  "@referralKpiAsBeneficiary": {
-    "description": "referralKpiAsBeneficiary"
-  },
-  "referralKpiSent": "Na-refer",
-  "@referralKpiSent": {
-    "description": "referralKpiSent"
-  },
-  "referralKpiRedeemed": "Na-redeem",
-  "@referralKpiRedeemed": {
-    "description": "referralKpiRedeemed"
-  },
-  "referralKpiRate": "Redemption rate",
-  "@referralKpiRate": {
-    "description": "referralKpiRate"
-  },
-  "referralConfirm": "Kumpirmahin",
-  "@referralConfirm": {
-    "description": "referralConfirm"
-  },
-  "referralGrantDiscountBlanket": "Diskwento sa buong bisita",
-  "@referralGrantDiscountBlanket": {
-    "description": "referralGrantDiscountBlanket"
-  },
-  "referralStatusProposed": "Iminungkahi",
-  "@referralStatusProposed": {
-    "description": "referralStatusProposed"
-  },
-  "referralStatusActive": "Aktibo",
-  "@referralStatusActive": {
-    "description": "referralStatusActive"
-  },
-  "referralStatusPaused": "Naka-pause",
-  "@referralStatusPaused": {
-    "description": "referralStatusPaused"
-  },
-  "referralStatusCancelRequested": "Hiniling na kanselahin",
-  "@referralStatusCancelRequested": {
-    "description": "referralStatusCancelRequested"
-  },
-  "referralStatusEnded": "Tapos na",
-  "@referralStatusEnded": {
-    "description": "referralStatusEnded"
-  },
-  "referralStatusRejected": "Tinanggihan",
-  "@referralStatusRejected": {
-    "description": "referralStatusRejected"
-  },
-  "referralStatusExpiredUnanswered": "Nag-expire, walang sagot",
-  "@referralStatusExpiredUnanswered": {
-    "description": "referralStatusExpiredUnanswered"
-  },
-  "referralEventProposed": "Iminungkahi ang partnership",
-  "@referralEventProposed": {
-    "description": "referralEventProposed"
-  },
-  "referralEventAccepted": "Tinanggap ang partnership",
-  "@referralEventAccepted": {
-    "description": "referralEventAccepted"
-  },
-  "referralEventRejected": "Tinanggihan ang partnership",
-  "@referralEventRejected": {
-    "description": "referralEventRejected"
-  },
-  "referralEventActivated": "Na-activate ang partnership",
-  "@referralEventActivated": {
-    "description": "referralEventActivated"
-  },
-  "referralEventCancelRequested": "Hiniling na kanselahin",
-  "@referralEventCancelRequested": {
-    "description": "referralEventCancelRequested"
-  },
-  "referralEventCancelConfirmed": "Nakumpirma ang pagkansela",
-  "@referralEventCancelConfirmed": {
-    "description": "referralEventCancelConfirmed"
-  },
-  "referralEventExpiredUnanswered": "Nag-expire nang walang sagot",
-  "@referralEventExpiredUnanswered": {
-    "description": "referralEventExpiredUnanswered"
-  },
-  "referralEventPaused": "Naka-pause",
-  "@referralEventPaused": {
-    "description": "referralEventPaused"
-  },
-  "referralEventResumed": "Ipinagpatuloy",
-  "@referralEventResumed": {
-    "description": "referralEventResumed"
-  },
-  "referralEventEndedTerm": "Natapos ang termino",
-  "@referralEventEndedTerm": {
-    "description": "referralEventEndedTerm"
-  },
-  "referralEventGrantCreated": "Bagong grant",
-  "@referralEventGrantCreated": {
-    "description": "referralEventGrantCreated"
-  },
-  "referralEventGrantRedeemed": "Na-redeem ang grant",
-  "@referralEventGrantRedeemed": {
-    "description": "referralEventGrantRedeemed"
-  },
-  "referralActivityActive": "Aktibo",
-  "@referralActivityActive": {
-    "description": "referralActivityActive"
-  },
-  "referralActivityPaused": "Naka-pause",
-  "@referralActivityPaused": {
-    "description": "referralActivityPaused"
-  },
-  "referralActivityPending": "Naghihintay ng sagot",
-  "@referralActivityPending": {
-    "description": "referralActivityPending"
-  },
-  "referralActivityInactive": "Hindi aktibo",
-  "@referralActivityInactive": {
-    "description": "referralActivityInactive"
-  },
-  "referralScorecardTitle": "Pagganap",
-  "@referralScorecardTitle": {
-    "description": "referralScorecardTitle"
-  },
-  "referralScorecardFailed": "Hindi ma-load ang pagganap",
-  "@referralScorecardFailed": {
-    "description": "referralScorecardFailed"
-  },
-  "referralActivityTitle": "Kamakailang aktibidad",
-  "@referralActivityTitle": {
-    "description": "referralActivityTitle"
-  },
-  "referralActivityEmpty": "Wala pang aktibidad",
-  "@referralActivityEmpty": {
-    "description": "referralActivityEmpty"
-  },
-  "referralAgreementsTitle": "Mga kasunduan",
-  "@referralAgreementsTitle": {
-    "description": "referralAgreementsTitle"
-  },
-  "referralConfirmCancel": "Tapusin na ang partnership na ito?",
-  "@referralConfirmCancel": {
-    "description": "referralConfirmCancel"
-  },
-  "referralActionAccept": "Tanggapin",
-  "@referralActionAccept": {
-    "description": "referralActionAccept"
-  },
-  "referralActionReject": "Tanggihan",
-  "@referralActionReject": {
-    "description": "referralActionReject"
-  },
-  "referralActionWaitingThem": "Naghihintay sa kabilang panig",
-  "@referralActionWaitingThem": {
-    "description": "referralActionWaitingThem"
-  },
-  "referralActionCancelRequest": "Humiling na tapusin",
-  "@referralActionCancelRequest": {
-    "description": "referralActionCancelRequest"
-  },
-  "referralActionCancelConfirm": "Kumpirmahin ang pagtatapos",
-  "@referralActionCancelConfirm": {
-    "description": "referralActionCancelConfirm"
-  },
-  "referralProposeTitle": "Mag-propose ng bagong partnership",
-  "@referralProposeTitle": {
-    "description": "referralProposeTitle"
-  },
-  "referralProposePhoneLabel": "Numero ng ibang tindahan",
-  "@referralProposePhoneLabel": {
-    "description": "referralProposePhoneLabel"
-  },
-  "referralProposeConditionLabel": "Kondisyon ng pagiging karapat-dapat sa iyong tindahan",
-  "@referralProposeConditionLabel": {
-    "description": "referralProposeConditionLabel"
-  },
-  "referralConditionMinTotal": "Pinakamababang invoice",
-  "@referralConditionMinTotal": {
-    "description": "referralConditionMinTotal"
-  },
-  "referralConditionServiceId": "Isang partikular na serbisyo",
-  "@referralConditionServiceId": {
-    "description": "referralConditionServiceId"
-  },
-  "referralProposeConditionValueRiyals": "Halaga (SAR)",
-  "@referralProposeConditionValueRiyals": {
-    "description": "referralProposeConditionValueRiyals"
-  },
-  "referralProposeConditionValueService": "Serbisyo",
-  "@referralProposeConditionValueService": {
-    "description": "referralProposeConditionValueService"
-  },
-  "referralProposeValidityLabel": "Bisa (araw)",
-  "@referralProposeValidityLabel": {
-    "description": "referralProposeValidityLabel"
-  },
-  "referralProposeDurationLabel": "Tagal (araw)",
-  "@referralProposeDurationLabel": {
-    "description": "referralProposeDurationLabel"
-  },
-  "referralProposeCapLabel": "Limit / 30 araw",
-  "@referralProposeCapLabel": {
-    "description": "referralProposeCapLabel"
-  },
-  "referralProposeGrantTypeLabel": "Uri ng grant",
-  "@referralProposeGrantTypeLabel": {
-    "description": "referralProposeGrantTypeLabel"
-  },
-  "referralGrantTypeDiscount": "Diskwento",
-  "@referralGrantTypeDiscount": {
-    "description": "referralGrantTypeDiscount"
-  },
-  "referralGrantTypeGift": "Regalo",
-  "@referralGrantTypeGift": {
-    "description": "referralGrantTypeGift"
-  },
-  "referralScopeBlanket": "Buong bisita",
-  "@referralScopeBlanket": {
-    "description": "referralScopeBlanket"
-  },
-  "referralScopeItem": "Isang partikular na serbisyo",
-  "@referralScopeItem": {
-    "description": "referralScopeItem"
-  },
-  "referralScopeGroup": "Grupo/package",
-  "@referralScopeGroup": {
-    "description": "referralScopeGroup"
-  },
-  "referralProposeServiceLabel": "Serbisyo",
-  "@referralProposeServiceLabel": {
-    "description": "referralProposeServiceLabel"
-  },
-  "referralProposeGroupLabel": "Grupo",
-  "@referralProposeGroupLabel": {
-    "description": "referralProposeGroupLabel"
-  },
-  "referralProposeImmutableNote": "Ang mga termino ng grant ay fixed na pagkatapos ipadala — kailangan ng bagong kasunduan para sa ibang alok",
-  "@referralProposeImmutableNote": {
-    "description": "referralProposeImmutableNote"
-  },
-  "referralProposeSubmitting": "Ipinapadala...",
-  "@referralProposeSubmitting": {
-    "description": "referralProposeSubmitting"
-  },
-  "referralProposeSubmit": "Ipadala ang panukala",
-  "@referralProposeSubmit": {
-    "description": "referralProposeSubmit"
-  },
-  "referralGrantGift": "Regalo: {name}",
-  "@referralGrantGift": {
-    "description": "referralGrantGift",
+  "mutualBenefitProposeButton": "Mag-propose ng partnership",
+  "@mutualBenefitProposeButton": {
+    "description": "mutualBenefitProposeButton"
+  },
+  "mutualBenefitTitle": "Mutual Benefit",
+  "@mutualBenefitTitle": {
+    "description": "mutualBenefitTitle"
+  },
+  "mutualBenefitSubtitle": "Ilipat ang tunay na customer sa pagitan mo at ibang tindahan, sa magkabilang pagsang-ayon",
+  "@mutualBenefitSubtitle": {
+    "description": "mutualBenefitSubtitle"
+  },
+  "mutualBenefitRoleAll": "Lahat",
+  "@mutualBenefitRoleAll": {
+    "description": "mutualBenefitRoleAll"
+  },
+  "mutualBenefitRoleReferrer": "Bilang referrer",
+  "@mutualBenefitRoleReferrer": {
+    "description": "mutualBenefitRoleReferrer"
+  },
+  "mutualBenefitRoleBeneficiary": "Bilang beneficiary",
+  "@mutualBenefitRoleBeneficiary": {
+    "description": "mutualBenefitRoleBeneficiary"
+  },
+  "mutualBenefitLoadFailed": "Hindi ma-load ang mga partnership",
+  "@mutualBenefitLoadFailed": {
+    "description": "mutualBenefitLoadFailed"
+  },
+  "mutualBenefitEmptyTitle": "Wala pang partnership",
+  "@mutualBenefitEmptyTitle": {
+    "description": "mutualBenefitEmptyTitle"
+  },
+  "mutualBenefitKpiAsReferrer": "Bilang referrer",
+  "@mutualBenefitKpiAsReferrer": {
+    "description": "mutualBenefitKpiAsReferrer"
+  },
+  "mutualBenefitKpiAsBeneficiary": "Bilang beneficiary",
+  "@mutualBenefitKpiAsBeneficiary": {
+    "description": "mutualBenefitKpiAsBeneficiary"
+  },
+  "mutualBenefitKpiSent": "Na-refer",
+  "@mutualBenefitKpiSent": {
+    "description": "mutualBenefitKpiSent"
+  },
+  "mutualBenefitKpiRedeemed": "Na-redeem",
+  "@mutualBenefitKpiRedeemed": {
+    "description": "mutualBenefitKpiRedeemed"
+  },
+  "mutualBenefitKpiRate": "Redemption rate",
+  "@mutualBenefitKpiRate": {
+    "description": "mutualBenefitKpiRate"
+  },
+  "mutualBenefitConfirm": "Kumpirmahin",
+  "@mutualBenefitConfirm": {
+    "description": "mutualBenefitConfirm"
+  },
+  "mutualBenefitGrantDiscountBlanket": "Diskwento sa buong bisita",
+  "@mutualBenefitGrantDiscountBlanket": {
+    "description": "mutualBenefitGrantDiscountBlanket"
+  },
+  "mutualBenefitStatusProposed": "Iminungkahi",
+  "@mutualBenefitStatusProposed": {
+    "description": "mutualBenefitStatusProposed"
+  },
+  "mutualBenefitStatusActive": "Aktibo",
+  "@mutualBenefitStatusActive": {
+    "description": "mutualBenefitStatusActive"
+  },
+  "mutualBenefitStatusPaused": "Naka-pause",
+  "@mutualBenefitStatusPaused": {
+    "description": "mutualBenefitStatusPaused"
+  },
+  "mutualBenefitStatusCancelRequested": "Hiniling na kanselahin",
+  "@mutualBenefitStatusCancelRequested": {
+    "description": "mutualBenefitStatusCancelRequested"
+  },
+  "mutualBenefitStatusEnded": "Tapos na",
+  "@mutualBenefitStatusEnded": {
+    "description": "mutualBenefitStatusEnded"
+  },
+  "mutualBenefitStatusRejected": "Tinanggihan",
+  "@mutualBenefitStatusRejected": {
+    "description": "mutualBenefitStatusRejected"
+  },
+  "mutualBenefitStatusExpiredUnanswered": "Nag-expire, walang sagot",
+  "@mutualBenefitStatusExpiredUnanswered": {
+    "description": "mutualBenefitStatusExpiredUnanswered"
+  },
+  "mutualBenefitEventProposed": "Iminungkahi ang partnership",
+  "@mutualBenefitEventProposed": {
+    "description": "mutualBenefitEventProposed"
+  },
+  "mutualBenefitEventAccepted": "Tinanggap ang partnership",
+  "@mutualBenefitEventAccepted": {
+    "description": "mutualBenefitEventAccepted"
+  },
+  "mutualBenefitEventRejected": "Tinanggihan ang partnership",
+  "@mutualBenefitEventRejected": {
+    "description": "mutualBenefitEventRejected"
+  },
+  "mutualBenefitEventActivated": "Na-activate ang partnership",
+  "@mutualBenefitEventActivated": {
+    "description": "mutualBenefitEventActivated"
+  },
+  "mutualBenefitEventCancelRequested": "Hiniling na kanselahin",
+  "@mutualBenefitEventCancelRequested": {
+    "description": "mutualBenefitEventCancelRequested"
+  },
+  "mutualBenefitEventCancelConfirmed": "Nakumpirma ang pagkansela",
+  "@mutualBenefitEventCancelConfirmed": {
+    "description": "mutualBenefitEventCancelConfirmed"
+  },
+  "mutualBenefitEventExpiredUnanswered": "Nag-expire nang walang sagot",
+  "@mutualBenefitEventExpiredUnanswered": {
+    "description": "mutualBenefitEventExpiredUnanswered"
+  },
+  "mutualBenefitEventPaused": "Naka-pause",
+  "@mutualBenefitEventPaused": {
+    "description": "mutualBenefitEventPaused"
+  },
+  "mutualBenefitEventResumed": "Ipinagpatuloy",
+  "@mutualBenefitEventResumed": {
+    "description": "mutualBenefitEventResumed"
+  },
+  "mutualBenefitEventEndedTerm": "Natapos ang termino",
+  "@mutualBenefitEventEndedTerm": {
+    "description": "mutualBenefitEventEndedTerm"
+  },
+  "mutualBenefitEventGrantCreated": "Bagong grant",
+  "@mutualBenefitEventGrantCreated": {
+    "description": "mutualBenefitEventGrantCreated"
+  },
+  "mutualBenefitEventGrantRedeemed": "Na-redeem ang grant",
+  "@mutualBenefitEventGrantRedeemed": {
+    "description": "mutualBenefitEventGrantRedeemed"
+  },
+  "mutualBenefitActivityActive": "Aktibo",
+  "@mutualBenefitActivityActive": {
+    "description": "mutualBenefitActivityActive"
+  },
+  "mutualBenefitActivityPaused": "Naka-pause",
+  "@mutualBenefitActivityPaused": {
+    "description": "mutualBenefitActivityPaused"
+  },
+  "mutualBenefitActivityPending": "Naghihintay ng sagot",
+  "@mutualBenefitActivityPending": {
+    "description": "mutualBenefitActivityPending"
+  },
+  "mutualBenefitActivityInactive": "Hindi aktibo",
+  "@mutualBenefitActivityInactive": {
+    "description": "mutualBenefitActivityInactive"
+  },
+  "mutualBenefitScorecardTitle": "Pagganap",
+  "@mutualBenefitScorecardTitle": {
+    "description": "mutualBenefitScorecardTitle"
+  },
+  "mutualBenefitScorecardFailed": "Hindi ma-load ang pagganap",
+  "@mutualBenefitScorecardFailed": {
+    "description": "mutualBenefitScorecardFailed"
+  },
+  "mutualBenefitActivityTitle": "Kamakailang aktibidad",
+  "@mutualBenefitActivityTitle": {
+    "description": "mutualBenefitActivityTitle"
+  },
+  "mutualBenefitActivityEmpty": "Wala pang aktibidad",
+  "@mutualBenefitActivityEmpty": {
+    "description": "mutualBenefitActivityEmpty"
+  },
+  "mutualBenefitAgreementsTitle": "Mga kasunduan",
+  "@mutualBenefitAgreementsTitle": {
+    "description": "mutualBenefitAgreementsTitle"
+  },
+  "mutualBenefitConfirmCancel": "Tapusin na ang partnership na ito?",
+  "@mutualBenefitConfirmCancel": {
+    "description": "mutualBenefitConfirmCancel"
+  },
+  "mutualBenefitActionAccept": "Tanggapin",
+  "@mutualBenefitActionAccept": {
+    "description": "mutualBenefitActionAccept"
+  },
+  "mutualBenefitActionReject": "Tanggihan",
+  "@mutualBenefitActionReject": {
+    "description": "mutualBenefitActionReject"
+  },
+  "mutualBenefitActionWaitingThem": "Naghihintay sa kabilang panig",
+  "@mutualBenefitActionWaitingThem": {
+    "description": "mutualBenefitActionWaitingThem"
+  },
+  "mutualBenefitActionCancelRequest": "Humiling na tapusin",
+  "@mutualBenefitActionCancelRequest": {
+    "description": "mutualBenefitActionCancelRequest"
+  },
+  "mutualBenefitActionCancelConfirm": "Kumpirmahin ang pagtatapos",
+  "@mutualBenefitActionCancelConfirm": {
+    "description": "mutualBenefitActionCancelConfirm"
+  },
+  "mutualBenefitProposeTitle": "Mag-propose ng bagong partnership",
+  "@mutualBenefitProposeTitle": {
+    "description": "mutualBenefitProposeTitle"
+  },
+  "mutualBenefitProposePhoneLabel": "Numero ng ibang tindahan",
+  "@mutualBenefitProposePhoneLabel": {
+    "description": "mutualBenefitProposePhoneLabel"
+  },
+  "mutualBenefitProposeConditionLabel": "Kondisyon ng pagiging karapat-dapat sa iyong tindahan",
+  "@mutualBenefitProposeConditionLabel": {
+    "description": "mutualBenefitProposeConditionLabel"
+  },
+  "mutualBenefitConditionMinTotal": "Pinakamababang invoice",
+  "@mutualBenefitConditionMinTotal": {
+    "description": "mutualBenefitConditionMinTotal"
+  },
+  "mutualBenefitConditionServiceId": "Isang partikular na serbisyo",
+  "@mutualBenefitConditionServiceId": {
+    "description": "mutualBenefitConditionServiceId"
+  },
+  "mutualBenefitProposeConditionValueRiyals": "Halaga (SAR)",
+  "@mutualBenefitProposeConditionValueRiyals": {
+    "description": "mutualBenefitProposeConditionValueRiyals"
+  },
+  "mutualBenefitProposeConditionValueService": "Serbisyo",
+  "@mutualBenefitProposeConditionValueService": {
+    "description": "mutualBenefitProposeConditionValueService"
+  },
+  "mutualBenefitProposeValidityLabel": "Bisa (araw)",
+  "@mutualBenefitProposeValidityLabel": {
+    "description": "mutualBenefitProposeValidityLabel"
+  },
+  "mutualBenefitProposeDurationLabel": "Tagal (araw)",
+  "@mutualBenefitProposeDurationLabel": {
+    "description": "mutualBenefitProposeDurationLabel"
+  },
+  "mutualBenefitProposeCapLabel": "Limit / 30 araw",
+  "@mutualBenefitProposeCapLabel": {
+    "description": "mutualBenefitProposeCapLabel"
+  },
+  "mutualBenefitProposeGrantTypeLabel": "Uri ng grant",
+  "@mutualBenefitProposeGrantTypeLabel": {
+    "description": "mutualBenefitProposeGrantTypeLabel"
+  },
+  "mutualBenefitGrantTypeDiscount": "Diskwento",
+  "@mutualBenefitGrantTypeDiscount": {
+    "description": "mutualBenefitGrantTypeDiscount"
+  },
+  "mutualBenefitGrantTypeGift": "Regalo",
+  "@mutualBenefitGrantTypeGift": {
+    "description": "mutualBenefitGrantTypeGift"
+  },
+  "mutualBenefitScopeBlanket": "Buong bisita",
+  "@mutualBenefitScopeBlanket": {
+    "description": "mutualBenefitScopeBlanket"
+  },
+  "mutualBenefitScopeItem": "Isang partikular na serbisyo",
+  "@mutualBenefitScopeItem": {
+    "description": "mutualBenefitScopeItem"
+  },
+  "mutualBenefitScopeGroup": "Grupo/package",
+  "@mutualBenefitScopeGroup": {
+    "description": "mutualBenefitScopeGroup"
+  },
+  "mutualBenefitProposeServiceLabel": "Serbisyo",
+  "@mutualBenefitProposeServiceLabel": {
+    "description": "mutualBenefitProposeServiceLabel"
+  },
+  "mutualBenefitProposeGroupLabel": "Grupo",
+  "@mutualBenefitProposeGroupLabel": {
+    "description": "mutualBenefitProposeGroupLabel"
+  },
+  "mutualBenefitProposeImmutableNote": "Ang mga termino ng grant ay fixed na pagkatapos ipadala — kailangan ng bagong kasunduan para sa ibang alok",
+  "@mutualBenefitProposeImmutableNote": {
+    "description": "mutualBenefitProposeImmutableNote"
+  },
+  "mutualBenefitProposeSubmitting": "Ipinapadala...",
+  "@mutualBenefitProposeSubmitting": {
+    "description": "mutualBenefitProposeSubmitting"
+  },
+  "mutualBenefitProposeSubmit": "Ipadala ang panukala",
+  "@mutualBenefitProposeSubmit": {
+    "description": "mutualBenefitProposeSubmit"
+  },
+  "mutualBenefitGrantGift": "Regalo: {name}",
+  "@mutualBenefitGrantGift": {
+    "description": "mutualBenefitGrantGift",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "referralGrantDiscountItem": "Diskwento sa: {name}",
-  "@referralGrantDiscountItem": {
-    "description": "referralGrantDiscountItem",
+  "mutualBenefitGrantDiscountItem": "Diskwento sa: {name}",
+  "@mutualBenefitGrantDiscountItem": {
+    "description": "mutualBenefitGrantDiscountItem",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "referralGrantDiscountGroup": "Diskwento sa grupo: {name}",
-  "@referralGrantDiscountGroup": {
-    "description": "referralGrantDiscountGroup",
+  "mutualBenefitGrantDiscountGroup": "Diskwento sa grupo: {name}",
+  "@mutualBenefitGrantDiscountGroup": {
+    "description": "mutualBenefitGrantDiscountGroup",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "referralPartnerCount": "{n} kasunduan",
-  "@referralPartnerCount": {
-    "description": "referralPartnerCount",
+  "mutualBenefitPartnerCount": "{n} kasunduan",
+  "@mutualBenefitPartnerCount": {
+    "description": "mutualBenefitPartnerCount",
     "placeholders": {
       "n": {
         "type": "int"
       }
     }
   },
-  "referralProposeResultFail": "Hindi maipadala ang panukala",
-  "@referralProposeResultFail": {
-    "description": "referralProposeResultFail"
+  "mutualBenefitProposeResultFail": "Hindi maipadala ang panukala",
+  "@mutualBenefitProposeResultFail": {
+    "description": "mutualBenefitProposeResultFail"
   },
-  "referralRefusal402": "Hindi subscribed ang tindahan mo sa Strategic Partnership app — mag-subscribe muna sa app store",
-  "@referralRefusal402": {
-    "description": "referralRefusal402"
+  "mutualBenefitRefusal402": "Hindi subscribed ang tindahan mo sa Mutual Benefit app — mag-subscribe muna sa app store",
+  "@mutualBenefitRefusal402": {
+    "description": "mutualBenefitRefusal402"
   },
-  "referralRefusal403": "Wala kang pahintulot para sa aksyong ito",
-  "@referralRefusal403": {
-    "description": "referralRefusal403"
+  "mutualBenefitRefusal403": "Wala kang pahintulot para sa aksyong ito",
+  "@mutualBenefitRefusal403": {
+    "description": "mutualBenefitRefusal403"
   },
-  "referralRefusal400": "Hindi valid ang datos ng panukala — suriin ang kondisyon, o baka ikaw mismo ang minumungkahi mong partner",
-  "@referralRefusal400": {
-    "description": "referralRefusal400"
+  "mutualBenefitRefusal400": "Hindi valid ang datos ng panukala — suriin ang kondisyon, o baka ikaw mismo ang minumungkahi mong partner",
+  "@mutualBenefitRefusal400": {
+    "description": "mutualBenefitRefusal400"
   },
-  "referralRefusal404": "Walang natagpuang tindahan sa numerong iyon, o wala ang napiling serbisyo/grupo sa katalogo ng kabilang tindahan",
-  "@referralRefusal404": {
-    "description": "referralRefusal404"
+  "mutualBenefitRefusal404": "Walang natagpuang tindahan sa numerong iyon, o wala ang napiling serbisyo/grupo sa katalogo ng kabilang tindahan",
+  "@mutualBenefitRefusal404": {
+    "description": "mutualBenefitRefusal404"
   },
-  "referralRefusal409": "Naabot mo na ang limitasyon na 3 aktibong partnership, o nagbago ang estado ng partnership",
-  "@referralRefusal409": {
-    "description": "referralRefusal409"
+  "mutualBenefitRefusal409": "Naabot mo na ang limitasyon na 3 aktibong partnership, o nagbago ang estado ng partnership",
+  "@mutualBenefitRefusal409": {
+    "description": "mutualBenefitRefusal409"
   },
-  "referralRefusal503": "Pansamantalang hindi available ang billing, subukan muli mamaya",
-  "@referralRefusal503": {
-    "description": "referralRefusal503"
+  "mutualBenefitRefusal503": "Pansamantalang hindi available ang billing, subukan muli mamaya",
+  "@mutualBenefitRefusal503": {
+    "description": "mutualBenefitRefusal503"
   },
   "appStoreTitle": "App Store",
   "appStoreSubtitle": "Palaguin ang tindahan mo gamit ang totoong apps, isa-isa",

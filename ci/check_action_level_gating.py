@@ -59,7 +59,7 @@ EXEMPT: dict[str, str] = {
         "its one onClick toggles local `shown` state — no write, no API import in the file.",
     "apps/console/src/screens/Legal.tsx":
         "its one onClick toggles the locale shown locally — no write, no API import in the file.",
-    "apps/console/src/screens/ReferralGrantCelebration.tsx":
+    "apps/console/src/screens/MutualBenefitGrantCelebration.tsx":
         "all three onClicks close the celebration overlay (local callbacks) — no write.",
     "apps/console/src/screens/WelcomeTrial.tsx":
         "its one onClick is the dismiss button (local onDone callback) — no write.",

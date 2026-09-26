@@ -237,7 +237,7 @@ def build_container(settings: Settings) -> Container:
     phone_search_ro = (PhoneSearchReadOnly(settings.DATASTORE_DSN_PHONE_SEARCH)
                        if settings.DATASTORE_DSN_PHONE_SEARCH else None)
     # KEPT AS A LOCAL, NOT JUST HANDED TO `with_offer_chooser` — `core/entitlements.py`'s own
-    # `EntitlementGateway` (built below, once `referral_partnership` exists) wraps this SAME
+    # `EntitlementGateway` (built below, once `mutual_benefit` exists) wraps this SAME
     # callable as its campaign source, rather than this service learning reminders' route shape a
     # second time.
     reminders_offer_chooser = http_chooser(reminders_url=settings.REMINDERS_SERVICE_URL,
@@ -365,20 +365,20 @@ def build_container(settings: Settings) -> Container:
         store=container.datastore, plans=container.billing_plans,
         default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
 
-    # Referral partnership — NOT the same feature as coupons above (see that module's own module
-    # docstring, and core/referral_partnership.py's own for the full contrast). Needs
+    # Mutual benefit — NOT the same feature as coupons above (see that module's own module
+    # docstring, and core/mutual_benefit.py's own for the full contrast). Needs
     # `billing_plans` (just built) for its own feature-gate/pause-resume check, `authz_desk` and
     # `inapp_notifier` (both already built above) to find and reach a proposal's own recipients.
     # Installed onto the already-built `container.operations` via its own setter — see
-    # `Operations.with_referral_engine`'s own docstring for why this is a post-construction wire
+    # `Operations.with_mutual_benefit_engine`'s own docstring for why this is a post-construction wire
     # rather than a constructor argument.
-    from app.core.referral_partnership import ReferralPartnershipEngine
+    from app.core.mutual_benefit import MutualBenefitEngine
 
-    container.referral_partnership = ReferralPartnershipEngine(
+    container.mutual_benefit = MutualBenefitEngine(
         store=container.datastore, plans=container.billing_plans,
         notifier=container.inapp_notifier, authz=container.authz_desk,
         default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
-    container.operations.with_referral_engine(container.referral_partnership)
+    container.operations.with_mutual_benefit_engine(container.mutual_benefit)
 
     # THE ONE AGGREGATION POINT `apply_offer` now consults instead of calling the reminders
     # chooser directly — see core/entitlements.py's own module docstring for the tie-break rule
@@ -387,7 +387,7 @@ def build_container(settings: Settings) -> Container:
     from app.core.entitlements import EntitlementGateway
 
     container.entitlement_gateway = EntitlementGateway(
-        referral_engine=container.referral_partnership, campaign_chooser=reminders_offer_chooser)
+        mutual_benefit_engine=container.mutual_benefit, campaign_chooser=reminders_offer_chooser)
     container.operations.with_entitlement_gateway(container.entitlement_gateway)
 
     # Salla — infrastructure only, see core/marketplaces/salla.py's own module docstring.
@@ -471,8 +471,8 @@ def build_container(settings: Settings) -> Container:
     container.insights_engine_licence = build_feature_licence(settings, "feature.insights.engine")
     container.partner_loyalty_licence = build_feature_licence(settings, "feature.partner_loyalty")
     container.mobile_requests_licence = build_feature_licence(settings, "feature.mobile_requests")
-    container.referral_partnership_licence = build_feature_licence(
-        settings, "feature.referral_partnership")
+    container.mutual_benefit_licence = build_feature_licence(
+        settings, "feature.mutual_benefit")
     # WITHOUT THIS, `subscribed_write`'s own generic OR-gate (app/api/subscribed.py::_ANY_APP,
     # derived from core/apps.py::KEYS) reads `getattr(container, "mobile_ai_assistant_licence",
     # None)` as `None` for EVERY tenant and, by that gate's own documented "an unwired licence

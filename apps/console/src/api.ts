@@ -718,11 +718,11 @@ export interface VisitDraft {
 }
 
 /** The counter's own celebration moment — present ONLY on the rare visit that just made this
- *  customer eligible for a NEW «شراكة استراتيجية» reward at a partner shop (never on an ordinary
+ *  customer eligible for a NEW «تبادل منافع» reward at a partner shop (never on an ordinary
  *  visit, never on a replayed idempotency key — services/operations/app/api/v1/field.py's own
  *  note on this same field). `partner_shop_name` may be empty (a name lookup that could not be
  *  made) — the celebration still shows the real gift, just without that one line. */
-export interface ReferralGrantAck {
+export interface MutualBenefitGrantAck {
   grant_type: 'gift' | 'discount';
   gift_service_name: string;
   discount_scope: string;
@@ -738,7 +738,7 @@ export interface VisitAck {
   /** A repeat of the same key answers 201 with this true — a SUCCESS, not a conflict. The operator
    *  wanted one visit and there is one visit; a 409 on a double tap teaches him the screen lies. */
   duplicate: boolean;
-  referral_grant?: ReferralGrantAck;
+  mutual_benefit_grant?: MutualBenefitGrantAck;
 }
 
 /** A name the field sheet can offer. `has_pin` is what makes it offerable at all. */

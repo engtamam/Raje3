@@ -813,349 +813,349 @@
       }
     }
   },
-  "referralProposeButton": "Baiwa shawarar hadin gwiwa",
-  "@referralProposeButton": {
-    "description": "referralProposeButton"
-  },
-  "referralTitle": "Hadin Gwiwar Dabaru",
-  "@referralTitle": {
-    "description": "referralTitle"
-  },
-  "referralSubtitle": "Tura abokan ciniki na gaske tsakanin ku da sauran shaguna, ta yarjejeniya tsakanin bangarorin biyu",
-  "@referralSubtitle": {
-    "description": "referralSubtitle"
-  },
-  "referralRoleAll": "Duka",
-  "@referralRoleAll": {
-    "description": "referralRoleAll"
-  },
-  "referralRoleReferrer": "A matsayin mai tura",
-  "@referralRoleReferrer": {
-    "description": "referralRoleReferrer"
-  },
-  "referralRoleBeneficiary": "A matsayin mai amfana",
-  "@referralRoleBeneficiary": {
-    "description": "referralRoleBeneficiary"
-  },
-  "referralLoadFailed": "An kasa loda hadin gwiwa",
-  "@referralLoadFailed": {
-    "description": "referralLoadFailed"
-  },
-  "referralEmptyTitle": "Babu hadin gwiwa tukuna",
-  "@referralEmptyTitle": {
-    "description": "referralEmptyTitle"
-  },
-  "referralKpiAsReferrer": "A matsayin mai tura",
-  "@referralKpiAsReferrer": {
-    "description": "referralKpiAsReferrer"
-  },
-  "referralKpiAsBeneficiary": "A matsayin mai amfana",
-  "@referralKpiAsBeneficiary": {
-    "description": "referralKpiAsBeneficiary"
-  },
-  "referralKpiSent": "An tura",
-  "@referralKpiSent": {
-    "description": "referralKpiSent"
-  },
-  "referralKpiRedeemed": "An fanshi",
-  "@referralKpiRedeemed": {
-    "description": "referralKpiRedeemed"
-  },
-  "referralKpiRate": "Adadin fansa",
-  "@referralKpiRate": {
-    "description": "referralKpiRate"
-  },
-  "referralConfirm": "Tabbatar",
-  "@referralConfirm": {
-    "description": "referralConfirm"
-  },
-  "referralGrantDiscountBlanket": "Rangwame akan dukan ziyara",
-  "@referralGrantDiscountBlanket": {
-    "description": "referralGrantDiscountBlanket"
-  },
-  "referralStatusProposed": "An bayar da shawara",
-  "@referralStatusProposed": {
-    "description": "referralStatusProposed"
-  },
-  "referralStatusActive": "Mai aiki",
-  "@referralStatusActive": {
-    "description": "referralStatusActive"
-  },
-  "referralStatusPaused": "An dakatar na wucin gadi",
-  "@referralStatusPaused": {
-    "description": "referralStatusPaused"
-  },
-  "referralStatusCancelRequested": "An nemi soke",
-  "@referralStatusCancelRequested": {
-    "description": "referralStatusCancelRequested"
-  },
-  "referralStatusEnded": "Ya kare",
-  "@referralStatusEnded": {
-    "description": "referralStatusEnded"
-  },
-  "referralStatusRejected": "An ki amincewa",
-  "@referralStatusRejected": {
-    "description": "referralStatusRejected"
-  },
-  "referralStatusExpiredUnanswered": "Ya kare ba tare da amsa ba",
-  "@referralStatusExpiredUnanswered": {
-    "description": "referralStatusExpiredUnanswered"
-  },
-  "referralEventProposed": "An bayar da shawarar hadin gwiwa",
-  "@referralEventProposed": {
-    "description": "referralEventProposed"
-  },
-  "referralEventAccepted": "An amince da hadin gwiwa",
-  "@referralEventAccepted": {
-    "description": "referralEventAccepted"
-  },
-  "referralEventRejected": "An ki amincewa da hadin gwiwa",
-  "@referralEventRejected": {
-    "description": "referralEventRejected"
-  },
-  "referralEventActivated": "An kunna hadin gwiwa",
-  "@referralEventActivated": {
-    "description": "referralEventActivated"
-  },
-  "referralEventCancelRequested": "An nemi soke",
-  "@referralEventCancelRequested": {
-    "description": "referralEventCancelRequested"
-  },
-  "referralEventCancelConfirmed": "An tabbatar da sokewa",
-  "@referralEventCancelConfirmed": {
-    "description": "referralEventCancelConfirmed"
-  },
-  "referralEventExpiredUnanswered": "Ya kare ba tare da amsa ba",
-  "@referralEventExpiredUnanswered": {
-    "description": "referralEventExpiredUnanswered"
-  },
-  "referralEventPaused": "An dakatar na wucin gadi",
-  "@referralEventPaused": {
-    "description": "referralEventPaused"
-  },
-  "referralEventResumed": "An sake farawa",
-  "@referralEventResumed": {
-    "description": "referralEventResumed"
-  },
-  "referralEventEndedTerm": "Lokaci ya kare",
-  "@referralEventEndedTerm": {
-    "description": "referralEventEndedTerm"
-  },
-  "referralEventGrantCreated": "Sabon kyauta",
-  "@referralEventGrantCreated": {
-    "description": "referralEventGrantCreated"
-  },
-  "referralEventGrantRedeemed": "An fanshi kyauta",
-  "@referralEventGrantRedeemed": {
-    "description": "referralEventGrantRedeemed"
-  },
-  "referralActivityActive": "Mai aiki",
-  "@referralActivityActive": {
-    "description": "referralActivityActive"
-  },
-  "referralActivityPaused": "An dakatar na wucin gadi",
-  "@referralActivityPaused": {
-    "description": "referralActivityPaused"
-  },
-  "referralActivityPending": "Ana jiran amsa",
-  "@referralActivityPending": {
-    "description": "referralActivityPending"
-  },
-  "referralActivityInactive": "Ba mai aiki ba",
-  "@referralActivityInactive": {
-    "description": "referralActivityInactive"
-  },
-  "referralScorecardTitle": "Aiki",
-  "@referralScorecardTitle": {
-    "description": "referralScorecardTitle"
-  },
-  "referralScorecardFailed": "An kasa loda aiki",
-  "@referralScorecardFailed": {
-    "description": "referralScorecardFailed"
-  },
-  "referralActivityTitle": "Ayyukan kwanan nan",
-  "@referralActivityTitle": {
-    "description": "referralActivityTitle"
-  },
-  "referralActivityEmpty": "Babu ayyuka tukuna",
-  "@referralActivityEmpty": {
-    "description": "referralActivityEmpty"
-  },
-  "referralAgreementsTitle": "Yarjejeniyoyi",
-  "@referralAgreementsTitle": {
-    "description": "referralAgreementsTitle"
-  },
-  "referralConfirmCancel": "Tabbatar da kawo karshen wannan hadin gwiwa har abada?",
-  "@referralConfirmCancel": {
-    "description": "referralConfirmCancel"
-  },
-  "referralActionAccept": "Amince",
-  "@referralActionAccept": {
-    "description": "referralActionAccept"
-  },
-  "referralActionReject": "Ki amincewa",
-  "@referralActionReject": {
-    "description": "referralActionReject"
-  },
-  "referralActionWaitingThem": "Ana jiran daya bangaren",
-  "@referralActionWaitingThem": {
-    "description": "referralActionWaitingThem"
-  },
-  "referralActionCancelRequest": "Nema a kawo karshen",
-  "@referralActionCancelRequest": {
-    "description": "referralActionCancelRequest"
-  },
-  "referralActionCancelConfirm": "Tabbatar da kawo karshen",
-  "@referralActionCancelConfirm": {
-    "description": "referralActionCancelConfirm"
-  },
-  "referralProposeTitle": "Baiwa sabon shawarar hadin gwiwa",
-  "@referralProposeTitle": {
-    "description": "referralProposeTitle"
-  },
-  "referralProposePhoneLabel": "Lambar wayar sauran shago",
-  "@referralProposePhoneLabel": {
-    "description": "referralProposePhoneLabel"
-  },
-  "referralProposeConditionLabel": "Sharadin cancanta a shagon ku",
-  "@referralProposeConditionLabel": {
-    "description": "referralProposeConditionLabel"
-  },
-  "referralConditionMinTotal": "Mafi karancin kudin biya",
-  "@referralConditionMinTotal": {
-    "description": "referralConditionMinTotal"
-  },
-  "referralConditionServiceId": "Takamaiman sabis",
-  "@referralConditionServiceId": {
-    "description": "referralConditionServiceId"
-  },
-  "referralProposeConditionValueRiyals": "Adadin (Riyal)",
-  "@referralProposeConditionValueRiyals": {
-    "description": "referralProposeConditionValueRiyals"
-  },
-  "referralProposeConditionValueService": "Sabis",
-  "@referralProposeConditionValueService": {
-    "description": "referralProposeConditionValueService"
-  },
-  "referralProposeValidityLabel": "Ingancin (kwanaki)",
-  "@referralProposeValidityLabel": {
-    "description": "referralProposeValidityLabel"
-  },
-  "referralProposeDurationLabel": "Tsawon (kwanaki)",
-  "@referralProposeDurationLabel": {
-    "description": "referralProposeDurationLabel"
-  },
-  "referralProposeCapLabel": "Iyaka / kwana 30",
-  "@referralProposeCapLabel": {
-    "description": "referralProposeCapLabel"
-  },
-  "referralProposeGrantTypeLabel": "Nau'in kyauta",
-  "@referralProposeGrantTypeLabel": {
-    "description": "referralProposeGrantTypeLabel"
-  },
-  "referralGrantTypeDiscount": "Rangwame",
-  "@referralGrantTypeDiscount": {
-    "description": "referralGrantTypeDiscount"
-  },
-  "referralGrantTypeGift": "Kyauta",
-  "@referralGrantTypeGift": {
-    "description": "referralGrantTypeGift"
-  },
-  "referralScopeBlanket": "Dukan ziyara",
-  "@referralScopeBlanket": {
-    "description": "referralScopeBlanket"
-  },
-  "referralScopeItem": "Takamaiman sabis",
-  "@referralScopeItem": {
-    "description": "referralScopeItem"
-  },
-  "referralScopeGroup": "Kungiya/kunshin",
-  "@referralScopeGroup": {
-    "description": "referralScopeGroup"
-  },
-  "referralProposeServiceLabel": "Sabis",
-  "@referralProposeServiceLabel": {
-    "description": "referralProposeServiceLabel"
-  },
-  "referralProposeGroupLabel": "Kungiya",
-  "@referralProposeGroupLabel": {
-    "description": "referralProposeGroupLabel"
-  },
-  "referralProposeImmutableNote": "Sharuddan kyauta sun tabbata bayan aikawa — sabon tayi yana bukatar sabuwar yarjejeniya",
-  "@referralProposeImmutableNote": {
-    "description": "referralProposeImmutableNote"
-  },
-  "referralProposeSubmitting": "Ana aikawa...",
-  "@referralProposeSubmitting": {
-    "description": "referralProposeSubmitting"
-  },
-  "referralProposeSubmit": "Aika shawara",
-  "@referralProposeSubmit": {
-    "description": "referralProposeSubmit"
-  },
-  "referralGrantGift": "Kyauta: {name}",
-  "@referralGrantGift": {
-    "description": "referralGrantGift",
+  "mutualBenefitProposeButton": "Baiwa shawarar hadin gwiwa",
+  "@mutualBenefitProposeButton": {
+    "description": "mutualBenefitProposeButton"
+  },
+  "mutualBenefitTitle": "Amfanin Juna",
+  "@mutualBenefitTitle": {
+    "description": "mutualBenefitTitle"
+  },
+  "mutualBenefitSubtitle": "Tura abokan ciniki na gaske tsakanin ku da sauran shaguna, ta yarjejeniya tsakanin bangarorin biyu",
+  "@mutualBenefitSubtitle": {
+    "description": "mutualBenefitSubtitle"
+  },
+  "mutualBenefitRoleAll": "Duka",
+  "@mutualBenefitRoleAll": {
+    "description": "mutualBenefitRoleAll"
+  },
+  "mutualBenefitRoleReferrer": "A matsayin mai tura",
+  "@mutualBenefitRoleReferrer": {
+    "description": "mutualBenefitRoleReferrer"
+  },
+  "mutualBenefitRoleBeneficiary": "A matsayin mai amfana",
+  "@mutualBenefitRoleBeneficiary": {
+    "description": "mutualBenefitRoleBeneficiary"
+  },
+  "mutualBenefitLoadFailed": "An kasa loda hadin gwiwa",
+  "@mutualBenefitLoadFailed": {
+    "description": "mutualBenefitLoadFailed"
+  },
+  "mutualBenefitEmptyTitle": "Babu hadin gwiwa tukuna",
+  "@mutualBenefitEmptyTitle": {
+    "description": "mutualBenefitEmptyTitle"
+  },
+  "mutualBenefitKpiAsReferrer": "A matsayin mai tura",
+  "@mutualBenefitKpiAsReferrer": {
+    "description": "mutualBenefitKpiAsReferrer"
+  },
+  "mutualBenefitKpiAsBeneficiary": "A matsayin mai amfana",
+  "@mutualBenefitKpiAsBeneficiary": {
+    "description": "mutualBenefitKpiAsBeneficiary"
+  },
+  "mutualBenefitKpiSent": "An tura",
+  "@mutualBenefitKpiSent": {
+    "description": "mutualBenefitKpiSent"
+  },
+  "mutualBenefitKpiRedeemed": "An fanshi",
+  "@mutualBenefitKpiRedeemed": {
+    "description": "mutualBenefitKpiRedeemed"
+  },
+  "mutualBenefitKpiRate": "Adadin fansa",
+  "@mutualBenefitKpiRate": {
+    "description": "mutualBenefitKpiRate"
+  },
+  "mutualBenefitConfirm": "Tabbatar",
+  "@mutualBenefitConfirm": {
+    "description": "mutualBenefitConfirm"
+  },
+  "mutualBenefitGrantDiscountBlanket": "Rangwame akan dukan ziyara",
+  "@mutualBenefitGrantDiscountBlanket": {
+    "description": "mutualBenefitGrantDiscountBlanket"
+  },
+  "mutualBenefitStatusProposed": "An bayar da shawara",
+  "@mutualBenefitStatusProposed": {
+    "description": "mutualBenefitStatusProposed"
+  },
+  "mutualBenefitStatusActive": "Mai aiki",
+  "@mutualBenefitStatusActive": {
+    "description": "mutualBenefitStatusActive"
+  },
+  "mutualBenefitStatusPaused": "An dakatar na wucin gadi",
+  "@mutualBenefitStatusPaused": {
+    "description": "mutualBenefitStatusPaused"
+  },
+  "mutualBenefitStatusCancelRequested": "An nemi soke",
+  "@mutualBenefitStatusCancelRequested": {
+    "description": "mutualBenefitStatusCancelRequested"
+  },
+  "mutualBenefitStatusEnded": "Ya kare",
+  "@mutualBenefitStatusEnded": {
+    "description": "mutualBenefitStatusEnded"
+  },
+  "mutualBenefitStatusRejected": "An ki amincewa",
+  "@mutualBenefitStatusRejected": {
+    "description": "mutualBenefitStatusRejected"
+  },
+  "mutualBenefitStatusExpiredUnanswered": "Ya kare ba tare da amsa ba",
+  "@mutualBenefitStatusExpiredUnanswered": {
+    "description": "mutualBenefitStatusExpiredUnanswered"
+  },
+  "mutualBenefitEventProposed": "An bayar da shawarar hadin gwiwa",
+  "@mutualBenefitEventProposed": {
+    "description": "mutualBenefitEventProposed"
+  },
+  "mutualBenefitEventAccepted": "An amince da hadin gwiwa",
+  "@mutualBenefitEventAccepted": {
+    "description": "mutualBenefitEventAccepted"
+  },
+  "mutualBenefitEventRejected": "An ki amincewa da hadin gwiwa",
+  "@mutualBenefitEventRejected": {
+    "description": "mutualBenefitEventRejected"
+  },
+  "mutualBenefitEventActivated": "An kunna hadin gwiwa",
+  "@mutualBenefitEventActivated": {
+    "description": "mutualBenefitEventActivated"
+  },
+  "mutualBenefitEventCancelRequested": "An nemi soke",
+  "@mutualBenefitEventCancelRequested": {
+    "description": "mutualBenefitEventCancelRequested"
+  },
+  "mutualBenefitEventCancelConfirmed": "An tabbatar da sokewa",
+  "@mutualBenefitEventCancelConfirmed": {
+    "description": "mutualBenefitEventCancelConfirmed"
+  },
+  "mutualBenefitEventExpiredUnanswered": "Ya kare ba tare da amsa ba",
+  "@mutualBenefitEventExpiredUnanswered": {
+    "description": "mutualBenefitEventExpiredUnanswered"
+  },
+  "mutualBenefitEventPaused": "An dakatar na wucin gadi",
+  "@mutualBenefitEventPaused": {
+    "description": "mutualBenefitEventPaused"
+  },
+  "mutualBenefitEventResumed": "An sake farawa",
+  "@mutualBenefitEventResumed": {
+    "description": "mutualBenefitEventResumed"
+  },
+  "mutualBenefitEventEndedTerm": "Lokaci ya kare",
+  "@mutualBenefitEventEndedTerm": {
+    "description": "mutualBenefitEventEndedTerm"
+  },
+  "mutualBenefitEventGrantCreated": "Sabon kyauta",
+  "@mutualBenefitEventGrantCreated": {
+    "description": "mutualBenefitEventGrantCreated"
+  },
+  "mutualBenefitEventGrantRedeemed": "An fanshi kyauta",
+  "@mutualBenefitEventGrantRedeemed": {
+    "description": "mutualBenefitEventGrantRedeemed"
+  },
+  "mutualBenefitActivityActive": "Mai aiki",
+  "@mutualBenefitActivityActive": {
+    "description": "mutualBenefitActivityActive"
+  },
+  "mutualBenefitActivityPaused": "An dakatar na wucin gadi",
+  "@mutualBenefitActivityPaused": {
+    "description": "mutualBenefitActivityPaused"
+  },
+  "mutualBenefitActivityPending": "Ana jiran amsa",
+  "@mutualBenefitActivityPending": {
+    "description": "mutualBenefitActivityPending"
+  },
+  "mutualBenefitActivityInactive": "Ba mai aiki ba",
+  "@mutualBenefitActivityInactive": {
+    "description": "mutualBenefitActivityInactive"
+  },
+  "mutualBenefitScorecardTitle": "Aiki",
+  "@mutualBenefitScorecardTitle": {
+    "description": "mutualBenefitScorecardTitle"
+  },
+  "mutualBenefitScorecardFailed": "An kasa loda aiki",
+  "@mutualBenefitScorecardFailed": {
+    "description": "mutualBenefitScorecardFailed"
+  },
+  "mutualBenefitActivityTitle": "Ayyukan kwanan nan",
+  "@mutualBenefitActivityTitle": {
+    "description": "mutualBenefitActivityTitle"
+  },
+  "mutualBenefitActivityEmpty": "Babu ayyuka tukuna",
+  "@mutualBenefitActivityEmpty": {
+    "description": "mutualBenefitActivityEmpty"
+  },
+  "mutualBenefitAgreementsTitle": "Yarjejeniyoyi",
+  "@mutualBenefitAgreementsTitle": {
+    "description": "mutualBenefitAgreementsTitle"
+  },
+  "mutualBenefitConfirmCancel": "Tabbatar da kawo karshen wannan hadin gwiwa har abada?",
+  "@mutualBenefitConfirmCancel": {
+    "description": "mutualBenefitConfirmCancel"
+  },
+  "mutualBenefitActionAccept": "Amince",
+  "@mutualBenefitActionAccept": {
+    "description": "mutualBenefitActionAccept"
+  },
+  "mutualBenefitActionReject": "Ki amincewa",
+  "@mutualBenefitActionReject": {
+    "description": "mutualBenefitActionReject"
+  },
+  "mutualBenefitActionWaitingThem": "Ana jiran daya bangaren",
+  "@mutualBenefitActionWaitingThem": {
+    "description": "mutualBenefitActionWaitingThem"
+  },
+  "mutualBenefitActionCancelRequest": "Nema a kawo karshen",
+  "@mutualBenefitActionCancelRequest": {
+    "description": "mutualBenefitActionCancelRequest"
+  },
+  "mutualBenefitActionCancelConfirm": "Tabbatar da kawo karshen",
+  "@mutualBenefitActionCancelConfirm": {
+    "description": "mutualBenefitActionCancelConfirm"
+  },
+  "mutualBenefitProposeTitle": "Baiwa sabon shawarar hadin gwiwa",
+  "@mutualBenefitProposeTitle": {
+    "description": "mutualBenefitProposeTitle"
+  },
+  "mutualBenefitProposePhoneLabel": "Lambar wayar sauran shago",
+  "@mutualBenefitProposePhoneLabel": {
+    "description": "mutualBenefitProposePhoneLabel"
+  },
+  "mutualBenefitProposeConditionLabel": "Sharadin cancanta a shagon ku",
+  "@mutualBenefitProposeConditionLabel": {
+    "description": "mutualBenefitProposeConditionLabel"
+  },
+  "mutualBenefitConditionMinTotal": "Mafi karancin kudin biya",
+  "@mutualBenefitConditionMinTotal": {
+    "description": "mutualBenefitConditionMinTotal"
+  },
+  "mutualBenefitConditionServiceId": "Takamaiman sabis",
+  "@mutualBenefitConditionServiceId": {
+    "description": "mutualBenefitConditionServiceId"
+  },
+  "mutualBenefitProposeConditionValueRiyals": "Adadin (Riyal)",
+  "@mutualBenefitProposeConditionValueRiyals": {
+    "description": "mutualBenefitProposeConditionValueRiyals"
+  },
+  "mutualBenefitProposeConditionValueService": "Sabis",
+  "@mutualBenefitProposeConditionValueService": {
+    "description": "mutualBenefitProposeConditionValueService"
+  },
+  "mutualBenefitProposeValidityLabel": "Ingancin (kwanaki)",
+  "@mutualBenefitProposeValidityLabel": {
+    "description": "mutualBenefitProposeValidityLabel"
+  },
+  "mutualBenefitProposeDurationLabel": "Tsawon (kwanaki)",
+  "@mutualBenefitProposeDurationLabel": {
+    "description": "mutualBenefitProposeDurationLabel"
+  },
+  "mutualBenefitProposeCapLabel": "Iyaka / kwana 30",
+  "@mutualBenefitProposeCapLabel": {
+    "description": "mutualBenefitProposeCapLabel"
+  },
+  "mutualBenefitProposeGrantTypeLabel": "Nau'in kyauta",
+  "@mutualBenefitProposeGrantTypeLabel": {
+    "description": "mutualBenefitProposeGrantTypeLabel"
+  },
+  "mutualBenefitGrantTypeDiscount": "Rangwame",
+  "@mutualBenefitGrantTypeDiscount": {
+    "description": "mutualBenefitGrantTypeDiscount"
+  },
+  "mutualBenefitGrantTypeGift": "Kyauta",
+  "@mutualBenefitGrantTypeGift": {
+    "description": "mutualBenefitGrantTypeGift"
+  },
+  "mutualBenefitScopeBlanket": "Dukan ziyara",
+  "@mutualBenefitScopeBlanket": {
+    "description": "mutualBenefitScopeBlanket"
+  },
+  "mutualBenefitScopeItem": "Takamaiman sabis",
+  "@mutualBenefitScopeItem": {
+    "description": "mutualBenefitScopeItem"
+  },
+  "mutualBenefitScopeGroup": "Kungiya/kunshin",
+  "@mutualBenefitScopeGroup": {
+    "description": "mutualBenefitScopeGroup"
+  },
+  "mutualBenefitProposeServiceLabel": "Sabis",
+  "@mutualBenefitProposeServiceLabel": {
+    "description": "mutualBenefitProposeServiceLabel"
+  },
+  "mutualBenefitProposeGroupLabel": "Kungiya",
+  "@mutualBenefitProposeGroupLabel": {
+    "description": "mutualBenefitProposeGroupLabel"
+  },
+  "mutualBenefitProposeImmutableNote": "Sharuddan kyauta sun tabbata bayan aikawa — sabon tayi yana bukatar sabuwar yarjejeniya",
+  "@mutualBenefitProposeImmutableNote": {
+    "description": "mutualBenefitProposeImmutableNote"
+  },
+  "mutualBenefitProposeSubmitting": "Ana aikawa...",
+  "@mutualBenefitProposeSubmitting": {
+    "description": "mutualBenefitProposeSubmitting"
+  },
+  "mutualBenefitProposeSubmit": "Aika shawara",
+  "@mutualBenefitProposeSubmit": {
+    "description": "mutualBenefitProposeSubmit"
+  },
+  "mutualBenefitGrantGift": "Kyauta: {name}",
+  "@mutualBenefitGrantGift": {
+    "description": "mutualBenefitGrantGift",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "referralGrantDiscountItem": "Rangwame akan: {name}",
-  "@referralGrantDiscountItem": {
-    "description": "referralGrantDiscountItem",
+  "mutualBenefitGrantDiscountItem": "Rangwame akan: {name}",
+  "@mutualBenefitGrantDiscountItem": {
+    "description": "mutualBenefitGrantDiscountItem",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "referralGrantDiscountGroup": "Rangwame akan kungiya: {name}",
-  "@referralGrantDiscountGroup": {
-    "description": "referralGrantDiscountGroup",
+  "mutualBenefitGrantDiscountGroup": "Rangwame akan kungiya: {name}",
+  "@mutualBenefitGrantDiscountGroup": {
+    "description": "mutualBenefitGrantDiscountGroup",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "referralPartnerCount": "Yarjejeniya {n}",
-  "@referralPartnerCount": {
-    "description": "referralPartnerCount",
+  "mutualBenefitPartnerCount": "Yarjejeniya {n}",
+  "@mutualBenefitPartnerCount": {
+    "description": "mutualBenefitPartnerCount",
     "placeholders": {
       "n": {
         "type": "int"
       }
     }
   },
-  "referralProposeResultFail": "An kasa aika shawara",
-  "@referralProposeResultFail": {
-    "description": "referralProposeResultFail"
+  "mutualBenefitProposeResultFail": "An kasa aika shawara",
+  "@mutualBenefitProposeResultFail": {
+    "description": "mutualBenefitProposeResultFail"
   },
-  "referralRefusal402": "Shagon ku bai yi rajista da app na Hadin Gwiwar Dabaru ba — yi rajista daga shagon aikace-aikace tukuna",
-  "@referralRefusal402": {
-    "description": "referralRefusal402"
+  "mutualBenefitRefusal402": "Shagon ku bai yi rajista da app na Amfanin Juna ba — yi rajista daga shagon aikace-aikace tukuna",
+  "@mutualBenefitRefusal402": {
+    "description": "mutualBenefitRefusal402"
   },
-  "referralRefusal403": "Ba ka da izinin wannan aikin",
-  "@referralRefusal403": {
-    "description": "referralRefusal403"
+  "mutualBenefitRefusal403": "Ba ka da izinin wannan aikin",
+  "@mutualBenefitRefusal403": {
+    "description": "mutualBenefitRefusal403"
   },
-  "referralRefusal400": "Bayanan shawara ba daidai ba ne — duba sharadin, ko kana bayar da shawarar hadin gwiwa da kanka",
-  "@referralRefusal400": {
-    "description": "referralRefusal400"
+  "mutualBenefitRefusal400": "Bayanan shawara ba daidai ba ne — duba sharadin, ko kana bayar da shawarar hadin gwiwa da kanka",
+  "@mutualBenefitRefusal400": {
+    "description": "mutualBenefitRefusal400"
   },
-  "referralRefusal404": "Ba a sami shago da wannan lambar ba, ko sabis/kungiyar da aka zaba babu su a cikin kundin sauran shagon",
-  "@referralRefusal404": {
-    "description": "referralRefusal404"
+  "mutualBenefitRefusal404": "Ba a sami shago da wannan lambar ba, ko sabis/kungiyar da aka zaba babu su a cikin kundin sauran shagon",
+  "@mutualBenefitRefusal404": {
+    "description": "mutualBenefitRefusal404"
   },
-  "referralRefusal409": "Ka kai iyakar hadin gwiwa 3 masu aiki, ko yanayin hadin gwiwa ya canza",
-  "@referralRefusal409": {
-    "description": "referralRefusal409"
+  "mutualBenefitRefusal409": "Ka kai iyakar hadin gwiwa 3 masu aiki, ko yanayin hadin gwiwa ya canza",
+  "@mutualBenefitRefusal409": {
+    "description": "mutualBenefitRefusal409"
   },
-  "referralRefusal503": "Ba a samun sabis na kudi na wucin gadi, sake gwadawa daga baya",
-  "@referralRefusal503": {
-    "description": "referralRefusal503"
+  "mutualBenefitRefusal503": "Ba a samun sabis na kudi na wucin gadi, sake gwadawa daga baya",
+  "@mutualBenefitRefusal503": {
+    "description": "mutualBenefitRefusal503"
   },
   "appStoreTitle": "Kantin App",
   "appStoreSubtitle": "Bunkasa shagon ka da apps na gaske, ɗaya bayan ɗaya",

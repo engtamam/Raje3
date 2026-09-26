@@ -14,11 +14,11 @@ import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
 from app.core.models import Package, Service
-from app.core.referral_partnership import (BAD_CONDITION, CATALOG_GROUP_NOT_FOUND,
+from app.core.mutual_benefit import (BAD_CONDITION, CATALOG_GROUP_NOT_FOUND,
                                            CATALOG_ITEM_NOT_FOUND, CONDITION_MIN_TOTAL,
                                            DISCOUNT_SCOPE_BLANKET, DISCOUNT_SCOPE_GROUP,
                                            DISCOUNT_SCOPE_ITEM, FEATURE_KEY, GRANT_DISCOUNT,
-                                           GRANT_GIFT, ReferralError, ReferralPartnershipEngine)
+                                           GRANT_GIFT, MutualBenefitError, MutualBenefitEngine)
 from app.core.signup import PHONE_INDEX, canonical_phone
 from app.core.stores import PackageStore, ServiceStore
 
@@ -77,7 +77,7 @@ def _register_phone(store, phone: str, tenant: str) -> None:
 def env():
     store = MemoryDataStore()
     plans = FakePlans()
-    engine = ReferralPartnershipEngine(store=store, plans=plans, notifier=FakeNotifier(),
+    engine = MutualBenefitEngine(store=store, plans=plans, notifier=FakeNotifier(),
                                        authz=FakeAuthz(), default_cc=CC)
     _register_phone(store, PHONE, B)
     _subscribe(plans, A)
@@ -121,14 +121,14 @@ def test_discount_item_scope_validates_against_the_granting_shops_catalogue(env)
 def test_discount_item_scope_refuses_a_service_from_another_tenant(env):
     engine, store, _plans = env
     run(ServiceStore(store).save(Service(id="svc_foreign", tenant=C, name="خدمة غريبة")))
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         _propose(engine, discount_scope=DISCOUNT_SCOPE_ITEM, gift_service_id="svc_foreign")
     assert exc.value.args[0] == CATALOG_ITEM_NOT_FOUND
 
 
 def test_discount_item_scope_with_no_service_id_is_refused(env):
     engine, _store, _plans = env
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         _propose(engine, discount_scope=DISCOUNT_SCOPE_ITEM, gift_service_id="")
     assert exc.value.args[0] == BAD_CONDITION
 
@@ -148,7 +148,7 @@ def test_discount_group_scope_refuses_a_package_from_another_tenant(env):
     engine, store, _plans = env
     run(PackageStore(store).save(Package(id="pkg_foreign", tenant=C, name="باقة غريبة",
                                          service_ids=["a", "b"])))
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         _propose(engine, discount_scope=DISCOUNT_SCOPE_GROUP, discount_group_id="pkg_foreign")
     assert exc.value.args[0] == CATALOG_GROUP_NOT_FOUND
 
@@ -157,21 +157,21 @@ def test_discount_group_scope_refuses_an_inactive_package(env):
     engine, store, _plans = env
     run(PackageStore(store).save(Package(id="pkg_dead", tenant=B, name="باقة متوقفة",
                                          service_ids=["a", "b"], active=False)))
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         _propose(engine, discount_scope=DISCOUNT_SCOPE_GROUP, discount_group_id="pkg_dead")
     assert exc.value.args[0] == CATALOG_GROUP_NOT_FOUND
 
 
 def test_discount_group_scope_with_no_group_id_is_refused(env):
     engine, _store, _plans = env
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         _propose(engine, discount_scope=DISCOUNT_SCOPE_GROUP, discount_group_id="")
     assert exc.value.args[0] == BAD_CONDITION
 
 
 def test_an_unknown_discount_scope_is_refused(env):
     engine, _store, _plans = env
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         _propose(engine, discount_scope="half-price-tuesdays")
     assert exc.value.args[0] == BAD_CONDITION
 
@@ -183,9 +183,9 @@ def test_entitlement_text_is_derived_per_scope_never_stored_free_text():
     async def go():
         store = MemoryDataStore()
         plans = FakePlans()
-        engine = ReferralPartnershipEngine(store=store, plans=plans, notifier=FakeNotifier(),
+        engine = MutualBenefitEngine(store=store, plans=plans, notifier=FakeNotifier(),
                                            authz=FakeAuthz(), default_cc=CC)
-        gateway = EntitlementGateway(referral_engine=engine, campaign_chooser=None)
+        gateway = EntitlementGateway(mutual_benefit_engine=engine, campaign_chooser=None)
         await ServiceStore(store).save(Service(id="svc_wash", tenant=B, name="غسلة كاملة"))
         await PackageStore(store).save(Package(id="pkg_care", tenant=B, name="باقة العناية",
                                                service_ids=["a", "b"]))
@@ -240,7 +240,7 @@ def test_no_method_on_the_engine_can_change_an_existing_agreements_grant_terms()
     """Structural proof, not just behavioural: enumerate every public method the engine exposes
     and confirm none of them is shaped like an update/edit of grant terms."""
     public_methods = [name for name, _ in inspect.getmembers(
-        ReferralPartnershipEngine, predicate=inspect.isfunction) if not name.startswith("_")]
+        MutualBenefitEngine, predicate=inspect.isfunction) if not name.startswith("_")]
     forbidden_substrings = ("update", "edit", "patch", "modify", "set_grant", "change")
     offending = [m for m in public_methods
                 if any(bad in m.lower() for bad in forbidden_substrings)]
@@ -254,8 +254,8 @@ def test_no_http_route_exists_to_edit_an_existing_agreements_grant_terms():
     from app.api.v1.staff import router
 
     referral_routes = [r for r in router.routes
-                       if "/referral-partnership/agreements" in getattr(r, "path", "")]
-    assert referral_routes, "the referral-partnership routes moved or were renamed"
+                       if "/mutual-benefit/agreements" in getattr(r, "path", "")]
+    assert referral_routes, "the mutual-benefit routes moved or were renamed"
     for route in referral_routes:
         methods = getattr(route, "methods", set()) or set()
         assert "PATCH" not in methods and "PUT" not in methods, (

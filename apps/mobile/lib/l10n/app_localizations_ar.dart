@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -2555,261 +2556,262 @@ class SAr extends S {
   }
 
   @override
-  String get referralProposeButton => 'اقتراح شراكة';
+  String get mutualBenefitProposeButton => 'اقتراح شراكة';
 
   @override
-  String get referralTitle => 'شراكة استراتيجية';
+  String get mutualBenefitTitle => 'تبادل منافع';
 
   @override
-  String get referralSubtitle =>
+  String get mutualBenefitSubtitle =>
       'انقل عملاء حقيقيين بينك وبين محلات أخرى، باتفاق متبادل';
 
   @override
-  String get referralRoleAll => 'الكل';
+  String get mutualBenefitRoleAll => 'الكل';
 
   @override
-  String get referralRoleReferrer => 'كمُحيل';
+  String get mutualBenefitRoleReferrer => 'كمُحيل';
 
   @override
-  String get referralRoleBeneficiary => 'كمستفيد';
+  String get mutualBenefitRoleBeneficiary => 'كمستفيد';
 
   @override
-  String get referralLoadFailed => 'تعذّر تحميل الشراكات';
+  String get mutualBenefitLoadFailed => 'تعذّر تحميل الشراكات';
 
   @override
-  String get referralEmptyTitle => 'لا شراكات بعد';
+  String get mutualBenefitEmptyTitle => 'لا شراكات بعد';
 
   @override
-  String get referralKpiAsReferrer => 'كمُحيل';
+  String get mutualBenefitKpiAsReferrer => 'كمُحيل';
 
   @override
-  String get referralKpiAsBeneficiary => 'كمستفيد';
+  String get mutualBenefitKpiAsBeneficiary => 'كمستفيد';
 
   @override
-  String get referralKpiSent => 'أُحيل';
+  String get mutualBenefitKpiSent => 'أُحيل';
 
   @override
-  String get referralKpiRedeemed => 'استُبدل';
+  String get mutualBenefitKpiRedeemed => 'استُبدل';
 
   @override
-  String get referralKpiRate => 'نسبة الاستبدال';
+  String get mutualBenefitKpiRate => 'نسبة الاستبدال';
 
   @override
-  String get referralConfirm => 'تأكيد';
+  String get mutualBenefitConfirm => 'تأكيد';
 
   @override
-  String get referralGrantDiscountBlanket => 'خصم على كامل الزيارة';
+  String get mutualBenefitGrantDiscountBlanket => 'خصم على كامل الزيارة';
 
   @override
-  String get referralStatusProposed => 'مقترحة';
+  String get mutualBenefitStatusProposed => 'مقترحة';
 
   @override
-  String get referralStatusActive => 'نشطة';
+  String get mutualBenefitStatusActive => 'نشطة';
 
   @override
-  String get referralStatusPaused => 'متوقفة مؤقتًا';
+  String get mutualBenefitStatusPaused => 'متوقفة مؤقتًا';
 
   @override
-  String get referralStatusCancelRequested => 'طُلب إنهاؤها';
+  String get mutualBenefitStatusCancelRequested => 'طُلب إنهاؤها';
 
   @override
-  String get referralStatusEnded => 'منتهية';
+  String get mutualBenefitStatusEnded => 'منتهية';
 
   @override
-  String get referralStatusRejected => 'مرفوضة';
+  String get mutualBenefitStatusRejected => 'مرفوضة';
 
   @override
-  String get referralStatusExpiredUnanswered => 'انتهت بلا رد';
+  String get mutualBenefitStatusExpiredUnanswered => 'انتهت بلا رد';
 
   @override
-  String get referralEventProposed => 'اقتراح الشراكة';
+  String get mutualBenefitEventProposed => 'اقتراح الشراكة';
 
   @override
-  String get referralEventAccepted => 'قبول الشراكة';
+  String get mutualBenefitEventAccepted => 'قبول الشراكة';
 
   @override
-  String get referralEventRejected => 'رفض الشراكة';
+  String get mutualBenefitEventRejected => 'رفض الشراكة';
 
   @override
-  String get referralEventActivated => 'تفعيل الشراكة';
+  String get mutualBenefitEventActivated => 'تفعيل الشراكة';
 
   @override
-  String get referralEventCancelRequested => 'طلب إنهاء';
+  String get mutualBenefitEventCancelRequested => 'طلب إنهاء';
 
   @override
-  String get referralEventCancelConfirmed => 'تأكيد الإنهاء';
+  String get mutualBenefitEventCancelConfirmed => 'تأكيد الإنهاء';
 
   @override
-  String get referralEventExpiredUnanswered => 'انتهت المهلة بلا رد';
+  String get mutualBenefitEventExpiredUnanswered => 'انتهت المهلة بلا رد';
 
   @override
-  String get referralEventPaused => 'إيقاف مؤقت';
+  String get mutualBenefitEventPaused => 'إيقاف مؤقت';
 
   @override
-  String get referralEventResumed => 'استئناف';
+  String get mutualBenefitEventResumed => 'استئناف';
 
   @override
-  String get referralEventEndedTerm => 'انتهت المدة';
+  String get mutualBenefitEventEndedTerm => 'انتهت المدة';
 
   @override
-  String get referralEventGrantCreated => 'منحة جديدة';
+  String get mutualBenefitEventGrantCreated => 'منحة جديدة';
 
   @override
-  String get referralEventGrantRedeemed => 'استبدال منحة';
+  String get mutualBenefitEventGrantRedeemed => 'استبدال منحة';
 
   @override
-  String get referralActivityActive => 'نشطة';
+  String get mutualBenefitActivityActive => 'نشطة';
 
   @override
-  String get referralActivityPaused => 'متوقفة مؤقتًا';
+  String get mutualBenefitActivityPaused => 'متوقفة مؤقتًا';
 
   @override
-  String get referralActivityPending => 'بانتظار الرد';
+  String get mutualBenefitActivityPending => 'بانتظار الرد';
 
   @override
-  String get referralActivityInactive => 'غير نشطة';
+  String get mutualBenefitActivityInactive => 'غير نشطة';
 
   @override
-  String get referralScorecardTitle => 'الأداء';
+  String get mutualBenefitScorecardTitle => 'الأداء';
 
   @override
-  String get referralScorecardFailed => 'تعذّر تحميل الأداء';
+  String get mutualBenefitScorecardFailed => 'تعذّر تحميل الأداء';
 
   @override
-  String get referralActivityTitle => 'النشاط الأخير';
+  String get mutualBenefitActivityTitle => 'النشاط الأخير';
 
   @override
-  String get referralActivityEmpty => 'لا نشاط بعد';
+  String get mutualBenefitActivityEmpty => 'لا نشاط بعد';
 
   @override
-  String get referralAgreementsTitle => 'الاتفاقيات';
+  String get mutualBenefitAgreementsTitle => 'الاتفاقيات';
 
   @override
-  String get referralConfirmCancel => 'تأكيد إنهاء هذه الشراكة نهائيًا؟';
+  String get mutualBenefitConfirmCancel => 'تأكيد إنهاء هذه الشراكة نهائيًا؟';
 
   @override
-  String get referralActionAccept => 'قبول';
+  String get mutualBenefitActionAccept => 'قبول';
 
   @override
-  String get referralActionReject => 'رفض';
+  String get mutualBenefitActionReject => 'رفض';
 
   @override
-  String get referralActionWaitingThem => 'بانتظار الطرف الآخر';
+  String get mutualBenefitActionWaitingThem => 'بانتظار الطرف الآخر';
 
   @override
-  String get referralActionCancelRequest => 'طلب إنهاء';
+  String get mutualBenefitActionCancelRequest => 'طلب إنهاء';
 
   @override
-  String get referralActionCancelConfirm => 'تأكيد الإنهاء';
+  String get mutualBenefitActionCancelConfirm => 'تأكيد الإنهاء';
 
   @override
-  String get referralProposeTitle => 'اقتراح شراكة جديدة';
+  String get mutualBenefitProposeTitle => 'اقتراح شراكة جديدة';
 
   @override
-  String get referralProposePhoneLabel => 'جوال المحل الآخر';
+  String get mutualBenefitProposePhoneLabel => 'جوال المحل الآخر';
 
   @override
-  String get referralProposeConditionLabel => 'شرط الاستحقاق عندك';
+  String get mutualBenefitProposeConditionLabel => 'شرط الاستحقاق عندك';
 
   @override
-  String get referralConditionMinTotal => 'حد أدنى للفاتورة';
+  String get mutualBenefitConditionMinTotal => 'حد أدنى للفاتورة';
 
   @override
-  String get referralConditionServiceId => 'خدمة معينة';
+  String get mutualBenefitConditionServiceId => 'خدمة معينة';
 
   @override
-  String get referralProposeConditionValueRiyals => 'المبلغ (ريال)';
+  String get mutualBenefitProposeConditionValueRiyals => 'المبلغ (ريال)';
 
   @override
-  String get referralProposeConditionValueService => 'الخدمة';
+  String get mutualBenefitProposeConditionValueService => 'الخدمة';
 
   @override
-  String get referralProposeValidityLabel => 'الصلاحية (يوم)';
+  String get mutualBenefitProposeValidityLabel => 'الصلاحية (يوم)';
 
   @override
-  String get referralProposeDurationLabel => 'المدة (يوم)';
+  String get mutualBenefitProposeDurationLabel => 'المدة (يوم)';
 
   @override
-  String get referralProposeCapLabel => 'الحد كل 30 يوم';
+  String get mutualBenefitProposeCapLabel => 'الحد كل 30 يوم';
 
   @override
-  String get referralProposeGrantTypeLabel => 'نوع المنحة';
+  String get mutualBenefitProposeGrantTypeLabel => 'نوع المنحة';
 
   @override
-  String get referralGrantTypeDiscount => 'خصم';
+  String get mutualBenefitGrantTypeDiscount => 'خصم';
 
   @override
-  String get referralGrantTypeGift => 'هدية';
+  String get mutualBenefitGrantTypeGift => 'هدية';
 
   @override
-  String get referralScopeBlanket => 'كامل الزيارة';
+  String get mutualBenefitScopeBlanket => 'كامل الزيارة';
 
   @override
-  String get referralScopeItem => 'خدمة معينة';
+  String get mutualBenefitScopeItem => 'خدمة معينة';
 
   @override
-  String get referralScopeGroup => 'مجموعة/باقة';
+  String get mutualBenefitScopeGroup => 'مجموعة/باقة';
 
   @override
-  String get referralProposeServiceLabel => 'الخدمة';
+  String get mutualBenefitProposeServiceLabel => 'الخدمة';
 
   @override
-  String get referralProposeGroupLabel => 'المجموعة';
+  String get mutualBenefitProposeGroupLabel => 'المجموعة';
 
   @override
-  String get referralProposeImmutableNote =>
+  String get mutualBenefitProposeImmutableNote =>
       'شروط المنحة ثابتة بعد الإرسال — أي تغيير يحتاج اتفاقية جديدة';
 
   @override
-  String get referralProposeSubmitting => 'جارٍ الإرسال...';
+  String get mutualBenefitProposeSubmitting => 'جارٍ الإرسال...';
 
   @override
-  String get referralProposeSubmit => 'إرسال الاقتراح';
+  String get mutualBenefitProposeSubmit => 'إرسال الاقتراح';
 
   @override
-  String referralGrantGift(String name) {
+  String mutualBenefitGrantGift(String name) {
     return 'هدية: $name';
   }
 
   @override
-  String referralGrantDiscountItem(String name) {
+  String mutualBenefitGrantDiscountItem(String name) {
     return 'خصم على: $name';
   }
 
   @override
-  String referralGrantDiscountGroup(String name) {
+  String mutualBenefitGrantDiscountGroup(String name) {
     return 'خصم على مجموعة: $name';
   }
 
   @override
-  String referralPartnerCount(int n) {
+  String mutualBenefitPartnerCount(int n) {
     return '$n اتفاقية';
   }
 
   @override
-  String get referralProposeResultFail => 'تعذّر إرسال الاقتراح';
+  String get mutualBenefitProposeResultFail => 'تعذّر إرسال الاقتراح';
 
   @override
-  String get referralRefusal402 =>
-      'محلك غير مشترك بتطبيق شراكة استراتيجية — اشترك من متجر التطبيقات أولًا';
+  String get mutualBenefitRefusal402 =>
+      'محلك غير مشترك بتطبيق تبادل منافع — اشترك من متجر التطبيقات أولًا';
 
   @override
-  String get referralRefusal403 => 'لا تملك صلاحية كافية لهذا الإجراء';
+  String get mutualBenefitRefusal403 => 'لا تملك صلاحية كافية لهذا الإجراء';
 
   @override
-  String get referralRefusal400 =>
+  String get mutualBenefitRefusal400 =>
       'بيانات الاقتراح غير صحيحة — تأكد من الشرط، أو أنك لا تقترح شراكة على محلك نفسه';
 
   @override
-  String get referralRefusal404 =>
+  String get mutualBenefitRefusal404 =>
       'لم يُعثر على محل بهذا الرقم، أو على الخدمة/المجموعة المختارة بكتالوج الطرف الآخر';
 
   @override
-  String get referralRefusal409 =>
+  String get mutualBenefitRefusal409 =>
       'تجاوزت الحد الأقصى للشراكات النشطة (3)، أو حالة الشراكة تغيّرت';
 
   @override
-  String get referralRefusal503 => 'خدمة الفوترة غير متاحة حاليًا، حاول لاحقًا';
+  String get mutualBenefitRefusal503 =>
+      'خدمة الفوترة غير متاحة حاليًا، حاول لاحقًا';
 
   @override
   String get appStoreTitle => 'متجر التطبيقات';

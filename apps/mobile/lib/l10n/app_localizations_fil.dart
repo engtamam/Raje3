@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -2603,262 +2604,264 @@ class SFil extends S {
   }
 
   @override
-  String get referralProposeButton => 'Mag-propose ng partnership';
+  String get mutualBenefitProposeButton => 'Mag-propose ng partnership';
 
   @override
-  String get referralTitle => 'Strategic na Partnership';
+  String get mutualBenefitTitle => 'Mutual Benefit';
 
   @override
-  String get referralSubtitle =>
+  String get mutualBenefitSubtitle =>
       'Ilipat ang tunay na customer sa pagitan mo at ibang tindahan, sa magkabilang pagsang-ayon';
 
   @override
-  String get referralRoleAll => 'Lahat';
+  String get mutualBenefitRoleAll => 'Lahat';
 
   @override
-  String get referralRoleReferrer => 'Bilang referrer';
+  String get mutualBenefitRoleReferrer => 'Bilang referrer';
 
   @override
-  String get referralRoleBeneficiary => 'Bilang beneficiary';
+  String get mutualBenefitRoleBeneficiary => 'Bilang beneficiary';
 
   @override
-  String get referralLoadFailed => 'Hindi ma-load ang mga partnership';
+  String get mutualBenefitLoadFailed => 'Hindi ma-load ang mga partnership';
 
   @override
-  String get referralEmptyTitle => 'Wala pang partnership';
+  String get mutualBenefitEmptyTitle => 'Wala pang partnership';
 
   @override
-  String get referralKpiAsReferrer => 'Bilang referrer';
+  String get mutualBenefitKpiAsReferrer => 'Bilang referrer';
 
   @override
-  String get referralKpiAsBeneficiary => 'Bilang beneficiary';
+  String get mutualBenefitKpiAsBeneficiary => 'Bilang beneficiary';
 
   @override
-  String get referralKpiSent => 'Na-refer';
+  String get mutualBenefitKpiSent => 'Na-refer';
 
   @override
-  String get referralKpiRedeemed => 'Na-redeem';
+  String get mutualBenefitKpiRedeemed => 'Na-redeem';
 
   @override
-  String get referralKpiRate => 'Redemption rate';
+  String get mutualBenefitKpiRate => 'Redemption rate';
 
   @override
-  String get referralConfirm => 'Kumpirmahin';
+  String get mutualBenefitConfirm => 'Kumpirmahin';
 
   @override
-  String get referralGrantDiscountBlanket => 'Diskwento sa buong bisita';
+  String get mutualBenefitGrantDiscountBlanket => 'Diskwento sa buong bisita';
 
   @override
-  String get referralStatusProposed => 'Iminungkahi';
+  String get mutualBenefitStatusProposed => 'Iminungkahi';
 
   @override
-  String get referralStatusActive => 'Aktibo';
+  String get mutualBenefitStatusActive => 'Aktibo';
 
   @override
-  String get referralStatusPaused => 'Naka-pause';
+  String get mutualBenefitStatusPaused => 'Naka-pause';
 
   @override
-  String get referralStatusCancelRequested => 'Hiniling na kanselahin';
+  String get mutualBenefitStatusCancelRequested => 'Hiniling na kanselahin';
 
   @override
-  String get referralStatusEnded => 'Tapos na';
+  String get mutualBenefitStatusEnded => 'Tapos na';
 
   @override
-  String get referralStatusRejected => 'Tinanggihan';
+  String get mutualBenefitStatusRejected => 'Tinanggihan';
 
   @override
-  String get referralStatusExpiredUnanswered => 'Nag-expire, walang sagot';
+  String get mutualBenefitStatusExpiredUnanswered => 'Nag-expire, walang sagot';
 
   @override
-  String get referralEventProposed => 'Iminungkahi ang partnership';
+  String get mutualBenefitEventProposed => 'Iminungkahi ang partnership';
 
   @override
-  String get referralEventAccepted => 'Tinanggap ang partnership';
+  String get mutualBenefitEventAccepted => 'Tinanggap ang partnership';
 
   @override
-  String get referralEventRejected => 'Tinanggihan ang partnership';
+  String get mutualBenefitEventRejected => 'Tinanggihan ang partnership';
 
   @override
-  String get referralEventActivated => 'Na-activate ang partnership';
+  String get mutualBenefitEventActivated => 'Na-activate ang partnership';
 
   @override
-  String get referralEventCancelRequested => 'Hiniling na kanselahin';
+  String get mutualBenefitEventCancelRequested => 'Hiniling na kanselahin';
 
   @override
-  String get referralEventCancelConfirmed => 'Nakumpirma ang pagkansela';
+  String get mutualBenefitEventCancelConfirmed => 'Nakumpirma ang pagkansela';
 
   @override
-  String get referralEventExpiredUnanswered => 'Nag-expire nang walang sagot';
+  String get mutualBenefitEventExpiredUnanswered =>
+      'Nag-expire nang walang sagot';
 
   @override
-  String get referralEventPaused => 'Naka-pause';
+  String get mutualBenefitEventPaused => 'Naka-pause';
 
   @override
-  String get referralEventResumed => 'Ipinagpatuloy';
+  String get mutualBenefitEventResumed => 'Ipinagpatuloy';
 
   @override
-  String get referralEventEndedTerm => 'Natapos ang termino';
+  String get mutualBenefitEventEndedTerm => 'Natapos ang termino';
 
   @override
-  String get referralEventGrantCreated => 'Bagong grant';
+  String get mutualBenefitEventGrantCreated => 'Bagong grant';
 
   @override
-  String get referralEventGrantRedeemed => 'Na-redeem ang grant';
+  String get mutualBenefitEventGrantRedeemed => 'Na-redeem ang grant';
 
   @override
-  String get referralActivityActive => 'Aktibo';
+  String get mutualBenefitActivityActive => 'Aktibo';
 
   @override
-  String get referralActivityPaused => 'Naka-pause';
+  String get mutualBenefitActivityPaused => 'Naka-pause';
 
   @override
-  String get referralActivityPending => 'Naghihintay ng sagot';
+  String get mutualBenefitActivityPending => 'Naghihintay ng sagot';
 
   @override
-  String get referralActivityInactive => 'Hindi aktibo';
+  String get mutualBenefitActivityInactive => 'Hindi aktibo';
 
   @override
-  String get referralScorecardTitle => 'Pagganap';
+  String get mutualBenefitScorecardTitle => 'Pagganap';
 
   @override
-  String get referralScorecardFailed => 'Hindi ma-load ang pagganap';
+  String get mutualBenefitScorecardFailed => 'Hindi ma-load ang pagganap';
 
   @override
-  String get referralActivityTitle => 'Kamakailang aktibidad';
+  String get mutualBenefitActivityTitle => 'Kamakailang aktibidad';
 
   @override
-  String get referralActivityEmpty => 'Wala pang aktibidad';
+  String get mutualBenefitActivityEmpty => 'Wala pang aktibidad';
 
   @override
-  String get referralAgreementsTitle => 'Mga kasunduan';
+  String get mutualBenefitAgreementsTitle => 'Mga kasunduan';
 
   @override
-  String get referralConfirmCancel => 'Tapusin na ang partnership na ito?';
+  String get mutualBenefitConfirmCancel => 'Tapusin na ang partnership na ito?';
 
   @override
-  String get referralActionAccept => 'Tanggapin';
+  String get mutualBenefitActionAccept => 'Tanggapin';
 
   @override
-  String get referralActionReject => 'Tanggihan';
+  String get mutualBenefitActionReject => 'Tanggihan';
 
   @override
-  String get referralActionWaitingThem => 'Naghihintay sa kabilang panig';
+  String get mutualBenefitActionWaitingThem => 'Naghihintay sa kabilang panig';
 
   @override
-  String get referralActionCancelRequest => 'Humiling na tapusin';
+  String get mutualBenefitActionCancelRequest => 'Humiling na tapusin';
 
   @override
-  String get referralActionCancelConfirm => 'Kumpirmahin ang pagtatapos';
+  String get mutualBenefitActionCancelConfirm => 'Kumpirmahin ang pagtatapos';
 
   @override
-  String get referralProposeTitle => 'Mag-propose ng bagong partnership';
+  String get mutualBenefitProposeTitle => 'Mag-propose ng bagong partnership';
 
   @override
-  String get referralProposePhoneLabel => 'Numero ng ibang tindahan';
+  String get mutualBenefitProposePhoneLabel => 'Numero ng ibang tindahan';
 
   @override
-  String get referralProposeConditionLabel =>
+  String get mutualBenefitProposeConditionLabel =>
       'Kondisyon ng pagiging karapat-dapat sa iyong tindahan';
 
   @override
-  String get referralConditionMinTotal => 'Pinakamababang invoice';
+  String get mutualBenefitConditionMinTotal => 'Pinakamababang invoice';
 
   @override
-  String get referralConditionServiceId => 'Isang partikular na serbisyo';
+  String get mutualBenefitConditionServiceId => 'Isang partikular na serbisyo';
 
   @override
-  String get referralProposeConditionValueRiyals => 'Halaga (SAR)';
+  String get mutualBenefitProposeConditionValueRiyals => 'Halaga (SAR)';
 
   @override
-  String get referralProposeConditionValueService => 'Serbisyo';
+  String get mutualBenefitProposeConditionValueService => 'Serbisyo';
 
   @override
-  String get referralProposeValidityLabel => 'Bisa (araw)';
+  String get mutualBenefitProposeValidityLabel => 'Bisa (araw)';
 
   @override
-  String get referralProposeDurationLabel => 'Tagal (araw)';
+  String get mutualBenefitProposeDurationLabel => 'Tagal (araw)';
 
   @override
-  String get referralProposeCapLabel => 'Limit / 30 araw';
+  String get mutualBenefitProposeCapLabel => 'Limit / 30 araw';
 
   @override
-  String get referralProposeGrantTypeLabel => 'Uri ng grant';
+  String get mutualBenefitProposeGrantTypeLabel => 'Uri ng grant';
 
   @override
-  String get referralGrantTypeDiscount => 'Diskwento';
+  String get mutualBenefitGrantTypeDiscount => 'Diskwento';
 
   @override
-  String get referralGrantTypeGift => 'Regalo';
+  String get mutualBenefitGrantTypeGift => 'Regalo';
 
   @override
-  String get referralScopeBlanket => 'Buong bisita';
+  String get mutualBenefitScopeBlanket => 'Buong bisita';
 
   @override
-  String get referralScopeItem => 'Isang partikular na serbisyo';
+  String get mutualBenefitScopeItem => 'Isang partikular na serbisyo';
 
   @override
-  String get referralScopeGroup => 'Grupo/package';
+  String get mutualBenefitScopeGroup => 'Grupo/package';
 
   @override
-  String get referralProposeServiceLabel => 'Serbisyo';
+  String get mutualBenefitProposeServiceLabel => 'Serbisyo';
 
   @override
-  String get referralProposeGroupLabel => 'Grupo';
+  String get mutualBenefitProposeGroupLabel => 'Grupo';
 
   @override
-  String get referralProposeImmutableNote =>
+  String get mutualBenefitProposeImmutableNote =>
       'Ang mga termino ng grant ay fixed na pagkatapos ipadala — kailangan ng bagong kasunduan para sa ibang alok';
 
   @override
-  String get referralProposeSubmitting => 'Ipinapadala...';
+  String get mutualBenefitProposeSubmitting => 'Ipinapadala...';
 
   @override
-  String get referralProposeSubmit => 'Ipadala ang panukala';
+  String get mutualBenefitProposeSubmit => 'Ipadala ang panukala';
 
   @override
-  String referralGrantGift(String name) {
+  String mutualBenefitGrantGift(String name) {
     return 'Regalo: $name';
   }
 
   @override
-  String referralGrantDiscountItem(String name) {
+  String mutualBenefitGrantDiscountItem(String name) {
     return 'Diskwento sa: $name';
   }
 
   @override
-  String referralGrantDiscountGroup(String name) {
+  String mutualBenefitGrantDiscountGroup(String name) {
     return 'Diskwento sa grupo: $name';
   }
 
   @override
-  String referralPartnerCount(int n) {
+  String mutualBenefitPartnerCount(int n) {
     return '$n kasunduan';
   }
 
   @override
-  String get referralProposeResultFail => 'Hindi maipadala ang panukala';
+  String get mutualBenefitProposeResultFail => 'Hindi maipadala ang panukala';
 
   @override
-  String get referralRefusal402 =>
-      'Hindi subscribed ang tindahan mo sa Strategic Partnership app — mag-subscribe muna sa app store';
+  String get mutualBenefitRefusal402 =>
+      'Hindi subscribed ang tindahan mo sa Mutual Benefit app — mag-subscribe muna sa app store';
 
   @override
-  String get referralRefusal403 => 'Wala kang pahintulot para sa aksyong ito';
+  String get mutualBenefitRefusal403 =>
+      'Wala kang pahintulot para sa aksyong ito';
 
   @override
-  String get referralRefusal400 =>
+  String get mutualBenefitRefusal400 =>
       'Hindi valid ang datos ng panukala — suriin ang kondisyon, o baka ikaw mismo ang minumungkahi mong partner';
 
   @override
-  String get referralRefusal404 =>
+  String get mutualBenefitRefusal404 =>
       'Walang natagpuang tindahan sa numerong iyon, o wala ang napiling serbisyo/grupo sa katalogo ng kabilang tindahan';
 
   @override
-  String get referralRefusal409 =>
+  String get mutualBenefitRefusal409 =>
       'Naabot mo na ang limitasyon na 3 aktibong partnership, o nagbago ang estado ng partnership';
 
   @override
-  String get referralRefusal503 =>
+  String get mutualBenefitRefusal503 =>
       'Pansamantalang hindi available ang billing, subukan muli mamaya';
 
   @override

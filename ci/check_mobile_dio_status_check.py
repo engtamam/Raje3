@@ -8,7 +8,7 @@ WHY THIS EXISTS. `ApiClient` (api_client.dart) configures Dio with
 except 401 (400, 402, 403, 404, 409, 422, ...) resolves as an ordinary response, not a thrown
 DioException. A method that only branches on `on DioException catch (e)` for its error path,
 and never reads `response.statusCode` in the success path, silently treats a real server refusal
-as success. This is not a hypothetical: it broke `ReferralPartnershipService.propose()` (returned
+as success. This is not a hypothetical: it broke `MutualBenefitService.propose()` (returned
 "status: null" and no error surfaced) and `_act()` (accept/reject/cancel would have returned
 `true` on a 403/409 refusal) — both live bugs, found and fixed 2026-09-23, both in a method
 shaped exactly like the ones this gate flags. `AuthService._call()` already carries the correct

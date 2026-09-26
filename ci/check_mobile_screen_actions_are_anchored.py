@@ -109,12 +109,12 @@ EXEMPT_LINES: dict[str, set[str]] = {
         # paginated list in the app, not a feature of ratings specifically.
         "TextButton(onPressed: () => _loadRows(reset: false), child: Text(s.ratingLoadMore)),",
     },
-    "apps/mobile/lib/features/referral/referral_partnership_screen.dart": {
+    "apps/mobile/lib/features/mutual_benefit/mutual_benefit_screen.dart": {
         # A plain yes/no confirm dialog shared by every destructive action on this screen (cancel
         # request, cancel confirm, ...) — the row/button that opens it already names the real
         # action; "cancel" and "yes, do it" need no separate explanation.
         "TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.mobileRequestsRejectCancel)),",
-        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(s.referralConfirm)),",
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(s.mutualBenefitConfirm)),",
     },
     "apps/mobile/lib/features/services/procedures_tab.dart": {
         # The rename dialog's own cancel/save (both split across lines, each opening bare on its
