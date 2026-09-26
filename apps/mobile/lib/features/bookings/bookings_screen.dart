@@ -5,8 +5,11 @@ import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/providers/branch_provider.dart';
 import 'package:raje3_mobile/core/services/auth_service.dart' show BranchTeamMember;
 import 'package:raje3_mobile/core/services/bookings_service.dart';
+import 'package:raje3_mobile/core/services/customers_service.dart';
 import 'package:raje3_mobile/core/services/services_catalogue_service.dart';
+import 'package:raje3_mobile/core/utils/formatters.dart';
 import 'package:raje3_mobile/models/booking_model.dart';
+import 'package:raje3_mobile/models/customer_model.dart';
 import 'package:raje3_mobile/models/service_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
@@ -14,6 +17,7 @@ import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
 
+import 'booking_customer_search_sheet.dart';
 import 'booking_details_sheet.dart';
 import 'booking_month_sheet.dart';
 import 'booking_settings_sheet.dart';
@@ -39,6 +43,7 @@ class BookingsScreen extends StatefulWidget {
 class _BookingsScreenState extends State<BookingsScreen> {
   late final BookingsService _bookingsService;
   late final ServicesCatalogueService _servicesService;
+  late final CustomersService _customersService;
 
   DateTime _selectedDate = DateTime.now();
   String? _staffFilter; // null = everyone
@@ -49,6 +54,14 @@ class _BookingsScreenState extends State<BookingsScreen> {
   bool _loading = true;
   bool _failed = false;
 
+  // «متى موعدي الجاي؟» — cross-date, cross-branch, answers a different question than the day
+  // agenda does (apps/console/src/screens/Bookings.tsx's own phone-search box). Non-null replaces
+  // the whole body with his history instead of today's grid.
+  CustomerHit? _filterCustomer;
+  List<Booking>? _customerBookings;
+  List<CustomerVisit>? _customerVisits;
+  String _historyMode = 'upcoming';
+
   String get _branchId => context.read<BranchProvider>().selectedId ?? '';
 
   @override
@@ -57,8 +70,64 @@ class _BookingsScreenState extends State<BookingsScreen> {
     final apiClient = context.read<AuthProvider>().apiClient;
     _bookingsService = BookingsService(apiClient: apiClient);
     _servicesService = ServicesCatalogueService(apiClient: apiClient);
+    _customersService = CustomersService(apiClient: apiClient);
     _loadStatic();
     _loadDay();
+  }
+
+  Future<void> _openCustomerSearch() async {
+    final picked = await showModalBottomSheet<CustomerHit>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => BookingCustomerSearchSheet(customersService: _customersService),
+    );
+    if (picked == null) return;
+    setState(() {
+      _filterCustomer = picked;
+      _historyMode = 'upcoming';
+      _customerBookings = null;
+      _customerVisits = null;
+    });
+    final id = picked.id;
+    final bookings = await _bookingsService.forCustomer(id);
+    final record = await _customersService.record(id);
+    if (!mounted || _filterCustomer?.id != id) return;
+    setState(() {
+      _customerBookings = bookings ?? const [];
+      _customerVisits = record?.visits ?? const [];
+    });
+  }
+
+  void _clearCustomerFilter() {
+    setState(() {
+      _filterCustomer = null;
+      _customerBookings = null;
+      _customerVisits = null;
+    });
+  }
+
+  int get _todayStartEpoch {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day).millisecondsSinceEpoch ~/ 1000;
+  }
+
+  List<Booking> get _upcomingForCustomer {
+    final rows = (_customerBookings ?? const [])
+        .where((b) => b.status == 'booked' && b.startsAt >= _todayStartEpoch)
+        .toList()
+      ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+    return rows;
+  }
+
+  List<_HistoryEntry> get _pastEntriesForCustomer {
+    final start = _todayStartEpoch;
+    final fromBookings = (_customerBookings ?? const [])
+        .where((b) => b.startsAt < start)
+        .map(_HistoryEntry.booking);
+    final fromVisits = (_customerVisits ?? const []).map(_HistoryEntry.visit);
+    final rows = [...fromBookings, ...fromVisits]..sort((a, b) => b.time.compareTo(a.time));
+    return rows;
   }
 
   Future<void> _loadStatic() async {
@@ -200,7 +269,15 @@ class _BookingsScreenState extends State<BookingsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _Header(count: _visible.length, onSettings: _openSettings, onOpenMonth: _openMonth),
+            _Header(
+              count: _visible.length,
+              onSettings: _openSettings,
+              onOpenMonth: _openMonth,
+              onSearchCustomer: _openCustomerSearch,
+            ),
+            if (_filterCustomer != null)
+              Expanded(child: _customerHistoryBody())
+            else ...[
             _DateStrip(selected: _selectedDate, onChanged: _changeDate),
             if ((_staff ?? const []).isNotEmpty)
               KbAnchor(
@@ -258,6 +335,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                               ),
               ),
             ),
+            ],
           ],
         ),
       ),
@@ -278,6 +356,142 @@ class _BookingsScreenState extends State<BookingsScreen> {
       ),
     );
   }
+
+  Widget _customerHistoryBody() {
+    final colors = context.appColors;
+    final customer = _filterCustomer!;
+    final loading = _customerBookings == null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+          child: Row(
+            children: [
+              Icon(Icons.person_rounded, size: 18, color: colors.textMuted),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(customer.name.isNotEmpty ? customer.name : customer.phone,
+                    style: AppTextStyles.labelMedium.copyWith(color: colors.textPrimary)),
+              ),
+              KbAnchor(
+                id: 'bookings.customer_history.clear_button',
+                child: TextButton(onPressed: _clearCustomerFilter, child: const Text('رجوع لليوم')),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+          child: KbAnchor(
+            id: 'bookings.customer_history.mode_tabs',
+            child: SegmentedFilter<String>(
+              value: _historyMode,
+              onChanged: (v) => setState(() => _historyMode = v),
+              options: const [
+                SegmentedFilterOption(value: 'upcoming', label: 'القادمة'),
+                SegmentedFilterOption(value: 'past', label: 'السابقة'),
+              ],
+            ),
+          ),
+        ),
+        Expanded(
+          child: loading
+              ? const AppLoadingIndicator()
+              : _historyMode == 'upcoming'
+                  ? _upcomingForCustomer.isEmpty
+                      ? const EmptyState(
+                          icon: Icons.event_busy_rounded, title: 'لا مواعيد قادمة لهذا العميل')
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, 100),
+                          itemCount: _upcomingForCustomer.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+                          itemBuilder: (context, i) {
+                            final b = _upcomingForCustomer[i];
+                            return KbAnchor(
+                              id: 'bookings.customer_history.entry',
+                              child: _BookingCard(
+                                booking: b,
+                                services: b.serviceIds.map(_serviceName).toList(),
+                                staffName: _staffName(b.operatorId),
+                                onTap: () => _openDetails(b),
+                              ),
+                            );
+                          },
+                        )
+                  : _pastEntriesForCustomer.isEmpty
+                      ? const EmptyState(
+                          icon: Icons.history_rounded, title: 'لا سجل سابق لهذا العميل')
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, 100),
+                          itemCount: _pastEntriesForCustomer.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+                          itemBuilder: (context, i) {
+                            final entry = _pastEntriesForCustomer[i];
+                            return KbAnchor(
+                              id: 'bookings.customer_history.entry',
+                              child: entry.booking != null
+                                  ? _BookingCard(
+                                      booking: entry.booking!,
+                                      services: entry.booking!.serviceIds.map(_serviceName).toList(),
+                                      staffName: _staffName(entry.booking!.operatorId),
+                                      onTap: () => _openDetails(entry.booking!),
+                                    )
+                                  : _VisitHistoryCard(visit: entry.visit!),
+                            );
+                          },
+                        ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One row of a customer's merged past — a booking that already happened AND a walk-in visit,
+/// one timeline, newest first. Neither is invented: a visit stays a visit (never a status pill —
+/// it was never scheduled, so there is no "attended/no-show" to say about it).
+class _HistoryEntry {
+  final int time;
+  final Booking? booking;
+  final CustomerVisit? visit;
+  const _HistoryEntry._(this.time, this.booking, this.visit);
+  factory _HistoryEntry.booking(Booking b) => _HistoryEntry._(b.startsAt, b, null);
+  factory _HistoryEntry.visit(CustomerVisit v) => _HistoryEntry._(v.occurredAt, null, v);
+}
+
+class _VisitHistoryCard extends StatelessWidget {
+  final CustomerVisit visit;
+  const _VisitHistoryCard({required this.visit});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final locale = Localizations.localeOf(context).languageCode;
+    return AppCard(
+      hasShadow: false,
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_outline_rounded, size: 16,
+              color: context.isDark ? AppDarkColors.successOnSoft : AppColors.successOnSoft),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(visit.services.isNotEmpty ? visit.services : 'زيارة بلا خدمات مسجّلة',
+                    style: AppTextStyles.bodyMedium.copyWith(color: colors.textPrimary)),
+                Text(
+                  Formatters.formatDateTime(
+                      DateTime.fromMillisecondsSinceEpoch(visit.occurredAt * 1000), locale: locale),
+                  style: AppTextStyles.caption.copyWith(color: colors.textMuted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// The date-key format every booking route on the wire uses — `YYYY-MM-DD`, the shop's own
@@ -289,7 +503,13 @@ class _Header extends StatelessWidget {
   final int count;
   final VoidCallback onSettings;
   final VoidCallback onOpenMonth;
-  const _Header({required this.count, required this.onSettings, required this.onOpenMonth});
+  final VoidCallback onSearchCustomer;
+  const _Header({
+    required this.count,
+    required this.onSettings,
+    required this.onOpenMonth,
+    required this.onSearchCustomer,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -317,6 +537,14 @@ class _Header extends StatelessWidget {
                       style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
                   Text('$count حجز اليوم', style: const TextStyle(color: Colors.white70, fontSize: 13)),
                 ],
+              ),
+            ),
+            KbAnchor(
+              id: 'bookings.customer_search_button',
+              child: IconButton(
+                icon: const Icon(Icons.person_search_rounded, color: Colors.white),
+                tooltip: 'متى موعد عميل؟',
+                onPressed: onSearchCustomer,
               ),
             ),
             KbAnchor(

@@ -505,12 +505,17 @@ class _NewBookingSheetState extends State<NewBookingSheet> {
           ),
           if (_suggestions.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
-            ..._suggestions.take(5).map((hit) => ListTile(
-                  onTap: () => _pickCustomer(hit),
-                  leading: const Icon(Icons.person_outline),
-                  title: Text(hit.name.isNotEmpty ? hit.name : hit.phone),
-                  subtitle: hit.name.isNotEmpty ? Text(hit.phone, textDirection: TextDirection.ltr) : null,
-                )),
+            Material(
+              type: MaterialType.transparency,
+              child: Column(
+                children: _suggestions.take(5).map((hit) => ListTile(
+                      onTap: () => _pickCustomer(hit),
+                      leading: const Icon(Icons.person_outline),
+                      title: Text(hit.name.isNotEmpty ? hit.name : hit.phone),
+                      subtitle: hit.name.isNotEmpty ? Text(hit.phone, textDirection: TextDirection.ltr) : null,
+                    )).toList(),
+              ),
+            ),
           ],
           if (_selectedCustomer == null && _phoneController.text.trim().length >= 3) ...[
             const SizedBox(height: AppSpacing.sm),

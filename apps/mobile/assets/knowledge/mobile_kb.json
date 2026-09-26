@@ -2599,5 +2599,95 @@
     "requires": [
       "bookings.list"
     ]
+  },
+  "bookings.customer_search_button": {
+    "title": {
+      "ar": "متى موعد عميل؟",
+      "en": "When is a customer's appointment?"
+    },
+    "body": {
+      "ar": "يبحث عن عميل بجواله ويعرض كل مواعيده — القادمة والسابقة، عبر كل الفروع.",
+      "en": "Searches for a customer by phone and shows all his appointments — upcoming and past, across every branch."
+    },
+    "kind": "action",
+    "anchor": "bookings.customer_search_button",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.customer_search.phone_field": {
+    "title": {
+      "ar": "جوال العميل",
+      "en": "Customer phone"
+    },
+    "body": {
+      "ar": "يبحث عن عميل موجود برقم جواله.",
+      "en": "Searches for an existing customer by phone."
+    },
+    "kind": "action",
+    "anchor": "bookings.customer_search.phone_field",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.customer_search.results": {
+    "title": {
+      "ar": "نتائج البحث",
+      "en": "Search results"
+    },
+    "body": {
+      "ar": "يختار العميل المقصود من نتائج البحث.",
+      "en": "Picks the intended customer from the search results."
+    },
+    "kind": "action",
+    "anchor": "bookings.customer_search.results",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.customer_history.clear_button": {
+    "title": {
+      "ar": "رجوع لليوم",
+      "en": "Back to today"
+    },
+    "body": {
+      "ar": "يقفل سجل هذا العميل ويرجع لأجندة اليوم.",
+      "en": "Closes this customer's history and returns to today's agenda."
+    },
+    "kind": "action",
+    "anchor": "bookings.customer_history.clear_button",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.customer_history.mode_tabs": {
+    "title": {
+      "ar": "القادمة / السابقة",
+      "en": "Upcoming / past"
+    },
+    "body": {
+      "ar": "يبدّل بين مواعيد العميل القادمة وسجله السابق (حجوزات وزيارات).",
+      "en": "Switches between the customer's upcoming appointments and his past record (bookings and visits)."
+    },
+    "kind": "action",
+    "anchor": "bookings.customer_history.mode_tabs",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.customer_history.entry": {
+    "title": {
+      "ar": "حجز أو زيارة سابقة",
+      "en": "A booking or past visit"
+    },
+    "body": {
+      "ar": "حجز يفتح تفاصيله وإجراءاته؛ زيارة سابقة تُعرض بلا إجراء — سجل تاريخي فقط.",
+      "en": "A booking opens its details and actions; a past visit is shown with no action — a historical record only."
+    },
+    "kind": "action",
+    "anchor": "bookings.customer_history.entry",
+    "requires": [
+      "bookings.list"
+    ]
   }
 }

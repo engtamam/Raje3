@@ -13,6 +13,25 @@ class BookingsService {
 
   BookingsService({required this.apiClient});
 
+  /// `GET /api/v1/bookings/for-customer` — his own history, newest-first, across EVERY branch
+  /// he was ever served at (never scoped to the branch currently selected — his history is his,
+  /// same rule the console's own `bookingsForCustomer` already documents).
+  Future<List<Booking>?> forCustomer(String customerId) async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/bookings/for-customer',
+          queryParameters: {'customer_id': customerId});
+      final body = response.data;
+      if (body is! Map) return null;
+      final rows = (body['bookings'] as List?) ?? const [];
+      return rows
+          .whereType<Map>()
+          .map((m) => Booking.fromJson(Map<String, dynamic>.from(m)))
+          .toList(growable: false);
+    } on DioException {
+      return null;
+    }
+  }
+
   /// `GET /api/v1/bookings/counts` — how many bookings land on each day of a range, never the
   /// bookings themselves (the month view's own read). Keys missing from the result mean zero,
   /// same as an explicit `0` — the caller reads a missing day as empty.
