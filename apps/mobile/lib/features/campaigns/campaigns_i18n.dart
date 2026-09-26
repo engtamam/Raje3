@@ -581,6 +581,14 @@ const Map<String, Map<String, String>> _kCampaignsStrings = {
     'ar': 'الوصول الكلي', 'en': 'Total reach', 'bn': 'মোট পৌঁছানো', 'ur': 'کل رسائی', 'ha': 'Jimlar isarwa',
     'fil': 'Kabuuang naabot',
   },
+  'flowFetchFailed': {
+    'ar': 'تعذّر جلب الفلو.', 'en': "Couldn't fetch the Flow.", 'bn': 'ফ্লো আনা যায়নি।', 'ur': 'فلو حاصل نہیں ہو سکا۔',
+    'ha': 'An kasa samo Flow.', 'fil': 'Hindi nakuha ang Flow.',
+  },
+  'backToMessage': {
+    'ar': 'رجوع للرسالة', 'en': 'Back to the message', 'bn': 'বার্তায় ফিরে যান', 'ur': 'پیغام پر واپس جائیں',
+    'ha': 'Koma zuwa saƙon', 'fil': 'Bumalik sa mensahe',
+  },
   'writeYourText': {
     'ar': 'اكتب نصّك الخاص', 'en': 'Write your own text', 'bn': 'নিজের লেখা লিখুন', 'ur': 'اپنا متن لکھیں',
     'ha': 'Rubuta rubutunku', 'fil': 'Isulat ang sarili mong teksto',

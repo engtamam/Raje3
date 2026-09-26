@@ -187,6 +187,20 @@ class MessagesService {
     }
   }
 
+  /// `GET /api/v1/whatsapp/flow-json?name=` — the exact screens Meta would render, fetched
+  /// through the same shop-facing read the admin panel's own template preview already uses.
+  Future<FlowJson?> fetchFlowJson(String flowName) async {
+    try {
+      final response = await apiClient.dio
+          .get<dynamic>('/api/v1/whatsapp/flow-json', queryParameters: {'name': flowName});
+      final body = response.data;
+      if (body is! Map) return null;
+      return FlowJson.fromJson(Map<String, dynamic>.from(body));
+    } on DioException {
+      return null;
+    }
+  }
+
   Future<List<ScheduleRow>?> schedule() async {
     try {
       final response = await apiClient.dio

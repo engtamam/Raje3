@@ -8,6 +8,7 @@ import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
 import 'package:raje3_mobile/features/campaigns/campaigns_i18n.dart';
 import 'package:raje3_mobile/features/campaigns/text_editor_sheet.dart';
+import 'package:raje3_mobile/features/campaigns/wa_flow_screens.dart';
 import 'package:raje3_mobile/features/campaigns/whatsapp_bubble.dart';
 
 /// The message-preview bottom sheet — mirrors `MessagePreview.tsx`'s job (tap a card, read every
@@ -225,6 +226,7 @@ class _MessagePreviewSheetState extends State<_MessagePreviewSheet> {
                                         padding: const EdgeInsets.only(bottom: AppSpacing.md),
                                         child: _OptionCard(
                                           option: o,
+                                          service: _service,
                                           hasReason: _hasReason,
                                           sending: o.mine ? _answer!.chosen == o.name : (_answer!.chosen.isEmpty && o.tone == _answer!.tone),
                                           chosen: _answer!.chosen,
@@ -347,9 +349,10 @@ class _MyTemplateRow extends StatelessWidget {
   }
 }
 
-class _OptionCard extends StatelessWidget {
+class _OptionCard extends StatefulWidget {
   const _OptionCard({
     required this.option,
+    required this.service,
     required this.hasReason,
     required this.sending,
     required this.chosen,
@@ -360,6 +363,7 @@ class _OptionCard extends StatelessWidget {
   });
 
   final MessageOption option;
+  final MessagesService service;
   final bool hasReason;
   final bool sending;
   /// The shop's own chosen custom-text name — empty means "sending ours" (the tone-based
@@ -369,6 +373,35 @@ class _OptionCard extends StatelessWidget {
   final VoidCallback onChooseTone;
   final VoidCallback onUseCustomerText;
   final VoidCallback onRevertToOurs;
+
+  @override
+  State<_OptionCard> createState() => _OptionCardState();
+}
+
+class _OptionCardState extends State<_OptionCard> {
+  MessageOption get option => widget.option;
+  // OPENED FOR REAL — the flow currently fetched/loading/failed, or none. One at a time, same
+  // discipline the console's own preview keeps: a second bubble open beneath the first would ask
+  // which Flow a tap belongs to.
+  FlowJson? _openFlow;
+  bool _flowLoading = false;
+  String _flowError = '';
+
+  Future<void> _pressButton(MessageButton b) async {
+    if (b.kind != 'flow' || b.flowName.isEmpty) return;
+    setState(() {
+      _flowLoading = true;
+      _flowError = '';
+      _openFlow = null;
+    });
+    final flow = await widget.service.fetchFlowJson(b.flowName);
+    if (!mounted) return;
+    setState(() {
+      _flowLoading = false;
+      _openFlow = flow;
+      if (flow == null) _flowError = ct(context, 'flowFetchFailed');
+    });
+  }
 
   (String, Color, Color)? _statusChip(BuildContext context) {
     final isDark = context.isDark;
@@ -403,7 +436,8 @@ class _OptionCard extends StatelessWidget {
             ? ct(context, 'toneMasculine')
             : option.tone == 'feminine' ? ct(context, 'toneFeminine') : option.tone);
     final isDark = context.isDark;
-    final busy = saving == option.name || saving == 'tone:${option.tone}' || saving == 'ours';
+    final busy = widget.saving == option.name || widget.saving == 'tone:${option.tone}' || widget.saving == 'ours';
+    final hasFlowButton = option.buttons.any((b) => b.kind == 'flow' && b.flowName.isNotEmpty);
     return AppCard(
       hasShadow: false,
       child: Column(
@@ -414,7 +448,7 @@ class _OptionCard extends StatelessWidget {
             // THE ACTIVE VOICE IS ALWAYS NAMED, NEVER JUST "READY" — the chosen one used to lose
             // its own status once it became the sending option; this badge is additive, so the
             // owner can still see BOTH which voice this is and that it is the one going out.
-            if (sending)
+            if (widget.sending)
               AppBadge(
                 text: ct(context, 'sendingNow'),
                 icon: Icons.check_circle_outline,
@@ -422,9 +456,14 @@ class _OptionCard extends StatelessWidget {
                 textColor: isDark ? AppDarkColors.accentOnSoft : AppColors.accentOnSoft,
               ),
           ]),
-          if (chip != null || sending) const SizedBox(height: AppSpacing.sm),
+          if (chip != null || widget.sending) const SizedBox(height: AppSpacing.sm),
           WhatsAppPhoneFrame(
-            child: WhatsAppBubble(text: option.text, buttons: option.buttons),
+            child: _openFlow != null || _flowLoading || _flowError.isNotEmpty
+                ? _FlowSlot(loading: _flowLoading, flow: _openFlow, error: _flowError, onDone: () => setState(() {
+                    _openFlow = null;
+                    _flowError = '';
+                  }))
+                : WhatsAppBubble(text: option.text, buttons: option.buttons, onPressButton: hasFlowButton ? _pressButton : null),
           ),
           const SizedBox(height: 4),
           Text(caption, style: AppTextStyles.caption),
@@ -447,17 +486,49 @@ class _OptionCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             Text(option.reason, style: AppTextStyles.caption),
           ],
-          if (hasReason && !sending) ...[
+          if (widget.hasReason && !widget.sending) ...[
             const SizedBox(height: AppSpacing.sm),
             if (option.mine)
-              SecondaryButton(text: ct(context, 'useIt'), onPressed: busy ? null : onUseCustomerText)
-            else if (chosen.isEmpty)
-              SecondaryButton(text: ct(context, 'makeMyTone'), onPressed: busy ? null : onChooseTone)
+              SecondaryButton(text: ct(context, 'useIt'), onPressed: busy ? null : widget.onUseCustomerText)
+            else if (widget.chosen.isEmpty)
+              SecondaryButton(text: ct(context, 'makeMyTone'), onPressed: busy ? null : widget.onChooseTone)
             else
-              SecondaryButton(text: ct(context, 'backToOurs'), onPressed: busy ? null : onRevertToOurs),
+              SecondaryButton(text: ct(context, 'backToOurs'), onPressed: busy ? null : widget.onRevertToOurs),
           ],
         ],
       ),
     );
+  }
+}
+
+/// Whatever is currently happening with the button he pressed — loading, a real error, or the
+/// Flow itself — drawn IN PLACE of the plain bubble, same slot the console's own engine uses.
+class _FlowSlot extends StatelessWidget {
+  const _FlowSlot({required this.loading, required this.flow, required this.error, required this.onDone});
+  final bool loading;
+  final FlowJson? flow;
+  final String error;
+  final VoidCallback onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const SizedBox(width: 300, height: 160, child: Center(child: CircularProgressIndicator(color: Colors.white)));
+    }
+    if (error.isNotEmpty) {
+      return SizedBox(
+        width: 300,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: AppRadius.cardRadius),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(error, style: const TextStyle(color: Color(0xFFB7412F), fontSize: 13)),
+            TextButton(onPressed: onDone, child: Text(ct(context, 'backToMessage'))),
+          ]),
+        ),
+      );
+    }
+    if (flow != null) return WaFlowScreens(flow: flow!, onDone: onDone);
+    return const SizedBox.shrink();
   }
 }

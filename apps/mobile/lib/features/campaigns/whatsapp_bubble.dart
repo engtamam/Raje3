@@ -9,14 +9,16 @@ import 'package:raje3_mobile/theme/app_theme.dart';
 /// surface, so what renders here matches what actually arrives on a real phone regardless of
 /// which theme the shop picked for itself.
 class WhatsAppBubble extends StatelessWidget {
-  const WhatsAppBubble({super.key, required this.text, this.buttons = const []});
+  const WhatsAppBubble({super.key, required this.text, this.buttons = const [], this.onPressButton});
 
   final String text;
   /// Drawn OUTSIDE the bubble, exactly where Meta actually renders them — never inside the
-  /// message text. Static labels only this pass: opening a Flow for real stays deferred (see
-  /// this feature's own build notes) — a shop owner still sees exactly which button ships with
-  /// the message, just cannot walk through its screens here yet.
+  /// message text.
   final List<MessageButton> buttons;
+  /// Given only where a Flow can actually be opened live — absent leaves the button exactly a
+  /// real label, not yet interactive (same posture MessagePreview.tsx's own `onPressButton` note
+  /// keeps: most call sites have no Flow to open at all).
+  final void Function(MessageButton button)? onPressButton;
 
   @override
   Widget build(BuildContext context) {
@@ -54,20 +56,25 @@ class WhatsAppBubble extends StatelessWidget {
             child: Column(
               children: [
                 for (final b in buttons)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: Colors.black12)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(b.kind == 'flow' ? Icons.auto_awesome_outlined : Icons.open_in_new,
-                            size: 14, color: const Color(0xFF0091FF)),
-                        const SizedBox(width: 6),
-                        Text(b.label, style: const TextStyle(color: Color(0xFF0091FF), fontSize: 13, fontFamily: 'Cairo')),
-                      ],
+                  InkWell(
+                    onTap: onPressButton != null && b.kind == 'flow' && b.flowName.isNotEmpty
+                        ? () => onPressButton!(b)
+                        : null,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: const BoxDecoration(
+                        border: Border(top: BorderSide(color: Colors.black12)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(b.kind == 'flow' ? Icons.auto_awesome_outlined : Icons.open_in_new,
+                              size: 14, color: const Color(0xFF0091FF)),
+                          const SizedBox(width: 6),
+                          Text(b.label, style: const TextStyle(color: Color(0xFF0091FF), fontSize: 13, fontFamily: 'Cairo')),
+                        ],
+                      ),
                     ),
                   ),
               ],
