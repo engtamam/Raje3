@@ -258,6 +258,10 @@ class BillingPlan {
   final bool active;
   final bool listed;
   final int trialDays;
+  /// billingShared's own `includedAiCreditOf` — the SAME price row's `included_credit_minor`,
+  /// `null` for every plan without such an allowance (never a zero-guess: a plan that never
+  /// opted into this reads as "carries no such allowance", not "carries zero of it").
+  final int? includedCreditMinor;
 
   const BillingPlan({
     required this.id,
@@ -268,6 +272,7 @@ class BillingPlan {
     this.active = true,
     this.listed = true,
     this.trialDays = 0,
+    this.includedCreditMinor,
   });
 
   /// Free forever, or a trial that owes nothing today — mirrors the console's own
@@ -290,7 +295,13 @@ class BillingPlan {
       active: json['active'] != false,
       listed: json['listed'] != false,
       trialDays: (json['trial_days'] as num?)?.toInt() ?? 0,
+      includedCreditMinor: _positiveOrNull(monthly['included_credit_minor']),
     );
+  }
+
+  static int? _positiveOrNull(dynamic v) {
+    final n = (v as num?)?.toInt();
+    return (n != null && n > 0) ? n : null;
   }
 
   /// billingShared.tsx::appKey — the one `feature.*` key this plan turns on, or empty for a
@@ -1155,6 +1166,25 @@ class AuthService {
           .toList();
     } on DioException {
       return null;
+    }
+  }
+
+  /// `GET /api/v1/assistant/pricing/current` — `(unitsPerHalala, aiEnabled)`, the live
+  /// halala→unit conversion rate `Wallet.tsx`'s own `unitsLabel` and the app-store's own
+  /// `AiUnitsChip` both read. `null`/`true` (fail-open, same as useAppBilling.ts's own posture)
+  /// when the action is absent or the read fails — the chip itself never renders without a real
+  /// `includedCreditMinor` regardless, so a wrong `aiEnabled` guess here costs nothing.
+  Future<(double?, bool)> fetchAiUnitsPerHalala() async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/assistant/pricing/current');
+      final body = response.data;
+      if (body is! Map) return (null, true);
+      return (
+        (body['ai_unit_units_per_halala'] as num?)?.toDouble(),
+        body['ai_enabled'] != false,
+      );
+    } on DioException {
+      return (null, true);
     }
   }
 

@@ -2962,6 +2962,14 @@ class SAr extends S {
   }
 
   @override
+  String appStoreAiUnitsCount(int units) {
+    return '$units وحدة';
+  }
+
+  @override
+  String get appStoreAiUnitsIncluded => 'ذكاء اصطناعي مجاناً كل شهر';
+
+  @override
   String get whatsappAssistantTitle => 'المساعد الذكي';
 
   @override

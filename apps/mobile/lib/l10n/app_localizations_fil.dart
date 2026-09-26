@@ -3015,6 +3015,14 @@ class SFil extends S {
   }
 
   @override
+  String appStoreAiUnitsCount(int units) {
+    return '$units yunit';
+  }
+
+  @override
+  String get appStoreAiUnitsIncluded => 'Libreng AI, bawat buwan';
+
+  @override
   String get whatsappAssistantTitle => 'AI Assistant';
 
   @override

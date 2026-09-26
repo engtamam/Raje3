@@ -2985,6 +2985,14 @@ class SEn extends S {
   }
 
   @override
+  String appStoreAiUnitsCount(int units) {
+    return '$units unit';
+  }
+
+  @override
+  String get appStoreAiUnitsIncluded => 'Free AI, every month';
+
+  @override
   String get whatsappAssistantTitle => 'AI Assistant';
 
   @override

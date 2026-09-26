@@ -4995,6 +4995,18 @@ abstract class S {
   /// **'فعّله تلقائياً باشتراكك في {app}'**
   String appStoreOfferDesc(String app);
 
+  /// No description provided for @appStoreAiUnitsCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{units} وحدة'**
+  String appStoreAiUnitsCount(int units);
+
+  /// No description provided for @appStoreAiUnitsIncluded.
+  ///
+  /// In ar, this message translates to:
+  /// **'ذكاء اصطناعي مجاناً كل شهر'**
+  String get appStoreAiUnitsIncluded;
+
   /// No description provided for @whatsappAssistantTitle.
   ///
   /// In ar, this message translates to:

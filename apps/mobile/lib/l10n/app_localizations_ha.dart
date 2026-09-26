@@ -2949,6 +2949,14 @@ class SHa extends S {
   }
 
   @override
+  String appStoreAiUnitsCount(int units) {
+    return 'yunit $units';
+  }
+
+  @override
+  String get appStoreAiUnitsIncluded => 'AI kyauta kowane wata';
+
+  @override
   String get whatsappAssistantTitle => 'Mataimakin AI';
 
   @override

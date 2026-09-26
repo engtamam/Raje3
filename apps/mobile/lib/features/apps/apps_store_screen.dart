@@ -48,6 +48,8 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
   String _capacityError = '';
   Map<String, DiscountInfo> _discountApplied = const {};
   Map<String, DiscountInfo> _discountPotential = const {};
+  double? _unitsPerHalala;
+  bool _aiEnabled = true;
 
   /// billingShared.tsx's own PREREQ_KEYS/DEPENDENT_KEYS — client-side cascade rule, same one
   /// `useAppBilling.ts::cascadeTargets` follows: cancelling the shop's LAST prerequisite (تسجيل
@@ -64,6 +66,7 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
   Future<void> _load() async {
     final auth = context.read<AuthProvider>();
     final (applied, potential) = await auth.fetchDiscountPreview();
+    final (unitsPerHalala, aiEnabled) = await auth.fetchAiUnitsPerHalala();
     final results = await Future.wait([auth.fetchOwnership(), auth.fetchPurchasablePlans(), auth.fetchBillingOverview()]);
     if (!mounted) return;
     setState(() {
@@ -72,8 +75,15 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
       _subs = (results[2] as BillingOverview?)?.subscriptions;
       _discountApplied = applied;
       _discountPotential = potential;
+      _unitsPerHalala = unitsPerHalala;
+      _aiEnabled = aiEnabled;
     });
   }
+
+  /// `null` unless [_aiEnabled] AND the plan carries a real allowance — billingShared's own
+  /// `!includedCreditMinor` guard, plus the platform-wide AI switch gate `AppLauncher.tsx`'s own
+  /// `billing.aiEnabled ? includedAiCreditOf(plan) : undefined` applies.
+  int? _includedCreditFor(BillingPlan? plan) => (_aiEnabled ? plan?.includedCreditMinor : null);
 
   /// The real app name behind a discount's `owning_key` — resolved from [kAppRows], never
   /// invented (mirrors AppLauncher.tsx's own `appNameOf`).
@@ -402,11 +412,23 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
                           plan: plan,
                           sub: sub,
                           discountPercent: plan != null ? _discountApplied[plan.id]?.percent : null,
+                          includedCreditMinor: _includedCreditFor(plan),
+                          unitsPerHalala: _unitsPerHalala,
                           showBilling: _tab,
                           inCart: plan != null && _cart.contains(plan.id),
                           onToggleCart: plan != null && owned != true ? () => _toggleCart(plan.id) : null,
+                          // OWNED, NEVER JUST ROUTED — a locked card with a real `route` used to
+                          // navigate straight into the live feature screen with zero ownership
+                          // check anywhere (found live 2026-09-26 auditing this screen): no
+                          // route-level gate exists (`app_router.dart`'s own `for (final section
+                          // in kNavSections)` registers every section's route unconditionally),
+                          // and the destination screens themselves never self-check ownership
+                          // either. A single tap on «متجر التطبيقات» fully bypassed the paywall
+                          // for anything with a mobile screen. The «تطبيقاتي» shelf was never
+                          // exposed to this (it already filters to owned rows only), only the
+                          // store tab, which lists every row regardless of ownership.
                           onOpen: () {
-                            if (row.route != null) {
+                            if (row.route != null && owned != false) {
                               context.go('/${row.route}');
                             } else {
                               _showDetails(row, plan, owned, sub);
@@ -496,6 +518,8 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
         discountAppName: discount != null ? _appNameForKey(discount.owningKey) : null,
         potentialDiscountPercent: potential?.percent,
         potentialDiscountAppName: potential != null ? _appNameForKey(potential.owningKey) : null,
+        includedCreditMinor: _includedCreditFor(plan),
+        unitsPerHalala: _unitsPerHalala,
         onSubscribe: plan != null && _missingRequirement(S.of(context)!, plan).isEmpty ? () => _quickSubscribe(plan) : null,
         onCancel: sub != null
             ? () async {
@@ -577,7 +601,7 @@ Color _appAccent(String id) {
 class _AppCard extends StatefulWidget {
   const _AppCard({
     required this.row, required this.owned, required this.plan, required this.sub,
-    this.discountPercent,
+    this.discountPercent, this.includedCreditMinor, this.unitsPerHalala,
     required this.showBilling, required this.inCart, required this.onToggleCart,
     required this.onOpen, required this.onTapDetails,
   });
@@ -588,6 +612,8 @@ class _AppCard extends StatefulWidget {
   /// billingShared's own applied-discount percent for this plan — a small ribbon on the card
   /// face itself, never something the shop only learns after opening details.
   final int? discountPercent;
+  final int? includedCreditMinor;
+  final double? unitsPerHalala;
   final bool showBilling;
   final bool inCart;
   final VoidCallback? onToggleCart;
@@ -693,6 +719,10 @@ class _AppCardState extends State<_AppCard> {
                               style: AppTextStyles.bodySmall.copyWith(color: Colors.white.withValues(alpha: 0.85), fontWeight: FontWeight.w600)),
                         ],
                       ),
+                  ],
+                  if (widget.includedCreditMinor != null) ...[
+                    const SizedBox(height: 6),
+                    _AiUnitsChip(includedCreditMinor: widget.includedCreditMinor!, unitsPerHalala: widget.unitsPerHalala, compact: true),
                   ],
                   if (widget.showBilling) ...[
                     const SizedBox(height: 8),
@@ -1022,6 +1052,7 @@ class _AppDetailsSheet extends StatelessWidget {
     this.missingRequirement = '', this.cascadeNames = const [],
     this.discountPercent, this.discountAppName,
     this.potentialDiscountPercent, this.potentialDiscountAppName,
+    this.includedCreditMinor, this.unitsPerHalala,
     this.onSubscribe, this.onCancel, this.onUndoCancel,
   });
   final AppRow row;
@@ -1038,6 +1069,8 @@ class _AppDetailsSheet extends StatelessWidget {
   final String? discountAppName;
   final int? potentialDiscountPercent;
   final String? potentialDiscountAppName;
+  final int? includedCreditMinor;
+  final double? unitsPerHalala;
   final VoidCallback? onSubscribe;
   final VoidCallback? onCancel;
   final VoidCallback? onUndoCancel;
@@ -1111,6 +1144,12 @@ class _AppDetailsSheet extends StatelessWidget {
                       if (potentialDiscountPercent != null && potentialDiscountAppName != null) ...[
                         const SizedBox(height: AppSpacing.sm),
                         _OfferChip(percent: potentialDiscountPercent!, appName: potentialDiscountAppName!),
+                      ],
+                      // THE INCLUDED-AI-CREDIT CHIP — a GIFT riding on top of the plan, its own
+                      // royal violet-indigo identity, never folded into the price line above.
+                      if (includedCreditMinor != null) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        _AiUnitsChip(includedCreditMinor: includedCreditMinor!, unitsPerHalala: unitsPerHalala),
                       ],
                       const SizedBox(height: AppSpacing.sm),
                       if (owned == true) ...[
@@ -1194,6 +1233,62 @@ class _AppDetailsSheet extends StatelessWidget {
 /// billingShared.tsx's own `OfferChip` — a gold-on-charcoal teaser with a continuous light-sweep
 /// (`RjSheen`), the same identity `_AppCard`'s own VIP tile already carries, so a real cross-sell
 /// offer reads as unmistakably premium rather than one more grey info box.
+/// AppDetailsModal.tsx's own `AiUnitsChip` — a royal violet→indigo gradient (never the plain
+/// purple box the old screen used), a real gift riding on top of the plan's own price, absence
+/// never a zero: the caller only ever builds this when `includedCreditMinor` is a real positive
+/// number, so this widget itself has no "nothing to show" branch to get wrong.
+class _AiUnitsChip extends StatelessWidget {
+  final int includedCreditMinor;
+  final double? unitsPerHalala;
+  final bool compact;
+  const _AiUnitsChip({required this.includedCreditMinor, required this.unitsPerHalala, this.compact = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context)!;
+    // Wallet.tsx's own `unitsLabel` — a real unit count when the live rate is known, riyals
+    // otherwise, never a raw halala number nobody can read.
+    final label = unitsPerHalala != null
+        ? s.appStoreAiUnitsCount((includedCreditMinor * unitsPerHalala!).round())
+        : _riyals(includedCreditMinor);
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12, vertical: compact ? 5 : 10),
+      decoration: BoxDecoration(
+        borderRadius: compact ? BorderRadius.circular(AppRadius.pill) : AppRadius.standardRadius,
+        gradient: const LinearGradient(colors: [Color(0xFF4C1D95), Color(0xFF6D28D9), Color(0xFF7C3AED)]),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: compact ? 20 : 32,
+            height: compact ? 20 : 32,
+            decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white24),
+            alignment: Alignment.center,
+            child: Icon(Icons.bolt_rounded, size: compact ? 12 : 16, color: Colors.white),
+          ),
+          SizedBox(width: compact ? 5 : 10),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label,
+                    style: (compact ? AppTextStyles.caption : AppTextStyles.bodyMedium)
+                        .copyWith(color: Colors.white, fontWeight: FontWeight.w800),
+                    overflow: TextOverflow.ellipsis),
+                if (!compact)
+                  Text(s.appStoreAiUnitsIncluded,
+                      style: AppTextStyles.caption.copyWith(color: Colors.white70)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _OfferChip extends StatelessWidget {
   final int percent;
   final String appName;

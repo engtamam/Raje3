@@ -2949,6 +2949,14 @@ class SBn extends S {
   }
 
   @override
+  String appStoreAiUnitsCount(int units) {
+    return '$units ইউনিট';
+  }
+
+  @override
+  String get appStoreAiUnitsIncluded => 'প্রতি মাসে ফ্রি AI';
+
+  @override
   String get whatsappAssistantTitle => 'এআই সহকারী';
 
   @override
