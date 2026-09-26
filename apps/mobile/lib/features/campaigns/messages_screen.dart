@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
+import 'package:raje3_mobile/core/services/auth_service.dart' show Branch;
 import 'package:raje3_mobile/core/services/customers_service.dart';
 import 'package:raje3_mobile/core/services/messages_service.dart';
 import 'package:raje3_mobile/models/app_store_model.dart' show Owned;
@@ -15,6 +16,7 @@ import 'package:raje3_mobile/features/campaigns/campaigns_i18n.dart';
 import 'package:raje3_mobile/features/campaigns/campaigns_style.dart';
 import 'package:raje3_mobile/features/campaigns/launch_wizard_screen.dart';
 import 'package:raje3_mobile/features/campaigns/message_preview_sheet.dart';
+import 'package:raje3_mobile/features/campaigns/whatsapp_bubble.dart';
 
 /// «الحملات» — every message the shop sends in its own name: what fires automatically, what is
 /// about to go, what the owner launches by hand, and what already happened. See
@@ -49,11 +51,14 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
   Owned? _owned;
   final Map<String, Customer> _who = {};
   String _logFilter = '';
+  List<Branch> _branches = const [];
+  String _logBranch = '';
 
   @override
   void initState() {
     super.initState();
-    final apiClient = context.read<AuthProvider>().apiClient;
+    final auth = context.read<AuthProvider>();
+    final apiClient = auth.apiClient;
     _service = MessagesService(apiClient: apiClient);
     _customersService = CustomersService(apiClient: apiClient);
     _tabController = TabController(length: 4, vsync: this);
@@ -62,6 +67,9 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
       if (_tabController.index == 3 && _log == null) _loadLog();
     });
     _loadAll();
+    auth.fetchBranches().then((r) {
+      if (mounted && r != null) setState(() => _branches = r.branches);
+    });
   }
 
   @override
@@ -94,7 +102,7 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
   }
 
   Future<void> _loadLog() async {
-    final (rows, denied) = await _service.log(outcome: _logFilter);
+    final (rows, denied) = await _service.log(outcome: _logFilter, branchId: _logBranch);
     if (!mounted) return;
     setState(() {
       _log = rows;
@@ -192,6 +200,7 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
                   _QueueTab(schedule: _schedule, who: _who, service: _service, onChanged: _loadAll),
                   _CampaignsTab(
                     campaigns: _campaigns,
+                    goals: _goals,
                     service: _service,
                     owned: _owned,
                     onChanged: _loadAll,
@@ -203,9 +212,19 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
                     loaded: _logLoaded,
                     who: _who,
                     filter: _logFilter,
+                    branches: _branches,
+                    branchFilter: _logBranch,
                     onFilterChanged: (f) {
                       setState(() {
                         _logFilter = f;
+                        _log = null;
+                        _logLoaded = false;
+                      });
+                      _loadLog();
+                    },
+                    onBranchFilterChanged: (b) {
+                      setState(() {
+                        _logBranch = b;
                         _log = null;
                         _logLoaded = false;
                       });
@@ -257,6 +276,16 @@ String? _qualityLabel(BuildContext context, String quality) {
     default:
       return null;
   }
+}
+
+/// When something already happened, in the words an owner uses — "today"/"yesterday"/"N days
+/// ago" — same habit `_QueueTab`'s own future-facing `_dueIn` already keeps, just the past side.
+String _whenPast(BuildContext context, int at) {
+  if (at <= 0) return '';
+  final days = ((DateTime.now().millisecondsSinceEpoch / 1000 - at) / 86400).floor();
+  if (days <= 0) return ct(context, 'dueToday');
+  if (days == 1) return ct(context, 'yesterday');
+  return ct(context, 'daysAgo', {'n': '$days'});
 }
 
 class _TodayHero extends StatelessWidget {
@@ -422,14 +451,21 @@ class _TemplatesTabState extends State<_TemplatesTab> {
     'marketing': 'sectionMarketing', 'offers': 'sectionOffers',
   };
   String _classFilter = '';
+  // STACKABLE, NOT SINGLE-SELECT — both together means "automatic AND interactive", the same
+  // Messages.tsx's own smart filter promises. On top of the class rail above, never instead of it.
+  final Set<String> _tagFilters = {};
 
   @override
   Widget build(BuildContext context) {
     if (widget.reasons == null) return const Center(child: CircularProgressIndicator());
-    final cards = mergeTemplateCards(widget.reasons!, widget.goals ?? const []);
-    if (cards.isEmpty) {
+    final allCards = mergeTemplateCards(widget.reasons!, widget.goals ?? const []);
+    if (allCards.isEmpty) {
       return EmptyState(icon: Icons.forum_outlined, title: ct(context, 'templatesEmpty'));
     }
+    final cards = allCards
+        .where((c) => !_tagFilters.contains('auto') || c.auto)
+        .where((c) => !_tagFilters.contains('interactive') || c.interactive)
+        .toList();
     // THE RAIL AS A HORIZONTAL CHIP BAR (Google Maps' own category-filter pattern: one
     // horizontally-scrollable row, each chip toggled, counted so a shop can see what's worth
     // opening before tapping it — never a hidden count that could go stale) — a phone has no
@@ -438,9 +474,24 @@ class _TemplatesTabState extends State<_TemplatesTab> {
     final visible = _classFilter.isEmpty ? cards : cards.where((c) => c.cls == _classFilter).toList();
     return Column(
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+          child: Wrap(spacing: AppSpacing.sm, children: [
+            FilterChip(
+              label: Text(ct(context, 'filterAutoOnly')),
+              selected: _tagFilters.contains('auto'),
+              onSelected: (v) => setState(() => v ? _tagFilters.add('auto') : _tagFilters.remove('auto')),
+            ),
+            FilterChip(
+              label: Text(ct(context, 'filterInteractive')),
+              selected: _tagFilters.contains('interactive'),
+              onSelected: (v) => setState(() => v ? _tagFilters.add('interactive') : _tagFilters.remove('interactive')),
+            ),
+          ]),
+        ),
         if (sections.length > 1)
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
             child: SegmentedFilter<String>(
               value: _classFilter,
               onChanged: (v) => setState(() => _classFilter = v),
@@ -455,7 +506,9 @@ class _TemplatesTabState extends State<_TemplatesTab> {
             ),
           ),
         Expanded(
-          child: ListView(
+          child: cards.isEmpty
+              ? EmptyState(icon: Icons.filter_alt_off_outlined, title: ct(context, 'templatesEmpty'))
+              : ListView(
             padding: const EdgeInsets.all(AppSpacing.md),
             children: [
               for (final section in (_classFilter.isEmpty ? sections : [_classFilter]))
@@ -562,6 +615,13 @@ class _TemplateCardTileState extends State<_TemplateCardTile> {
                     AppBadge(text: ct(context, _tplStatusKey[c.templateStatus]!)),
                   if (c.reason?.template.isNotEmpty == true)
                     AppBadge(text: ct(context, 'yourText')),
+                  if (c.interactive)
+                    AppBadge(
+                      icon: Icons.touch_app_outlined,
+                      text: ct(context, 'interactive'),
+                      backgroundColor: context.isDark ? AppDarkColors.infoSoft : AppColors.infoSoft,
+                      textColor: context.isDark ? AppDarkColors.infoOnSoft : AppColors.infoOnSoft,
+                    ),
                   if (c.goal != null)
                     GestureDetector(
                       onTap: widget.onCrossLink,
@@ -699,6 +759,7 @@ class _QueueTab extends StatelessWidget {
 class _CampaignsTab extends StatelessWidget {
   const _CampaignsTab({
     required this.campaigns,
+    required this.goals,
     required this.service,
     required this.owned,
     required this.onChanged,
@@ -706,15 +767,11 @@ class _CampaignsTab extends StatelessWidget {
   });
 
   final List<Campaign>? campaigns;
+  final List<GoalRow>? goals;
   final MessagesService service;
   final Owned? owned;
   final VoidCallback onChanged;
   final VoidCallback onSubscribe;
-
-  static const _goalTitleKey = {
-    'win_back': 'goalWinBack', 'reward_loyal': 'goalRewardLoyal', 'announce': 'goalAnnounce',
-    'occasion': 'goalOccasion', 'service_offer': 'goalServiceOffer', 'package_offer': 'goalPackageOffer',
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -741,54 +798,32 @@ class _CampaignsTab extends StatelessWidget {
       return EmptyState(icon: Icons.campaign_outlined, title: ct(context, 'campaignsEmptyTitle'),
           message: ct(context, 'campaignsEmptyMsg'));
     }
-    return ListView.separated(
+    final reach = (goals ?? const []).fold<int>(0, (sum, g) => sum + g.reach);
+    return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
-      itemCount: campaigns!.length,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, i) {
-        final c = campaigns![i];
-        final state = msgStateStyle(c.state, c.isScheduled, context.isDark);
-        final stateLabelKeys = {
-          'active': 'stateActive', 'paused': 'statePaused', 'scheduled': 'stateScheduled', 'done': 'stateDone',
-        };
-        return AppCard(
-          hasShadow: false,
-          onTap: () => _openDetail(context, c),
-          child: Row(
-            children: [
-              Container(width: 8, height: 40,
-                  decoration: BoxDecoration(color: state.solid, borderRadius: BorderRadius.circular(4))),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_goalTitleKey.containsKey(c.goal) ? ct(context, _goalTitleKey[c.goal]!) : c.goal,
-                        style: AppTextStyles.bodyMedium),
-                    Text(ct(context, 'reachedCount', {'n': '${c.sent}'}), style: AppTextStyles.caption),
-                  ],
-                ),
-              ),
-              AppBadge(
-                  text: ct(context, stateLabelKeys[c.isScheduled ? 'scheduled' : c.state] ?? c.state),
-                  backgroundColor: state.soft, textColor: state.onSoft),
-              if (c.state == 'active') ...[
-                const SizedBox(width: 4),
-                CapabilityGate(
-                  requires: const ['campaigns.pause'],
-                  child: IconButton(
-                    icon: const Icon(Icons.pause_circle_outline, size: 20),
-                    onPressed: () async {
-                      await service.pauseCampaign(c.id);
-                      onChanged();
-                    },
-                  ),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
+      children: [
+        // THE THREE NUMBERS AN OWNER ACTUALLY WANTS AT A GLANCE — every one real: active count
+        // and total from this same list, reach summed from the goals' own side counter
+        // (`campaigns.goals`'s own `reach` field, already fetched for the templates tab — no
+        // second network call). Messages.tsx's own note on why a redemption-rate tile is
+        // deliberately left out applies here too: it needs every campaign's own `/runs` totals,
+        // one call each, which does not belong on a screen that opens on every visit.
+        Row(children: [
+          Expanded(child: KpiTile(icon: Icons.play_circle_outline, tone: KpiTone.success,
+              label: ct(context, 'stateActive'), value: '${campaigns!.where((c) => c.state == 'active').length}')),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(child: KpiTile(icon: Icons.bar_chart_rounded, tone: KpiTone.info,
+              label: ct(context, 'title'), value: '${campaigns!.length}')),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(child: KpiTile(icon: Icons.people_outline_rounded, tone: KpiTone.neutral,
+              label: ct(context, 'kpiReach'), value: '$reach')),
+        ]),
+        const SizedBox(height: AppSpacing.md),
+        for (final c in campaigns!) ...[
+          _CampaignCard(campaign: c, service: service, onChanged: onChanged, onTap: () => _openDetail(context, c)),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+      ],
     );
   }
 
@@ -798,6 +833,75 @@ class _CampaignsTab extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _CampaignDetailSheet(campaign: c, service: service),
+    );
+  }
+}
+
+class _CampaignCard extends StatelessWidget {
+  const _CampaignCard({required this.campaign, required this.service, required this.onChanged, required this.onTap});
+  final Campaign campaign;
+  final MessagesService service;
+  final VoidCallback onChanged;
+  final VoidCallback onTap;
+
+  static const _goalTitleKey = {
+    'win_back': 'goalWinBack', 'reward_loyal': 'goalRewardLoyal', 'announce': 'goalAnnounce',
+    'occasion': 'goalOccasion', 'service_offer': 'goalServiceOffer', 'package_offer': 'goalPackageOffer',
+  };
+  static const _stateLabelKeys = {
+    'active': 'stateActive', 'paused': 'statePaused', 'scheduled': 'stateScheduled', 'done': 'stateDone',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final c = campaign;
+    final state = msgStateStyle(c.state, c.isScheduled, context.isDark);
+    final window = c.windowChip;
+    return AppCard(
+      hasShadow: false,
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(width: 8, height: 40,
+              decoration: BoxDecoration(color: state.solid, borderRadius: BorderRadius.circular(4))),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_goalTitleKey.containsKey(c.goal) ? ct(context, _goalTitleKey[c.goal]!) : c.goal,
+                    style: AppTextStyles.bodyMedium),
+                Row(children: [
+                  Flexible(child: Text(ct(context, 'reachedCount', {'n': '${c.sent}'}),
+                      style: AppTextStyles.caption, overflow: TextOverflow.ellipsis)),
+                  if (window != null) ...[
+                    const SizedBox(width: 6),
+                    const Icon(Icons.repeat_rounded, size: 11),
+                    const SizedBox(width: 2),
+                    Text(window, style: AppTextStyles.caption),
+                  ],
+                ]),
+              ],
+            ),
+          ),
+          AppBadge(
+              text: ct(context, _stateLabelKeys[c.isScheduled ? 'scheduled' : c.state] ?? c.state),
+              backgroundColor: state.soft, textColor: state.onSoft),
+          if (c.state == 'active') ...[
+            const SizedBox(width: 4),
+            CapabilityGate(
+              requires: const ['campaigns.pause'],
+              child: IconButton(
+                icon: const Icon(Icons.pause_circle_outline, size: 20),
+                onPressed: () async {
+                  await service.pauseCampaign(c.id);
+                  onChanged();
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -854,6 +958,7 @@ class _CampaignDetailSheet extends StatefulWidget {
 
 class _CampaignDetailSheetState extends State<_CampaignDetailSheet> {
   (List<CampaignRun>, Map<String, int>)? _data;
+  CampaignPreview? _preview;
 
   @override
   void initState() {
@@ -861,11 +966,52 @@ class _CampaignDetailSheetState extends State<_CampaignDetailSheet> {
     widget.service.runs(widget.campaign.id).then((d) {
       if (mounted) setState(() => _data = d);
     });
+    // THE MESSAGE ITSELF — re-rendered from THIS campaign's own stored settings, the same
+    // `campaigns.preview` call the wizard already makes, never a client-composed guess
+    // (Messages.tsx's own `openRuns()` does the identical re-fetch).
+    final c = widget.campaign;
+    widget.service.previewCampaign({
+      'goal': c.goal,
+      'owner_text': c.ownerText,
+      'service_ids': c.scopeServiceIds.isNotEmpty ? c.scopeServiceIds : (c.serviceId.isNotEmpty ? [c.serviceId] : <String>[]),
+      'package_ids': c.packageId.isNotEmpty ? [c.packageId] : <String>[],
+      'loyalty_window_days': c.loyaltyWindowDays,
+      'loyalty_min_visits': c.loyaltyMinVisits,
+      'branch_id': c.branchId,
+      'offer_value': c.offerValue,
+      'service_names': c.scopeServiceNames,
+      'package_names': <String>[],
+      'expires_at': c.expiresAt,
+      'fire_at': c.fireAt,
+      'window_start_hour': c.windowStartHour,
+      'window_end_hour': c.windowEndHour,
+      'window_weekdays': c.windowWeekdays,
+      'reward_type': c.rewardType,
+      'reward_points': c.rewardPoints,
+    }).then((p) {
+      if (mounted) setState(() => _preview = p);
+    });
+  }
+
+  /// One bar per calendar day this campaign actually sent something, oldest first — real numbers
+  /// only, never estimated (Messages.tsx's own `runsByDay()`).
+  List<MapEntry<String, int>> _byDay() {
+    final byDay = <String, int>{};
+    final order = <String>[];
+    for (final r in (_data?.$1 ?? const <CampaignRun>[]).reversed) {
+      if (r.at <= 0) continue;
+      final d = DateTime.fromMillisecondsSinceEpoch(r.at * 1000);
+      final label = '${d.day}/${d.month}';
+      if (!byDay.containsKey(label)) order.add(label);
+      byDay[label] = (byDay[label] ?? 0) + r.sent;
+    }
+    return [for (final label in order) MapEntry(label, byDay[label]!)];
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final byDay = _byDay();
     return Container(
       constraints: BoxConstraints(maxHeight: appSheetMaxHeight(context)),
       decoration: BoxDecoration(
@@ -880,22 +1026,39 @@ class _CampaignDetailSheetState extends State<_CampaignDetailSheet> {
               children: [
                 Text(ct(context, 'whatHappened'), style: AppTextStyles.headlineSmall),
                 const SizedBox(height: AppSpacing.sm),
+                if (_preview?.message.isNotEmpty == true)
+                  WhatsAppPhoneFrame(child: WhatsAppBubble(text: _preview!.message)),
+                const SizedBox(height: AppSpacing.sm),
                 if ((_data!.$2).isNotEmpty)
                   Wrap(spacing: AppSpacing.sm, runSpacing: AppSpacing.sm, children: [
                     for (final key in ['matched', 'sent', 'suppressed', 'redeemed'])
                       if (_data!.$2.containsKey(key))
                         KpiTile(icon: Icons.numbers, label: key, value: '${_data!.$2[key]}'),
                   ]),
+                if (byDay.length > 1) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Text(ct(context, 'trendLabel'), style: AppTextStyles.labelMedium),
+                  const SizedBox(height: AppSpacing.sm),
+                  _TrendBars(days: byDay),
+                ],
                 const SizedBox(height: AppSpacing.md),
                 for (final r in _data!.$1)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                            ct(context, 'runSummary', {'sent': '${r.sent}', 'suppressed': '${r.suppressed}'}),
-                            style: AppTextStyles.bodySmall),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                                ct(context, 'runSummary', {'sent': '${r.sent}', 'suppressed': '${r.suppressed}'}),
+                                style: AppTextStyles.bodySmall),
+                            Text(_whenPast(context, r.at), style: AppTextStyles.caption),
+                          ],
+                        ),
+                        if (r.reason.isNotEmpty)
+                          Text(r.reason, style: AppTextStyles.caption),
                       ],
                     ),
                   ),
@@ -903,6 +1066,46 @@ class _CampaignDetailSheetState extends State<_CampaignDetailSheet> {
                   Text(ct(context, 'noRunsYet'), style: AppTextStyles.bodySmall),
               ],
             ),
+    );
+  }
+}
+
+/// A plain bar-per-day trend — real sums only, no chart library: this feature's own bars, sized
+/// relative to the busiest day.
+class _TrendBars extends StatelessWidget {
+  const _TrendBars({required this.days});
+  final List<MapEntry<String, int>> days;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxV = days.map((e) => e.value).fold(1, (a, b) => a > b ? a : b);
+    final accent = context.isDark ? AppDarkColors.accent : AppColors.accent;
+    return SizedBox(
+      height: 80,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (final d in days)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${d.value}', style: AppTextStyles.caption),
+                    const SizedBox(height: 2),
+                    Container(
+                      height: 4 + 44 * (d.value / maxV),
+                      decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(3)),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(d.key, style: AppTextStyles.caption),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -916,7 +1119,10 @@ class _LogTab extends StatelessWidget {
     required this.loaded,
     required this.who,
     required this.filter,
+    required this.branches,
+    required this.branchFilter,
     required this.onFilterChanged,
+    required this.onBranchFilterChanged,
   });
 
   final List<MessageLogRow>? log;
@@ -927,7 +1133,10 @@ class _LogTab extends StatelessWidget {
   final bool loaded;
   final Map<String, Customer> who;
   final String filter;
+  final List<Branch> branches;
+  final String branchFilter;
   final ValueChanged<String> onFilterChanged;
+  final ValueChanged<String> onBranchFilterChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -935,15 +1144,31 @@ class _LogTab extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
-          child: SegmentedFilter<String>(
-            value: filter,
-            onChanged: onFilterChanged,
-            options: [
-              SegmentedFilterOption(value: '', label: ct(context, 'filterAll')),
-              SegmentedFilterOption(value: 'sent', label: ct(context, 'statSent')),
-              SegmentedFilterOption(value: 'suppressed', label: ct(context, 'filterSuppressed')),
+          child: Column(children: [
+            SegmentedFilter<String>(
+              value: filter,
+              onChanged: onFilterChanged,
+              options: [
+                SegmentedFilterOption(value: '', label: ct(context, 'filterAll')),
+                SegmentedFilterOption(value: 'sent', label: ct(context, 'statSent')),
+                SegmentedFilterOption(value: 'suppressed', label: ct(context, 'filterSuppressed')),
+              ],
+            ),
+            // SHOWN ONLY FOR A SHOP WITH MORE THAN ONE PLACE — "filter by your only branch" is a
+            // control that does nothing (Messages.tsx's own note on the identical console field).
+            if (branches.length > 1) ...[
+              const SizedBox(height: AppSpacing.sm),
+              SegmentedFilter<String>(
+                value: branchFilter,
+                onChanged: onBranchFilterChanged,
+                options: [
+                  SegmentedFilterOption(value: '', label: ct(context, 'allBranches')),
+                  for (final b in branches) SegmentedFilterOption(value: b.id, label: b.name),
+                  SegmentedFilterOption(value: '_none', label: ct(context, 'noBranch')),
+                ],
+              ),
             ],
-          ),
+          ]),
         ),
         Expanded(
           child: log == null

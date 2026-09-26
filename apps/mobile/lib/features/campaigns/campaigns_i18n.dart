@@ -458,6 +458,41 @@ const Map<String, Map<String, String>> _kCampaignsStrings = {
     'bn': 'এই মুহূর্তে লগ পড়া যায়নি।', 'ur': 'ابھی لاگ پڑھا نہیں جا سکا۔', 'ha': 'An kasa karanta bayanan tarihi a yanzu.',
     'fil': 'Hindi nabasa ang log ngayon.',
   },
+  'allBranches': {
+    'ar': 'كل الفروع', 'en': 'All branches', 'bn': 'সব শাখা', 'ur': 'تمام شاخیں', 'ha': 'Duk rassa',
+    'fil': 'Lahat ng sangay',
+  },
+  'noBranch': {
+    'ar': 'بلا فرع محدَّد', 'en': 'No branch specified', 'bn': 'কোনো শাখা নির্দিষ্ট নেই', 'ur': 'کوئی شاخ متعین نہیں',
+    'ha': 'Ba a ƙayyade reshe ba', 'fil': 'Walang tinukoy na sangay',
+  },
+  'interactive': {
+    'ar': 'تفاعلي', 'en': 'Interactive', 'bn': 'ইন্টারেক্টিভ', 'ur': 'انٹرایکٹو', 'ha': 'Mai hulɗa',
+    'fil': 'Interactive',
+  },
+  'filterInteractive': {
+    'ar': 'تفاعلي فقط', 'en': 'Interactive only', 'bn': 'শুধু ইন্টারেক্টিভ', 'ur': 'صرف انٹرایکٹو',
+    'ha': 'Masu hulɗa kaɗai', 'fil': 'Interactive lang',
+  },
+  'filterAutoOnly': {
+    'ar': 'آلي فقط', 'en': 'Automatic only', 'bn': 'শুধু স্বয়ংক্রিয়', 'ur': 'صرف خودکار', 'ha': 'Atomatik kaɗai',
+    'fil': 'Awtomatiko lang',
+  },
+  'yesterday': {
+    'ar': 'أمس', 'en': 'Yesterday', 'bn': 'গতকাল', 'ur': 'کل', 'ha': 'Jiya', 'fil': 'Kahapon',
+  },
+  'daysAgo': {
+    'ar': 'قبل {n} أيام', 'en': '{n} days ago', 'bn': '{n} দিন আগে', 'ur': '{n} دن پہلے',
+    'ha': 'Kwana {n} da suka wuce', 'fil': '{n} araw ang nakalipas',
+  },
+  'trendLabel': {
+    'ar': 'الإرسال عبر الأيام', 'en': 'Sends over time', 'bn': 'সময়ের সাথে পাঠানো', 'ur': 'وقت کے ساتھ بھیجنا',
+    'ha': 'Aikawa a kan lokaci', 'fil': 'Mga pagpapadala sa paglipas ng panahon',
+  },
+  'kpiReach': {
+    'ar': 'الوصول الكلي', 'en': 'Total reach', 'bn': 'মোট পৌঁছানো', 'ur': 'کل رسائی', 'ha': 'Jimlar isarwa',
+    'fil': 'Kabuuang naabot',
+  },
   'sar': {
     'ar': 'ريال', 'en': 'SAR', 'bn': 'রিয়াল', 'ur': 'ریال', 'ha': 'Riyal', 'fil': 'SAR',
   },

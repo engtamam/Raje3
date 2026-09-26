@@ -178,6 +178,9 @@ class TemplateCard {
   final ReasonRow? reason;
   final String? goal;
   final String templateStatus;
+  /// Opens real Flow screens inside WhatsApp (booking a slot, a loyalty activation button…),
+  /// not just text to read — Messages.tsx's own `INTERACTIVE_TEMPLATE_TYPES` lookup.
+  final bool interactive;
 
   const TemplateCard({
     required this.key,
@@ -190,8 +193,40 @@ class TemplateCard {
     required this.reason,
     required this.goal,
     required this.templateStatus,
+    this.interactive = false,
   });
 }
+
+/// EVERY REASON'S OWN `template_type` — reminders' own `reasons.py` REASONS tuple, mirrored by
+/// hand (Messages.tsx's own `REASON_TEMPLATE_TYPE`: a table this small drifting is a one-line
+/// fix, not worth a network round trip for exactly one screen).
+const Map<String, String> kReasonTemplateType = {
+  'visit_recorded': 'svc_visit_confirmation',
+  'rating_requested': 'svc_visit_confirmation_rating',
+  'booking_confirmed': 'svc_booking_confirmation',
+  'visit_redeemed': 'svc_visit_redeemed',
+  'service_due': 'svc_service_reminder',
+  'after_visit': 'svc_follow_up',
+  'no_response': 'svc_service_reminder',
+  'balance_changed': 'per_account_notice',
+  'points_expiring': 'per_points_expiring',
+  'reward_within_reach': 'mkt_loyalty_activation',
+  'gone_missing': 'mkt_winback',
+  'loyal_customer': 'mkt_loyalty_activation',
+  'personal_occasion': 'mkt_personal_occasion',
+};
+
+/// THE TEMPLATE TYPE EACH GOAL SENDS — campaigns' own `GOAL_TEMPLATE`, mirrored the same way.
+const Map<String, String> kGoalTemplateType = {
+  'announce': 'mkt_announcement',
+  'service_offer': 'mkt_offer',
+  'package_offer': 'mkt_offer',
+};
+
+/// تفاعلي = يفتح شاشات حقيقية داخل واتساب (Flow)، لا مجرد نص — Messages.tsx's own set.
+const Set<String> kInteractiveTemplateTypes = {
+  'mkt_offer', 'mkt_personal_occasion', 'mkt_winback', 'svc_visit_confirmation_rating',
+};
 
 /// `REASON_GOAL` — Messages.tsx's own hand-matched table (reasons.py vs. GOAL_TEMPLATE), kept in
 /// sync by hand on purpose: a table this small drifting is a one-line fix, not worth a network
@@ -207,6 +242,7 @@ List<TemplateCard> mergeTemplateCards(List<ReasonRow> reasons, List<GoalRow> goa
   final goalHasReason = kReasonGoal.values.toSet();
   for (final r in reasons) {
     final linkedGoal = kReasonGoal[r.id];
+    final templateType = kReasonTemplateType[r.id];
     out.add(TemplateCard(
       key: 'reason:${r.id}',
       label: r.label,
@@ -218,10 +254,12 @@ List<TemplateCard> mergeTemplateCards(List<ReasonRow> reasons, List<GoalRow> goa
       reason: r,
       goal: linkedGoal,
       templateStatus: r.templateStatus,
+      interactive: templateType != null && kInteractiveTemplateTypes.contains(templateType),
     ));
   }
   for (final g in goals) {
     if (goalHasReason.contains(g.goal)) continue; // already carried by its reason card, above
+    final templateType = kGoalTemplateType[g.goal];
     out.add(TemplateCard(
       key: 'goal:${g.goal}',
       label: g.title,
@@ -233,6 +271,7 @@ List<TemplateCard> mergeTemplateCards(List<ReasonRow> reasons, List<GoalRow> goa
       reason: null,
       goal: g.goal,
       templateStatus: g.templateStatus,
+      interactive: templateType != null && kInteractiveTemplateTypes.contains(templateType),
     ));
   }
   return out;
@@ -314,6 +353,21 @@ class Campaign {
   final int windowStartHour;
   final int windowEndHour;
   final List<int> windowWeekdays;
+  // THE REST OF THE STORED ROW — needed to re-preview an ALREADY-LAUNCHED campaign's real
+  // message on the detail sheet, the same way the wizard already can before it launches
+  // (Messages.tsx's own `openRuns()` does this exact re-fetch).
+  final String ownerText;
+  final String offerValue;
+  final int expiresAt;
+  final String serviceId;
+  final String packageId;
+  final List<String> scopeServiceIds;
+  final List<String> scopeServiceNames;
+  final String branchId;
+  final int loyaltyWindowDays;
+  final int loyaltyMinVisits;
+  final String rewardType;
+  final int rewardPoints;
 
   const Campaign({
     required this.id,
@@ -325,11 +379,35 @@ class Campaign {
     required this.windowStartHour,
     required this.windowEndHour,
     required this.windowWeekdays,
+    this.ownerText = '',
+    this.offerValue = '',
+    this.expiresAt = 0,
+    this.serviceId = '',
+    this.packageId = '',
+    this.scopeServiceIds = const [],
+    this.scopeServiceNames = const [],
+    this.branchId = '',
+    this.loyaltyWindowDays = 90,
+    this.loyaltyMinVisits = 3,
+    this.rewardType = 'discount',
+    this.rewardPoints = 0,
   });
 
   /// Job-service is holding this campaign for a future moment it has not fired even once —
   /// mirrors Messages.tsx's own `isScheduled()` exactly.
   bool get isScheduled => fireAt > 0 && fireAt > DateTime.now().millisecondsSinceEpoch / 1000 && lastEvaluated == 0;
+
+  /// A short chip for the campaign's own recurring window, or `null` when it carries none — the
+  /// `(0, 24, [])` defaults `window_*` itself uses to mean "no window". Mirrors Messages.tsx's
+  /// own `windowChip()` at a glance rather than the full sentence.
+  String? get windowChip {
+    final start = windowStartHour;
+    final end = windowEndHour;
+    if (start == 0 && end == 24 && windowWeekdays.isEmpty) return null;
+    final hours = '$start–$end';
+    if (windowWeekdays.isEmpty) return hours;
+    return '$hours · ${windowWeekdays.length}';
+  }
 
   factory Campaign.fromJson(Map<String, dynamic> json) => Campaign(
         id: (json['id'] as String?) ?? '',
@@ -343,6 +421,18 @@ class Campaign {
         windowWeekdays: ((json['window_weekdays'] as List?) ?? const [])
             .map((e) => (e as num).toInt())
             .toList(),
+        ownerText: (json['owner_text'] as String?) ?? '',
+        offerValue: (json['offer_value'] as String?) ?? '',
+        expiresAt: (json['expires_at'] as num?)?.toInt() ?? 0,
+        serviceId: (json['service_id'] as String?) ?? '',
+        packageId: (json['package_id'] as String?) ?? '',
+        scopeServiceIds: ((json['scope_service_ids'] as List?) ?? const []).map((e) => e.toString()).toList(),
+        scopeServiceNames: ((json['scope_service_names'] as List?) ?? const []).map((e) => e.toString()).toList(),
+        branchId: (json['branch_id'] as String?) ?? '',
+        loyaltyWindowDays: (json['loyalty_window_days'] as num?)?.toInt() ?? 90,
+        loyaltyMinVisits: (json['loyalty_min_visits'] as num?)?.toInt() ?? 3,
+        rewardType: (json['reward_type'] as String?) ?? 'discount',
+        rewardPoints: (json['reward_points'] as num?)?.toInt() ?? 0,
       );
 }
 
