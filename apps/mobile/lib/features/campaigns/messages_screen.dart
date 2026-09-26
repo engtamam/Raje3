@@ -44,6 +44,8 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
   List<ScheduleRow>? _schedule;
   List<Campaign>? _campaigns;
   List<MessageLogRow>? _log;
+  bool _logDenied = false;
+  bool _logLoaded = false;
   Owned? _owned;
   final Map<String, Customer> _who = {};
   String _logFilter = '';
@@ -92,9 +94,13 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
   }
 
   Future<void> _loadLog() async {
-    final rows = await _service.log(outcome: _logFilter);
+    final (rows, denied) = await _service.log(outcome: _logFilter);
     if (!mounted) return;
-    setState(() => _log = rows);
+    setState(() {
+      _log = rows;
+      _logDenied = denied;
+      _logLoaded = true;
+    });
     _resolveWho();
   }
 
@@ -193,12 +199,15 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
                   ),
                   _LogTab(
                     log: _log,
+                    denied: _logDenied,
+                    loaded: _logLoaded,
                     who: _who,
                     filter: _logFilter,
                     onFilterChanged: (f) {
                       setState(() {
                         _logFilter = f;
                         _log = null;
+                        _logLoaded = false;
                       });
                       _loadLog();
                     },
@@ -234,6 +243,22 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
 /// THE ACTUAL LANDING CONTENT — a status hero, not a small card lost above a list. Blocked reads
 /// as a real alert; healthy reads as a calm, confident gradient — the two states must never look
 /// like the same widget with different text, or an owner scanning fast misses which one he's in.
+/// GREEN | YELLOW | RED — Meta's own scale, mirrored from `reminders/core/ceiling.py`. Every
+/// other value (NA/UNKNOWN) is deliberately unmapped: a quality we could not read is not
+/// "متوسطة", it is nothing to say at all.
+String? _qualityLabel(BuildContext context, String quality) {
+  switch (quality) {
+    case 'GREEN':
+      return ct(context, 'qualityGreen');
+    case 'YELLOW':
+      return ct(context, 'qualityYellow');
+    case 'RED':
+      return ct(context, 'qualityRed');
+    default:
+      return null;
+  }
+}
+
 class _TodayHero extends StatelessWidget {
   const _TodayHero({required this.status, required this.failed});
 
@@ -311,18 +336,27 @@ class _TodayHero extends StatelessWidget {
                   value: s.retrying, label: ct(context, 'statRetrying'), warn: s.retrying > 0)),
             ],
           ),
+          if (s.retryingReason.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(s.retryingReason,
+                style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'Cairo')),
+          ],
           if (s.ceilingKnown && !s.ceilingUnlimited) ...[
             const SizedBox(height: AppSpacing.md),
             Row(
               children: [
                 const Icon(Icons.speed_rounded, color: Colors.white70, size: 14),
                 const SizedBox(width: 6),
-                Text(
-                    ct(context, 'ceilingLine', {
-                      'remaining': '${s.ceilingRemaining}',
-                      'limit': '${s.ceilingLimit}',
-                    }),
-                    style: const TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Cairo')),
+                Expanded(
+                  child: Text(
+                      ct(context, 'ceilingLine', {
+                        'remaining': '${s.ceilingRemaining}',
+                        'limit': '${s.ceilingLimit}',
+                      }) + (_qualityLabel(context, s.ceilingQuality) != null
+                          ? ' · ${_qualityLabel(context, s.ceilingQuality)}'
+                          : ''),
+                      style: const TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Cairo')),
+                ),
               ],
             ),
           ],
@@ -876,9 +910,21 @@ class _CampaignDetailSheetState extends State<_CampaignDetailSheet> {
 /// «السجل» — every send, with the real three-state receipt (قرأها/وصلت/خرجت) never a single
 /// ambiguous "sent" colour.
 class _LogTab extends StatelessWidget {
-  const _LogTab({required this.log, required this.who, required this.filter, required this.onFilterChanged});
+  const _LogTab({
+    required this.log,
+    required this.denied,
+    required this.loaded,
+    required this.who,
+    required this.filter,
+    required this.onFilterChanged,
+  });
 
   final List<MessageLogRow>? log;
+  final bool denied;
+  /// `false` is "still asking" (never confuse with a real failure); `true` with `log == null`
+  /// and `!denied` is a real read failure — three states, three sentences, never one collapsed
+  /// into another (MessagePreview.tsx's own header note applies here too).
+  final bool loaded;
   final Map<String, Customer> who;
   final String filter;
   final ValueChanged<String> onFilterChanged;
@@ -901,7 +947,11 @@ class _LogTab extends StatelessWidget {
         ),
         Expanded(
           child: log == null
-              ? const Center(child: CircularProgressIndicator())
+              ? (denied
+                  ? EmptyState(icon: Icons.lock_outline, title: ct(context, 'logDenied'))
+                  : loaded
+                      ? EmptyState(icon: Icons.error_outline, title: ct(context, 'logFailed'))
+                      : const Center(child: CircularProgressIndicator()))
               : log!.isEmpty
                   ? EmptyState(icon: Icons.receipt_long_outlined, title: ct(context, 'noRunsYet'))
                   : ListView.separated(

@@ -436,6 +436,31 @@ const Map<String, Map<String, String>> _kCampaignsStrings = {
     'ar': 'استخدم هذا النص', 'en': 'Use this text', 'bn': 'এই লেখাটি ব্যবহার করুন', 'ur': 'یہ متن استعمال کریں',
     'ha': 'Yi amfani da wannan rubutu', 'fil': 'Gamitin ang tekstong ito',
   },
+  'qualityGreen': {
+    'ar': 'جودة عالية', 'en': 'High quality', 'bn': 'উচ্চ মান', 'ur': 'اعلیٰ معیار', 'ha': 'Babban inganci',
+    'fil': 'Mataas na kalidad',
+  },
+  'qualityYellow': {
+    'ar': 'جودة متوسطة', 'en': 'Medium quality', 'bn': 'মাঝারি মান', 'ur': 'درمیانہ معیار', 'ha': 'Matsakaicin inganci',
+    'fil': 'Katamtamang kalidad',
+  },
+  'qualityRed': {
+    'ar': 'جودة منخفضة', 'en': 'Low quality', 'bn': 'নিম্ন মান', 'ur': 'کم معیار', 'ha': 'Ƙarancin inganci',
+    'fil': 'Mababang kalidad',
+  },
+  'logDenied': {
+    'ar': 'لا صلاحية لديك لقراءة السجل.', 'en': "You don't have permission to read the log.",
+    'bn': 'লগ পড়ার অনুমতি আপনার নেই।', 'ur': 'آپ کے پاس لاگ پڑھنے کی اجازت نہیں۔',
+    'ha': 'Ba ku da izinin karanta bayanan tarihi.', 'fil': 'Wala kang pahintulot na basahin ang log.',
+  },
+  'logFailed': {
+    'ar': 'تعذّرت قراءة السجل الآن.', 'en': "Couldn't read the log right now.",
+    'bn': 'এই মুহূর্তে লগ পড়া যায়নি।', 'ur': 'ابھی لاگ پڑھا نہیں جا سکا۔', 'ha': 'An kasa karanta bayanan tarihi a yanzu.',
+    'fil': 'Hindi nabasa ang log ngayon.',
+  },
+  'sar': {
+    'ar': 'ريال', 'en': 'SAR', 'bn': 'রিয়াল', 'ur': 'ریال', 'ha': 'Riyal', 'fil': 'SAR',
+  },
   'backToOurs': {
     'ar': 'ارجع لنصّنا', 'en': 'Go back to ours', 'bn': 'আমাদেরটায় ফিরে যান', 'ur': 'ہمارے پر واپس جائیں',
     'ha': 'Koma zuwa namu', 'fil': 'Bumalik sa amin',

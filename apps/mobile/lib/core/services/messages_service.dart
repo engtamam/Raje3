@@ -135,7 +135,10 @@ class MessagesService {
     }
   }
 
-  Future<List<MessageLogRow>?> log({String outcome = '', String branchId = ''}) async {
+  /// `(rows, denied)` — DENIED IS ITS OWN ANSWER, never folded into "failed". A role that cannot
+  /// read the log and a peer that is down look identical over the wire (both throw) but must
+  /// read as two different sentences: "you don't have permission" is never "try again later".
+  Future<(List<MessageLogRow>?, bool)> log({String outcome = '', String branchId = ''}) async {
     try {
       final response = await apiClient.dio.get<dynamic>('/api/v1/reminders/log', queryParameters: {
         'limit': 100,
@@ -143,11 +146,14 @@ class MessagesService {
         if (branchId.isNotEmpty) 'branch_id': branchId,
       });
       final body = response.data;
-      if (body is! Map) return null;
+      if (body is! Map) return (null, false);
       final rows = (body['log'] as List?) ?? const [];
-      return rows.whereType<Map>().map((m) => MessageLogRow.fromJson(Map<String, dynamic>.from(m))).toList();
-    } on DioException {
-      return null;
+      return (
+        rows.whereType<Map>().map((m) => MessageLogRow.fromJson(Map<String, dynamic>.from(m))).toList(),
+        false,
+      );
+    } on DioException catch (e) {
+      return (null, e.response?.statusCode == 403);
     }
   }
 

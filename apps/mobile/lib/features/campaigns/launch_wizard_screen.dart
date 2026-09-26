@@ -55,7 +55,11 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
   List<ServiceItem> _services = const [];
 
   final _ownerTextController = TextEditingController();
-  final _offerValueController = TextEditingController();
+  final _offerAmountController = TextEditingController();
+  // `pct`/`sar` — TYPED, never folded into the free line the owner types (core/preview.py's own
+  // `_OFFER` regex: `20%` or `50 ريال`, nothing else). A composed string is built from this and
+  // the amount at the one point it is actually sent, never held as the source of truth itself.
+  String _discountKind = 'pct';
   String _serviceId = '';
   String _serviceName = '';
   DateTime? _endsOn;
@@ -85,8 +89,17 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
   @override
   void dispose() {
     _ownerTextController.dispose();
-    _offerValueController.dispose();
+    _offerAmountController.dispose();
     super.dispose();
+  }
+
+  /// The composed, server-shaped offer value — built ONLY here, at the point it is actually
+  /// read, never stored as its own piece of state (a single source of truth: the digits the
+  /// owner typed, and the toggle he set).
+  String get _offerValue {
+    final n = _offerAmountController.text.trim();
+    if (n.isEmpty) return '';
+    return _discountKind == 'pct' ? '$n%' : '$n ريال';
   }
 
   Future<void> _loadGoals() async {
@@ -105,7 +118,7 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
 
   bool get _fieldsValid {
     if (_picked == null) return false;
-    if (_picked!.hasBlank('amount') && _offerValueController.text.trim().isEmpty) return false;
+    if (_picked!.hasBlank('amount') && _offerAmountController.text.trim().isEmpty) return false;
     if (_picked!.hasBlank('date') && _endsOn == null) return false;
     if (_picked!.goal == 'service_offer' && _serviceId.isEmpty) return false;
     return true;
@@ -125,7 +138,7 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
       'loyalty_window_days': 90,
       'loyalty_min_visits': 3,
       'branch_id': '',
-      'offer_value': _offerValueController.text.trim(),
+      'offer_value': _offerValue,
       'service_names': _serviceId.isNotEmpty ? [_serviceName] : <String>[],
       'package_names': <String>[],
       'expires_at': expiresAt,
@@ -222,7 +235,9 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
               goal: _picked!,
               services: _services,
               ownerTextController: _ownerTextController,
-              offerValueController: _offerValueController,
+              offerAmountController: _offerAmountController,
+              discountKind: _discountKind,
+              onDiscountKindChanged: (k) => setState(() => _discountKind = k),
               rewardEnabled: _rewardEnabled,
               serviceId: _serviceId,
               endsOn: _endsOn,
@@ -314,7 +329,9 @@ class _FieldsStep extends StatelessWidget {
     required this.goal,
     required this.services,
     required this.ownerTextController,
-    required this.offerValueController,
+    required this.offerAmountController,
+    required this.discountKind,
+    required this.onDiscountKindChanged,
     required this.rewardEnabled,
     required this.serviceId,
     required this.endsOn,
@@ -327,7 +344,9 @@ class _FieldsStep extends StatelessWidget {
   final GoalRow goal;
   final List<ServiceItem> services;
   final TextEditingController ownerTextController;
-  final TextEditingController offerValueController;
+  final TextEditingController offerAmountController;
+  final String discountKind;
+  final ValueChanged<String> onDiscountKindChanged;
   final bool rewardEnabled;
   final String serviceId;
   final DateTime? endsOn;
@@ -364,11 +383,28 @@ class _FieldsStep extends StatelessWidget {
               if (rewardEnabled) ...[
                 Text(ct(context, 'discountAmount'), style: AppTextStyles.labelMedium),
                 const SizedBox(height: AppSpacing.sm),
-                AppTextField(
-                  controller: offerValueController,
-                  hintText: ct(context, 'discountHint'),
-                  keyboardType: TextInputType.text,
-                ),
+                // TYPED, NOT FREE TEXT — the server's own shape (core/preview.py's `_OFFER`
+                // regex) is exactly "20%" or "50 ريال": a percent 1-99 with no decimals, or an
+                // amount with up to 2. Composing it from a number + a real toggle means a shop
+                // can never type something the server refuses at the very last step.
+                Row(children: [
+                  Expanded(
+                    child: AppTextField(
+                      controller: offerAmountController,
+                      hintText: discountKind == 'pct' ? '20' : '50',
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  SegmentedFilter<String>(
+                    value: discountKind,
+                    onChanged: onDiscountKindChanged,
+                    options: [
+                      const SegmentedFilterOption(value: 'pct', label: '%'),
+                      SegmentedFilterOption(value: 'sar', label: ct(context, 'sar')),
+                    ],
+                  ),
+                ]),
                 const SizedBox(height: AppSpacing.md),
               ],
               if (goal.hasBlank('date')) ...[
