@@ -12,6 +12,7 @@ import 'package:raje3_mobile/features/account/branches_screen.dart';
 import 'package:raje3_mobile/features/account/shop_identity_screen.dart';
 import 'package:raje3_mobile/features/auth/login_screen.dart';
 import 'package:raje3_mobile/features/bookings/bookings_screen.dart';
+import 'package:raje3_mobile/features/campaigns/messages_screen.dart';
 import 'package:raje3_mobile/features/auth/signup_screen.dart';
 import 'package:raje3_mobile/features/customers/customer_detail_screen.dart';
 import 'package:raje3_mobile/features/customers/customers_screen.dart';
@@ -159,6 +160,8 @@ class AppRouter {
         return const ServicesScreen();
       case 'points':
         return const PointsScreen();
+      case 'messages':
+        return const MessagesScreen();
       case 'partner-loyalty':
         return const PartnerLoyaltyScreen();
       case 'referral-partnership':
