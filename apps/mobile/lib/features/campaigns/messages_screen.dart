@@ -127,9 +127,12 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
     });
   }
 
-  Future<void> _openWizard() async {
+  /// ARRIVING WITH THE DECISION ALREADY MADE — a shared card's cross-link jumps straight into
+  /// the wizard with its goal pre-picked (Messages.tsx's own `?launch=` note: a plain link that
+  /// still makes him find the goal again is the same ask twice).
+  Future<void> _openWizard({String? initialGoal}) async {
     final launched = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => LaunchWizardScreen(owned: _owned)),
+      MaterialPageRoute(builder: (_) => LaunchWizardScreen(owned: _owned, initialGoal: initialGoal)),
     );
     if (launched == true) {
       _loadAll();
@@ -195,7 +198,7 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
                     service: _service,
                     owned: _owned,
                     onChanged: _loadAll,
-                    onCrossLink: () => _tabController.animateTo(2),
+                    onCrossLink: (goal) => _openWizard(initialGoal: goal),
                   ),
                   _QueueTab(schedule: _schedule, who: _who, service: _service, onChanged: _loadAll),
                   _CampaignsTab(
@@ -438,7 +441,7 @@ class _TemplatesTab extends StatefulWidget {
   final MessagesService service;
   final Owned? owned;
   final VoidCallback onChanged;
-  final VoidCallback onCrossLink;
+  final ValueChanged<String> onCrossLink;
 
   @override
   State<_TemplatesTab> createState() => _TemplatesTabState();
@@ -551,7 +554,7 @@ class _TemplateCardTile extends StatefulWidget {
   final MessagesService service;
   final Owned? owned;
   final VoidCallback onChanged;
-  final VoidCallback onCrossLink;
+  final ValueChanged<String> onCrossLink;
 
   @override
   State<_TemplateCardTile> createState() => _TemplateCardTileState();
@@ -624,7 +627,7 @@ class _TemplateCardTileState extends State<_TemplateCardTile> {
                     ),
                   if (c.goal != null)
                     GestureDetector(
-                      onTap: widget.onCrossLink,
+                      onTap: () => widget.onCrossLink(c.goal!),
                       child: AppBadge(
                         icon: Icons.arrow_outward_rounded,
                         text: ct(context, 'crossLink', {'goal': c.label}),

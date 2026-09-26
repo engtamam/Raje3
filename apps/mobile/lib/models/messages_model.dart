@@ -535,6 +535,11 @@ class MessageOption {
   final bool? approved;
   final String status;
   final String reason;
+  /// The template AS WRITTEN, with named blanks — «[اسم العميل]» where a blank is. Shown only
+  /// when it differs from [text] (the filled example), same rule MessagePreview.tsx's own
+  /// `o.template && o.template !== o.text` guard keeps.
+  final String template;
+  final List<MessageButton> buttons;
 
   const MessageOption({
     required this.name,
@@ -544,6 +549,8 @@ class MessageOption {
     required this.approved,
     required this.status,
     required this.reason,
+    this.template = '',
+    this.buttons = const [],
   });
 
   factory MessageOption.fromJson(Map<String, dynamic> json) => MessageOption(
@@ -554,5 +561,27 @@ class MessageOption {
         approved: json['approved'] is bool ? json['approved'] as bool : null,
         status: (json['status'] as String?) ?? '',
         reason: (json['reason'] as String?) ?? '',
+        template: (json['template'] as String?) ?? '',
+        buttons: ((json['buttons'] as List?) ?? const [])
+            .whereType<Map>()
+            .map((m) => MessageButton.fromJson(Map<String, dynamic>.from(m)))
+            .toList(),
+      );
+}
+
+/// One button Meta draws OUTSIDE the message bubble — never rendered as if it were inside the
+/// text. `flowName` present only for `kind: 'flow'`; absent means "show the label, cannot open it
+/// here yet" (Flow-opening itself stays deferred this pass — see this feature's own build notes).
+class MessageButton {
+  final String label;
+  final String kind;
+  final String flowName;
+
+  const MessageButton({required this.label, required this.kind, required this.flowName});
+
+  factory MessageButton.fromJson(Map<String, dynamic> json) => MessageButton(
+        label: (json['label'] as String?) ?? '',
+        kind: (json['kind'] as String?) ?? '',
+        flowName: (json['flow_name'] as String?) ?? '',
       );
 }

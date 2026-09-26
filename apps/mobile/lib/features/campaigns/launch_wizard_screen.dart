@@ -32,12 +32,18 @@ import 'package:raje3_mobile/features/campaigns/whatsapp_bubble.dart';
 /// `fire_at == 0` guard treats a bare `occasion` campaign as "skip forever") — a correctness risk,
 /// not a UX one, so it stays off until its own scheduling step is built.
 class LaunchWizardScreen extends StatefulWidget {
-  const LaunchWizardScreen({super.key, required this.owned});
+  const LaunchWizardScreen({super.key, required this.owned, this.initialGoal});
 
   /// Read once by the caller (`MessagesScreen`'s own `_loadAll`) rather than re-fetched here —
   /// this screen is reached only ever from that one place, and re-asking would just cost a
   /// second round trip for an answer the caller already has.
   final Owned? owned;
+
+  /// ARRIVING WITH THE DECISION ALREADY MADE — a templates-tab cross-link names its own goal
+  /// here so the owner never has to find it again on the goal grid (Messages.tsx's own
+  /// `?launch=` note). Only pre-selects when the goal is actually AVAILABLE — an unreachable
+  /// goal falls through to the normal picker instead of a dead pre-selection.
+  final String? initialGoal;
 
   @override
   State<LaunchWizardScreen> createState() => _LaunchWizardScreenState();
@@ -106,10 +112,18 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
     final goals = await _service.goals();
     final services = await _catalogueService.list(includeRetired: false);
     if (!mounted) return;
+    final filtered = (goals ?? const []).where((g) => g.goal != 'occasion').toList();
     setState(() {
       // `occasion` DELIBERATELY EXCLUDED — see this file's own header comment.
-      _goals = (goals ?? const []).where((g) => g.goal != 'occasion').toList();
+      _goals = filtered;
       _services = services ?? const [];
+      if (widget.initialGoal != null) {
+        final match = filtered.where((g) => g.goal == widget.initialGoal && g.available).firstOrNull;
+        if (match != null) {
+          _picked = match;
+          _step = _Step.fields;
+        }
+      }
     });
   }
 

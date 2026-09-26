@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:raje3_mobile/models/messages_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 
 /// A real WhatsApp message bubble — the ONE thing this pass must never simplify away (this
@@ -8,10 +9,15 @@ import 'package:raje3_mobile/theme/app_theme.dart';
 /// surface, so what renders here matches what actually arrives on a real phone regardless of
 /// which theme the shop picked for itself.
 class WhatsAppBubble extends StatelessWidget {
-  const WhatsAppBubble({super.key, required this.text, this.caption});
+  const WhatsAppBubble({super.key, required this.text, this.caption, this.buttons = const []});
 
   final String text;
   final String? caption;
+  /// Drawn OUTSIDE the bubble, exactly where Meta actually renders them — never inside the
+  /// message text. Static labels only this pass: opening a Flow for real stays deferred (see
+  /// this feature's own build notes) — a shop owner still sees exactly which button ships with
+  /// the message, just cannot walk through its screens here yet.
+  final List<MessageButton> buttons;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +44,36 @@ class WhatsAppBubble extends StatelessWidget {
             style: const TextStyle(color: Color(0xFF111B21), fontSize: 14, height: 1.5, fontFamily: 'Cairo'),
           ),
         ),
+        if (buttons.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 1),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.black12),
+            ),
+            child: Column(
+              children: [
+                for (final b in buttons)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: const BoxDecoration(
+                      border: Border(top: BorderSide(color: Colors.black12)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(b.kind == 'flow' ? Icons.auto_awesome_outlined : Icons.open_in_new,
+                            size: 14, color: const Color(0xFF0091FF)),
+                        const SizedBox(width: 6),
+                        Text(b.label, style: const TextStyle(color: Color(0xFF0091FF), fontSize: 13, fontFamily: 'Cairo')),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
         if (caption != null) ...[
           const SizedBox(height: 4),
           Padding(
