@@ -169,6 +169,40 @@ async def record_contribution(store: Any, *, tenant: str, campaign_id: str, thre
         await store.delete(_MUTEX_COLLECTION, mutex_key)
 
 
+def contribution_matches(campaign: dict[str, Any], *, service_id: str = "",
+                         package_id: str = "") -> bool:
+    """Does THIS real event count toward THIS campaign's shared goal?
+
+    THE SAME SCOPE FIELDS THE "فردي" MECHANIC ALREADY USES — `Campaign.service_id`/
+    `scope_service_ids`/`package_id` — reused verbatim rather than inventing a second, parallel
+    scoping vocabulary for the "جماعي" mechanic. The campaign's own creator decides, at creation,
+    whether the shared goal counts EVERY visit, visits of one or more SPECIFIC SERVICES, or visits
+    of a specific PACKAGE — exactly the choice `service_offer`/`package_offer` already offer, just
+    read here to gate a contribution instead of an audience match.
+
+    NO SCOPE SET AT ALL (every field empty) MEANS EVERY REAL EVENT COUNTS — the "100 سيارة"
+    example the owner's own idea was built around: any visit, of any kind. This is the default a
+    campaign gets by simply not touching these fields, the same "untouched means unscoped"
+    convention `Campaign.branch_id`'s own docstring already uses.
+
+    PACKAGE TAKES PRIORITY OVER SERVICE IDS IF BOTH SOMEHOW GOT SET — the same "a campaign is
+    about one or the other, never both" rule `Campaign.package_id`'s own docstring states for the
+    individual mechanic; this function does not invent a third meaning for the combination.
+    """
+    campaign_package = str(campaign.get("package_id") or "")
+    if campaign_package:
+        return package_id == campaign_package
+
+    scope_ids = list(campaign.get("scope_service_ids") or [])
+    single = str(campaign.get("service_id") or "")
+    ids = list(dict.fromkeys(scope_ids + ([single] if single else [])))
+    if not ids:
+        # NO SCOPE AT ALL — every real event counts, regardless of what (if anything) the caller
+        # passed for `service_id`/`package_id`.
+        return True
+    return bool(service_id) and service_id in ids
+
+
 async def resolve_milestone(campaign: dict[str, Any], *, already_reached, now: int,
                             audience: Any = None, store: Any = None) -> Audience:
     """The "جماعي" mechanic's own resolver — same signature every mechanic in

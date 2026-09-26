@@ -12,6 +12,7 @@ from app.adapters.datastore.memory import MemoryDataStore
 from app.core.audience import Candidate
 from app.core.milestone import (
     MilestoneProgress,
+    contribution_matches,
     read_progress,
     record_contribution,
     resolve_milestone,
@@ -263,6 +264,56 @@ def test_a_lock_that_can_never_be_claimed_raises_rather_than_silently_losing_the
     with pytest.raises(RuntimeError):
         run(record_contribution(st, tenant="t1", campaign_id="cmp_1", threshold=5,
                                subject_ref="a", now=1))
+
+
+# ── contribution_matches: who the campaign's creator scoped the goal to ──────────────────────
+def test_no_scope_at_all_means_every_visit_counts():
+    assert contribution_matches({}) is True
+    assert contribution_matches({}, service_id="svc_1") is True
+    assert contribution_matches({}, package_id="pkg_1") is True
+
+
+def test_a_single_service_scope_only_matches_that_service():
+    c = {"service_id": "svc_1"}
+    assert contribution_matches(c, service_id="svc_1") is True
+    assert contribution_matches(c, service_id="svc_2") is False
+    assert contribution_matches(c) is False, "an event naming no service does not match a scoped goal"
+
+
+def test_a_multi_service_scope_matches_any_one_of_them():
+    c = {"scope_service_ids": ["svc_1", "svc_2", "svc_3"]}
+    assert contribution_matches(c, service_id="svc_2") is True
+    assert contribution_matches(c, service_id="svc_9") is False
+
+
+def test_service_id_and_scope_service_ids_are_merged():
+    """The same merge `audience.resolve` already does for the individual mechanic — a caller
+    migrating one field at a time never loses the other's targeting."""
+    c = {"service_id": "svc_1", "scope_service_ids": ["svc_2"]}
+    assert contribution_matches(c, service_id="svc_1") is True
+    assert contribution_matches(c, service_id="svc_2") is True
+    assert contribution_matches(c, service_id="svc_3") is False
+
+
+def test_a_package_scope_only_matches_that_package():
+    c = {"package_id": "pkg_1"}
+    assert contribution_matches(c, package_id="pkg_1") is True
+    assert contribution_matches(c, package_id="pkg_2") is False
+    assert contribution_matches(c) is False
+
+
+def test_package_takes_priority_over_a_stray_service_scope():
+    """A campaign is about one or the other, never both — the same rule
+    `Campaign.package_id`'s own docstring states for the individual mechanic."""
+    c = {"package_id": "pkg_1", "service_id": "svc_1"}
+    assert contribution_matches(c, package_id="pkg_1") is True
+    assert contribution_matches(c, service_id="svc_1") is False, \
+        "package_id set means only the package counts, not the stray service_id"
+
+
+def test_an_event_with_no_service_or_package_never_matches_a_scoped_goal():
+    assert contribution_matches({"service_id": "svc_1"}) is False
+    assert contribution_matches({"package_id": "pkg_1"}) is False
 
 
 # ── resolve_milestone: the resolver contract every mechanic shares ───────────────────────────
