@@ -599,6 +599,7 @@ class _FieldsStep extends StatelessWidget {
                   icon: Icons.visibility_outlined,
                   onPressed: () => showMessagePreviewSheet(
                     context, label: linkedReason!.label, when: linkedReason!.when, reasonId: linkedReason!.id,
+                    canRetext: linkedReason!.canRetext,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),

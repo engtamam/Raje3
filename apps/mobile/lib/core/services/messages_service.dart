@@ -110,6 +110,83 @@ class MessagesService {
     }
   }
 
+  /// `POST /api/v1/reminders/templates` — a draft, and nothing reaches Meta until submitted.
+  /// `fills` is the slot id in the order its chip sits in the body (`{{1}}` is `fills[0]`, …) —
+  /// generated from position, never typed by the shop, so a gap or a wrong number is impossible.
+  Future<String?> writeTemplate({
+    required String reasonId,
+    required String body,
+    required List<String> fills,
+    String replaces = '',
+  }) async {
+    try {
+      final response = await apiClient.dio.post<dynamic>('/api/v1/reminders/templates', data: {
+        'reason_id': reasonId, 'body': body, 'fills': fills, 'replaces': replaces,
+      });
+      final status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) {
+        final data = response.data;
+        if (data is Map && data['error'] != null) return data['error'].toString();
+        return null;
+      }
+      return _refusal(response.data);
+    } on DioException catch (e) {
+      return _refusal(e.response?.data);
+    }
+  }
+
+  /// `POST /api/v1/reminders/templates/{name}/submit` — sends his draft to WhatsApp for review.
+  Future<String?> submitTemplate(String name) async {
+    try {
+      final response = await apiClient.dio.post<dynamic>('/api/v1/reminders/templates/$name/submit');
+      final status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) return null;
+      return _refusal(response.data);
+    } on DioException catch (e) {
+      return _refusal(e.response?.data);
+    }
+  }
+
+  /// `POST /api/v1/reminders/templates/{name}/help` — «ساعدوني»: attaches Meta's own refusal
+  /// sentence and his text to a queue a human answers.
+  Future<String?> templateHelp(String name) async {
+    try {
+      final response = await apiClient.dio.post<dynamic>('/api/v1/reminders/templates/$name/help');
+      final status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) return null;
+      return _refusal(response.data);
+    } on DioException catch (e) {
+      return _refusal(e.response?.data);
+    }
+  }
+
+  /// `GET /api/v1/reminders/templates` — the shop's own texts that are not sending yet, and why.
+  Future<List<MyTemplate>?> myTemplates(String reasonId) async {
+    try {
+      final response = await apiClient.dio
+          .get<dynamic>('/api/v1/reminders/templates', queryParameters: {'reason_id': reasonId});
+      final body = response.data;
+      if (body is! Map) return null;
+      final rows = (body['templates'] as List?) ?? const [];
+      return rows.whereType<Map>().map((m) => MyTemplate.fromJson(Map<String, dynamic>.from(m))).toList();
+    } on DioException {
+      return null;
+    }
+  }
+
+  /// `GET /api/v1/reminders/templates/help` — every «ساعدوني» request and our reply.
+  Future<List<TemplateHelpRequest>?> myTemplateHelp() async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/reminders/templates/help');
+      final body = response.data;
+      if (body is! Map) return null;
+      final rows = (body['requests'] as List?) ?? const [];
+      return rows.whereType<Map>().map((m) => TemplateHelpRequest.fromJson(Map<String, dynamic>.from(m))).toList();
+    } on DioException {
+      return null;
+    }
+  }
+
   Future<List<ScheduleRow>?> schedule() async {
     try {
       final response = await apiClient.dio

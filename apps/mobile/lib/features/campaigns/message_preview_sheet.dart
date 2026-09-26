@@ -7,6 +7,7 @@ import 'package:raje3_mobile/models/messages_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
 import 'package:raje3_mobile/features/campaigns/campaigns_i18n.dart';
+import 'package:raje3_mobile/features/campaigns/text_editor_sheet.dart';
 import 'package:raje3_mobile/features/campaigns/whatsapp_bubble.dart';
 
 /// The message-preview bottom sheet — mirrors `MessagePreview.tsx`'s job (tap a card, read every
@@ -22,22 +23,30 @@ Future<void> showMessagePreviewSheet(
   required String when,
   String? reasonId,
   String? templateType,
+  bool canRetext = false,
 }) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _MessagePreviewSheet(label: label, when: when, reasonId: reasonId, templateType: templateType),
+    builder: (_) => _MessagePreviewSheet(
+      label: label, when: when, reasonId: reasonId, templateType: templateType, canRetext: canRetext,
+    ),
   );
 }
 
 class _MessagePreviewSheet extends StatefulWidget {
-  const _MessagePreviewSheet({required this.label, required this.when, this.reasonId, this.templateType});
+  const _MessagePreviewSheet({
+    required this.label, required this.when, this.reasonId, this.templateType, this.canRetext = false,
+  });
 
   final String label;
   final String when;
   final String? reasonId;
   final String? templateType;
+  /// Only a REASON carries a legal right to opt out on the customer's own end, and only that
+  /// same subset may be re-worded by the shop (`reason.can_retext`) — never for a bare goal.
+  final bool canRetext;
 
   @override
   State<_MessagePreviewSheet> createState() => _MessagePreviewSheetState();
@@ -48,6 +57,12 @@ class _MessagePreviewSheetState extends State<_MessagePreviewSheet> {
   PreviewAnswer? _answer;
   bool _failed = false;
   String _saving = '';
+
+  /// HIS OWN TEXTS THAT ARE NOT SENDING YET, and this is the half the bubbles cannot show — a
+  /// draft he saved, one waiting on Meta, one refused. `null` while unread/not applicable
+  /// (a bare goal has no texts of its own — see `_hasReason`).
+  List<MyTemplate>? _mine;
+  List<TemplateHelpRequest>? _help;
 
   /// Only a REASON has a shop-wide voice to pick or a customer text to point it at — a bare
   /// goal (`templateType` with no `reasonId`) has neither, same scope Launch.tsx's own
@@ -70,6 +85,45 @@ class _MessagePreviewSheetState extends State<_MessagePreviewSheet> {
       _answer = answer;
       _failed = answer == null;
     });
+    if (_hasReason) {
+      _service.myTemplates(widget.reasonId!).then((rows) {
+        if (mounted) setState(() => _mine = rows?.where((t) => t.status != 'approved').toList());
+      });
+      _service.myTemplateHelp().then((rows) {
+        if (mounted) setState(() => _help = rows);
+      });
+    }
+  }
+
+  Future<void> _openEditor() async {
+    if (_answer == null) return;
+    final existing = (_mine ?? const []).where((t) => t.body.isNotEmpty).firstOrNull;
+    await showTextEditorSheet(
+      context,
+      reasonId: widget.reasonId!,
+      label: widget.label,
+      slots: _answer!.slots,
+      mandatory: _answer!.mandatory,
+      initialBody: existing?.body ?? '',
+      replaces: existing?.name ?? '',
+      onSaved: _load,
+    );
+  }
+
+  Future<void> _submit(String name) async {
+    setState(() => _saving = 'submit:$name');
+    await _service.submitTemplate(name);
+    if (!mounted) return;
+    setState(() => _saving = '');
+    _load();
+  }
+
+  Future<void> _requestHelp(String name) async {
+    setState(() => _saving = 'help:$name');
+    await _service.templateHelp(name);
+    if (!mounted) return;
+    setState(() => _saving = '');
+    _load();
   }
 
   Future<void> _chooseTone(String tone) async {
@@ -183,8 +237,111 @@ class _MessagePreviewSheetState extends State<_MessagePreviewSheet> {
                                   .toList(),
                             ),
             ),
+            // «اكتب نصّك» + HIS OWN TEXTS THAT ARE NOT SENDING YET — never for a bare goal,
+            // which has no reason to attach a written text to, and never when the customer's
+            // own right to opt out means this reason cannot be re-worded at all.
+            if (_hasReason && widget.canRetext && _answer != null) ...[
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SecondaryButton(
+                      text: ct(context, 'writeYourText'),
+                      icon: Icons.edit_outlined,
+                      onPressed: _openEditor,
+                    ),
+                    if ((_mine ?? const []).isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      for (final m in _mine!)
+                        Padding(
+                          padding: const EdgeInsets.only(top: AppSpacing.sm),
+                          child: _MyTemplateRow(
+                            template: m,
+                            help: (_help ?? const []).where((h) => h.name == m.name).firstOrNull,
+                            busy: _saving == 'submit:${m.name}' || _saving == 'help:${m.name}',
+                            onSubmit: () => _submit(m.name),
+                            onRequestHelp: () => _requestHelp(m.name),
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+            ] else if (_hasReason && !widget.canRetext && _answer != null)
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Row(children: [
+                  Icon(Icons.lock_outline, size: 14, color: colors.textSecondary),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(ct(context, 'cannotWriteNote'), style: AppTextStyles.caption)),
+                ]),
+              ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// One of the shop's own texts, with the two buttons it never had before this pass: «ارفعه» (a
+/// draft is otherwise a notepad — nothing to press) and «ساعدوني» (the cost of having no reviewer
+/// of ours between him and Meta, when it is refused).
+class _MyTemplateRow extends StatelessWidget {
+  const _MyTemplateRow({
+    required this.template,
+    required this.help,
+    required this.busy,
+    required this.onSubmit,
+    required this.onRequestHelp,
+  });
+
+  final MyTemplate template;
+  final TemplateHelpRequest? help;
+  final bool busy;
+  final VoidCallback onSubmit;
+  final VoidCallback onRequestHelp;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = context.isDark;
+    final (label, fg, bg) = switch (template.status) {
+      'rejected' => (ct(context, 'statusRejected'), isDark ? AppDarkColors.danger : AppColors.danger,
+          isDark ? AppDarkColors.dangerSoft : AppColors.dangerSoft),
+      'pending' => (ct(context, 'statusPending'), isDark ? AppDarkColors.warning : AppColors.warning,
+          isDark ? AppDarkColors.warningSoft : AppColors.warningSoft),
+      _ => (ct(context, 'statusDraft'), context.appColors.textSecondary, context.appColors.surfaceAlt),
+    };
+    return AppCard(
+      hasShadow: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            AppBadge(text: label, textColor: fg, backgroundColor: bg),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(child: Text(template.body, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppTextStyles.bodySmall)),
+          ]),
+          if (template.reason.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(template.reason, style: AppTextStyles.caption),
+          ],
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(spacing: AppSpacing.sm, children: [
+            if (template.status == 'draft')
+              SecondaryButton(text: ct(context, 'submitToWhatsapp'), onPressed: busy ? null : onSubmit),
+            if (template.status == 'rejected')
+              SecondaryButton(text: ct(context, 'helpMe'), onPressed: busy ? null : onRequestHelp),
+          ]),
+          if (help?.answer.isNotEmpty == true) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(help!.answer, style: AppTextStyles.caption),
+          ] else if (help?.status == 'open') ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(ct(context, 'requestReceived'), style: AppTextStyles.caption),
+          ],
+        ],
       ),
     );
   }

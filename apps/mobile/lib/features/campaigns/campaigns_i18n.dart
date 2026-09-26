@@ -581,6 +581,69 @@ const Map<String, Map<String, String>> _kCampaignsStrings = {
     'ar': 'الوصول الكلي', 'en': 'Total reach', 'bn': 'মোট পৌঁছানো', 'ur': 'کل رسائی', 'ha': 'Jimlar isarwa',
     'fil': 'Kabuuang naabot',
   },
+  'writeYourText': {
+    'ar': 'اكتب نصّك الخاص', 'en': 'Write your own text', 'bn': 'নিজের লেখা লিখুন', 'ur': 'اپنا متن لکھیں',
+    'ha': 'Rubuta rubutunku', 'fil': 'Isulat ang sarili mong teksto',
+  },
+  'cannotWriteNote': {
+    'ar': 'هذه الرسالة حقّ للعميل، فلا يمكن تخصيص نصّها.', 'en': "This message is the customer's own right — its text cannot be customised.",
+    'bn': 'এই বার্তা গ্রাহকের নিজস্ব অধিকার — এর লেখা কাস্টমাইজ করা যায় না।',
+    'ur': 'یہ پیغام گاہک کا اپنا حق ہے — اس کا متن حسبِ ضرورت نہیں بنایا جا سکتا۔',
+    'ha': 'Wannan saƙo hakkin abokin ciniki ne — ba za a iya gyara rubutunsa ba.',
+    'fil': 'Ang mensaheng ito ay sariling karapatan ng kustomer — hindi maaaring i-customize ang teksto nito.',
+  },
+  'submitToWhatsapp': {
+    'ar': 'ارفعه لواتساب', 'en': 'Submit to WhatsApp', 'bn': 'হোয়াটসঅ্যাপে জমা দিন', 'ur': 'واٹس ایپ کو جمع کریں',
+    'ha': 'Mika zuwa WhatsApp', 'fil': 'Isumite sa WhatsApp',
+  },
+  'helpMe': {
+    'ar': 'ساعدوني', 'en': 'Help me', 'bn': 'আমাকে সাহায্য করুন', 'ur': 'میری مدد کریں', 'ha': 'Ku taimake ni',
+    'fil': 'Tulungan ako',
+  },
+  'requestReceived': {
+    'ar': 'وصلنا طلبك، سنتواصل معك قريبًا.', 'en': "We got your request — we'll be in touch soon.",
+    'bn': 'আপনার অনুরোধ পেয়েছি — শীঘ্রই যোগাযোগ করবো।', 'ur': 'آپ کی درخواست موصول ہوگئی — جلد رابطہ کریں گے۔',
+    'ha': 'Mun karɓi buƙatarku — za mu tuntuɓe ku nan ba da jimawa ba.',
+    'fil': 'Natanggap namin ang kahilingan mo — makikipag-ugnayan kami sa lalong madaling panahon.',
+  },
+  'textEditorTitle': {
+    'ar': 'اكتب نصّك — {label}', 'en': 'Write your text — {label}', 'bn': 'আপনার লেখা লিখুন — {label}',
+    'ur': 'اپنا متن لکھیں — {label}', 'ha': 'Rubuta rubutunku — {label}', 'fil': 'Isulat ang teksto mo — {label}',
+  },
+  'textEditorSubtitle': {
+    'ar': 'اختر الفراغات من الأزرار، والترقيم يُولَّد تلقائيًا.',
+    'en': 'Pick blanks from the buttons above — the numbering is generated automatically.',
+    'bn': 'উপরের বোতাম থেকে ফাঁকা স্থান বাছাই করুন — নম্বরিং স্বয়ংক্রিয়ভাবে তৈরি হয়।',
+    'ur': 'اوپر بٹنوں سے خالی جگہیں چنیں — نمبرنگ خودکار بنتی ہے۔',
+    'ha': 'Zaɓi wuraren fanko daga maɓallan — ana ƙirƙirar lambobi ta atomatik.',
+    'fil': 'Pumili ng mga blangko mula sa mga button sa itaas — awtomatikong bubuo ang numbering.',
+  },
+  'textEditorEmptyError': {
+    'ar': 'اكتب نصًا قبل الحفظ.', 'en': 'Write some text before saving.', 'bn': 'সংরক্ষণের আগে কিছু লিখুন।',
+    'ur': 'محفوظ کرنے سے پہلے کچھ لکھیں۔', 'ha': 'Rubuta wani abu kafin ajiyewa.', 'fil': 'Sumulat muna bago mag-save.',
+  },
+  'textEditorContinueHint': {
+    'ar': 'أكمل الكتابة هنا…', 'en': 'Keep typing here…', 'bn': 'এখানে লিখতে থাকুন…', 'ur': 'یہاں لکھتے رہیں…',
+    'ha': 'Ci gaba da rubutu a nan…', 'fil': 'Magpatuloy sa pagsulat dito…',
+  },
+  'textEditorMandatoryLine': {
+    'ar': 'ستُضاف تلقائيًا:', 'en': 'Automatically added:', 'bn': 'স্বয়ংক্রিয়ভাবে যোগ হবে:', 'ur': 'خودکار طور پر شامل ہوگا:',
+    'ha': 'Za a ƙara ta atomatik:', 'fil': 'Awtomatikong idadagdag:',
+  },
+  'textEditorPreviewTitle': {
+    'ar': 'كما يصل عميلك', 'en': 'As your customer receives it', 'bn': 'আপনার গ্রাহক যেভাবে পান',
+    'ur': 'جیسا آپ کے گاہک کو پہنچتا ہے', 'ha': 'Kamar yadda abokin cinikinku ke karɓa', 'fil': 'Gaya ng matatanggap ng iyong kustomer',
+  },
+  'textEditorApprovalNote': {
+    'ar': 'تراجعه واتساب بعد الرفع، وقد يستغرق يومًا.', 'en': 'WhatsApp reviews it after you submit — can take a day.',
+    'bn': 'জমা দেওয়ার পর হোয়াটসঅ্যাপ এটি পর্যালোচনা করে — এক দিন লাগতে পারে।',
+    'ur': 'جمع کرانے کے بعد واٹس ایپ اس کا جائزہ لیتا ہے — ایک دن لگ سکتا ہے۔',
+    'ha': 'WhatsApp na duba shi bayan mikawa — zai iya ɗaukar kwana ɗaya.',
+    'fil': 'Sinusuri ito ng WhatsApp pagkatapos mong isumite — maaaring tumagal ng isang araw.',
+  },
+  'textEditorSave': {
+    'ar': 'حفظ', 'en': 'Save', 'bn': 'সংরক্ষণ', 'ur': 'محفوظ کریں', 'ha': 'Ajiye', 'fil': 'I-save',
+  },
   'sar': {
     'ar': 'ريال', 'en': 'SAR', 'bn': 'রিয়াল', 'ur': 'ریال', 'ha': 'Riyal', 'fil': 'SAR',
   },

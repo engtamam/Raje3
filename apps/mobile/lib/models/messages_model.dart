@@ -507,23 +507,101 @@ class PreviewAnswer {
   final String chosen;
   final String tone;
   final String emptyBecause;
+  /// The blanks THIS message can fill — the editor's whole guard rail (`reason.slots`). Empty
+  /// for a bare goal (`byGoal`), which has no reason and no custom-text editor to feed.
+  final List<Slot> slots;
+  final Mandatory? mandatory;
 
   const PreviewAnswer({
     required this.options,
     required this.chosen,
     required this.tone,
     required this.emptyBecause,
+    this.slots = const [],
+    this.mandatory,
   });
 
   factory PreviewAnswer.fromJson(Map<String, dynamic> json) {
     final rows = (json['options'] as List?) ?? const [];
+    final reason = json['reason'] as Map?;
+    final slotRows = (reason?['slots'] as List?) ?? const [];
+    final mandatoryRow = reason?['mandatory'] as Map?;
     return PreviewAnswer(
       options: rows.whereType<Map>().map((m) => MessageOption.fromJson(Map<String, dynamic>.from(m))).toList(),
       chosen: (json['chosen'] as String?) ?? '',
       tone: (json['tone'] as String?) ?? 'masculine',
       emptyBecause: (json['empty_because'] as String?) ?? '',
+      slots: slotRows.whereType<Map>().map((m) => Slot.fromJson(Map<String, dynamic>.from(m))).toList(),
+      mandatory: mandatoryRow != null ? Mandatory.fromJson(Map<String, dynamic>.from(mandatoryRow)) : null,
     );
   }
+}
+
+/// One blank a custom text can fill — never a number the owner has to get right himself
+/// (TextEditor.tsx's own whole point): he taps a named chip, the numbering is generated from
+/// order at save.
+class Slot {
+  final String id;
+  final String label;
+  final String sample;
+
+  const Slot({required this.id, required this.label, required this.sample});
+
+  factory Slot.fromJson(Map<String, dynamic> json) => Slot(
+        id: (json['id'] as String?) ?? '',
+        label: (json['label'] as String?) ?? '',
+        sample: (json['sample'] as String?) ?? '',
+      );
+}
+
+/// The one blank he does not choose and cannot delete — the stop link on a promotional message,
+/// the consent invitation on everything else. Shown locked, never offered as a chip.
+class Mandatory {
+  final String id;
+  final String label;
+  final String sample;
+  final String note;
+
+  const Mandatory({required this.id, required this.label, required this.sample, required this.note});
+
+  factory Mandatory.fromJson(Map<String, dynamic> json) => Mandatory(
+        id: (json['id'] as String?) ?? '',
+        label: (json['label'] as String?) ?? '',
+        sample: (json['sample'] as String?) ?? '',
+        note: (json['note'] as String?) ?? '',
+      );
+}
+
+/// One of the shop's own texts that is not sending yet, and why — `reminders.my_templates`.
+class MyTemplate {
+  final String name;
+  final String status;
+  final String reason;
+  final String body;
+
+  const MyTemplate({required this.name, required this.status, required this.reason, required this.body});
+
+  factory MyTemplate.fromJson(Map<String, dynamic> json) => MyTemplate(
+        name: (json['name'] as String?) ?? '',
+        status: (json['status'] as String?) ?? '',
+        reason: (json['reason'] as String?) ?? '',
+        body: (json['body'] as String?) ?? '',
+      );
+}
+
+/// One "ساعدوني" request and where it stands — `reminders.my_template_help`.
+class TemplateHelpRequest {
+  final String name;
+  final String status;
+  final String answer;
+
+  const TemplateHelpRequest({required this.name, required this.status, required this.answer});
+
+  factory TemplateHelpRequest.fromJson(Map<String, dynamic> json) => TemplateHelpRequest(
+        name: (json['name'] as String?) ?? '',
+        status: (json['status'] as String?) ?? '',
+        answer: (json['answer'] as String?) ?? '',
+      );
 }
 
 /// One wording option in the message-preview sheet — `reminders.preview_reason`/`preview_by_type`.
