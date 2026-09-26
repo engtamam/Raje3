@@ -735,7 +735,8 @@ soft "affiliate-service's phone-search role" bash "$HERE/hooks/provision-affilia
 #
 # TEMPLATES ARE ABSENT ON PURPOSE. The WhatsApp library is submitted PER ESTABLISHMENT at the
 # moment its account connects (§6.6.1) — a platform-wide push would be a submission to nobody's
-# account. seed-templates.sh takes --tenant for that reason.
+# account. `library.register` (services/operations) does that registration automatically per
+# tenant the moment the account connects; there is no platform-wide seeder to run here.
 step "seed"
 soft "roles" bash "$HERE/seed/seed-roles.sh"
 # assistant-service's OWN HAND-AUTHORED KB (Phase 4) — a ConfigMap this repo's own

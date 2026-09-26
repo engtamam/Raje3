@@ -102,9 +102,9 @@ def parse() -> tuple[list[dict], list[str]]:
     THE GROUPING EXISTS FOR `build()`'S CONSUMERS, not for the checks below — those run against
     every row on its own, carousel variants and sleeping ones included, because Meta applies its
     rules to whatever is actually submitted, active or not. The grouped `types` list keeps the
-    shape the manual seeder (`deploy/seed/seed-templates.sh --emit`) and `check_meta_rules.py`'s
-    own re-expansion already expect: the FLAT (non-carousel) body per tone, since a carousel
-    variant is a SHAPE a goal may take rather than a second wording to submit through this path.
+    shape `check_meta_rules.py`'s own re-expansion already expects: the FLAT (non-carousel) body
+    per tone, since a carousel variant is a SHAPE a goal may take rather than a second wording to
+    submit through this path.
     """
     rows = _rows()
     problems: list[str] = []
@@ -324,8 +324,8 @@ def main() -> int:
         return 1
 
     if "--emit" in sys.argv:
-        # A caller that needs the library as JSON (the manual `seed-templates.sh`) asks for it
-        # fresh on every run instead of reading a file that could be one edit behind the seed.
+        # A caller that needs the library as JSON asks for it fresh on every run instead of
+        # reading a file that could be one edit behind the seed.
         payload = build(types)
         sys.stdout.write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
         return 0

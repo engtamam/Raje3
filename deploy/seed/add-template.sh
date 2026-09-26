@@ -21,8 +21,8 @@
 #   a gap in the variable numbering
 #   a variable above {{4}}, which is not in our contract
 #   a category outside Meta's three
-#   a name that already exists for this tenant — see seed-templates.sh on why re-registering is
-#   never harmless
+#   a name that already exists for this tenant — `library.register` upserts and resets status to
+#   pending, so re-registering an already-approved name silently un-approves it and stops sends
 set -uo pipefail
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"

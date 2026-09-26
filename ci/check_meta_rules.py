@@ -26,11 +26,10 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 #: THE FILE THAT IS ACTUALLY SUBMITTED — `library.register`, run the moment a shop connects, reads
-#: this one. `SPEC` below (parsed fresh, no stored intermediate file since 2026-09-13) is what the
-#: manual seeder script (`deploy/seed/seed-templates.sh --emit`) builds its own submissions from.
-#: The gate used to check only the generated file, so it stayed green while all 66 live rows went
-#: to Meta with an empty example list: refused on arrival, «connected» in green, every send «under
-#: review» for ever.
+#: this one. `SPEC` below (parsed fresh, no stored intermediate file since 2026-09-13) is what
+#: `gen_templates.py --emit` builds its own submissions from. The gate used to check only the
+#: generated file, so it stayed green while all 66 live rows went to Meta with an empty example
+#: list: refused on arrival, «connected» in green, every send «under review» for ever.
 LIVE = ROOT / "services" / "operations" / "data" / "templates.seed.json"
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -137,7 +136,7 @@ FILL_SLOTS = {
 
 
 def expand(lib: dict) -> list[dict]:
-    """The 72 submissions, built the way deploy/seed/seed-templates.sh builds them.
+    """The 72 submissions, built the way `library.register` builds them.
 
     EXPANDED HERE RATHER THAN READ AS STORED, because the seed holds 24 texts x 3 tones and what
     Meta receives is 72 rows. Checking the stored shape would check something nobody submits — and
@@ -150,8 +149,7 @@ def expand(lib: dict) -> list[dict]:
         fills = list(ty.get("fills") or [])
         for tone, text in (ty.get("tones") or {}).items():
             used = sorted({int(n) for n in VAR.findall(text)})
-            # THE ADDRESS SLOT IS NAMED BY ITS FILL, NOT BY ITS POSITION — the same rule
-            # deploy/seed/seed-templates.sh follows, and for the same reason: the last blank is the
+            # THE ADDRESS SLOT IS NAMED BY ITS FILL, NOT BY ITS POSITION — the last blank is the
             # invitation on a utility text and the one-tap stop on a marketing one, and it lands on
             # slot 3 in a visit confirmation and slot 6 in an offer. Keyed by number alone this
             # raised a KeyError on '6' — which is the honest failure; the quiet one would have been
