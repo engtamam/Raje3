@@ -24,8 +24,8 @@ import { Button } from '../rj-ui/Button';
 import { ServiceGrid } from '../ServiceGrid';
 import { Steps } from '../Steps';
 import { newIdempotencyKey, queue, type Queued } from '../queue';
-import type { ReferralGrantAck } from '../api';
-import { ReferralGrantCelebration } from './ReferralGrantCelebration';
+import type { MutualBenefitGrantAck } from '../api';
+import { MutualBenefitGrantCelebration } from './MutualBenefitGrantCelebration';
 import { proof } from '../operator';
 import { WhoIsSaving } from '../WhoIsSaving';
 import { isSignedIn, useSession } from '../session';
@@ -202,7 +202,7 @@ export function Visit() {
   // queue's own row-state `subscribe` above (see queue.ts's own note on why): fires once, only
   // for a grant this screen's OWN drain actually just produced, never replayed on an unrelated
   // re-render.
-  const [celebration, setCelebration] = useState<ReferralGrantAck | null>(null);
+  const [celebration, setCelebration] = useState<MutualBenefitGrantAck | null>(null);
   useEffect(() => queue.subscribeToCelebrations(setCelebration), []);
 
   const toggle = useCallback((id: string) => {
@@ -1098,7 +1098,7 @@ export function Visit() {
       {/* PORTALS TO document.body ITSELF — its position here in the tree is irrelevant to layout,
           only to lifecycle (unmounts with this screen, same as every other Visit-only overlay). */}
       {celebration ? (
-        <ReferralGrantCelebration grant={celebration} onClose={() => setCelebration(null)} />
+        <MutualBenefitGrantCelebration grant={celebration} onClose={() => setCelebration(null)} />
       ) : null}
       <div className="mx-auto max-w-4xl">
         {/* NO "TODAY'S CUSTOMERS" STRIP HERE, AND IT WAS THE FIRST THING ON THE SCREEN.

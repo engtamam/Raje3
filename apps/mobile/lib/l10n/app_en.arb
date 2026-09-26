@@ -813,349 +813,349 @@
       }
     }
   },
-  "referralProposeButton": "Propose partnership",
-  "@referralProposeButton": {
-    "description": "referralProposeButton"
-  },
-  "referralTitle": "Strategic Partnership",
-  "@referralTitle": {
-    "description": "referralTitle"
-  },
-  "referralSubtitle": "Move real customers between you and other shops, by mutual agreement",
-  "@referralSubtitle": {
-    "description": "referralSubtitle"
-  },
-  "referralRoleAll": "All",
-  "@referralRoleAll": {
-    "description": "referralRoleAll"
-  },
-  "referralRoleReferrer": "As referrer",
-  "@referralRoleReferrer": {
-    "description": "referralRoleReferrer"
-  },
-  "referralRoleBeneficiary": "As beneficiary",
-  "@referralRoleBeneficiary": {
-    "description": "referralRoleBeneficiary"
-  },
-  "referralLoadFailed": "Couldn't load partnerships",
-  "@referralLoadFailed": {
-    "description": "referralLoadFailed"
-  },
-  "referralEmptyTitle": "No partnerships yet",
-  "@referralEmptyTitle": {
-    "description": "referralEmptyTitle"
-  },
-  "referralKpiAsReferrer": "As referrer",
-  "@referralKpiAsReferrer": {
-    "description": "referralKpiAsReferrer"
-  },
-  "referralKpiAsBeneficiary": "As beneficiary",
-  "@referralKpiAsBeneficiary": {
-    "description": "referralKpiAsBeneficiary"
-  },
-  "referralKpiSent": "Referred",
-  "@referralKpiSent": {
-    "description": "referralKpiSent"
-  },
-  "referralKpiRedeemed": "Redeemed",
-  "@referralKpiRedeemed": {
-    "description": "referralKpiRedeemed"
-  },
-  "referralKpiRate": "Redemption rate",
-  "@referralKpiRate": {
-    "description": "referralKpiRate"
-  },
-  "referralConfirm": "Confirm",
-  "@referralConfirm": {
-    "description": "referralConfirm"
-  },
-  "referralGrantDiscountBlanket": "Discount on the whole visit",
-  "@referralGrantDiscountBlanket": {
-    "description": "referralGrantDiscountBlanket"
-  },
-  "referralStatusProposed": "Proposed",
-  "@referralStatusProposed": {
-    "description": "referralStatusProposed"
-  },
-  "referralStatusActive": "Active",
-  "@referralStatusActive": {
-    "description": "referralStatusActive"
-  },
-  "referralStatusPaused": "Paused",
-  "@referralStatusPaused": {
-    "description": "referralStatusPaused"
-  },
-  "referralStatusCancelRequested": "Cancellation requested",
-  "@referralStatusCancelRequested": {
-    "description": "referralStatusCancelRequested"
-  },
-  "referralStatusEnded": "Ended",
-  "@referralStatusEnded": {
-    "description": "referralStatusEnded"
-  },
-  "referralStatusRejected": "Rejected",
-  "@referralStatusRejected": {
-    "description": "referralStatusRejected"
-  },
-  "referralStatusExpiredUnanswered": "Expired unanswered",
-  "@referralStatusExpiredUnanswered": {
-    "description": "referralStatusExpiredUnanswered"
-  },
-  "referralEventProposed": "Partnership proposed",
-  "@referralEventProposed": {
-    "description": "referralEventProposed"
-  },
-  "referralEventAccepted": "Partnership accepted",
-  "@referralEventAccepted": {
-    "description": "referralEventAccepted"
-  },
-  "referralEventRejected": "Partnership rejected",
-  "@referralEventRejected": {
-    "description": "referralEventRejected"
-  },
-  "referralEventActivated": "Partnership activated",
-  "@referralEventActivated": {
-    "description": "referralEventActivated"
-  },
-  "referralEventCancelRequested": "Cancellation requested",
-  "@referralEventCancelRequested": {
-    "description": "referralEventCancelRequested"
-  },
-  "referralEventCancelConfirmed": "Cancellation confirmed",
-  "@referralEventCancelConfirmed": {
-    "description": "referralEventCancelConfirmed"
-  },
-  "referralEventExpiredUnanswered": "Expired with no answer",
-  "@referralEventExpiredUnanswered": {
-    "description": "referralEventExpiredUnanswered"
-  },
-  "referralEventPaused": "Paused",
-  "@referralEventPaused": {
-    "description": "referralEventPaused"
-  },
-  "referralEventResumed": "Resumed",
-  "@referralEventResumed": {
-    "description": "referralEventResumed"
-  },
-  "referralEventEndedTerm": "Term ended",
-  "@referralEventEndedTerm": {
-    "description": "referralEventEndedTerm"
-  },
-  "referralEventGrantCreated": "New grant",
-  "@referralEventGrantCreated": {
-    "description": "referralEventGrantCreated"
-  },
-  "referralEventGrantRedeemed": "Grant redeemed",
-  "@referralEventGrantRedeemed": {
-    "description": "referralEventGrantRedeemed"
-  },
-  "referralActivityActive": "Active",
-  "@referralActivityActive": {
-    "description": "referralActivityActive"
-  },
-  "referralActivityPaused": "Paused",
-  "@referralActivityPaused": {
-    "description": "referralActivityPaused"
-  },
-  "referralActivityPending": "Awaiting reply",
-  "@referralActivityPending": {
-    "description": "referralActivityPending"
-  },
-  "referralActivityInactive": "Inactive",
-  "@referralActivityInactive": {
-    "description": "referralActivityInactive"
-  },
-  "referralScorecardTitle": "Performance",
-  "@referralScorecardTitle": {
-    "description": "referralScorecardTitle"
-  },
-  "referralScorecardFailed": "Couldn't load performance",
-  "@referralScorecardFailed": {
-    "description": "referralScorecardFailed"
-  },
-  "referralActivityTitle": "Recent activity",
-  "@referralActivityTitle": {
-    "description": "referralActivityTitle"
-  },
-  "referralActivityEmpty": "No activity yet",
-  "@referralActivityEmpty": {
-    "description": "referralActivityEmpty"
-  },
-  "referralAgreementsTitle": "Agreements",
-  "@referralAgreementsTitle": {
-    "description": "referralAgreementsTitle"
-  },
-  "referralConfirmCancel": "End this partnership for good?",
-  "@referralConfirmCancel": {
-    "description": "referralConfirmCancel"
-  },
-  "referralActionAccept": "Accept",
-  "@referralActionAccept": {
-    "description": "referralActionAccept"
-  },
-  "referralActionReject": "Reject",
-  "@referralActionReject": {
-    "description": "referralActionReject"
-  },
-  "referralActionWaitingThem": "Waiting on the other side",
-  "@referralActionWaitingThem": {
-    "description": "referralActionWaitingThem"
-  },
-  "referralActionCancelRequest": "Request to end",
-  "@referralActionCancelRequest": {
-    "description": "referralActionCancelRequest"
-  },
-  "referralActionCancelConfirm": "Confirm ending",
-  "@referralActionCancelConfirm": {
-    "description": "referralActionCancelConfirm"
-  },
-  "referralProposeTitle": "Propose a new partnership",
-  "@referralProposeTitle": {
-    "description": "referralProposeTitle"
-  },
-  "referralProposePhoneLabel": "Other shop's phone",
-  "@referralProposePhoneLabel": {
-    "description": "referralProposePhoneLabel"
-  },
-  "referralProposeConditionLabel": "Eligibility condition at your shop",
-  "@referralProposeConditionLabel": {
-    "description": "referralProposeConditionLabel"
-  },
-  "referralConditionMinTotal": "Minimum invoice",
-  "@referralConditionMinTotal": {
-    "description": "referralConditionMinTotal"
-  },
-  "referralConditionServiceId": "A specific service",
-  "@referralConditionServiceId": {
-    "description": "referralConditionServiceId"
-  },
-  "referralProposeConditionValueRiyals": "Amount (SAR)",
-  "@referralProposeConditionValueRiyals": {
-    "description": "referralProposeConditionValueRiyals"
-  },
-  "referralProposeConditionValueService": "Service",
-  "@referralProposeConditionValueService": {
-    "description": "referralProposeConditionValueService"
-  },
-  "referralProposeValidityLabel": "Validity (days)",
-  "@referralProposeValidityLabel": {
-    "description": "referralProposeValidityLabel"
-  },
-  "referralProposeDurationLabel": "Duration (days)",
-  "@referralProposeDurationLabel": {
-    "description": "referralProposeDurationLabel"
-  },
-  "referralProposeCapLabel": "Cap / 30 days",
-  "@referralProposeCapLabel": {
-    "description": "referralProposeCapLabel"
-  },
-  "referralProposeGrantTypeLabel": "Grant type",
-  "@referralProposeGrantTypeLabel": {
-    "description": "referralProposeGrantTypeLabel"
-  },
-  "referralGrantTypeDiscount": "Discount",
-  "@referralGrantTypeDiscount": {
-    "description": "referralGrantTypeDiscount"
-  },
-  "referralGrantTypeGift": "Gift",
-  "@referralGrantTypeGift": {
-    "description": "referralGrantTypeGift"
-  },
-  "referralScopeBlanket": "Whole visit",
-  "@referralScopeBlanket": {
-    "description": "referralScopeBlanket"
-  },
-  "referralScopeItem": "A specific service",
-  "@referralScopeItem": {
-    "description": "referralScopeItem"
-  },
-  "referralScopeGroup": "Group/package",
-  "@referralScopeGroup": {
-    "description": "referralScopeGroup"
-  },
-  "referralProposeServiceLabel": "Service",
-  "@referralProposeServiceLabel": {
-    "description": "referralProposeServiceLabel"
-  },
-  "referralProposeGroupLabel": "Group",
-  "@referralProposeGroupLabel": {
-    "description": "referralProposeGroupLabel"
-  },
-  "referralProposeImmutableNote": "Grant terms are fixed once sent — a different offer needs a new agreement",
-  "@referralProposeImmutableNote": {
-    "description": "referralProposeImmutableNote"
-  },
-  "referralProposeSubmitting": "Sending...",
-  "@referralProposeSubmitting": {
-    "description": "referralProposeSubmitting"
-  },
-  "referralProposeSubmit": "Send proposal",
-  "@referralProposeSubmit": {
-    "description": "referralProposeSubmit"
-  },
-  "referralGrantGift": "Gift: {name}",
-  "@referralGrantGift": {
-    "description": "referralGrantGift",
+  "mutualBenefitProposeButton": "Propose partnership",
+  "@mutualBenefitProposeButton": {
+    "description": "mutualBenefitProposeButton"
+  },
+  "mutualBenefitTitle": "Mutual Benefit",
+  "@mutualBenefitTitle": {
+    "description": "mutualBenefitTitle"
+  },
+  "mutualBenefitSubtitle": "Move real customers between you and other shops, by mutual agreement",
+  "@mutualBenefitSubtitle": {
+    "description": "mutualBenefitSubtitle"
+  },
+  "mutualBenefitRoleAll": "All",
+  "@mutualBenefitRoleAll": {
+    "description": "mutualBenefitRoleAll"
+  },
+  "mutualBenefitRoleReferrer": "As referrer",
+  "@mutualBenefitRoleReferrer": {
+    "description": "mutualBenefitRoleReferrer"
+  },
+  "mutualBenefitRoleBeneficiary": "As beneficiary",
+  "@mutualBenefitRoleBeneficiary": {
+    "description": "mutualBenefitRoleBeneficiary"
+  },
+  "mutualBenefitLoadFailed": "Couldn't load partnerships",
+  "@mutualBenefitLoadFailed": {
+    "description": "mutualBenefitLoadFailed"
+  },
+  "mutualBenefitEmptyTitle": "No partnerships yet",
+  "@mutualBenefitEmptyTitle": {
+    "description": "mutualBenefitEmptyTitle"
+  },
+  "mutualBenefitKpiAsReferrer": "As referrer",
+  "@mutualBenefitKpiAsReferrer": {
+    "description": "mutualBenefitKpiAsReferrer"
+  },
+  "mutualBenefitKpiAsBeneficiary": "As beneficiary",
+  "@mutualBenefitKpiAsBeneficiary": {
+    "description": "mutualBenefitKpiAsBeneficiary"
+  },
+  "mutualBenefitKpiSent": "Referred",
+  "@mutualBenefitKpiSent": {
+    "description": "mutualBenefitKpiSent"
+  },
+  "mutualBenefitKpiRedeemed": "Redeemed",
+  "@mutualBenefitKpiRedeemed": {
+    "description": "mutualBenefitKpiRedeemed"
+  },
+  "mutualBenefitKpiRate": "Redemption rate",
+  "@mutualBenefitKpiRate": {
+    "description": "mutualBenefitKpiRate"
+  },
+  "mutualBenefitConfirm": "Confirm",
+  "@mutualBenefitConfirm": {
+    "description": "mutualBenefitConfirm"
+  },
+  "mutualBenefitGrantDiscountBlanket": "Discount on the whole visit",
+  "@mutualBenefitGrantDiscountBlanket": {
+    "description": "mutualBenefitGrantDiscountBlanket"
+  },
+  "mutualBenefitStatusProposed": "Proposed",
+  "@mutualBenefitStatusProposed": {
+    "description": "mutualBenefitStatusProposed"
+  },
+  "mutualBenefitStatusActive": "Active",
+  "@mutualBenefitStatusActive": {
+    "description": "mutualBenefitStatusActive"
+  },
+  "mutualBenefitStatusPaused": "Paused",
+  "@mutualBenefitStatusPaused": {
+    "description": "mutualBenefitStatusPaused"
+  },
+  "mutualBenefitStatusCancelRequested": "Cancellation requested",
+  "@mutualBenefitStatusCancelRequested": {
+    "description": "mutualBenefitStatusCancelRequested"
+  },
+  "mutualBenefitStatusEnded": "Ended",
+  "@mutualBenefitStatusEnded": {
+    "description": "mutualBenefitStatusEnded"
+  },
+  "mutualBenefitStatusRejected": "Rejected",
+  "@mutualBenefitStatusRejected": {
+    "description": "mutualBenefitStatusRejected"
+  },
+  "mutualBenefitStatusExpiredUnanswered": "Expired unanswered",
+  "@mutualBenefitStatusExpiredUnanswered": {
+    "description": "mutualBenefitStatusExpiredUnanswered"
+  },
+  "mutualBenefitEventProposed": "Partnership proposed",
+  "@mutualBenefitEventProposed": {
+    "description": "mutualBenefitEventProposed"
+  },
+  "mutualBenefitEventAccepted": "Partnership accepted",
+  "@mutualBenefitEventAccepted": {
+    "description": "mutualBenefitEventAccepted"
+  },
+  "mutualBenefitEventRejected": "Partnership rejected",
+  "@mutualBenefitEventRejected": {
+    "description": "mutualBenefitEventRejected"
+  },
+  "mutualBenefitEventActivated": "Partnership activated",
+  "@mutualBenefitEventActivated": {
+    "description": "mutualBenefitEventActivated"
+  },
+  "mutualBenefitEventCancelRequested": "Cancellation requested",
+  "@mutualBenefitEventCancelRequested": {
+    "description": "mutualBenefitEventCancelRequested"
+  },
+  "mutualBenefitEventCancelConfirmed": "Cancellation confirmed",
+  "@mutualBenefitEventCancelConfirmed": {
+    "description": "mutualBenefitEventCancelConfirmed"
+  },
+  "mutualBenefitEventExpiredUnanswered": "Expired with no answer",
+  "@mutualBenefitEventExpiredUnanswered": {
+    "description": "mutualBenefitEventExpiredUnanswered"
+  },
+  "mutualBenefitEventPaused": "Paused",
+  "@mutualBenefitEventPaused": {
+    "description": "mutualBenefitEventPaused"
+  },
+  "mutualBenefitEventResumed": "Resumed",
+  "@mutualBenefitEventResumed": {
+    "description": "mutualBenefitEventResumed"
+  },
+  "mutualBenefitEventEndedTerm": "Term ended",
+  "@mutualBenefitEventEndedTerm": {
+    "description": "mutualBenefitEventEndedTerm"
+  },
+  "mutualBenefitEventGrantCreated": "New grant",
+  "@mutualBenefitEventGrantCreated": {
+    "description": "mutualBenefitEventGrantCreated"
+  },
+  "mutualBenefitEventGrantRedeemed": "Grant redeemed",
+  "@mutualBenefitEventGrantRedeemed": {
+    "description": "mutualBenefitEventGrantRedeemed"
+  },
+  "mutualBenefitActivityActive": "Active",
+  "@mutualBenefitActivityActive": {
+    "description": "mutualBenefitActivityActive"
+  },
+  "mutualBenefitActivityPaused": "Paused",
+  "@mutualBenefitActivityPaused": {
+    "description": "mutualBenefitActivityPaused"
+  },
+  "mutualBenefitActivityPending": "Awaiting reply",
+  "@mutualBenefitActivityPending": {
+    "description": "mutualBenefitActivityPending"
+  },
+  "mutualBenefitActivityInactive": "Inactive",
+  "@mutualBenefitActivityInactive": {
+    "description": "mutualBenefitActivityInactive"
+  },
+  "mutualBenefitScorecardTitle": "Performance",
+  "@mutualBenefitScorecardTitle": {
+    "description": "mutualBenefitScorecardTitle"
+  },
+  "mutualBenefitScorecardFailed": "Couldn't load performance",
+  "@mutualBenefitScorecardFailed": {
+    "description": "mutualBenefitScorecardFailed"
+  },
+  "mutualBenefitActivityTitle": "Recent activity",
+  "@mutualBenefitActivityTitle": {
+    "description": "mutualBenefitActivityTitle"
+  },
+  "mutualBenefitActivityEmpty": "No activity yet",
+  "@mutualBenefitActivityEmpty": {
+    "description": "mutualBenefitActivityEmpty"
+  },
+  "mutualBenefitAgreementsTitle": "Agreements",
+  "@mutualBenefitAgreementsTitle": {
+    "description": "mutualBenefitAgreementsTitle"
+  },
+  "mutualBenefitConfirmCancel": "End this partnership for good?",
+  "@mutualBenefitConfirmCancel": {
+    "description": "mutualBenefitConfirmCancel"
+  },
+  "mutualBenefitActionAccept": "Accept",
+  "@mutualBenefitActionAccept": {
+    "description": "mutualBenefitActionAccept"
+  },
+  "mutualBenefitActionReject": "Reject",
+  "@mutualBenefitActionReject": {
+    "description": "mutualBenefitActionReject"
+  },
+  "mutualBenefitActionWaitingThem": "Waiting on the other side",
+  "@mutualBenefitActionWaitingThem": {
+    "description": "mutualBenefitActionWaitingThem"
+  },
+  "mutualBenefitActionCancelRequest": "Request to end",
+  "@mutualBenefitActionCancelRequest": {
+    "description": "mutualBenefitActionCancelRequest"
+  },
+  "mutualBenefitActionCancelConfirm": "Confirm ending",
+  "@mutualBenefitActionCancelConfirm": {
+    "description": "mutualBenefitActionCancelConfirm"
+  },
+  "mutualBenefitProposeTitle": "Propose a new partnership",
+  "@mutualBenefitProposeTitle": {
+    "description": "mutualBenefitProposeTitle"
+  },
+  "mutualBenefitProposePhoneLabel": "Other shop's phone",
+  "@mutualBenefitProposePhoneLabel": {
+    "description": "mutualBenefitProposePhoneLabel"
+  },
+  "mutualBenefitProposeConditionLabel": "Eligibility condition at your shop",
+  "@mutualBenefitProposeConditionLabel": {
+    "description": "mutualBenefitProposeConditionLabel"
+  },
+  "mutualBenefitConditionMinTotal": "Minimum invoice",
+  "@mutualBenefitConditionMinTotal": {
+    "description": "mutualBenefitConditionMinTotal"
+  },
+  "mutualBenefitConditionServiceId": "A specific service",
+  "@mutualBenefitConditionServiceId": {
+    "description": "mutualBenefitConditionServiceId"
+  },
+  "mutualBenefitProposeConditionValueRiyals": "Amount (SAR)",
+  "@mutualBenefitProposeConditionValueRiyals": {
+    "description": "mutualBenefitProposeConditionValueRiyals"
+  },
+  "mutualBenefitProposeConditionValueService": "Service",
+  "@mutualBenefitProposeConditionValueService": {
+    "description": "mutualBenefitProposeConditionValueService"
+  },
+  "mutualBenefitProposeValidityLabel": "Validity (days)",
+  "@mutualBenefitProposeValidityLabel": {
+    "description": "mutualBenefitProposeValidityLabel"
+  },
+  "mutualBenefitProposeDurationLabel": "Duration (days)",
+  "@mutualBenefitProposeDurationLabel": {
+    "description": "mutualBenefitProposeDurationLabel"
+  },
+  "mutualBenefitProposeCapLabel": "Cap / 30 days",
+  "@mutualBenefitProposeCapLabel": {
+    "description": "mutualBenefitProposeCapLabel"
+  },
+  "mutualBenefitProposeGrantTypeLabel": "Grant type",
+  "@mutualBenefitProposeGrantTypeLabel": {
+    "description": "mutualBenefitProposeGrantTypeLabel"
+  },
+  "mutualBenefitGrantTypeDiscount": "Discount",
+  "@mutualBenefitGrantTypeDiscount": {
+    "description": "mutualBenefitGrantTypeDiscount"
+  },
+  "mutualBenefitGrantTypeGift": "Gift",
+  "@mutualBenefitGrantTypeGift": {
+    "description": "mutualBenefitGrantTypeGift"
+  },
+  "mutualBenefitScopeBlanket": "Whole visit",
+  "@mutualBenefitScopeBlanket": {
+    "description": "mutualBenefitScopeBlanket"
+  },
+  "mutualBenefitScopeItem": "A specific service",
+  "@mutualBenefitScopeItem": {
+    "description": "mutualBenefitScopeItem"
+  },
+  "mutualBenefitScopeGroup": "Group/package",
+  "@mutualBenefitScopeGroup": {
+    "description": "mutualBenefitScopeGroup"
+  },
+  "mutualBenefitProposeServiceLabel": "Service",
+  "@mutualBenefitProposeServiceLabel": {
+    "description": "mutualBenefitProposeServiceLabel"
+  },
+  "mutualBenefitProposeGroupLabel": "Group",
+  "@mutualBenefitProposeGroupLabel": {
+    "description": "mutualBenefitProposeGroupLabel"
+  },
+  "mutualBenefitProposeImmutableNote": "Grant terms are fixed once sent — a different offer needs a new agreement",
+  "@mutualBenefitProposeImmutableNote": {
+    "description": "mutualBenefitProposeImmutableNote"
+  },
+  "mutualBenefitProposeSubmitting": "Sending...",
+  "@mutualBenefitProposeSubmitting": {
+    "description": "mutualBenefitProposeSubmitting"
+  },
+  "mutualBenefitProposeSubmit": "Send proposal",
+  "@mutualBenefitProposeSubmit": {
+    "description": "mutualBenefitProposeSubmit"
+  },
+  "mutualBenefitGrantGift": "Gift: {name}",
+  "@mutualBenefitGrantGift": {
+    "description": "mutualBenefitGrantGift",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "referralGrantDiscountItem": "Discount on: {name}",
-  "@referralGrantDiscountItem": {
-    "description": "referralGrantDiscountItem",
+  "mutualBenefitGrantDiscountItem": "Discount on: {name}",
+  "@mutualBenefitGrantDiscountItem": {
+    "description": "mutualBenefitGrantDiscountItem",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "referralGrantDiscountGroup": "Discount on group: {name}",
-  "@referralGrantDiscountGroup": {
-    "description": "referralGrantDiscountGroup",
+  "mutualBenefitGrantDiscountGroup": "Discount on group: {name}",
+  "@mutualBenefitGrantDiscountGroup": {
+    "description": "mutualBenefitGrantDiscountGroup",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "referralPartnerCount": "{n} agreement(s)",
-  "@referralPartnerCount": {
-    "description": "referralPartnerCount",
+  "mutualBenefitPartnerCount": "{n} agreement(s)",
+  "@mutualBenefitPartnerCount": {
+    "description": "mutualBenefitPartnerCount",
     "placeholders": {
       "n": {
         "type": "int"
       }
     }
   },
-  "referralProposeResultFail": "Couldn't send the proposal",
-  "@referralProposeResultFail": {
-    "description": "referralProposeResultFail"
+  "mutualBenefitProposeResultFail": "Couldn't send the proposal",
+  "@mutualBenefitProposeResultFail": {
+    "description": "mutualBenefitProposeResultFail"
   },
-  "referralRefusal402": "Your shop isn't subscribed to the Strategic Partnership app — subscribe from the app store first",
-  "@referralRefusal402": {
-    "description": "referralRefusal402"
+  "mutualBenefitRefusal402": "Your shop isn't subscribed to the Mutual Benefit app — subscribe from the app store first",
+  "@mutualBenefitRefusal402": {
+    "description": "mutualBenefitRefusal402"
   },
-  "referralRefusal403": "You don't have permission for this action",
-  "@referralRefusal403": {
-    "description": "referralRefusal403"
+  "mutualBenefitRefusal403": "You don't have permission for this action",
+  "@mutualBenefitRefusal403": {
+    "description": "mutualBenefitRefusal403"
   },
-  "referralRefusal400": "The proposal's data is invalid — check the condition, or that you're not proposing a partnership with your own shop",
-  "@referralRefusal400": {
-    "description": "referralRefusal400"
+  "mutualBenefitRefusal400": "The proposal's data is invalid — check the condition, or that you're not proposing a partnership with your own shop",
+  "@mutualBenefitRefusal400": {
+    "description": "mutualBenefitRefusal400"
   },
-  "referralRefusal404": "No shop found with that number, or the chosen service/group doesn't exist in the other shop's catalogue",
-  "@referralRefusal404": {
-    "description": "referralRefusal404"
+  "mutualBenefitRefusal404": "No shop found with that number, or the chosen service/group doesn't exist in the other shop's catalogue",
+  "@mutualBenefitRefusal404": {
+    "description": "mutualBenefitRefusal404"
   },
-  "referralRefusal409": "You've reached the limit of 3 active partnerships, or the partnership's state has changed",
-  "@referralRefusal409": {
-    "description": "referralRefusal409"
+  "mutualBenefitRefusal409": "You've reached the limit of 3 active partnerships, or the partnership's state has changed",
+  "@mutualBenefitRefusal409": {
+    "description": "mutualBenefitRefusal409"
   },
-  "referralRefusal503": "Billing is temporarily unavailable, try again later",
-  "@referralRefusal503": {
-    "description": "referralRefusal503"
+  "mutualBenefitRefusal503": "Billing is temporarily unavailable, try again later",
+  "@mutualBenefitRefusal503": {
+    "description": "mutualBenefitRefusal503"
   },
   "appStoreTitle": "App Store",
   "appStoreSubtitle": "Grow your shop with real apps, one at a time",

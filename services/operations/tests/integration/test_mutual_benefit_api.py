@@ -1,4 +1,4 @@
-"""Referral partnership at the HTTP layer — role gating, and the adversarial cross-tenant reads
+"""Mutual benefit at the HTTP layer — role gating, and the adversarial cross-tenant reads
 the task's own security bar requires: a third tenant, a wrong-role staff member, and the two
 parties trying to read/act outside their own side. billing-service is swapped for a fake, same
 technique `test_coupons_api.py` already uses for the same reason (no real socket in a unit/
@@ -63,7 +63,7 @@ class _FakePlans:
 
     def __init__(self) -> None:
         self.subs: dict[str, list[dict]] = {}
-        self.plan_for_key = {"feature.referral_partnership": "plan_referral"}
+        self.plan_for_key = {"feature.mutual_benefit": "plan_referral"}
 
     async def subscriptions(self, tenant):
         return self.subs.get(tenant, [])
@@ -80,15 +80,15 @@ def _subscribe(fake: _FakePlans, tenant: str) -> None:
 
 
 def _wire(client: TestClient) -> _FakePlans:
-    from app.core.referral_partnership import ReferralPartnershipEngine
+    from app.core.mutual_benefit import MutualBenefitEngine
 
     fake = _FakePlans()
     container = client.app.state.container
-    engine = ReferralPartnershipEngine(
+    engine = MutualBenefitEngine(
         store=container.datastore, plans=fake, notifier=container.inapp_notifier,
         authz=container.authz_desk, default_cc="966")
-    container.referral_partnership = engine
-    container.operations.with_referral_engine(engine)
+    container.mutual_benefit = engine
+    container.operations.with_mutual_benefit_engine(engine)
     return fake
 
 
@@ -101,7 +101,7 @@ def _register_phone(client: TestClient, phone: str, tenant: str) -> None:
 
 
 def _propose(client: TestClient) -> str:
-    resp = client.post("/api/v1/staff/referral-partnership/agreements",
+    resp = client.post("/api/v1/staff/mutual-benefit/agreements",
                        headers=_auth("operations.manage", tenant=A),
                        json={"shop_b_phone": B_PHONE, "condition_type": "min_total_minor",
                             "condition_value": "1000", "grant_validity_days": 3, "agreement_duration_days": 90})
@@ -119,7 +119,7 @@ def wired(client: TestClient) -> TestClient:
 
 
 def test_a_plain_operator_cannot_propose(wired: TestClient):
-    resp = wired.post("/api/v1/staff/referral-partnership/agreements",
+    resp = wired.post("/api/v1/staff/mutual-benefit/agreements",
                       headers=_auth("operations.record", tenant=A),
                       json={"shop_b_phone": B_PHONE, "condition_type": "min_total_minor",
                            "condition_value": "1000", "grant_validity_days": 3,
@@ -129,7 +129,7 @@ def test_a_plain_operator_cannot_propose(wired: TestClient):
 
 def test_propose_then_accept_over_http(wired: TestClient):
     agreement_id = _propose(wired)
-    resp = wired.post(f"/api/v1/staff/referral-partnership/agreements/{agreement_id}/accept",
+    resp = wired.post(f"/api/v1/staff/mutual-benefit/agreements/{agreement_id}/accept",
                       headers=_auth("operations.manage", tenant=B))
     assert resp.status_code == 200, resp.text
     assert resp.json()["status"] == "active"
@@ -144,22 +144,22 @@ def test_a_marketer_can_read_the_list_audit_log_and_kpis(wired: TestClient):
     agreement_id = _propose(wired)
     marketer = _auth("operations.read", tenant=A)
 
-    listed = wired.get("/api/v1/staff/referral-partnership/agreements", headers=marketer)
+    listed = wired.get("/api/v1/staff/mutual-benefit/agreements", headers=marketer)
     assert listed.status_code == 200, listed.text
     assert len(listed.json()["agreements"]) == 1
 
-    audit = wired.get(f"/api/v1/staff/referral-partnership/agreements/{agreement_id}/audit-log",
+    audit = wired.get(f"/api/v1/staff/mutual-benefit/agreements/{agreement_id}/audit-log",
                       headers=marketer)
     assert audit.status_code == 200, audit.text
 
-    kpis = wired.get("/api/v1/staff/referral-partnership/kpis", headers=marketer)
+    kpis = wired.get("/api/v1/staff/mutual-benefit/kpis", headers=marketer)
     assert kpis.status_code == 200, kpis.text
     assert "as_referrer" in kpis.json()
 
 
 def test_a_marketer_cannot_propose_accept_reject_or_cancel(wired: TestClient):
     marketer = _auth("operations.read", tenant=A)
-    resp = wired.post("/api/v1/staff/referral-partnership/agreements", headers=marketer,
+    resp = wired.post("/api/v1/staff/mutual-benefit/agreements", headers=marketer,
                       json={"shop_b_phone": B_PHONE, "condition_type": "min_total_minor",
                            "condition_value": "1000", "grant_validity_days": 3,
                            "agreement_duration_days": 90})
@@ -170,14 +170,14 @@ def test_a_marketer_cannot_propose_accept_reject_or_cancel(wired: TestClient):
                          (f"agreements/{agreement_id}/reject", B),
                          (f"agreements/{agreement_id}/cancel-request", A),
                          (f"agreements/{agreement_id}/cancel-confirm", B)):
-        resp = wired.post(f"/api/v1/staff/referral-partnership/{path}",
+        resp = wired.post(f"/api/v1/staff/mutual-benefit/{path}",
                           headers=_auth("operations.read", tenant=tenant))
         assert resp.status_code == 403, path
 
 
 def test_a_third_tenant_gets_404_not_someone_elses_data(wired: TestClient):
     agreement_id = _propose(wired)
-    resp = wired.get(f"/api/v1/staff/referral-partnership/agreements/{agreement_id}",
+    resp = wired.get(f"/api/v1/staff/mutual-benefit/agreements/{agreement_id}",
                      headers=_auth("operations.manage", tenant=C))
     assert resp.status_code == 404
 
@@ -187,7 +187,7 @@ def test_a_third_tenant_listing_sees_nothing(wired: TestClient):
     # `list` is now `operations.read` (the marketer-visible tier) — see staff.py's own
     # `_REFERRAL_VIEW` note; `operations.manage` alone would 403 here, which is not what this
     # test is about.
-    resp = wired.get("/api/v1/staff/referral-partnership/agreements",
+    resp = wired.get("/api/v1/staff/mutual-benefit/agreements",
                      headers=_auth("operations.read", tenant=C))
     assert resp.status_code == 200
     assert resp.json()["agreements"] == []
@@ -195,28 +195,28 @@ def test_a_third_tenant_listing_sees_nothing(wired: TestClient):
 
 def test_the_proposer_cannot_accept_its_own_proposal(wired: TestClient):
     agreement_id = _propose(wired)
-    resp = wired.post(f"/api/v1/staff/referral-partnership/agreements/{agreement_id}/accept",
+    resp = wired.post(f"/api/v1/staff/mutual-benefit/agreements/{agreement_id}/accept",
                       headers=_auth("operations.manage", tenant=A))
     assert resp.status_code == 403
 
 
 def test_a_third_tenant_cannot_accept_someone_elses_proposal(wired: TestClient):
     agreement_id = _propose(wired)
-    resp = wired.post(f"/api/v1/staff/referral-partnership/agreements/{agreement_id}/accept",
+    resp = wired.post(f"/api/v1/staff/mutual-benefit/agreements/{agreement_id}/accept",
                       headers=_auth("operations.manage", tenant=C))
     assert resp.status_code in (403, 404)
 
 
 def test_no_auth_token_at_all_is_refused(wired: TestClient):
-    resp = wired.get("/api/v1/staff/referral-partnership/kpis")
+    resp = wired.get("/api/v1/staff/mutual-benefit/kpis")
     assert resp.status_code in (401, 403)
 
 
 def test_kpis_are_per_tenant_isolated_over_http(wired: TestClient):
     agreement_id = _propose(wired)
-    wired.post(f"/api/v1/staff/referral-partnership/agreements/{agreement_id}/accept",
+    wired.post(f"/api/v1/staff/mutual-benefit/agreements/{agreement_id}/accept",
               headers=_auth("operations.manage", tenant=B))
-    resp_c = wired.get("/api/v1/staff/referral-partnership/kpis",
+    resp_c = wired.get("/api/v1/staff/mutual-benefit/kpis",
                        headers=_auth("operations.read", tenant=C))
     assert resp_c.status_code == 200
     assert resp_c.json()["as_referrer"]["referrals_sent"] == 0
@@ -227,7 +227,7 @@ def test_a_shop_without_the_paid_feature_cannot_propose_over_http(client: TestCl
     _register_phone(client, B_PHONE, B)
     _subscribe(fake, B)
     # A never subscribed
-    resp = client.post("/api/v1/staff/referral-partnership/agreements",
+    resp = client.post("/api/v1/staff/mutual-benefit/agreements",
                        headers=_auth("operations.manage", tenant=A),
                        json={"shop_b_phone": B_PHONE, "condition_type": "min_total_minor",
                             "condition_value": "1000", "grant_validity_days": 3,

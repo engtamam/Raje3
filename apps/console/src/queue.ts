@@ -22,7 +22,7 @@
  * never ran, because the shop believes the visits are recorded.
  */
 import type { Session } from './session';
-import { ApiError, applyOffer, recordVisit, type ReferralGrantAck, type VisitDraft } from './api';
+import { ApiError, applyOffer, recordVisit, type MutualBenefitGrantAck, type VisitDraft } from './api';
 
 const KEY = 'raje3.field.queue.v1';
 
@@ -93,7 +93,7 @@ export class VisitQueue {
    *  the only case a celebration makes sense for: a visit that drains later, unattended, means the
    *  customer already left, and showing it to whoever opens the screen next would celebrate a
    *  stranger's visit. */
-  private celebrationListeners = new Set<(grant: ReferralGrantAck) => void>();
+  private celebrationListeners = new Set<(grant: MutualBenefitGrantAck) => void>();
 
   /** Take the visit. Returns immediately — the caller clears the screen on THIS, never on a
    *  server answer, because the five-second budget cannot contain a round trip on a bad link.
@@ -131,7 +131,7 @@ export class VisitQueue {
     return () => this.listeners.delete(fn);
   }
 
-  subscribeToCelebrations(fn: (grant: ReferralGrantAck) => void): () => void {
+  subscribeToCelebrations(fn: (grant: MutualBenefitGrantAck) => void): () => void {
     this.celebrationListeners.add(fn);
     return () => this.celebrationListeners.delete(fn);
   }
@@ -140,7 +140,7 @@ export class VisitQueue {
     for (const fn of this.listeners) fn(this.rows);
   }
 
-  private emitCelebration(grant: ReferralGrantAck): void {
+  private emitCelebration(grant: MutualBenefitGrantAck): void {
     for (const fn of this.celebrationListeners) fn(grant);
   }
 
@@ -175,7 +175,7 @@ export class VisitQueue {
         try {
           const ack = await recordVisit(session, row.draft);
           this.rows = this.rows.filter((r) => r !== row);
-          if (ack.referral_grant) this.emitCelebration(ack.referral_grant);
+          if (ack.mutual_benefit_grant) this.emitCelebration(ack.mutual_benefit_grant);
           if (row.applyOfferSubject) {
             // ONLY NOW DOES THE VISIT EXIST ON THE SERVER (ط-1) — `ack.visit.id` names it, so
             // there is nothing left to race. STILL FIRE-AND-FORGET: the operator moved on the

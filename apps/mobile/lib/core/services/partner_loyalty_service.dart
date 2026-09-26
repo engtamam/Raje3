@@ -81,7 +81,7 @@ class PartnerLoyaltyService {
   /// `POST /coupons/grant` — returns `(attempt, null)` on a real answer (success OR a named
   /// refusal — [CouponAttempt.outcome] carries which), `(null, statusCode)` only when the server
   /// itself could not be reached at all. Never throws for an ordinary refusal, matching this
-  /// app's other real-refusal-over-generic-error services (e.g. `ReferralPartnershipService`).
+  /// app's other real-refusal-over-generic-error services (e.g. `MutualBenefitService`).
   Future<(CouponAttempt?, int?)> grant({
     required String phone,
     required int percent,

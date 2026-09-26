@@ -11,7 +11,7 @@ from app.core.branch_domains import (BRANCH_DOMAINS, BRANCH_DOMAINS_BY_ID, is_br
 EXPECTED_IDS = {
     "visit", "customers", "rating", "bookings", "shop_insights", "team",
     "whatsapp_connect", "campaigns_send_log", "mobile_requests",
-    "services_catalogue", "loyalty_points", "partner_loyalty", "referral_partnership",
+    "services_catalogue", "loyalty_points", "partner_loyalty", "mutual_benefit",
     "whatsapp_assistant", "mobile_ai_assistant", "support", "billing_account",
     "campaigns_authoring",
 }

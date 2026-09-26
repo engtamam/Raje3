@@ -2007,22 +2007,22 @@
       "operations.grant_coupon_direct"
     ]
   },
-  "referral-partnership": {
+  "mutual-benefit": {
     "title": {
-      "ar": "شراكة استراتيجية",
-      "en": "Strategic partnership"
+      "ar": "تبادل منافع",
+      "en": "Mutual benefit"
     },
     "body": {
       "ar": "تحالفاتك مع محلات ثانية مسجّلة عندنا — كل محل يمنح الثاني امتيازاً لعميله المُحال، تلقائياً بمجرد ما يثبت إنه عميل حقيقي. اعرض شراكة جديدة، أو رُدّ على عرض وصلك.",
       "en": "Your alliances with other registered shops — each grants the other a perk for a referred customer, automatically once they prove they're a real customer. Propose a new partnership, or respond to one that came in."
     },
     "kind": "screen",
-    "anchor": "referral-partnership",
+    "anchor": "mutual-benefit",
     "requires": [
-      "operations.referral_partnership_list"
+      "operations.mutual_benefit_list"
     ]
   },
-  "referral.row_accept_reject": {
+  "mutual_benefit.row_accept_reject": {
     "title": {
       "ar": "قبول أو رفض عرض الشراكة",
       "en": "Accept or reject the partnership offer"
@@ -2032,9 +2032,9 @@
       "en": "Accepting activates the partnership right away; rejecting ends it for good — the decision belongs to the shop the offer was sent to."
     },
     "kind": "action",
-    "anchor": "referral.row_accept_reject"
+    "anchor": "mutual_benefit.row_accept_reject"
   },
-  "referral.row_cancel_request": {
+  "mutual_benefit.row_cancel_request": {
     "title": {
       "ar": "طلب إنهاء الشراكة",
       "en": "Request to end the partnership"
@@ -2044,9 +2044,9 @@
       "en": "Sends the other shop a request to end it — the partnership stays active until they agree."
     },
     "kind": "action",
-    "anchor": "referral.row_cancel_request"
+    "anchor": "mutual_benefit.row_cancel_request"
   },
-  "referral.row_cancel_confirm": {
+  "mutual_benefit.row_cancel_confirm": {
     "title": {
       "ar": "تأكيد إنهاء الشراكة",
       "en": "Confirm ending the partnership"
@@ -2056,9 +2056,9 @@
       "en": "The other shop asked to end this partnership, and this is your confirmation — it ends immediately once you agree."
     },
     "kind": "action",
-    "anchor": "referral.row_cancel_confirm"
+    "anchor": "mutual_benefit.row_cancel_confirm"
   },
-  "referral.propose_phone_field": {
+  "mutual_benefit.propose_phone_field": {
     "title": {
       "ar": "رقم صاحب المحل الآخر",
       "en": "The other shop owner's number"
@@ -2068,9 +2068,9 @@
       "en": "The WhatsApp number of the shop owner you want to propose the partnership to."
     },
     "kind": "field",
-    "anchor": "referral.propose_phone_field"
+    "anchor": "mutual_benefit.propose_phone_field"
   },
-  "referral.propose_condition_fields": {
+  "mutual_benefit.propose_condition_fields": {
     "title": {
       "ar": "شروط الشراكة",
       "en": "Partnership conditions"
@@ -2080,7 +2080,7 @@
       "en": "When a referred customer earns the perk (after a set amount or a specific service), and the grant's own validity window, duration, and maximum cap."
     },
     "kind": "field",
-    "anchor": "referral.propose_condition_fields"
+    "anchor": "mutual_benefit.propose_condition_fields"
   },
   "points.add_button": {
     "title": {

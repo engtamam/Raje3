@@ -62,10 +62,10 @@ class RecordedVisit:
     # result rather than looked up again in `Seams`, which owns no stores by design.
     plates: list[str] = field(default_factory=list)
     # THE COUNTER'S OWN CELEBRATION MOMENT — `None` on every ordinary visit (the overwhelming
-    # majority), a real `ReferralGrant` only on the rare visit that just made a customer eligible
-    # for a NEW partner reward. See the referral-partnership hook below for why this can never
+    # majority), a real `MutualBenefitGrant` only on the rare visit that just made a customer eligible
+    # for a NEW partner reward. See the mutual-benefit hook below for why this can never
     # affect whether the visit itself succeeds.
-    new_referral_grant: Any = None
+    new_mutual_benefit_grant: Any = None
 
 
 def _now() -> int:
@@ -82,15 +82,15 @@ class Operations:
     def __init__(self, *, store, pii_salt: str, cache: Any = None,
                  max_backdate: int = _DEFAULT_MAX_BACKDATE_SECONDS,
                  phone_search_ro: Any = None) -> None:
-        # Cross-tenant referral-partnership eligibility detection — see
-        # core/referral_partnership.py's own module docstring for why THIS ONE call site is the
+        # Cross-tenant mutual-benefit eligibility detection — see
+        # core/mutual_benefit.py's own module docstring for why THIS ONE call site is the
         # single, sufficient hook for every current and future visit-recording channel. `None`
-        # until `with_referral_engine` installs it (see that method) — any test/run that never
+        # until `with_mutual_benefit_engine` installs it (see that method) — any test/run that never
         # wires one simply has nothing to call, same posture `_choose_offer` takes before
         # `with_offer_chooser` runs.
-        self._referral_engine: Any = None
+        self._mutual_benefit_engine: Any = None
         # `core/entitlements.py::EntitlementGateway` — `None` until `with_entitlement_gateway`
-        # installs it, same posture as `_referral_engine`/`_choose_offer` above.
+        # installs it, same posture as `_mutual_benefit_engine`/`_choose_offer` above.
         self._entitlement_gateway: Any = None
         self._customers = CustomerStore(store)
         self._assets = AssetStore(store)
@@ -204,15 +204,15 @@ class Operations:
             from app.core.entitlements import EntitlementGateway
 
             self._entitlement_gateway = EntitlementGateway(
-                referral_engine=self._referral_engine, campaign_chooser=chooser)
+                mutual_benefit_engine=self._mutual_benefit_engine, campaign_chooser=chooser)
         return self
 
-    def with_referral_engine(self, engine) -> "Operations":
-        """Install the referral-partnership hook. Set at wiring, not at import — `container.py`
+    def with_mutual_benefit_engine(self, engine) -> "Operations":
+        """Install the mutual-benefit hook. Set at wiring, not at import — `container.py`
         needs `billing_plans` built before it can construct the engine, and `Operations` itself is
         built earlier than that, same reason `with_offer_chooser` above is a post-construction
         setter rather than a constructor argument that would force a build-order dependency."""
-        self._referral_engine = engine
+        self._mutual_benefit_engine = engine
         if self._entitlement_gateway is not None:
             # Same rebuild `with_offer_chooser` does, symmetrically — see that method's own
             # docstring for why a gateway already installed must see a LATER change to either of
@@ -220,7 +220,7 @@ class Operations:
             from app.core.entitlements import EntitlementGateway
 
             self._entitlement_gateway = EntitlementGateway(
-                referral_engine=engine, campaign_chooser=self._choose_offer)
+                mutual_benefit_engine=engine, campaign_chooser=self._choose_offer)
         return self
 
     def with_entitlement_gateway(self, gateway) -> "Operations":
@@ -241,7 +241,7 @@ class Operations:
         المالك».
 
         THE JUDGEMENT IS NOT OURS. Which entitlement applies — a reminders campaign offer, or a
-        referral-partnership grant (see `core/entitlements.py::EntitlementGateway`, the one
+        mutual-benefit grant (see `core/entitlements.py::EntitlementGateway`, the one
         aggregation point this method now consults instead of a single fixed peer) — depends
         on what each source itself knows. We ask, and we record what comes back — including the
         TEXT, copied rather than referenced, because an owner reading this visit next year needs
@@ -291,12 +291,12 @@ class Operations:
                 # `with_entitlement_gateway` yet) keeps working unchanged: a gateway built with a
                 # campaign chooser and no referral source behaves exactly as the old direct call
                 # did, referral simply never outranking anything because there is nothing to.
-                gateway = EntitlementGateway(referral_engine=self._referral_engine,
+                gateway = EntitlementGateway(mutual_benefit_engine=self._mutual_benefit_engine,
                                              campaign_chooser=self._choose_offer)
 
             # THE PHONE, FOR THE REFERRAL SOURCE ONLY — reminders' own campaign chooser has never
             # needed it (identity + scope, by `subject_ref`), and it stays that way; only
-            # `EntitlementGateway` reads it, only to ask `ReferralPartnershipEngine.eligibility`.
+            # `EntitlementGateway` reads it, only to ask `MutualBenefitEngine.eligibility`.
             customer = await self._customers.get(tenant, v.customer_id)
             phone = customer.phone if customer is not None else ""
 
@@ -315,7 +315,7 @@ class Operations:
                 return None
 
             # THE ENTITLEMENT'S OWN SIDE EFFECT FIRST, BEFORE THE VISIT IS STAMPED — e.g.
-            # `ReferralPartnershipEngine.redeem()` for a referral-sourced grant. A failure here
+            # `MutualBenefitEngine.redeem()` for a referral-sourced grant. A failure here
             # refuses the whole apply and a retry starts from a clean slate (`choose()` runs
             # again); the REVERSE order (stamp first, finalize after) would let a retry after a
             # finalize failure return the already-stamped offer WITHOUT ever retrying the
@@ -541,16 +541,16 @@ class Operations:
                     customer.last_branch_id = visit.branch_id
                 await self._customers.save(customer)
 
-        # THE REFERRAL-PARTNERSHIP HOOK — never allowed to affect this visit either way. Any
+        # THE MUTUAL-BENEFIT HOOK — never allowed to affect this visit either way. Any
         # failure here (a bad row, a peer outage) is swallowed at this call site, not inside the
         # engine's own contract, so a bug in a completely different paid app can never cost a shop
         # the one fact this product cannot survive losing: the visit itself. See
-        # core/referral_partnership.py's own module docstring for why this is the single hook every
+        # core/mutual_benefit.py's own module docstring for why this is the single hook every
         # channel needs.
-        new_referral_grant = None
-        if self._referral_engine is not None:
+        new_mutual_benefit_grant = None
+        if self._mutual_benefit_engine is not None:
             try:
-                new_referral_grant = await self._referral_engine.on_visit_recorded(
+                new_mutual_benefit_grant = await self._mutual_benefit_engine.on_visit_recorded(
                     tenant=tenant, customer_phone=customer.phone, service_ids=list(service_ids),
                     total_minor=int(total_minor or 0), visit_id=visit.id)
             except Exception:                                                  # noqa: BLE001
@@ -558,7 +558,7 @@ class Operations:
 
         return RecordedVisit(visit=visit, customer=customer,
                              created_customer=created_customer, duplicate=False,
-                             new_referral_grant=new_referral_grant,
+                             new_mutual_benefit_grant=new_mutual_benefit_grant,
                              unknown_services=unknown,
                              # ALL OF THEM, not just this visit's. One number can hold two cars —
                              # «ممكن عندي سيارتين برقمي» — and an index written with only the plate

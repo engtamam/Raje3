@@ -20,15 +20,15 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gift, Percent, X } from 'lucide-react';
 import { Confetti } from '../rj-ui/Confetti';
-import type { ReferralGrantAck } from '../api';
+import type { MutualBenefitGrantAck } from '../api';
 import { useOperatorI18n, tf } from '../operator-i18n';
-import './referral-grant-celebration-i18n';
+import './mutual-benefit-grant-celebration-i18n';
 
-function grantLine(g: ReferralGrantAck, t: (k: string) => string): string {
-  if (g.grant_type === 'gift') return tf(t, 'rgc.line.gift', { name: g.gift_service_name });
-  if (g.discount_scope === 'item') return tf(t, 'rgc.line.discountItem', { name: g.gift_service_name });
-  if (g.discount_scope === 'group') return tf(t, 'rgc.line.discountGroup', { name: g.discount_group_name });
-  return t('rgc.line.discountBlanket');
+function grantLine(g: MutualBenefitGrantAck, t: (k: string) => string): string {
+  if (g.grant_type === 'gift') return tf(t, 'mbgc.line.gift', { name: g.gift_service_name });
+  if (g.discount_scope === 'item') return tf(t, 'mbgc.line.discountItem', { name: g.gift_service_name });
+  if (g.discount_scope === 'group') return tf(t, 'mbgc.line.discountGroup', { name: g.discount_group_name });
+  return t('mbgc.line.discountBlanket');
 }
 
 function formatDate(ts: number, locale: string): string {
@@ -37,8 +37,8 @@ function formatDate(ts: number, locale: string): string {
   });
 }
 
-export function ReferralGrantCelebration({ grant, onClose }: {
-  grant: ReferralGrantAck; onClose: () => void;
+export function MutualBenefitGrantCelebration({ grant, onClose }: {
+  grant: MutualBenefitGrantAck; onClose: () => void;
 }) {
   const { t, locale } = useOperatorI18n();
   const [showConfetti, setShowConfetti] = useState(true);
@@ -68,7 +68,7 @@ export function ReferralGrantCelebration({ grant, onClose }: {
           onClick={(e) => e.stopPropagation()}
           className="relative w-full max-w-sm"
         >
-          <button type="button" onClick={onClose} aria-label={t('rgc.close')}
+          <button type="button" onClick={onClose} aria-label={t('mbgc.close')}
                  className="absolute -top-3 end-0 z-10 rounded-full bg-surface-1 p-1.5 text-text-secondary shadow-md transition-colors hover:text-danger focus-ring">
             <X size={18} />
           </button>
@@ -83,8 +83,8 @@ export function ReferralGrantCelebration({ grant, onClose }: {
                 className="pointer-events-none absolute inset-y-0 start-0 w-1/3 -skew-x-12 bg-white/25"
               />
               <p className="text-3xl">🎉</p>
-              <p className="mt-1 text-lg font-extrabold">{t('rgc.headline')}</p>
-              <p className="mt-1 text-sm text-white/85">{t('rgc.subhead')}</p>
+              <p className="mt-1 text-lg font-extrabold">{t('mbgc.headline')}</p>
+              <p className="mt-1 text-sm text-white/85">{t('mbgc.subhead')}</p>
             </div>
 
             {/* ── the perforated tear line ─────────────────────────────────────────────────── */}
@@ -104,18 +104,18 @@ export function ReferralGrantCelebration({ grant, onClose }: {
 
               {grant.partner_shop_name ? (
                 <div className="flex items-center justify-between border-t border-border-subtle pt-3 text-sm">
-                  <span className="text-text-secondary">{t('rgc.partner')}</span>
+                  <span className="text-text-secondary">{t('mbgc.partner')}</span>
                   <span className="font-semibold">{grant.partner_shop_name}</span>
                 </div>
               ) : null}
 
               <div className="flex items-center justify-between border-t border-border-subtle pt-3 text-sm">
-                <span className="text-text-secondary">{t('rgc.validUntil')}</span>
+                <span className="text-text-secondary">{t('mbgc.validUntil')}</span>
                 <span className="font-semibold tabular-nums">{formatDate(grant.expires_at, locale)}</span>
               </div>
 
               <p className="rounded-xl bg-surface-2 p-3 text-center text-xs text-text-secondary">
-                {t('rgc.howTo')}
+                {t('mbgc.howTo')}
               </p>
             </div>
           </div>

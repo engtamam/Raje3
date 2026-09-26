@@ -1,13 +1,13 @@
 """ONE aggregation point for "does this customer currently hold ANY single-use entitlement" —
 a discount, a gift, an offer, a referral grant, anything shaped like "granted once, redeemed once,
 then gone/expired". The same "one real chokepoint" discipline `Operations.record_visit()` already
-established for WRITES (see `core/referral_partnership.py`'s own module docstring), now for this
+established for WRITES (see `core/mutual_benefit.py`'s own module docstring), now for this
 one specific kind of READ, and consumed by exactly one place: `Operations.apply_offer()`.
 
 WHY THIS EXISTS NOW, NOT BEFORE. `apply_offer` (§5.6.2) already had a real, working, one-per-visit,
 idempotent mechanism — but it asked exactly ONE source (`reminders`' own campaign offers, via the
 pluggable `_choose_offer` callback `with_offer_chooser` installs). Adding referral partnership's own
-`ReferralPartnershipEngine.eligibility()` as a SECOND source directly into `apply_offer` would have
+`MutualBenefitEngine.eligibility()` as a SECOND source directly into `apply_offer` would have
 meant `apply_offer` itself growing a second special case, and a THIRD future source (a coupon-like
 thing, anything else shaped the same way) growing a third — the same drift `record_visit()`'s own
 module docstring warns against for writes. This module is the fix: `apply_offer` asks ONE question
@@ -21,7 +21,7 @@ can EVER be applied per visit, by `apply_offer`'s own long-standing invariant: "
     REFERRAL PARTNERSHIP WINS OVER A REMINDERS CAMPAIGN OFFER, WHEN BOTH ARE LIVE AT ONCE.
 
     A referral grant is a promise made TO ANOTHER BUSINESS, with its own hard, short expiry per
-    customer (`ReferralPartnershipEngine`'s own `grant_validity_days`) and real reputational stakes
+    customer (`MutualBenefitEngine`'s own `grant_validity_days`) and real reputational stakes
     if it silently lapses unused — the partner shop is watching its own KPI screen for exactly this
     ("redeemed vs expired unused"). A reminders campaign offer is entirely this tenant's OWN
     marketing tool: it can be resent, re-targeted, or re-scheduled at will, with no third party
@@ -37,7 +37,7 @@ entitlement he still holds, while applying one we could not verify is a discount
 
 A FUTURE SOURCE (a coupon system, anything else single-grant/single-redeem) joins by handing its own
 async `(tenant, subject_ref, phone, service_ids) -> dict | None` chooser (or, for something already
-shaped like `ReferralPartnershipEngine`, a small adapter the same shape as `_referral_entitlement`
+shaped like `MutualBenefitEngine`, a small adapter the same shape as `_referral_entitlement`
 below) into `EntitlementGateway.__init__` and adding one line to `choose()`'s own priority list —
 never a change to `Operations.apply_offer` itself.
 """
@@ -46,7 +46,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 
-SOURCE_REFERRAL = "referral_partnership"
+SOURCE_REFERRAL = "mutual_benefit"
 SOURCE_CAMPAIGN = "reminders_campaign"
 
 # The priority list `choose()` walks, top to bottom — see the module docstring for WHY referral
@@ -83,15 +83,15 @@ CampaignChooser = Callable[..., Awaitable[dict[str, Any] | None]]
 
 
 class EntitlementGateway:
-    """`referral_engine` and `campaign_chooser` are both optional — a deployment or a test may wire
+    """`mutual_benefit_engine` and `campaign_chooser` are both optional — a deployment or a test may wire
     either, both, or neither (mirroring `_choose_offer`'s own long-standing `None`-is-a-real-state
     posture). `campaign_chooser` is the SAME callable shape `with_offer_chooser` always took
     (`adapters/offer_choice.py::http_chooser`'s own return value) — nothing about that peer's own
     contract changed, only who calls it."""
 
-    def __init__(self, *, referral_engine: Any = None,
+    def __init__(self, *, mutual_benefit_engine: Any = None,
                 campaign_chooser: CampaignChooser | None = None) -> None:
-        self._referral = referral_engine
+        self._referral = mutual_benefit_engine
         self._campaign_chooser = campaign_chooser
 
     async def choose(self, *, tenant: str, subject_ref: str, phone: str,
@@ -104,13 +104,13 @@ class EntitlementGateway:
                 raise EntitlementPeerUnavailable(str(exc)) from exc
             if elig and elig.get("eligible"):
                 # NEVER the referring shop's name — same privacy rule
-                # `ReferralGrant.public_for_beneficiary` already enforces at its own source; this
+                # `MutualBenefitGrant.public_for_beneficiary` already enforces at its own source; this
                 # text is ALWAYS DERIVED from the real catalogue fact backing the grant, never
                 # authored/typed/stored text (owner's own correction — see
-                # `core/referral_partnership.py`'s own "GRANT TYPE" module-docstring section).
+                # `core/mutual_benefit.py`'s own "GRANT TYPE" module-docstring section).
                 # Every kind/scope resolves to one opaque `Entitlement` shape — `apply_offer`
                 # never learns which one it got.
-                from app.core.referral_partnership import (DISCOUNT_SCOPE_BLANKET,
+                from app.core.mutual_benefit import (DISCOUNT_SCOPE_BLANKET,
                                                             DISCOUNT_SCOPE_GROUP, GRANT_GIFT)
 
                 if elig.get("grant_type") == GRANT_GIFT:

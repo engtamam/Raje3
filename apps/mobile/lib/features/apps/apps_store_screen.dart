@@ -304,7 +304,7 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
     if (ok) await _load();
   }
 
-  /// Same honest posture referral_partnership_screen.dart's own `_refusalMessage` takes — the
+  /// Same honest posture mutual_benefit_screen.dart's own `_refusalMessage` takes — the
   /// server strips every refusal's TEXT in transit, but the HTTP status survives and names the
   /// real family of causes for it, never a single guessed sentence.
   String _refusalMessage(int? status) {

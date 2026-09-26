@@ -86,7 +86,7 @@ class _FakePlans:
 
     def __init__(self) -> None:
         self.subs: dict[str, list[dict]] = {}
-        self.plan_for_key = {"feature.referral_partnership": "plan_referral"}
+        self.plan_for_key = {"feature.mutual_benefit": "plan_referral"}
 
     async def subscriptions(self, tenant):
         return self.subs.get(tenant, [])
@@ -104,21 +104,21 @@ def _subscribe(fake: _FakePlans, tenant: str) -> None:
 
 def _wire(client: TestClient) -> _FakePlans:
     """Real engine, real gateway — the SAME container wiring `container.py` does in production
-    (`with_referral_engine` + `with_entitlement_gateway`), just with a fake billing peer so no
+    (`with_mutual_benefit_engine` + `with_entitlement_gateway`), just with a fake billing peer so no
     socket is opened, same technique every sibling integration test in this service already uses.
     """
     from app.core.entitlements import EntitlementGateway
-    from app.core.referral_partnership import ReferralPartnershipEngine
+    from app.core.mutual_benefit import MutualBenefitEngine
 
     fake = _FakePlans()
     container = client.app.state.container
-    engine = ReferralPartnershipEngine(
+    engine = MutualBenefitEngine(
         store=container.datastore, plans=fake, notifier=container.inapp_notifier,
         authz=container.authz_desk, default_cc="966")
-    container.referral_partnership = engine
-    container.operations.with_referral_engine(engine)
+    container.mutual_benefit = engine
+    container.operations.with_mutual_benefit_engine(engine)
     container.entitlement_gateway = EntitlementGateway(
-        referral_engine=engine, campaign_chooser=None)
+        mutual_benefit_engine=engine, campaign_chooser=None)
     container.operations.with_entitlement_gateway(container.entitlement_gateway)
     container._e2e_fake_plans = fake      # stashed so later helpers can subscribe MORE tenants
     return fake
@@ -185,7 +185,7 @@ def _propose(client: TestClient, *, shop_a: str = A, condition_value: str = "100
             discount_scope: str = "blanket", discount_group_id: str = "",
             b_phone: str = B_PHONE) -> dict:
     resp = client.post(
-        "/api/v1/staff/referral-partnership/agreements",
+        "/api/v1/staff/mutual-benefit/agreements",
         headers=_auth(*REFERRAL_CAPS, tenant=shop_a),
         json={"shop_b_phone": b_phone, "condition_type": "min_total_minor",
              "condition_value": condition_value, "grant_validity_days": grant_validity_days,
@@ -198,7 +198,7 @@ def _propose(client: TestClient, *, shop_a: str = A, condition_value: str = "100
 
 def _accept(client: TestClient, agreement_id: str, *, shop_b: str = B) -> dict:
     resp = client.post(
-        f"/api/v1/staff/referral-partnership/agreements/{agreement_id}/accept",
+        f"/api/v1/staff/mutual-benefit/agreements/{agreement_id}/accept",
         headers=_auth(*REFERRAL_CAPS, tenant=shop_b))
     return resp.json() if resp.status_code == 200 else {"__status__": resp.status_code,
                                                          "__body__": resp.json()}
@@ -257,7 +257,7 @@ def test_full_chain_gift_grant_from_a_real_priced_visit_to_kpis(wired: TestClien
     assert applied["applied"] is True, applied
     assert "قص شعر مجاني" in applied["offer"]["text"]
 
-    kpis = wired.get("/api/v1/staff/referral-partnership/kpis",
+    kpis = wired.get("/api/v1/staff/mutual-benefit/kpis",
                      headers=_auth(*REFERRAL_CAPS, tenant=A)).json()
     assert kpis["as_referrer"]["redeemed"] == 1
     assert kpis["as_referrer"]["gift_redemptions_by_service"]["svc_gift"]["redeemed"] == 1
@@ -328,7 +328,7 @@ def test_a_double_tap_on_apply_offer_never_redeems_twice_over_http(wired: TestCl
     second = _apply_offer(wired, B, visit_b["visit"]["id"], subject_ref=visit_b["visit"]["id"])
     assert first == second
 
-    kpis = wired.get("/api/v1/staff/referral-partnership/kpis",
+    kpis = wired.get("/api/v1/staff/mutual-benefit/kpis",
                      headers=_auth(*REFERRAL_CAPS, tenant=A)).json()
     assert kpis["as_referrer"]["redeemed"] == 1
 
@@ -343,9 +343,9 @@ def test_referral_outranks_a_live_campaign_offer_on_the_same_visit(wired: TestCl
 
     from app.core.entitlements import EntitlementGateway
 
-    engine = wired.app.state.container.referral_partnership
+    engine = wired.app.state.container.mutual_benefit
     wired.app.state.container.entitlement_gateway = EntitlementGateway(
-        referral_engine=engine, campaign_chooser=campaign_chooser)
+        mutual_benefit_engine=engine, campaign_chooser=campaign_chooser)
     wired.app.state.container.operations.with_entitlement_gateway(
         wired.app.state.container.entitlement_gateway)
 
@@ -378,12 +378,12 @@ def test_a_fourth_overlapping_agreement_is_refused_over_http(wired: TestClient):
     # `field.py`'s own extensive note on this same behaviour for `record_visit`/`apply_offer`), so
     # only the STATUS CODE is observable over HTTP for a raised refusal — never the specific
     # business code. The specific `OVER_CONCURRENCY_CAP` string is already pinned at the engine
-    # layer in `test_referral_partnership_cap_and_gift.py`; this test's own job is proving the cap
+    # layer in `test_mutual_benefit_cap_and_gift.py`; this test's own job is proving the cap
     # is reachable and refusing through the REAL route, which the 409 alone already proves.
 
 
 def test_a_fourth_agreement_is_allowed_once_one_of_the_three_truly_ends(wired: TestClient):
-    from app.core.referral_partnership import ReferralPartnershipEngine
+    from app.core.mutual_benefit import MutualBenefitEngine
 
     others = ["0521111111", "0521111112", "0521111113"]
     ids = []
@@ -397,11 +397,11 @@ def test_a_fourth_agreement_is_allowed_once_one_of_the_three_truly_ends(wired: T
     # the term outright via the engine's own internal sync is the simplest real "already over"
     # state available without a day-long sleep). Push its `ends_at` into the past and let a normal
     # read sync it, mirroring exactly what `propose()`'s own pre-check does for a stale row.
-    engine: ReferralPartnershipEngine = wired.app.state.container.referral_partnership
+    engine: MutualBenefitEngine = wired.app.state.container.mutual_benefit
     store = wired.app.state.container.datastore
 
     async def _expire(agreement_id: str) -> None:
-        from app.core.referral_partnership import AGREEMENTS, PLATFORM
+        from app.core.mutual_benefit import AGREEMENTS, PLATFORM
 
         row = await store.get(AGREEMENTS, f"{PLATFORM}|{agreement_id}")
         row["ends_at"] = int(time.time()) - 10
@@ -423,7 +423,7 @@ def test_a_fourth_agreement_is_allowed_once_one_of_the_three_truly_ends(wired: T
 # ══════════════════════════════════════════════════════════════════════════════════════════════
 
 def test_renewal_between_the_same_two_shops_after_expiry_over_http(wired: TestClient):
-    from app.core.referral_partnership import AGREEMENTS, PLATFORM
+    from app.core.mutual_benefit import AGREEMENTS, PLATFORM
 
     first_id = _propose_and_accept(wired)
 
@@ -450,7 +450,7 @@ def test_a_gift_referencing_a_third_tenants_service_is_refused_over_http(wired: 
     # cap test above for the full reasoning), so only the 404 status is observable here; the
     # specific `CATALOG_ITEM_NOT_FOUND` code, and that a wrong-tenant/missing/inactive service all
     # collapse to the SAME refusal (the IDOR-safety property), are pinned at the engine layer
-    # already in `test_referral_partnership_grant_terms.py`.
+    # already in `test_mutual_benefit_grant_terms.py`.
     assert resp.get("__status__") == 404, resp
 
 
@@ -475,7 +475,7 @@ def test_no_patch_or_put_route_exists_for_an_agreement_over_http(wired: TestClie
     agreement_id = _propose_and_accept(wired)
     for method in ("patch", "put"):
         resp = getattr(wired, method)(
-            f"/api/v1/staff/referral-partnership/agreements/{agreement_id}",
+            f"/api/v1/staff/mutual-benefit/agreements/{agreement_id}",
             headers=_auth(*REFERRAL_CAPS, tenant=A), json={"discount_scope": "blanket"})
         assert resp.status_code in (404, 405), (method, resp.status_code)
 
@@ -486,7 +486,7 @@ def test_reproposing_with_different_grant_terms_leaves_the_original_untouched_ov
     _make_service(wired, B, "svc_y", "خدمة Y", price_minor=1000)
     first_id = _propose_and_accept(wired, grant_type="gift", gift_service_id="svc_x")
 
-    from app.core.referral_partnership import AGREEMENTS, PLATFORM
+    from app.core.mutual_benefit import AGREEMENTS, PLATFORM
 
     async def _end(agreement_id: str) -> None:
         row = await wired.app.state.container.datastore.get(AGREEMENTS, f"{PLATFORM}|{agreement_id}")
@@ -498,7 +498,7 @@ def test_reproposing_with_different_grant_terms_leaves_the_original_untouched_ov
     second_id = _propose_and_accept(wired, grant_type="gift", gift_service_id="svc_y")
     assert second_id != first_id
 
-    original = wired.get(f"/api/v1/staff/referral-partnership/agreements/{first_id}",
+    original = wired.get(f"/api/v1/staff/mutual-benefit/agreements/{first_id}",
                          headers=_auth(*REFERRAL_CAPS, tenant=A)).json()
     assert original["gift_service_id"] == "svc_x"          # untouched by the second proposal
 
@@ -529,18 +529,18 @@ def test_points_balance_appears_alongside_the_customer_lookup_at_the_granting_sh
 
 
 # ══════════════════════════════════════════════════════════════════════════════════════════════
-# EDGE CASE — the counter's own celebration moment: `referral_grant` on the visit response, ONLY
+# EDGE CASE — the counter's own celebration moment: `mutual_benefit_grant` on the visit response, ONLY
 # on the real visit that just created a NEW grant, never on an ordinary visit, a replay of the
 # same idempotency key, or a visit that stays below the threshold.
 # ══════════════════════════════════════════════════════════════════════════════════════════════
 
-def test_a_qualifying_visit_surfaces_a_referral_grant_for_the_celebration_screen(wired: TestClient):
+def test_a_qualifying_visit_surfaces_a_mutual_benefit_grant_for_the_celebration_screen(wired: TestClient):
     _make_service(wired, B, "svc_gift", "قص شعر مجاني", price_minor=4000)
     _propose_and_accept(wired, grant_type="gift", gift_service_id="svc_gift")
     _make_service(wired, A, "svc_a1", "غسيل خارجي", price_minor=1500)
 
     visit = _record_visit(wired, A, phone=CUSTOMER_PHONE, service_ids=["svc_a1"], idem="e2e-cel-a")
-    grant = visit.get("referral_grant")
+    grant = visit.get("mutual_benefit_grant")
     assert grant is not None, visit
     assert grant["grant_type"] == "gift"
     assert grant["gift_service_name"] == "قص شعر مجاني"
@@ -555,7 +555,7 @@ def test_an_ordinary_visit_under_the_threshold_never_surfaces_a_grant(wired: Tes
     _propose_and_accept(wired, condition_value="999999")   # threshold unreachable
     _make_service(wired, A, "svc_a1", "خدمة أ", price_minor=1500)
     visit = _record_visit(wired, A, phone=CUSTOMER_PHONE, service_ids=["svc_a1"], idem="e2e-cel-under")
-    assert "referral_grant" not in visit
+    assert "mutual_benefit_grant" not in visit
 
 
 def test_replaying_the_same_idempotency_key_never_re_surfaces_the_grant(wired: TestClient):
@@ -563,8 +563,8 @@ def test_replaying_the_same_idempotency_key_never_re_surfaces_the_grant(wired: T
     _make_service(wired, A, "svc_a1", "خدمة أ", price_minor=1500)
 
     first = _record_visit(wired, A, phone=CUSTOMER_PHONE, service_ids=["svc_a1"], idem="e2e-cel-dup")
-    assert first.get("referral_grant") is not None
+    assert first.get("mutual_benefit_grant") is not None
 
     second = _record_visit(wired, A, phone=CUSTOMER_PHONE, service_ids=["svc_a1"], idem="e2e-cel-dup")
     assert second["duplicate"] is True
-    assert "referral_grant" not in second
+    assert "mutual_benefit_grant" not in second

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
-import 'package:raje3_mobile/core/services/referral_partnership_service.dart';
+import 'package:raje3_mobile/core/services/mutual_benefit_service.dart';
 import 'package:raje3_mobile/core/services/services_catalogue_service.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
-import 'package:raje3_mobile/models/referral_partnership_model.dart';
+import 'package:raje3_mobile/models/mutual_benefit_model.dart';
 import 'package:raje3_mobile/models/service_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
@@ -15,7 +15,7 @@ import 'package:raje3_mobile/widgets/effects/game_effects.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
 
-/// «شراكة استراتيجية» — mobile mirror of apps/console/src/screens/ReferralPartnership.tsx's own
+/// «تبادل منافع» — mobile mirror of apps/console/src/screens/MutualBenefit.tsx's own
 /// real, decided design: a PARTNER-CENTRIC view (every agreement with the same other shop groups
 /// under one card, because the real question is "how is this relationship doing", never "what
 /// does row 14 say"), a scorecard computed CLIENT-SIDE per partner on demand (the server only
@@ -25,21 +25,21 @@ import 'package:raje3_mobile/widgets/rj_sheen.dart';
 /// NOT «ولاء الشركاء» (`partner-loyalty`, a subscription-price discount between our own two
 /// shops) — this moves real customers between two real shops on their own catalogues, mutual
 /// consent only. Zero backend work here: the 9-route contract already exists and is proven live
-/// by the console (parity/referral.md).
-class ReferralPartnershipScreen extends StatefulWidget {
-  const ReferralPartnershipScreen({super.key});
+/// by the console (parity/mutual-benefit.md).
+class MutualBenefitScreen extends StatefulWidget {
+  const MutualBenefitScreen({super.key});
 
   @override
-  State<ReferralPartnershipScreen> createState() => _ReferralPartnershipScreenState();
+  State<MutualBenefitScreen> createState() => _MutualBenefitScreenState();
 }
 
-class _ReferralPartnershipScreenState extends State<ReferralPartnershipScreen> {
-  late final _service = ReferralPartnershipService(apiClient: context.read<AuthProvider>().apiClient);
+class _MutualBenefitScreenState extends State<MutualBenefitScreen> {
+  late final _service = MutualBenefitService(apiClient: context.read<AuthProvider>().apiClient);
   late final _catalogue = ServicesCatalogueService(apiClient: context.read<AuthProvider>().apiClient);
 
-  List<ReferralAgreement>? _rows;
+  List<MutualBenefitAgreement>? _rows;
   bool _failed = false;
-  ReferralKpis? _kpis;
+  MutualBenefitKpis? _kpis;
   bool _kpiAsReferrer = true;
   String _roleFilter = 'all'; // all | referrer | beneficiary
 
@@ -63,9 +63,9 @@ class _ReferralPartnershipScreenState extends State<ReferralPartnershipScreen> {
 
   String get _myTenant => context.read<AuthProvider>().user?.id ?? '';
 
-  Map<String, List<ReferralAgreement>> get _groups {
-    final map = <String, List<ReferralAgreement>>{};
-    for (final r in _rows ?? const <ReferralAgreement>[]) {
+  Map<String, List<MutualBenefitAgreement>> get _groups {
+    final map = <String, List<MutualBenefitAgreement>>{};
+    for (final r in _rows ?? const <MutualBenefitAgreement>[]) {
       if (_roleFilter != 'all' && r.myRole(_myTenant) != _roleFilter) continue;
       final key = r.otherParty(_myTenant);
       (map[key] ??= []).add(r);
@@ -76,7 +76,7 @@ class _ReferralPartnershipScreenState extends State<ReferralPartnershipScreen> {
     return map;
   }
 
-  String _activityFor(List<ReferralAgreement> rows) {
+  String _activityFor(List<MutualBenefitAgreement> rows) {
     if (rows.any((r) => r.status == 'active')) return 'active';
     if (rows.any((r) => r.status == 'paused' || r.status == 'cancel_requested')) return 'paused';
     if (rows.any((r) => r.status == 'proposed')) return 'pending';
@@ -108,15 +108,15 @@ class _ReferralPartnershipScreenState extends State<ReferralPartnershipScreen> {
       });
 
     return KbAnchor(
-      id: 'referral-partnership',
+      id: 'mutual-benefit',
       child: Scaffold(
       backgroundColor: AppColors.surface0,
       floatingActionButton: CapabilityGate(
-        requires: const ['operations.referral_partnership_propose'],
+        requires: const ['operations.mutual_benefit_propose'],
         child: FloatingActionButton.extended(
           onPressed: _openPropose,
           icon: const Icon(Icons.add_rounded),
-          label: Text(s.referralProposeButton),
+          label: Text(s.mutualBenefitProposeButton),
         ),
       ),
       body: RefreshIndicator(
@@ -141,10 +141,10 @@ class _ReferralPartnershipScreenState extends State<ReferralPartnershipScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(s.referralTitle,
+                        Text(s.mutualBenefitTitle,
                             style: AppTextStyles.displaySmall.copyWith(color: AppColors.accentContrast)),
                         const SizedBox(height: 2),
-                        Text(s.referralSubtitle,
+                        Text(s.mutualBenefitSubtitle,
                             style: AppTextStyles.bodySmall.copyWith(color: AppColors.accentContrast.withValues(alpha: 0.85))),
                         const SizedBox(height: AppSpacing.md),
                         if (_kpis != null) _KpiPanel(kpis: _kpis!, asReferrer: _kpiAsReferrer,
@@ -162,9 +162,9 @@ class _ReferralPartnershipScreenState extends State<ReferralPartnershipScreen> {
                   value: _roleFilter,
                   onChanged: (v) => setState(() => _roleFilter = v),
                   options: [
-                    SegmentedFilterOption(value: 'all', label: s.referralRoleAll),
-                    SegmentedFilterOption(value: 'referrer', label: s.referralRoleReferrer),
-                    SegmentedFilterOption(value: 'beneficiary', label: s.referralRoleBeneficiary),
+                    SegmentedFilterOption(value: 'all', label: s.mutualBenefitRoleAll),
+                    SegmentedFilterOption(value: 'referrer', label: s.mutualBenefitRoleReferrer),
+                    SegmentedFilterOption(value: 'beneficiary', label: s.mutualBenefitRoleBeneficiary),
                   ],
                 ),
               ),
@@ -176,7 +176,7 @@ class _ReferralPartnershipScreenState extends State<ReferralPartnershipScreen> {
                 hasScrollBody: false,
                 child: EmptyState(
                   icon: Icons.cloud_off_rounded,
-                  title: s.referralLoadFailed,
+                  title: s.mutualBenefitLoadFailed,
                   actionText: s.mobileRequestsRetry,
                   onAction: _load,
                 ),
@@ -184,7 +184,7 @@ class _ReferralPartnershipScreenState extends State<ReferralPartnershipScreen> {
             else if (groupsEntries.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
-                child: EmptyState(icon: Icons.volunteer_activism_outlined, title: s.referralEmptyTitle),
+                child: EmptyState(icon: Icons.volunteer_activism_outlined, title: s.mutualBenefitEmptyTitle),
               )
             else
               SliverPadding(
@@ -216,7 +216,7 @@ class _ReferralPartnershipScreenState extends State<ReferralPartnershipScreen> {
 
 class _KpiPanel extends StatelessWidget {
   const _KpiPanel({required this.kpis, required this.asReferrer, required this.onToggle, required this.s});
-  final ReferralKpis kpis;
+  final MutualBenefitKpis kpis;
   final bool asReferrer;
   final ValueChanged<bool> onToggle;
   final S s;
@@ -235,17 +235,17 @@ class _KpiPanel extends StatelessWidget {
             decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(AppRadius.pill)),
             child: Row(
               children: [
-                Expanded(child: _kpiTab(context, s.referralKpiAsReferrer, asReferrer, () => onToggle(true))),
-                Expanded(child: _kpiTab(context, s.referralKpiAsBeneficiary, !asReferrer, () => onToggle(false))),
+                Expanded(child: _kpiTab(context, s.mutualBenefitKpiAsReferrer, asReferrer, () => onToggle(true))),
+                Expanded(child: _kpiTab(context, s.mutualBenefitKpiAsBeneficiary, !asReferrer, () => onToggle(false))),
               ],
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
-              Expanded(child: _stat(s.referralKpiSent, data.referralsSent)),
-              Expanded(child: _stat(s.referralKpiRedeemed, data.redeemed)),
-              Expanded(child: _stat(s.referralKpiRate, (data.redemptionRate * 100).round(), suffix: '%')),
+              Expanded(child: _stat(s.mutualBenefitKpiSent, data.referralsSent)),
+              Expanded(child: _stat(s.mutualBenefitKpiRedeemed, data.redeemed)),
+              Expanded(child: _stat(s.mutualBenefitKpiRate, (data.redemptionRate * 100).round(), suffix: '%')),
             ],
           ),
         ],
@@ -311,10 +311,10 @@ class _PartnerCard extends StatefulWidget {
     required this.myTenant, required this.service, required this.accent, required this.onActed,
   });
   final String partnerId;
-  final List<ReferralAgreement> agreements;
+  final List<MutualBenefitAgreement> agreements;
   final String activity;
   final String myTenant;
-  final ReferralPartnershipService service;
+  final MutualBenefitService service;
   final Color accent;
   final VoidCallback onActed;
 
@@ -324,7 +324,7 @@ class _PartnerCard extends StatefulWidget {
 
 class _PartnerCardState extends State<_PartnerCard> {
   bool _expanded = false;
-  Map<String, List<ReferralAuditEntry>>? _entriesByAgreement;
+  Map<String, List<MutualBenefitAuditEntry>>? _entriesByAgreement;
   bool _entriesFailed = false;
   String? _busyId;
 
@@ -336,7 +336,7 @@ class _PartnerCardState extends State<_PartnerCard> {
       setState(() => _entriesFailed = true);
       return;
     }
-    final map = <String, List<ReferralAuditEntry>>{};
+    final map = <String, List<MutualBenefitAuditEntry>>{};
     for (var i = 0; i < widget.agreements.length; i++) {
       map[widget.agreements[i].id] = results[i]!;
     }
@@ -356,7 +356,7 @@ class _PartnerCardState extends State<_PartnerCard> {
     return (granted: granted, redeemed: redeemed);
   }
 
-  List<ReferralAuditEntry>? get _timeline {
+  List<MutualBenefitAuditEntry>? get _timeline {
     final entries = _entriesByAgreement;
     if (entries == null) return null;
     final all = entries.values.expand((x) => x).toList()..sort((a, b) => b.created.compareTo(a.created));
@@ -373,7 +373,7 @@ class _PartnerCardState extends State<_PartnerCard> {
           content: Text(confirmMessage),
           actions: [
             TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.mobileRequestsRejectCancel)),
-            TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(s.referralConfirm)),
+            TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(s.mutualBenefitConfirm)),
           ],
         ),
       );
@@ -397,47 +397,47 @@ class _PartnerCardState extends State<_PartnerCard> {
 
   String _activityLabel(String activity, S s) {
     switch (activity) {
-      case 'active': return s.referralActivityActive;
-      case 'paused': return s.referralActivityPaused;
-      case 'pending': return s.referralActivityPending;
-      default: return s.referralActivityInactive;
+      case 'active': return s.mutualBenefitActivityActive;
+      case 'paused': return s.mutualBenefitActivityPaused;
+      case 'pending': return s.mutualBenefitActivityPending;
+      default: return s.mutualBenefitActivityInactive;
     }
   }
 
-  String _grantLine(ReferralAgreement a, S s) {
-    if (a.grantType == 'gift') return s.referralGrantGift(a.giftServiceName);
-    if (a.discountScope == 'item') return s.referralGrantDiscountItem(a.giftServiceName);
-    if (a.discountScope == 'group') return s.referralGrantDiscountGroup(a.discountGroupName);
-    return s.referralGrantDiscountBlanket;
+  String _grantLine(MutualBenefitAgreement a, S s) {
+    if (a.grantType == 'gift') return s.mutualBenefitGrantGift(a.giftServiceName);
+    if (a.discountScope == 'item') return s.mutualBenefitGrantDiscountItem(a.giftServiceName);
+    if (a.discountScope == 'group') return s.mutualBenefitGrantDiscountGroup(a.discountGroupName);
+    return s.mutualBenefitGrantDiscountBlanket;
   }
 
   String _statusLabel(String status, S s) {
     switch (status) {
-      case 'proposed': return s.referralStatusProposed;
-      case 'active': return s.referralStatusActive;
-      case 'paused': return s.referralStatusPaused;
-      case 'cancel_requested': return s.referralStatusCancelRequested;
-      case 'ended': return s.referralStatusEnded;
-      case 'rejected': return s.referralStatusRejected;
-      case 'expired_unanswered': return s.referralStatusExpiredUnanswered;
+      case 'proposed': return s.mutualBenefitStatusProposed;
+      case 'active': return s.mutualBenefitStatusActive;
+      case 'paused': return s.mutualBenefitStatusPaused;
+      case 'cancel_requested': return s.mutualBenefitStatusCancelRequested;
+      case 'ended': return s.mutualBenefitStatusEnded;
+      case 'rejected': return s.mutualBenefitStatusRejected;
+      case 'expired_unanswered': return s.mutualBenefitStatusExpiredUnanswered;
       default: return status;
     }
   }
 
   String _eventLabel(String event, S s) {
     switch (event) {
-      case 'proposed': return s.referralEventProposed;
-      case 'accepted': return s.referralEventAccepted;
-      case 'rejected': return s.referralEventRejected;
-      case 'activated': return s.referralEventActivated;
-      case 'cancel_requested': return s.referralEventCancelRequested;
-      case 'cancel_confirmed': return s.referralEventCancelConfirmed;
-      case 'expired_unanswered': return s.referralEventExpiredUnanswered;
-      case 'paused': return s.referralEventPaused;
-      case 'resumed': return s.referralEventResumed;
-      case 'ended_term': return s.referralEventEndedTerm;
-      case 'grant_created': return s.referralEventGrantCreated;
-      case 'grant_redeemed': return s.referralEventGrantRedeemed;
+      case 'proposed': return s.mutualBenefitEventProposed;
+      case 'accepted': return s.mutualBenefitEventAccepted;
+      case 'rejected': return s.mutualBenefitEventRejected;
+      case 'activated': return s.mutualBenefitEventActivated;
+      case 'cancel_requested': return s.mutualBenefitEventCancelRequested;
+      case 'cancel_confirmed': return s.mutualBenefitEventCancelConfirmed;
+      case 'expired_unanswered': return s.mutualBenefitEventExpiredUnanswered;
+      case 'paused': return s.mutualBenefitEventPaused;
+      case 'resumed': return s.mutualBenefitEventResumed;
+      case 'ended_term': return s.mutualBenefitEventEndedTerm;
+      case 'grant_created': return s.mutualBenefitEventGrantCreated;
+      case 'grant_redeemed': return s.mutualBenefitEventGrantRedeemed;
       default: return event;
     }
   }
@@ -498,7 +498,7 @@ class _PartnerCardState extends State<_PartnerCard> {
                                 maxLines: 1, overflow: TextOverflow.ellipsis,
                                 style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
                             const SizedBox(height: 2),
-                            Text('${_activityLabel(widget.activity, s)} · ${s.referralPartnerCount(widget.agreements.length)}',
+                            Text('${_activityLabel(widget.activity, s)} · ${s.mutualBenefitPartnerCount(widget.agreements.length)}',
                                 style: AppTextStyles.caption.copyWith(color: colors.textSecondary)),
                           ],
                         ),
@@ -520,26 +520,26 @@ class _PartnerCardState extends State<_PartnerCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Divider(),
-                    Text(s.referralScorecardTitle, style: AppTextStyles.labelMedium),
+                    Text(s.mutualBenefitScorecardTitle, style: AppTextStyles.labelMedium),
                     const SizedBox(height: 6),
                     if (_entriesFailed)
-                      Text(s.referralScorecardFailed, style: AppTextStyles.caption.copyWith(color: AppColors.danger))
+                      Text(s.mutualBenefitScorecardFailed, style: AppTextStyles.caption.copyWith(color: AppColors.danger))
                     else if (_scorecard == null)
                       const Padding(padding: EdgeInsets.symmetric(vertical: 4), child: AppLoadingIndicator())
                     else
                       Row(
                         children: [
-                          Expanded(child: _miniStat(s.referralKpiSent, _scorecard!.granted, widget.accent)),
-                          Expanded(child: _miniStat(s.referralKpiRedeemed, _scorecard!.redeemed, AppColors.success)),
-                          Expanded(child: _miniStatText(s.referralKpiRate, _scorecard!.granted > 0
+                          Expanded(child: _miniStat(s.mutualBenefitKpiSent, _scorecard!.granted, widget.accent)),
+                          Expanded(child: _miniStat(s.mutualBenefitKpiRedeemed, _scorecard!.redeemed, AppColors.success)),
+                          Expanded(child: _miniStatText(s.mutualBenefitKpiRate, _scorecard!.granted > 0
                               ? '${(_scorecard!.redeemed / _scorecard!.granted * 100).round()}%' : '—', colors.textSecondary)),
                         ],
                       ),
                     const SizedBox(height: AppSpacing.md),
-                    Text(s.referralActivityTitle, style: AppTextStyles.labelMedium),
+                    Text(s.mutualBenefitActivityTitle, style: AppTextStyles.labelMedium),
                     const SizedBox(height: 6),
                     if (_timeline != null && _timeline!.isEmpty)
-                      Text(s.referralActivityEmpty, style: AppTextStyles.caption.copyWith(color: colors.textMuted))
+                      Text(s.mutualBenefitActivityEmpty, style: AppTextStyles.caption.copyWith(color: colors.textMuted))
                     else if (_timeline != null)
                       Column(
                         children: [
@@ -556,7 +556,7 @@ class _PartnerCardState extends State<_PartnerCard> {
                         ],
                       ),
                     const SizedBox(height: AppSpacing.md),
-                    Text(s.referralAgreementsTitle, style: AppTextStyles.labelMedium),
+                    Text(s.mutualBenefitAgreementsTitle, style: AppTextStyles.labelMedium),
                     const SizedBox(height: 6),
                     for (final a in widget.agreements) ...[
                       _AgreementRow(
@@ -570,7 +570,7 @@ class _PartnerCardState extends State<_PartnerCard> {
                         onAccept: () => _act(widget.service.accept, a.id, celebrateOnSuccess: true),
                         onReject: () => _act(widget.service.reject, a.id),
                         onCancelRequest: () => _act(widget.service.cancelRequest, a.id),
-                        onCancelConfirm: () => _act(widget.service.cancelConfirm, a.id, confirmMessage: s.referralConfirmCancel),
+                        onCancelConfirm: () => _act(widget.service.cancelConfirm, a.id, confirmMessage: s.mutualBenefitConfirmCancel),
                       ),
                       const SizedBox(height: 6),
                     ],
@@ -620,7 +620,7 @@ class _AgreementRow extends StatelessWidget {
     required this.grantLine, required this.busy, required this.s,
     required this.onAccept, required this.onReject, required this.onCancelRequest, required this.onCancelConfirm,
   });
-  final ReferralAgreement agreement;
+  final MutualBenefitAgreement agreement;
   final String myTenant;
   final String statusLabel;
   final Color statusColor;
@@ -661,7 +661,7 @@ class _AgreementRow extends StatelessWidget {
                   children: [
                     Icon(role == 'referrer' ? Icons.north_east_rounded : Icons.south_west_rounded, size: 12, color: roleColor),
                     const SizedBox(width: 3),
-                    Text(role == 'referrer' ? s.referralRoleReferrer : s.referralRoleBeneficiary,
+                    Text(role == 'referrer' ? s.mutualBenefitRoleReferrer : s.mutualBenefitRoleBeneficiary,
                         style: AppTextStyles.caption.copyWith(color: roleColor, fontWeight: FontWeight.w700)),
                   ],
                 ),
@@ -680,18 +680,18 @@ class _AgreementRow extends StatelessWidget {
             const Padding(padding: EdgeInsets.only(top: 6), child: SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2)))
           else if (agreement.status == 'proposed' && agreement.shopB == myTenant)
             KbAnchor(
-              id: 'referral.row_accept_reject',
+              id: 'mutual_benefit.row_accept_reject',
               child: Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Row(
                 children: [
                   CapabilityGate(
-                    requires: const ['operations.referral_partnership_accept'],
-                    child: TextButton(onPressed: onAccept, child: Text(s.referralActionAccept)),
+                    requires: const ['operations.mutual_benefit_accept'],
+                    child: TextButton(onPressed: onAccept, child: Text(s.mutualBenefitActionAccept)),
                   ),
                   CapabilityGate(
-                    requires: const ['operations.referral_partnership_reject'],
-                    child: TextButton(onPressed: onReject, child: Text(s.referralActionReject, style: const TextStyle(color: AppColors.danger))),
+                    requires: const ['operations.mutual_benefit_reject'],
+                    child: TextButton(onPressed: onReject, child: Text(s.mutualBenefitActionReject, style: const TextStyle(color: AppColors.danger))),
                   ),
                 ],
               ),
@@ -700,18 +700,18 @@ class _AgreementRow extends StatelessWidget {
           else if (agreement.status == 'proposed')
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text(s.referralActionWaitingThem, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
+              child: Text(s.mutualBenefitActionWaitingThem, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
             )
           else if (agreement.status == 'active')
             KbAnchor(
-              id: 'referral.row_cancel_request',
+              id: 'mutual_benefit.row_cancel_request',
               child: Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Align(
                 alignment: AlignmentDirectional.centerStart,
                 child: CapabilityGate(
-                  requires: const ['operations.referral_partnership_cancel_request'],
-                  child: TextButton(onPressed: onCancelRequest, child: Text(s.referralActionCancelRequest)),
+                  requires: const ['operations.mutual_benefit_cancel_request'],
+                  child: TextButton(onPressed: onCancelRequest, child: Text(s.mutualBenefitActionCancelRequest)),
                 ),
               ),
               ),
@@ -720,16 +720,16 @@ class _AgreementRow extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: agreement.cancelRequestedBy == myTenant
-                  ? Text(s.referralActionWaitingThem, style: AppTextStyles.caption.copyWith(color: colors.textMuted))
+                  ? Text(s.mutualBenefitActionWaitingThem, style: AppTextStyles.caption.copyWith(color: colors.textMuted))
                   : KbAnchor(
-                      id: 'referral.row_cancel_confirm',
+                      id: 'mutual_benefit.row_cancel_confirm',
                       child: Align(
                       alignment: AlignmentDirectional.centerStart,
                       child: CapabilityGate(
-                        requires: const ['operations.referral_partnership_cancel_confirm'],
+                        requires: const ['operations.mutual_benefit_cancel_confirm'],
                         child: TextButton(
                             onPressed: onCancelConfirm,
-                            child: Text(s.referralActionCancelConfirm, style: const TextStyle(color: AppColors.danger))),
+                            child: Text(s.mutualBenefitActionCancelConfirm, style: const TextStyle(color: AppColors.danger))),
                       ),
                       ),
                     ),
@@ -742,7 +742,7 @@ class _AgreementRow extends StatelessWidget {
 
 class _ProposeSheet extends StatefulWidget {
   const _ProposeSheet({required this.service, required this.catalogue, required this.onDone});
-  final ReferralPartnershipService service;
+  final MutualBenefitService service;
   final ServicesCatalogueService catalogue;
   final VoidCallback onDone;
 
@@ -822,19 +822,19 @@ class _ProposeSheetState extends State<_ProposeSheet> {
     Navigator.of(context).pop();
   }
 
-  /// THE TEXT REASON NEVER REACHES THIS CLIENT (see `ReferralPartnershipService.propose`'s own
-  /// note), but the HTTP status is real and `_referral_error()` on the server maps every actual
+  /// THE TEXT REASON NEVER REACHES THIS CLIENT (see `MutualBenefitService.propose`'s own
+  /// note), but the HTTP status is real and `_mutual_benefit_error()` on the server maps every actual
   /// refusal onto one of a handful of statuses — so this names the REAL possibilities behind
   /// that exact status, never a guessed single cause.
   String _refusalMessage(int? statusCode, S s) {
     switch (statusCode) {
-      case 402: return s.referralRefusal402;
-      case 403: return s.referralRefusal403;
-      case 400: return s.referralRefusal400;
-      case 404: return s.referralRefusal404;
-      case 409: return s.referralRefusal409;
-      case 503: return s.referralRefusal503;
-      default: return s.referralProposeResultFail;
+      case 402: return s.mutualBenefitRefusal402;
+      case 403: return s.mutualBenefitRefusal403;
+      case 400: return s.mutualBenefitRefusal400;
+      case 404: return s.mutualBenefitRefusal404;
+      case 409: return s.mutualBenefitRefusal409;
+      case 503: return s.mutualBenefitRefusal503;
+      default: return s.mutualBenefitProposeResultFail;
     }
   }
 
@@ -865,33 +865,33 @@ class _ProposeSheetState extends State<_ProposeSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(s.referralProposeTitle, style: AppTextStyles.headlineSmall),
+                    Text(s.mutualBenefitProposeTitle, style: AppTextStyles.headlineSmall),
                     const SizedBox(height: AppSpacing.md),
                     KbAnchor(
-                      id: 'referral.propose_phone_field',
-                      child: AppTextField(labelText: s.referralProposePhoneLabel, controller: _phoneController,
+                      id: 'mutual_benefit.propose_phone_field',
+                      child: AppTextField(labelText: s.mutualBenefitProposePhoneLabel, controller: _phoneController,
                           keyboardType: TextInputType.phone, onChanged: (_) => setState(() {})),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    Text(s.referralProposeConditionLabel, style: AppTextStyles.labelMedium),
+                    Text(s.mutualBenefitProposeConditionLabel, style: AppTextStyles.labelMedium),
                     const SizedBox(height: 6),
                     SegmentedFilter<String>(
                       value: _conditionType,
                       onChanged: (v) => setState(() => _conditionType = v),
                       options: [
-                        SegmentedFilterOption(value: 'min_total_minor', label: s.referralConditionMinTotal),
-                        SegmentedFilterOption(value: 'service_id', label: s.referralConditionServiceId),
+                        SegmentedFilterOption(value: 'min_total_minor', label: s.mutualBenefitConditionMinTotal),
+                        SegmentedFilterOption(value: 'service_id', label: s.mutualBenefitConditionServiceId),
                       ],
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     KbAnchor(
-                      id: 'referral.propose_condition_fields',
+                      id: 'mutual_benefit.propose_condition_fields',
                       child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                     if (_conditionType != 'min_total_minor')
                       _picker(
-                        label: s.referralProposeConditionValueService,
+                        label: s.mutualBenefitProposeConditionValueService,
                         items: (_services ?? const []).map((x) => (x.id, x.name)).toList(),
                         value: _conditionServiceId,
                         onChanged: (v) => setState(() => _conditionServiceId = v ?? ''),
@@ -900,17 +900,17 @@ class _ProposeSheetState extends State<_ProposeSheet> {
                     Row(
                       children: [
                         if (_conditionType == 'min_total_minor') ...[
-                          Expanded(child: AppTextField(labelText: s.referralProposeConditionValueRiyals, controller: _riyalsController,
+                          Expanded(child: AppTextField(labelText: s.mutualBenefitProposeConditionValueRiyals, controller: _riyalsController,
                               keyboardType: TextInputType.number, onChanged: (_) => setState(() {}))),
                           const SizedBox(width: 8),
                         ],
-                        Expanded(child: AppTextField(labelText: s.referralProposeValidityLabel, controller: _grantValidityController,
+                        Expanded(child: AppTextField(labelText: s.mutualBenefitProposeValidityLabel, controller: _grantValidityController,
                             keyboardType: TextInputType.number)),
                         const SizedBox(width: 8),
-                        Expanded(child: AppTextField(labelText: s.referralProposeDurationLabel, controller: _durationController,
+                        Expanded(child: AppTextField(labelText: s.mutualBenefitProposeDurationLabel, controller: _durationController,
                             keyboardType: TextInputType.number)),
                         const SizedBox(width: 8),
-                        Expanded(child: AppTextField(labelText: s.referralProposeCapLabel, controller: _capController,
+                        Expanded(child: AppTextField(labelText: s.mutualBenefitProposeCapLabel, controller: _capController,
                             keyboardType: TextInputType.number)),
                       ],
                     ),
@@ -918,14 +918,14 @@ class _ProposeSheetState extends State<_ProposeSheet> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    Text(s.referralProposeGrantTypeLabel, style: AppTextStyles.labelMedium),
+                    Text(s.mutualBenefitProposeGrantTypeLabel, style: AppTextStyles.labelMedium),
                     const SizedBox(height: 6),
                     SegmentedFilter<String>(
                       value: _grantType,
                       onChanged: (v) => setState(() => _grantType = v),
                       options: [
-                        SegmentedFilterOption(value: 'discount', label: s.referralGrantTypeDiscount),
-                        SegmentedFilterOption(value: 'gift', label: s.referralGrantTypeGift),
+                        SegmentedFilterOption(value: 'discount', label: s.mutualBenefitGrantTypeDiscount),
+                        SegmentedFilterOption(value: 'gift', label: s.mutualBenefitGrantTypeGift),
                       ],
                     ),
                     if (_grantType == 'discount') ...[
@@ -934,17 +934,17 @@ class _ProposeSheetState extends State<_ProposeSheet> {
                         value: _discountScope,
                         onChanged: (v) => setState(() => _discountScope = v),
                         options: [
-                          SegmentedFilterOption(value: 'blanket', label: s.referralScopeBlanket),
-                          SegmentedFilterOption(value: 'item', label: s.referralScopeItem),
+                          SegmentedFilterOption(value: 'blanket', label: s.mutualBenefitScopeBlanket),
+                          SegmentedFilterOption(value: 'item', label: s.mutualBenefitScopeItem),
                           if ((_packages ?? const []).isNotEmpty)
-                            SegmentedFilterOption(value: 'group', label: s.referralScopeGroup),
+                            SegmentedFilterOption(value: 'group', label: s.mutualBenefitScopeGroup),
                         ],
                       ),
                     ],
                     if (_needsService) ...[
                       const SizedBox(height: AppSpacing.sm),
                       _picker(
-                        label: s.referralProposeServiceLabel,
+                        label: s.mutualBenefitProposeServiceLabel,
                         items: (_services ?? const []).map((x) => (x.id, x.name)).toList(),
                         value: _giftServiceId,
                         onChanged: (v) => setState(() => _giftServiceId = v ?? ''),
@@ -953,14 +953,14 @@ class _ProposeSheetState extends State<_ProposeSheet> {
                     if (_needsGroup) ...[
                       const SizedBox(height: AppSpacing.sm),
                       _picker(
-                        label: s.referralProposeGroupLabel,
+                        label: s.mutualBenefitProposeGroupLabel,
                         items: (_packages ?? const []).map((x) => (x.id, x.name)).toList(),
                         value: _discountGroupId,
                         onChanged: (v) => setState(() => _discountGroupId = v ?? ''),
                       ),
                     ],
                     const SizedBox(height: 4),
-                    Text(s.referralProposeImmutableNote, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
+                    Text(s.mutualBenefitProposeImmutableNote, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
                     if (_error != null) ...[
                       const SizedBox(height: 6),
                       Text(_error!, style: AppTextStyles.caption.copyWith(color: AppColors.danger)),
@@ -969,7 +969,7 @@ class _ProposeSheetState extends State<_ProposeSheet> {
                     SizedBox(
                       width: double.infinity,
                       child: PrimaryButton(
-                        text: _submitting ? s.referralProposeSubmitting : s.referralProposeSubmit,
+                        text: _submitting ? s.mutualBenefitProposeSubmitting : s.mutualBenefitProposeSubmit,
                         onPressed: (!_valid || _submitting) ? null : _submit,
                       ),
                     ),

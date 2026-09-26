@@ -1,4 +1,4 @@
-"""Referral partnership engine (core/referral_partnership.py) — no network, no billing socket.
+"""Mutual benefit engine (core/mutual_benefit.py) — no network, no billing socket.
 `FakePlans` matches the same narrow contract `CouponService`'s own tests fake (`plan_id_for_key`/
 `subscriptions`), and `FakeNotifier`/`FakeAuthz` are the two peers `_managers()` needs."""
 from __future__ import annotations
@@ -8,11 +8,11 @@ import asyncio
 import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
-from app.core.referral_partnership import (ACTIVE, BAD_CONDITION, CANCEL_REQUESTED,
+from app.core.mutual_benefit import (ACTIVE, BAD_CONDITION, CANCEL_REQUESTED,
                                            CONDITION_MIN_TOTAL, CONDITION_SERVICE_ID, ENDED,
                                            EXPIRED_UNANSWERED, FEATURE_KEY, FORBIDDEN,
                                            NOT_FOUND, NOT_SUBSCRIBED, PAUSED, PROPOSED,
-                                           REJECTED, ReferralError, ReferralPartnershipEngine,
+                                           REJECTED, MutualBenefitError, MutualBenefitEngine,
                                            SELF_PARTNER, WRONG_STATE, _CAP_PERIOD_SECONDS,
                                            _PROPOSAL_TTL_SECONDS)
 from app.core.signup import PHONE_INDEX, canonical_phone
@@ -93,7 +93,7 @@ def env():
     plans = FakePlans()
     notifier = FakeNotifier()
     authz = FakeAuthz()
-    engine = ReferralPartnershipEngine(store=store, plans=plans, notifier=notifier, authz=authz,
+    engine = MutualBenefitEngine(store=store, plans=plans, notifier=notifier, authz=authz,
                                        default_cc=CC)
     _register_phone(store, B_PHONE, B)
     _register_phone(store, C_PHONE, C)
@@ -115,7 +115,7 @@ def _propose(engine, **overrides):
 def test_a_shop_cannot_propose_to_itself(env):
     engine, store, plans, _ = env
     _register_phone(store, "0500000000", A)
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         run(engine.propose(shop_a=A, shop_b_phone="0500000000", operator_id="op1",
                            condition_type=CONDITION_MIN_TOTAL, condition_value="1000",
                            grant_validity_days=3, agreement_duration_days=30))
@@ -125,22 +125,22 @@ def test_a_shop_cannot_propose_to_itself(env):
 def test_a_shop_without_the_paid_feature_cannot_propose(env):
     engine, store, plans, _ = env
     _unsubscribe(plans, A)
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         _propose(engine)
     assert exc.value.args[0] == NOT_SUBSCRIBED
 
 
 def test_bad_condition_shapes_are_refused(env):
     engine, _store, _plans, _ = env
-    with pytest.raises(ReferralError):
+    with pytest.raises(MutualBenefitError):
         _propose(engine, condition_type="bogus")
-    with pytest.raises(ReferralError):
+    with pytest.raises(MutualBenefitError):
         _propose(engine, condition_type=CONDITION_MIN_TOTAL, condition_value="0")
-    with pytest.raises(ReferralError):
+    with pytest.raises(MutualBenefitError):
         _propose(engine, condition_type=CONDITION_SERVICE_ID, condition_value="")
-    with pytest.raises(ReferralError):
+    with pytest.raises(MutualBenefitError):
         _propose(engine, grant_validity_days=0)
-    with pytest.raises(ReferralError):
+    with pytest.raises(MutualBenefitError):
         _propose(engine, agreement_duration_days=0)
 
 
@@ -159,10 +159,10 @@ def test_propose_then_accept_activates_it(env):
 def test_only_the_invited_side_may_accept_or_reject(env):
     engine, _store, _plans, _ = env
     agreement = _propose(engine)
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         run(engine.accept(tenant=A, agreement_id=agreement.id))
     assert exc.value.args[0] == FORBIDDEN
-    with pytest.raises(ReferralError) as exc2:
+    with pytest.raises(MutualBenefitError) as exc2:
         run(engine.reject(tenant=A, agreement_id=agreement.id))
     assert exc2.value.args[0] == FORBIDDEN
 
@@ -171,7 +171,7 @@ def test_accepting_requires_the_beneficiary_also_holds_the_app(env):
     engine, _store, plans, _ = env
     agreement = _propose(engine)
     _unsubscribe(plans, B)
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         run(engine.accept(tenant=B, agreement_id=agreement.id))
     assert exc.value.args[0] == NOT_SUBSCRIBED
 
@@ -181,7 +181,7 @@ def test_reject_ends_it_and_a_third_party_cannot_touch_it(env):
     agreement = _propose(engine)
     rejected = run(engine.reject(tenant=B, agreement_id=agreement.id))
     assert rejected.status == REJECTED
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         run(engine.get(C, agreement.id))
     assert exc.value.args[0] == NOT_FOUND
 
@@ -191,7 +191,7 @@ def test_a_third_tenant_can_never_read_someone_elses_agreement(env):
     engine, _store, _plans, _ = env
     agreement = _propose(engine)
     run(engine.accept(tenant=B, agreement_id=agreement.id))
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         run(engine.get(C, agreement.id))
     assert exc.value.args[0] == NOT_FOUND
     listed = run(engine.agreements_for(C))
@@ -200,7 +200,7 @@ def test_a_third_tenant_can_never_read_someone_elses_agreement(env):
 
 def test_a_random_id_is_not_found_not_a_crash(env):
     engine, _store, _plans, _ = env
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         run(engine.get(A, "rpa_doesnotexist"))
     assert exc.value.args[0] == NOT_FOUND
 
@@ -253,7 +253,7 @@ def test_the_side_that_requested_cancel_cannot_also_confirm_it(env):
     agreement = _propose(engine)
     run(engine.accept(tenant=B, agreement_id=agreement.id))
     run(engine.cancel_request(tenant=A, agreement_id=agreement.id))
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         run(engine.cancel_confirm(tenant=A, agreement_id=agreement.id))
     assert exc.value.args[0] == FORBIDDEN
 
@@ -296,10 +296,10 @@ def test_resuming_after_the_original_end_date_ends_it_for_good(env):
     active = run(engine.accept(tenant=B, agreement_id=agreement.id))
     _unsubscribe(plans, B)
     # Force the clock past the original end by rewriting the stored row directly (no sleep).
-    row = run(store.get("referral_partnership_agreements", f"_platform|{agreement.id}"))
+    row = run(store.get("mutual_benefit_agreements", f"_platform|{agreement.id}"))
     row["original_ends_at"] = 1
     row["ends_at"] = 1
-    run(store.put("referral_partnership_agreements", f"_platform|{agreement.id}", row))
+    run(store.put("mutual_benefit_agreements", f"_platform|{agreement.id}", row))
     _subscribe(plans, B)
     ended = run(engine.get(A, agreement.id))
     assert ended.status == ENDED
@@ -309,12 +309,12 @@ def test_resuming_after_the_original_end_date_ends_it_for_good(env):
 def test_a_never_answered_proposal_expires(env):
     engine, store, _plans, _ = env
     agreement = _propose(engine)
-    row = run(store.get("referral_partnership_agreements", f"_platform|{agreement.id}"))
+    row = run(store.get("mutual_benefit_agreements", f"_platform|{agreement.id}"))
     row["proposal_expires_at"] = 1
-    run(store.put("referral_partnership_agreements", f"_platform|{agreement.id}", row))
+    run(store.put("mutual_benefit_agreements", f"_platform|{agreement.id}", row))
     fetched = run(engine.get(A, agreement.id))
     assert fetched.status == EXPIRED_UNANSWERED
-    with pytest.raises(ReferralError):
+    with pytest.raises(MutualBenefitError):
         run(engine.accept(tenant=B, agreement_id=agreement.id))
 
 
@@ -386,11 +386,11 @@ def test_a_grant_past_its_own_expiry_is_gone_even_though_its_agreement_is_active
     run(engine.accept(tenant=B, agreement_id=agreement.id))
     run(engine.on_visit_recorded(tenant=A, customer_phone="0511111111", service_ids=[],
                                 total_minor=1500, visit_id="vis_1"))
-    rows, _ = run(store.find("referral_partnership_grants", {"tenant": "_platform",
+    rows, _ = run(store.find("mutual_benefit_grants", {"tenant": "_platform",
                                                               "agreement_id": agreement.id}))
     row = rows[0]
     row["expires_at"] = 1
-    run(store.put("referral_partnership_grants", f"_platform|{row['id']}", row))
+    run(store.put("mutual_benefit_grants", f"_platform|{row['id']}", row))
     assert run(engine.eligibility(B, "0511111111")) is None
 
 
@@ -439,7 +439,7 @@ def test_audit_log_captures_every_transition_and_nobody_but_a_party_can_read_it(
     events = [e.event for e in entries]
     assert events == ["proposed", "accepted", "activated", "cancel_requested",
                       "cancel_confirmed"]
-    with pytest.raises(ReferralError):
+    with pytest.raises(MutualBenefitError):
         run(engine.audit_log(C, agreement.id))
 
 
@@ -450,7 +450,7 @@ def test_the_audit_log_has_no_update_or_delete_path(env):
     # this collection name appears nowhere else as a delete/put target in the module).
     import inspect
 
-    import app.core.referral_partnership as mod
+    import app.core.mutual_benefit as mod
     src = inspect.getsource(mod)
     assert f'self._s.delete({mod.AUDIT_LOG}' not in src
     assert "delete(AUDIT_LOG" not in src

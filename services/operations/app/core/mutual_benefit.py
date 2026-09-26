@@ -1,4 +1,4 @@
-"""Referral partnership — a customer who meets a condition at shop A becomes automatically
+"""Mutual benefit — a customer who meets a condition at shop A becomes automatically
 eligible for a discount at shop B, detected automatically, no proof the customer must carry.
 
 See docs/خطة-شراكة-استراتيجية-الإحالة.md for the full design this module implements. NOT the same
@@ -35,13 +35,13 @@ rows in the first place, and a caller who somehow knows another pair's agreement
 refused by `_agreement_for` unless its own tenant is a party to it.
 
 PRIVACY AT REDEMPTION — shop B's own visit/redemption screen is told only "eligible for X until Y",
-never shop A's name (`ReferralGrant.public_for_beneficiary()`). The granting shop's name is kept on
+never shop A's name (`MutualBenefitGrant.public_for_beneficiary()`). The granting shop's name is kept on
 the row for the two parties' OWN agreement screens (they already know each other — they approved the
 partnership by name) and for any future settlement report between them; it is simply never handed to
 the beneficiary's OWN redemption flow, which only needs "does this phone qualify, and for what".
 
 AN ALREADY-EARNED GRANT ALWAYS HONOURS ITS OWN EXPIRY, REGARDLESS OF WHY THE PARENT AGREEMENT
-STOPPED (design doc's own explicit rule) — `ReferralGrant.expires_at` is copied at CREATION time from
+STOPPED (design doc's own explicit rule) — `MutualBenefitGrant.expires_at` is copied at CREATION time from
 the agreement's `grant_validity_days` and never again consulted against the agreement's own state.
 `redeem()` checks only the grant's own `expires_at`, never the agreement.
 
@@ -88,14 +88,14 @@ grant — a service's `.name`, a package's `.name`, or the fixed phrase for "bla
 authored, typed, or stored as its own string on the agreement.
 
 IMMUTABLE AFTER CREATION (owner's own explicit correction) — every one of these fields is decided
-ONCE, at `propose()` time, shown in full on the agreement to both parties (`ReferralAgreement.
+ONCE, at `propose()` time, shown in full on the agreement to both parties (`MutualBenefitAgreement.
 public()` already returns every field), and NEVER CHANGES for the life of that agreement. There is
 no update/patch method or route anywhere in this module or its API that can alter a grant's terms
 once the agreement exists — different terms are a NEW agreement (governed by the exact same
 concurrency-cap/overlap rules above), never an edit to an existing one. See
-`test_referral_partnership_cap_and_gift.py`'s own structural test proving no such code path exists.
+`test_mutual_benefit_cap_and_gift.py`'s own structural test proving no such code path exists.
 
-Both kinds/scopes are copied onto `ReferralGrant` at the moment each grant is created (same "copy,
+Both kinds/scopes are copied onto `MutualBenefitGrant` at the moment each grant is created (same "copy,
 never reference" discipline this module already used before this correction), so a later catalogue
 edit or removal can never rewrite what an already-earned grant actually promised. Every kind/scope
 stays OPAQUE to `Operations.apply_offer` / `core/entitlements.py::EntitlementGateway` — only this
@@ -116,16 +116,16 @@ from typing import Any
 
 from app.core.signup import PHONE_INDEX, canonical_phone
 
-AGREEMENTS = "referral_partnership_agreements"
-GRANTS = "referral_partnership_grants"
-AUDIT_LOG = "referral_partnership_audit_log"
-PROPOSAL_LOCKS = "referral_partnership_proposal_locks"
+AGREEMENTS = "mutual_benefit_agreements"
+GRANTS = "mutual_benefit_grants"
+AUDIT_LOG = "mutual_benefit_audit_log"
+PROPOSAL_LOCKS = "mutual_benefit_proposal_locks"
 
 # Same reserved-key registry pattern as `core/coupons.py::PLATFORM` — a fact owned by neither
 # tenant, stored under a key no real tenant id can collide with.
 PLATFORM = "_platform"
 
-FEATURE_KEY = "feature.referral_partnership"
+FEATURE_KEY = "feature.mutual_benefit"
 
 # ── agreement lifecycle states ───────────────────────────────────────────────────────────────────
 PROPOSED = "proposed"
@@ -189,7 +189,7 @@ def uuid_hex() -> str:
     return uuid.uuid4().hex
 
 
-class ReferralError(Exception):
+class MutualBenefitError(Exception):
     """A refusal an API route can show verbatim to the caller."""
 
 
@@ -211,7 +211,7 @@ CATALOG_GROUP_NOT_FOUND = "catalog_group_not_found"
 
 
 @dataclass
-class ReferralAgreement:
+class MutualBenefitAgreement:
     id: str
     shop_a: str                    # the referring shop — where the condition is met
     shop_b: str                    # the beneficiary shop — where the discount is offered
@@ -254,7 +254,7 @@ class ReferralAgreement:
 
 
 @dataclass
-class ReferralGrant:
+class MutualBenefitGrant:
     id: str
     agreement_id: str
     shop_a: str
@@ -269,7 +269,7 @@ class ReferralGrant:
     # reference" discipline this product already uses elsewhere (e.g. `CouponGrant`'s own copied
     # text), so a later catalogue edit (a service renamed/retired, a package changed) can never
     # rewrite what an already-earned grant actually promised this customer. Same six fields as
-    # `ReferralAgreement`'s own immutable terms — see that dataclass's own docstring.
+    # `MutualBenefitAgreement`'s own immutable terms — see that dataclass's own docstring.
     grant_type: str = GRANT_DISCOUNT
     gift_service_id: str = ""
     gift_service_name: str = ""
@@ -302,7 +302,7 @@ class ReferralGrant:
 
 
 @dataclass
-class ReferralAuditEntry:
+class MutualBenefitAuditEntry:
     id: str
     agreement_id: str
     event: str
@@ -340,7 +340,7 @@ def _next_seq() -> int:
     return (time.time_ns() << 20) | (next(_SEQ) & _SEQ_MASK)
 
 
-class ReferralPartnershipEngine:
+class MutualBenefitEngine:
     """Everything the propose/accept/reject/cancel lifecycle, the `record_visit()` hook, and each
     shop's own KPI screen need. `plans` is the same peer `CouponService` takes — `plan_id_for_key`/
     `subscriptions` — used identically here for the feature-gate and the pause/resume check."""
@@ -357,20 +357,20 @@ class ReferralPartnershipEngine:
     # and it never reuses an id, so there is no key any later call could `put` over. ─────────────
     async def _audit(self, agreement_id: str, event: str, *, actor_tenant: str,
                      detail: dict[str, Any] | None = None) -> None:
-        entry = ReferralAuditEntry(id=f"rpaud_{uuid_hex()}", agreement_id=agreement_id,
+        entry = MutualBenefitAuditEntry(id=f"rpaud_{uuid_hex()}", agreement_id=agreement_id,
                                    event=event, actor_tenant=actor_tenant,
                                    detail=detail or {}, created=_now(), seq=_next_seq())
         await self._s.put(AUDIT_LOG, f"{PLATFORM}|{entry.id}", {"tenant": PLATFORM, **asdict(entry)})
 
     async def audit_log(self, tenant: str, agreement_id: str, limit: int = 200
-                        ) -> list[ReferralAuditEntry]:
+                        ) -> list[MutualBenefitAuditEntry]:
         agreement = await self._agreement_for(tenant, agreement_id)
         if agreement is None:
-            raise ReferralError(NOT_FOUND)
+            raise MutualBenefitError(NOT_FOUND)
         rows, _ = await self._s.find(
             AUDIT_LOG, {"tenant": PLATFORM, "agreement_id": agreement_id},
             limit=limit, sort=("seq", "asc"))
-        return [ReferralAuditEntry(**{k: v for k, v in r.items() if k != "tenant"}) for r in rows]
+        return [MutualBenefitAuditEntry(**{k: v for k, v in r.items() if k != "tenant"}) for r in rows]
 
     # ── subscription gate — same shape as `CouponService.granter_is_subscribed` ────────────────
     async def _is_subscribed(self, tenant: str) -> bool | None:
@@ -391,7 +391,7 @@ class ReferralPartnershipEngine:
     async def _agreement_row(self, agreement_id: str) -> dict[str, Any] | None:
         return await self._s.get(AGREEMENTS, f"{PLATFORM}|{agreement_id}")
 
-    async def _agreement_for(self, tenant: str, agreement_id: str) -> ReferralAgreement | None:
+    async def _agreement_for(self, tenant: str, agreement_id: str) -> MutualBenefitAgreement | None:
         """`None` for an id that does not exist AND for one that exists but belongs to two OTHER
         tenants — the two are indistinguishable to the caller, on purpose (an IDOR probe must learn
         nothing from the difference)."""
@@ -400,36 +400,36 @@ class ReferralPartnershipEngine:
             return None
         if row.get("shop_a") != tenant and row.get("shop_b") != tenant:
             return None
-        return ReferralAgreement(**{k: v for k, v in row.items() if k != "tenant"})
+        return MutualBenefitAgreement(**{k: v for k, v in row.items() if k != "tenant"})
 
-    async def get(self, tenant: str, agreement_id: str) -> ReferralAgreement:
+    async def get(self, tenant: str, agreement_id: str) -> MutualBenefitAgreement:
         agreement = await self._agreement_for(tenant, agreement_id)
         if agreement is None:
-            raise ReferralError(NOT_FOUND)
+            raise MutualBenefitError(NOT_FOUND)
         return await self._synced(agreement)
 
-    async def agreements_for(self, tenant: str, limit: int = 200) -> list[ReferralAgreement]:
+    async def agreements_for(self, tenant: str, limit: int = 200) -> list[MutualBenefitAgreement]:
         as_a, _ = await self._s.find(AGREEMENTS, {"tenant": PLATFORM, "shop_a": tenant},
                                      limit=limit, sort=("created", "desc"))
         as_b, _ = await self._s.find(AGREEMENTS, {"tenant": PLATFORM, "shop_b": tenant},
                                      limit=limit, sort=("created", "desc"))
         seen: set[str] = set()
-        out: list[ReferralAgreement] = []
+        out: list[MutualBenefitAgreement] = []
         for row in list(as_a) + list(as_b):
             if row["id"] in seen:
                 continue
             seen.add(row["id"])
-            agreement = ReferralAgreement(**{k: v for k, v in row.items() if k != "tenant"})
+            agreement = MutualBenefitAgreement(**{k: v for k, v in row.items() if k != "tenant"})
             out.append(await self._synced(agreement))
         out.sort(key=lambda a: a.created, reverse=True)
         return out[:limit]
 
-    async def _save_agreement(self, agreement: ReferralAgreement) -> None:
+    async def _save_agreement(self, agreement: MutualBenefitAgreement) -> None:
         await self._s.put(AGREEMENTS, f"{PLATFORM}|{agreement.id}",
                           {"tenant": PLATFORM, **asdict(agreement)})
 
     # ── lazy subscription pause/resume — consulted on every read/hook touch, never a cron ───────
-    async def _synced(self, agreement: ReferralAgreement) -> ReferralAgreement:
+    async def _synced(self, agreement: MutualBenefitAgreement) -> MutualBenefitAgreement:
         now = _now()
         if (agreement.status == PROPOSED and agreement.proposal_expires_at
                 and now > agreement.proposal_expires_at):
@@ -550,70 +550,70 @@ class ReferralPartnershipEngine:
                       # concrete value, the same way `grant_type` already defaults to a real kind
                       # rather than nothing.
                       discount_scope: str = DISCOUNT_SCOPE_BLANKET,
-                      discount_group_id: str = "") -> ReferralAgreement:
+                      discount_group_id: str = "") -> MutualBenefitAgreement:
         if condition_type not in CONDITION_TYPES:
-            raise ReferralError(BAD_CONDITION)
+            raise MutualBenefitError(BAD_CONDITION)
         if condition_type == CONDITION_MIN_TOTAL:
             try:
                 if int(condition_value) <= 0:
-                    raise ReferralError(BAD_CONDITION)
+                    raise MutualBenefitError(BAD_CONDITION)
             except (TypeError, ValueError):
-                raise ReferralError(BAD_CONDITION) from None
+                raise MutualBenefitError(BAD_CONDITION) from None
         elif not str(condition_value).strip():
-            raise ReferralError(BAD_CONDITION)
+            raise MutualBenefitError(BAD_CONDITION)
         if not (0 < grant_validity_days <= 365):
-            raise ReferralError(BAD_CONDITION)
+            raise MutualBenefitError(BAD_CONDITION)
         if not (0 < agreement_duration_days <= 3650):
-            raise ReferralError(BAD_CONDITION)
+            raise MutualBenefitError(BAD_CONDITION)
         if per_period_cap < 0:
-            raise ReferralError(BAD_CONDITION)
+            raise MutualBenefitError(BAD_CONDITION)
 
         subscribed = await self._is_subscribed(shop_a)
         if subscribed is None:
-            raise ReferralError(BILLING_UNAVAILABLE)
+            raise MutualBenefitError(BILLING_UNAVAILABLE)
         if not subscribed:
-            raise ReferralError(NOT_SUBSCRIBED)
+            raise MutualBenefitError(NOT_SUBSCRIBED)
 
         shop_b = await self._lookup_tenant_by_phone(shop_b_phone)
         if not shop_b:
-            raise ReferralError(NOT_FOUND)
+            raise MutualBenefitError(NOT_FOUND)
         if shop_b == shop_a:
-            raise ReferralError(SELF_PARTNER)
+            raise MutualBenefitError(SELF_PARTNER)
 
         # THE GRANT ITSELF — NO FREE TEXT ANYWHERE (owner's own correction). Every reference is
         # validated against shop_b's OWN catalogue right here, never trusted as typed; `shop_b`
         # was only just resolved above, which is why this could not happen any earlier. Decided
-        # ONCE, here, and never again — see `ReferralAgreement`'s own docstring on immutability.
+        # ONCE, here, and never again — see `MutualBenefitAgreement`'s own docstring on immutability.
         if grant_type not in GRANT_TYPES:
-            raise ReferralError(BAD_CONDITION)
+            raise MutualBenefitError(BAD_CONDITION)
         gift_service_name = ""
         discount_group_name = ""
         if grant_type == GRANT_GIFT:
             if not gift_service_id.strip():
-                raise ReferralError(BAD_CONDITION)
+                raise MutualBenefitError(BAD_CONDITION)
             service = await self._resolve_catalog_service(shop_b, gift_service_id)
             if service is None:
-                raise ReferralError(CATALOG_ITEM_NOT_FOUND)
+                raise MutualBenefitError(CATALOG_ITEM_NOT_FOUND)
             gift_service_name = service.name
             discount_scope = ""
             discount_group_id = ""
         else:
             if discount_scope not in DISCOUNT_SCOPES:
-                raise ReferralError(BAD_CONDITION)
+                raise MutualBenefitError(BAD_CONDITION)
             if discount_scope == DISCOUNT_SCOPE_ITEM:
                 if not gift_service_id.strip():
-                    raise ReferralError(BAD_CONDITION)
+                    raise MutualBenefitError(BAD_CONDITION)
                 service = await self._resolve_catalog_service(shop_b, gift_service_id)
                 if service is None:
-                    raise ReferralError(CATALOG_ITEM_NOT_FOUND)
+                    raise MutualBenefitError(CATALOG_ITEM_NOT_FOUND)
                 gift_service_name = service.name
                 discount_group_id = ""
             elif discount_scope == DISCOUNT_SCOPE_GROUP:
                 if not discount_group_id.strip():
-                    raise ReferralError(BAD_CONDITION)
+                    raise MutualBenefitError(BAD_CONDITION)
                 package = await self._resolve_catalog_group(shop_b, discount_group_id)
                 if package is None:
-                    raise ReferralError(CATALOG_GROUP_NOT_FOUND)
+                    raise MutualBenefitError(CATALOG_GROUP_NOT_FOUND)
                 discount_group_name = package.name
                 gift_service_id = ""
             else:                                                   # DISCOUNT_SCOPE_BLANKET
@@ -626,7 +626,7 @@ class ReferralPartnershipEngine:
                 limit=1)
             if rows:
                 return await self._synced(
-                    ReferralAgreement(**{k: v for k, v in rows[0].items() if k != "tenant"}))
+                    MutualBenefitAgreement(**{k: v for k, v in rows[0].items() if k != "tenant"}))
 
         # ATOMIC "IS THERE ALREADY A LIVE PROPOSAL BETWEEN THIS EXACT PAIR" — `store.claim` is the
         # one operation that can make the check-then-act one statement (see `DataStore.claim`'s own
@@ -638,7 +638,7 @@ class ReferralPartnershipEngine:
         if not took:
             # Somebody else's propose() is mid-flight for this exact pair right now — the honest
             # answer is "try again", not a silent duplicate.
-            raise ReferralError(WRONG_STATE)
+            raise MutualBenefitError(WRONG_STATE)
         try:
             existing, _ = await self._s.find(
                 AGREEMENTS, {"tenant": PLATFORM, "shop_a": shop_a, "shop_b": shop_b}, limit=200)
@@ -653,7 +653,7 @@ class ReferralPartnershipEngine:
             # that screen having been opened first.
             for row in candidates:
                 synced = await self._synced(
-                    ReferralAgreement(**{k: v for k, v in row.items() if k != "tenant"}))
+                    MutualBenefitAgreement(**{k: v for k, v in row.items() if k != "tenant"}))
                 if synced.status in (PROPOSED, ACTIVE, PAUSED, CANCEL_REQUESTED):
                     return synced
 
@@ -667,9 +667,9 @@ class ReferralPartnershipEngine:
             candidate_end = now + agreement_duration_days * 24 * 3600
             if (await self._would_exceed_cap(shop_a, now, candidate_end)
                     or await self._would_exceed_cap(shop_b, now, candidate_end)):
-                raise ReferralError(OVER_CONCURRENCY_CAP)
+                raise MutualBenefitError(OVER_CONCURRENCY_CAP)
 
-            agreement = ReferralAgreement(
+            agreement = MutualBenefitAgreement(
                 id=f"rpa_{uuid_hex()}", shop_a=shop_a, shop_b=shop_b,
                 condition_type=condition_type, condition_value=str(condition_value),
                 grant_validity_days=grant_validity_days,
@@ -691,7 +691,7 @@ class ReferralPartnershipEngine:
             for recipient in recipients:
                 await self._notifier.send(
                     tenant=shop_b, user_id=recipient,
-                    template_key="operations.referral_partnership_proposed",
+                    template_key="operations.mutual_benefit_proposed",
                     variables={}, idempotency_key=f"refpartner_propose:{agreement.id}:{recipient}")
         return agreement
 
@@ -703,23 +703,23 @@ class ReferralPartnershipEngine:
         except Exception:                                                      # noqa: BLE001
             return []
 
-    async def accept(self, *, tenant: str, agreement_id: str) -> ReferralAgreement:
+    async def accept(self, *, tenant: str, agreement_id: str) -> MutualBenefitAgreement:
         agreement = await self._agreement_for(tenant, agreement_id)
         if agreement is None:
-            raise ReferralError(NOT_FOUND)
+            raise MutualBenefitError(NOT_FOUND)
         if tenant != agreement.shop_b:
             # ONLY THE INVITED SIDE ACCEPTS — the proposer already agreed by proposing (design doc
             # step 1: A sets the terms). Accepting one's own proposal is not a second approval.
-            raise ReferralError(FORBIDDEN)
+            raise MutualBenefitError(FORBIDDEN)
         agreement = await self._synced(agreement)
         if agreement.status != PROPOSED:
-            raise ReferralError(WRONG_STATE)
+            raise MutualBenefitError(WRONG_STATE)
 
         subscribed = await self._is_subscribed(tenant)
         if subscribed is None:
-            raise ReferralError(BILLING_UNAVAILABLE)
+            raise MutualBenefitError(BILLING_UNAVAILABLE)
         if not subscribed:
-            raise ReferralError(NOT_SUBSCRIBED)
+            raise MutualBenefitError(NOT_SUBSCRIBED)
 
         now = _now()
         candidate_end = now + agreement.agreement_duration_days * 24 * 3600
@@ -732,7 +732,7 @@ class ReferralPartnershipEngine:
         # refused here.
         if (await self._would_exceed_cap(agreement.shop_a, now, candidate_end)
                 or await self._would_exceed_cap(agreement.shop_b, now, candidate_end)):
-            raise ReferralError(OVER_CONCURRENCY_CAP)
+            raise MutualBenefitError(OVER_CONCURRENCY_CAP)
 
         agreement.status = ACTIVE
         agreement.started_at = now
@@ -743,27 +743,27 @@ class ReferralPartnershipEngine:
         await self._audit(agreement.id, EV_ACTIVATED, actor_tenant=PLATFORM)
         return agreement
 
-    async def reject(self, *, tenant: str, agreement_id: str) -> ReferralAgreement:
+    async def reject(self, *, tenant: str, agreement_id: str) -> MutualBenefitAgreement:
         agreement = await self._agreement_for(tenant, agreement_id)
         if agreement is None:
-            raise ReferralError(NOT_FOUND)
+            raise MutualBenefitError(NOT_FOUND)
         if tenant != agreement.shop_b:
-            raise ReferralError(FORBIDDEN)
+            raise MutualBenefitError(FORBIDDEN)
         agreement = await self._synced(agreement)
         if agreement.status != PROPOSED:
-            raise ReferralError(WRONG_STATE)
+            raise MutualBenefitError(WRONG_STATE)
         agreement.status = REJECTED
         await self._save_agreement(agreement)
         await self._audit(agreement.id, EV_REJECTED, actor_tenant=tenant)
         return agreement
 
-    async def cancel_request(self, *, tenant: str, agreement_id: str) -> ReferralAgreement:
+    async def cancel_request(self, *, tenant: str, agreement_id: str) -> MutualBenefitAgreement:
         agreement = await self._agreement_for(tenant, agreement_id)
         if agreement is None:
-            raise ReferralError(NOT_FOUND)
+            raise MutualBenefitError(NOT_FOUND)
         agreement = await self._synced(agreement)
         if agreement.status != ACTIVE:
-            raise ReferralError(WRONG_STATE)
+            raise MutualBenefitError(WRONG_STATE)
         agreement.status = CANCEL_REQUESTED
         agreement.cancel_requested_by = tenant
         await self._save_agreement(agreement)
@@ -773,24 +773,24 @@ class ReferralPartnershipEngine:
             for recipient in await self._managers(other):
                 await self._notifier.send(
                     tenant=other, user_id=recipient,
-                    template_key="operations.referral_partnership_cancel_requested",
+                    template_key="operations.mutual_benefit_cancel_requested",
                     variables={},
                     idempotency_key=f"refpartner_cancel:{agreement.id}:{recipient}")
         return agreement
 
-    async def cancel_confirm(self, *, tenant: str, agreement_id: str) -> ReferralAgreement:
+    async def cancel_confirm(self, *, tenant: str, agreement_id: str) -> MutualBenefitAgreement:
         agreement = await self._agreement_for(tenant, agreement_id)
         if agreement is None:
-            raise ReferralError(NOT_FOUND)
+            raise MutualBenefitError(NOT_FOUND)
         agreement = await self._synced(agreement)
         if agreement.status != CANCEL_REQUESTED:
-            raise ReferralError(WRONG_STATE)
+            raise MutualBenefitError(WRONG_STATE)
         if tenant == agreement.cancel_requested_by:
             # THE SAME SIDE THAT ASKED CANNOT ALSO BE THE ONE WHO CONFIRMS — that would be a
             # unilateral cancellation wearing a two-step costume (design doc: mutual consent only).
-            raise ReferralError(FORBIDDEN)
+            raise MutualBenefitError(FORBIDDEN)
         if tenant not in (agreement.shop_a, agreement.shop_b):
-            raise ReferralError(FORBIDDEN)
+            raise MutualBenefitError(FORBIDDEN)
         agreement.status = ENDED
         await self._save_agreement(agreement)
         await self._audit(agreement.id, EV_CANCEL_CONFIRMED, actor_tenant=tenant)
@@ -798,7 +798,7 @@ class ReferralPartnershipEngine:
 
     # ── the `record_visit()` hook — called for EVERY channel, see module docstring ──────────────
     async def on_visit_recorded(self, *, tenant: str, customer_phone: str, service_ids: list[str],
-                                total_minor: int, visit_id: str) -> "ReferralGrant | None":
+                                total_minor: int, visit_id: str) -> "MutualBenefitGrant | None":
         """`tenant` is the shop where the visit just happened — potentially shop_a for zero, one, or
         several active agreements at once. Never raises: any failure here must never be seen by the
         caller, which is why `Operations.record_visit` wraps this call itself defensively too — this
@@ -817,7 +817,7 @@ class ReferralPartnershipEngine:
         rows, _ = await self._s.find(AGREEMENTS, {"tenant": PLATFORM, "shop_a": tenant, "status": ACTIVE},
                                      limit=200)
         for row in rows:
-            agreement = ReferralAgreement(**{k: v for k, v in row.items() if k != "tenant"})
+            agreement = MutualBenefitAgreement(**{k: v for k, v in row.items() if k != "tenant"})
             agreement = await self._synced(agreement)
             if agreement.status != ACTIVE:
                 continue
@@ -829,7 +829,7 @@ class ReferralPartnershipEngine:
         return None
 
     @staticmethod
-    def _condition_met(agreement: ReferralAgreement, *, service_ids: list[str],
+    def _condition_met(agreement: MutualBenefitAgreement, *, service_ids: list[str],
                        total_minor: int) -> bool:
         if agreement.condition_type == CONDITION_MIN_TOTAL:
             try:
@@ -839,8 +839,8 @@ class ReferralPartnershipEngine:
             return total_minor >= threshold
         return agreement.condition_value in service_ids
 
-    async def _grant(self, agreement: ReferralAgreement, *, customer_phone: str,
-                     visit_id: str) -> "ReferralGrant | None":
+    async def _grant(self, agreement: MutualBenefitAgreement, *, customer_phone: str,
+                     visit_id: str) -> "MutualBenefitGrant | None":
         phone = canonical_phone(customer_phone, default_cc=self._cc)
         if not phone:
             return None
@@ -870,11 +870,11 @@ class ReferralPartnershipEngine:
                 return None
 
         now = _now()
-        grant = ReferralGrant(
+        grant = MutualBenefitGrant(
             id=f"rpg_{uuid_hex()}", agreement_id=agreement.id, shop_a=agreement.shop_a,
             shop_b=agreement.shop_b, customer_phone=phone, triggering_visit_id=visit_id,
             created=now, expires_at=now + agreement.grant_validity_days * 24 * 3600,
-            # COPIED FROM THE AGREEMENT NOW, NOT REFERENCED LATER — see `ReferralGrant`'s own
+            # COPIED FROM THE AGREEMENT NOW, NOT REFERENCED LATER — see `MutualBenefitGrant`'s own
             # docstring on these six fields for why.
             grant_type=agreement.grant_type, gift_service_id=agreement.gift_service_id,
             gift_service_name=agreement.gift_service_name,
@@ -889,7 +889,7 @@ class ReferralPartnershipEngine:
     # ── shop B's own redemption check — the visit screen's own "does this phone qualify" ────────
     async def eligibility(self, tenant: str, phone: str) -> dict[str, Any] | None:
         """The one thing shop B's own visit screen may ask: is this phone eligible right now, for
-        what, until when — NEVER which shop referred them (see `ReferralGrant.public_for_beneficiary`
+        what, until when — NEVER which shop referred them (see `MutualBenefitGrant.public_for_beneficiary`
         and the module docstring's privacy note). `None` when nothing live is found."""
         canon = canonical_phone(phone, default_cc=self._cc)
         if not canon:
@@ -901,14 +901,14 @@ class ReferralPartnershipEngine:
         if not live:
             return None
         live.sort(key=lambda r: int(r.get("expires_at") or 0))
-        best = ReferralGrant(**{k: v for k, v in live[0].items() if k != "tenant"})
+        best = MutualBenefitGrant(**{k: v for k, v in live[0].items() if k != "tenant"})
         return best.public_for_beneficiary()
 
     async def redeem(self, tenant: str, phone: str, *, visit_id: str) -> bool:
         """Called when shop B actually applies its own discount on a real visit — marks the
         BEST-MATCHING live grant used, so the KPI screen's "used vs expired unused" ratio is real.
         An already-earned grant is honoured regardless of the parent agreement's own state
-        (design doc's own explicit rule) — this method never reads `ReferralAgreement` at all.
+        (design doc's own explicit rule) — this method never reads `MutualBenefitAgreement` at all.
 
         IDEMPOTENT ON `visit_id`, DELIBERATELY (added for `core/entitlements.py`'s own use from
         `Operations.apply_offer`). `EntitlementGateway.finalize` calls this BEFORE the visit is
@@ -932,7 +932,7 @@ class ReferralPartnershipEngine:
             return False
         live.sort(key=lambda r: int(r.get("expires_at") or 0))
         row = live[0]
-        grant = ReferralGrant(**{k: v for k, v in row.items() if k != "tenant"})
+        grant = MutualBenefitGrant(**{k: v for k, v in row.items() if k != "tenant"})
         grant.redeemed_at = now
         grant.redeemed_visit_id = visit_id
         await self._s.put(GRANTS, f"{PLATFORM}|{grant.id}", {"tenant": PLATFORM, **asdict(grant)})

@@ -2528,349 +2528,349 @@
       }
     }
   },
-  "referralProposeButton": "اقتراح شراكة",
-  "@referralProposeButton": {
-    "description": "referralProposeButton"
-  },
-  "referralTitle": "شراكة استراتيجية",
-  "@referralTitle": {
-    "description": "referralTitle"
-  },
-  "referralSubtitle": "انقل عملاء حقيقيين بينك وبين محلات أخرى، باتفاق متبادل",
-  "@referralSubtitle": {
-    "description": "referralSubtitle"
-  },
-  "referralRoleAll": "الكل",
-  "@referralRoleAll": {
-    "description": "referralRoleAll"
-  },
-  "referralRoleReferrer": "كمُحيل",
-  "@referralRoleReferrer": {
-    "description": "referralRoleReferrer"
-  },
-  "referralRoleBeneficiary": "كمستفيد",
-  "@referralRoleBeneficiary": {
-    "description": "referralRoleBeneficiary"
-  },
-  "referralLoadFailed": "تعذّر تحميل الشراكات",
-  "@referralLoadFailed": {
-    "description": "referralLoadFailed"
-  },
-  "referralEmptyTitle": "لا شراكات بعد",
-  "@referralEmptyTitle": {
-    "description": "referralEmptyTitle"
-  },
-  "referralKpiAsReferrer": "كمُحيل",
-  "@referralKpiAsReferrer": {
-    "description": "referralKpiAsReferrer"
-  },
-  "referralKpiAsBeneficiary": "كمستفيد",
-  "@referralKpiAsBeneficiary": {
-    "description": "referralKpiAsBeneficiary"
-  },
-  "referralKpiSent": "أُحيل",
-  "@referralKpiSent": {
-    "description": "referralKpiSent"
-  },
-  "referralKpiRedeemed": "استُبدل",
-  "@referralKpiRedeemed": {
-    "description": "referralKpiRedeemed"
-  },
-  "referralKpiRate": "نسبة الاستبدال",
-  "@referralKpiRate": {
-    "description": "referralKpiRate"
-  },
-  "referralConfirm": "تأكيد",
-  "@referralConfirm": {
-    "description": "referralConfirm"
-  },
-  "referralGrantDiscountBlanket": "خصم على كامل الزيارة",
-  "@referralGrantDiscountBlanket": {
-    "description": "referralGrantDiscountBlanket"
-  },
-  "referralStatusProposed": "مقترحة",
-  "@referralStatusProposed": {
-    "description": "referralStatusProposed"
-  },
-  "referralStatusActive": "نشطة",
-  "@referralStatusActive": {
-    "description": "referralStatusActive"
-  },
-  "referralStatusPaused": "متوقفة مؤقتًا",
-  "@referralStatusPaused": {
-    "description": "referralStatusPaused"
-  },
-  "referralStatusCancelRequested": "طُلب إنهاؤها",
-  "@referralStatusCancelRequested": {
-    "description": "referralStatusCancelRequested"
-  },
-  "referralStatusEnded": "منتهية",
-  "@referralStatusEnded": {
-    "description": "referralStatusEnded"
-  },
-  "referralStatusRejected": "مرفوضة",
-  "@referralStatusRejected": {
-    "description": "referralStatusRejected"
-  },
-  "referralStatusExpiredUnanswered": "انتهت بلا رد",
-  "@referralStatusExpiredUnanswered": {
-    "description": "referralStatusExpiredUnanswered"
-  },
-  "referralEventProposed": "اقتراح الشراكة",
-  "@referralEventProposed": {
-    "description": "referralEventProposed"
-  },
-  "referralEventAccepted": "قبول الشراكة",
-  "@referralEventAccepted": {
-    "description": "referralEventAccepted"
-  },
-  "referralEventRejected": "رفض الشراكة",
-  "@referralEventRejected": {
-    "description": "referralEventRejected"
-  },
-  "referralEventActivated": "تفعيل الشراكة",
-  "@referralEventActivated": {
-    "description": "referralEventActivated"
-  },
-  "referralEventCancelRequested": "طلب إنهاء",
-  "@referralEventCancelRequested": {
-    "description": "referralEventCancelRequested"
-  },
-  "referralEventCancelConfirmed": "تأكيد الإنهاء",
-  "@referralEventCancelConfirmed": {
-    "description": "referralEventCancelConfirmed"
-  },
-  "referralEventExpiredUnanswered": "انتهت المهلة بلا رد",
-  "@referralEventExpiredUnanswered": {
-    "description": "referralEventExpiredUnanswered"
-  },
-  "referralEventPaused": "إيقاف مؤقت",
-  "@referralEventPaused": {
-    "description": "referralEventPaused"
-  },
-  "referralEventResumed": "استئناف",
-  "@referralEventResumed": {
-    "description": "referralEventResumed"
-  },
-  "referralEventEndedTerm": "انتهت المدة",
-  "@referralEventEndedTerm": {
-    "description": "referralEventEndedTerm"
-  },
-  "referralEventGrantCreated": "منحة جديدة",
-  "@referralEventGrantCreated": {
-    "description": "referralEventGrantCreated"
-  },
-  "referralEventGrantRedeemed": "استبدال منحة",
-  "@referralEventGrantRedeemed": {
-    "description": "referralEventGrantRedeemed"
-  },
-  "referralActivityActive": "نشطة",
-  "@referralActivityActive": {
-    "description": "referralActivityActive"
-  },
-  "referralActivityPaused": "متوقفة مؤقتًا",
-  "@referralActivityPaused": {
-    "description": "referralActivityPaused"
-  },
-  "referralActivityPending": "بانتظار الرد",
-  "@referralActivityPending": {
-    "description": "referralActivityPending"
-  },
-  "referralActivityInactive": "غير نشطة",
-  "@referralActivityInactive": {
-    "description": "referralActivityInactive"
-  },
-  "referralScorecardTitle": "الأداء",
-  "@referralScorecardTitle": {
-    "description": "referralScorecardTitle"
-  },
-  "referralScorecardFailed": "تعذّر تحميل الأداء",
-  "@referralScorecardFailed": {
-    "description": "referralScorecardFailed"
-  },
-  "referralActivityTitle": "النشاط الأخير",
-  "@referralActivityTitle": {
-    "description": "referralActivityTitle"
-  },
-  "referralActivityEmpty": "لا نشاط بعد",
-  "@referralActivityEmpty": {
-    "description": "referralActivityEmpty"
-  },
-  "referralAgreementsTitle": "الاتفاقيات",
-  "@referralAgreementsTitle": {
-    "description": "referralAgreementsTitle"
-  },
-  "referralConfirmCancel": "تأكيد إنهاء هذه الشراكة نهائيًا؟",
-  "@referralConfirmCancel": {
-    "description": "referralConfirmCancel"
-  },
-  "referralActionAccept": "قبول",
-  "@referralActionAccept": {
-    "description": "referralActionAccept"
-  },
-  "referralActionReject": "رفض",
-  "@referralActionReject": {
-    "description": "referralActionReject"
-  },
-  "referralActionWaitingThem": "بانتظار الطرف الآخر",
-  "@referralActionWaitingThem": {
-    "description": "referralActionWaitingThem"
-  },
-  "referralActionCancelRequest": "طلب إنهاء",
-  "@referralActionCancelRequest": {
-    "description": "referralActionCancelRequest"
-  },
-  "referralActionCancelConfirm": "تأكيد الإنهاء",
-  "@referralActionCancelConfirm": {
-    "description": "referralActionCancelConfirm"
-  },
-  "referralProposeTitle": "اقتراح شراكة جديدة",
-  "@referralProposeTitle": {
-    "description": "referralProposeTitle"
-  },
-  "referralProposePhoneLabel": "جوال المحل الآخر",
-  "@referralProposePhoneLabel": {
-    "description": "referralProposePhoneLabel"
-  },
-  "referralProposeConditionLabel": "شرط الاستحقاق عندك",
-  "@referralProposeConditionLabel": {
-    "description": "referralProposeConditionLabel"
-  },
-  "referralConditionMinTotal": "حد أدنى للفاتورة",
-  "@referralConditionMinTotal": {
-    "description": "referralConditionMinTotal"
-  },
-  "referralConditionServiceId": "خدمة معينة",
-  "@referralConditionServiceId": {
-    "description": "referralConditionServiceId"
-  },
-  "referralProposeConditionValueRiyals": "المبلغ (ريال)",
-  "@referralProposeConditionValueRiyals": {
-    "description": "referralProposeConditionValueRiyals"
-  },
-  "referralProposeConditionValueService": "الخدمة",
-  "@referralProposeConditionValueService": {
-    "description": "referralProposeConditionValueService"
-  },
-  "referralProposeValidityLabel": "الصلاحية (يوم)",
-  "@referralProposeValidityLabel": {
-    "description": "referralProposeValidityLabel"
-  },
-  "referralProposeDurationLabel": "المدة (يوم)",
-  "@referralProposeDurationLabel": {
-    "description": "referralProposeDurationLabel"
-  },
-  "referralProposeCapLabel": "الحد كل 30 يوم",
-  "@referralProposeCapLabel": {
-    "description": "referralProposeCapLabel"
-  },
-  "referralProposeGrantTypeLabel": "نوع المنحة",
-  "@referralProposeGrantTypeLabel": {
-    "description": "referralProposeGrantTypeLabel"
-  },
-  "referralGrantTypeDiscount": "خصم",
-  "@referralGrantTypeDiscount": {
-    "description": "referralGrantTypeDiscount"
-  },
-  "referralGrantTypeGift": "هدية",
-  "@referralGrantTypeGift": {
-    "description": "referralGrantTypeGift"
-  },
-  "referralScopeBlanket": "كامل الزيارة",
-  "@referralScopeBlanket": {
-    "description": "referralScopeBlanket"
-  },
-  "referralScopeItem": "خدمة معينة",
-  "@referralScopeItem": {
-    "description": "referralScopeItem"
-  },
-  "referralScopeGroup": "مجموعة/باقة",
-  "@referralScopeGroup": {
-    "description": "referralScopeGroup"
-  },
-  "referralProposeServiceLabel": "الخدمة",
-  "@referralProposeServiceLabel": {
-    "description": "referralProposeServiceLabel"
-  },
-  "referralProposeGroupLabel": "المجموعة",
-  "@referralProposeGroupLabel": {
-    "description": "referralProposeGroupLabel"
-  },
-  "referralProposeImmutableNote": "شروط المنحة ثابتة بعد الإرسال — أي تغيير يحتاج اتفاقية جديدة",
-  "@referralProposeImmutableNote": {
-    "description": "referralProposeImmutableNote"
-  },
-  "referralProposeSubmitting": "جارٍ الإرسال...",
-  "@referralProposeSubmitting": {
-    "description": "referralProposeSubmitting"
-  },
-  "referralProposeSubmit": "إرسال الاقتراح",
-  "@referralProposeSubmit": {
-    "description": "referralProposeSubmit"
-  },
-  "referralGrantGift": "هدية: {name}",
-  "@referralGrantGift": {
-    "description": "referralGrantGift",
+  "mutualBenefitProposeButton": "اقتراح شراكة",
+  "@mutualBenefitProposeButton": {
+    "description": "mutualBenefitProposeButton"
+  },
+  "mutualBenefitTitle": "تبادل منافع",
+  "@mutualBenefitTitle": {
+    "description": "mutualBenefitTitle"
+  },
+  "mutualBenefitSubtitle": "انقل عملاء حقيقيين بينك وبين محلات أخرى، باتفاق متبادل",
+  "@mutualBenefitSubtitle": {
+    "description": "mutualBenefitSubtitle"
+  },
+  "mutualBenefitRoleAll": "الكل",
+  "@mutualBenefitRoleAll": {
+    "description": "mutualBenefitRoleAll"
+  },
+  "mutualBenefitRoleReferrer": "كمُحيل",
+  "@mutualBenefitRoleReferrer": {
+    "description": "mutualBenefitRoleReferrer"
+  },
+  "mutualBenefitRoleBeneficiary": "كمستفيد",
+  "@mutualBenefitRoleBeneficiary": {
+    "description": "mutualBenefitRoleBeneficiary"
+  },
+  "mutualBenefitLoadFailed": "تعذّر تحميل الشراكات",
+  "@mutualBenefitLoadFailed": {
+    "description": "mutualBenefitLoadFailed"
+  },
+  "mutualBenefitEmptyTitle": "لا شراكات بعد",
+  "@mutualBenefitEmptyTitle": {
+    "description": "mutualBenefitEmptyTitle"
+  },
+  "mutualBenefitKpiAsReferrer": "كمُحيل",
+  "@mutualBenefitKpiAsReferrer": {
+    "description": "mutualBenefitKpiAsReferrer"
+  },
+  "mutualBenefitKpiAsBeneficiary": "كمستفيد",
+  "@mutualBenefitKpiAsBeneficiary": {
+    "description": "mutualBenefitKpiAsBeneficiary"
+  },
+  "mutualBenefitKpiSent": "أُحيل",
+  "@mutualBenefitKpiSent": {
+    "description": "mutualBenefitKpiSent"
+  },
+  "mutualBenefitKpiRedeemed": "استُبدل",
+  "@mutualBenefitKpiRedeemed": {
+    "description": "mutualBenefitKpiRedeemed"
+  },
+  "mutualBenefitKpiRate": "نسبة الاستبدال",
+  "@mutualBenefitKpiRate": {
+    "description": "mutualBenefitKpiRate"
+  },
+  "mutualBenefitConfirm": "تأكيد",
+  "@mutualBenefitConfirm": {
+    "description": "mutualBenefitConfirm"
+  },
+  "mutualBenefitGrantDiscountBlanket": "خصم على كامل الزيارة",
+  "@mutualBenefitGrantDiscountBlanket": {
+    "description": "mutualBenefitGrantDiscountBlanket"
+  },
+  "mutualBenefitStatusProposed": "مقترحة",
+  "@mutualBenefitStatusProposed": {
+    "description": "mutualBenefitStatusProposed"
+  },
+  "mutualBenefitStatusActive": "نشطة",
+  "@mutualBenefitStatusActive": {
+    "description": "mutualBenefitStatusActive"
+  },
+  "mutualBenefitStatusPaused": "متوقفة مؤقتًا",
+  "@mutualBenefitStatusPaused": {
+    "description": "mutualBenefitStatusPaused"
+  },
+  "mutualBenefitStatusCancelRequested": "طُلب إنهاؤها",
+  "@mutualBenefitStatusCancelRequested": {
+    "description": "mutualBenefitStatusCancelRequested"
+  },
+  "mutualBenefitStatusEnded": "منتهية",
+  "@mutualBenefitStatusEnded": {
+    "description": "mutualBenefitStatusEnded"
+  },
+  "mutualBenefitStatusRejected": "مرفوضة",
+  "@mutualBenefitStatusRejected": {
+    "description": "mutualBenefitStatusRejected"
+  },
+  "mutualBenefitStatusExpiredUnanswered": "انتهت بلا رد",
+  "@mutualBenefitStatusExpiredUnanswered": {
+    "description": "mutualBenefitStatusExpiredUnanswered"
+  },
+  "mutualBenefitEventProposed": "اقتراح الشراكة",
+  "@mutualBenefitEventProposed": {
+    "description": "mutualBenefitEventProposed"
+  },
+  "mutualBenefitEventAccepted": "قبول الشراكة",
+  "@mutualBenefitEventAccepted": {
+    "description": "mutualBenefitEventAccepted"
+  },
+  "mutualBenefitEventRejected": "رفض الشراكة",
+  "@mutualBenefitEventRejected": {
+    "description": "mutualBenefitEventRejected"
+  },
+  "mutualBenefitEventActivated": "تفعيل الشراكة",
+  "@mutualBenefitEventActivated": {
+    "description": "mutualBenefitEventActivated"
+  },
+  "mutualBenefitEventCancelRequested": "طلب إنهاء",
+  "@mutualBenefitEventCancelRequested": {
+    "description": "mutualBenefitEventCancelRequested"
+  },
+  "mutualBenefitEventCancelConfirmed": "تأكيد الإنهاء",
+  "@mutualBenefitEventCancelConfirmed": {
+    "description": "mutualBenefitEventCancelConfirmed"
+  },
+  "mutualBenefitEventExpiredUnanswered": "انتهت المهلة بلا رد",
+  "@mutualBenefitEventExpiredUnanswered": {
+    "description": "mutualBenefitEventExpiredUnanswered"
+  },
+  "mutualBenefitEventPaused": "إيقاف مؤقت",
+  "@mutualBenefitEventPaused": {
+    "description": "mutualBenefitEventPaused"
+  },
+  "mutualBenefitEventResumed": "استئناف",
+  "@mutualBenefitEventResumed": {
+    "description": "mutualBenefitEventResumed"
+  },
+  "mutualBenefitEventEndedTerm": "انتهت المدة",
+  "@mutualBenefitEventEndedTerm": {
+    "description": "mutualBenefitEventEndedTerm"
+  },
+  "mutualBenefitEventGrantCreated": "منحة جديدة",
+  "@mutualBenefitEventGrantCreated": {
+    "description": "mutualBenefitEventGrantCreated"
+  },
+  "mutualBenefitEventGrantRedeemed": "استبدال منحة",
+  "@mutualBenefitEventGrantRedeemed": {
+    "description": "mutualBenefitEventGrantRedeemed"
+  },
+  "mutualBenefitActivityActive": "نشطة",
+  "@mutualBenefitActivityActive": {
+    "description": "mutualBenefitActivityActive"
+  },
+  "mutualBenefitActivityPaused": "متوقفة مؤقتًا",
+  "@mutualBenefitActivityPaused": {
+    "description": "mutualBenefitActivityPaused"
+  },
+  "mutualBenefitActivityPending": "بانتظار الرد",
+  "@mutualBenefitActivityPending": {
+    "description": "mutualBenefitActivityPending"
+  },
+  "mutualBenefitActivityInactive": "غير نشطة",
+  "@mutualBenefitActivityInactive": {
+    "description": "mutualBenefitActivityInactive"
+  },
+  "mutualBenefitScorecardTitle": "الأداء",
+  "@mutualBenefitScorecardTitle": {
+    "description": "mutualBenefitScorecardTitle"
+  },
+  "mutualBenefitScorecardFailed": "تعذّر تحميل الأداء",
+  "@mutualBenefitScorecardFailed": {
+    "description": "mutualBenefitScorecardFailed"
+  },
+  "mutualBenefitActivityTitle": "النشاط الأخير",
+  "@mutualBenefitActivityTitle": {
+    "description": "mutualBenefitActivityTitle"
+  },
+  "mutualBenefitActivityEmpty": "لا نشاط بعد",
+  "@mutualBenefitActivityEmpty": {
+    "description": "mutualBenefitActivityEmpty"
+  },
+  "mutualBenefitAgreementsTitle": "الاتفاقيات",
+  "@mutualBenefitAgreementsTitle": {
+    "description": "mutualBenefitAgreementsTitle"
+  },
+  "mutualBenefitConfirmCancel": "تأكيد إنهاء هذه الشراكة نهائيًا؟",
+  "@mutualBenefitConfirmCancel": {
+    "description": "mutualBenefitConfirmCancel"
+  },
+  "mutualBenefitActionAccept": "قبول",
+  "@mutualBenefitActionAccept": {
+    "description": "mutualBenefitActionAccept"
+  },
+  "mutualBenefitActionReject": "رفض",
+  "@mutualBenefitActionReject": {
+    "description": "mutualBenefitActionReject"
+  },
+  "mutualBenefitActionWaitingThem": "بانتظار الطرف الآخر",
+  "@mutualBenefitActionWaitingThem": {
+    "description": "mutualBenefitActionWaitingThem"
+  },
+  "mutualBenefitActionCancelRequest": "طلب إنهاء",
+  "@mutualBenefitActionCancelRequest": {
+    "description": "mutualBenefitActionCancelRequest"
+  },
+  "mutualBenefitActionCancelConfirm": "تأكيد الإنهاء",
+  "@mutualBenefitActionCancelConfirm": {
+    "description": "mutualBenefitActionCancelConfirm"
+  },
+  "mutualBenefitProposeTitle": "اقتراح شراكة جديدة",
+  "@mutualBenefitProposeTitle": {
+    "description": "mutualBenefitProposeTitle"
+  },
+  "mutualBenefitProposePhoneLabel": "جوال المحل الآخر",
+  "@mutualBenefitProposePhoneLabel": {
+    "description": "mutualBenefitProposePhoneLabel"
+  },
+  "mutualBenefitProposeConditionLabel": "شرط الاستحقاق عندك",
+  "@mutualBenefitProposeConditionLabel": {
+    "description": "mutualBenefitProposeConditionLabel"
+  },
+  "mutualBenefitConditionMinTotal": "حد أدنى للفاتورة",
+  "@mutualBenefitConditionMinTotal": {
+    "description": "mutualBenefitConditionMinTotal"
+  },
+  "mutualBenefitConditionServiceId": "خدمة معينة",
+  "@mutualBenefitConditionServiceId": {
+    "description": "mutualBenefitConditionServiceId"
+  },
+  "mutualBenefitProposeConditionValueRiyals": "المبلغ (ريال)",
+  "@mutualBenefitProposeConditionValueRiyals": {
+    "description": "mutualBenefitProposeConditionValueRiyals"
+  },
+  "mutualBenefitProposeConditionValueService": "الخدمة",
+  "@mutualBenefitProposeConditionValueService": {
+    "description": "mutualBenefitProposeConditionValueService"
+  },
+  "mutualBenefitProposeValidityLabel": "الصلاحية (يوم)",
+  "@mutualBenefitProposeValidityLabel": {
+    "description": "mutualBenefitProposeValidityLabel"
+  },
+  "mutualBenefitProposeDurationLabel": "المدة (يوم)",
+  "@mutualBenefitProposeDurationLabel": {
+    "description": "mutualBenefitProposeDurationLabel"
+  },
+  "mutualBenefitProposeCapLabel": "الحد كل 30 يوم",
+  "@mutualBenefitProposeCapLabel": {
+    "description": "mutualBenefitProposeCapLabel"
+  },
+  "mutualBenefitProposeGrantTypeLabel": "نوع المنحة",
+  "@mutualBenefitProposeGrantTypeLabel": {
+    "description": "mutualBenefitProposeGrantTypeLabel"
+  },
+  "mutualBenefitGrantTypeDiscount": "خصم",
+  "@mutualBenefitGrantTypeDiscount": {
+    "description": "mutualBenefitGrantTypeDiscount"
+  },
+  "mutualBenefitGrantTypeGift": "هدية",
+  "@mutualBenefitGrantTypeGift": {
+    "description": "mutualBenefitGrantTypeGift"
+  },
+  "mutualBenefitScopeBlanket": "كامل الزيارة",
+  "@mutualBenefitScopeBlanket": {
+    "description": "mutualBenefitScopeBlanket"
+  },
+  "mutualBenefitScopeItem": "خدمة معينة",
+  "@mutualBenefitScopeItem": {
+    "description": "mutualBenefitScopeItem"
+  },
+  "mutualBenefitScopeGroup": "مجموعة/باقة",
+  "@mutualBenefitScopeGroup": {
+    "description": "mutualBenefitScopeGroup"
+  },
+  "mutualBenefitProposeServiceLabel": "الخدمة",
+  "@mutualBenefitProposeServiceLabel": {
+    "description": "mutualBenefitProposeServiceLabel"
+  },
+  "mutualBenefitProposeGroupLabel": "المجموعة",
+  "@mutualBenefitProposeGroupLabel": {
+    "description": "mutualBenefitProposeGroupLabel"
+  },
+  "mutualBenefitProposeImmutableNote": "شروط المنحة ثابتة بعد الإرسال — أي تغيير يحتاج اتفاقية جديدة",
+  "@mutualBenefitProposeImmutableNote": {
+    "description": "mutualBenefitProposeImmutableNote"
+  },
+  "mutualBenefitProposeSubmitting": "جارٍ الإرسال...",
+  "@mutualBenefitProposeSubmitting": {
+    "description": "mutualBenefitProposeSubmitting"
+  },
+  "mutualBenefitProposeSubmit": "إرسال الاقتراح",
+  "@mutualBenefitProposeSubmit": {
+    "description": "mutualBenefitProposeSubmit"
+  },
+  "mutualBenefitGrantGift": "هدية: {name}",
+  "@mutualBenefitGrantGift": {
+    "description": "mutualBenefitGrantGift",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "referralGrantDiscountItem": "خصم على: {name}",
-  "@referralGrantDiscountItem": {
-    "description": "referralGrantDiscountItem",
+  "mutualBenefitGrantDiscountItem": "خصم على: {name}",
+  "@mutualBenefitGrantDiscountItem": {
+    "description": "mutualBenefitGrantDiscountItem",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "referralGrantDiscountGroup": "خصم على مجموعة: {name}",
-  "@referralGrantDiscountGroup": {
-    "description": "referralGrantDiscountGroup",
+  "mutualBenefitGrantDiscountGroup": "خصم على مجموعة: {name}",
+  "@mutualBenefitGrantDiscountGroup": {
+    "description": "mutualBenefitGrantDiscountGroup",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "referralPartnerCount": "{n} اتفاقية",
-  "@referralPartnerCount": {
-    "description": "referralPartnerCount",
+  "mutualBenefitPartnerCount": "{n} اتفاقية",
+  "@mutualBenefitPartnerCount": {
+    "description": "mutualBenefitPartnerCount",
     "placeholders": {
       "n": {
         "type": "int"
       }
     }
   },
-  "referralProposeResultFail": "تعذّر إرسال الاقتراح",
-  "@referralProposeResultFail": {
-    "description": "referralProposeResultFail"
+  "mutualBenefitProposeResultFail": "تعذّر إرسال الاقتراح",
+  "@mutualBenefitProposeResultFail": {
+    "description": "mutualBenefitProposeResultFail"
   },
-  "referralRefusal402": "محلك غير مشترك بتطبيق شراكة استراتيجية — اشترك من متجر التطبيقات أولًا",
-  "@referralRefusal402": {
-    "description": "referralRefusal402"
+  "mutualBenefitRefusal402": "محلك غير مشترك بتطبيق تبادل منافع — اشترك من متجر التطبيقات أولًا",
+  "@mutualBenefitRefusal402": {
+    "description": "mutualBenefitRefusal402"
   },
-  "referralRefusal403": "لا تملك صلاحية كافية لهذا الإجراء",
-  "@referralRefusal403": {
-    "description": "referralRefusal403"
+  "mutualBenefitRefusal403": "لا تملك صلاحية كافية لهذا الإجراء",
+  "@mutualBenefitRefusal403": {
+    "description": "mutualBenefitRefusal403"
   },
-  "referralRefusal400": "بيانات الاقتراح غير صحيحة — تأكد من الشرط، أو أنك لا تقترح شراكة على محلك نفسه",
-  "@referralRefusal400": {
-    "description": "referralRefusal400"
+  "mutualBenefitRefusal400": "بيانات الاقتراح غير صحيحة — تأكد من الشرط، أو أنك لا تقترح شراكة على محلك نفسه",
+  "@mutualBenefitRefusal400": {
+    "description": "mutualBenefitRefusal400"
   },
-  "referralRefusal404": "لم يُعثر على محل بهذا الرقم، أو على الخدمة/المجموعة المختارة بكتالوج الطرف الآخر",
-  "@referralRefusal404": {
-    "description": "referralRefusal404"
+  "mutualBenefitRefusal404": "لم يُعثر على محل بهذا الرقم، أو على الخدمة/المجموعة المختارة بكتالوج الطرف الآخر",
+  "@mutualBenefitRefusal404": {
+    "description": "mutualBenefitRefusal404"
   },
-  "referralRefusal409": "تجاوزت الحد الأقصى للشراكات النشطة (3)، أو حالة الشراكة تغيّرت",
-  "@referralRefusal409": {
-    "description": "referralRefusal409"
+  "mutualBenefitRefusal409": "تجاوزت الحد الأقصى للشراكات النشطة (3)، أو حالة الشراكة تغيّرت",
+  "@mutualBenefitRefusal409": {
+    "description": "mutualBenefitRefusal409"
   },
-  "referralRefusal503": "خدمة الفوترة غير متاحة حاليًا، حاول لاحقًا",
-  "@referralRefusal503": {
-    "description": "referralRefusal503"
+  "mutualBenefitRefusal503": "خدمة الفوترة غير متاحة حاليًا، حاول لاحقًا",
+  "@mutualBenefitRefusal503": {
+    "description": "mutualBenefitRefusal503"
   },
   "appStoreTitle": "متجر التطبيقات",
   "@appStoreTitle": {

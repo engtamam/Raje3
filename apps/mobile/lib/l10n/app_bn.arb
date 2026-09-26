@@ -813,349 +813,349 @@
       }
     }
   },
-  "referralProposeButton": "অংশীদারিত্ব প্রস্তাব করুন",
-  "@referralProposeButton": {
-    "description": "referralProposeButton"
-  },
-  "referralTitle": "কৌশলগত অংশীদারিত্ব",
-  "@referralTitle": {
-    "description": "referralTitle"
-  },
-  "referralSubtitle": "পারস্পরিক সম্মতিতে আপনার এবং অন্য দোকানের মধ্যে প্রকৃত গ্রাহক স্থানান্তর করুন",
-  "@referralSubtitle": {
-    "description": "referralSubtitle"
-  },
-  "referralRoleAll": "সব",
-  "@referralRoleAll": {
-    "description": "referralRoleAll"
-  },
-  "referralRoleReferrer": "রেফারার হিসেবে",
-  "@referralRoleReferrer": {
-    "description": "referralRoleReferrer"
-  },
-  "referralRoleBeneficiary": "সুবিধাভোগী হিসেবে",
-  "@referralRoleBeneficiary": {
-    "description": "referralRoleBeneficiary"
-  },
-  "referralLoadFailed": "অংশীদারিত্ব লোড করা যায়নি",
-  "@referralLoadFailed": {
-    "description": "referralLoadFailed"
-  },
-  "referralEmptyTitle": "এখনো কোনো অংশীদারিত্ব নেই",
-  "@referralEmptyTitle": {
-    "description": "referralEmptyTitle"
-  },
-  "referralKpiAsReferrer": "রেফারার হিসেবে",
-  "@referralKpiAsReferrer": {
-    "description": "referralKpiAsReferrer"
-  },
-  "referralKpiAsBeneficiary": "সুবিধাভোগী হিসেবে",
-  "@referralKpiAsBeneficiary": {
-    "description": "referralKpiAsBeneficiary"
-  },
-  "referralKpiSent": "রেফার করা হয়েছে",
-  "@referralKpiSent": {
-    "description": "referralKpiSent"
-  },
-  "referralKpiRedeemed": "রিডিম করা হয়েছে",
-  "@referralKpiRedeemed": {
-    "description": "referralKpiRedeemed"
-  },
-  "referralKpiRate": "রিডেম্পশন হার",
-  "@referralKpiRate": {
-    "description": "referralKpiRate"
-  },
-  "referralConfirm": "নিশ্চিত করুন",
-  "@referralConfirm": {
-    "description": "referralConfirm"
-  },
-  "referralGrantDiscountBlanket": "পুরো ভিজিটে ছাড়",
-  "@referralGrantDiscountBlanket": {
-    "description": "referralGrantDiscountBlanket"
-  },
-  "referralStatusProposed": "প্রস্তাবিত",
-  "@referralStatusProposed": {
-    "description": "referralStatusProposed"
-  },
-  "referralStatusActive": "সক্রিয়",
-  "@referralStatusActive": {
-    "description": "referralStatusActive"
-  },
-  "referralStatusPaused": "স্থগিত",
-  "@referralStatusPaused": {
-    "description": "referralStatusPaused"
-  },
-  "referralStatusCancelRequested": "বাতিলের অনুরোধ করা হয়েছে",
-  "@referralStatusCancelRequested": {
-    "description": "referralStatusCancelRequested"
-  },
-  "referralStatusEnded": "সমাপ্ত",
-  "@referralStatusEnded": {
-    "description": "referralStatusEnded"
-  },
-  "referralStatusRejected": "প্রত্যাখ্যাত",
-  "@referralStatusRejected": {
-    "description": "referralStatusRejected"
-  },
-  "referralStatusExpiredUnanswered": "উত্তরহীন মেয়াদোত্তীর্ণ",
-  "@referralStatusExpiredUnanswered": {
-    "description": "referralStatusExpiredUnanswered"
-  },
-  "referralEventProposed": "অংশীদারিত্ব প্রস্তাবিত",
-  "@referralEventProposed": {
-    "description": "referralEventProposed"
-  },
-  "referralEventAccepted": "অংশীদারিত্ব গৃহীত",
-  "@referralEventAccepted": {
-    "description": "referralEventAccepted"
-  },
-  "referralEventRejected": "অংশীদারিত্ব প্রত্যাখ্যাত",
-  "@referralEventRejected": {
-    "description": "referralEventRejected"
-  },
-  "referralEventActivated": "অংশীদারিত্ব সক্রিয় হয়েছে",
-  "@referralEventActivated": {
-    "description": "referralEventActivated"
-  },
-  "referralEventCancelRequested": "বাতিলের অনুরোধ",
-  "@referralEventCancelRequested": {
-    "description": "referralEventCancelRequested"
-  },
-  "referralEventCancelConfirmed": "বাতিল নিশ্চিত হয়েছে",
-  "@referralEventCancelConfirmed": {
-    "description": "referralEventCancelConfirmed"
-  },
-  "referralEventExpiredUnanswered": "উত্তর ছাড়া মেয়াদোত্তীর্ণ",
-  "@referralEventExpiredUnanswered": {
-    "description": "referralEventExpiredUnanswered"
-  },
-  "referralEventPaused": "স্থগিত",
-  "@referralEventPaused": {
-    "description": "referralEventPaused"
-  },
-  "referralEventResumed": "পুনরায় শুরু",
-  "@referralEventResumed": {
-    "description": "referralEventResumed"
-  },
-  "referralEventEndedTerm": "মেয়াদ শেষ",
-  "@referralEventEndedTerm": {
-    "description": "referralEventEndedTerm"
-  },
-  "referralEventGrantCreated": "নতুন মঞ্জুরি",
-  "@referralEventGrantCreated": {
-    "description": "referralEventGrantCreated"
-  },
-  "referralEventGrantRedeemed": "মঞ্জুরি রিডিম হয়েছে",
-  "@referralEventGrantRedeemed": {
-    "description": "referralEventGrantRedeemed"
-  },
-  "referralActivityActive": "সক্রিয়",
-  "@referralActivityActive": {
-    "description": "referralActivityActive"
-  },
-  "referralActivityPaused": "স্থগিত",
-  "@referralActivityPaused": {
-    "description": "referralActivityPaused"
-  },
-  "referralActivityPending": "উত্তরের অপেক্ষায়",
-  "@referralActivityPending": {
-    "description": "referralActivityPending"
-  },
-  "referralActivityInactive": "নিষ্ক্রিয়",
-  "@referralActivityInactive": {
-    "description": "referralActivityInactive"
-  },
-  "referralScorecardTitle": "কর্মক্ষমতা",
-  "@referralScorecardTitle": {
-    "description": "referralScorecardTitle"
-  },
-  "referralScorecardFailed": "কর্মক্ষমতা লোড করা যায়নি",
-  "@referralScorecardFailed": {
-    "description": "referralScorecardFailed"
-  },
-  "referralActivityTitle": "সাম্প্রতিক কার্যকলাপ",
-  "@referralActivityTitle": {
-    "description": "referralActivityTitle"
-  },
-  "referralActivityEmpty": "এখনো কোনো কার্যকলাপ নেই",
-  "@referralActivityEmpty": {
-    "description": "referralActivityEmpty"
-  },
-  "referralAgreementsTitle": "চুক্তিসমূহ",
-  "@referralAgreementsTitle": {
-    "description": "referralAgreementsTitle"
-  },
-  "referralConfirmCancel": "এই অংশীদারিত্ব স্থায়ীভাবে শেষ করবেন?",
-  "@referralConfirmCancel": {
-    "description": "referralConfirmCancel"
-  },
-  "referralActionAccept": "গ্রহণ করুন",
-  "@referralActionAccept": {
-    "description": "referralActionAccept"
-  },
-  "referralActionReject": "প্রত্যাখ্যান করুন",
-  "@referralActionReject": {
-    "description": "referralActionReject"
-  },
-  "referralActionWaitingThem": "অন্য পক্ষের অপেক্ষায়",
-  "@referralActionWaitingThem": {
-    "description": "referralActionWaitingThem"
-  },
-  "referralActionCancelRequest": "শেষ করার অনুরোধ",
-  "@referralActionCancelRequest": {
-    "description": "referralActionCancelRequest"
-  },
-  "referralActionCancelConfirm": "সমাপ্তি নিশ্চিত করুন",
-  "@referralActionCancelConfirm": {
-    "description": "referralActionCancelConfirm"
-  },
-  "referralProposeTitle": "নতুন অংশীদারিত্ব প্রস্তাব করুন",
-  "@referralProposeTitle": {
-    "description": "referralProposeTitle"
-  },
-  "referralProposePhoneLabel": "অন্য দোকানের ফোন",
-  "@referralProposePhoneLabel": {
-    "description": "referralProposePhoneLabel"
-  },
-  "referralProposeConditionLabel": "আপনার দোকানে যোগ্যতার শর্ত",
-  "@referralProposeConditionLabel": {
-    "description": "referralProposeConditionLabel"
-  },
-  "referralConditionMinTotal": "সর্বনিম্ন চালান",
-  "@referralConditionMinTotal": {
-    "description": "referralConditionMinTotal"
-  },
-  "referralConditionServiceId": "নির্দিষ্ট একটি সেবা",
-  "@referralConditionServiceId": {
-    "description": "referralConditionServiceId"
-  },
-  "referralProposeConditionValueRiyals": "পরিমাণ (রিয়াল)",
-  "@referralProposeConditionValueRiyals": {
-    "description": "referralProposeConditionValueRiyals"
-  },
-  "referralProposeConditionValueService": "সেবা",
-  "@referralProposeConditionValueService": {
-    "description": "referralProposeConditionValueService"
-  },
-  "referralProposeValidityLabel": "মেয়াদ (দিন)",
-  "@referralProposeValidityLabel": {
-    "description": "referralProposeValidityLabel"
-  },
-  "referralProposeDurationLabel": "সময়কাল (দিন)",
-  "@referralProposeDurationLabel": {
-    "description": "referralProposeDurationLabel"
-  },
-  "referralProposeCapLabel": "সীমা / ৩০ দিন",
-  "@referralProposeCapLabel": {
-    "description": "referralProposeCapLabel"
-  },
-  "referralProposeGrantTypeLabel": "মঞ্জুরির ধরন",
-  "@referralProposeGrantTypeLabel": {
-    "description": "referralProposeGrantTypeLabel"
-  },
-  "referralGrantTypeDiscount": "ছাড়",
-  "@referralGrantTypeDiscount": {
-    "description": "referralGrantTypeDiscount"
-  },
-  "referralGrantTypeGift": "উপহার",
-  "@referralGrantTypeGift": {
-    "description": "referralGrantTypeGift"
-  },
-  "referralScopeBlanket": "পুরো ভিজিট",
-  "@referralScopeBlanket": {
-    "description": "referralScopeBlanket"
-  },
-  "referralScopeItem": "নির্দিষ্ট একটি সেবা",
-  "@referralScopeItem": {
-    "description": "referralScopeItem"
-  },
-  "referralScopeGroup": "গ্রুপ/প্যাকেজ",
-  "@referralScopeGroup": {
-    "description": "referralScopeGroup"
-  },
-  "referralProposeServiceLabel": "সেবা",
-  "@referralProposeServiceLabel": {
-    "description": "referralProposeServiceLabel"
-  },
-  "referralProposeGroupLabel": "গ্রুপ",
-  "@referralProposeGroupLabel": {
-    "description": "referralProposeGroupLabel"
-  },
-  "referralProposeImmutableNote": "পাঠানোর পর মঞ্জুরির শর্ত স্থির — ভিন্ন অফারের জন্য নতুন চুক্তি প্রয়োজন",
-  "@referralProposeImmutableNote": {
-    "description": "referralProposeImmutableNote"
-  },
-  "referralProposeSubmitting": "পাঠানো হচ্ছে...",
-  "@referralProposeSubmitting": {
-    "description": "referralProposeSubmitting"
-  },
-  "referralProposeSubmit": "প্রস্তাব পাঠান",
-  "@referralProposeSubmit": {
-    "description": "referralProposeSubmit"
-  },
-  "referralGrantGift": "উপহার: {name}",
-  "@referralGrantGift": {
-    "description": "referralGrantGift",
+  "mutualBenefitProposeButton": "অংশীদারিত্ব প্রস্তাব করুন",
+  "@mutualBenefitProposeButton": {
+    "description": "mutualBenefitProposeButton"
+  },
+  "mutualBenefitTitle": "পারস্পরিক সুবিধা",
+  "@mutualBenefitTitle": {
+    "description": "mutualBenefitTitle"
+  },
+  "mutualBenefitSubtitle": "পারস্পরিক সম্মতিতে আপনার এবং অন্য দোকানের মধ্যে প্রকৃত গ্রাহক স্থানান্তর করুন",
+  "@mutualBenefitSubtitle": {
+    "description": "mutualBenefitSubtitle"
+  },
+  "mutualBenefitRoleAll": "সব",
+  "@mutualBenefitRoleAll": {
+    "description": "mutualBenefitRoleAll"
+  },
+  "mutualBenefitRoleReferrer": "রেফারার হিসেবে",
+  "@mutualBenefitRoleReferrer": {
+    "description": "mutualBenefitRoleReferrer"
+  },
+  "mutualBenefitRoleBeneficiary": "সুবিধাভোগী হিসেবে",
+  "@mutualBenefitRoleBeneficiary": {
+    "description": "mutualBenefitRoleBeneficiary"
+  },
+  "mutualBenefitLoadFailed": "অংশীদারিত্ব লোড করা যায়নি",
+  "@mutualBenefitLoadFailed": {
+    "description": "mutualBenefitLoadFailed"
+  },
+  "mutualBenefitEmptyTitle": "এখনো কোনো অংশীদারিত্ব নেই",
+  "@mutualBenefitEmptyTitle": {
+    "description": "mutualBenefitEmptyTitle"
+  },
+  "mutualBenefitKpiAsReferrer": "রেফারার হিসেবে",
+  "@mutualBenefitKpiAsReferrer": {
+    "description": "mutualBenefitKpiAsReferrer"
+  },
+  "mutualBenefitKpiAsBeneficiary": "সুবিধাভোগী হিসেবে",
+  "@mutualBenefitKpiAsBeneficiary": {
+    "description": "mutualBenefitKpiAsBeneficiary"
+  },
+  "mutualBenefitKpiSent": "রেফার করা হয়েছে",
+  "@mutualBenefitKpiSent": {
+    "description": "mutualBenefitKpiSent"
+  },
+  "mutualBenefitKpiRedeemed": "রিডিম করা হয়েছে",
+  "@mutualBenefitKpiRedeemed": {
+    "description": "mutualBenefitKpiRedeemed"
+  },
+  "mutualBenefitKpiRate": "রিডেম্পশন হার",
+  "@mutualBenefitKpiRate": {
+    "description": "mutualBenefitKpiRate"
+  },
+  "mutualBenefitConfirm": "নিশ্চিত করুন",
+  "@mutualBenefitConfirm": {
+    "description": "mutualBenefitConfirm"
+  },
+  "mutualBenefitGrantDiscountBlanket": "পুরো ভিজিটে ছাড়",
+  "@mutualBenefitGrantDiscountBlanket": {
+    "description": "mutualBenefitGrantDiscountBlanket"
+  },
+  "mutualBenefitStatusProposed": "প্রস্তাবিত",
+  "@mutualBenefitStatusProposed": {
+    "description": "mutualBenefitStatusProposed"
+  },
+  "mutualBenefitStatusActive": "সক্রিয়",
+  "@mutualBenefitStatusActive": {
+    "description": "mutualBenefitStatusActive"
+  },
+  "mutualBenefitStatusPaused": "স্থগিত",
+  "@mutualBenefitStatusPaused": {
+    "description": "mutualBenefitStatusPaused"
+  },
+  "mutualBenefitStatusCancelRequested": "বাতিলের অনুরোধ করা হয়েছে",
+  "@mutualBenefitStatusCancelRequested": {
+    "description": "mutualBenefitStatusCancelRequested"
+  },
+  "mutualBenefitStatusEnded": "সমাপ্ত",
+  "@mutualBenefitStatusEnded": {
+    "description": "mutualBenefitStatusEnded"
+  },
+  "mutualBenefitStatusRejected": "প্রত্যাখ্যাত",
+  "@mutualBenefitStatusRejected": {
+    "description": "mutualBenefitStatusRejected"
+  },
+  "mutualBenefitStatusExpiredUnanswered": "উত্তরহীন মেয়াদোত্তীর্ণ",
+  "@mutualBenefitStatusExpiredUnanswered": {
+    "description": "mutualBenefitStatusExpiredUnanswered"
+  },
+  "mutualBenefitEventProposed": "অংশীদারিত্ব প্রস্তাবিত",
+  "@mutualBenefitEventProposed": {
+    "description": "mutualBenefitEventProposed"
+  },
+  "mutualBenefitEventAccepted": "অংশীদারিত্ব গৃহীত",
+  "@mutualBenefitEventAccepted": {
+    "description": "mutualBenefitEventAccepted"
+  },
+  "mutualBenefitEventRejected": "অংশীদারিত্ব প্রত্যাখ্যাত",
+  "@mutualBenefitEventRejected": {
+    "description": "mutualBenefitEventRejected"
+  },
+  "mutualBenefitEventActivated": "অংশীদারিত্ব সক্রিয় হয়েছে",
+  "@mutualBenefitEventActivated": {
+    "description": "mutualBenefitEventActivated"
+  },
+  "mutualBenefitEventCancelRequested": "বাতিলের অনুরোধ",
+  "@mutualBenefitEventCancelRequested": {
+    "description": "mutualBenefitEventCancelRequested"
+  },
+  "mutualBenefitEventCancelConfirmed": "বাতিল নিশ্চিত হয়েছে",
+  "@mutualBenefitEventCancelConfirmed": {
+    "description": "mutualBenefitEventCancelConfirmed"
+  },
+  "mutualBenefitEventExpiredUnanswered": "উত্তর ছাড়া মেয়াদোত্তীর্ণ",
+  "@mutualBenefitEventExpiredUnanswered": {
+    "description": "mutualBenefitEventExpiredUnanswered"
+  },
+  "mutualBenefitEventPaused": "স্থগিত",
+  "@mutualBenefitEventPaused": {
+    "description": "mutualBenefitEventPaused"
+  },
+  "mutualBenefitEventResumed": "পুনরায় শুরু",
+  "@mutualBenefitEventResumed": {
+    "description": "mutualBenefitEventResumed"
+  },
+  "mutualBenefitEventEndedTerm": "মেয়াদ শেষ",
+  "@mutualBenefitEventEndedTerm": {
+    "description": "mutualBenefitEventEndedTerm"
+  },
+  "mutualBenefitEventGrantCreated": "নতুন মঞ্জুরি",
+  "@mutualBenefitEventGrantCreated": {
+    "description": "mutualBenefitEventGrantCreated"
+  },
+  "mutualBenefitEventGrantRedeemed": "মঞ্জুরি রিডিম হয়েছে",
+  "@mutualBenefitEventGrantRedeemed": {
+    "description": "mutualBenefitEventGrantRedeemed"
+  },
+  "mutualBenefitActivityActive": "সক্রিয়",
+  "@mutualBenefitActivityActive": {
+    "description": "mutualBenefitActivityActive"
+  },
+  "mutualBenefitActivityPaused": "স্থগিত",
+  "@mutualBenefitActivityPaused": {
+    "description": "mutualBenefitActivityPaused"
+  },
+  "mutualBenefitActivityPending": "উত্তরের অপেক্ষায়",
+  "@mutualBenefitActivityPending": {
+    "description": "mutualBenefitActivityPending"
+  },
+  "mutualBenefitActivityInactive": "নিষ্ক্রিয়",
+  "@mutualBenefitActivityInactive": {
+    "description": "mutualBenefitActivityInactive"
+  },
+  "mutualBenefitScorecardTitle": "কর্মক্ষমতা",
+  "@mutualBenefitScorecardTitle": {
+    "description": "mutualBenefitScorecardTitle"
+  },
+  "mutualBenefitScorecardFailed": "কর্মক্ষমতা লোড করা যায়নি",
+  "@mutualBenefitScorecardFailed": {
+    "description": "mutualBenefitScorecardFailed"
+  },
+  "mutualBenefitActivityTitle": "সাম্প্রতিক কার্যকলাপ",
+  "@mutualBenefitActivityTitle": {
+    "description": "mutualBenefitActivityTitle"
+  },
+  "mutualBenefitActivityEmpty": "এখনো কোনো কার্যকলাপ নেই",
+  "@mutualBenefitActivityEmpty": {
+    "description": "mutualBenefitActivityEmpty"
+  },
+  "mutualBenefitAgreementsTitle": "চুক্তিসমূহ",
+  "@mutualBenefitAgreementsTitle": {
+    "description": "mutualBenefitAgreementsTitle"
+  },
+  "mutualBenefitConfirmCancel": "এই অংশীদারিত্ব স্থায়ীভাবে শেষ করবেন?",
+  "@mutualBenefitConfirmCancel": {
+    "description": "mutualBenefitConfirmCancel"
+  },
+  "mutualBenefitActionAccept": "গ্রহণ করুন",
+  "@mutualBenefitActionAccept": {
+    "description": "mutualBenefitActionAccept"
+  },
+  "mutualBenefitActionReject": "প্রত্যাখ্যান করুন",
+  "@mutualBenefitActionReject": {
+    "description": "mutualBenefitActionReject"
+  },
+  "mutualBenefitActionWaitingThem": "অন্য পক্ষের অপেক্ষায়",
+  "@mutualBenefitActionWaitingThem": {
+    "description": "mutualBenefitActionWaitingThem"
+  },
+  "mutualBenefitActionCancelRequest": "শেষ করার অনুরোধ",
+  "@mutualBenefitActionCancelRequest": {
+    "description": "mutualBenefitActionCancelRequest"
+  },
+  "mutualBenefitActionCancelConfirm": "সমাপ্তি নিশ্চিত করুন",
+  "@mutualBenefitActionCancelConfirm": {
+    "description": "mutualBenefitActionCancelConfirm"
+  },
+  "mutualBenefitProposeTitle": "নতুন অংশীদারিত্ব প্রস্তাব করুন",
+  "@mutualBenefitProposeTitle": {
+    "description": "mutualBenefitProposeTitle"
+  },
+  "mutualBenefitProposePhoneLabel": "অন্য দোকানের ফোন",
+  "@mutualBenefitProposePhoneLabel": {
+    "description": "mutualBenefitProposePhoneLabel"
+  },
+  "mutualBenefitProposeConditionLabel": "আপনার দোকানে যোগ্যতার শর্ত",
+  "@mutualBenefitProposeConditionLabel": {
+    "description": "mutualBenefitProposeConditionLabel"
+  },
+  "mutualBenefitConditionMinTotal": "সর্বনিম্ন চালান",
+  "@mutualBenefitConditionMinTotal": {
+    "description": "mutualBenefitConditionMinTotal"
+  },
+  "mutualBenefitConditionServiceId": "নির্দিষ্ট একটি সেবা",
+  "@mutualBenefitConditionServiceId": {
+    "description": "mutualBenefitConditionServiceId"
+  },
+  "mutualBenefitProposeConditionValueRiyals": "পরিমাণ (রিয়াল)",
+  "@mutualBenefitProposeConditionValueRiyals": {
+    "description": "mutualBenefitProposeConditionValueRiyals"
+  },
+  "mutualBenefitProposeConditionValueService": "সেবা",
+  "@mutualBenefitProposeConditionValueService": {
+    "description": "mutualBenefitProposeConditionValueService"
+  },
+  "mutualBenefitProposeValidityLabel": "মেয়াদ (দিন)",
+  "@mutualBenefitProposeValidityLabel": {
+    "description": "mutualBenefitProposeValidityLabel"
+  },
+  "mutualBenefitProposeDurationLabel": "সময়কাল (দিন)",
+  "@mutualBenefitProposeDurationLabel": {
+    "description": "mutualBenefitProposeDurationLabel"
+  },
+  "mutualBenefitProposeCapLabel": "সীমা / ৩০ দিন",
+  "@mutualBenefitProposeCapLabel": {
+    "description": "mutualBenefitProposeCapLabel"
+  },
+  "mutualBenefitProposeGrantTypeLabel": "মঞ্জুরির ধরন",
+  "@mutualBenefitProposeGrantTypeLabel": {
+    "description": "mutualBenefitProposeGrantTypeLabel"
+  },
+  "mutualBenefitGrantTypeDiscount": "ছাড়",
+  "@mutualBenefitGrantTypeDiscount": {
+    "description": "mutualBenefitGrantTypeDiscount"
+  },
+  "mutualBenefitGrantTypeGift": "উপহার",
+  "@mutualBenefitGrantTypeGift": {
+    "description": "mutualBenefitGrantTypeGift"
+  },
+  "mutualBenefitScopeBlanket": "পুরো ভিজিট",
+  "@mutualBenefitScopeBlanket": {
+    "description": "mutualBenefitScopeBlanket"
+  },
+  "mutualBenefitScopeItem": "নির্দিষ্ট একটি সেবা",
+  "@mutualBenefitScopeItem": {
+    "description": "mutualBenefitScopeItem"
+  },
+  "mutualBenefitScopeGroup": "গ্রুপ/প্যাকেজ",
+  "@mutualBenefitScopeGroup": {
+    "description": "mutualBenefitScopeGroup"
+  },
+  "mutualBenefitProposeServiceLabel": "সেবা",
+  "@mutualBenefitProposeServiceLabel": {
+    "description": "mutualBenefitProposeServiceLabel"
+  },
+  "mutualBenefitProposeGroupLabel": "গ্রুপ",
+  "@mutualBenefitProposeGroupLabel": {
+    "description": "mutualBenefitProposeGroupLabel"
+  },
+  "mutualBenefitProposeImmutableNote": "পাঠানোর পর মঞ্জুরির শর্ত স্থির — ভিন্ন অফারের জন্য নতুন চুক্তি প্রয়োজন",
+  "@mutualBenefitProposeImmutableNote": {
+    "description": "mutualBenefitProposeImmutableNote"
+  },
+  "mutualBenefitProposeSubmitting": "পাঠানো হচ্ছে...",
+  "@mutualBenefitProposeSubmitting": {
+    "description": "mutualBenefitProposeSubmitting"
+  },
+  "mutualBenefitProposeSubmit": "প্রস্তাব পাঠান",
+  "@mutualBenefitProposeSubmit": {
+    "description": "mutualBenefitProposeSubmit"
+  },
+  "mutualBenefitGrantGift": "উপহার: {name}",
+  "@mutualBenefitGrantGift": {
+    "description": "mutualBenefitGrantGift",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "referralGrantDiscountItem": "ছাড়: {name}",
-  "@referralGrantDiscountItem": {
-    "description": "referralGrantDiscountItem",
+  "mutualBenefitGrantDiscountItem": "ছাড়: {name}",
+  "@mutualBenefitGrantDiscountItem": {
+    "description": "mutualBenefitGrantDiscountItem",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "referralGrantDiscountGroup": "গ্রুপে ছাড়: {name}",
-  "@referralGrantDiscountGroup": {
-    "description": "referralGrantDiscountGroup",
+  "mutualBenefitGrantDiscountGroup": "গ্রুপে ছাড়: {name}",
+  "@mutualBenefitGrantDiscountGroup": {
+    "description": "mutualBenefitGrantDiscountGroup",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "referralPartnerCount": "{n}টি চুক্তি",
-  "@referralPartnerCount": {
-    "description": "referralPartnerCount",
+  "mutualBenefitPartnerCount": "{n}টি চুক্তি",
+  "@mutualBenefitPartnerCount": {
+    "description": "mutualBenefitPartnerCount",
     "placeholders": {
       "n": {
         "type": "int"
       }
     }
   },
-  "referralProposeResultFail": "প্রস্তাব পাঠানো যায়নি",
-  "@referralProposeResultFail": {
-    "description": "referralProposeResultFail"
+  "mutualBenefitProposeResultFail": "প্রস্তাব পাঠানো যায়নি",
+  "@mutualBenefitProposeResultFail": {
+    "description": "mutualBenefitProposeResultFail"
   },
-  "referralRefusal402": "আপনার দোকান কৌশলগত অংশীদারিত্ব অ্যাপে সাবস্ক্রাইব করা নেই — প্রথমে অ্যাপ স্টোর থেকে সাবস্ক্রাইব করুন",
-  "@referralRefusal402": {
-    "description": "referralRefusal402"
+  "mutualBenefitRefusal402": "আপনার দোকান পারস্পরিক সুবিধা অ্যাপে সাবস্ক্রাইব করা নেই — প্রথমে অ্যাপ স্টোর থেকে সাবস্ক্রাইব করুন",
+  "@mutualBenefitRefusal402": {
+    "description": "mutualBenefitRefusal402"
   },
-  "referralRefusal403": "এই কাজের জন্য আপনার পর্যাপ্ত অনুমতি নেই",
-  "@referralRefusal403": {
-    "description": "referralRefusal403"
+  "mutualBenefitRefusal403": "এই কাজের জন্য আপনার পর্যাপ্ত অনুমতি নেই",
+  "@mutualBenefitRefusal403": {
+    "description": "mutualBenefitRefusal403"
   },
-  "referralRefusal400": "প্রস্তাবের তথ্য সঠিক নয় — শর্ত পরীক্ষা করুন, অথবা আপনি নিজের দোকানের সাথে অংশীদারিত্ব প্রস্তাব করছেন না তা নিশ্চিত করুন",
-  "@referralRefusal400": {
-    "description": "referralRefusal400"
+  "mutualBenefitRefusal400": "প্রস্তাবের তথ্য সঠিক নয় — শর্ত পরীক্ষা করুন, অথবা আপনি নিজের দোকানের সাথে অংশীদারিত্ব প্রস্তাব করছেন না তা নিশ্চিত করুন",
+  "@mutualBenefitRefusal400": {
+    "description": "mutualBenefitRefusal400"
   },
-  "referralRefusal404": "এই নম্বরে কোনো দোকান পাওয়া যায়নি, অথবা নির্বাচিত সেবা/গ্রুপ অন্য দোকানের ক্যাটালগে নেই",
-  "@referralRefusal404": {
-    "description": "referralRefusal404"
+  "mutualBenefitRefusal404": "এই নম্বরে কোনো দোকান পাওয়া যায়নি, অথবা নির্বাচিত সেবা/গ্রুপ অন্য দোকানের ক্যাটালগে নেই",
+  "@mutualBenefitRefusal404": {
+    "description": "mutualBenefitRefusal404"
   },
-  "referralRefusal409": "আপনি সক্রিয় অংশীদারিত্বের সীমা (৩) অতিক্রম করেছেন, অথবা অংশীদারিত্বের অবস্থা পরিবর্তিত হয়েছে",
-  "@referralRefusal409": {
-    "description": "referralRefusal409"
+  "mutualBenefitRefusal409": "আপনি সক্রিয় অংশীদারিত্বের সীমা (৩) অতিক্রম করেছেন, অথবা অংশীদারিত্বের অবস্থা পরিবর্তিত হয়েছে",
+  "@mutualBenefitRefusal409": {
+    "description": "mutualBenefitRefusal409"
   },
-  "referralRefusal503": "বিলিং সাময়িকভাবে অনুপলব্ধ, পরে আবার চেষ্টা করুন",
-  "@referralRefusal503": {
-    "description": "referralRefusal503"
+  "mutualBenefitRefusal503": "বিলিং সাময়িকভাবে অনুপলব্ধ, পরে আবার চেষ্টা করুন",
+  "@mutualBenefitRefusal503": {
+    "description": "mutualBenefitRefusal503"
   },
   "appStoreTitle": "অ্যাপ স্টোর",
   "appStoreSubtitle": "সত্যিকারের অ্যাপ দিয়ে আপনার দোকান বাড়ান, একটি একটি করে",

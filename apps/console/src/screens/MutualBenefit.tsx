@@ -1,5 +1,5 @@
 /**
- * «شراكات استراتيجية» — cross-tenant customer referral (core/referral_partnership.py's own module
+ * «تبادل منافع» — cross-tenant customer referral (core/mutual_benefit.py's own module
  * docstring; deploy/seed/plans.json's own note beside this row). NOT «تحالف استراتيجي»/Coupons.tsx:
  * that app discounts OUR OWN subscription price between two shops; this one moves real customers
  * between two real shops, backed by both shops' own catalogues, mutual-consent only.
@@ -46,7 +46,7 @@ import { Field, Input } from '../rj-ui/Field';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { useOperatorI18n, tf } from '../operator-i18n';
-import './referral-partnership-i18n';
+import './mutual-benefit-i18n';
 
 const GRANT_DISCOUNT = 'discount';
 const GRANT_GIFT = 'gift';
@@ -106,10 +106,10 @@ interface CatalogueItem { id: string; name: string; active?: boolean }
 interface AuditEntry { id: string; event: string; actor_tenant: string; created: number }
 
 function grantLine(a: Agreement, t: (k: string) => string): string {
-  if (a.grant_type === GRANT_GIFT) return tf(t, 'rp.grant.gift', { name: a.gift_service_name });
-  if (a.discount_scope === SCOPE_ITEM) return tf(t, 'rp.grant.discountItem', { name: a.gift_service_name });
-  if (a.discount_scope === SCOPE_GROUP) return tf(t, 'rp.grant.discountGroup', { name: a.discount_group_name });
-  return t('rp.grant.discountBlanket');
+  if (a.grant_type === GRANT_GIFT) return tf(t, 'mb.grant.gift', { name: a.gift_service_name });
+  if (a.discount_scope === SCOPE_ITEM) return tf(t, 'mb.grant.discountItem', { name: a.gift_service_name });
+  if (a.discount_scope === SCOPE_GROUP) return tf(t, 'mb.grant.discountGroup', { name: a.discount_group_name });
+  return t('mb.grant.discountBlanket');
 }
 
 function formatDate(ts: number, locale: string): string {
@@ -144,17 +144,17 @@ function partnerActivity(rows: Agreement[]): 'active' | 'paused' | 'pending' | '
 
 const ACTIVITY_RANK: Record<string, number> = { active: 0, paused: 1, pending: 2, inactive: 3 };
 
-export function ReferralPartnershipScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
+export function MutualBenefitScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const { t, locale } = useOperatorI18n();
 
-  const listAction = action(catalog, 'operations.referral_partnership_list');
-  const kpisAction = action(catalog, 'operations.referral_partnership_kpis');
-  const proposeAction = action(catalog, 'operations.referral_partnership_propose');
-  const acceptAction = action(catalog, 'operations.referral_partnership_accept');
-  const rejectAction = action(catalog, 'operations.referral_partnership_reject');
-  const cancelRequestAction = action(catalog, 'operations.referral_partnership_cancel_request');
-  const cancelConfirmAction = action(catalog, 'operations.referral_partnership_cancel_confirm');
-  const auditLogAction = action(catalog, 'operations.referral_partnership_audit_log');
+  const listAction = action(catalog, 'operations.mutual_benefit_list');
+  const kpisAction = action(catalog, 'operations.mutual_benefit_kpis');
+  const proposeAction = action(catalog, 'operations.mutual_benefit_propose');
+  const acceptAction = action(catalog, 'operations.mutual_benefit_accept');
+  const rejectAction = action(catalog, 'operations.mutual_benefit_reject');
+  const cancelRequestAction = action(catalog, 'operations.mutual_benefit_cancel_request');
+  const cancelConfirmAction = action(catalog, 'operations.mutual_benefit_cancel_confirm');
+  const auditLogAction = action(catalog, 'operations.mutual_benefit_audit_log');
   const servicesAction = action(catalog, 'operations.list_services');
   const packagesAction = action(catalog, 'operations.list_packages');
 
@@ -245,13 +245,13 @@ export function ReferralPartnershipScreen({ session, catalog }: { session: Sessi
     <div className="flex flex-col gap-4 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <PageHeader icon={HandHeart} title={t('rp.title')} />
-          <p className="mt-1 text-sm text-text-secondary">{t('rp.subtitle')}</p>
+          <PageHeader icon={HandHeart} title={t('mb.title')} />
+          <p className="mt-1 text-sm text-text-secondary">{t('mb.subtitle')}</p>
         </div>
         {proposeAction ? (
           <Button onClick={() => setShowPropose((v) => !v)}>
             {showPropose ? <X size={16} /> : <Plus size={16} />}
-            {showPropose ? t('rp.new.close') : t('rp.new.button')}
+            {showPropose ? t('mb.new.close') : t('mb.new.button')}
           </Button>
         ) : null}
       </div>
@@ -274,12 +274,12 @@ export function ReferralPartnershipScreen({ session, catalog }: { session: Sessi
       {kpis !== null ? (
         <Card className="flex flex-col gap-4 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-bold">{t('rp.overview.title')}</p>
+            <p className="text-sm font-bold">{t('mb.overview.title')}</p>
             <TabBar
-              value={kpiTab} onChange={setKpiTab} ariaLabel={t('rp.overview.title')}
+              value={kpiTab} onChange={setKpiTab} ariaLabel={t('mb.overview.title')}
               options={[
-                { value: 'referrer', label: t('rp.overview.tab.referrer') },
-                { value: 'beneficiary', label: t('rp.overview.tab.beneficiary') },
+                { value: 'referrer', label: t('mb.overview.tab.referrer') },
+                { value: 'beneficiary', label: t('mb.overview.tab.beneficiary') },
               ]}
             />
           </div>
@@ -293,10 +293,10 @@ export function ReferralPartnershipScreen({ session, catalog }: { session: Sessi
                 className="grid grid-cols-2 gap-3 sm:grid-cols-4"
               >
                 {[
-                  { icon: <ArrowUpRight size={18} />, label: t('rp.kpi.sent'), value: kpiData.referrals_sent, tone: 'accent' as const },
-                  { icon: <HandHeart size={18} />, label: t('rp.kpi.redeemed'), value: kpiData.redeemed, tone: 'success' as const },
-                  { icon: <ArrowDownLeft size={18} />, label: t('rp.kpi.expired'), value: kpiData.expired_unused, tone: 'warning' as const },
-                  { icon: <Percent size={18} />, label: t('rp.kpi.rate'), value: `${Math.round(kpiData.redemption_rate * 100)}%`, tone: 'neutral' as const },
+                  { icon: <ArrowUpRight size={18} />, label: t('mb.kpi.sent'), value: kpiData.referrals_sent, tone: 'accent' as const },
+                  { icon: <HandHeart size={18} />, label: t('mb.kpi.redeemed'), value: kpiData.redeemed, tone: 'success' as const },
+                  { icon: <ArrowDownLeft size={18} />, label: t('mb.kpi.expired'), value: kpiData.expired_unused, tone: 'warning' as const },
+                  { icon: <Percent size={18} />, label: t('mb.kpi.rate'), value: `${Math.round(kpiData.redemption_rate * 100)}%`, tone: 'neutral' as const },
                 ].map((k) => (
                   <motion.div key={k.label}
                              variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
@@ -309,14 +309,14 @@ export function ReferralPartnershipScreen({ session, catalog }: { session: Sessi
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {monthlyItems.length ? (
                     <div>
-                      <p className="mb-2 text-xs font-bold text-text-secondary">{t('rp.chart.trend.title')}</p>
+                      <p className="mb-2 text-xs font-bold text-text-secondary">{t('mb.chart.trend.title')}</p>
                       <BarCompare items={monthlyItems} />
                     </div>
                   ) : null}
                   {breakdownItems.length ? (
                     <div>
                       <p className="mb-2 text-xs font-bold text-text-secondary">
-                        {t(kpiTab === 'referrer' ? 'rp.chart.breakdown.title.referrer' : 'rp.chart.breakdown.title.beneficiary')}
+                        {t(kpiTab === 'referrer' ? 'mb.chart.breakdown.title.referrer' : 'mb.chart.breakdown.title.beneficiary')}
                       </p>
                       <BarCompare items={breakdownItems} />
                     </div>
@@ -332,29 +332,29 @@ export function ReferralPartnershipScreen({ session, catalog }: { session: Sessi
         <div className="relative min-w-48 flex-1">
           <Search size={16} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder={t('rp.toolbar.searchPlaceholder')} className="ps-9" />
+                placeholder={t('mb.toolbar.searchPlaceholder')} className="ps-9" />
         </div>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
                className="rounded-lg border border-border-subtle bg-surface-1 px-3 py-2 text-sm">
-          <option value="all">{t('rp.toolbar.statusAll')}</option>
-          {Object.keys(STATUS_TONE).map((s) => <option key={s} value={s}>{t(`rp.status.${s}`)}</option>)}
+          <option value="all">{t('mb.toolbar.statusAll')}</option>
+          {Object.keys(STATUS_TONE).map((s) => <option key={s} value={s}>{t(`mb.status.${s}`)}</option>)}
         </select>
         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as typeof roleFilter)}
                className="rounded-lg border border-border-subtle bg-surface-1 px-3 py-2 text-sm">
-          <option value="all">{t('rp.toolbar.roleAll')}</option>
-          <option value="referrer">{t('rp.toolbar.role.referrer')}</option>
-          <option value="beneficiary">{t('rp.toolbar.role.beneficiary')}</option>
+          <option value="all">{t('mb.toolbar.roleAll')}</option>
+          <option value="referrer">{t('mb.toolbar.role.referrer')}</option>
+          <option value="beneficiary">{t('mb.toolbar.role.beneficiary')}</option>
         </select>
-        <p className="text-xs text-text-tertiary">{t('rp.propose.note.cap')}</p>
+        <p className="text-xs text-text-tertiary">{t('mb.propose.note.cap')}</p>
       </div>
 
       {rows === 'failed' ? (
-        <EmptyState title={t('rp.readFailed.title')} description={t('rp.readFailed.desc')} />
+        <EmptyState title={t('mb.readFailed.title')} description={t('mb.readFailed.desc')} />
       ) : rows === 'loading' ? null : partners.length === 0 ? (
         rows.length === 0 ? (
-          <EmptyState title={t('rp.empty.title')} description={t('rp.empty.desc')} />
+          <EmptyState title={t('mb.empty.title')} description={t('mb.empty.desc')} />
         ) : (
-          <EmptyState title={t('rp.empty.filtered')} />
+          <EmptyState title={t('mb.empty.filtered')} />
         )
       ) : (
         <motion.div
@@ -452,7 +452,7 @@ function PartnerCard({
           <div>
             <p className="text-sm font-bold">{group.partnerId}</p>
             <p className="text-xs text-text-secondary">
-              {t(`rp.partner.activity.${group.activity}`)} · {tf(t, 'rp.partner.count', { n: group.agreements.length })}
+              {t(`mb.partner.activity.${group.activity}`)} · {tf(t, 'mb.partner.count', { n: group.agreements.length })}
             </p>
           </div>
         </div>
@@ -470,33 +470,33 @@ function PartnerCard({
           >
             <div className="flex flex-col gap-4 p-4">
               <div>
-                <p className="mb-2 text-xs font-bold text-text-secondary">{t('rp.scorecard.title')}</p>
+                <p className="mb-2 text-xs font-bold text-text-secondary">{t('mb.scorecard.title')}</p>
                 {scorecard === undefined ? (
-                  <p className="text-xs text-text-tertiary">{t('rp.scorecard.loading')}</p>
+                  <p className="text-xs text-text-tertiary">{t('mb.scorecard.loading')}</p>
                 ) : scorecard === null ? (
-                  <p className="text-xs text-danger">{t('rp.scorecard.failed')}</p>
+                  <p className="text-xs text-danger">{t('mb.scorecard.failed')}</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
-                    <KpiCard icon={<ArrowUpRight size={16} />} label={t('rp.kpi.sent')} value={scorecard.granted} tone="accent" />
-                    <KpiCard icon={<HandHeart size={16} />} label={t('rp.kpi.redeemed')} value={scorecard.redeemed} tone="success" />
-                    <KpiCard icon={<Percent size={16} />} label={t('rp.kpi.rate')} value={`${Math.round(scorecard.rate * 100)}%`} tone="neutral" />
+                    <KpiCard icon={<ArrowUpRight size={16} />} label={t('mb.kpi.sent')} value={scorecard.granted} tone="accent" />
+                    <KpiCard icon={<HandHeart size={16} />} label={t('mb.kpi.redeemed')} value={scorecard.redeemed} tone="success" />
+                    <KpiCard icon={<Percent size={16} />} label={t('mb.kpi.rate')} value={`${Math.round(scorecard.rate * 100)}%`} tone="neutral" />
                   </div>
                 )}
               </div>
 
               <div>
-                <p className="mb-2 text-xs font-bold text-text-secondary">{t('rp.activity.title')}</p>
+                <p className="mb-2 text-xs font-bold text-text-secondary">{t('mb.activity.title')}</p>
                 {timeline === undefined ? null : timeline === null ? (
-                  <p className="text-xs text-danger">{t('rp.scorecard.failed')}</p>
+                  <p className="text-xs text-danger">{t('mb.scorecard.failed')}</p>
                 ) : timeline.length === 0 ? (
-                  <p className="text-xs text-text-tertiary">{t('rp.activity.empty')}</p>
+                  <p className="text-xs text-text-tertiary">{t('mb.activity.empty')}</p>
                 ) : (
                   <ol className="relative flex flex-col gap-3 ps-4">
                     <span className="absolute bottom-1 start-[3px] top-1 w-px bg-border-subtle" />
                     {timeline.map((e) => (
                       <li key={e.id} className="relative flex items-baseline justify-between gap-3 text-xs">
                         <span className="absolute -start-4 top-1 h-1.5 w-1.5 rounded-full bg-accent" />
-                        <span className="font-medium">{t(`rp.event.${e.event}`)}</span>
+                        <span className="font-medium">{t(`mb.event.${e.event}`)}</span>
                         <span className="shrink-0 tabular-nums text-text-tertiary">{formatDateTime(e.created, locale)}</span>
                       </li>
                     ))}
@@ -505,7 +505,7 @@ function PartnerCard({
               </div>
 
               <div>
-                <p className="mb-2 text-xs font-bold text-text-secondary">{t('rp.agreements.title')}</p>
+                <p className="mb-2 text-xs font-bold text-text-secondary">{t('mb.agreements.title')}</p>
                 <div className="flex flex-col gap-2">
                   {group.agreements.map((r) => {
                     const role = myRole(r, session.tenant);
@@ -520,11 +520,11 @@ function PartnerCard({
                           {r.grant_type === GRANT_GIFT
                             ? <Gift size={14} className="text-text-tertiary" />
                             : <Percent size={14} className="text-text-tertiary" />}
-                          <Badge tone={STATUS_TONE[r.status] ?? 'neutral'}>{t(`rp.status.${r.status}`)}</Badge>
+                          <Badge tone={STATUS_TONE[r.status] ?? 'neutral'}>{t(`mb.status.${r.status}`)}</Badge>
                           <span className="text-xs">{grantLine(r, t)}</span>
                           <span className="text-xs text-text-tertiary">
-                            {r.started_at ? tf(t, 'rp.since', { date: formatDate(r.started_at, locale) })
-                                          : tf(t, 'rp.until', { date: formatDate(r.ends_at, locale) })}
+                            {r.started_at ? tf(t, 'mb.since', { date: formatDate(r.started_at, locale) })
+                                          : tf(t, 'mb.until', { date: formatDate(r.ends_at, locale) })}
                           </span>
                         </div>
 
@@ -533,31 +533,31 @@ function PartnerCard({
                             <>
                               {acceptAction ? (
                                 <Button size="sm" disabled={busy}
-                                       onClick={() => act(acceptAction, r.id, t('rp.action.confirm.accept'))}>
-                                  {t('rp.action.accept')}
+                                       onClick={() => act(acceptAction, r.id, t('mb.action.confirm.accept'))}>
+                                  {t('mb.action.accept')}
                                 </Button>
                               ) : null}
                               {rejectAction ? (
                                 <Button size="sm" variant="ghost" disabled={busy}
                                        onClick={() => act(rejectAction, r.id)}>
-                                  {t('rp.action.reject')}
+                                  {t('mb.action.reject')}
                                 </Button>
                               ) : null}
                             </>
                           ) : r.status === 'proposed' ? (
-                            <span className="text-xs text-text-tertiary">{t('rp.action.waitingThem')}</span>
+                            <span className="text-xs text-text-tertiary">{t('mb.action.waitingThem')}</span>
                           ) : r.status === 'active' && cancelRequestAction ? (
                             <Button size="sm" variant="ghost" disabled={busy}
                                    onClick={() => act(cancelRequestAction, r.id)}>
-                              {t('rp.action.cancelRequest')}
+                              {t('mb.action.cancelRequest')}
                             </Button>
                           ) : r.status === 'cancel_requested' ? (
                             r.cancel_requested_by === session.tenant ? (
-                              <span className="text-xs text-text-tertiary">{t('rp.action.waitingThem')}</span>
+                              <span className="text-xs text-text-tertiary">{t('mb.action.waitingThem')}</span>
                             ) : cancelConfirmAction ? (
                               <Button size="sm" variant="danger" disabled={busy}
-                                     onClick={() => act(cancelConfirmAction, r.id, t('rp.action.confirm.cancelConfirm'))}>
-                                {t('rp.action.cancelConfirm')}
+                                     onClick={() => act(cancelConfirmAction, r.id, t('mb.action.confirm.cancelConfirm'))}>
+                                {t('mb.action.cancelConfirm')}
                               </Button>
                             ) : null
                           ) : null}
@@ -634,52 +634,52 @@ function ProposeCard({ session, proposeAction, services, packages, onDone, t }: 
 
   return (
     <Card className="flex flex-col gap-4 p-5">
-      <p className="text-sm font-bold">{t('rp.propose.title')}</p>
+      <p className="text-sm font-bold">{t('mb.propose.title')}</p>
 
       <div className="flex flex-wrap items-end gap-4">
-        <Field label={t('rp.propose.phoneLabel')}>
+        <Field label={t('mb.propose.phoneLabel')}>
           <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                placeholder={t('rp.propose.phonePlaceholder')} className="w-40" />
+                placeholder={t('mb.propose.phonePlaceholder')} className="w-40" />
         </Field>
 
-        <Field label={t('rp.propose.conditionLabel')}>
+        <Field label={t('mb.propose.conditionLabel')}>
           <select value={conditionType}
                  onChange={(e) => setConditionType(e.target.value as typeof conditionType)}
                  className="rounded-lg border border-border-subtle bg-surface-1 px-3 py-2 text-sm">
-            <option value="min_total_minor">{t('rp.propose.condition.minTotal')}</option>
-            <option value="service_id">{t('rp.propose.condition.serviceId')}</option>
+            <option value="min_total_minor">{t('mb.propose.condition.minTotal')}</option>
+            <option value="service_id">{t('mb.propose.condition.serviceId')}</option>
           </select>
         </Field>
 
         {conditionType === 'min_total_minor' ? (
-          <Field label={t('rp.propose.conditionValueRiyals')}>
+          <Field label={t('mb.propose.conditionValueRiyals')}>
             <Input type="number" min={1} value={conditionRiyals}
                   onChange={(e) => setConditionRiyals(Math.max(0, Number(e.target.value) || 0))}
                   className="w-28 tabular-nums" />
           </Field>
         ) : (
-          <Field label={t('rp.propose.conditionValueService')}>
+          <Field label={t('mb.propose.conditionValueService')}>
             <select value={conditionServiceId} onChange={(e) => setConditionServiceId(e.target.value)}
                    className="min-w-40 rounded-lg border border-border-subtle bg-surface-1 px-3 py-2 text-sm">
-              <option value="">{t('rp.propose.selectPlaceholder')}</option>
+              <option value="">{t('mb.propose.selectPlaceholder')}</option>
               {activeServices.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </Field>
         )}
 
-        <Field label={t('rp.propose.grantValidityLabel')}>
+        <Field label={t('mb.propose.grantValidityLabel')}>
           <Input type="number" min={1} value={grantValidityDays}
                 onChange={(e) => setGrantValidityDays(Math.max(1, Number(e.target.value) || 1))}
                 className="w-24 tabular-nums" />
         </Field>
 
-        <Field label={t('rp.propose.durationLabel')}>
+        <Field label={t('mb.propose.durationLabel')}>
           <Input type="number" min={1} value={agreementDurationDays}
                 onChange={(e) => setAgreementDurationDays(Math.max(1, Number(e.target.value) || 1))}
                 className="w-24 tabular-nums" />
         </Field>
 
-        <Field label={t('rp.propose.perPeriodCapLabel')}>
+        <Field label={t('mb.propose.perPeriodCapLabel')}>
           <Input type="number" min={0} value={perPeriodCap}
                 onChange={(e) => setPerPeriodCap(Math.max(0, Number(e.target.value) || 0))}
                 className="w-24 tabular-nums" />
@@ -687,58 +687,58 @@ function ProposeCard({ session, proposeAction, services, packages, onDone, t }: 
       </div>
 
       <div className="flex flex-wrap items-end gap-4">
-        <Field label={t('rp.propose.grantTypeLabel')}>
+        <Field label={t('mb.propose.grantTypeLabel')}>
           <select value={grantType} onChange={(e) => setGrantType(e.target.value as typeof grantType)}
                  className="rounded-lg border border-border-subtle bg-surface-1 px-3 py-2 text-sm">
-            <option value={GRANT_DISCOUNT}>{t('rp.propose.grantType.discount')}</option>
-            <option value={GRANT_GIFT}>{t('rp.propose.grantType.gift')}</option>
+            <option value={GRANT_DISCOUNT}>{t('mb.propose.grantType.discount')}</option>
+            <option value={GRANT_GIFT}>{t('mb.propose.grantType.gift')}</option>
           </select>
         </Field>
 
         {grantType === GRANT_DISCOUNT ? (
-          <Field label={t('rp.propose.discountScopeLabel')}>
+          <Field label={t('mb.propose.discountScopeLabel')}>
             <select value={discountScope}
                    onChange={(e) => setDiscountScope(e.target.value as typeof discountScope)}
                    className="rounded-lg border border-border-subtle bg-surface-1 px-3 py-2 text-sm">
-              <option value={SCOPE_BLANKET}>{t('rp.propose.discountScope.blanket')}</option>
-              <option value={SCOPE_ITEM}>{t('rp.propose.discountScope.item')}</option>
-              {packages.length ? <option value={SCOPE_GROUP}>{t('rp.propose.discountScope.group')}</option> : null}
+              <option value={SCOPE_BLANKET}>{t('mb.propose.discountScope.blanket')}</option>
+              <option value={SCOPE_ITEM}>{t('mb.propose.discountScope.item')}</option>
+              {packages.length ? <option value={SCOPE_GROUP}>{t('mb.propose.discountScope.group')}</option> : null}
             </select>
           </Field>
         ) : null}
 
         {needsService ? (
-          <Field label={t('rp.propose.serviceLabel')}>
+          <Field label={t('mb.propose.serviceLabel')}>
             <select value={giftServiceId} onChange={(e) => setGiftServiceId(e.target.value)}
                    className="min-w-40 rounded-lg border border-border-subtle bg-surface-1 px-3 py-2 text-sm">
-              <option value="">{t('rp.propose.selectPlaceholder')}</option>
+              <option value="">{t('mb.propose.selectPlaceholder')}</option>
               {activeServices.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </Field>
         ) : null}
 
         {needsGroup ? (
-          <Field label={t('rp.propose.groupLabel')}>
+          <Field label={t('mb.propose.groupLabel')}>
             <select value={discountGroupId} onChange={(e) => setDiscountGroupId(e.target.value)}
                    className="min-w-40 rounded-lg border border-border-subtle bg-surface-1 px-3 py-2 text-sm">
-              <option value="">{t('rp.propose.selectPlaceholder')}</option>
+              <option value="">{t('mb.propose.selectPlaceholder')}</option>
               {activePackages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </Field>
         ) : null}
 
         <Button onClick={onSubmit} disabled={!valid || submitting}>
-          {submitting ? t('rp.propose.submitting') : t('rp.propose.submit')}
+          {submitting ? t('mb.propose.submitting') : t('mb.propose.submit')}
         </Button>
       </div>
 
-      <p className="text-xs text-text-tertiary">{t('rp.propose.note.immutable')}</p>
+      <p className="text-xs text-text-tertiary">{t('mb.propose.note.immutable')}</p>
 
       {result ? (
         <div className={`rounded-lg px-3 py-2 text-sm font-semibold ${
           result.ok ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'
         }`}>
-          {t(result.ok ? 'rp.propose.result.success' : 'rp.propose.result.fail')}
+          {t(result.ok ? 'mb.propose.result.success' : 'mb.propose.result.fail')}
         </div>
       ) : null}
     </Card>

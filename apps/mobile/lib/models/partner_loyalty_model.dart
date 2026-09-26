@@ -2,7 +2,7 @@
 /// `coupon*` on purpose, matching `services/operations/app/core/coupons.py`'s own module/route
 /// names; only what the owner reads changed). A shop grants ANOTHER registered shop a discount
 /// on THAT shop's own subscription with us, applied automatically at its next renewal — never a
-/// discount for the end customer (that is [[task-referral-partnership-backend]]'s own feature,
+/// discount for the end customer (that is [[task-referral-partnership-backend]]'s own feature —
 /// a different backend module entirely). Mirrors `CouponAttempt.public()`'s plain `asdict` shape.
 class CouponAttempt {
   final String id;

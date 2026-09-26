@@ -276,12 +276,12 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
     # requirement: "احتفال" at the exact moment it happens, never a routine screen). The partner
     # shop's own NAME is resolved here, best-effort — `fetch_tenant_name` degrades silently, so a
     # tenant-service outage loses only the name, never the grant itself or the visit.
-    grant = result.new_referral_grant
+    grant = result.new_mutual_benefit_grant
     if grant is not None:
         from app.core.tenant_branding import fetch_tenant_name
 
         partner_name = await fetch_tenant_name(request.app.state.container_settings, grant.shop_b)
-        out["referral_grant"] = {
+        out["mutual_benefit_grant"] = {
             "grant_type": grant.grant_type,
             "gift_service_name": grant.gift_service_name,
             "discount_scope": grant.discount_scope,

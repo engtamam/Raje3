@@ -84,9 +84,9 @@ const List<AppRow> kAppRows = [
     route: 'partner-loyalty', icon: 'users',
   ),
   AppRow(
-    id: 'referral-partnership', key: 'feature.referral_partnership', name: 'شراكة استراتيجية',
+    id: 'mutual-benefit', key: 'feature.mutual_benefit', name: 'تبادل منافع',
     what: 'وسّع قاعدة عملائك دون ريال إعلان واحد — عميل محل تثق به يصير مستحقاً تلقائياً لعرضك بمجرد أن يثبت أنه عميل حقيقي.',
-    route: 'referral-partnership', icon: 'hand-heart',
+    route: 'mutual-benefit', icon: 'hand-heart',
   ),
   AppRow(
     id: 'mobile-ai-assistant', key: 'feature.mobile_ai_assistant', name: 'المساعد الذكي (تطبيق الجوال)',
@@ -164,3 +164,4 @@ class CartPreview {
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
+

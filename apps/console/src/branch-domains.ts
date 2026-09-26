@@ -52,7 +52,7 @@ const PLATFORM_LEVEL: readonly BranchDomainInfo[] = [
   { id: 'services_catalogue', labelAr: 'خدماتي ومنتجاتي', branchScoped: false, derivedFrom: null },
   { id: 'loyalty_points', labelAr: 'نقاط الولاء', branchScoped: false, derivedFrom: null },
   { id: 'partner_loyalty', labelAr: 'ولاء الشركاء', branchScoped: false, derivedFrom: null },
-  { id: 'referral_partnership', labelAr: 'شراكة استراتيجية', branchScoped: false, derivedFrom: null },
+  { id: 'mutual_benefit', labelAr: 'تبادل منافع', branchScoped: false, derivedFrom: null },
   { id: 'whatsapp_assistant', labelAr: 'المساعد الذكي عبر واتساب', branchScoped: false, derivedFrom: null },
   { id: 'mobile_ai_assistant', labelAr: 'المساعد الذكي (تطبيق الجوال)', branchScoped: false, derivedFrom: null },
   { id: 'support', labelAr: 'الدعم الفني', branchScoped: false, derivedFrom: null },

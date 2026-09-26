@@ -34,7 +34,7 @@ TuwaiqPay لا يصدر توكينة عميل أصلاً، والنتيجة ال
 | 7 | visit | تسجيل زيارة | — (يُباع مستقل) | ميزاته inline مثل rating/contacts |
 | 8 | whatsapp | المساعد الذكي عبر واتساب | `/whatsapp-assistant` | البطاقة الذهبية VIP الوحيدة بالمتجر |
 | 9 | partner-loyalty | ولاء الشركاء | داخل «محلّي» | خصم على اشتراكك أنت عند محل آخر يجدد |
-| 10 | referral-partnership | شراكة استراتيجية | referral-partnership | **مبنية بالجوال فعلاً 2026-09-23** — راجع [referral.md](referral.md) |
+| 10 | mutual-benefit | تبادل منافع | mutual-benefit | **مبنية بالجوال فعلاً 2026-09-23** — راجع [mutual-benefit.md](mutual-benefit.md) |
 | 11 | mobile-ai-assistant | المساعد الذكي (تطبيق الجوال) | `/account` (fallback صادق) | **لا شاشة كونسول له إطلاقًا ولن تكون** — سطحه الوحيد الجوال، سعره صفر عمدًا |
 | 12 | mobile-requests | خدمات متنقلة | mobile-requests | مبنية بالجوال فعلاً — راجع [mobile-requests.md](mobile-requests.md) |
 | — | (لا id) | زيادة السعة (موظفين/فروع) | داخل «كل التطبيقات» فقط | إضافة كمية على اشتراك موجود، ليست تطبيقًا مستقلاً |

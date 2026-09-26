@@ -1,7 +1,7 @@
-/// «شراكة استراتيجية» — mirrors `services/operations/app/core/referral_partnership.py`'s own
-/// real shape exactly (`ReferralAgreement.public()` is a plain `asdict`, no server-side
+/// «تبادل منافع» — mirrors `services/operations/app/core/mutual_benefit.py`'s own
+/// real shape exactly (`MutualBenefitAgreement.public()` is a plain `asdict`, no server-side
 /// transformation), including its immutable-once-proposed grant terms.
-class ReferralAgreement {
+class MutualBenefitAgreement {
   final String id;
   final String shopA;
   final String shopB;
@@ -21,7 +21,7 @@ class ReferralAgreement {
   final String discountGroupId;
   final String discountGroupName;
 
-  const ReferralAgreement({
+  const MutualBenefitAgreement({
     required this.id,
     required this.shopA,
     required this.shopB,
@@ -43,7 +43,7 @@ class ReferralAgreement {
   });
 
   /// «هي الطرف الآخر» — NOT a name: no name or phone survives on the row after creation
-  /// (`core/referral_partnership.py`'s own comment on this), so the raw tenant id IS the only
+  /// (`core/mutual_benefit.py`'s own comment on this), so the raw tenant id IS the only
   /// real identity available, exactly what the console itself shows (`otherParty()`).
   String otherParty(String myTenant) => shopA == myTenant ? shopB : shopA;
 
@@ -51,8 +51,8 @@ class ReferralAgreement {
   /// shop_b (the discount is redeemed here).
   String myRole(String myTenant) => shopA == myTenant ? 'referrer' : 'beneficiary';
 
-  factory ReferralAgreement.fromJson(Map<String, dynamic> json) {
-    return ReferralAgreement(
+  factory MutualBenefitAgreement.fromJson(Map<String, dynamic> json) {
+    return MutualBenefitAgreement(
       id: json['id'] as String? ?? '',
       shopA: json['shop_a'] as String? ?? '',
       shopB: json['shop_b'] as String? ?? '',
@@ -75,21 +75,21 @@ class ReferralAgreement {
   }
 }
 
-class ReferralAuditEntry {
+class MutualBenefitAuditEntry {
   final String id;
   final String event;
   final String actorTenant;
   final int created;
 
-  const ReferralAuditEntry({
+  const MutualBenefitAuditEntry({
     required this.id,
     required this.event,
     required this.actorTenant,
     required this.created,
   });
 
-  factory ReferralAuditEntry.fromJson(Map<String, dynamic> json) {
-    return ReferralAuditEntry(
+  factory MutualBenefitAuditEntry.fromJson(Map<String, dynamic> json) {
+    return MutualBenefitAuditEntry(
       id: json['id'] as String? ?? '',
       event: json['event'] as String? ?? '',
       actorTenant: json['actor_tenant'] as String? ?? '',
@@ -98,17 +98,17 @@ class ReferralAuditEntry {
   }
 }
 
-/// One side (`as_referrer` or `as_beneficiary`) of `GET /referral-partnership/kpis` — the ONLY
+/// One side (`as_referrer` or `as_beneficiary`) of `GET /mutual-benefit/kpis` — the ONLY
 /// server-computed aggregate; a single partner's own scorecard is computed client-side from real
-/// audit-log events, same as the console (see `referral_partnership_screen.dart`'s own note).
-class ReferralRoleKpis {
+/// audit-log events, same as the console (see `mutual_benefit_screen.dart`'s own note).
+class MutualBenefitRoleKpis {
   final int referralsSent;
   final int redeemed;
   final int expiredUnused;
   final double redemptionRate;
   final Map<String, int> byMonth;
 
-  const ReferralRoleKpis({
+  const MutualBenefitRoleKpis({
     required this.referralsSent,
     required this.redeemed,
     required this.expiredUnused,
@@ -116,9 +116,9 @@ class ReferralRoleKpis {
     required this.byMonth,
   });
 
-  factory ReferralRoleKpis.fromJson(Map<String, dynamic> json) {
+  factory MutualBenefitRoleKpis.fromJson(Map<String, dynamic> json) {
     final byMonthRaw = (json['by_month'] as Map?) ?? const {};
-    return ReferralRoleKpis(
+    return MutualBenefitRoleKpis(
       referralsSent: (json['referrals_sent'] as num?)?.toInt() ?? 0,
       redeemed: (json['redeemed'] as num?)?.toInt() ?? 0,
       expiredUnused: (json['expired_unused'] as num?)?.toInt() ?? 0,
@@ -128,16 +128,16 @@ class ReferralRoleKpis {
   }
 }
 
-class ReferralKpis {
-  final ReferralRoleKpis asReferrer;
-  final ReferralRoleKpis asBeneficiary;
+class MutualBenefitKpis {
+  final MutualBenefitRoleKpis asReferrer;
+  final MutualBenefitRoleKpis asBeneficiary;
 
-  const ReferralKpis({required this.asReferrer, required this.asBeneficiary});
+  const MutualBenefitKpis({required this.asReferrer, required this.asBeneficiary});
 
-  factory ReferralKpis.fromJson(Map<String, dynamic> json) {
-    return ReferralKpis(
-      asReferrer: ReferralRoleKpis.fromJson(Map<String, dynamic>.from(json['as_referrer'] as Map? ?? const {})),
-      asBeneficiary: ReferralRoleKpis.fromJson(Map<String, dynamic>.from(json['as_beneficiary'] as Map? ?? const {})),
+  factory MutualBenefitKpis.fromJson(Map<String, dynamic> json) {
+    return MutualBenefitKpis(
+      asReferrer: MutualBenefitRoleKpis.fromJson(Map<String, dynamic>.from(json['as_referrer'] as Map? ?? const {})),
+      asBeneficiary: MutualBenefitRoleKpis.fromJson(Map<String, dynamic>.from(json['as_beneficiary'] as Map? ?? const {})),
     );
   }
 }

@@ -67,7 +67,7 @@ import 'app_localizations_ur.dart';
 /// property.
 abstract class S {
   S(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -89,11 +89,11 @@ abstract class S {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
@@ -102,7 +102,7 @@ abstract class S {
     Locale('ur'),
     Locale('ha'),
     Locale('fil'),
-    Locale('bn')
+    Locale('bn'),
   ];
 
   /// App name shown in app bar and about page
@@ -4263,491 +4263,491 @@ abstract class S {
   /// **'مستخدم بـ{n} خدمة'**
   String proceduresUsedIn(int n);
 
-  /// referralProposeButton
+  /// mutualBenefitProposeButton
   ///
   /// In ar, this message translates to:
   /// **'اقتراح شراكة'**
-  String get referralProposeButton;
+  String get mutualBenefitProposeButton;
 
-  /// referralTitle
+  /// mutualBenefitTitle
   ///
   /// In ar, this message translates to:
-  /// **'شراكة استراتيجية'**
-  String get referralTitle;
+  /// **'تبادل منافع'**
+  String get mutualBenefitTitle;
 
-  /// referralSubtitle
+  /// mutualBenefitSubtitle
   ///
   /// In ar, this message translates to:
   /// **'انقل عملاء حقيقيين بينك وبين محلات أخرى، باتفاق متبادل'**
-  String get referralSubtitle;
+  String get mutualBenefitSubtitle;
 
-  /// referralRoleAll
+  /// mutualBenefitRoleAll
   ///
   /// In ar, this message translates to:
   /// **'الكل'**
-  String get referralRoleAll;
+  String get mutualBenefitRoleAll;
 
-  /// referralRoleReferrer
+  /// mutualBenefitRoleReferrer
   ///
   /// In ar, this message translates to:
   /// **'كمُحيل'**
-  String get referralRoleReferrer;
+  String get mutualBenefitRoleReferrer;
 
-  /// referralRoleBeneficiary
+  /// mutualBenefitRoleBeneficiary
   ///
   /// In ar, this message translates to:
   /// **'كمستفيد'**
-  String get referralRoleBeneficiary;
+  String get mutualBenefitRoleBeneficiary;
 
-  /// referralLoadFailed
+  /// mutualBenefitLoadFailed
   ///
   /// In ar, this message translates to:
   /// **'تعذّر تحميل الشراكات'**
-  String get referralLoadFailed;
+  String get mutualBenefitLoadFailed;
 
-  /// referralEmptyTitle
+  /// mutualBenefitEmptyTitle
   ///
   /// In ar, this message translates to:
   /// **'لا شراكات بعد'**
-  String get referralEmptyTitle;
+  String get mutualBenefitEmptyTitle;
 
-  /// referralKpiAsReferrer
+  /// mutualBenefitKpiAsReferrer
   ///
   /// In ar, this message translates to:
   /// **'كمُحيل'**
-  String get referralKpiAsReferrer;
+  String get mutualBenefitKpiAsReferrer;
 
-  /// referralKpiAsBeneficiary
+  /// mutualBenefitKpiAsBeneficiary
   ///
   /// In ar, this message translates to:
   /// **'كمستفيد'**
-  String get referralKpiAsBeneficiary;
+  String get mutualBenefitKpiAsBeneficiary;
 
-  /// referralKpiSent
+  /// mutualBenefitKpiSent
   ///
   /// In ar, this message translates to:
   /// **'أُحيل'**
-  String get referralKpiSent;
+  String get mutualBenefitKpiSent;
 
-  /// referralKpiRedeemed
+  /// mutualBenefitKpiRedeemed
   ///
   /// In ar, this message translates to:
   /// **'استُبدل'**
-  String get referralKpiRedeemed;
+  String get mutualBenefitKpiRedeemed;
 
-  /// referralKpiRate
+  /// mutualBenefitKpiRate
   ///
   /// In ar, this message translates to:
   /// **'نسبة الاستبدال'**
-  String get referralKpiRate;
+  String get mutualBenefitKpiRate;
 
-  /// referralConfirm
+  /// mutualBenefitConfirm
   ///
   /// In ar, this message translates to:
   /// **'تأكيد'**
-  String get referralConfirm;
+  String get mutualBenefitConfirm;
 
-  /// referralGrantDiscountBlanket
+  /// mutualBenefitGrantDiscountBlanket
   ///
   /// In ar, this message translates to:
   /// **'خصم على كامل الزيارة'**
-  String get referralGrantDiscountBlanket;
+  String get mutualBenefitGrantDiscountBlanket;
 
-  /// referralStatusProposed
+  /// mutualBenefitStatusProposed
   ///
   /// In ar, this message translates to:
   /// **'مقترحة'**
-  String get referralStatusProposed;
+  String get mutualBenefitStatusProposed;
 
-  /// referralStatusActive
+  /// mutualBenefitStatusActive
   ///
   /// In ar, this message translates to:
   /// **'نشطة'**
-  String get referralStatusActive;
+  String get mutualBenefitStatusActive;
 
-  /// referralStatusPaused
+  /// mutualBenefitStatusPaused
   ///
   /// In ar, this message translates to:
   /// **'متوقفة مؤقتًا'**
-  String get referralStatusPaused;
+  String get mutualBenefitStatusPaused;
 
-  /// referralStatusCancelRequested
+  /// mutualBenefitStatusCancelRequested
   ///
   /// In ar, this message translates to:
   /// **'طُلب إنهاؤها'**
-  String get referralStatusCancelRequested;
+  String get mutualBenefitStatusCancelRequested;
 
-  /// referralStatusEnded
+  /// mutualBenefitStatusEnded
   ///
   /// In ar, this message translates to:
   /// **'منتهية'**
-  String get referralStatusEnded;
+  String get mutualBenefitStatusEnded;
 
-  /// referralStatusRejected
+  /// mutualBenefitStatusRejected
   ///
   /// In ar, this message translates to:
   /// **'مرفوضة'**
-  String get referralStatusRejected;
+  String get mutualBenefitStatusRejected;
 
-  /// referralStatusExpiredUnanswered
+  /// mutualBenefitStatusExpiredUnanswered
   ///
   /// In ar, this message translates to:
   /// **'انتهت بلا رد'**
-  String get referralStatusExpiredUnanswered;
+  String get mutualBenefitStatusExpiredUnanswered;
 
-  /// referralEventProposed
+  /// mutualBenefitEventProposed
   ///
   /// In ar, this message translates to:
   /// **'اقتراح الشراكة'**
-  String get referralEventProposed;
+  String get mutualBenefitEventProposed;
 
-  /// referralEventAccepted
+  /// mutualBenefitEventAccepted
   ///
   /// In ar, this message translates to:
   /// **'قبول الشراكة'**
-  String get referralEventAccepted;
+  String get mutualBenefitEventAccepted;
 
-  /// referralEventRejected
+  /// mutualBenefitEventRejected
   ///
   /// In ar, this message translates to:
   /// **'رفض الشراكة'**
-  String get referralEventRejected;
+  String get mutualBenefitEventRejected;
 
-  /// referralEventActivated
+  /// mutualBenefitEventActivated
   ///
   /// In ar, this message translates to:
   /// **'تفعيل الشراكة'**
-  String get referralEventActivated;
+  String get mutualBenefitEventActivated;
 
-  /// referralEventCancelRequested
+  /// mutualBenefitEventCancelRequested
   ///
   /// In ar, this message translates to:
   /// **'طلب إنهاء'**
-  String get referralEventCancelRequested;
+  String get mutualBenefitEventCancelRequested;
 
-  /// referralEventCancelConfirmed
+  /// mutualBenefitEventCancelConfirmed
   ///
   /// In ar, this message translates to:
   /// **'تأكيد الإنهاء'**
-  String get referralEventCancelConfirmed;
+  String get mutualBenefitEventCancelConfirmed;
 
-  /// referralEventExpiredUnanswered
+  /// mutualBenefitEventExpiredUnanswered
   ///
   /// In ar, this message translates to:
   /// **'انتهت المهلة بلا رد'**
-  String get referralEventExpiredUnanswered;
+  String get mutualBenefitEventExpiredUnanswered;
 
-  /// referralEventPaused
+  /// mutualBenefitEventPaused
   ///
   /// In ar, this message translates to:
   /// **'إيقاف مؤقت'**
-  String get referralEventPaused;
+  String get mutualBenefitEventPaused;
 
-  /// referralEventResumed
+  /// mutualBenefitEventResumed
   ///
   /// In ar, this message translates to:
   /// **'استئناف'**
-  String get referralEventResumed;
+  String get mutualBenefitEventResumed;
 
-  /// referralEventEndedTerm
+  /// mutualBenefitEventEndedTerm
   ///
   /// In ar, this message translates to:
   /// **'انتهت المدة'**
-  String get referralEventEndedTerm;
+  String get mutualBenefitEventEndedTerm;
 
-  /// referralEventGrantCreated
+  /// mutualBenefitEventGrantCreated
   ///
   /// In ar, this message translates to:
   /// **'منحة جديدة'**
-  String get referralEventGrantCreated;
+  String get mutualBenefitEventGrantCreated;
 
-  /// referralEventGrantRedeemed
+  /// mutualBenefitEventGrantRedeemed
   ///
   /// In ar, this message translates to:
   /// **'استبدال منحة'**
-  String get referralEventGrantRedeemed;
+  String get mutualBenefitEventGrantRedeemed;
 
-  /// referralActivityActive
+  /// mutualBenefitActivityActive
   ///
   /// In ar, this message translates to:
   /// **'نشطة'**
-  String get referralActivityActive;
+  String get mutualBenefitActivityActive;
 
-  /// referralActivityPaused
+  /// mutualBenefitActivityPaused
   ///
   /// In ar, this message translates to:
   /// **'متوقفة مؤقتًا'**
-  String get referralActivityPaused;
+  String get mutualBenefitActivityPaused;
 
-  /// referralActivityPending
+  /// mutualBenefitActivityPending
   ///
   /// In ar, this message translates to:
   /// **'بانتظار الرد'**
-  String get referralActivityPending;
+  String get mutualBenefitActivityPending;
 
-  /// referralActivityInactive
+  /// mutualBenefitActivityInactive
   ///
   /// In ar, this message translates to:
   /// **'غير نشطة'**
-  String get referralActivityInactive;
+  String get mutualBenefitActivityInactive;
 
-  /// referralScorecardTitle
+  /// mutualBenefitScorecardTitle
   ///
   /// In ar, this message translates to:
   /// **'الأداء'**
-  String get referralScorecardTitle;
+  String get mutualBenefitScorecardTitle;
 
-  /// referralScorecardFailed
+  /// mutualBenefitScorecardFailed
   ///
   /// In ar, this message translates to:
   /// **'تعذّر تحميل الأداء'**
-  String get referralScorecardFailed;
+  String get mutualBenefitScorecardFailed;
 
-  /// referralActivityTitle
+  /// mutualBenefitActivityTitle
   ///
   /// In ar, this message translates to:
   /// **'النشاط الأخير'**
-  String get referralActivityTitle;
+  String get mutualBenefitActivityTitle;
 
-  /// referralActivityEmpty
+  /// mutualBenefitActivityEmpty
   ///
   /// In ar, this message translates to:
   /// **'لا نشاط بعد'**
-  String get referralActivityEmpty;
+  String get mutualBenefitActivityEmpty;
 
-  /// referralAgreementsTitle
+  /// mutualBenefitAgreementsTitle
   ///
   /// In ar, this message translates to:
   /// **'الاتفاقيات'**
-  String get referralAgreementsTitle;
+  String get mutualBenefitAgreementsTitle;
 
-  /// referralConfirmCancel
+  /// mutualBenefitConfirmCancel
   ///
   /// In ar, this message translates to:
   /// **'تأكيد إنهاء هذه الشراكة نهائيًا؟'**
-  String get referralConfirmCancel;
+  String get mutualBenefitConfirmCancel;
 
-  /// referralActionAccept
+  /// mutualBenefitActionAccept
   ///
   /// In ar, this message translates to:
   /// **'قبول'**
-  String get referralActionAccept;
+  String get mutualBenefitActionAccept;
 
-  /// referralActionReject
+  /// mutualBenefitActionReject
   ///
   /// In ar, this message translates to:
   /// **'رفض'**
-  String get referralActionReject;
+  String get mutualBenefitActionReject;
 
-  /// referralActionWaitingThem
+  /// mutualBenefitActionWaitingThem
   ///
   /// In ar, this message translates to:
   /// **'بانتظار الطرف الآخر'**
-  String get referralActionWaitingThem;
+  String get mutualBenefitActionWaitingThem;
 
-  /// referralActionCancelRequest
+  /// mutualBenefitActionCancelRequest
   ///
   /// In ar, this message translates to:
   /// **'طلب إنهاء'**
-  String get referralActionCancelRequest;
+  String get mutualBenefitActionCancelRequest;
 
-  /// referralActionCancelConfirm
+  /// mutualBenefitActionCancelConfirm
   ///
   /// In ar, this message translates to:
   /// **'تأكيد الإنهاء'**
-  String get referralActionCancelConfirm;
+  String get mutualBenefitActionCancelConfirm;
 
-  /// referralProposeTitle
+  /// mutualBenefitProposeTitle
   ///
   /// In ar, this message translates to:
   /// **'اقتراح شراكة جديدة'**
-  String get referralProposeTitle;
+  String get mutualBenefitProposeTitle;
 
-  /// referralProposePhoneLabel
+  /// mutualBenefitProposePhoneLabel
   ///
   /// In ar, this message translates to:
   /// **'جوال المحل الآخر'**
-  String get referralProposePhoneLabel;
+  String get mutualBenefitProposePhoneLabel;
 
-  /// referralProposeConditionLabel
+  /// mutualBenefitProposeConditionLabel
   ///
   /// In ar, this message translates to:
   /// **'شرط الاستحقاق عندك'**
-  String get referralProposeConditionLabel;
+  String get mutualBenefitProposeConditionLabel;
 
-  /// referralConditionMinTotal
+  /// mutualBenefitConditionMinTotal
   ///
   /// In ar, this message translates to:
   /// **'حد أدنى للفاتورة'**
-  String get referralConditionMinTotal;
+  String get mutualBenefitConditionMinTotal;
 
-  /// referralConditionServiceId
+  /// mutualBenefitConditionServiceId
   ///
   /// In ar, this message translates to:
   /// **'خدمة معينة'**
-  String get referralConditionServiceId;
+  String get mutualBenefitConditionServiceId;
 
-  /// referralProposeConditionValueRiyals
+  /// mutualBenefitProposeConditionValueRiyals
   ///
   /// In ar, this message translates to:
   /// **'المبلغ (ريال)'**
-  String get referralProposeConditionValueRiyals;
+  String get mutualBenefitProposeConditionValueRiyals;
 
-  /// referralProposeConditionValueService
+  /// mutualBenefitProposeConditionValueService
   ///
   /// In ar, this message translates to:
   /// **'الخدمة'**
-  String get referralProposeConditionValueService;
+  String get mutualBenefitProposeConditionValueService;
 
-  /// referralProposeValidityLabel
+  /// mutualBenefitProposeValidityLabel
   ///
   /// In ar, this message translates to:
   /// **'الصلاحية (يوم)'**
-  String get referralProposeValidityLabel;
+  String get mutualBenefitProposeValidityLabel;
 
-  /// referralProposeDurationLabel
+  /// mutualBenefitProposeDurationLabel
   ///
   /// In ar, this message translates to:
   /// **'المدة (يوم)'**
-  String get referralProposeDurationLabel;
+  String get mutualBenefitProposeDurationLabel;
 
-  /// referralProposeCapLabel
+  /// mutualBenefitProposeCapLabel
   ///
   /// In ar, this message translates to:
   /// **'الحد كل 30 يوم'**
-  String get referralProposeCapLabel;
+  String get mutualBenefitProposeCapLabel;
 
-  /// referralProposeGrantTypeLabel
+  /// mutualBenefitProposeGrantTypeLabel
   ///
   /// In ar, this message translates to:
   /// **'نوع المنحة'**
-  String get referralProposeGrantTypeLabel;
+  String get mutualBenefitProposeGrantTypeLabel;
 
-  /// referralGrantTypeDiscount
+  /// mutualBenefitGrantTypeDiscount
   ///
   /// In ar, this message translates to:
   /// **'خصم'**
-  String get referralGrantTypeDiscount;
+  String get mutualBenefitGrantTypeDiscount;
 
-  /// referralGrantTypeGift
+  /// mutualBenefitGrantTypeGift
   ///
   /// In ar, this message translates to:
   /// **'هدية'**
-  String get referralGrantTypeGift;
+  String get mutualBenefitGrantTypeGift;
 
-  /// referralScopeBlanket
+  /// mutualBenefitScopeBlanket
   ///
   /// In ar, this message translates to:
   /// **'كامل الزيارة'**
-  String get referralScopeBlanket;
+  String get mutualBenefitScopeBlanket;
 
-  /// referralScopeItem
+  /// mutualBenefitScopeItem
   ///
   /// In ar, this message translates to:
   /// **'خدمة معينة'**
-  String get referralScopeItem;
+  String get mutualBenefitScopeItem;
 
-  /// referralScopeGroup
+  /// mutualBenefitScopeGroup
   ///
   /// In ar, this message translates to:
   /// **'مجموعة/باقة'**
-  String get referralScopeGroup;
+  String get mutualBenefitScopeGroup;
 
-  /// referralProposeServiceLabel
+  /// mutualBenefitProposeServiceLabel
   ///
   /// In ar, this message translates to:
   /// **'الخدمة'**
-  String get referralProposeServiceLabel;
+  String get mutualBenefitProposeServiceLabel;
 
-  /// referralProposeGroupLabel
+  /// mutualBenefitProposeGroupLabel
   ///
   /// In ar, this message translates to:
   /// **'المجموعة'**
-  String get referralProposeGroupLabel;
+  String get mutualBenefitProposeGroupLabel;
 
-  /// referralProposeImmutableNote
+  /// mutualBenefitProposeImmutableNote
   ///
   /// In ar, this message translates to:
   /// **'شروط المنحة ثابتة بعد الإرسال — أي تغيير يحتاج اتفاقية جديدة'**
-  String get referralProposeImmutableNote;
+  String get mutualBenefitProposeImmutableNote;
 
-  /// referralProposeSubmitting
+  /// mutualBenefitProposeSubmitting
   ///
   /// In ar, this message translates to:
   /// **'جارٍ الإرسال...'**
-  String get referralProposeSubmitting;
+  String get mutualBenefitProposeSubmitting;
 
-  /// referralProposeSubmit
+  /// mutualBenefitProposeSubmit
   ///
   /// In ar, this message translates to:
   /// **'إرسال الاقتراح'**
-  String get referralProposeSubmit;
+  String get mutualBenefitProposeSubmit;
 
-  /// referralGrantGift
+  /// mutualBenefitGrantGift
   ///
   /// In ar, this message translates to:
   /// **'هدية: {name}'**
-  String referralGrantGift(String name);
+  String mutualBenefitGrantGift(String name);
 
-  /// referralGrantDiscountItem
+  /// mutualBenefitGrantDiscountItem
   ///
   /// In ar, this message translates to:
   /// **'خصم على: {name}'**
-  String referralGrantDiscountItem(String name);
+  String mutualBenefitGrantDiscountItem(String name);
 
-  /// referralGrantDiscountGroup
+  /// mutualBenefitGrantDiscountGroup
   ///
   /// In ar, this message translates to:
   /// **'خصم على مجموعة: {name}'**
-  String referralGrantDiscountGroup(String name);
+  String mutualBenefitGrantDiscountGroup(String name);
 
-  /// referralPartnerCount
+  /// mutualBenefitPartnerCount
   ///
   /// In ar, this message translates to:
   /// **'{n} اتفاقية'**
-  String referralPartnerCount(int n);
+  String mutualBenefitPartnerCount(int n);
 
-  /// referralProposeResultFail
+  /// mutualBenefitProposeResultFail
   ///
   /// In ar, this message translates to:
   /// **'تعذّر إرسال الاقتراح'**
-  String get referralProposeResultFail;
+  String get mutualBenefitProposeResultFail;
 
-  /// referralRefusal402
+  /// mutualBenefitRefusal402
   ///
   /// In ar, this message translates to:
-  /// **'محلك غير مشترك بتطبيق شراكة استراتيجية — اشترك من متجر التطبيقات أولًا'**
-  String get referralRefusal402;
+  /// **'محلك غير مشترك بتطبيق تبادل منافع — اشترك من متجر التطبيقات أولًا'**
+  String get mutualBenefitRefusal402;
 
-  /// referralRefusal403
+  /// mutualBenefitRefusal403
   ///
   /// In ar, this message translates to:
   /// **'لا تملك صلاحية كافية لهذا الإجراء'**
-  String get referralRefusal403;
+  String get mutualBenefitRefusal403;
 
-  /// referralRefusal400
+  /// mutualBenefitRefusal400
   ///
   /// In ar, this message translates to:
   /// **'بيانات الاقتراح غير صحيحة — تأكد من الشرط، أو أنك لا تقترح شراكة على محلك نفسه'**
-  String get referralRefusal400;
+  String get mutualBenefitRefusal400;
 
-  /// referralRefusal404
+  /// mutualBenefitRefusal404
   ///
   /// In ar, this message translates to:
   /// **'لم يُعثر على محل بهذا الرقم، أو على الخدمة/المجموعة المختارة بكتالوج الطرف الآخر'**
-  String get referralRefusal404;
+  String get mutualBenefitRefusal404;
 
-  /// referralRefusal409
+  /// mutualBenefitRefusal409
   ///
   /// In ar, this message translates to:
   /// **'تجاوزت الحد الأقصى للشراكات النشطة (3)، أو حالة الشراكة تغيّرت'**
-  String get referralRefusal409;
+  String get mutualBenefitRefusal409;
 
-  /// referralRefusal503
+  /// mutualBenefitRefusal503
   ///
   /// In ar, this message translates to:
   /// **'خدمة الفوترة غير متاحة حاليًا، حاول لاحقًا'**
-  String get referralRefusal503;
+  String get mutualBenefitRefusal503;
 
   /// appStoreTitle
   ///
@@ -6212,13 +6212,13 @@ class _SDelegate extends LocalizationsDelegate<S> {
 
   @override
   bool isSupported(Locale locale) => <String>[
-        'ar',
-        'bn',
-        'en',
-        'fil',
-        'ha',
-        'ur'
-      ].contains(locale.languageCode);
+    'ar',
+    'bn',
+    'en',
+    'fil',
+    'ha',
+    'ur',
+  ].contains(locale.languageCode);
 
   @override
   bool shouldReload(_SDelegate old) => false;
@@ -6242,8 +6242,9 @@ S lookupS(Locale locale) {
   }
 
   throw FlutterError(
-      'S.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'S.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

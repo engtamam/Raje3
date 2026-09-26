@@ -61,7 +61,7 @@ export interface LauncherApp {
 //                 owner's own framing is that a discount extended to a partner shop is an
 //                 indirect LOYALTY mechanic between businesses, not customer acquisition).
 //   growth     — reaching NEW attention or NEW revenue from outside the existing relationship
-//                (الحملات, شراكة استراتيجية, صفقات).
+//                (الحملات, تبادل منافع, صفقات).
 //   ai         — its own shelf on purpose, not folded into growth: المساعد الذكي is the first of
 //                what this product's own roadmap already names as a growing AI line, and a shelf
 //                that starts at one app still reads as a real category the day a second AI app
@@ -80,7 +80,7 @@ const CATEGORY_OF: Record<string, string> = {
   'partner-loyalty': 'customers',
   messages: 'growth',
   insights: 'growth',
-  'referral-partnership': 'growth',
+  'mutual-benefit': 'growth',
   whatsapp: 'ai',
   'mobile-ai-assistant': 'ai',
 };

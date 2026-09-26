@@ -225,8 +225,8 @@ export const APP_ROWS: AppRow[] = [
   // us, applied at its next renewal (deploy/seed/plans.json's own note on this row). Really an
   // indirect loyalty mechanic between business partners (the owner's own framing) rather than a
   // marketing/growth play — grouped with برنامج النقاط accordingly. RENAMED 2026-09-22 from
-  // `coupons`/«تحالف استراتيجي» — the old name read as a near-duplicate of «شراكة استراتيجية»
-  // (referral-partnership), a genuinely different app. `id`/`key`/`section` renamed with it (no
+  // `coupons`/«تحالف استراتيجي» — the old name read as a near-duplicate of «تبادل منافع»
+  // (mutual-benefit), a genuinely different app. `id`/`key`/`section` renamed with it (no
   // live data existed yet); docs/خطة-كوبونات-محل-لمحل.md keeps its old filename as history, never
   // re-read as a live naming source.
   {
@@ -241,20 +241,20 @@ export const APP_ROWS: AppRow[] = [
     icon: 'users', tone: 'danger',
     // NO featuresAction — see «التقييم»'s own note above; operations owns this row too.
   },
-  // «شراكة استراتيجية» — cross-tenant customer referral: a shop's own customer who meets a real
+  // «تبادل منافع» — cross-tenant customer referral: a shop's own customer who meets a real
   // condition at a SHOP IT TRUSTS becomes automatically eligible for a grant here, mutual-consent
-  // only (docs/خطة-شراكة-استراتيجية-الإحالة.md, core/referral_partnership.py's own module
+  // only (docs/خطة-شراكة-استراتيجية-الإحالة.md, core/mutual_benefit.py's own module
   // docstring). NOT `coupons` — that row moves money on OUR subscription; this one moves real
   // customers between two real shops, backed by both shops' own catalogues (a gift is a real
   // service/product, a discount is a real service/blanket/group — never a typed note). `screen:
-  // 'referral-partnership'` is THIS pass — the backend has held that name since the backend-only
+  // 'mutual-benefit'` is THIS pass — the backend has held that name since the backend-only
   // pass; this is the UI half finally landing.
   {
-    id: 'referral-partnership',
-    key: 'feature.referral_partnership',
-    name: 'شراكة استراتيجية',
+    id: 'mutual-benefit',
+    key: 'feature.mutual_benefit',
+    name: 'تبادل منافع',
     what: 'وسّع قاعدة عملائك دون ريال إعلان واحد — عميل محل تثق به يصير مستحقاً تلقائياً لعرضك بمجرد أن يثبت أنه عميل حقيقي، فتبنيان علاقة تجارية تكبر بها معاً، لا صفقة عابرة.',
-    section: 'referral-partnership',
+    section: 'mutual-benefit',
     onCustomer: '',
     icon: 'hand-heart', tone: 'success',
     // NO featuresAction — operations owns this app's row too, same posture as coupons/mobile

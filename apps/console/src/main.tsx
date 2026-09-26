@@ -11,7 +11,7 @@ import { Messages } from './screens/MessagesRoute';
 import { Points } from './screens/PointsRoute';
 import { Rating } from './screens/RatingRoute';
 import { Coupons } from './screens/CouponsRoute';
-import { ReferralPartnership } from './screens/ReferralPartnershipRoute';
+import { MutualBenefit } from './screens/MutualBenefitRoute';
 import { Team } from './screens/TeamRoute';
 import { MobileRequests } from './screens/MobileRequestsRoute';
 import { Bookings } from './screens/BookingsRoute';
@@ -79,7 +79,7 @@ const shopRouter = createBrowserRouter([
       { path: 'points', element: <Points /> },
       { path: 'rating', element: <Rating /> },
       { path: 'partner-loyalty', element: <Coupons /> },
-      { path: 'referral-partnership', element: <ReferralPartnership /> },
+      { path: 'mutual-benefit', element: <MutualBenefit /> },
       { path: 'mobile-requests', element: <MobileRequests /> },
       { path: 'team', element: <Team /> },
       // «محلّي»'s OWN route (nav.ts::SHOP_PATH's own note explains why it is no longer also the

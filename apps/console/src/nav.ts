@@ -131,14 +131,14 @@ export const SECTIONS: Section[] = [
   // the full note).
   { service: 'operations', id: 'partner-loyalty', path: '/partner-loyalty', label: 'ولاء الشركاء',
    icon: Handshake, requires: ['operations.coupons_page'], accent: NAV_ACCENTS[10] },
-  // «شراكة استراتيجية» — cross-tenant CUSTOMER referral (core/referral_partnership.py's own
+  // «تبادل منافع» — cross-tenant CUSTOMER referral (core/mutual_benefit.py's own
   // module docstring), never to be confused with the row above: «ولاء الشركاء» discounts OUR
   // OWN subscription price between two shops; this one moves real customers, backed by real
   // catalogue items, mutual-consent only. Gated on the plain list action — every holder of
   // `operations.manage` may propose, view and act on a partnership.
-  { service: 'operations', id: 'referral-partnership', path: '/referral-partnership',
-   label: 'شراكة استراتيجية', icon: HandHeart,
-   requires: ['operations.referral_partnership_list'], accent: NAV_ACCENTS[12] },
+  { service: 'operations', id: 'mutual-benefit', path: '/mutual-benefit',
+   label: 'تبادل منافع', icon: HandHeart,
+   requires: ['operations.mutual_benefit_list'], accent: NAV_ACCENTS[12] },
   // «خدمات متنقلة» — a real sold app now (Phase 4, feature.mobile_requests); the row itself still
   // gates on the review queue's own list action (real per ci/check_ui_actions.py — an action id
   // the catalogue actually declares, never the bare capability string), and MobileRequestsRoute's

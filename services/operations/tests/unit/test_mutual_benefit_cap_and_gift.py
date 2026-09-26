@@ -1,5 +1,5 @@
-"""Two additions to core/referral_partnership.py, tested in isolation from the rest of the
-lifecycle suite (test_referral_partnership.py):
+"""Two additions to core/mutual_benefit.py, tested in isolation from the rest of the
+lifecycle suite (test_mutual_benefit.py):
 
   1. THE CONCURRENCY CAP — `MAX_CONCURRENT_PARTNERSHIPS`, a TIME-RANGE check (sweep-line over real
      [start, end) intervals), not a raw count — including the exact half-open boundary rule
@@ -15,11 +15,11 @@ import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
 from app.core.models import Service
-from app.core.referral_partnership import (AGREEMENTS, CONDITION_MIN_TOTAL, FEATURE_KEY,
+from app.core.mutual_benefit import (AGREEMENTS, CONDITION_MIN_TOTAL, FEATURE_KEY,
                                            CATALOG_ITEM_NOT_FOUND, GRANT_DISCOUNT, GRANT_GIFT,
                                            MAX_CONCURRENT_PARTNERSHIPS, OVER_CONCURRENCY_CAP,
-                                           PLATFORM, BAD_CONDITION, ReferralError,
-                                           ReferralPartnershipEngine)
+                                           PLATFORM, BAD_CONDITION, MutualBenefitError,
+                                           MutualBenefitEngine)
 from app.core.signup import PHONE_INDEX, canonical_phone
 from app.core.stores import ServiceStore
 
@@ -76,7 +76,7 @@ def env():
     plans = FakePlans()
     notifier = FakeNotifier()
     authz = FakeAuthz()
-    engine = ReferralPartnershipEngine(store=store, plans=plans, notifier=notifier, authz=authz,
+    engine = MutualBenefitEngine(store=store, plans=plans, notifier=notifier, authz=authz,
                                        default_cc=CC)
     return engine, store, plans
 
@@ -97,7 +97,7 @@ def _propose_and_accept(engine, plans, store, *, shop_a, shop_b, duration_days=9
 def _force_interval(store, agreement_id: str, *, started_at: int, ends_at: int,
                     original_ends_at: int | None = None) -> None:
     """Directly rewrite a stored agreement's committed interval — the same technique the
-    lifecycle suite already uses (test_referral_partnership.py's own pause/resume/expiry tests)
+    lifecycle suite already uses (test_mutual_benefit.py's own pause/resume/expiry tests)
     to place two events on either side of a boundary without sleeping."""
     row = run(store.get(AGREEMENTS, f"{PLATFORM}|{agreement_id}"))
     row["started_at"] = started_at
@@ -113,7 +113,7 @@ def test_the_cap_constant_is_three_today():
 
 # ── the sweep-line math, tested directly and precisely ──────────────────────────────────────────
 def test_max_concurrent_counts_the_true_peak_not_a_pairwise_sum():
-    m = ReferralPartnershipEngine._max_concurrent
+    m = MutualBenefitEngine._max_concurrent
     # Three intervals, only two ever overlap at once.
     assert m([(0, 10), (5, 15), (20, 30)]) == 2
     # All three overlap at t=5.
@@ -123,7 +123,7 @@ def test_max_concurrent_counts_the_true_peak_not_a_pairwise_sum():
 
 def test_end_on_day_x_and_start_on_day_x_do_not_overlap():
     """THE DECIDED, DOCUMENTED BOUNDARY RULE: half-open, end exclusive."""
-    m = ReferralPartnershipEngine._max_concurrent
+    m = MutualBenefitEngine._max_concurrent
     assert m([(0, 100), (100, 200)]) == 1          # touching endpoints: never simultaneous
     assert m([(0, 100), (99, 200)]) == 2            # one second earlier: genuinely overlapping
 
@@ -135,7 +135,7 @@ def test_a_shop_already_at_the_cap_is_refused_a_fourth_overlapping_agreement(env
     for i in range(MAX_CONCURRENT_PARTNERSHIPS):
         _propose_and_accept(engine, plans, store, shop_a=hub, shop_b=f"tnt_leaf_{i}")
 
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         _propose_and_accept(engine, plans, store, shop_a=hub, shop_b="tnt_leaf_extra")
     assert exc.value.args[0] == OVER_CONCURRENCY_CAP
 
@@ -149,7 +149,7 @@ def test_both_roles_count_together_toward_one_shops_cap(env):
     _propose_and_accept(engine, plans, store, shop_a=hub, shop_b="tnt_leaf_b")
     _propose_and_accept(engine, plans, store, shop_a="tnt_leaf_c", shop_b=hub)
 
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         _propose_and_accept(engine, plans, store, shop_a=hub, shop_b="tnt_leaf_d")
     assert exc.value.args[0] == OVER_CONCURRENCY_CAP
 
@@ -200,7 +200,7 @@ def test_renewal_after_expiry_goes_through_the_identical_cap_check(env):
 
     # NOW all three slots are genuinely open (2 leaves + the renewed one) — a further new
     # agreement must be refused, proving the renewal itself now occupies a real slot.
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         _propose_and_accept(engine, plans, store, shop_a=hub, shop_b="tnt_leaf4_c")
     assert exc.value.args[0] == OVER_CONCURRENCY_CAP
 
@@ -215,7 +215,7 @@ def test_propose_itself_refuses_early_as_a_tentative_courtesy(env):
 
     _register_phone(store, "0599999999", "tnt_leaf5_extra")
     _subscribe(plans, hub)
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         run(engine.propose(shop_a=hub, shop_b_phone="0599999999", operator_id="op1",
                            condition_type=CONDITION_MIN_TOTAL, condition_value="1000",
                            grant_validity_days=3, agreement_duration_days=90))
@@ -247,7 +247,7 @@ def test_a_gift_referencing_another_tenants_service_is_refused(env):
     _register_phone(store, phone, shop_b)
     _subscribe(plans, shop_a)
 
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         run(engine.propose(shop_a=shop_a, shop_b_phone=phone, operator_id="op1",
                            condition_type=CONDITION_MIN_TOTAL, condition_value="1000",
                            grant_validity_days=3, agreement_duration_days=90,
@@ -262,7 +262,7 @@ def test_a_gift_with_no_service_id_is_refused(env):
     _register_phone(store, phone, shop_b)
     _subscribe(plans, shop_a)
 
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         run(engine.propose(shop_a=shop_a, shop_b_phone=phone, operator_id="op1",
                            condition_type=CONDITION_MIN_TOTAL, condition_value="1000",
                            grant_validity_days=3, agreement_duration_days=90,
@@ -279,7 +279,7 @@ def test_an_inactive_service_is_refused_as_a_gift(env):
     _register_phone(store, phone, shop_b)
     _subscribe(plans, shop_a)
 
-    with pytest.raises(ReferralError) as exc:
+    with pytest.raises(MutualBenefitError) as exc:
         run(engine.propose(shop_a=shop_a, shop_b_phone=phone, operator_id="op1",
                            condition_type=CONDITION_MIN_TOTAL, condition_value="1000",
                            grant_validity_days=3, agreement_duration_days=90,

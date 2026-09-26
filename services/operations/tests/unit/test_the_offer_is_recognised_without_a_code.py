@@ -1,7 +1,7 @@
 """The offer is recognised, not quoted — which is why the coupon code could be deleted at all.
 
 WHAT THIS PINS. `Operations.apply_offer` asks `core/entitlements.py::EntitlementGateway` (built
-from an injected chooser and, since the referral-partnership pass, an injected referral engine too
+from an injected chooser and, since the mutual-benefit pass, an injected referral engine too
 — see that module's own docstring) WHICH entitlement this visit applies, from the tenant, the
 pseudonym/phone and the services on the visit. Nothing a person reads aloud, nothing a person
 types, and nothing that can be misheard across a counter.
