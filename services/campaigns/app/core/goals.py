@@ -32,6 +32,15 @@ MANUAL_BLANKS = ("catalogue", "amount", "date", "owner")
 # with it — no screen anywhere invents its own grouping.
 GOAL_CATEGORIES = ["عروض وخصومات", "ولاء وعودة", "مناسبات", "إعلانات وتوعية"]
 
+# THE MECHANICS A GOAL CAN NAME — HOW it decides who it reaches, as opposed to WHICH rule (the
+# goal itself). "فردي" is every goal that exists today: one candidate row, matched independently of
+# every other, via `app.core.audience.resolve` — see `app.core.mechanics` for the registry that
+# turns this word into the real resolver function, and `ci/check_campaign_mechanics.py` for the
+# gate that keeps every CARDS row honestly wired to one. A future goal naming a mechanic that isn't
+# here yet (a shared counter crossing a threshold, say) is a NEW row in `MECHANICS` plus a new
+# resolver in `app.core.mechanics` — never a branch bolted onto `audience.py`'s own per-row shape.
+MECHANICS = ("فردي",)
+
 # What each card says. Two words and a line — the owner is choosing, not reading.
 CARDS = {
     "win_back": {
@@ -39,24 +48,28 @@ CARDS = {
         "line": "من تأخّر عن موعده المعتاد",
         "icon": "return",
         "category": "ولاء وعودة",
+        "mechanic": "فردي",
     },
     "reward_loyal": {
         "title": "كافئ المخلصين",
         "line": "الأكثر زيارة عندك",
         "icon": "gift",
         "category": "ولاء وعودة",
+        "mechanic": "فردي",
     },
     "announce": {
         "title": "أعلن جديدك",
         "line": "خبر أو عرض للجميع",
         "icon": "megaphone",
         "category": "إعلانات وتوعية",
+        "mechanic": "فردي",
     },
     "occasion": {
         "title": "هنّئ في مناسبة",
         "line": "رسالة في يوم يخصّه",
         "icon": "cake",
         "category": "مناسبات",
+        "mechanic": "فردي",
     },
     "service_offer": {
         "title": "عرض على خدمة",
@@ -65,6 +78,7 @@ CARDS = {
         "line": "لمن قارب موعد خدمة معيّنة",
         "icon": "tag",
         "category": "عروض وخصومات",
+        "mechanic": "فردي",
     },
     "package_offer": {
         "title": "عرض على باقة",
@@ -74,6 +88,7 @@ CARDS = {
         "line": "روّج لباقة كاملة بسعرها الحقيقي",
         "icon": "tag",
         "category": "عروض وخصومات",
+        "mechanic": "فردي",
     },
 }
 
@@ -208,4 +223,5 @@ def resolve_goal(goal: str) -> dict[str, Any]:
         raise ValueError(f"unknown goal {goal!r} — one of {sorted(CARDS)}")
     template_type, cls = GOAL_TEMPLATE[goal]
     return {"goal": goal, "template_type": template_type, "cls": cls,
-            "trigger": GOAL_TRIGGER.get(goal, "manual"), "behaviour": _behaviour(goal)}
+            "trigger": GOAL_TRIGGER.get(goal, "manual"), "behaviour": _behaviour(goal),
+            "mechanic": CARDS[goal].get("mechanic", "")}

@@ -298,25 +298,21 @@ def build_container(settings: Settings) -> Container:
     container.engine_load = lambda tenant: _engine_load(peers.get("engine"), tenant)
     container.settings = settings
 
+    from app.core.mechanics import resolver_for
+
     async def _resolver(campaign, *, already_reached, now):
         # THE SEND RESOLVES THE SAME AUDIENCE THE PREVIEW SHOWED — including the service. Dropping
         # it here would mean the owner is shown a targeted count and the run reaches everybody, and
         # the report would agree with neither.
-        return await container.audience.resolve_for(
-            campaign.get("tenant", ""), goal=campaign.get("goal", ""), now=now,
-            already_reached=already_reached, cls=campaign.get("cls", "marketing"),
-            service_id=campaign.get("service_id", ""),
-            # THE FULL SELECTION, NOT JUST THE ONE THAT USED TO BE FORCED INTO IT — a multi-service
-            # campaign's stored `scope_service_ids` (2026-09-13) is now the SAME list the cycle
-            # lock reads, not only what the message names.
-            service_ids=list(campaign.get("scope_service_ids") or []),
-            branch_id=campaign.get("branch_id", ""),
-            # «كافئ المخلصين»'s OWN THRESHOLDS, RE-READ FROM THE STORED ROW — never trusted from
-            # whenever the preview ran, same "ask fresh every pass" discipline `package_id`'s own
-            # re-check follows. Meaningless for every other goal, and the stored default (90/3)
-            # is the same one this facade has always used.
-            window_days=int(campaign.get("loyalty_window_days") or 90),
-            min_visits=int(campaign.get("loyalty_min_visits") or 3))
+        #
+        # WHICH FUNCTION DECIDES "WHO", LOOKED UP BY THE GOAL'S OWN MECHANIC (core/mechanics.py) —
+        # never one function assumed for every goal. Every goal today names "فردي" (goals.CARDS),
+        # so this always resolves to `mechanics.resolve_individual` — the exact call this closure
+        # used to make inline — but a goal naming a different mechanic now takes a genuinely
+        # separate code path, not a branch squeezed into this one.
+        fn = resolver_for(campaign.get("goal", ""))
+        return await fn(campaign, already_reached=already_reached, now=now,
+                        audience=container.audience)
 
     from app.core.licence import build_licence
     from app.core.shape import BOOKINGS_KEY

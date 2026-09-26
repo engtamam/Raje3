@@ -108,6 +108,12 @@ jobs:
       - name: every per-branch read asks who is asking, and refuses when it cannot tell
         run: python3 ci/check_branch_scope.py
 
+      # A goal is a row in CARDS, a row in GOAL_TEMPLATE, and its mechanic is a real, registered
+      # resolver — package_offer and occasion each shipped with a silent gap exactly this shape
+      # before there was any gate to catch it (audience.py's own comments document both).
+      - name: every campaign goal names a real, wired mechanic
+        run: python3 ci/check_campaign_mechanics.py
+
       # `/internal/*` trusts one shared token and nothing else — no capability, no branch scope,
       # no user identity at all. Phase 4 of the multi-branch work added four such routes in one
       # sitting; this is the same posture check_a_route_with_no_token_is_open_at_the_door.py takes
