@@ -7,7 +7,7 @@
  * wrong page, which reads as the button being broken.
  */
 import { describe, expect, it } from 'vitest';
-import { MOVED, resolvePane } from './Account';
+import { MOVED, resolvePane } from './account/AccountScreen';
 
 describe('resolvePane', () => {
   it('keeps the tabs that still exist', () => {

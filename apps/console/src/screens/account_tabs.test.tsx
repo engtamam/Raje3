@@ -28,7 +28,7 @@ vi.mock('../catalog', async (importOriginal) => {
   };
 });
 
-const { AccountScreen, MOVED, resolvePane } = await import('./Account');
+const { AccountScreen, MOVED, resolvePane } = await import('./account/AccountScreen');
 
 afterEach(() => { cleanup(); calls.length = 0; });
 

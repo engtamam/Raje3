@@ -7,7 +7,7 @@
  *    shown as «100 ريال» — fifty halalas more than we charge, on the screen whose entire job is
  *    to state the price before he agrees to it.
  *
- *  · `AccountPanes.tsx` rounded an ISSUED INVOICE the same way. A bill of 26950 read «270 ريال»
+ *  · `account/InvoicesPane.tsx` rounded an ISSUED INVOICE the same way. A bill of 26950 read «270 ريال»
  *    while 269.50 was taken from his card. An owner reconciling our screen against his statement
  *    finds a number that is not on either side of the transaction.
  *

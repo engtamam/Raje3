@@ -1,5 +1,6 @@
 /**
- * AccountPanes.tsx's own strings — registered once at import time (see operator-i18n.tsx's own
+ * Shared strings for the account/*.tsx pane files (IdentityPane, InvoicesPane, DataPane) and
+ * whatsapp-assistant-cards.tsx — registered once at import time (see operator-i18n.tsx's own
  * header for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care

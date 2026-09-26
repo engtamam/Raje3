@@ -1,8 +1,9 @@
 /**
- * Account.tsx's own strings — registered once at import time (see operator-i18n.tsx's own
- * header for why this is a small per-screen file rather than one giant dictionary). Distinct
- * from account-panes-i18n.ts (`accountPanes.*`), which belongs to AccountPanes.tsx's own cards —
- * this file covers only the tab shell and its own sub-tabs and cards (ChangePasswordCard).
+ * account/AccountScreen.tsx's own strings — registered once at import time (see operator-i18n.tsx's
+ * own header for why this is a small per-screen file rather than one giant dictionary). Distinct
+ * from account-panes-i18n.ts (`accountPanes.*`), which belongs to the individual pane files under
+ * `account/` — this file covers only the tab shell and its own sub-tabs
+ * (account/BranchesPane.tsx reads the `account.subtab.*`/`account.branchesSubtabsAriaLabel` keys).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
  * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
