@@ -3428,4 +3428,69 @@ class SFil extends S {
   String shopHoldoutMeasuring(int min, int need) {
     return 'Sinusukat pa namin ang epekto ng mensahe sa tindahan mo — $min sa $need sa mas maliit na grupo.';
   }
+
+  @override
+  String shopTodayRetrying(int n) {
+    return 'May $n mensaheng sinusubukan pa ring makalabas';
+  }
+
+  @override
+  String get shopTrendUp => 'gumagaling';
+
+  @override
+  String get shopTrendDown => 'bumababa';
+
+  @override
+  String shopRetentionSincePeriods(int n) {
+    return 'sa loob ng $n yugto';
+  }
+
+  @override
+  String get shopAtLeastSuffix => ' — kahit man lang';
+
+  @override
+  String get shopRegisterFirstVisitArrow => 'Irehistro ang unang bisita ←';
+
+  @override
+  String get shopWeekNoCompare =>
+      'Wala pa kaming kumpletong linggo para ikumpara';
+
+  @override
+  String shopNextStepAlso(String msg) {
+    return 'Dagdag pa: $msg';
+  }
+
+  @override
+  String shopBranchCompareUnassigned(int n) {
+    return '$n bisitang walang itinalagang branch — hindi naibilang sa kahit anong branch.';
+  }
+
+  @override
+  String get shopBranchCompareNeedTwo =>
+      'Hindi pa namin ikinukumpara ang mga branch — kailangan ng dalawa o higit pang branch na may totoong bisita.';
+
+  @override
+  String get shopBranchCompareNeedSecond =>
+      'Isang aktibong branch pa lamang — kailangan ng pangalawang branch na may totoong bisita para sa paghahambing.';
+
+  @override
+  String get shopBranchCompareTooShort =>
+      'Hindi pa namin ini-rank ang mga branch — maikli pa ang panahon, at hindi pa makatarungan ang paghahambing sa pinakabago.';
+
+  @override
+  String shopStaffCompareUnassigned(int n) {
+    return '$n bisitang walang itinalagang staff — hindi naibilang kaninuman.';
+  }
+
+  @override
+  String get shopStaffCompareNeedTwo =>
+      'Hindi pa namin ikinukumpara ang staff — kailangan ng dalawa o higit pang staff na may naitalagang bisita.';
+
+  @override
+  String get shopStaffCompareNeedSecond =>
+      'Isang naitalagang staff pa lamang — kailangan ng pangalawa na may totoong bisita para sa paghahambing.';
+
+  @override
+  String get shopStaffCompareTooShort =>
+      'Hindi pa namin ini-rank ang staff — maikli pa ang panahon, at hindi pa makatarungan ang paghahambing sa pinakabago.';
 }

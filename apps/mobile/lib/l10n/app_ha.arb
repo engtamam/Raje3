@@ -1345,5 +1345,26 @@
   "shopHoldoutMeasuring": "Muna ci gaba da auna tasirin saƙonni a shagonka — {min} daga cikin {need} a ƙaramar ƙungiya.",
   "@shopHoldoutMeasuring": {
     "placeholders": { "min": { "type": "int" }, "need": { "type": "int" } }
-  }
+  },
+  "shopTodayRetrying": "Saƙo {n} yana ƙoƙarin fita",
+  "@shopTodayRetrying": { "placeholders": { "n": { "type": "int" } } },
+  "shopTrendUp": "yana inganta",
+  "shopTrendDown": "yana raguwa",
+  "shopRetentionSincePeriods": "tun lokuta {n}",
+  "@shopRetentionSincePeriods": { "placeholders": { "n": { "type": "int" } } },
+  "shopAtLeastSuffix": " — a kalla",
+  "shopRegisterFirstVisitArrow": "Rubuta ziyara ta farko ←",
+  "shopWeekNoCompare": "Ba mu da cikakken mako tukuna don kwatantawa",
+  "shopNextStepAlso": "Haka kuma: {msg}",
+  "@shopNextStepAlso": { "placeholders": { "msg": { "type": "String" } } },
+  "shopBranchCompareUnassigned": "Ziyara {n} ba tare da reshe ba — ba a lissafta ga kowane reshe ba.",
+  "@shopBranchCompareUnassigned": { "placeholders": { "n": { "type": "int" } } },
+  "shopBranchCompareNeedTwo": "Ba mu kwatanta rassa tukuna ba — ana buƙatar rassa biyu ko fiye da ziyara na gaske.",
+  "shopBranchCompareNeedSecond": "Reshe ɗaya mai aiki har yanzu — kwatantawa tana buƙatar reshe na biyu da ziyara na gaske.",
+  "shopBranchCompareTooShort": "Ba mu tsara rassa tukuna ba — lokacin ya yi gajarta, kuma kwatantawa yanzu za ta zalunci sabon.",
+  "shopStaffCompareUnassigned": "Ziyara {n} ba tare da ma'aikaci ba — ba a lissafta ga kowa ba.",
+  "@shopStaffCompareUnassigned": { "placeholders": { "n": { "type": "int" } } },
+  "shopStaffCompareNeedTwo": "Ba mu kwatanta ma'aikata tukuna ba — ana buƙatar ma'aikata biyu ko fiye da ziyara da aka danganta.",
+  "shopStaffCompareNeedSecond": "Ma'aikaci ɗaya an danganta har yanzu — kwatantawa tana buƙatar na biyu da ziyara na gaske.",
+  "shopStaffCompareTooShort": "Ba mu tsara ma'aikata tukuna ba — lokacin ya yi gajarta, kuma kwatantawa yanzu za ta zalunci sabon."
 }

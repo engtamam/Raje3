@@ -3350,4 +3350,68 @@ class SUr extends S {
   String shopHoldoutMeasuring(int min, int need) {
     return 'ہم ابھی بھی آپ کی دکان پر پیغامات کا اثر ماپ رہے ہیں — چھوٹے گروہ میں $need میں سے $min۔';
   }
+
+  @override
+  String shopTodayRetrying(int n) {
+    return '$n پیغام(ات) اب بھی بھیجنے کی کوشش میں';
+  }
+
+  @override
+  String get shopTrendUp => 'بہتر ہو رہا ہے';
+
+  @override
+  String get shopTrendDown => 'گر رہا ہے';
+
+  @override
+  String shopRetentionSincePeriods(int n) {
+    return '$n ادوار سے';
+  }
+
+  @override
+  String get shopAtLeastSuffix => ' — کم از کم';
+
+  @override
+  String get shopRegisterFirstVisitArrow => 'پہلی وزٹ درج کریں ←';
+
+  @override
+  String get shopWeekNoCompare => 'موازنے کے لیے ابھی مکمل ہفتہ نہیں';
+
+  @override
+  String shopNextStepAlso(String msg) {
+    return 'اور یہ بھی: $msg';
+  }
+
+  @override
+  String shopBranchCompareUnassigned(int n) {
+    return '$n وزٹ بغیر شاخ کے — کسی شاخ میں شمار نہیں۔';
+  }
+
+  @override
+  String get shopBranchCompareNeedTwo =>
+      'ابھی شاخوں کا موازنہ نہیں کرتے — حقیقی وزٹس کے ساتھ دو یا زیادہ شاخیں درکار ہیں۔';
+
+  @override
+  String get shopBranchCompareNeedSecond =>
+      'ابھی تک ایک فعال شاخ — موازنے کے لیے حقیقی وزٹس والی دوسری شاخ درکار ہے۔';
+
+  @override
+  String get shopBranchCompareTooShort =>
+      'ابھی شاخوں کی درجہ بندی نہیں کرتے — مدت بہت مختصر ہے، اور ابھی موازنہ نئی شاخ کے ساتھ ناانصافی ہوگا۔';
+
+  @override
+  String shopStaffCompareUnassigned(int n) {
+    return '$n وزٹ بغیر عملے کے — کسی کے کھاتے میں شمار نہیں۔';
+  }
+
+  @override
+  String get shopStaffCompareNeedTwo =>
+      'ابھی عملے کا موازنہ نہیں کرتے — منسوب وزٹس کے ساتھ دو یا زیادہ عملہ درکار ہے۔';
+
+  @override
+  String get shopStaffCompareNeedSecond =>
+      'ابھی تک ایک عملہ منسوب — موازنے کے لیے حقیقی وزٹس والا دوسرا درکار ہے۔';
+
+  @override
+  String get shopStaffCompareTooShort =>
+      'ابھی عملے کی درجہ بندی نہیں کرتے — مدت بہت مختصر ہے، اور ابھی موازنہ نئے فرد کے ساتھ ناانصافی ہوگا۔';
 }

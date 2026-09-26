@@ -104,4 +104,7 @@ class ShopDashboardService {
         .map((m) => OperatorRow.fromJson(Map<String, dynamic>.from(m)))
         .toList(growable: false);
   }
+
+  int operatorUnknown(ShopDashboard d) => (d.values['operator_unknown'] as num?)?.toInt() ?? 0;
+  bool operatorCanRank(ShopDashboard d) => d.values['operator_can_rank'] as bool? ?? true;
 }

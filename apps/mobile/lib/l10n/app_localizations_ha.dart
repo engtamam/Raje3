@@ -3356,4 +3356,69 @@ class SHa extends S {
   String shopHoldoutMeasuring(int min, int need) {
     return 'Muna ci gaba da auna tasirin saƙonni a shagonka — $min daga cikin $need a ƙaramar ƙungiya.';
   }
+
+  @override
+  String shopTodayRetrying(int n) {
+    return 'Saƙo $n yana ƙoƙarin fita';
+  }
+
+  @override
+  String get shopTrendUp => 'yana inganta';
+
+  @override
+  String get shopTrendDown => 'yana raguwa';
+
+  @override
+  String shopRetentionSincePeriods(int n) {
+    return 'tun lokuta $n';
+  }
+
+  @override
+  String get shopAtLeastSuffix => ' — a kalla';
+
+  @override
+  String get shopRegisterFirstVisitArrow => 'Rubuta ziyara ta farko ←';
+
+  @override
+  String get shopWeekNoCompare =>
+      'Ba mu da cikakken mako tukuna don kwatantawa';
+
+  @override
+  String shopNextStepAlso(String msg) {
+    return 'Haka kuma: $msg';
+  }
+
+  @override
+  String shopBranchCompareUnassigned(int n) {
+    return 'Ziyara $n ba tare da reshe ba — ba a lissafta ga kowane reshe ba.';
+  }
+
+  @override
+  String get shopBranchCompareNeedTwo =>
+      'Ba mu kwatanta rassa tukuna ba — ana buƙatar rassa biyu ko fiye da ziyara na gaske.';
+
+  @override
+  String get shopBranchCompareNeedSecond =>
+      'Reshe ɗaya mai aiki har yanzu — kwatantawa tana buƙatar reshe na biyu da ziyara na gaske.';
+
+  @override
+  String get shopBranchCompareTooShort =>
+      'Ba mu tsara rassa tukuna ba — lokacin ya yi gajarta, kuma kwatantawa yanzu za ta zalunci sabon.';
+
+  @override
+  String shopStaffCompareUnassigned(int n) {
+    return 'Ziyara $n ba tare da ma\'aikaci ba — ba a lissafta ga kowa ba.';
+  }
+
+  @override
+  String get shopStaffCompareNeedTwo =>
+      'Ba mu kwatanta ma\'aikata tukuna ba — ana buƙatar ma\'aikata biyu ko fiye da ziyara da aka danganta.';
+
+  @override
+  String get shopStaffCompareNeedSecond =>
+      'Ma\'aikaci ɗaya an danganta har yanzu — kwatantawa tana buƙatar na biyu da ziyara na gaske.';
+
+  @override
+  String get shopStaffCompareTooShort =>
+      'Ba mu tsara ma\'aikata tukuna ba — lokacin ya yi gajarta, kuma kwatantawa yanzu za ta zalunci sabon.';
 }

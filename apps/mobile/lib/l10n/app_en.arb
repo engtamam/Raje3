@@ -1345,5 +1345,26 @@
   "shopHoldoutMeasuring": "We're still measuring your messages' impact — {min} of {need} in the smaller group.",
   "@shopHoldoutMeasuring": {
     "placeholders": { "min": { "type": "int" }, "need": { "type": "int" } }
-  }
+  },
+  "shopTodayRetrying": "{n} message(s) still trying to go out",
+  "@shopTodayRetrying": { "placeholders": { "n": { "type": "int" } } },
+  "shopTrendUp": "improving",
+  "shopTrendDown": "declining",
+  "shopRetentionSincePeriods": "for {n} periods",
+  "@shopRetentionSincePeriods": { "placeholders": { "n": { "type": "int" } } },
+  "shopAtLeastSuffix": " — at least",
+  "shopRegisterFirstVisitArrow": "Record first visit ←",
+  "shopWeekNoCompare": "We don't have a full week yet to compare",
+  "shopNextStepAlso": "Also: {msg}",
+  "@shopNextStepAlso": { "placeholders": { "msg": { "type": "String" } } },
+  "shopBranchCompareUnassigned": "{n} visit(s) with no branch set — not counted toward any branch.",
+  "@shopBranchCompareUnassigned": { "placeholders": { "n": { "type": "int" } } },
+  "shopBranchCompareNeedTwo": "We don't compare branches yet — needs two or more branches with real visits.",
+  "shopBranchCompareNeedSecond": "One active branch so far — comparison needs a second branch with real visits.",
+  "shopBranchCompareTooShort": "We don't rank branches yet — the period is too short, and comparing now would be unfair to the newest one.",
+  "shopStaffCompareUnassigned": "{n} visit(s) with no staff set — not counted toward anyone.",
+  "@shopStaffCompareUnassigned": { "placeholders": { "n": { "type": "int" } } },
+  "shopStaffCompareNeedTwo": "We don't compare staff yet — needs two or more staff with visits attributed to them.",
+  "shopStaffCompareNeedSecond": "One staff member attributed so far — comparison needs a second with real visits.",
+  "shopStaffCompareTooShort": "We don't rank staff yet — the period is too short, and comparing now would be unfair to the newest one."
 }

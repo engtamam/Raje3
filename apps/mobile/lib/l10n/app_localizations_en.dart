@@ -3383,4 +3383,68 @@ class SEn extends S {
   String shopHoldoutMeasuring(int min, int need) {
     return 'We\'re still measuring your messages\' impact — $min of $need in the smaller group.';
   }
+
+  @override
+  String shopTodayRetrying(int n) {
+    return '$n message(s) still trying to go out';
+  }
+
+  @override
+  String get shopTrendUp => 'improving';
+
+  @override
+  String get shopTrendDown => 'declining';
+
+  @override
+  String shopRetentionSincePeriods(int n) {
+    return 'for $n periods';
+  }
+
+  @override
+  String get shopAtLeastSuffix => ' — at least';
+
+  @override
+  String get shopRegisterFirstVisitArrow => 'Record first visit ←';
+
+  @override
+  String get shopWeekNoCompare => 'We don\'t have a full week yet to compare';
+
+  @override
+  String shopNextStepAlso(String msg) {
+    return 'Also: $msg';
+  }
+
+  @override
+  String shopBranchCompareUnassigned(int n) {
+    return '$n visit(s) with no branch set — not counted toward any branch.';
+  }
+
+  @override
+  String get shopBranchCompareNeedTwo =>
+      'We don\'t compare branches yet — needs two or more branches with real visits.';
+
+  @override
+  String get shopBranchCompareNeedSecond =>
+      'One active branch so far — comparison needs a second branch with real visits.';
+
+  @override
+  String get shopBranchCompareTooShort =>
+      'We don\'t rank branches yet — the period is too short, and comparing now would be unfair to the newest one.';
+
+  @override
+  String shopStaffCompareUnassigned(int n) {
+    return '$n visit(s) with no staff set — not counted toward anyone.';
+  }
+
+  @override
+  String get shopStaffCompareNeedTwo =>
+      'We don\'t compare staff yet — needs two or more staff with visits attributed to them.';
+
+  @override
+  String get shopStaffCompareNeedSecond =>
+      'One staff member attributed so far — comparison needs a second with real visits.';
+
+  @override
+  String get shopStaffCompareTooShort =>
+      'We don\'t rank staff yet — the period is too short, and comparing now would be unfair to the newest one.';
 }

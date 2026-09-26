@@ -3356,4 +3356,68 @@ class SAr extends S {
   String shopHoldoutMeasuring(int min, int need) {
     return 'ما زلنا نقيس أثر الرسائل على محلّك — $min من $need في أصغر المجموعتين.';
   }
+
+  @override
+  String shopTodayRetrying(int n) {
+    return '$n رسالة تحاول الخروج';
+  }
+
+  @override
+  String get shopTrendUp => 'تتحسّن';
+
+  @override
+  String get shopTrendDown => 'تتراجع';
+
+  @override
+  String shopRetentionSincePeriods(int n) {
+    return 'منذ $n فترات';
+  }
+
+  @override
+  String get shopAtLeastSuffix => ' — على الأقل';
+
+  @override
+  String get shopRegisterFirstVisitArrow => 'سجّل أول زيارة ←';
+
+  @override
+  String get shopWeekNoCompare => 'لسه ما عندنا أسبوع كامل نقارنه';
+
+  @override
+  String shopNextStepAlso(String msg) {
+    return 'وأيضاً: $msg';
+  }
+
+  @override
+  String shopBranchCompareUnassigned(int n) {
+    return '$n زيارة بلا فرع محدَّد — لا تُحتسب لأي فرع.';
+  }
+
+  @override
+  String get shopBranchCompareNeedTwo =>
+      'لا نقارن الفروع بعد — يحتاج فرعان فأكثر بزيارات حقيقية.';
+
+  @override
+  String get shopBranchCompareNeedSecond =>
+      'فرع واحد فعّال حتى الآن — المقارنة تحتاج فرعاً ثانياً بزيارات حقيقية.';
+
+  @override
+  String get shopBranchCompareTooShort =>
+      'لا نرتّب الفروع بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.';
+
+  @override
+  String shopStaffCompareUnassigned(int n) {
+    return '$n زيارة بلا موظف محدَّد — لا تُحتسب لأحد.';
+  }
+
+  @override
+  String get shopStaffCompareNeedTwo =>
+      'لا نقارن الموظفين بعد — يحتاج موظفان فأكثر بزيارات منسوبة لهم.';
+
+  @override
+  String get shopStaffCompareNeedSecond =>
+      'موظف واحد منسوب حتى الآن — المقارنة تحتاج موظفاً ثانياً بزيارات حقيقية.';
+
+  @override
+  String get shopStaffCompareTooShort =>
+      'لا نرتّب الموظفين بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.';
 }

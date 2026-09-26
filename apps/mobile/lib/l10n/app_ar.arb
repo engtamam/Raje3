@@ -3139,5 +3139,26 @@
   "shopHoldoutMeasuring": "ما زلنا نقيس أثر الرسائل على محلّك — {min} من {need} في أصغر المجموعتين.",
   "@shopHoldoutMeasuring": {
     "placeholders": { "min": { "type": "int" }, "need": { "type": "int" } }
-  }
+  },
+  "shopTodayRetrying": "{n} رسالة تحاول الخروج",
+  "@shopTodayRetrying": { "placeholders": { "n": { "type": "int" } } },
+  "shopTrendUp": "تتحسّن",
+  "shopTrendDown": "تتراجع",
+  "shopRetentionSincePeriods": "منذ {n} فترات",
+  "@shopRetentionSincePeriods": { "placeholders": { "n": { "type": "int" } } },
+  "shopAtLeastSuffix": " — على الأقل",
+  "shopRegisterFirstVisitArrow": "سجّل أول زيارة ←",
+  "shopWeekNoCompare": "لسه ما عندنا أسبوع كامل نقارنه",
+  "shopNextStepAlso": "وأيضاً: {msg}",
+  "@shopNextStepAlso": { "placeholders": { "msg": { "type": "String" } } },
+  "shopBranchCompareUnassigned": "{n} زيارة بلا فرع محدَّد — لا تُحتسب لأي فرع.",
+  "@shopBranchCompareUnassigned": { "placeholders": { "n": { "type": "int" } } },
+  "shopBranchCompareNeedTwo": "لا نقارن الفروع بعد — يحتاج فرعان فأكثر بزيارات حقيقية.",
+  "shopBranchCompareNeedSecond": "فرع واحد فعّال حتى الآن — المقارنة تحتاج فرعاً ثانياً بزيارات حقيقية.",
+  "shopBranchCompareTooShort": "لا نرتّب الفروع بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.",
+  "shopStaffCompareUnassigned": "{n} زيارة بلا موظف محدَّد — لا تُحتسب لأحد.",
+  "@shopStaffCompareUnassigned": { "placeholders": { "n": { "type": "int" } } },
+  "shopStaffCompareNeedTwo": "لا نقارن الموظفين بعد — يحتاج موظفان فأكثر بزيارات منسوبة لهم.",
+  "shopStaffCompareNeedSecond": "موظف واحد منسوب حتى الآن — المقارنة تحتاج موظفاً ثانياً بزيارات حقيقية.",
+  "shopStaffCompareTooShort": "لا نرتّب الموظفين بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث."
 }

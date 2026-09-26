@@ -3346,4 +3346,68 @@ class SBn extends S {
   String shopHoldoutMeasuring(int min, int need) {
     return 'আমরা এখনও আপনার দোকানে বার্তার প্রভাব পরিমাপ করছি — ছোট দলে $need-এর মধ্যে $min জন।';
   }
+
+  @override
+  String shopTodayRetrying(int n) {
+    return '$nটি বার্তা এখনও বের হওয়ার চেষ্টা করছে';
+  }
+
+  @override
+  String get shopTrendUp => 'উন্নতি হচ্ছে';
+
+  @override
+  String get shopTrendDown => 'কমছে';
+
+  @override
+  String shopRetentionSincePeriods(int n) {
+    return '$n সময়কাল ধরে';
+  }
+
+  @override
+  String get shopAtLeastSuffix => ' — অন্তত';
+
+  @override
+  String get shopRegisterFirstVisitArrow => 'প্রথম ভিজিট নথিভুক্ত করুন ←';
+
+  @override
+  String get shopWeekNoCompare => 'তুলনা করার মতো এখনও একটি পূর্ণ সপ্তাহ নেই';
+
+  @override
+  String shopNextStepAlso(String msg) {
+    return 'আরও: $msg';
+  }
+
+  @override
+  String shopBranchCompareUnassigned(int n) {
+    return '$nটি ভিজিটে কোনো শাখা নির্ধারিত নেই — কোনো শাখার জন্য গণনা হয়নি।';
+  }
+
+  @override
+  String get shopBranchCompareNeedTwo =>
+      'এখনও শাখাগুলো তুলনা করা হয় না — বাস্তব ভিজিটসহ দুই বা তার বেশি শাখা দরকার।';
+
+  @override
+  String get shopBranchCompareNeedSecond =>
+      'এখন পর্যন্ত একটি সক্রিয় শাখা — তুলনার জন্য বাস্তব ভিজিটসহ দ্বিতীয় শাখা দরকার।';
+
+  @override
+  String get shopBranchCompareTooShort =>
+      'এখনও শাখাগুলোর ক্রম নির্ধারণ করা হয় না — সময়কাল খুব ছোট, আর এখন তুলনা করলে নতুনটির প্রতি অন্যায় হবে।';
+
+  @override
+  String shopStaffCompareUnassigned(int n) {
+    return '$nটি ভিজিটে কোনো কর্মী নির্ধারিত নেই — কারো জন্য গণনা হয়নি।';
+  }
+
+  @override
+  String get shopStaffCompareNeedTwo =>
+      'এখনও কর্মীদের তুলনা করা হয় না — যুক্ত ভিজিটসহ দুই বা তার বেশি কর্মী দরকার।';
+
+  @override
+  String get shopStaffCompareNeedSecond =>
+      'এখন পর্যন্ত একজন কর্মী যুক্ত — তুলনার জন্য বাস্তব ভিজিটসহ দ্বিতীয় জন দরকার।';
+
+  @override
+  String get shopStaffCompareTooShort =>
+      'এখনও কর্মীদের ক্রম নির্ধারণ করা হয় না — সময়কাল খুব ছোট, আর এখন তুলনা করলে নতুনটির প্রতি অন্যায় হবে।';
 }

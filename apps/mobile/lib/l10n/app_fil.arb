@@ -1345,5 +1345,26 @@
   "shopHoldoutMeasuring": "Sinusukat pa namin ang epekto ng mensahe sa tindahan mo — {min} sa {need} sa mas maliit na grupo.",
   "@shopHoldoutMeasuring": {
     "placeholders": { "min": { "type": "int" }, "need": { "type": "int" } }
-  }
+  },
+  "shopTodayRetrying": "May {n} mensaheng sinusubukan pa ring makalabas",
+  "@shopTodayRetrying": { "placeholders": { "n": { "type": "int" } } },
+  "shopTrendUp": "gumagaling",
+  "shopTrendDown": "bumababa",
+  "shopRetentionSincePeriods": "sa loob ng {n} yugto",
+  "@shopRetentionSincePeriods": { "placeholders": { "n": { "type": "int" } } },
+  "shopAtLeastSuffix": " — kahit man lang",
+  "shopRegisterFirstVisitArrow": "Irehistro ang unang bisita ←",
+  "shopWeekNoCompare": "Wala pa kaming kumpletong linggo para ikumpara",
+  "shopNextStepAlso": "Dagdag pa: {msg}",
+  "@shopNextStepAlso": { "placeholders": { "msg": { "type": "String" } } },
+  "shopBranchCompareUnassigned": "{n} bisitang walang itinalagang branch — hindi naibilang sa kahit anong branch.",
+  "@shopBranchCompareUnassigned": { "placeholders": { "n": { "type": "int" } } },
+  "shopBranchCompareNeedTwo": "Hindi pa namin ikinukumpara ang mga branch — kailangan ng dalawa o higit pang branch na may totoong bisita.",
+  "shopBranchCompareNeedSecond": "Isang aktibong branch pa lamang — kailangan ng pangalawang branch na may totoong bisita para sa paghahambing.",
+  "shopBranchCompareTooShort": "Hindi pa namin ini-rank ang mga branch — maikli pa ang panahon, at hindi pa makatarungan ang paghahambing sa pinakabago.",
+  "shopStaffCompareUnassigned": "{n} bisitang walang itinalagang staff — hindi naibilang kaninuman.",
+  "@shopStaffCompareUnassigned": { "placeholders": { "n": { "type": "int" } } },
+  "shopStaffCompareNeedTwo": "Hindi pa namin ikinukumpara ang staff — kailangan ng dalawa o higit pang staff na may naitalagang bisita.",
+  "shopStaffCompareNeedSecond": "Isang naitalagang staff pa lamang — kailangan ng pangalawa na may totoong bisita para sa paghahambing.",
+  "shopStaffCompareTooShort": "Hindi pa namin ini-rank ang staff — maikli pa ang panahon, at hindi pa makatarungan ang paghahambing sa pinakabago."
 }

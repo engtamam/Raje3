@@ -5714,6 +5714,102 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'ما زلنا نقيس أثر الرسائل على محلّك — {min} من {need} في أصغر المجموعتين.'**
   String shopHoldoutMeasuring(int min, int need);
+
+  /// No description provided for @shopTodayRetrying.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} رسالة تحاول الخروج'**
+  String shopTodayRetrying(int n);
+
+  /// No description provided for @shopTrendUp.
+  ///
+  /// In ar, this message translates to:
+  /// **'تتحسّن'**
+  String get shopTrendUp;
+
+  /// No description provided for @shopTrendDown.
+  ///
+  /// In ar, this message translates to:
+  /// **'تتراجع'**
+  String get shopTrendDown;
+
+  /// No description provided for @shopRetentionSincePeriods.
+  ///
+  /// In ar, this message translates to:
+  /// **'منذ {n} فترات'**
+  String shopRetentionSincePeriods(int n);
+
+  /// No description provided for @shopAtLeastSuffix.
+  ///
+  /// In ar, this message translates to:
+  /// **' — على الأقل'**
+  String get shopAtLeastSuffix;
+
+  /// No description provided for @shopRegisterFirstVisitArrow.
+  ///
+  /// In ar, this message translates to:
+  /// **'سجّل أول زيارة ←'**
+  String get shopRegisterFirstVisitArrow;
+
+  /// No description provided for @shopWeekNoCompare.
+  ///
+  /// In ar, this message translates to:
+  /// **'لسه ما عندنا أسبوع كامل نقارنه'**
+  String get shopWeekNoCompare;
+
+  /// No description provided for @shopNextStepAlso.
+  ///
+  /// In ar, this message translates to:
+  /// **'وأيضاً: {msg}'**
+  String shopNextStepAlso(String msg);
+
+  /// No description provided for @shopBranchCompareUnassigned.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} زيارة بلا فرع محدَّد — لا تُحتسب لأي فرع.'**
+  String shopBranchCompareUnassigned(int n);
+
+  /// No description provided for @shopBranchCompareNeedTwo.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا نقارن الفروع بعد — يحتاج فرعان فأكثر بزيارات حقيقية.'**
+  String get shopBranchCompareNeedTwo;
+
+  /// No description provided for @shopBranchCompareNeedSecond.
+  ///
+  /// In ar, this message translates to:
+  /// **'فرع واحد فعّال حتى الآن — المقارنة تحتاج فرعاً ثانياً بزيارات حقيقية.'**
+  String get shopBranchCompareNeedSecond;
+
+  /// No description provided for @shopBranchCompareTooShort.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا نرتّب الفروع بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.'**
+  String get shopBranchCompareTooShort;
+
+  /// No description provided for @shopStaffCompareUnassigned.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} زيارة بلا موظف محدَّد — لا تُحتسب لأحد.'**
+  String shopStaffCompareUnassigned(int n);
+
+  /// No description provided for @shopStaffCompareNeedTwo.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا نقارن الموظفين بعد — يحتاج موظفان فأكثر بزيارات منسوبة لهم.'**
+  String get shopStaffCompareNeedTwo;
+
+  /// No description provided for @shopStaffCompareNeedSecond.
+  ///
+  /// In ar, this message translates to:
+  /// **'موظف واحد منسوب حتى الآن — المقارنة تحتاج موظفاً ثانياً بزيارات حقيقية.'**
+  String get shopStaffCompareNeedSecond;
+
+  /// No description provided for @shopStaffCompareTooShort.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا نرتّب الموظفين بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.'**
+  String get shopStaffCompareTooShort;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

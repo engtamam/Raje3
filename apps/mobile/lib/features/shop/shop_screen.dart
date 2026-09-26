@@ -166,6 +166,11 @@ class _ShopScreenState extends State<ShopScreen> {
                     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: _BlockedBanner(text: _today!.blocked!, s: s),
                   ),
+                if ((_today?.retrying ?? 0) > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: _RetryingBanner(today: _today!, s: s),
+                  ),
                 _RetentionHero(dashboard: dash, s: s),
                 const SizedBox(height: AppSpacing.sm),
                 if (_today != null) _TodayStrip(today: _today!, s: s),
@@ -242,6 +247,36 @@ class _BlockedBanner extends StatelessWidget {
             child: Text(text,
                 style: AppTextStyles.bodySmall.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RetryingBanner extends StatelessWidget {
+  final TodayStatus today;
+  final S s;
+  const _RetryingBanner({required this.today, required this.s});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: (context.isDark ? AppDarkColors.dangerSoft : AppColors.dangerSoft),
+        borderRadius: AppRadius.standardRadius,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(s.shopTodayRetrying(today.retrying ?? 0),
+              style: AppTextStyles.bodySmall.copyWith(
+                  color: context.isDark ? AppDarkColors.dangerOnSoft : AppColors.dangerOnSoft,
+                  fontWeight: FontWeight.w700)),
+          if (today.retryingReason != null && today.retryingReason!.isNotEmpty)
+            Text(today.retryingReason!,
+                style: AppTextStyles.caption.copyWith(
+                    color: context.isDark ? AppDarkColors.dangerOnSoft : AppColors.dangerOnSoft)),
         ],
       ),
     );
@@ -369,8 +404,40 @@ class _RetentionHero extends StatelessWidget {
             _normalSentence(s, pct),
           if (hasSeries) ...[
             const SizedBox(height: AppSpacing.sm),
-            _seriesDelta(series, s),
+            Row(children: [
+              _seriesDelta(series, s),
+              const SizedBox(width: 6),
+              _streakFlame(series, s),
+            ]),
+            if (series.points.length > 1) ...[
+              const SizedBox(height: AppSpacing.md),
+              _RetentionTrendChart(points: series.points),
+            ],
           ],
+        ],
+      ),
+    );
+  }
+
+  /// A Duolingo-style flame, not the console's plain 📈/📉 text — the same computed streak
+  /// (three-plus consecutive same-direction points, `retentionStreak()` in Shop.tsx), given its
+  /// own mobile-native gamified treatment rather than a literal port of the desktop badge.
+  Widget _streakFlame(RetentionSeries series, S s) {
+    final streak = _retentionStreak(series.points);
+    if (streak == null) return const SizedBox.shrink();
+    final color = streak.rising ? const Color(0xFFBAF5DA) : const Color(0xFFFFD3C9);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4),
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(AppRadius.pill)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(streak.rising ? '🔥' : '📉', style: const TextStyle(fontSize: 11)),
+          const SizedBox(width: 3),
+          Text(
+            '${streak.rising ? s.shopTrendUp : s.shopTrendDown} ${s.shopRetentionSincePeriods(streak.length)}',
+            style: AppTextStyles.caption.copyWith(color: color, fontWeight: FontWeight.w700),
+          ),
         ],
       ),
     );
@@ -428,6 +495,120 @@ class _RetentionHero extends StatelessWidget {
       ),
     );
   }
+}
+
+class _Streak {
+  final int length;
+  final bool rising;
+  const _Streak(this.length, this.rising);
+}
+
+/// Same rule as Shop.tsx's own `retentionStreak()` — needs three real (non-null) points in a row
+/// moving the same way, ending at the newest one; a flat move or a direction change breaks it.
+_Streak? _retentionStreak(List<SeriesPoint> points) {
+  final drawn = points.where((p) => p.value != null).toList();
+  if (drawn.length < 3) return null;
+  final rising = drawn.last.value! > drawn[drawn.length - 2].value!;
+  var length = 1;
+  for (var i = drawn.length - 1; i > 0; i--) {
+    final up = drawn[i].value! > drawn[i - 1].value!;
+    final flat = drawn[i].value! == drawn[i - 1].value!;
+    if (flat || up != rising) break;
+    length++;
+  }
+  return length >= 3 ? _Streak(length, rising) : null;
+}
+
+/// A HAND-DRAWN CURVE, NOT A THIRD-PARTY CHART LIBRARY — a soft gradient fill under a smoothed
+/// line (quadratic through each pair's midpoint, same technique as Shop.tsx's own `RetentionTrend`,
+/// reimplemented natively with `CustomPainter` rather than SVG) with the newest point lit by a
+/// glow. A `value: null` point is a real gap in the curve (too few customers in that window to
+/// trust) and is never bridged into a false continuity — drawn as a separate run.
+class _RetentionTrendChart extends StatelessWidget {
+  final List<SeriesPoint> points;
+  const _RetentionTrendChart({required this.points});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 84,
+      width: double.infinity,
+      child: CustomPaint(painter: _RetentionTrendPainter(points)),
+    );
+  }
+}
+
+class _RetentionTrendPainter extends CustomPainter {
+  final List<SeriesPoint> points;
+  const _RetentionTrendPainter(this.points);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final n = points.length;
+    if (n < 2) return;
+    final vals = points.map((p) => p.value).whereType<double>().toList();
+    if (vals.length < 2) return;
+    final minV = vals.reduce((a, b) => a < b ? a : b);
+    final maxV = vals.reduce((a, b) => a > b ? a : b);
+    final span = (maxV - minV) == 0 ? 0.1 : (maxV - minV);
+
+    final runs = <List<Offset>>[];
+    var current = <Offset>[];
+    for (var i = 0; i < n; i++) {
+      final v = points[i].value;
+      if (v == null) {
+        if (current.length > 1) runs.add(current);
+        current = [];
+        continue;
+      }
+      final x = (i / (n - 1)) * size.width;
+      final y = size.height - ((v - minV) / span) * size.height;
+      current.add(Offset(x, y));
+    }
+    if (current.length > 1) runs.add(current);
+    if (runs.isEmpty) return;
+
+    Path smooth(List<Offset> run) {
+      final path = Path()..moveTo(run.first.dx, run.first.dy);
+      for (var i = 1; i < run.length; i++) {
+        final mid = Offset((run[i - 1].dx + run[i].dx) / 2, (run[i - 1].dy + run[i].dy) / 2);
+        path.quadraticBezierTo(run[i - 1].dx, run[i - 1].dy, mid.dx, mid.dy);
+      }
+      path.lineTo(run.last.dx, run.last.dy);
+      return path;
+    }
+
+    final longest = runs.reduce((a, b) => b.length > a.length ? b : a);
+    final areaPath = smooth(longest)
+      ..lineTo(longest.last.dx, size.height)
+      ..lineTo(longest.first.dx, size.height)
+      ..close();
+    canvas.drawPath(
+      areaPath,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.white.withValues(alpha: 0.32), Colors.white.withValues(alpha: 0)],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
+    );
+
+    final linePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.25
+      ..strokeCap = StrokeCap.round;
+    for (final run in runs) {
+      canvas.drawPath(smooth(run), linePaint);
+    }
+
+    final last = longest.last;
+    canvas.drawCircle(last, 6, Paint()..color = Colors.white.withValues(alpha: 0.18));
+    canvas.drawCircle(last, 3, Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RetentionTrendPainter oldDelegate) => !identical(oldDelegate.points, points);
 }
 
 class _TodayStrip extends StatelessWidget {
@@ -537,6 +718,15 @@ class _NextStepCard extends StatelessWidget {
               ),
             ],
           ),
+          if (step.secondary != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                s.shopNextStepAlso(step.secondary!.message),
+                style: AppTextStyles.caption.copyWith(
+                    color: luxury ? Colors.white70 : (context.isDark ? AppDarkColors.textMuted : AppColors.textMuted)),
+              ),
+            ),
         ],
       ),
     );
@@ -844,8 +1034,14 @@ class _WeekDeck extends StatelessWidget {
         FutureBuilder<Branches?>(
           future: service.branches(),
           builder: (context, snap) {
+            // `snap.hasData` is false BOTH while pending AND once resolved successfully to
+            // `null` (a shop with no `insights.branches` capability) — `connectionState` is the
+            // only way to tell "still loading" apart from "loaded, and there is genuinely
+            // nothing", so a real empty result never gets stuck reading as a permanent spinner.
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Padding(padding: EdgeInsets.all(AppSpacing.md), child: AppLoadingIndicator());
+            }
             final branches = snap.data;
-            if (!snap.hasData) return const Padding(padding: EdgeInsets.all(AppSpacing.md), child: AppLoadingIndicator());
             return branches != null
                 ? _BranchCompareCard(branches: branches, s: s)
                 : _MutedCard(title: s.shopBranchCompareTitle, note: s.shopBranchCompareMutedNote);
@@ -853,7 +1049,12 @@ class _WeekDeck extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.md),
         operators != null
-            ? _StaffCompareCard(rows: operators, s: s)
+            ? _StaffCompareCard(
+                rows: operators,
+                unknown: service.operatorUnknown(dashboard),
+                canRank: service.operatorCanRank(dashboard),
+                s: s,
+              )
             : _MutedCard(title: s.shopStaffCompareTitle, note: s.shopStaffCompareMutedNote),
       ],
     );
@@ -869,6 +1070,35 @@ class _WeekPulseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final delta = week.previous != null ? week.visits - week.previous! : null;
+    final justStarted = week.visits == 0 && week.previous == null;
+    if (justStarted) {
+      return InkWell(
+        borderRadius: AppRadius.standardRadius,
+        onTap: () => context.goNamed('visit'),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.standardRadius,
+            border: Border.all(color: colors.borderSubtle, style: BorderStyle.solid),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(s.shopWeekTitle, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
+                  Text('0', textDirection: TextDirection.ltr, style: AppTextStyles.headlineSmall.copyWith(color: colors.textMuted, fontWeight: FontWeight.w800)),
+                ],
+              ),
+              Text(s.shopRegisterFirstVisitArrow,
+                  style: AppTextStyles.caption.copyWith(
+                      color: context.isDark ? AppDarkColors.accent : AppColors.accent, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      );
+    }
     return _Card(
       child: Row(
         children: [
@@ -885,7 +1115,9 @@ class _WeekPulseCard extends StatelessWidget {
             Text('${delta >= 0 ? '↑' : '↓'} ${delta.abs()}',
                 textDirection: TextDirection.ltr,
                 style: AppTextStyles.bodySmall.copyWith(
-                    color: delta >= 0 ? AppColors.success : AppColors.danger, fontWeight: FontWeight.w700)),
+                    color: delta >= 0 ? AppColors.success : AppColors.danger, fontWeight: FontWeight.w700))
+          else
+            Text(s.shopWeekNoCompare, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
         ],
       ),
     );
@@ -975,10 +1207,24 @@ class _BranchCompareCard extends StatelessWidget {
                   ],
                 ),
               ),
+            if (branches.unknown > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(s.shopBranchCompareUnassigned(branches.unknown),
+                    style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
+              ),
             if (muted)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text(s.shopBranchCompareMutedNote, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
+                child: Text(
+                  branches.rows.isEmpty ? s.shopBranchCompareNeedTwo : s.shopBranchCompareNeedSecond,
+                  style: AppTextStyles.caption.copyWith(color: colors.textMuted),
+                ),
+              )
+            else if (!branches.canRank)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(s.shopBranchCompareTooShort, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
               ),
           ],
         ),
@@ -989,8 +1235,10 @@ class _BranchCompareCard extends StatelessWidget {
 
 class _StaffCompareCard extends StatelessWidget {
   final List<OperatorRow> rows;
+  final int unknown;
+  final bool canRank;
   final S s;
-  const _StaffCompareCard({required this.rows, required this.s});
+  const _StaffCompareCard({required this.rows, required this.unknown, required this.canRank, required this.s});
 
   @override
   Widget build(BuildContext context) {
@@ -1019,10 +1267,23 @@ class _StaffCompareCard extends StatelessWidget {
                   ],
                 ),
               ),
+            if (unknown > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(s.shopStaffCompareUnassigned(unknown), style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
+              ),
             if (muted)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text(s.shopStaffCompareMutedNote, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
+                child: Text(
+                  rows.isEmpty ? s.shopStaffCompareNeedTwo : s.shopStaffCompareNeedSecond,
+                  style: AppTextStyles.caption.copyWith(color: colors.textMuted),
+                ),
+              )
+            else if (!canRank)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(s.shopStaffCompareTooShort, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
               ),
           ],
         ),
@@ -1133,7 +1394,10 @@ class _MessageFlowCard extends StatelessWidget {
           Text(s.shopMessageFlowTitle, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: AppSpacing.sm),
           if (eff != null && eff!.ready)
-            Text(s.shopReturnedAfterReminder(eff!.visits ?? 0, eff!.windowDays ?? 0), style: AppTextStyles.bodySmall)
+            Text(
+              '${s.shopReturnedAfterReminder(eff!.visits ?? 0, eff!.windowDays ?? 0)}${eff!.partial ? s.shopAtLeastSuffix : ''}',
+              style: AppTextStyles.bodySmall,
+            )
           else if (eff != null)
             // `eff.reason` is a raw backend code — console's own MessageFlow never shows it,
             // always falling back to a fixed "no data" sentence regardless of the reason.
