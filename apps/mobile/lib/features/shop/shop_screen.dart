@@ -33,10 +33,10 @@ import 'package:raje3_mobile/widgets/kb_anchor.dart';
 /// A DOCUMENTED, EXPLICIT SUBSET — never a silent gap ([[no-placeholder-drift]]). This pass covers
 /// the highest-value indicators (hero+series+streak+trend chart, next-step+secondary, at-risk, AI
 /// impact, week pulse, new-vs-returning, branch/staff compare, service popularity, weak services,
-/// message flow, holdout, the three heatmaps, bundles, associations, recent visits, manual
-/// refresh). NOT YET BUILT, tracked for a real follow-up, not invented here: missed opportunities,
-/// lead conversion, and two small KPI rows the console keeps (active customers/return cycle days/
-/// churn rate; services-per-visit/expected-flow/cycle-completion) — see parity/shop.md.
+/// message flow, holdout, the three heatmaps, bundles, associations, missed opportunities, recent
+/// visits, manual refresh). NOT YET BUILT, tracked for a real follow-up, not invented here: lead
+/// conversion, and two small KPI rows the console keeps (active customers/return cycle days/churn
+/// rate; services-per-visit/expected-flow/cycle-completion) — see parity/shop.md.
 ///
 /// EVERY CARD BELOW STILL DRAWS ITSELF WHEN THIN — muted, never hidden, same rule the console
 /// states outright ("لازم ما تجلس تخفي شي ابدا"): a `_MutedCard` fallback everywhere data has not
