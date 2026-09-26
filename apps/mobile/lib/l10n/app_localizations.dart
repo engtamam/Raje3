@@ -5810,6 +5810,192 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'لا نرتّب الموظفين بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.'**
   String get shopStaffCompareTooShort;
+
+  /// No description provided for @shopPeakTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'أكثر أوقاتك ازدحامًا'**
+  String get shopPeakTitle;
+
+  /// No description provided for @shopPeakMutedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحتاج زياراتٍ موزّعة على أيام وساعات كافية لنرسمها.'**
+  String get shopPeakMutedNote;
+
+  /// No description provided for @shopPeakBusiestTime.
+  ///
+  /// In ar, this message translates to:
+  /// **'{day} حوالي الساعة {h}:00'**
+  String shopPeakBusiestTime(String day, int h);
+
+  /// No description provided for @shopPeakBusiestNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'أكثر وقت زحمة عندك: {name}.'**
+  String shopPeakBusiestNote(String name);
+
+  /// No description provided for @shopEntityDayServicesTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'خدماتك حسب يوم الأسبوع'**
+  String get shopEntityDayServicesTitle;
+
+  /// No description provided for @shopEntityDayServicesHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'أي خدمة تُطلب بيوم معيّن أكثر — يساعدك تجهّز الطاقم المناسب ذاك اليوم.'**
+  String get shopEntityDayServicesHint;
+
+  /// No description provided for @shopEntityDayServicesMutedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحتاج زياراتٍ موزّعة على أيام كافية لنرسمها.'**
+  String get shopEntityDayServicesMutedNote;
+
+  /// No description provided for @shopEntityDayBranchesTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'فروعك حسب يوم الأسبوع'**
+  String get shopEntityDayBranchesTitle;
+
+  /// No description provided for @shopEntityDayBranchesHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'فروعك ما تشترك بالضرورة بنفس الإيقاع — فرع بمول يزدحم بعطلة، وفرع حيّ يزدحم بعد الدوام.'**
+  String get shopEntityDayBranchesHint;
+
+  /// No description provided for @shopEntityDayBranchesMutedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحتاج فرعاً ثانياً وزياراتٍ موزّعة على أيام كافية لنرسمها.'**
+  String get shopEntityDayBranchesMutedNote;
+
+  /// No description provided for @shopBundlesTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'باقات مقترحة'**
+  String get shopBundlesTitle;
+
+  /// No description provided for @shopBundlesMutedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما فيه اقترانات كافية بعد لنقترح باقة منها.'**
+  String get shopBundlesMutedNote;
+
+  /// No description provided for @shopBundlesOpportunity.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} فرصة'**
+  String shopBundlesOpportunity(int n);
+
+  /// No description provided for @shopAssociationsTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما يُطلب معًا'**
+  String get shopAssociationsTitle;
+
+  /// No description provided for @shopAssociationsMutedNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما فيه اقترانات كافية بعد.'**
+  String get shopAssociationsMutedNote;
+
+  /// No description provided for @shopAssociationsLearningNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما نعرف بعد ما الذي يُطلب مع ماذا — التعرّف على الاقترانات يحتاج زياراتٍ أكثر ليصير الاستنتاج صحيحاً لا صدفة. ({have}/{need})'**
+  String shopAssociationsLearningNote(int have, int need);
+
+  /// No description provided for @shopCustomersCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} عميلاً'**
+  String shopCustomersCount(int n);
+
+  /// No description provided for @shopDay0Short.
+  ///
+  /// In ar, this message translates to:
+  /// **'ح'**
+  String get shopDay0Short;
+
+  /// No description provided for @shopDay1Short.
+  ///
+  /// In ar, this message translates to:
+  /// **'ن'**
+  String get shopDay1Short;
+
+  /// No description provided for @shopDay2Short.
+  ///
+  /// In ar, this message translates to:
+  /// **'ث'**
+  String get shopDay2Short;
+
+  /// No description provided for @shopDay3Short.
+  ///
+  /// In ar, this message translates to:
+  /// **'ر'**
+  String get shopDay3Short;
+
+  /// No description provided for @shopDay4Short.
+  ///
+  /// In ar, this message translates to:
+  /// **'خ'**
+  String get shopDay4Short;
+
+  /// No description provided for @shopDay5Short.
+  ///
+  /// In ar, this message translates to:
+  /// **'ج'**
+  String get shopDay5Short;
+
+  /// No description provided for @shopDay6Short.
+  ///
+  /// In ar, this message translates to:
+  /// **'س'**
+  String get shopDay6Short;
+
+  /// No description provided for @shopDay0Full.
+  ///
+  /// In ar, this message translates to:
+  /// **'الأحد'**
+  String get shopDay0Full;
+
+  /// No description provided for @shopDay1Full.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإثنين'**
+  String get shopDay1Full;
+
+  /// No description provided for @shopDay2Full.
+  ///
+  /// In ar, this message translates to:
+  /// **'الثلاثاء'**
+  String get shopDay2Full;
+
+  /// No description provided for @shopDay3Full.
+  ///
+  /// In ar, this message translates to:
+  /// **'الأربعاء'**
+  String get shopDay3Full;
+
+  /// No description provided for @shopDay4Full.
+  ///
+  /// In ar, this message translates to:
+  /// **'الخميس'**
+  String get shopDay4Full;
+
+  /// No description provided for @shopDay5Full.
+  ///
+  /// In ar, this message translates to:
+  /// **'الجمعة'**
+  String get shopDay5Full;
+
+  /// No description provided for @shopDay6Full.
+  ///
+  /// In ar, this message translates to:
+  /// **'السبت'**
+  String get shopDay6Full;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

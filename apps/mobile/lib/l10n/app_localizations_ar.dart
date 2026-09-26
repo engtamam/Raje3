@@ -3420,4 +3420,113 @@ class SAr extends S {
   @override
   String get shopStaffCompareTooShort =>
       'لا نرتّب الموظفين بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.';
+
+  @override
+  String get shopPeakTitle => 'أكثر أوقاتك ازدحامًا';
+
+  @override
+  String get shopPeakMutedNote =>
+      'تحتاج زياراتٍ موزّعة على أيام وساعات كافية لنرسمها.';
+
+  @override
+  String shopPeakBusiestTime(String day, int h) {
+    return '$day حوالي الساعة $h:00';
+  }
+
+  @override
+  String shopPeakBusiestNote(String name) {
+    return 'أكثر وقت زحمة عندك: $name.';
+  }
+
+  @override
+  String get shopEntityDayServicesTitle => 'خدماتك حسب يوم الأسبوع';
+
+  @override
+  String get shopEntityDayServicesHint =>
+      'أي خدمة تُطلب بيوم معيّن أكثر — يساعدك تجهّز الطاقم المناسب ذاك اليوم.';
+
+  @override
+  String get shopEntityDayServicesMutedNote =>
+      'تحتاج زياراتٍ موزّعة على أيام كافية لنرسمها.';
+
+  @override
+  String get shopEntityDayBranchesTitle => 'فروعك حسب يوم الأسبوع';
+
+  @override
+  String get shopEntityDayBranchesHint =>
+      'فروعك ما تشترك بالضرورة بنفس الإيقاع — فرع بمول يزدحم بعطلة، وفرع حيّ يزدحم بعد الدوام.';
+
+  @override
+  String get shopEntityDayBranchesMutedNote =>
+      'تحتاج فرعاً ثانياً وزياراتٍ موزّعة على أيام كافية لنرسمها.';
+
+  @override
+  String get shopBundlesTitle => 'باقات مقترحة';
+
+  @override
+  String get shopBundlesMutedNote =>
+      'ما فيه اقترانات كافية بعد لنقترح باقة منها.';
+
+  @override
+  String shopBundlesOpportunity(int n) {
+    return '$n فرصة';
+  }
+
+  @override
+  String get shopAssociationsTitle => 'ما يُطلب معًا';
+
+  @override
+  String get shopAssociationsMutedNote => 'ما فيه اقترانات كافية بعد.';
+
+  @override
+  String shopAssociationsLearningNote(int have, int need) {
+    return 'ما نعرف بعد ما الذي يُطلب مع ماذا — التعرّف على الاقترانات يحتاج زياراتٍ أكثر ليصير الاستنتاج صحيحاً لا صدفة. ($have/$need)';
+  }
+
+  @override
+  String shopCustomersCount(int n) {
+    return '$n عميلاً';
+  }
+
+  @override
+  String get shopDay0Short => 'ح';
+
+  @override
+  String get shopDay1Short => 'ن';
+
+  @override
+  String get shopDay2Short => 'ث';
+
+  @override
+  String get shopDay3Short => 'ر';
+
+  @override
+  String get shopDay4Short => 'خ';
+
+  @override
+  String get shopDay5Short => 'ج';
+
+  @override
+  String get shopDay6Short => 'س';
+
+  @override
+  String get shopDay0Full => 'الأحد';
+
+  @override
+  String get shopDay1Full => 'الإثنين';
+
+  @override
+  String get shopDay2Full => 'الثلاثاء';
+
+  @override
+  String get shopDay3Full => 'الأربعاء';
+
+  @override
+  String get shopDay4Full => 'الخميس';
+
+  @override
+  String get shopDay5Full => 'الجمعة';
+
+  @override
+  String get shopDay6Full => 'السبت';
 }

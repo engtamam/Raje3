@@ -219,7 +219,7 @@ class _ShopScreenState extends State<ShopScreen> {
       case _Deck.week:
         return _WeekDeck(dashboard: dash, service: _service, s: s);
       case _Deck.opportunities:
-        return _OpportunitiesDeck(dashboard: dash, s: s);
+        return _OpportunitiesDeck(dashboard: dash, service: _service, s: s);
     }
   }
 }
@@ -1296,8 +1296,9 @@ class _StaffCompareCard extends StatelessWidget {
 
 class _OpportunitiesDeck extends StatelessWidget {
   final ShopDashboard dashboard;
+  final ShopDashboardService service;
   final S s;
-  const _OpportunitiesDeck({required this.dashboard, required this.s});
+  const _OpportunitiesDeck({required this.dashboard, required this.service, required this.s});
 
   @override
   Widget build(BuildContext context) {
@@ -1307,6 +1308,9 @@ class _OpportunitiesDeck extends StatelessWidget {
     final eff = dashboard.returnedAfterReminder;
     final opt = dashboard.optOutRate;
     final holdout = dashboard.holdoutComparison;
+    final peak = dashboard.peakMap;
+    final serviceDayRows = dashboard.serviceDayRows;
+    final branchDayRows = dashboard.branchDayRows;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1322,9 +1326,326 @@ class _OpportunitiesDeck extends StatelessWidget {
         holdout != null
             ? _HoldoutCard(h: holdout, s: s)
             : _MutedCard(title: s.shopHoldoutTitle, note: s.shopMutedHoldoutNote),
+        const SizedBox(height: AppSpacing.md),
+        (peak != null && peak.grid.isNotEmpty)
+            ? _PeakHeatmapCard(peak: peak, s: s)
+            : _MutedCard(title: s.shopPeakTitle, note: s.shopPeakMutedNote),
+        const SizedBox(height: AppSpacing.md),
+        serviceDayRows.isNotEmpty
+            ? _EntityDayHeatmapCard(
+                title: s.shopEntityDayServicesTitle, hint: s.shopEntityDayServicesHint, rows: serviceDayRows, teal: true)
+            : _MutedCard(title: s.shopEntityDayServicesTitle, note: s.shopEntityDayServicesMutedNote),
+        const SizedBox(height: AppSpacing.md),
+        branchDayRows.isNotEmpty
+            ? _EntityDayHeatmapCard(
+                title: s.shopEntityDayBranchesTitle, hint: s.shopEntityDayBranchesHint, rows: branchDayRows, teal: false)
+            : _MutedCard(title: s.shopEntityDayBranchesTitle, note: s.shopEntityDayBranchesMutedNote),
+        const SizedBox(height: AppSpacing.md),
+        FutureBuilder<(List<Bundle>?, String?)>(
+          future: service.bundles(),
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Padding(padding: EdgeInsets.all(AppSpacing.md), child: AppLoadingIndicator());
+            }
+            final result = snap.data;
+            final bundles = result?.$1;
+            final locked = result?.$2;
+            if (locked != null) return _LockedCard(title: s.shopBundlesTitle, text: locked);
+            if (bundles == null) return const SizedBox.shrink();
+            if (bundles.isEmpty) return _MutedCard(title: s.shopBundlesTitle, note: s.shopBundlesMutedNote);
+            return _BundlesCard(bundles: bundles, s: s);
+          },
+        ),
+        const SizedBox(height: AppSpacing.md),
+        FutureBuilder<(Pairs?, String?)>(
+          future: service.associations(),
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Padding(padding: EdgeInsets.all(AppSpacing.md), child: AppLoadingIndicator());
+            }
+            final result = snap.data;
+            final pairs = result?.$1;
+            final locked = result?.$2;
+            if (locked != null) return _LockedCard(title: s.shopAssociationsTitle, text: locked);
+            if (pairs == null) return const SizedBox.shrink();
+            if (pairs.learning) {
+              return _MutedCard(
+                title: s.shopAssociationsTitle,
+                note: s.shopAssociationsLearningNote(pairs.have, pairs.need),
+              );
+            }
+            if (pairs.pairs.isEmpty) return _MutedCard(title: s.shopAssociationsTitle, note: s.shopAssociationsMutedNote);
+            return _AssociationsCard(pairs: pairs.pairs, names: names, s: s);
+          },
+        ),
         const SizedBox(height: AppSpacing.lg),
         _RecentVisits(s: s),
       ],
+    );
+  }
+}
+
+class _LockedCard extends StatelessWidget {
+  final String title;
+  final String text;
+  const _LockedCard({required this.title, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return _Card(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.lock_outline_rounded, size: 16, color: colors.textMuted),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(text, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A 7×24 grid, colour depth alone saying which cell matters — same visual idea as
+/// Shop.tsx's own `PeakHeatmap`, reimplemented natively (a `GridView`-free `Row`-of-`Row`s, since
+/// this app has no chart library dependency).
+class _PeakHeatmapCard extends StatelessWidget {
+  final PeakMap peak;
+  final S s;
+  const _PeakHeatmapCard({required this.peak, required this.s});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final accent = context.isDark ? AppDarkColors.accent : AppColors.accent;
+    var max = 0;
+    for (final v in peak.grid.values) {
+      if (v > max) max = v;
+    }
+    final dayLetters = [s.shopDay0Short, s.shopDay1Short, s.shopDay2Short, s.shopDay3Short, s.shopDay4Short, s.shopDay5Short, s.shopDay6Short];
+    final dayNames = [s.shopDay0Full, s.shopDay1Full, s.shopDay2Full, s.shopDay3Full, s.shopDay4Full, s.shopDay5Full, s.shopDay6Full];
+    String? busiestNote;
+    final busiest = peak.busiest;
+    if (busiest != null) {
+      final parts = busiest.split(':');
+      final d = int.tryParse(parts.elementAtOrNull(0) ?? '');
+      final h = int.tryParse(parts.elementAtOrNull(1) ?? '');
+      if (d != null && d >= 0 && d < 7 && h != null) {
+        busiestNote = s.shopPeakBusiestNote(s.shopPeakBusiestTime(dayNames[d], h));
+      }
+    }
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(s.shopPeakTitle, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: AppSpacing.sm),
+          for (var d = 0; d < 7; d++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Row(
+                textDirection: TextDirection.ltr,
+                children: [
+                  SizedBox(
+                    width: 16,
+                    child: Text(dayLetters[d], textAlign: TextAlign.center, style: AppTextStyles.caption.copyWith(color: colors.textMuted, fontSize: 9)),
+                  ),
+                  const SizedBox(width: 2),
+                  for (var h = 0; h < 24; h++)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 0.5),
+                        child: Container(
+                          height: 12,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(2),
+                            color: () {
+                              final v = peak.grid['$d:$h'] ?? 0;
+                              if (v == 0 || max == 0) return colors.surfaceAlt;
+                              final t = (0.12 + (v / max) * 0.78).clamp(0.0, 1.0);
+                              return Color.lerp(colors.surface, accent, t);
+                            }(),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          if (busiestNote != null) ...[
+            const SizedBox(height: 4),
+            Text(busiestNote, style: AppTextStyles.caption.copyWith(color: colors.textSecondary)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One row per entity (a service, a branch), seven columns for the week — the generalised form
+/// of [_PeakHeatmapCard], shared by both the services-by-day and branches-by-day indicators
+/// exactly like Shop.tsx's own single `EntityDayHeatmap` component.
+class _EntityDayHeatmapCard extends StatelessWidget {
+  final String title;
+  final String hint;
+  final List<DayHeatmapRow> rows;
+  final bool teal;
+  const _EntityDayHeatmapCard({required this.title, required this.hint, required this.rows, required this.teal});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final s = S.of(context)!;
+    final color = teal
+        ? (context.isDark ? AppDarkColors.success : AppColors.success)
+        : (context.isDark ? AppDarkColors.accent : AppColors.accent);
+    var max = 1;
+    for (final r in rows) {
+      for (final v in r.days) {
+        if (v > max) max = v;
+      }
+    }
+    final dayLetters = [s.shopDay0Short, s.shopDay1Short, s.shopDay2Short, s.shopDay3Short, s.shopDay4Short, s.shopDay5Short, s.shopDay6Short];
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: AppSpacing.sm),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Row(
+              textDirection: TextDirection.ltr,
+              children: [
+                const SizedBox(width: 64),
+                for (final l in dayLetters) Expanded(child: Text(l, textAlign: TextAlign.center, style: AppTextStyles.caption.copyWith(color: colors.textMuted, fontSize: 9))),
+              ],
+            ),
+          ),
+          for (final r in rows)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Row(
+                textDirection: TextDirection.ltr,
+                children: [
+                  SizedBox(
+                    width: 64,
+                    child: Text(r.label, textDirection: TextDirection.rtl, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.caption.copyWith(color: colors.textSecondary)),
+                  ),
+                  for (final v in r.days)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 0.5),
+                        child: Container(
+                          height: 14,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(2),
+                            color: v == 0 ? colors.surfaceAlt : Color.lerp(colors.surface, color, (0.12 + (v / max) * 0.78).clamp(0.0, 1.0)),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 4),
+          Text(hint, style: AppTextStyles.caption.copyWith(color: colors.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+class _BundlesCard extends StatelessWidget {
+  final List<Bundle> bundles;
+  final S s;
+  const _BundlesCard({required this.bundles, required this.s});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(s.shopBundlesTitle, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: AppSpacing.sm),
+          for (var i = 0; i < bundles.take(4).length; i++)
+            Padding(
+              padding: EdgeInsets.only(top: i > 0 ? AppSpacing.sm : 0, bottom: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${bundles[i].aName ?? bundles[i].a ?? ''} + ${bundles[i].bName ?? bundles[i].b ?? ''}',
+                      style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w700)),
+                  if (bundles[i].why != null && bundles[i].why!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(bundles[i].why!, style: AppTextStyles.caption.copyWith(color: colors.textSecondary)),
+                    ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      if (bundles[i].actionLabel != null)
+                        Expanded(
+                          child: Text(bundles[i].actionLabel!,
+                              style: AppTextStyles.caption.copyWith(
+                                  color: context.isDark ? AppDarkColors.accent : AppColors.accent, fontWeight: FontWeight.w700)),
+                        )
+                      else
+                        const Spacer(),
+                      Text(s.shopBundlesOpportunity(bundles[i].customers),
+                          textDirection: TextDirection.ltr, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AssociationsCard extends StatelessWidget {
+  final List<AssociationPair> pairs;
+  final Map<String, String> names;
+  final S s;
+  const _AssociationsCard({required this.pairs, required this.names, required this.s});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(s.shopAssociationsTitle, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: AppSpacing.sm),
+          for (final p in pairs.take(6))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text('${names[p.a] ?? p.a} + ${names[p.b] ?? p.b}',
+                        style: AppTextStyles.bodySmall, overflow: TextOverflow.ellipsis),
+                  ),
+                  Text(s.shopCustomersCount(p.customers), textDirection: TextDirection.ltr, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

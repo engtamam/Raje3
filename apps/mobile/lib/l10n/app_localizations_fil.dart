@@ -3493,4 +3493,115 @@ class SFil extends S {
   @override
   String get shopStaffCompareTooShort =>
       'Hindi pa namin ini-rank ang staff — maikli pa ang panahon, at hindi pa makatarungan ang paghahambing sa pinakabago.';
+
+  @override
+  String get shopPeakTitle => 'Mga pinaka-busy mong oras';
+
+  @override
+  String get shopPeakMutedNote =>
+      'Kailangan ng mga bisitang kumalat sa sapat na araw at oras para maiguhit.';
+
+  @override
+  String shopPeakBusiestTime(String day, int h) {
+    return '$day humigit-kumulang $h:00';
+  }
+
+  @override
+  String shopPeakBusiestNote(String name) {
+    return 'Ang pinaka-busy mong oras: $name.';
+  }
+
+  @override
+  String get shopEntityDayServicesTitle =>
+      'Mga serbisyo mo ayon sa araw ng linggo';
+
+  @override
+  String get shopEntityDayServicesHint =>
+      'Aling serbisyo ang mas hinihiling sa tiyak na araw — tumutulong ito sa paghahanda ng tamang staff sa araw na iyon.';
+
+  @override
+  String get shopEntityDayServicesMutedNote =>
+      'Kailangan ng mga bisitang kumalat sa sapat na araw para maiguhit.';
+
+  @override
+  String get shopEntityDayBranchesTitle =>
+      'Mga branch mo ayon sa araw ng linggo';
+
+  @override
+  String get shopEntityDayBranchesHint =>
+      'Hindi kailangang magkapareho ang ritmo ng mga branch mo — busy ang branch sa mall sa holiday, busy ang branch sa neighborhood pagkatapos ng trabaho.';
+
+  @override
+  String get shopEntityDayBranchesMutedNote =>
+      'Kailangan ng pangalawang branch at mga bisitang kumalat sa sapat na araw para maiguhit.';
+
+  @override
+  String get shopBundlesTitle => 'Mga iminumungkahing bundle';
+
+  @override
+  String get shopBundlesMutedNote =>
+      'Kulang pa ang mga association para makapagmungkahi ng bundle mula rito.';
+
+  @override
+  String shopBundlesOpportunity(int n) {
+    return '$n pagkakataon';
+  }
+
+  @override
+  String get shopAssociationsTitle => 'Madalas hilingin nang magkasama';
+
+  @override
+  String get shopAssociationsMutedNote => 'Kulang pa ang mga association.';
+
+  @override
+  String shopAssociationsLearningNote(int have, int need) {
+    return 'Hindi pa namin alam kung ano ang hinihiling kasama ng ano — kailangan ng mas maraming bisita ang pagtukoy ng association para totoo ang resulta, hindi lang pagkakataon. ($have/$need)';
+  }
+
+  @override
+  String shopCustomersCount(int n) {
+    return '$n customer';
+  }
+
+  @override
+  String get shopDay0Short => 'Lin';
+
+  @override
+  String get shopDay1Short => 'Lun';
+
+  @override
+  String get shopDay2Short => 'Mar';
+
+  @override
+  String get shopDay3Short => 'Miy';
+
+  @override
+  String get shopDay4Short => 'Huw';
+
+  @override
+  String get shopDay5Short => 'Biy';
+
+  @override
+  String get shopDay6Short => 'Sab';
+
+  @override
+  String get shopDay0Full => 'Linggo';
+
+  @override
+  String get shopDay1Full => 'Lunes';
+
+  @override
+  String get shopDay2Full => 'Martes';
+
+  @override
+  String get shopDay3Full => 'Miyerkules';
+
+  @override
+  String get shopDay4Full => 'Huwebes';
+
+  @override
+  String get shopDay5Full => 'Biyernes';
+
+  @override
+  String get shopDay6Full => 'Sabado';
 }

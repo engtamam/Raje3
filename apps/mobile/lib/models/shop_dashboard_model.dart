@@ -393,6 +393,116 @@ class ServicePopularityRow {
       );
 }
 
+class PeakMap {
+  final Map<String, int> grid; // "day:hour" -> count
+  final String? busiest; // "day:hour"
+  const PeakMap({required this.grid, required this.busiest});
+
+  factory PeakMap.fromJson(Map<String, dynamic> j) {
+    final grid = (j['grid'] as Map?) ?? const {};
+    return PeakMap(
+      grid: grid.map((k, v) => MapEntry(k.toString(), (v as num?)?.toInt() ?? 0)),
+      busiest: j['busiest'] as String?,
+    );
+  }
+}
+
+class DayHeatmapRow {
+  final String label;
+  final List<int> days; // days[0..6] = Sun..Sat
+  const DayHeatmapRow({required this.label, required this.days});
+}
+
+/// Turns a flat `"entityId:day"` grid (`service_day_heatmap`/`branch_day_heatmap`) into the
+/// top-N entities by total, same shape/limit logic as Shop.tsx's own `topEntitiesByDay()`.
+List<DayHeatmapRow> topEntitiesByDay(Map<String, dynamic>? grid, Map<String, String> names, int limit) {
+  if (grid == null) return const [];
+  final totals = <String, List<int>>{};
+  for (final entry in grid.entries) {
+    final sep = entry.key.lastIndexOf(':');
+    if (sep < 0) continue;
+    final id = entry.key.substring(0, sep);
+    final day = int.tryParse(entry.key.substring(sep + 1));
+    if (day == null || day < 0 || day > 6) continue;
+    final count = (entry.value as num?)?.toInt() ?? 0;
+    final row = totals.putIfAbsent(id, () => List.filled(7, 0));
+    row[day] += count;
+  }
+  final rows = totals.entries
+      .map((e) => DayHeatmapRow(label: names[e.key] ?? e.key, days: e.value))
+      .toList()
+    ..sort((a, b) => b.days.reduce((x, y) => x + y).compareTo(a.days.reduce((x, y) => x + y)));
+  return rows.take(limit).toList(growable: false);
+}
+
+class AssociationPair {
+  final String a;
+  final String b;
+  final String verdict;
+  final int customers;
+  const AssociationPair({required this.a, required this.b, required this.verdict, required this.customers});
+
+  factory AssociationPair.fromJson(Map<String, dynamic> j) => AssociationPair(
+        a: j['a'] as String? ?? '',
+        b: j['b'] as String? ?? '',
+        verdict: j['verdict'] as String? ?? '',
+        customers: (j['customers'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class Pairs {
+  final bool learning;
+  final int have;
+  final int need;
+  final List<AssociationPair> pairs;
+  const Pairs({required this.learning, required this.have, required this.need, required this.pairs});
+
+  factory Pairs.fromJson(Map<String, dynamic> j) {
+    final list = (j['pairs'] as List?) ?? const [];
+    return Pairs(
+      learning: j['learning'] as bool? ?? false,
+      have: (j['have'] as num?)?.toInt() ?? 0,
+      need: (j['need'] as num?)?.toInt() ?? 0,
+      pairs: list.whereType<Map>().map((m) => AssociationPair.fromJson(Map<String, dynamic>.from(m))).toList(growable: false),
+    );
+  }
+}
+
+class Bundle {
+  final String? a;
+  final String? b;
+  final String? aName;
+  final String? bName;
+  final String? why;
+  final int customers;
+  final String? action;
+  final String? actionLabel;
+  final String? packageId;
+  const Bundle({
+    required this.a,
+    required this.b,
+    required this.aName,
+    required this.bName,
+    required this.why,
+    required this.customers,
+    required this.action,
+    required this.actionLabel,
+    required this.packageId,
+  });
+
+  factory Bundle.fromJson(Map<String, dynamic> j) => Bundle(
+        a: j['a'] as String?,
+        b: j['b'] as String?,
+        aName: j['a_name'] as String?,
+        bName: j['b_name'] as String?,
+        why: j['why'] as String?,
+        customers: (j['customers'] as num?)?.toInt() ?? 0,
+        action: j['action'] as String?,
+        actionLabel: j['action_label'] as String?,
+        packageId: j['package_id'] as String?,
+      );
+}
+
 /// `GET /api/v1/insights/dashboard` — the one call, everything computed server-side. `values` is
 /// a loose bag keyed by indicator name (matches the console's own `Record<string, unknown>`);
 /// this class only pulls out the fields this mobile pass's screen actually renders — see that
@@ -507,6 +617,27 @@ class ShopDashboard {
   }
 
   bool get aiEntitled => entitlements.contains('feature.whatsapp');
+
+  PeakMap? get peakMap {
+    final v = values['peak_map'];
+    return v is Map ? PeakMap.fromJson(Map<String, dynamic>.from(v)) : null;
+  }
+
+  Map<String, String> get branchNames {
+    final v = values['branch_names'];
+    if (v is! Map) return const {};
+    return v.map((k, val) => MapEntry(k.toString(), val.toString()));
+  }
+
+  List<DayHeatmapRow> get serviceDayRows {
+    final v = values['service_day_heatmap'];
+    return v is Map ? topEntitiesByDay(Map<String, dynamic>.from(v), serviceNames, 6) : const [];
+  }
+
+  List<DayHeatmapRow> get branchDayRows {
+    final v = values['branch_day_heatmap'];
+    return v is Map ? topEntitiesByDay(Map<String, dynamic>.from(v), branchNames, 6) : const [];
+  }
 }
 
 /// `GET /api/v1/assistant/growth/my-impact` — `services/whatsapp-assistant/app/core/

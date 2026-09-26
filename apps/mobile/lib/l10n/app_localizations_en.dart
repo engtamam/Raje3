@@ -3447,4 +3447,113 @@ class SEn extends S {
   @override
   String get shopStaffCompareTooShort =>
       'We don\'t rank staff yet — the period is too short, and comparing now would be unfair to the newest one.';
+
+  @override
+  String get shopPeakTitle => 'Your busiest times';
+
+  @override
+  String get shopPeakMutedNote =>
+      'Needs visits spread across enough days and hours to draw.';
+
+  @override
+  String shopPeakBusiestTime(String day, int h) {
+    return '$day around $h:00';
+  }
+
+  @override
+  String shopPeakBusiestNote(String name) {
+    return 'Your busiest time: $name.';
+  }
+
+  @override
+  String get shopEntityDayServicesTitle => 'Your services by day of week';
+
+  @override
+  String get shopEntityDayServicesHint =>
+      'Which service is requested more on a given day — helps you prepare the right staff that day.';
+
+  @override
+  String get shopEntityDayServicesMutedNote =>
+      'Needs visits spread across enough days to draw.';
+
+  @override
+  String get shopEntityDayBranchesTitle => 'Your branches by day of week';
+
+  @override
+  String get shopEntityDayBranchesHint =>
+      'Your branches don\'t necessarily share the same rhythm — a mall branch gets busy on holidays, a neighborhood branch after work hours.';
+
+  @override
+  String get shopEntityDayBranchesMutedNote =>
+      'Needs a second branch and visits spread across enough days to draw.';
+
+  @override
+  String get shopBundlesTitle => 'Suggested bundles';
+
+  @override
+  String get shopBundlesMutedNote =>
+      'Not enough associations yet to suggest a bundle from.';
+
+  @override
+  String shopBundlesOpportunity(int n) {
+    return '$n opportunity';
+  }
+
+  @override
+  String get shopAssociationsTitle => 'Often requested together';
+
+  @override
+  String get shopAssociationsMutedNote => 'Not enough associations yet.';
+
+  @override
+  String shopAssociationsLearningNote(int have, int need) {
+    return 'We don\'t know yet what\'s requested with what — spotting associations needs more visits for the pattern to be real, not coincidence. ($have/$need)';
+  }
+
+  @override
+  String shopCustomersCount(int n) {
+    return '$n customer(s)';
+  }
+
+  @override
+  String get shopDay0Short => 'Su';
+
+  @override
+  String get shopDay1Short => 'Mo';
+
+  @override
+  String get shopDay2Short => 'Tu';
+
+  @override
+  String get shopDay3Short => 'We';
+
+  @override
+  String get shopDay4Short => 'Th';
+
+  @override
+  String get shopDay5Short => 'Fr';
+
+  @override
+  String get shopDay6Short => 'Sa';
+
+  @override
+  String get shopDay0Full => 'Sunday';
+
+  @override
+  String get shopDay1Full => 'Monday';
+
+  @override
+  String get shopDay2Full => 'Tuesday';
+
+  @override
+  String get shopDay3Full => 'Wednesday';
+
+  @override
+  String get shopDay4Full => 'Thursday';
+
+  @override
+  String get shopDay5Full => 'Friday';
+
+  @override
+  String get shopDay6Full => 'Saturday';
 }

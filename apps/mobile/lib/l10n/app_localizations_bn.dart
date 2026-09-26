@@ -3410,4 +3410,115 @@ class SBn extends S {
   @override
   String get shopStaffCompareTooShort =>
       'এখনও কর্মীদের ক্রম নির্ধারণ করা হয় না — সময়কাল খুব ছোট, আর এখন তুলনা করলে নতুনটির প্রতি অন্যায় হবে।';
+
+  @override
+  String get shopPeakTitle => 'আপনার সবচেয়ে ব্যস্ত সময়';
+
+  @override
+  String get shopPeakMutedNote =>
+      'আঁকার জন্য পর্যাপ্ত দিন ও ঘণ্টা জুড়ে ছড়ানো ভিজিট দরকার।';
+
+  @override
+  String shopPeakBusiestTime(String day, int h) {
+    return '$day প্রায় $h:00 টায়';
+  }
+
+  @override
+  String shopPeakBusiestNote(String name) {
+    return 'আপনার সবচেয়ে ব্যস্ত সময়: $name।';
+  }
+
+  @override
+  String get shopEntityDayServicesTitle =>
+      'সপ্তাহের দিন অনুযায়ী আপনার সেবাসমূহ';
+
+  @override
+  String get shopEntityDayServicesHint =>
+      'কোন সেবা কোন নির্দিষ্ট দিনে বেশি চাওয়া হয় — সেদিন সঠিক কর্মী প্রস্তুত করতে সাহায্য করে।';
+
+  @override
+  String get shopEntityDayServicesMutedNote =>
+      'আঁকার জন্য পর্যাপ্ত দিন জুড়ে ছড়ানো ভিজিট দরকার।';
+
+  @override
+  String get shopEntityDayBranchesTitle =>
+      'সপ্তাহের দিন অনুযায়ী আপনার শাখাসমূহ';
+
+  @override
+  String get shopEntityDayBranchesHint =>
+      'আপনার শাখাগুলোর ছন্দ একই রকম হতে হবে এমন নয় — মলের শাখা ছুটির দিনে ব্যস্ত থাকে, পাড়ার শাখা কাজের পর।';
+
+  @override
+  String get shopEntityDayBranchesMutedNote =>
+      'আঁকার জন্য দ্বিতীয় একটি শাখা এবং পর্যাপ্ত দিন জুড়ে ছড়ানো ভিজিট দরকার।';
+
+  @override
+  String get shopBundlesTitle => 'প্রস্তাবিত প্যাকেজ';
+
+  @override
+  String get shopBundlesMutedNote =>
+      'এখান থেকে একটি প্যাকেজ প্রস্তাব করতে এখনও যথেষ্ট সংযোগ নেই।';
+
+  @override
+  String shopBundlesOpportunity(int n) {
+    return '$nটি সুযোগ';
+  }
+
+  @override
+  String get shopAssociationsTitle => 'একসাথে বেশি চাওয়া হয়';
+
+  @override
+  String get shopAssociationsMutedNote => 'এখনও যথেষ্ট সংযোগ নেই।';
+
+  @override
+  String shopAssociationsLearningNote(int have, int need) {
+    return 'এখনও জানি না কী কীসের সাথে চাওয়া হয় — সংযোগ চিহ্নিত করতে আরও ভিজিট দরকার যাতে সিদ্ধান্তটি সঠিক হয়, কাকতালীয় নয়। ($have/$need)';
+  }
+
+  @override
+  String shopCustomersCount(int n) {
+    return '$n জন গ্রাহক';
+  }
+
+  @override
+  String get shopDay0Short => 'রবি';
+
+  @override
+  String get shopDay1Short => 'সোম';
+
+  @override
+  String get shopDay2Short => 'মঙ্গল';
+
+  @override
+  String get shopDay3Short => 'বুধ';
+
+  @override
+  String get shopDay4Short => 'বৃহঃ';
+
+  @override
+  String get shopDay5Short => 'শুক্র';
+
+  @override
+  String get shopDay6Short => 'শনি';
+
+  @override
+  String get shopDay0Full => 'রবিবার';
+
+  @override
+  String get shopDay1Full => 'সোমবার';
+
+  @override
+  String get shopDay2Full => 'মঙ্গলবার';
+
+  @override
+  String get shopDay3Full => 'বুধবার';
+
+  @override
+  String get shopDay4Full => 'বৃহস্পতিবার';
+
+  @override
+  String get shopDay5Full => 'শুক্রবার';
+
+  @override
+  String get shopDay6Full => 'শনিবার';
 }

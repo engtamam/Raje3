@@ -3414,4 +3414,113 @@ class SUr extends S {
   @override
   String get shopStaffCompareTooShort =>
       'ابھی عملے کی درجہ بندی نہیں کرتے — مدت بہت مختصر ہے، اور ابھی موازنہ نئے فرد کے ساتھ ناانصافی ہوگا۔';
+
+  @override
+  String get shopPeakTitle => 'آپ کے مصروف ترین اوقات';
+
+  @override
+  String get shopPeakMutedNote =>
+      'ترسیم کے لیے کافی دنوں اور گھنٹوں میں پھیلی وزٹس درکار ہیں۔';
+
+  @override
+  String shopPeakBusiestTime(String day, int h) {
+    return '$day تقریباً $h:00 بجے';
+  }
+
+  @override
+  String shopPeakBusiestNote(String name) {
+    return 'آپ کا سب سے مصروف وقت: $name۔';
+  }
+
+  @override
+  String get shopEntityDayServicesTitle => 'ہفتے کے دن کے حساب سے آپ کی خدمات';
+
+  @override
+  String get shopEntityDayServicesHint =>
+      'کون سی خدمت کسی خاص دن زیادہ مانگی جاتی ہے — اس دن مناسب عملہ تیار کرنے میں مدد دیتا ہے۔';
+
+  @override
+  String get shopEntityDayServicesMutedNote =>
+      'ترسیم کے لیے کافی دنوں میں پھیلی وزٹس درکار ہیں۔';
+
+  @override
+  String get shopEntityDayBranchesTitle => 'ہفتے کے دن کے حساب سے آپ کی شاخیں';
+
+  @override
+  String get shopEntityDayBranchesHint =>
+      'ضروری نہیں آپ کی شاخیں ایک ہی تال میں ہوں — مال والی شاخ چھٹی پر مصروف ہوتی ہے، محلے والی شاخ کام کے بعد۔';
+
+  @override
+  String get shopEntityDayBranchesMutedNote =>
+      'ترسیم کے لیے دوسری شاخ اور کافی دنوں میں پھیلی وزٹس درکار ہیں۔';
+
+  @override
+  String get shopBundlesTitle => 'تجویز کردہ پیکجز';
+
+  @override
+  String get shopBundlesMutedNote =>
+      'ابھی پیکج تجویز کرنے کے لیے کافی تعلقات نہیں۔';
+
+  @override
+  String shopBundlesOpportunity(int n) {
+    return '$n موقع';
+  }
+
+  @override
+  String get shopAssociationsTitle => 'اکثر اکٹھے مانگی جانے والی';
+
+  @override
+  String get shopAssociationsMutedNote => 'ابھی کافی تعلقات نہیں۔';
+
+  @override
+  String shopAssociationsLearningNote(int have, int need) {
+    return 'ابھی معلوم نہیں کیا کس کے ساتھ مانگا جاتا ہے — تعلقات معلوم کرنے کے لیے مزید وزٹس درکار ہیں تاکہ نتیجہ حقیقی ہو، اتفاق نہیں۔ ($have/$need)';
+  }
+
+  @override
+  String shopCustomersCount(int n) {
+    return '$n گاہک';
+  }
+
+  @override
+  String get shopDay0Short => 'اتوار';
+
+  @override
+  String get shopDay1Short => 'پیر';
+
+  @override
+  String get shopDay2Short => 'منگل';
+
+  @override
+  String get shopDay3Short => 'بدھ';
+
+  @override
+  String get shopDay4Short => 'جمعرات';
+
+  @override
+  String get shopDay5Short => 'جمعہ';
+
+  @override
+  String get shopDay6Short => 'ہفتہ';
+
+  @override
+  String get shopDay0Full => 'اتوار';
+
+  @override
+  String get shopDay1Full => 'پیر';
+
+  @override
+  String get shopDay2Full => 'منگل';
+
+  @override
+  String get shopDay3Full => 'بدھ';
+
+  @override
+  String get shopDay4Full => 'جمعرات';
+
+  @override
+  String get shopDay5Full => 'جمعہ';
+
+  @override
+  String get shopDay6Full => 'ہفتہ';
 }

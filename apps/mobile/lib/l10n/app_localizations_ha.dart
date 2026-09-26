@@ -3421,4 +3421,113 @@ class SHa extends S {
   @override
   String get shopStaffCompareTooShort =>
       'Ba mu tsara ma\'aikata tukuna ba — lokacin ya yi gajarta, kuma kwatantawa yanzu za ta zalunci sabon.';
+
+  @override
+  String get shopPeakTitle => 'Lokutanka mafi cika';
+
+  @override
+  String get shopPeakMutedNote =>
+      'Ana buƙatar ziyara da suka bazu a kwanaki da sa\'o\'i isassu don zana su.';
+
+  @override
+  String shopPeakBusiestTime(String day, int h) {
+    return '$day kusan ƙarfe $h:00';
+  }
+
+  @override
+  String shopPeakBusiestNote(String name) {
+    return 'Lokacinka mafi cika: $name.';
+  }
+
+  @override
+  String get shopEntityDayServicesTitle => 'Ayyukanka bisa ranar mako';
+
+  @override
+  String get shopEntityDayServicesHint =>
+      'Wane sabis ake buƙata sosai a wata rana — yana taimaka maka shirya ma\'aikatan da suka dace ranar.';
+
+  @override
+  String get shopEntityDayServicesMutedNote =>
+      'Ana buƙatar ziyara da suka bazu a kwanaki isassu don zana su.';
+
+  @override
+  String get shopEntityDayBranchesTitle => 'Rassanka bisa ranar mako';
+
+  @override
+  String get shopEntityDayBranchesHint =>
+      'Rassanka ba dole ne su raba salo ɗaya ba — reshen mall yana cika a hutu, reshen unguwa yana cika bayan aiki.';
+
+  @override
+  String get shopEntityDayBranchesMutedNote =>
+      'Ana buƙatar reshe na biyu da ziyara da suka bazu a kwanaki isassu don zana su.';
+
+  @override
+  String get shopBundlesTitle => 'Kunshin da aka ba da shawara';
+
+  @override
+  String get shopBundlesMutedNote =>
+      'Babu isassun alaƙa tukuna don ba da shawarar kunshi daga ciki.';
+
+  @override
+  String shopBundlesOpportunity(int n) {
+    return 'Dama $n';
+  }
+
+  @override
+  String get shopAssociationsTitle => 'Ana buƙata tare sau da yawa';
+
+  @override
+  String get shopAssociationsMutedNote => 'Babu isassun alaƙa tukuna.';
+
+  @override
+  String shopAssociationsLearningNote(int have, int need) {
+    return 'Ba mu san tukuna abin da ake buƙata tare da me ba — gano alaƙa yana buƙatar ƙarin ziyara don sakamakon ya zama na gaske, ba na kwatsam ba. ($have/$need)';
+  }
+
+  @override
+  String shopCustomersCount(int n) {
+    return 'Abokan ciniki $n';
+  }
+
+  @override
+  String get shopDay0Short => 'Lh';
+
+  @override
+  String get shopDay1Short => 'Li';
+
+  @override
+  String get shopDay2Short => 'Ta';
+
+  @override
+  String get shopDay3Short => 'La';
+
+  @override
+  String get shopDay4Short => 'Al';
+
+  @override
+  String get shopDay5Short => 'Ju';
+
+  @override
+  String get shopDay6Short => 'As';
+
+  @override
+  String get shopDay0Full => 'Lahadi';
+
+  @override
+  String get shopDay1Full => 'Litinin';
+
+  @override
+  String get shopDay2Full => 'Talata';
+
+  @override
+  String get shopDay3Full => 'Laraba';
+
+  @override
+  String get shopDay4Full => 'Alhamis';
+
+  @override
+  String get shopDay5Full => 'Jumma\'a';
+
+  @override
+  String get shopDay6Full => 'Asabar';
 }
