@@ -15,6 +15,7 @@ import 'package:raje3_mobile/widgets/app_widgets.dart';
 import 'package:raje3_mobile/features/campaigns/campaigns_i18n.dart';
 import 'package:raje3_mobile/features/campaigns/campaigns_style.dart';
 import 'package:raje3_mobile/features/campaigns/message_preview_sheet.dart';
+import 'package:raje3_mobile/features/campaigns/wa_flow_screens.dart';
 import 'package:raje3_mobile/features/campaigns/whatsapp_bubble.dart';
 
 /// THE OTHER DIRECTION FROM `kReasonGoal` (messages_model.dart) — goal → its shared reason id,
@@ -414,6 +415,10 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
               error: _error,
               sending: _sending,
               onSend: _send,
+              service: _service,
+              goal: _picked?.goal ?? '',
+              owned: widget.owned,
+              scopedCount: _picked?.goal == 'package_offer' ? _packageIds.length : _serviceIds.length,
             ),
         },
       ),
@@ -904,13 +909,44 @@ class _FieldsStep extends StatelessWidget {
   }
 }
 
-class _PreviewStep extends StatelessWidget {
+/// Which Meta button (if any) the real send would attach — computed client-side, same as
+/// Launch.tsx's own `flowEligible`/`singleItemButtonShown` logic: a booking Flow for the four
+/// goals that end in "come back" when Bookings is owned, else a single-item quick-reply button
+/// when exactly one service/package is scoped and both Bookings and the AI assistant are owned.
+const Set<String> _kFlowEligibleGoals = {'win_back', 'occasion', 'service_offer', 'package_offer'};
+const Set<String> _kButtonEligibleGoals = {
+  'win_back', 'occasion', 'service_offer', 'package_offer', 'reward_loyal', 'announce',
+};
+
+List<MessageButton> _computeMessageButtons({
+  required String goal,
+  required Owned? owned,
+  required int scopedCount,
+}) {
+  final hasBookings = owned?.owns('feature.bookings') == true;
+  final hasAssistant = owned?.owns('feature.whatsapp') == true;
+  final flowEligible = _kFlowEligibleGoals.contains(goal) && hasBookings;
+  if (flowEligible) {
+    return const [MessageButton(label: 'احجز الآن', kind: 'flow', flowName: 'booking')];
+  }
+  final singleItem = _kButtonEligibleGoals.contains(goal) && hasBookings && hasAssistant && scopedCount == 1;
+  if (singleItem) {
+    return const [MessageButton(label: 'تواصل معنا', kind: 'reply', flowName: '')];
+  }
+  return const [];
+}
+
+class _PreviewStep extends StatefulWidget {
   const _PreviewStep({
     required this.loading,
     required this.preview,
     required this.error,
     required this.sending,
     required this.onSend,
+    required this.service,
+    required this.goal,
+    required this.owned,
+    required this.scopedCount,
   });
 
   final bool loading;
@@ -918,25 +954,72 @@ class _PreviewStep extends StatelessWidget {
   final String error;
   final bool sending;
   final VoidCallback onSend;
+  final MessagesService service;
+  final String goal;
+  final Owned? owned;
+  final int scopedCount;
+
+  @override
+  State<_PreviewStep> createState() => _PreviewStepState();
+}
+
+class _PreviewStepState extends State<_PreviewStep> {
+  FlowJson? _openFlow;
+  bool _flowLoading = false;
+  String _flowError = '';
+
+  Future<void> _pressButton(MessageButton b) async {
+    if (b.kind != 'flow' || b.flowName.isEmpty) return;
+    setState(() {
+      _flowLoading = true;
+      _flowError = '';
+    });
+    final flow = await widget.service.fetchFlowJson(b.flowName);
+    if (!mounted) return;
+    setState(() {
+      _flowLoading = false;
+      _openFlow = flow;
+      if (flow == null) _flowError = ct(context, 'flowFetchFailed');
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Center(child: CircularProgressIndicator());
-    if (preview == null) {
+    if (widget.loading) return const Center(child: CircularProgressIndicator());
+    if (widget.preview == null) {
       return Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
-        child: Text(error.isNotEmpty ? error : ct(context, 'previewGenericFailed'), style: AppTextStyles.bodyMedium),
+        child: Text(widget.error.isNotEmpty ? widget.error : ct(context, 'previewGenericFailed'), style: AppTextStyles.bodyMedium),
       );
     }
-    final p = preview!;
+    final p = widget.preview!;
     final blocked = p.spreadRefused.isNotEmpty || !p.templateActive;
+    final buttons = _computeMessageButtons(goal: widget.goal, owned: widget.owned, scopedCount: widget.scopedCount);
     return Column(
       children: [
         Expanded(
           child: ListView(
             padding: const EdgeInsets.all(AppSpacing.md),
             children: [
-              WhatsAppPhoneFrame(child: WhatsAppBubble(text: p.message)),
+              WhatsAppPhoneFrame(
+                child: _openFlow != null || _flowLoading || _flowError.isNotEmpty
+                    ? (_flowLoading
+                        ? const SizedBox(width: 300, height: 160, child: Center(child: CircularProgressIndicator(color: Colors.white)))
+                        : _flowError.isNotEmpty
+                            ? SizedBox(
+                                width: 300,
+                                child: Container(
+                                  padding: const EdgeInsets.all(AppSpacing.md),
+                                  decoration: BoxDecoration(color: Colors.white, borderRadius: AppRadius.cardRadius),
+                                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                                    Text(_flowError, style: const TextStyle(color: Color(0xFFB7412F), fontSize: 13)),
+                                    TextButton(onPressed: () => setState(() { _openFlow = null; _flowError = ''; }), child: Text(ct(context, 'backToMessage'))),
+                                  ]),
+                                ),
+                              )
+                            : WaFlowScreens(flow: _openFlow!, onDone: () => setState(() => _openFlow = null)))
+                    : WhatsAppBubble(text: p.message, buttons: buttons, onPressButton: _pressButton),
+              ),
               const SizedBox(height: AppSpacing.md),
               Row(children: [
                 const Icon(Icons.people_outline_rounded, size: 18),
@@ -969,9 +1052,9 @@ class _PreviewStep extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(line, style: AppTextStyles.caption),
               ],
-              if (error.isNotEmpty) ...[
+              if (widget.error.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.md),
-                Text(error, style: AppTextStyles.bodySmall.copyWith(color: context.isDark ? AppDarkColors.danger : AppColors.danger)),
+                Text(widget.error, style: AppTextStyles.bodySmall.copyWith(color: context.isDark ? AppDarkColors.danger : AppColors.danger)),
               ],
             ],
           ),
@@ -980,8 +1063,8 @@ class _PreviewStep extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.md),
           child: PrimaryButton(
             text: ct(context, 'launchNowButton'),
-            isLoading: sending,
-            onPressed: blocked ? null : onSend,
+            isLoading: widget.sending,
+            onPressed: blocked ? null : widget.onSend,
           ),
         ),
       ],
