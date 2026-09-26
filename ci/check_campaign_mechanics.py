@@ -36,6 +36,16 @@ discipline — never a runtime-only check:
   5. Every goal that DOES have a launch-screen card (`goals.CARDS`) is a real goal in
      `models.GOALS` — a card for a goal nothing else knows about would be a button that opens
      nothing.
+  6. EVERY CARDED "فردي" GOAL HAS A REAL ROW IN `audience.py::_MATCHERS` — THIS IS THE ACTUAL BUG
+     `package_offer` AND `occasion` EACH SHIPPED, TWICE, WITH NOTHING EVER CATCHING IT UNTIL AN
+     OWNER NOTICED A CAMPAIGN REACHING NOBODY. Checks 1-4 above only prove the MECHANIC layer
+     (`resolver_for`) is wired; they say nothing about whether "فردي"'s own resolver
+     (`resolve_individual` → `audience.resolve` → `_matches` → `_MATCHERS.get(goal)`) has a real
+     matcher for a SPECIFIC goal — `_matches()` quietly returns `(False, "")` for any goal missing
+     from that dict, which is indistinguishable from "no customer happens to qualify today" until
+     someone goes looking. `service_due` is the one deliberate exception (no card, never
+     dispatched through this path at all — reminders' own scheduling owns it entirely, see
+     `models.GOAL_TRIGGER`'s own note); every OTHER carded goal must have a real entry.
 
     python ci/check_campaign_mechanics.py
 """
@@ -49,9 +59,15 @@ CAMPAIGNS_APP = ROOT / "services" / "campaigns"
 C_G, C_R, C_N = "\033[32m", "\033[31m", "\033[0m"
 
 
+# THE ONE DELIBERATE EXCEPTION — no card, never dispatched through `resolve_individual` at all
+# (reminders' own `scheduling.py` owns its timing entirely; see `models.GOAL_TRIGGER`'s own note on
+# why this entry is kept "for the honest answer" rather than because anything reads it).
+_MATCHER_EXEMPT = {"service_due"}
+
+
 def main() -> int:
     sys.path.insert(0, str(CAMPAIGNS_APP))
-    from app.core import goals, mechanics, models  # noqa: PLC0415
+    from app.core import audience, goals, mechanics, models  # noqa: PLC0415
 
     problems: list[str] = []
 
@@ -82,6 +98,16 @@ def main() -> int:
             problems.append(
                 f"goals.CARDS[{goal!r}] has a launch-screen card but is not in models.GOALS — "
                 f"a button that opens nothing")
+        # THE ACTUAL `package_offer`/`occasion` BUG, GATED — a carded "فردي" goal with no row in
+        # `_MATCHERS` matches nobody, silently, exactly like both of those did before a human
+        # noticed. Checked here rather than in a separate pass: a goal already flagged above
+        # (unknown mechanic, e.g.) would just double-report the same root cause.
+        elif (models.GOAL_MECHANIC.get(goal) == "فردي" and goal not in _MATCHER_EXEMPT
+              and goal not in audience._MATCHERS):
+            problems.append(
+                f"goals.CARDS[{goal!r}] is a launch-screen \"فردي\" goal with NO row in "
+                f"audience._MATCHERS — it matches nobody, silently, the exact bug "
+                f"package_offer and occasion each shipped before (audience.py's own comments)")
 
     if problems:
         print(f"{C_R}  ✘ {len(problems)} campaign-mechanic wiring problem(s):{C_N}")
