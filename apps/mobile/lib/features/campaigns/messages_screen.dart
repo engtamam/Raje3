@@ -132,7 +132,7 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
   /// still makes him find the goal again is the same ask twice).
   Future<void> _openWizard({String? initialGoal}) async {
     final launched = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => LaunchWizardScreen(owned: _owned, initialGoal: initialGoal)),
+      MaterialPageRoute(builder: (_) => LaunchWizardScreen(owned: _owned, initialGoal: initialGoal, branches: _branches)),
     );
     if (launched == true) {
       _loadAll();

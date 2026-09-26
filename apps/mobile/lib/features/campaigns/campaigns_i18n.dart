@@ -458,6 +458,81 @@ const Map<String, Map<String, String>> _kCampaignsStrings = {
     'bn': 'এই মুহূর্তে লগ পড়া যায়নি।', 'ur': 'ابھی لاگ پڑھا نہیں جا سکا۔', 'ha': 'An kasa karanta bayanan tarihi a yanzu.',
     'fil': 'Hindi nabasa ang log ngayon.',
   },
+  'whichPackage': {
+    'ar': 'أي باقة؟', 'en': 'Which package?', 'bn': 'কোন প্যাকেজ?', 'ur': 'کون سا پیکج؟', 'ha': 'Wane fakiti?',
+    'fil': 'Aling package?',
+  },
+  'rewardTitle': {
+    'ar': 'نوع المكافأة', 'en': 'Reward type', 'bn': 'পুরস্কারের ধরন', 'ur': 'انعام کی قسم', 'ha': "Nau'in lada",
+    'fil': 'Uri ng gantimpala',
+  },
+  'rewardDiscount': {
+    'ar': 'خصم', 'en': 'Discount', 'bn': 'ছাড়', 'ur': 'رعایت', 'ha': 'Rangwame', 'fil': 'Diskwento',
+  },
+  'rewardGift': {
+    'ar': 'هدية', 'en': 'Gift', 'bn': 'উপহার', 'ur': 'تحفہ', 'ha': 'Kyauta', 'fil': 'Regalo',
+  },
+  'rewardPoints': {
+    'ar': 'نقاط', 'en': 'Points', 'bn': 'পয়েন্ট', 'ur': 'پوائنٹس', 'ha': 'Maki', 'fil': 'Puntos',
+  },
+  'rewardPointsHint': {
+    'ar': 'كم نقطة؟', 'en': 'How many points?', 'bn': 'কত পয়েন্ট?', 'ur': 'کتنے پوائنٹس؟', 'ha': 'Maki nawa?',
+    'fil': 'Ilang puntos?',
+  },
+  'rewardGiftHint': {
+    'ar': 'الهدية هي الخدمة أو الباقة التي اخترتها أعلاه، مجانًا.',
+    'en': 'The gift is the service or package you picked above, free.',
+    'bn': 'উপহার হলো উপরে বেছে নেওয়া সার্ভিস বা প্যাকেজ, বিনামূল্যে।',
+    'ur': 'تحفہ وہ سروس یا پیکج ہے جو آپ نے اوپر منتخب کیا، مفت۔',
+    'ha': 'Kyautar ita ce sabis ko fakitin da kuka zaɓa a sama, kyauta.',
+    'fil': 'Ang regalo ay ang serbisyo o package na pinili mo sa itaas, libre.',
+  },
+  'loyaltyTitle': {
+    'ar': 'من هم عملاؤك المخلصون؟', 'en': 'Who are your loyal customers?', 'bn': 'আপনার অনুগত গ্রাহক কারা?',
+    'ur': 'آپ کے وفادار گاہک کون ہیں؟', 'ha': 'Su waye amintattun abokan cinikin ku?',
+    'fil': 'Sino ang mga tapat mong kustomer?',
+  },
+  'loyaltyWindowLabel': {
+    'ar': 'خلال {n} يوم', 'en': 'Within {n} days', 'bn': '{n} দিনের মধ্যে', 'ur': '{n} دن کے اندر',
+    'ha': 'Cikin kwana {n}', 'fil': 'Sa loob ng {n} araw',
+  },
+  'loyaltyMinVisitsLabel': {
+    'ar': '{n} زيارات على الأقل', 'en': 'At least {n} visits', 'bn': 'কমপক্ষে {n} ভিজিট',
+    'ur': 'کم از کم {n} وزٹ', 'ha': 'Aƙalla ziyara {n}', 'fil': 'Kahit {n} beses bumisita',
+  },
+  'occasionDayLabel': {
+    'ar': 'يوم المناسبة', 'en': 'The occasion day', 'bn': 'উপলক্ষ্যের দিন', 'ur': 'موقع کا دن',
+    'ha': 'Ranar taron', 'fil': 'Araw ng okasyon',
+  },
+  'whenTitle': {
+    'ar': 'متى تُطلق؟', 'en': 'When does it launch?', 'bn': 'কখন চালু হবে?', 'ur': 'کب شروع ہوگی؟',
+    'ha': 'Yaushe za a kaddamar?', 'fil': 'Kailan ilulunsad?',
+  },
+  'whenNow': {
+    'ar': 'الآن', 'en': 'Now', 'bn': 'এখন', 'ur': 'ابھی', 'ha': 'Yanzu', 'fil': 'Ngayon',
+  },
+  'whenLater': {
+    'ar': 'لاحقًا', 'en': 'Later', 'bn': 'পরে', 'ur': 'بعد میں', 'ha': 'Daga baya', 'fil': 'Mamaya',
+  },
+  'windowTitle': {
+    'ar': 'نافذة تكرار (اختياري)', 'en': 'Recurring window (optional)', 'bn': 'পুনরাবৃত্তি উইন্ডো (ঐচ্ছিক)',
+    'ur': 'تکراری ونڈو (اختیاری)', 'ha': 'Taga maimaitawa (na zaɓi)', 'fil': 'Umuulit na window (opsyonal)',
+  },
+  'windowHoursLabel': {
+    'ar': 'من الساعة {start} إلى {end}', 'en': 'From {start} to {end}', 'bn': '{start} থেকে {end} পর্যন্ত',
+    'ur': '{start} سے {end} تک', 'ha': 'Daga karfe {start} zuwa {end}', 'fil': 'Mula {start} hanggang {end}',
+  },
+  'weekdayMon': {'ar': 'إثنين', 'en': 'Mon', 'bn': 'সোম', 'ur': 'پیر', 'ha': 'Lit', 'fil': 'Lun'},
+  'weekdayTue': {'ar': 'ثلاثاء', 'en': 'Tue', 'bn': 'মঙ্গল', 'ur': 'منگل', 'ha': 'Tal', 'fil': 'Mar'},
+  'weekdayWed': {'ar': 'أربعاء', 'en': 'Wed', 'bn': 'বুধ', 'ur': 'بدھ', 'ha': 'Lar', 'fil': 'Miy'},
+  'weekdayThu': {'ar': 'خميس', 'en': 'Thu', 'bn': 'বৃহস্পতি', 'ur': 'جمعرات', 'ha': 'Alh', 'fil': 'Huw'},
+  'weekdayFri': {'ar': 'جمعة', 'en': 'Fri', 'bn': 'শুক্র', 'ur': 'جمعہ', 'ha': 'Jum', 'fil': 'Biy'},
+  'weekdaySat': {'ar': 'سبت', 'en': 'Sat', 'bn': 'শনি', 'ur': 'ہفتہ', 'ha': 'Asa', 'fil': 'Sab'},
+  'weekdaySun': {'ar': 'أحد', 'en': 'Sun', 'bn': 'রবি', 'ur': 'اتوار', 'ha': 'Lah', 'fil': 'Lin'},
+  'branchLabel': {
+    'ar': 'الفرع المستهدف', 'en': 'Target branch', 'bn': 'লক্ষ্য শাখা', 'ur': 'ہدف شاخ', 'ha': 'Rukunin da aka nufa',
+    'fil': 'Target na sangay',
+  },
   'viewOrEditMessage': {
     'ar': 'اعرض/عدّل الرسالة الآلية', 'en': 'View/edit the automatic message', 'bn': 'স্বয়ংক্রিয় বার্তা দেখুন/সম্পাদনা করুন',
     'ur': 'خودکار پیغام دیکھیں/ترمیم کریں', 'ha': 'Duba/gyara saƙon atomatik', 'fil': 'Tingnan/i-edit ang awtomatikong mensahe',

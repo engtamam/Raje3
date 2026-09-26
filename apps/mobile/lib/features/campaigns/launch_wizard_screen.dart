@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
+import 'package:raje3_mobile/core/services/auth_service.dart' show Branch;
 import 'package:raje3_mobile/core/services/messages_service.dart';
 import 'package:raje3_mobile/core/services/services_catalogue_service.dart';
 import 'package:raje3_mobile/models/app_store_model.dart' show Owned;
@@ -21,6 +24,9 @@ const Map<String, String> _kGoalReasonId = {
   'win_back': 'gone_missing', 'occasion': 'personal_occasion', 'reward_loyal': 'loyal_customer',
 };
 
+/// Which goal gives which of three rewards — `models.py::REWARD_ENABLED_GOALS`.
+const Set<String> _kRewardEnabledGoals = {'occasion', 'win_back', 'service_offer', 'package_offer'};
+
 /// Launching a campaign — a full-screen, step-by-step wizard (Launch.tsx's own job, rebuilt for
 /// a phone instead of a wide rail+canvas+phone triptych). Three steps, and the middle one is the
 /// product: goal, then a real message + real reach count, then one press to send.
@@ -30,17 +36,13 @@ const Map<String, String> _kGoalReasonId = {
 /// anything. There is no path through this screen that reaches `createCampaign` without first
 /// showing a successful `previewCampaign` answer.
 ///
-/// DEFERRED THIS PASS (documented, not silently dropped — see this feature's own build report):
-/// weekly recurring send-window, live loyalty threshold sliders (fixed 90 days / 3 visits),
-/// scheduling a later launch, multi-service/package selection (single item only), and the
-/// gift/points reward types (every campaign here sends its discount, same as every goal's own
-/// default). `occasion` (هنّئ في مناسبة) is EXCLUDED from the goal picker entirely: it is the one
-/// goal whose trigger is a scheduled future moment rather than "now", and launching it without
-/// that date field would create a campaign that silently never fires (dispatch.py's own
-/// `fire_at == 0` guard treats a bare `occasion` campaign as "skip forever") — a correctness risk,
-/// not a UX one, so it stays off until its own scheduling step is built.
+/// STILL DEFERRED (documented, not silently dropped — see this feature's own build report): the
+/// custom-text-editor + submit-to-WhatsApp + help-request flow (a slow human review cycle that
+/// stays on the console for its first mobile pass), and opening a real interactive Flow from a
+/// message button (the label renders; walking through its actual screens needs the
+/// `WaFlowScreens`-equivalent renderer this pass does not build).
 class LaunchWizardScreen extends StatefulWidget {
-  const LaunchWizardScreen({super.key, required this.owned, this.initialGoal});
+  const LaunchWizardScreen({super.key, required this.owned, this.initialGoal, this.branches = const []});
 
   /// Read once by the caller (`MessagesScreen`'s own `_loadAll`) rather than re-fetched here —
   /// this screen is reached only ever from that one place, and re-asking would just cost a
@@ -52,6 +54,10 @@ class LaunchWizardScreen extends StatefulWidget {
   /// `?launch=` note). Only pre-selects when the goal is actually AVAILABLE — an unreachable
   /// goal falls through to the normal picker instead of a dead pre-selection.
   final String? initialGoal;
+
+  /// Same list `MessagesScreen`'s own log-tab branch filter already fetched once — passed
+  /// through rather than asked for a second time.
+  final List<Branch> branches;
 
   @override
   State<LaunchWizardScreen> createState() => _LaunchWizardScreenState();
@@ -67,24 +73,73 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
   List<GoalRow>? _goals;
   GoalRow? _picked;
   List<ServiceItem> _services = const [];
+  List<ServicePackage> _packages = const [];
   // ONLY TO LEARN which of the three shared goals has a real reason to cross-link to — never
   // read for anything else here, «القوالب» itself owns switching/retexting a reason.
   List<ReasonRow>? _reasons;
 
   final _ownerTextController = TextEditingController();
   final _offerAmountController = TextEditingController();
+  final _rewardPointsController = TextEditingController();
   // `pct`/`sar` — TYPED, never folded into the free line the owner types (core/preview.py's own
   // `_OFFER` regex: `20%` or `50 ريال`, nothing else). A composed string is built from this and
   // the amount at the one point it is actually sent, never held as the source of truth itself.
   String _discountKind = 'pct';
-  String _serviceId = '';
-  String _serviceName = '';
+  // SEVERAL SERVICES/PACKAGES, ONE OFFER — every one selected, in the order picked; the merged
+  // message names all of them together (reminders' own `merged_service_text`).
+  final List<String> _serviceIds = [];
+  final List<String> _packageIds = [];
   DateTime? _endsOn;
+  String _rewardType = 'discount';
+
+  // «كافئ المخلصين»'s OWN THRESHOLDS — meaningless for every other goal.
+  double _loyaltyWindowDays = 90;
+  double _loyaltyMinVisits = 3;
+
+  // THE OWNER'S OWN RECURRING WINDOW — collapsed by default; most campaigns need no window at all.
+  bool _windowOn = false;
+  double _windowStartHour = 9;
+  double _windowEndHour = 21;
+  final Set<int> _windowWeekdays = {};
+
+  // WHEN IT LAUNCHES — every goal but `occasion`, which answers this with its own day below.
+  bool _launchLater = false;
+  DateTime? _launchDate;
+  TimeOfDay _launchTime = const TimeOfDay(hour: 8, minute: 0);
+  // THE DAY «هنّئ في مناسبة» IS ABOUT — the one goal whose trigger is a scheduled moment rather
+  // than "now"; launching it with no day at all would create a campaign that silently never
+  // fires (dispatch.py's own `fire_at == 0` guard treats it as "skip forever").
+  DateTime? _occasionOn;
+
+  String _branchId = '';
 
   CampaignPreview? _preview;
   bool _loadingPreview = false;
   bool _sending = false;
   String _error = '';
+
+  // THE FIELDS STEP'S OWN LIVE PREVIEW — a small always-current answer shown WHILE he is still
+  // filling the form, never waiting for the separate "next" press. Debounced: a slider or a
+  // rapid string of taps fires many changes, and re-asking the server on every one of them would
+  // flood the preview endpoint the same way a live-updating text field would. Additive only —
+  // the explicit preview STEP (`_goToPreview`) is still the one gate before a real send, and
+  // still calls the server itself rather than trusting this cached answer.
+  CampaignPreview? _livePreview;
+  Timer? _liveDebounce;
+
+  void _mutate(VoidCallback fn) {
+    setState(fn);
+    _scheduleLivePreview();
+  }
+
+  void _scheduleLivePreview() {
+    _liveDebounce?.cancel();
+    _liveDebounce = Timer(const Duration(milliseconds: 350), () async {
+      if (_picked == null) return;
+      final p = await _service.previewCampaign(_buildBody());
+      if (mounted) setState(() => _livePreview = p);
+    });
+  }
 
   static const _goalIcons = {
     'win_back': Icons.replay_circle_filled_rounded,
@@ -92,6 +147,7 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
     'announce': Icons.campaign_rounded,
     'service_offer': Icons.local_offer_rounded,
     'package_offer': Icons.card_giftcard_rounded,
+    'occasion': Icons.cake_outlined,
   };
 
   @override
@@ -104,12 +160,17 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
     _service.reasons().then((r) {
       if (mounted) setState(() => _reasons = r);
     });
+    _offerAmountController.addListener(_scheduleLivePreview);
+    _rewardPointsController.addListener(_scheduleLivePreview);
+    _ownerTextController.addListener(_scheduleLivePreview);
   }
 
   @override
   void dispose() {
+    _liveDebounce?.cancel();
     _ownerTextController.dispose();
     _offerAmountController.dispose();
+    _rewardPointsController.dispose();
     super.dispose();
   }
 
@@ -122,17 +183,43 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
     return _discountKind == 'pct' ? '$n%' : '$n ريال';
   }
 
+  bool get _rewardEnabled => _kRewardEnabledGoals.contains(_picked?.goal);
+
+  /// THE MORNING OF HIS DAY, not its last minute — a greeting belongs at the start of the day.
+  int get _occasionFireAt {
+    if (_occasionOn == null) return 0;
+    final d = _occasionOn!;
+    final at = DateTime(d.year, d.month, d.day, 8).millisecondsSinceEpoch;
+    return at ~/ 1000;
+  }
+
+  int get _generalFireAt {
+    if (!_launchLater || _launchDate == null) return 0;
+    final d = _launchDate!;
+    final at = DateTime(d.year, d.month, d.day, _launchTime.hour, _launchTime.minute).millisecondsSinceEpoch;
+    return at ~/ 1000;
+  }
+
+  int get _combinedFireAt => _picked?.goal == 'occasion' ? _occasionFireAt : _generalFireAt;
+
+  int get _rewardPoints {
+    if (_rewardType != 'points') return 0;
+    final digits = _rewardPointsController.text.replaceAll(RegExp('[^0-9]'), '');
+    return int.tryParse(digits) ?? 0;
+  }
+
   Future<void> _loadGoals() async {
     final goals = await _service.goals();
     final services = await _catalogueService.list(includeRetired: false);
+    final packages = await _catalogueService.listPackages();
     if (!mounted) return;
-    final filtered = (goals ?? const []).where((g) => g.goal != 'occasion').toList();
+    final list = goals ?? const [];
     setState(() {
-      // `occasion` DELIBERATELY EXCLUDED — see this file's own header comment.
-      _goals = filtered;
+      _goals = list;
       _services = services ?? const [];
+      _packages = (packages ?? const []).where((p) => p.active).toList();
       if (widget.initialGoal != null) {
-        final match = filtered.where((g) => g.goal == widget.initialGoal && g.available).firstOrNull;
+        final match = list.where((g) => g.goal == widget.initialGoal && g.available).firstOrNull;
         if (match != null) {
           _picked = match;
           _step = _Step.fields;
@@ -141,14 +228,22 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
     });
   }
 
-  bool get _rewardEnabled =>
-      const {'occasion', 'win_back', 'service_offer', 'package_offer'}.contains(_picked?.goal);
-
   bool get _fieldsValid {
-    if (_picked == null) return false;
-    if (_picked!.hasBlank('amount') && _offerAmountController.text.trim().isEmpty) return false;
-    if (_picked!.hasBlank('date') && _endsOn == null) return false;
-    if (_picked!.goal == 'service_offer' && _serviceId.isEmpty) return false;
+    final picked = _picked;
+    if (picked == null) return false;
+    if (picked.hasBlank('amount') && _offerAmountController.text.trim().isEmpty) return false;
+    if (picked.hasBlank('date') && _endsOn == null) return false;
+    if (picked.goal == 'service_offer' && _serviceIds.isEmpty) return false;
+    if (picked.goal == 'package_offer' && _packageIds.isEmpty) return false;
+    if (picked.goal == 'occasion' && _occasionOn == null) return false;
+    if (_rewardEnabled) {
+      if (_rewardType == 'gift') {
+        final needed = picked.goal == 'package_offer' ? _packageIds : _serviceIds;
+        if (needed.isEmpty) return false;
+      }
+      if (_rewardType == 'points' && _rewardPoints <= 0) return false;
+      if (_rewardType == 'discount' && picked.hasBlank('amount') && _offerAmountController.text.trim().isEmpty) return false;
+    }
     return true;
   }
 
@@ -158,24 +253,25 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
         : DateTime(_endsOn!.year, _endsOn!.month, _endsOn!.day, 23, 59, 59)
             .millisecondsSinceEpoch ~/
             1000;
+    final isPackage = _picked?.goal == 'package_offer';
     return {
       'goal': _picked!.goal,
       'owner_text': _ownerTextController.text.trim(),
-      'service_ids': _serviceId.isNotEmpty ? [_serviceId] : <String>[],
-      'package_ids': <String>[],
-      'loyalty_window_days': 90,
-      'loyalty_min_visits': 3,
-      'branch_id': '',
+      'service_ids': isPackage ? <String>[] : _serviceIds,
+      'package_ids': isPackage ? _packageIds : <String>[],
+      'loyalty_window_days': _loyaltyWindowDays.round(),
+      'loyalty_min_visits': _loyaltyMinVisits.round(),
+      'branch_id': _branchId,
       'offer_value': _offerValue,
-      'service_names': _serviceId.isNotEmpty ? [_serviceName] : <String>[],
-      'package_names': <String>[],
+      'service_names': isPackage ? <String>[] : _serviceIds.map((id) => _services.where((s) => s.id == id).firstOrNull?.name ?? '').toList(),
+      'package_names': isPackage ? _packageIds.map((id) => _packages.where((p) => p.id == id).firstOrNull?.name ?? '').toList() : <String>[],
       'expires_at': expiresAt,
-      'fire_at': 0,
-      'window_start_hour': 0,
-      'window_end_hour': 24,
-      'window_weekdays': <int>[],
-      'reward_type': 'discount',
-      'reward_points': 0,
+      'fire_at': _combinedFireAt,
+      'window_start_hour': _windowOn ? _windowStartHour.round() : 0,
+      'window_end_hour': _windowOn ? _windowEndHour.round() : 24,
+      'window_weekdays': _windowOn ? _windowWeekdays.toList() : <int>[],
+      'reward_type': _rewardEnabled ? _rewardType : 'discount',
+      'reward_points': _rewardPoints,
     };
   }
 
@@ -257,24 +353,58 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
               onPick: (g) => setState(() {
                 _picked = g;
                 _step = _Step.fields;
+                _livePreview = null;
               }),
             ),
           _Step.fields => _FieldsStep(
               goal: _picked!,
               linkedReason: (_reasons ?? const []).where((r) => r.id == _kGoalReasonId[_picked!.goal]).firstOrNull,
               services: _services,
+              packages: _packages,
               ownerTextController: _ownerTextController,
               offerAmountController: _offerAmountController,
               discountKind: _discountKind,
-              onDiscountKindChanged: (k) => setState(() => _discountKind = k),
+              onDiscountKindChanged: (k) => _mutate(() => _discountKind = k),
               rewardEnabled: _rewardEnabled,
-              serviceId: _serviceId,
-              endsOn: _endsOn,
-              onServicePicked: (id, name) => setState(() {
-                _serviceId = id;
-                _serviceName = name;
+              rewardType: _rewardType,
+              onRewardTypeChanged: (t) => _mutate(() => _rewardType = t),
+              rewardPointsController: _rewardPointsController,
+              serviceIds: _serviceIds,
+              packageIds: _packageIds,
+              onServiceToggled: (id) => _mutate(() {
+                _serviceIds.contains(id) ? _serviceIds.remove(id) : _serviceIds.add(id);
               }),
-              onDatePicked: (d) => setState(() => _endsOn = d),
+              onPackageToggled: (id) => _mutate(() {
+                _packageIds.contains(id) ? _packageIds.remove(id) : _packageIds.add(id);
+              }),
+              endsOn: _endsOn,
+              onDatePicked: (d) => _mutate(() => _endsOn = d),
+              occasionOn: _occasionOn,
+              onOccasionPicked: (d) => _mutate(() => _occasionOn = d),
+              launchLater: _launchLater,
+              onLaunchLaterChanged: (v) => _mutate(() => _launchLater = v),
+              launchDate: _launchDate,
+              onLaunchDatePicked: (d) => _mutate(() => _launchDate = d),
+              launchTime: _launchTime,
+              onLaunchTimePicked: (t) => _mutate(() => _launchTime = t),
+              loyaltyWindowDays: _loyaltyWindowDays,
+              loyaltyMinVisits: _loyaltyMinVisits,
+              onLoyaltyWindowChanged: (v) => _mutate(() => _loyaltyWindowDays = v),
+              onLoyaltyMinVisitsChanged: (v) => _mutate(() => _loyaltyMinVisits = v),
+              windowOn: _windowOn,
+              onWindowOnChanged: (v) => _mutate(() => _windowOn = v),
+              windowStartHour: _windowStartHour,
+              windowEndHour: _windowEndHour,
+              onWindowStartChanged: (v) => _mutate(() => _windowStartHour = v),
+              onWindowEndChanged: (v) => _mutate(() => _windowEndHour = v),
+              windowWeekdays: _windowWeekdays,
+              onWeekdayToggled: (d) => _mutate(() {
+                _windowWeekdays.contains(d) ? _windowWeekdays.remove(d) : _windowWeekdays.add(d);
+              }),
+              branches: widget.branches,
+              branchId: _branchId,
+              onBranchChanged: (b) => _mutate(() => _branchId = b),
+              livePreview: _livePreview,
               canContinue: _fieldsValid,
               onContinue: _goToPreview,
             ),
@@ -358,15 +488,45 @@ class _FieldsStep extends StatelessWidget {
     required this.goal,
     required this.linkedReason,
     required this.services,
+    required this.packages,
     required this.ownerTextController,
     required this.offerAmountController,
     required this.discountKind,
     required this.onDiscountKindChanged,
     required this.rewardEnabled,
-    required this.serviceId,
+    required this.rewardType,
+    required this.onRewardTypeChanged,
+    required this.rewardPointsController,
+    required this.serviceIds,
+    required this.packageIds,
+    required this.onServiceToggled,
+    required this.onPackageToggled,
     required this.endsOn,
-    required this.onServicePicked,
     required this.onDatePicked,
+    required this.occasionOn,
+    required this.onOccasionPicked,
+    required this.launchLater,
+    required this.onLaunchLaterChanged,
+    required this.launchDate,
+    required this.onLaunchDatePicked,
+    required this.launchTime,
+    required this.onLaunchTimePicked,
+    required this.loyaltyWindowDays,
+    required this.loyaltyMinVisits,
+    required this.onLoyaltyWindowChanged,
+    required this.onLoyaltyMinVisitsChanged,
+    required this.windowOn,
+    required this.onWindowOnChanged,
+    required this.windowStartHour,
+    required this.windowEndHour,
+    required this.onWindowStartChanged,
+    required this.onWindowEndChanged,
+    required this.windowWeekdays,
+    required this.onWeekdayToggled,
+    required this.branches,
+    required this.branchId,
+    required this.onBranchChanged,
+    required this.livePreview,
     required this.canContinue,
     required this.onContinue,
   });
@@ -374,17 +534,52 @@ class _FieldsStep extends StatelessWidget {
   final GoalRow goal;
   final ReasonRow? linkedReason;
   final List<ServiceItem> services;
+  final List<ServicePackage> packages;
   final TextEditingController ownerTextController;
   final TextEditingController offerAmountController;
   final String discountKind;
   final ValueChanged<String> onDiscountKindChanged;
   final bool rewardEnabled;
-  final String serviceId;
+  final String rewardType;
+  final ValueChanged<String> onRewardTypeChanged;
+  final TextEditingController rewardPointsController;
+  final List<String> serviceIds;
+  final List<String> packageIds;
+  final ValueChanged<String> onServiceToggled;
+  final ValueChanged<String> onPackageToggled;
   final DateTime? endsOn;
-  final void Function(String id, String name) onServicePicked;
   final ValueChanged<DateTime> onDatePicked;
+  final DateTime? occasionOn;
+  final ValueChanged<DateTime> onOccasionPicked;
+  final bool launchLater;
+  final ValueChanged<bool> onLaunchLaterChanged;
+  final DateTime? launchDate;
+  final ValueChanged<DateTime> onLaunchDatePicked;
+  final TimeOfDay launchTime;
+  final ValueChanged<TimeOfDay> onLaunchTimePicked;
+  final double loyaltyWindowDays;
+  final double loyaltyMinVisits;
+  final ValueChanged<double> onLoyaltyWindowChanged;
+  final ValueChanged<double> onLoyaltyMinVisitsChanged;
+  final bool windowOn;
+  final ValueChanged<bool> onWindowOnChanged;
+  final double windowStartHour;
+  final double windowEndHour;
+  final ValueChanged<double> onWindowStartChanged;
+  final ValueChanged<double> onWindowEndChanged;
+  final Set<int> windowWeekdays;
+  final ValueChanged<int> onWeekdayToggled;
+  final List<Branch> branches;
+  final String branchId;
+  final ValueChanged<String> onBranchChanged;
+  /// THE FIELDS STEP'S OWN LIVE ANSWER — updates as he types/picks, debounced (see the state's
+  /// own `_mutate`). Additive only: the explicit preview step ahead of this one is still the one
+  /// real gate before `createCampaign`, and re-asks the server itself rather than trusting this.
+  final CampaignPreview? livePreview;
   final bool canContinue;
   final VoidCallback onContinue;
+
+  static const _weekdayKeys = ['weekdayMon', 'weekdayTue', 'weekdayWed', 'weekdayThu', 'weekdayFri', 'weekdaySat', 'weekdaySun'];
 
   @override
   Widget build(BuildContext context) {
@@ -412,44 +607,115 @@ class _FieldsStep extends StatelessWidget {
                 Text(ct(context, 'whichService'), style: AppTextStyles.labelMedium),
                 const SizedBox(height: AppSpacing.sm),
                 for (final s in services)
-                  ListTile(
+                  CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
                     title: Text(s.name),
-                    leading: Icon(
-                      s.id == serviceId ? Icons.check_circle_rounded : Icons.circle_outlined,
-                      color: s.id == serviceId
-                          ? (context.isDark ? AppDarkColors.accent : AppColors.accent)
-                          : context.appColors.textMuted,
-                    ),
-                    onTap: () => onServicePicked(s.id, s.name),
+                    value: serviceIds.contains(s.id),
+                    onChanged: (_) => onServiceToggled(s.id),
+                  ),
+                const SizedBox(height: AppSpacing.md),
+              ],
+              if (goal.goal == 'package_offer') ...[
+                Text(ct(context, 'whichPackage'), style: AppTextStyles.labelMedium),
+                const SizedBox(height: AppSpacing.sm),
+                for (final p in packages)
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: Text(p.name),
+                    value: packageIds.contains(p.id),
+                    onChanged: (_) => onPackageToggled(p.id),
                   ),
                 const SizedBox(height: AppSpacing.md),
               ],
               if (rewardEnabled) ...[
-                Text(ct(context, 'discountAmount'), style: AppTextStyles.labelMedium),
+                Text(ct(context, 'rewardTitle'), style: AppTextStyles.labelMedium),
                 const SizedBox(height: AppSpacing.sm),
-                // TYPED, NOT FREE TEXT — the server's own shape (core/preview.py's `_OFFER`
-                // regex) is exactly "20%" or "50 ريال": a percent 1-99 with no decimals, or an
-                // amount with up to 2. Composing it from a number + a real toggle means a shop
-                // can never type something the server refuses at the very last step.
-                Row(children: [
-                  Expanded(
-                    child: AppTextField(
-                      controller: offerAmountController,
-                      hintText: discountKind == 'pct' ? '20' : '50',
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                SegmentedFilter<String>(
+                  value: rewardType,
+                  onChanged: onRewardTypeChanged,
+                  options: [
+                    SegmentedFilterOption(value: 'discount', label: ct(context, 'rewardDiscount')),
+                    SegmentedFilterOption(value: 'gift', label: ct(context, 'rewardGift')),
+                    SegmentedFilterOption(value: 'points', label: ct(context, 'rewardPoints')),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                if (rewardType == 'discount')
+                  // TYPED, NOT FREE TEXT — the server's own shape (core/preview.py's `_OFFER`
+                  // regex) is exactly "20%" or "50 ريال": a percent 1-99 with no decimals, or an
+                  // amount with up to 2. Composing it from a number + a real toggle means a shop
+                  // can never type something the server refuses at the very last step.
+                  Row(children: [
+                    Expanded(
+                      child: AppTextField(
+                        controller: offerAmountController,
+                        hintText: discountKind == 'pct' ? '20' : '50',
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      ),
                     ),
+                    const SizedBox(width: AppSpacing.sm),
+                    SegmentedFilter<String>(
+                      value: discountKind,
+                      onChanged: onDiscountKindChanged,
+                      options: [
+                        const SegmentedFilterOption(value: 'pct', label: '%'),
+                        SegmentedFilterOption(value: 'sar', label: ct(context, 'sar')),
+                      ],
+                    ),
+                  ])
+                else if (rewardType == 'points')
+                  AppTextField(
+                    controller: rewardPointsController,
+                    hintText: ct(context, 'rewardPointsHint'),
+                    keyboardType: TextInputType.number,
+                  )
+                else
+                  Text(ct(context, 'rewardGiftHint'), style: AppTextStyles.caption),
+                const SizedBox(height: AppSpacing.md),
+              ] else if (goal.hasBlank('amount'))
+                ...[
+                  Text(ct(context, 'discountAmount'), style: AppTextStyles.labelMedium),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(children: [
+                    Expanded(
+                      child: AppTextField(
+                        controller: offerAmountController,
+                        hintText: discountKind == 'pct' ? '20' : '50',
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    SegmentedFilter<String>(
+                      value: discountKind,
+                      onChanged: onDiscountKindChanged,
+                      options: [
+                        const SegmentedFilterOption(value: 'pct', label: '%'),
+                        SegmentedFilterOption(value: 'sar', label: ct(context, 'sar')),
+                      ],
+                    ),
+                  ]),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+              if (goal.goal == 'reward_loyal') ...[
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: context.appColors.surfaceAlt,
+                    borderRadius: AppRadius.standardRadius,
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  SegmentedFilter<String>(
-                    value: discountKind,
-                    onChanged: onDiscountKindChanged,
-                    options: [
-                      const SegmentedFilterOption(value: 'pct', label: '%'),
-                      SegmentedFilterOption(value: 'sar', label: ct(context, 'sar')),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(ct(context, 'loyaltyTitle'), style: AppTextStyles.labelMedium),
+                      Text(ct(context, 'loyaltyWindowLabel', {'n': '${loyaltyWindowDays.round()}'}), style: AppTextStyles.caption),
+                      Slider(value: loyaltyWindowDays, min: 7, max: 365, onChanged: onLoyaltyWindowChanged),
+                      Text(ct(context, 'loyaltyMinVisitsLabel', {'n': '${loyaltyMinVisits.round()}'}), style: AppTextStyles.caption),
+                      Slider(value: loyaltyMinVisits, min: 1, max: 50, onChanged: onLoyaltyMinVisitsChanged),
                     ],
                   ),
-                ]),
+                ),
                 const SizedBox(height: AppSpacing.md),
               ],
               if (goal.hasBlank('date')) ...[
@@ -472,17 +738,164 @@ class _FieldsStep extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
               ],
+              if (goal.goal == 'occasion') ...[
+                Text(ct(context, 'occasionDayLabel'), style: AppTextStyles.labelMedium),
+                const SizedBox(height: AppSpacing.sm),
+                SecondaryButton(
+                  text: occasionOn == null
+                      ? ct(context, 'pickEndDate')
+                      : '${occasionOn!.year}-${occasionOn!.month.toString().padLeft(2, '0')}-${occasionOn!.day.toString().padLeft(2, '0')}',
+                  icon: Icons.cake_outlined,
+                  onPressed: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now().add(const Duration(days: 1)),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (picked != null) onOccasionPicked(picked);
+                  },
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(color: context.appColors.surfaceAlt, borderRadius: AppRadius.standardRadius),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(ct(context, 'whenTitle'), style: AppTextStyles.labelMedium),
+                      const SizedBox(height: AppSpacing.sm),
+                      SegmentedFilter<bool>(
+                        value: launchLater,
+                        onChanged: onLaunchLaterChanged,
+                        options: [
+                          SegmentedFilterOption(value: false, label: ct(context, 'whenNow')),
+                          SegmentedFilterOption(value: true, label: ct(context, 'whenLater')),
+                        ],
+                      ),
+                      if (launchLater) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        Row(children: [
+                          Expanded(
+                            child: SecondaryButton(
+                              text: launchDate == null
+                                  ? ct(context, 'pickEndDate')
+                                  : '${launchDate!.year}-${launchDate!.month.toString().padLeft(2, '0')}-${launchDate!.day.toString().padLeft(2, '0')}',
+                              icon: Icons.calendar_today_outlined,
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.now(),
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                                );
+                                if (picked != null) onLaunchDatePicked(picked);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          SecondaryButton(
+                            text: launchTime.format(context),
+                            icon: Icons.access_time,
+                            onPressed: () async {
+                              final picked = await showTimePicker(context: context, initialTime: launchTime);
+                              if (picked != null) onLaunchTimePicked(picked);
+                            },
+                          ),
+                        ]),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
               if (goal.hasBlank('owner')) ...[
                 Text(ct(context, 'whatsNew'), style: AppTextStyles.labelMedium),
                 const SizedBox(height: AppSpacing.sm),
                 AppTextField(controller: ownerTextController, maxLines: 2, hintText: ct(context, 'ownerTextHint')),
                 const SizedBox(height: AppSpacing.md),
               ],
+              // THE RECURRING WINDOW — collapsed by default (this pass's own posture, same as
+              // the console: most campaigns need no window, and a form opening with every
+              // optional field expanded reads as more decisions than it is).
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(color: context.appColors.surfaceAlt, borderRadius: AppRadius.standardRadius),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(ct(context, 'windowTitle'), style: AppTextStyles.labelMedium),
+                      value: windowOn,
+                      onChanged: onWindowOnChanged,
+                    ),
+                    if (windowOn) ...[
+                      Text(ct(context, 'windowHoursLabel', {
+                        'start': '${windowStartHour.round()}', 'end': '${windowEndHour.round()}',
+                      }), style: AppTextStyles.caption),
+                      RangeSlider(
+                        values: RangeValues(windowStartHour, windowEndHour),
+                        min: 0, max: 24, divisions: 24,
+                        onChanged: (v) {
+                          onWindowStartChanged(v.start);
+                          onWindowEndChanged(v.end);
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Wrap(spacing: 6, children: [
+                        for (var d = 0; d < 7; d++)
+                          FilterChip(
+                            label: Text(ct(context, _weekdayKeys[d])),
+                            selected: windowWeekdays.contains(d),
+                            onSelected: (_) => onWeekdayToggled(d),
+                          ),
+                      ]),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              // ESTIMATED FOR A SHOP WITH MORE THAN ONE PLACE — "target your only branch" is a
+              // control that does nothing.
+              if (branches.length > 1) ...[
+                Text(ct(context, 'branchLabel'), style: AppTextStyles.labelMedium),
+                const SizedBox(height: AppSpacing.sm),
+                DropdownButtonFormField<String>(
+                  initialValue: branchId,
+                  items: [
+                    DropdownMenuItem(value: '', child: Text(ct(context, 'allBranches'))),
+                    for (final b in branches) DropdownMenuItem(value: b.id, child: Text(b.name)),
+                  ],
+                  onChanged: (v) => onBranchChanged(v ?? ''),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
             ],
           ),
         ),
+        if (livePreview != null)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(color: context.appColors.surfaceAlt, borderRadius: AppRadius.standardRadius),
+            child: Row(children: [
+              const Icon(Icons.people_outline_rounded, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  ct(context, 'reachesLine', {'n': '${livePreview!.reaches}'}),
+                  style: AppTextStyles.caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ]),
+          ),
         Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
           child: PrimaryButton(text: ct(context, 'nextPreview'), onPressed: canContinue ? onContinue : null),
         ),
       ],
