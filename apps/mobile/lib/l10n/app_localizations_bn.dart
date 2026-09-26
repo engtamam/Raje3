@@ -242,6 +242,22 @@ class SBn extends S {
   String get assistantCancel => 'বাতিল';
 
   @override
+  String get assistantReplySettingsTooltip => 'উত্তরের সেটিংস';
+
+  @override
+  String get assistantReplyModeTitle => 'সহায়ক যেভাবে উত্তর দেয়';
+
+  @override
+  String get assistantReplyModeSubtitle =>
+      'কণ্ঠে জিজ্ঞাসা করলেও প্রতিটি উত্তরে প্রযোজ্য';
+
+  @override
+  String get assistantReplyModeVoice => 'কণ্ঠস্বর';
+
+  @override
+  String get assistantReplyModeText => 'লিখিত টেক্সট';
+
+  @override
   String get authLoginSubtitle => 'চালিয়ে যেতে সাইন ইন করুন';
 
   @override

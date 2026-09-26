@@ -77,6 +77,12 @@ class AppConstants {
   /// through [BranchProvider] rather than re-implementing its own picker.
   static const String selectedBranchIdKey = 'selected_branch_id';
 
+  /// The operator's own choice for how the AI assistant replies — 'voice' or
+  /// 'text' (local storage, per-device, same reasoning [customNavSlotKey]
+  /// documents). Governs every answer regardless of how the question was
+  /// asked (typed or spoken) — see [LocalStorage.getAssistantReplyMode].
+  static const String assistantReplyModeKey = 'assistant_reply_mode';
+
   // NOTE: the reference project also kept keys here for its own streak-card
   // display settings and BLE/WiFi device pairing — those are product
   // features (gamification, hardware scanners), not reusable storage

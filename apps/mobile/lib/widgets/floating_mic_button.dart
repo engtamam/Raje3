@@ -7,6 +7,7 @@ import 'package:raje3_mobile/core/actions/action_model.dart';
 import 'package:raje3_mobile/core/actions/action_registry.dart';
 import 'package:raje3_mobile/core/ai/ai_model.dart';
 import 'package:raje3_mobile/core/ai/assistant_service.dart';
+import 'package:raje3_mobile/core/ai/assistant_turn.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/storage/local_storage.dart';
 import 'package:raje3_mobile/core/tts/tts_model.dart';
@@ -137,7 +138,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
         _answerSubscription?.cancel();
         _answerSubscription = null;
         // DEFENSIVE, NOT REDUNDANT: onDone can already be queued as a microtask the instant
-        // before cancel() runs, so _speakAnswer may have started speaking a beat before this
+        // before cancel() runs, so _deliverAnswer may have started speaking a beat before this
         // branch finishes — stop() is a harmless no-op if nothing is speaking yet.
         await _tts.stop();
         _goIdle();
@@ -213,21 +214,21 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
           case AiTextToken(:final text):
             buffer.write(text);
           case AiActionProposed():
-            _handleProposedAction(event, lang);
+            _handleProposedAction(event, lang, question);
         }
       },
       onDone: () {
-        // Guarded the same way _speakAnswer guards itself below — a proposed action already
-        // resolved to idle (or to opening the chat sheet) must not also speak whatever text,
+        // Guarded the same way _deliverAnswer guards itself below — a proposed action already
+        // resolved to idle (or to opening the chat sheet) must not also deliver whatever text,
         // if any, arrived alongside it.
-        if (_state == _VoiceState.thinking) _speakAnswer(buffer.toString(), lang);
+        if (_state == _VoiceState.thinking) _deliverAnswer(question, buffer.toString(), lang);
       },
     );
   }
 
   /// Resolves [event] against the REAL, CURRENT catalog — never the snapshot [_handleRecognized]
   /// captured when the question was first asked, since a capability can change mid-turn.
-  void _handleProposedAction(AiActionProposed event, String lang) {
+  void _handleProposedAction(AiActionProposed event, String lang, String question) {
     if (!mounted || _state != _VoiceState.thinking) return; // cancelled meanwhile
     final catalog = context.read<NavProvider>().catalog;
     final decision = _executor.resolve(event, catalog);
@@ -239,7 +240,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
       case ActionRunNow(:final action):
         _answerSubscription?.cancel();
         _answerSubscription = null;
-        unawaited(_runAndSpeak(action, lang));
+        unawaited(_runAndDeliver(question, action, lang));
       case ActionNeedsConfirmation():
         // NO HANDS-FREE CONFIRMATION SURFACE EXISTS on this button — a sensitive action falls
         // back to the chat sheet, where a real tap can confirm it (AssistantChatSheet's own
@@ -251,22 +252,31 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
     }
   }
 
-  /// Carries out a run-now action, then SPEAKS whatever real answer it produced (a READ action)
-  /// before returning to idle — never a silent `_goIdle()` for those, which would make the
-  /// operator wait for a voice reply that simply never comes. `null` (navigation; nothing to
-  /// say) goes idle immediately, same as before this existed.
-  Future<void> _runAndSpeak(AppAction action, String lang) async {
+  /// Carries out a run-now action, then DELIVERS whatever real answer it produced (a READ
+  /// action) before returning to idle — never a silent `_goIdle()` for those, which would make
+  /// the operator wait for a reply that simply never comes. `null` (navigation; nothing to say)
+  /// goes idle immediately, same as before this existed.
+  Future<void> _runAndDeliver(String question, AppAction action, String lang) async {
     final result = await _executor.execute(context, action);
     if (!mounted) return;
     if (result != null) {
-      await _speakAnswer(result, lang);
+      await _deliverAnswer(question, result, lang);
       return;
     }
     _goIdle();
   }
 
-  Future<void> _speakAnswer(String answer, String lang) async {
+  /// Speaks [answer] aloud, or — when the operator's own reply-mode setting asks for text
+  /// instead (see [LocalStorage.assistantReplyIsVoice]) — opens the chat sheet with [question]
+  /// and [answer] already filled in, exactly as if he had typed the question there himself.
+  /// This is the one place a voice QUESTION can still end in a WRITTEN answer.
+  Future<void> _deliverAnswer(String question, String answer, String lang) async {
     if (!mounted || _state != _VoiceState.thinking) return; // cancelled meanwhile
+    if (!widget.localStorage.assistantReplyIsVoice) {
+      _goIdle();
+      AssistantChatSheet.show(context, seed: AssistantTurn(question: question, answer: answer));
+      return;
+    }
     setState(() => _state = _VoiceState.speaking);
     await _tts.speak(answer, languageCode: lang);
     if (mounted && _state == _VoiceState.speaking) _goIdle();

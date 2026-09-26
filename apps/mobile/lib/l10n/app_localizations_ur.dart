@@ -241,6 +241,22 @@ class SUr extends S {
   String get assistantCancel => 'منسوخ کریں';
 
   @override
+  String get assistantReplySettingsTooltip => 'جواب کی ترتیبات';
+
+  @override
+  String get assistantReplyModeTitle => 'معاون کیسے جواب دے';
+
+  @override
+  String get assistantReplyModeSubtitle =>
+      'ہر جواب پر لاگو ہوتا ہے، چاہے آپ نے آواز سے پوچھا ہو';
+
+  @override
+  String get assistantReplyModeVoice => 'آواز';
+
+  @override
+  String get assistantReplyModeText => 'تحریری متن';
+
+  @override
   String get authLoginSubtitle => 'جاری رکھنے کے لیے سائن ان کریں';
 
   @override

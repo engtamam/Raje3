@@ -209,6 +209,11 @@
   "assistantActionUnavailable": "ما تقدر تسوي هذا الآن.",
   "assistantConfirm": "تأكيد",
   "assistantCancel": "إلغاء",
+  "assistantReplySettingsTooltip": "إعدادات الرد",
+  "assistantReplyModeTitle": "طريقة رد المساعد",
+  "assistantReplyModeSubtitle": "يحكم هذا كل رد، حتى لو سألته بصوتك",
+  "assistantReplyModeVoice": "صوت",
+  "assistantReplyModeText": "نص مكتوب",
   "@routerScreenNotOnMobileYet": {
     "description": "Placeholder body for a nav section the catalogue exposes but mobile has no screen for yet"
   },

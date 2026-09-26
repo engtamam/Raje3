@@ -243,6 +243,22 @@ class SEn extends S {
   String get assistantCancel => 'Cancel';
 
   @override
+  String get assistantReplySettingsTooltip => 'Reply settings';
+
+  @override
+  String get assistantReplyModeTitle => 'How the assistant replies';
+
+  @override
+  String get assistantReplyModeSubtitle =>
+      'Applies to every answer, even if you asked by voice';
+
+  @override
+  String get assistantReplyModeVoice => 'Voice';
+
+  @override
+  String get assistantReplyModeText => 'Written text';
+
+  @override
   String get authLoginSubtitle => 'Sign in to continue';
 
   @override

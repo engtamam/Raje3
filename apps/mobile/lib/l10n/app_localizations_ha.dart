@@ -242,6 +242,22 @@ class SHa extends S {
   String get assistantCancel => 'Soke';
 
   @override
+  String get assistantReplySettingsTooltip => 'Saitunan amsa';
+
+  @override
+  String get assistantReplyModeTitle => 'Yadda mataimaki ke amsawa';
+
+  @override
+  String get assistantReplyModeSubtitle =>
+      'Ya shafi kowace amsa, ko da ka tambaya da murya';
+
+  @override
+  String get assistantReplyModeVoice => 'Murya';
+
+  @override
+  String get assistantReplyModeText => 'Rubutu';
+
+  @override
   String get authLoginSubtitle => 'Shiga don ci gaba';
 
   @override

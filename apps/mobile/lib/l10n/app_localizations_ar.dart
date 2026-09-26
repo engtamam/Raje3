@@ -239,6 +239,21 @@ class SAr extends S {
   String get assistantCancel => 'إلغاء';
 
   @override
+  String get assistantReplySettingsTooltip => 'إعدادات الرد';
+
+  @override
+  String get assistantReplyModeTitle => 'طريقة رد المساعد';
+
+  @override
+  String get assistantReplyModeSubtitle => 'يحكم هذا كل رد، حتى لو سألته بصوتك';
+
+  @override
+  String get assistantReplyModeVoice => 'صوت';
+
+  @override
+  String get assistantReplyModeText => 'نص مكتوب';
+
+  @override
   String get authLoginSubtitle => 'سجّل دخولك للمتابعة';
 
   @override

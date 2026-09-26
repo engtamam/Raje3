@@ -531,6 +531,36 @@ abstract class S {
   /// **'إلغاء'**
   String get assistantCancel;
 
+  /// No description provided for @assistantReplySettingsTooltip.
+  ///
+  /// In ar, this message translates to:
+  /// **'إعدادات الرد'**
+  String get assistantReplySettingsTooltip;
+
+  /// No description provided for @assistantReplyModeTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'طريقة رد المساعد'**
+  String get assistantReplyModeTitle;
+
+  /// No description provided for @assistantReplyModeSubtitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'يحكم هذا كل رد، حتى لو سألته بصوتك'**
+  String get assistantReplyModeSubtitle;
+
+  /// No description provided for @assistantReplyModeVoice.
+  ///
+  /// In ar, this message translates to:
+  /// **'صوت'**
+  String get assistantReplyModeVoice;
+
+  /// No description provided for @assistantReplyModeText.
+  ///
+  /// In ar, this message translates to:
+  /// **'نص مكتوب'**
+  String get assistantReplyModeText;
+
   /// Subtitle under the wordmark on the login screen
   ///
   /// In ar, this message translates to:

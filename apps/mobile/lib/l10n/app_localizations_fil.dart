@@ -245,6 +245,22 @@ class SFil extends S {
   String get assistantCancel => 'Kanselahin';
 
   @override
+  String get assistantReplySettingsTooltip => 'Mga setting ng sagot';
+
+  @override
+  String get assistantReplyModeTitle => 'Paano sumasagot ang katulong';
+
+  @override
+  String get assistantReplyModeSubtitle =>
+      'Nalalapat sa bawat sagot, kahit tinanong mo sa boses';
+
+  @override
+  String get assistantReplyModeVoice => 'Boses';
+
+  @override
+  String get assistantReplyModeText => 'Nakasulat na teksto';
+
+  @override
   String get authLoginSubtitle => 'Mag-sign in para magpatuloy';
 
   @override
