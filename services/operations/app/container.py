@@ -490,6 +490,10 @@ def build_container(settings: Settings) -> Container:
     # without this line landing in the same change.
     container.mobile_ai_assistant_licence = build_feature_licence(
         settings, "feature.mobile_ai_assistant")
+    # Same rule as `mobile_ai_assistant_licence` above, same reason: `feature.referrals` joined
+    # `core/apps.py::APPS` (Phase 0 backend registration), so it must join here in the same change
+    # or `subscribed_write`'s generic OR-gate reads it as unwired and opens for every shop.
+    container.referrals_licence = build_feature_licence(settings, "feature.referrals")
     container.templates = TemplateLibrary(container.datastore)
     # The door. Built early, because a signup that cannot
     # seed a catalogue is a signup that lands the new owner on an empty «خدماتي».

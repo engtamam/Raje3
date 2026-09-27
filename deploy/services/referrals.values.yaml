@@ -1,0 +1,100 @@
+# referrals — deployment values.
+#
+# PHASE 0 ONLY (docs/adding-a-new-app.md): platform-tax-only, zero domain routes yet. No peer URLs
+# below beyond billing — there is nothing else for this service to call until a later phase adds
+# the first real route. Adapted from bookings.values.yaml (a current small standalone app, same
+# licence-gated shape) rather than written from scratch.
+#
+# Defaults are SAFE, not scalable: one replica, in-memory drivers. To scale out, move every
+# stateful port to a shared driver below; the chart REFUSES to render replicas>1 otherwise.
+service:
+  name: referrals
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/raje3/referrals
+  # PLACEHOLDER — this service has not been built or published yet (platform/scripts/
+  # create_service.py's own convention: "CI rewrites this at publish; never a :latest tag").
+  # ship.sh / publish-images.sh must run and overwrite this before any rollout is attempted;
+  # a rollout against this digest fails at image pull, which is the correct, loud failure.
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    # MEASURED-NOT-GUESSED CONVENTION (see loyalty.values.yaml's own note): every live service on
+    # this fleet sits at 2-4m at rest. 20m matches the fleet's floor rather than the chart's
+    # unmeasured 50m default — revisit once this service actually carries traffic.
+    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+autoscaling:
+  enabled: false        # flip on once you have load; requests.cpu above makes it real
+
+existingSecret: referrals-secrets   # INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_*
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    # No internet. Phase 0 calls only billing and audit — both in-cluster, both covered by the
+    # default peer-service egress the chart already opens (same shape as bookings.values.yaml's).
+    internet: false
+
+metrics:
+  serviceMonitor: false
+
+env:
+  # Same fix as insights/operations/reminders/bookings' own DATASTORE_POOL_MAX — the platform
+  # default (pool_max=5) is a real ceiling under fleet-wide concurrent load, not a leak.
+  DATASTORE_POOL_MAX: "10"
+  # ── The request budget per person (§1.1, see loyalty.values.yaml for the full derivation) ──
+  RATELIMIT_MAX: "600"
+  RATELIMIT_WINDOW_SECONDS: "60"
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── what the shop bought (app/core/licence.py) ───────────────────────────────────────────
+  # WITHOUT THIS THE SERVICE REFUSES TO START IN PRODUCTION (assert_licence_config_ok) — the same
+  # boot guard loyalty/campaigns/bookings each carry, for the same reason: an unconfigured licence
+  # check is a paid app given away to every plan, silently, with nothing anywhere failing to say so.
+  # No domain route calls it yet (Phase 0), which is exactly why it is wired now rather than later.
+  BILLING_SERVICE_URL: "http://billing-service:8000"
+  BILLING_CHECK_PATH: "/internal/billing/entitlements/check"
+  PEER_TIMEOUT_SECONDS: "8"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+ingress:
+  enabled: false   # operator-only, reached through the gateway — no console screen exists yet
+
+# ── the SHARED secrets ────────────────────────────────────────────────────────────────────────
+# Identical values across every service, injected by the chart from one source. BACKUP_KEK is the
+# one this service cannot do without: /internal/backup/export answers 503 without it, so this
+# service would be absent from the archive while the fleet reported itself backed up — no domain
+# data exists here yet to make this concrete, same posture bookings.values.yaml shipped with.
+#
+# PII_SALT must be the SAME value every other service holds — two different salts fold one person
+# to two pseudonyms. INTERNAL_SERVICE_TOKEN authenticates peer-service calls once a later phase
+# makes any.
+# secretRefs: BACKUP_KEK, PII_SALT, INTERNAL_SERVICE_TOKEN

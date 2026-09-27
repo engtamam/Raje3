@@ -36,7 +36,7 @@ jobs:
       fail-fast: false
       matrix:
         service: [affiliate-service, bookings, campaigns, error-collector, insights, loyalty, operations, portal,
-                 reminders, secrets-admin, whatsapp-assistant]
+                 referrals, reminders, secrets-admin, whatsapp-assistant]
 
     defaults:
       run:

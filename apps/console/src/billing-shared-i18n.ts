@@ -20,6 +20,7 @@ registerOperatorStrings({
     'plans.limit.mobileRequests.label': 'خدمات متنقلة — طلبات تصلك بها الخدمة عند العميل',
     'plans.limit.mutualBenefit.label': 'تبادل منافع — عميل محل تثق به يصير مستحقاً تلقائياً لعرضك، فتوسّع قاعدة عملائك بثقة متبادلة لا بإعلان',
     'plans.limit.mobileAiAssistant.label': 'مساعد ذكي داخل تطبيق الجوال — يجاوبك ويرشدك بصوتك أو بالكتابة، فوراً وبلا انتظار',
+    'plans.limit.referrals.label': 'برنامج إحالة ومسوّقين يكافئ من يرشّح محلّك لعملاء جدد',
     'plans.limit.standalone.label': 'يُشترى وحده، بلا حاجة لاشتراك أساسي',
     'plans.limit.requiresAny.label': 'يحتاج تطبيقاً آخر مفعّلاً أولاً',
     'plans.limit.contacts.label': 'تسجيل بيانات العملاء وحفظها',
