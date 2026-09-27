@@ -28,6 +28,23 @@ WHAT GOES, AND WHAT DOES NOT:
   Operator  — NOT touched by a customer's DSAR. An operator is the establishment's employee, not
               its customer; erasing them belongs to a different request with a different basis.
 
+  Referral grant / affiliate — a REAL PHONE NUMBER in the clear (`referrer_phone`,
+              `beneficiary_phone`, an affiliate's own `phone`, a settlement's own denormalized
+              `affiliate_phone`) — a Phase 5b security-sweep finding: these two collections
+              (`core/referral_redemption.py::GRANTS`, `core/affiliates.py::AFFILIATES`/
+              `SETTLEMENTS`) went live across Phases 3/4 with no erasure coverage at all, the
+              exact "holder nobody declares is one nobody backs up/erases" defect this fleet's own
+              manifest-driven fan-out exists to catch — except here it was declared (this
+              service's own manifest lists a `referral_code` erasure category already) while the
+              CODE simply never grew to actually sweep the newer collections it grew afterward.
+              BLANKED, same as `Customer.phone` above: the reward terms, amounts, and dates stay
+              (the establishment's own operational record of a promotion it ran), only the phone
+              numbers identifying WHO go. ONLY REACHABLE BY RAW PHONE, not by pseudonym — these
+              rows store the phone directly, never a `subject_ref`, so a caller holding only the
+              pseudonym (see the `ref`-vs-`subject` note in `erase()` below) cannot be matched
+              against them at all; this is a real, inherent limit of the data model, not a bug
+              this method can close on its own.
+
 Scoped to the tenant throughout, and paged with a ceiling. A DSAR is rare, but an unbounded read is
 an outage waiting for the one tenant large enough to trigger it.
 """
@@ -35,8 +52,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.affiliates import AFFILIATES, SETTLEMENTS
 from app.core.models import ASSETS, CUSTOMERS, VISITS
 from app.core.pii import is_subject_ref, subject_ref
+from app.core.referral_redemption import GRANTS
+from app.core.signup import canonical_phone
 
 _PAGE = 200
 _REDACTED = "[erased]"
@@ -48,10 +68,12 @@ class OperationsErasure:
     service = "operations"
     category = "field_operations"
 
-    def __init__(self, *, store, pii_salt: str, max_scan: int = 100_000) -> None:
+    def __init__(self, *, store, pii_salt: str, max_scan: int = 100_000,
+                default_cc: str = "966") -> None:
         self._store = store
         self._salt = pii_salt
         self._max = max_scan
+        self._cc = default_cc
 
     async def erase(self, tenant: str, subject: str) -> dict[str, Any]:
         # THE CALLER MAY HOLD EITHER, AND ONLY ONE OF THEM MAY BE HASHED (د-2).
@@ -110,6 +132,62 @@ class OperationsErasure:
         if n_visits:
             erased.append(f"visits:{n_visits}")
 
+        # REFERRAL GRANTS / AFFILIATES — ONLY REACHABLE BY THE RAW PHONE, never the pseudonym
+        # (see this module's own docstring on why: these rows store a phone directly, not a
+        # subject_ref, so a caller holding only `ref` cannot be matched against them at all).
+        canon_phone = "" if is_subject_ref(subject) else (canonical_phone(subject, default_cc=self._cc) or "")
+        if canon_phone:
+            grant_ids_seen: set[str] = set()
+            n_grants = 0
+            for field in ("referrer_phone", "beneficiary_phone"):
+                rows, cut = await self._page(GRANTS, {"tenant": tenant, field: canon_phone})
+                truncated = truncated or cut
+                for row in rows:
+                    gid = row.get("id", "")
+                    if gid in grant_ids_seen:
+                        continue
+                    changed = False
+                    if row.get("referrer_phone"):
+                        row["referrer_phone"] = ""
+                        changed = True
+                    if row.get("beneficiary_phone"):
+                        row["beneficiary_phone"] = ""
+                        changed = True
+                    if changed:
+                        await self._store.put(GRANTS, f"{tenant}|{gid}", row)
+                        grant_ids_seen.add(gid)
+                        n_grants += 1
+            if n_grants:
+                erased.append(f"referral_grants:{n_grants}")
+
+            affiliates, cut = await self._page(AFFILIATES, {"tenant": tenant, "phone": canon_phone})
+            truncated = truncated or cut
+            n_affiliates = 0
+            affiliate_ids: list[str] = []
+            for row in affiliates:
+                affiliate_ids.append(row.get("id", ""))
+                if row.get("phone"):
+                    row["phone"] = ""
+                    await self._store.put(AFFILIATES, f"{tenant}|{row['id']}", row)
+                    n_affiliates += 1
+            if n_affiliates:
+                erased.append(f"affiliates:{n_affiliates}")
+
+            n_settlements = 0
+            for aid in affiliate_ids:
+                if not aid:
+                    continue
+                settlements, cut = await self._page(
+                    SETTLEMENTS, {"tenant": tenant, "affiliate_id": aid})
+                truncated = truncated or cut
+                for row in settlements:
+                    if row.get("affiliate_phone"):
+                        row["affiliate_phone"] = ""
+                        await self._store.put(SETTLEMENTS, f"{tenant}|{row['id']}", row)
+                        n_settlements += 1
+            if n_settlements:
+                erased.append(f"affiliate_settlements:{n_settlements}")
+
         return {
             "service": self.service,
             "category": self.category,
@@ -124,6 +202,12 @@ class OperationsErasure:
                 "why": "the establishment's record of services it performed — how many, when, by "
                        "which operator. The identifiers are gone; what remains identifies nobody "
                        "and is not the customer's personal data to erase.",
+            }, {
+                "what": "referral/affiliate reward terms and amounts, without phone numbers",
+                "basis": "operational_record",
+                "why": "the establishment's own record of a promotion it ran and what it paid out "
+                       "— the phone numbers identifying who are gone; the reward type, amount, "
+                       "and date are not personal data once nobody can be identified by them.",
             }],
             "already_absent": not erased,
             "truncated": truncated,

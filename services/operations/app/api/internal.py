@@ -128,7 +128,8 @@ async def erase_subject(request: Request, body: EraseIn) -> dict:
         "subject.erased", actor="", tenant=body.tenant, resource="subject",
         ip=request.client.host if request.client else "")
     eraser = OperationsErasure(store=c.datastore, pii_salt=s.PII_SALT,
-                               max_scan=s.ERASURE_MAX_SCAN)
+                               max_scan=s.ERASURE_MAX_SCAN,
+                               default_cc=s.SIGNUP_PHONE_DEFAULT_CC)
     return await eraser.erase(body.tenant, body.subject)
 
 
@@ -2477,7 +2478,8 @@ async def retention_sweep(request: Request) -> dict:
             key=s.RETENTION_ENTITLEMENT_KEY, token=s.INTERNAL_SERVICE_TOKEN,
             timeout=s.PEER_TIMEOUT_SECONDS)
     eraser = OperationsErasure(store=c.datastore, pii_salt=s.PII_SALT,
-                               max_scan=s.ERASURE_MAX_SCAN)
+                               max_scan=s.ERASURE_MAX_SCAN,
+                               default_cc=s.SIGNUP_PHONE_DEFAULT_CC)
     sweeper = retention_core.Sweeper(
         store=c.datastore, eraser=eraser,
         runtime_config=RuntimeConfig(c.datastore, Settings, policy=RUNTIME_POLICY),

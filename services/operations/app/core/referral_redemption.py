@@ -21,11 +21,18 @@ THE TWO-STEP LIFECYCLE, MIRRORING `MutualBenefitGrant` EXACTLY:
      `apply_offer` or `record_visit`: the pending grant is picked up automatically the next time
      the new customer's own visit applies an offer, exactly like a mutual-benefit grant is.
 
-USAGE CAPS ARE ENFORCED AT `register()`, NOT AT REDEMPTION. A cap counts REDEEMED grants (a
-referrer earning credit `x_times`, or once, or without limit) — checking it at redemption time
+USAGE CAPS ARE ENFORCED AT `register()`, NOT AT REDEMPTION — checking only at redemption time
 would let a cashier register five codes for five different new customers past the cap and only
 discover the refusal when the fifth one's OWN visit tries to apply an offer, which is a much
 worse moment to explain a refusal than the moment the code was typed in.
+
+THE ONCE/X_TIMES CAP COUNTS EVERY GRANT THAT EXISTS, PENDING OR REDEEMED — never redeemed-only
+(a real Phase 5b security-sweep fix; see `_enforce_usage_cap`'s own comment for the exact
+exploit counting only redeemed rows left open: N different new customers, each registering
+their own pending grant against the SAME once-or-x_times referrer before any of them redeems,
+each reading "0 redeemed so far" at their own register() call). A grant here never expires, so
+counting it the moment it exists — not only once it is redeemed — is what makes "at most once,
+ever" actually true rather than aspirational.
 
 THE REFERRER'S OWN REWARD IS CREDITED ON REDEEM, NOT ON REGISTER — the new customer might never
 return to spend the discount, and a grant nobody redeemed must cost the referrer nothing (same
@@ -332,11 +339,26 @@ class ReferralRedemptionEngine:
                     "campaign_id": campaign_id}, limit=100000)
         redeemed = [r for r in rows if r.get("redeemed_at")]
 
-        if mode == MODE_ONCE and len(redeemed) >= 1:
+        # ONCE/X_TIMES ARE ABSOLUTE, LIFETIME CAPS — counted against EVERY grant that exists at
+        # all (pending or redeemed), never redeemed-only. A grant here has no expiry (nothing
+        # ever cancels or times one out): counting only REDEEMED rows would let any number of
+        # DIFFERENT new customers each register their own pending grant against the SAME
+        # once-or-x_times referrer at once — every one of them reads "0 (or under-limit) redeemed
+        # so far" at THEIR OWN register() call, since none of the others have redeemed yet either
+        # — and later every single one of them redeems with nothing here ever having refused past
+        # the first (or the Xth). That is not a narrow timing race (closing it would take more
+        # than `_REGISTER_LOCK`, which only ever serialises calls for the SAME beneficiary, never
+        # two DIFFERENT beneficiaries against the same referrer) — it is a structural gap in what
+        # this method counted, real the moment two customers register before either one redeems,
+        # which needs no unlucky timing at all. Counting every grant that exists, redeemed or
+        # still pending, is what actually enforces "at most once/X times, ever."
+        active = rows
+
+        if mode == MODE_ONCE and len(active) >= 1:
             raise ReferralRedemptionError("هذا السفير استخدم مكافأة هذه الحملة من قبل")
         if mode == MODE_X_TIMES:
             limit = int(campaign.get("x_times_limit") or 0)
-            if limit and len(redeemed) >= limit:
+            if limit and len(active) >= limit:
                 raise ReferralRedemptionError("هذا السفير وصل للحد الأقصى لهذه الحملة")
 
         period = str(campaign.get("usage_cap_period") or "")
