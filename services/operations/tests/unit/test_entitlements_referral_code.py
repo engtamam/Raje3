@@ -169,6 +169,57 @@ def test_applying_a_referral_code_entitlement_redeems_it_and_credits_the_referre
     assert engine._loyalty.awards == [{"points": 50, "reason": "referral"}]
 
 
+def test_redeem_credits_the_referrers_real_existing_customer_never_a_duplicate():
+    """REGRESSION (deep-review): `_customer_for_phone` used to look up/create against
+    `canonical_phone`'s own "+966..." form, which never matches `Customer.phone`'s real storage
+    form — so a referrer who was already a real customer here was never found, and every redeem
+    silently created a SECOND Customer row for them with a mismatched phone and a brand-new,
+    unconnected `subject_ref`, misdirecting their real loyalty points to a phantom account. This
+    proves, end to end, that redeem() finds and credits the referrer's ONE real, pre-existing
+    customer row — never a duplicate."""
+    referrer_phone = "0511111111"
+    store = MemoryDataStore()
+    run(_seed_customer(store, TENANT, referrer_phone))
+    real_referrer = run(CustomerStore(store).by_phone(TENANT, _normalise_phone(referrer_phone)))
+    assert real_referrer is not None
+    assert real_referrer.subject_ref == "ref"  # the REAL pre-existing pseudonym, seeded above
+
+    loyalty = FakeLoyaltyDesk()
+    engine = ReferralRedemptionEngine(
+        store=store, referrals_desk=FakeReferralsDesk(referrer_phone=referrer_phone),
+        loyalty_desk=loyalty, pii_salt="s" * 32, default_cc=CC)
+    ops = Operations(store=store, pii_salt="s" * 32)
+
+    class _CapturingLoyalty(FakeLoyaltyDesk):
+        def __init__(self):
+            super().__init__()
+            self.credited_subject_refs: list[str] = []
+
+        async def award(self, *, tenant, subject_ref, points, idempotency_key, reason, actor):
+            self.credited_subject_refs.append(subject_ref)
+            return await super().award(tenant=tenant, subject_ref=subject_ref, points=points,
+                                       idempotency_key=idempotency_key, reason=reason, actor=actor)
+
+    engine._loyalty = _CapturingLoyalty()
+
+    async def campaign_chooser(*, tenant, subject_ref, service_ids):
+        return None
+
+    ops.with_entitlement_gateway(
+        EntitlementGateway(campaign_chooser=campaign_chooser, referral_code_engine=engine))
+    run(engine.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE))
+    v = run(ops.record_visit(tenant=TENANT, phone=BENEFICIARY_PHONE, service_ids=["srv_1"]))
+    run(ops.apply_offer(tenant=TENANT, visit_id=v.visit.id, subject_ref="sub_ignored"))
+
+    # THE CREDIT WENT TO THE REFERRER'S REAL, PRE-EXISTING SUBJECT_REF — never a fresh one.
+    assert engine._loyalty.credited_subject_refs == ["ref"]
+
+    # AND STILL EXACTLY ONE CUSTOMER ROW FOR THIS PHONE — no duplicate was ever created.
+    rows, _ = run(store.find("customers", {"tenant": TENANT, "phone": _normalise_phone(referrer_phone)}))
+    assert len(rows) == 1
+    assert rows[0]["id"] == real_referrer.id
+
+
 def test_a_second_tap_never_credits_the_referrer_twice():
     engine = _referral_engine()
     run(engine.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE))
