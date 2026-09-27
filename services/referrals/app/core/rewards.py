@@ -37,7 +37,10 @@ def _positive_int(value: Any, *, field: str, minimum: int = 1) -> int:
         raise RewardError(f"{field}: قيمة غير صالحة")
     try:
         n = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError is what int() raises on a non-finite float (`int(float("inf"))`) — json's
+        # own non-standard Infinity/-Infinity/NaN literals reach here as plain floats, same as
+        # `_multiplier` below already has to guard against.
         raise RewardError(f"{field}: قيمة غير صالحة")
     # A float that isn't a whole number (50.9) truncating silently to 50 is a silent data loss,
     # not a normalization — refuse it instead of guessing which integer the caller meant.

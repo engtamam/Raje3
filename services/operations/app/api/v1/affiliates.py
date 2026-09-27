@@ -26,6 +26,11 @@ router = APIRouter(prefix="/affiliates", tags=["affiliates"])
 
 _MANAGE = require_capability("operations.manage")
 _READ = require_capability("operations.read")
+# Narrower than plain operations.read: these 3 routes hand back a phone number and an
+# unsettled/payout balance for every affiliate, not just aggregate figures — a field
+# operator who can read the customer book must not automatically also read who is owed
+# money and what their phone number is.
+_PAYOUTS_READ = require_capability("operations.affiliates_read")
 
 
 def _tenant(principal: Principal) -> str:
@@ -74,7 +79,7 @@ async def add_affiliate(request: Request, body: AffiliateIn,
 
 
 @router.get("", dependencies=[Depends(rate_limit)])
-async def list_affiliates(request: Request, principal: Principal = Depends(_READ)) -> dict:
+async def list_affiliates(request: Request, principal: Principal = Depends(_PAYOUTS_READ)) -> dict:
     tenant = _tenant(principal)
     rows = await request.app.state.container.affiliates.list(tenant)
     return {"affiliates": [_public(r) for r in rows]}
@@ -82,7 +87,7 @@ async def list_affiliates(request: Request, principal: Principal = Depends(_READ
 
 @router.get("/{affiliate_id}", dependencies=[Depends(rate_limit)])
 async def get_affiliate(request: Request, affiliate_id: str,
-                        principal: Principal = Depends(_READ)) -> Any:
+                        principal: Principal = Depends(_PAYOUTS_READ)) -> Any:
     tenant = _tenant(principal)
     affiliate = await request.app.state.container.affiliates.get(tenant, affiliate_id)
     if affiliate is None:
@@ -148,7 +153,7 @@ async def settle_affiliate(request: Request, affiliate_id: str, body: SettleIn,
 
 @router.get("/{affiliate_id}/settlements", dependencies=[Depends(rate_limit)])
 async def list_affiliate_settlements(request: Request, affiliate_id: str,
-                                    principal: Principal = Depends(_READ)) -> dict:
+                                    principal: Principal = Depends(_PAYOUTS_READ)) -> dict:
     tenant = _tenant(principal)
     affiliates = request.app.state.container.affiliates
     affiliate = await affiliates.get(tenant, affiliate_id)

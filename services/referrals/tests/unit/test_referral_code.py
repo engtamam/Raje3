@@ -96,6 +96,49 @@ def test_minting_is_atomic_under_real_concurrency_across_different_phones(store)
     assert len(set(codes)) == 20, "two different phones ended up sharing one code"
 
 
+def test_recovers_a_real_code_stuck_in_by_code_after_a_crash_between_steps_2_and_3(store, monkeypatch):
+    """The exact crash this fix closes: step 1 (claim BY_PHONE) and step 2 (claim BY_CODE) both
+    finished, but step 3 (write the real code back into BY_PHONE) never ran — the placeholder in
+    BY_PHONE is stuck holding an empty code forever, even though the real code is sitting right
+    there in BY_CODE the whole time."""
+    import app.core.referral_code as mod
+
+    phone = "+966501234567"
+    run(store.claim(BY_PHONE, phone, {"phone": phone, "code": ""},
+                    ttl_seconds=mod._PERMANENT_TTL_SECONDS, now=1.0))
+    run(store.claim(BY_CODE, "ABCDE", {"phone": phone, "code": "ABCDE"},
+                    ttl_seconds=mod._PERMANENT_TTL_SECONDS, now=1.0))
+
+    monkeypatch.setattr(mod, "_PHONE_RETRY_ATTEMPTS", 2)
+    monkeypatch.setattr(mod, "_PHONE_RETRY_DELAY_SECONDS", 0)
+
+    code = run(code_for_phone(store, phone))
+    assert code == "ABCDE"
+    # the missing step 3 write must actually be completed, not just returned this once
+    row = run(store.get(BY_PHONE, phone))
+    assert row["code"] == "ABCDE"
+
+
+def test_recovers_from_an_abandoned_placeholder_with_nothing_ever_minted(store, monkeypatch):
+    """A crash before step 2 ever succeeded: the BY_PHONE placeholder is stuck, but nothing at all
+    exists in BY_CODE — a genuinely abandoned mint, not a race. A fresh mint must succeed instead
+    of raising CodeMintFailed forever."""
+    import app.core.referral_code as mod
+
+    phone = "+966501234567"
+    run(store.claim(BY_PHONE, phone, {"phone": phone, "code": ""},
+                    ttl_seconds=mod._PERMANENT_TTL_SECONDS, now=1.0))
+
+    monkeypatch.setattr(mod, "_PHONE_RETRY_ATTEMPTS", 2)
+    monkeypatch.setattr(mod, "_PHONE_RETRY_DELAY_SECONDS", 0)
+
+    code = run(code_for_phone(store, phone))
+    assert len(code) == 5
+    assert code[0] in _LETTERS
+    row = run(store.get(BY_PHONE, phone))
+    assert row["code"] == code
+
+
 def test_length_escalates_once_the_short_space_is_exhausted(store, monkeypatch):
     """Forces every 5-character draw to collide, so minting must fall through to 6 characters —
     proven by actually exhausting the space (with a tiny monkeypatched alphabet), not by reading

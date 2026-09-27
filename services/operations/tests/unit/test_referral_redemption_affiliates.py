@@ -10,9 +10,12 @@ import pytest
 from app.adapters.datastore.memory import MemoryDataStore
 from app.adapters.referrals_desk import ReferralsPeerUnavailable
 from app.core.affiliates import REWARD_FIXED_POINTS, REWARD_INVOICE_PERCENTAGE, AffiliateService
+from app.core.models import Customer
+from app.core.signup import canonical_phone
 from app.core.referral_redemption import (
     MODE_ONCE, NEW_CUSTOMER_DISCOUNT_PERCENT, ReferralRedemptionEngine, ReferralRedemptionError,
 )
+from app.core.stores import CustomerStore, new_id
 
 CC = "966"
 TENANT = "shop_a"
@@ -56,8 +59,19 @@ class FakeLoyaltyDesk:
         return {"earned": points}
 
 
+async def _seed_customer(store, tenant: str, phone: str) -> None:
+    """When an affiliate's code falls through to the ORDINARY campaign path (inactive affiliate,
+    or no affiliates wired), the referrer must already be an existing customer here (deep-review
+    Phase 5c) — AFFILIATE_PHONE is seeded by default below so those fallthrough tests keep
+    exercising what they were written to test."""
+    await CustomerStore(store).save(
+        Customer(id=new_id("cus"), tenant=tenant, phone=canonical_phone(phone, default_cc=CC),
+                subject_ref="ref"))
+
+
 def _make(*, referrals=None, loyalty=None, affiliates=None, store=None):
     store = store or MemoryDataStore()
+    run(_seed_customer(store, TENANT, AFFILIATE_PHONE))
     affiliates = affiliates or AffiliateService(store, default_cc=CC)
     engine = ReferralRedemptionEngine(
         store=store, referrals_desk=referrals or FakeReferralsDesk(),
@@ -126,6 +140,7 @@ def test_an_inactive_affiliates_custom_code_falls_through_to_the_ordinary_global
     engine, affiliates = _make(referrals=referrals)
     a = _add_affiliate(affiliates)
     run(affiliates.set_active(TENANT, a.id, active=False))
+    run(_seed_customer(engine._s, TENANT, "0533333333"))  # the OTHER referrer this code now maps to
     # the (now-inactive) affiliate's OWN former code happens to also be a real global code held
     # by someone else — the deactivated affiliate row must never shadow it.
     grant = run(engine.register(TENANT, code=AFFILIATE_CODE, beneficiary_phone=BENEFICIARY_PHONE))
@@ -232,8 +247,10 @@ def test_engine_with_no_affiliates_wired_behaves_exactly_like_phase_3():
         "new_customer_reward_type": NEW_CUSTOMER_DISCOUNT_PERCENT,
         "new_customer_reward_params": {"percent": 10},
     })
+    store = MemoryDataStore()
+    run(_seed_customer(store, TENANT, AFFILIATE_PHONE))
     engine = ReferralRedemptionEngine(
-        store=MemoryDataStore(), referrals_desk=referrals, loyalty_desk=FakeLoyaltyDesk(),
+        store=store, referrals_desk=referrals, loyalty_desk=FakeLoyaltyDesk(),
         pii_salt="s" * 32, default_cc=CC)  # affiliates=None, the default
     grant = run(engine.register(TENANT, code=GLOBAL_CODE, beneficiary_phone=BENEFICIARY_PHONE))
     assert grant.source == "referral"

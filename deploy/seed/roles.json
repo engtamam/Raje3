@@ -68,6 +68,7 @@
         "bookings.manage",
         "coworking.manage",
         "referrals.manage",
+        "operations.affiliates_read",
         "billing.read",
         "billing.manage",
         "billing.self",

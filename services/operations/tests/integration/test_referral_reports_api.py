@@ -62,7 +62,13 @@ def _till(tenant: str) -> dict:
 
 def _owner(tenant: str) -> dict:
     return {"Authorization": f"Bearer {_token(tenant=tenant, caps=('operations.manage',
-                                                                 'operations.read'))}"}
+                                                                 'operations.read',
+                                                                 'operations.affiliates_read'))}"}
+
+
+def _payouts(tenant: str) -> dict:
+    return {"Authorization": f"Bearer {_token(tenant=tenant,
+                                             caps=('operations.affiliates_read',))}"}
 
 
 # ── auth / capability RBAC ───────────────────────────────────────────────────────────────────────
@@ -75,11 +81,28 @@ def test_till_credential_cannot_read_reports(client):
     assert r.status_code == 403
 
 
-def test_read_capability_can_read_every_report_route(client):
+def test_read_capability_can_read_the_two_aggregate_only_report_routes(client):
     tenant = "shop-read-all"
-    for path in ("/api/v1/referrals/reports/summary", "/api/v1/referrals/reports/leaderboard",
-                "/api/v1/referrals/reports/campaigns", "/api/v1/referrals/reports/affiliates"):
+    for path in ("/api/v1/referrals/reports/summary", "/api/v1/referrals/reports/campaigns"):
         assert client.get(path, headers=_read(tenant)).status_code == 200
+
+
+# ── leaderboard/affiliates expose individual phone numbers and payout balances: plain
+# operations.read must NOT reach them, only the narrower operations.affiliates_read ────────────────
+def test_plain_operations_read_cannot_read_leaderboard(client):
+    r = client.get("/api/v1/referrals/reports/leaderboard", headers=_read("shop-read-all"))
+    assert r.status_code == 403
+
+
+def test_plain_operations_read_cannot_read_affiliate_breakdown(client):
+    r = client.get("/api/v1/referrals/reports/affiliates", headers=_read("shop-read-all"))
+    assert r.status_code == 403
+
+
+def test_affiliates_read_capability_can_read_leaderboard_and_affiliate_breakdown(client):
+    tenant = "shop-payouts-caps"
+    for path in ("/api/v1/referrals/reports/leaderboard", "/api/v1/referrals/reports/affiliates"):
+        assert client.get(path, headers=_payouts(tenant)).status_code == 200
 
 
 # ── shape and defaults on an empty shop ──────────────────────────────────────────────────────────
@@ -93,14 +116,14 @@ def test_summary_on_a_brand_new_shop_is_all_zero(client):
 
 def test_leaderboard_limit_is_clamped_never_an_unbounded_scan(client):
     r = client.get("/api/v1/referrals/reports/leaderboard?limit=999999",
-                   headers=_read("shop-clamp"))
+                   headers=_payouts("shop-clamp"))
     assert r.status_code == 200
     assert r.json()["leaderboard"] == []
 
 
 def test_leaderboard_negative_limit_is_clamped_to_at_least_one(client):
     r = client.get("/api/v1/referrals/reports/leaderboard?limit=-50",
-                   headers=_read("shop-clamp2"))
+                   headers=_payouts("shop-clamp2"))
     assert r.status_code == 200
 
 
@@ -111,7 +134,7 @@ def test_shop_b_never_sees_shop_as_affiliate_in_the_breakdown(client):
                json={"phone": "0511111111", "code": "ISOX1", "discount_percent": 10,
                     "reward_type": "fixed_points", "reward_params": {"points": 10}},
                headers=_owner(tenant_a))
-    rows = client.get("/api/v1/referrals/reports/affiliates", headers=_read(tenant_b)).json()
+    rows = client.get("/api/v1/referrals/reports/affiliates", headers=_payouts(tenant_b)).json()
     assert rows["affiliates"] == []
 
 
@@ -136,7 +159,8 @@ def test_a_real_affiliate_redemption_shows_up_in_every_report(client):
     assert summary["registered_count"] == 1
     assert summary["redeemed_count"] == 0
 
-    affiliates = client.get("/api/v1/referrals/reports/affiliates", headers=_read(tenant)).json()
+    affiliates = client.get("/api/v1/referrals/reports/affiliates",
+                           headers=_payouts(tenant)).json()
     row = next(r for r in affiliates["affiliates"] if r["affiliate_id"] == created["id"])
     assert row["redemptions"] == 0
     assert row["unsettled_points"] == 0

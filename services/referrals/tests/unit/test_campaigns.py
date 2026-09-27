@@ -176,3 +176,46 @@ def test_set_active_is_the_only_mutable_field():
 def test_set_active_on_an_unknown_campaign_is_refused():
     with pytest.raises(CampaignError):
         run(_svc().set_active(TENANT, "nope", active=False))
+
+
+# ── cap_scope — owner-approved design change (deep-review Phase 5c) ──────────────────────────────
+def test_cap_scope_defaults_to_campaign_when_not_given():
+    c = run(_svc().create(TENANT, mode=MODE_ONCE, reward_type=REWARD_FIXED_POINTS,
+                          reward_params={"points": 50}, **_WIN_WIN))
+    assert c.cap_scope == "campaign"
+
+
+def test_cap_scope_lifetime_is_accepted():
+    c = run(_svc().create(TENANT, mode=MODE_ONCE, reward_type=REWARD_FIXED_POINTS,
+                          reward_params={"points": 50}, cap_scope="lifetime", **_WIN_WIN))
+    assert c.cap_scope == "lifetime"
+
+
+def test_cap_scope_unknown_value_is_refused():
+    with pytest.raises(CampaignError):
+        run(_svc().create(TENANT, mode=MODE_ONCE, reward_type=REWARD_FIXED_POINTS,
+                          reward_params={"points": 50}, cap_scope="forever", **_WIN_WIN))
+
+
+def test_cap_scope_survives_set_active_unchanged():
+    svc = _svc()
+    c = run(svc.create(TENANT, mode=MODE_ONCE, reward_type=REWARD_FIXED_POINTS,
+                       reward_params={"points": 50}, cap_scope="lifetime", **_WIN_WIN))
+    updated = run(svc.set_active(TENANT, c.id, active=False))
+    assert updated.cap_scope == "lifetime"
+
+
+def test_an_old_campaign_row_missing_cap_scope_defaults_to_campaign_on_read():
+    # A row written before this field existed — `from_dict` must default it to "campaign", the
+    # exact behaviour that row already had, never a silent change underneath it.
+    from app.core.models import CAMPAIGNS, Campaign
+
+    store = MemoryDataStore()
+    svc = CampaignService(store)
+    c = run(svc.create(TENANT, mode=MODE_ONCE, reward_type=REWARD_FIXED_POINTS,
+                       reward_params={"points": 50}, **_WIN_WIN))
+    row = run(store.get(CAMPAIGNS, c.id))
+    del row["cap_scope"]
+    run(store.put(CAMPAIGNS, c.id, row))
+    reloaded = run(svc.get(TENANT, c.id))
+    assert reloaded.cap_scope == "campaign"

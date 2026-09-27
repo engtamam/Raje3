@@ -98,7 +98,14 @@ def build_manifest(
                          # 2026-09-15 (assignment) — list only what THEY were assigned, and only
                          # مark تم/لم يتم on it, never accept/reject/assign (see api/v1/
                          # mobile_requests.py's own dual-capability route docstring).
-                         "operations.mobile_requests_manage", "operations.mobile_requests_execute"],
+                         "operations.mobile_requests_manage", "operations.mobile_requests_execute",
+                         # NARROWER THAN operations.read. Gates 5 specific reads — affiliates.py's
+                         # list/get/settlements and referral_reports.py's leaderboard/affiliate
+                         # breakdown — that hand back an individual's phone number and payout
+                         # balance, not the aggregate-only figures every operations.read holder
+                         # already sees. An ordinary staff role reads the customer book without
+                         # also reading who is owed money and by what phone.
+                         "operations.affiliates_read"],
         "endpoints": [
             # `/api/v1/admin/ping` USED TO BE DECLARED HERE and this service has never served it.
             # It came from the generated scaffold, survived every review, and the gate that catches

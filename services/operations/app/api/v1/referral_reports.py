@@ -14,6 +14,10 @@ from app.api.ratelimit import rate_limit
 router = APIRouter(prefix="/referrals/reports", tags=["referral-reports"])
 
 _READ = require_capability("operations.read")
+# Narrower than plain operations.read: the leaderboard and affiliate-breakdown routes below
+# expose individual referrer/affiliate phone numbers (leaderboard) and affiliate payout
+# balances (affiliate breakdown) — not aggregate-only figures the way summary/campaigns are.
+_PAYOUTS_READ = require_capability("operations.affiliates_read")
 
 
 def _tenant(principal: Principal) -> str:
@@ -30,7 +34,7 @@ async def referral_summary(request: Request, since: int = 0, until: int | None =
 @router.get("/leaderboard", dependencies=[Depends(rate_limit)])
 async def referral_leaderboard(request: Request, since: int = 0, until: int | None = None,
                               limit: int = 20,
-                              principal: Principal = Depends(_READ)) -> dict:
+                              principal: Principal = Depends(_PAYOUTS_READ)) -> dict:
     reports = request.app.state.container.referral_reports
     # A hostile/huge limit must never turn one read into a full unbounded scan cost — the
     # underlying grants scan itself is already capped, but the RESPONSE size is a separate limit
@@ -50,7 +54,7 @@ async def referral_campaign_breakdown(request: Request, since: int = 0, until: i
 
 @router.get("/affiliates", dependencies=[Depends(rate_limit)])
 async def referral_affiliate_breakdown(request: Request,
-                                      principal: Principal = Depends(_READ)) -> dict:
+                                      principal: Principal = Depends(_PAYOUTS_READ)) -> dict:
     reports = request.app.state.container.referral_reports
     rows = await reports.affiliate_breakdown(_tenant(principal))
     return {"affiliates": rows}

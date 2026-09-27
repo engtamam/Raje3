@@ -166,6 +166,33 @@ def test_get_active_for_tenant_picks_the_most_recently_created_one():
     assert active.id == newer.id
 
 
+def test_get_active_for_tenant_is_deterministic_even_created_in_the_same_wall_clock_second():
+    # THE BUG THIS PROVES FIXED: `created_at` has whole-second resolution, so two campaigns
+    # created within the same second used to tie-break on the datastore's own incidental
+    # secondary sort (descending UUID string in MemoryDataStore) rather than real creation order —
+    # the OLD version of this test only passed by incidental UUID ordering luck, never because
+    # creation-order correctness was actually being proven (it never forced a same-second
+    # collision at all). `created_ns` (nanosecond resolution) is the real tie-break now; creating
+    # many campaigns in a tight loop and asserting the LAST one created is ALWAYS the one returned
+    # — many times over, so an occasional false pass by luck cannot hide a regression — is a real,
+    # non-flaky proof, unlike depending on the store to ever collide two campaigns in the same
+    # literal wall-clock second.
+    svc = _svc()
+    for _ in range(50):
+        run(svc.create(TENANT, mode=MODE_ONCE, reward_type=REWARD_FIXED_POINTS,
+                       reward_params={"points": 1}, **_WIN_WIN))
+        newest = run(svc.create(TENANT, mode=MODE_ONCE, reward_type=REWARD_FIXED_POINTS,
+                                reward_params={"points": 2}, **_WIN_WIN))
+        active = run(svc.get_active_for_tenant(TENANT))
+        assert active.id == newest.id
+        run(svc.set_active(TENANT, active.id, active=False))
+        # pause the OTHER (older) campaign too, so the next loop iteration starts clean
+        all_campaigns = run(svc.list(TENANT))
+        for c in all_campaigns:
+            if c.active:
+                run(svc.set_active(TENANT, c.id, active=False))
+
+
 def test_get_active_for_tenant_never_leaks_another_tenants_campaign():
     svc = _svc()
     run(svc.create(OTHER, mode=MODE_ONCE, reward_type=REWARD_FIXED_POINTS,

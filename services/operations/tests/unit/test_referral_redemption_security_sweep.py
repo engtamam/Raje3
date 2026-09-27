@@ -4,14 +4,18 @@ see the module's own docstring and `_enforce_usage_cap`'s own comment for the fu
 from __future__ import annotations
 
 import asyncio
+import time
 
 import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
+from app.core.models import Customer
+from app.core.signup import canonical_phone
 from app.core.referral_redemption import (
-    MODE_ONCE, MODE_X_TIMES, NEW_CUSTOMER_DISCOUNT_PERCENT, REWARD_FIXED_POINTS,
+    GRANTS, MODE_ONCE, MODE_X_TIMES, NEW_CUSTOMER_DISCOUNT_PERCENT, REWARD_FIXED_POINTS,
     ReferralRedemptionEngine, ReferralRedemptionError,
 )
+from app.core.stores import CustomerStore, new_id
 
 CC = "966"
 TENANT = "shop_a"
@@ -55,9 +59,19 @@ def _campaign(**over) -> dict:
     return base
 
 
+async def _seed_customer(store, tenant: str, phone: str) -> None:
+    """The referrer must already be an existing customer here (deep-review Phase 5c) — every
+    test below expects register() to SUCCEED for REFERRER_PHONE, so it needs seeding first."""
+    await CustomerStore(store).save(
+        Customer(id=new_id("cus"), tenant=tenant, phone=canonical_phone(phone, default_cc=CC),
+                subject_ref="ref"))
+
+
 def _engine(campaign: dict, loyalty=None) -> ReferralRedemptionEngine:
+    store = MemoryDataStore()
+    run(_seed_customer(store, TENANT, REFERRER_PHONE))
     return ReferralRedemptionEngine(
-        store=MemoryDataStore(), referrals_desk=FakeReferralsDesk(campaign=campaign),
+        store=store, referrals_desk=FakeReferralsDesk(campaign=campaign),
         loyalty_desk=loyalty or FakeLoyaltyDesk(), pii_salt="s" * 32, default_cc=CC)
 
 
@@ -134,13 +148,38 @@ def test_a_registered_but_never_redeemed_grant_still_blocks_a_second_once_regist
         run(engine.register(TENANT, code=CODE, beneficiary_phone="0544444444"))
 
 
-def test_usage_cap_period_and_limit_is_unaffected_by_this_fix_still_counts_redeemed_only():
-    # The rolling period cap (day/week/month) is a DIFFERENT kind of cap — a rate limit over
-    # real elapsed time, not an absolute lifetime count — and intentionally still counts only
-    # REDEEMED grants within the window, never pending ones (a pending grant has no meaningful
-    # position in a time window until it actually redeems).
+def test_usage_cap_period_and_limit_still_refuses_after_one_redeemed():
     engine = _engine(_campaign(mode="lifetime", usage_cap_period="day", usage_cap_limit=1))
     run(engine.register(TENANT, code=CODE, beneficiary_phone="0533333333"))
     run(engine.redeem(TENANT, "0533333333", visit_id="v1"))
     with pytest.raises(ReferralRedemptionError):
         run(engine.register(TENANT, code=CODE, beneficiary_phone="0544444444"))
+
+
+def test_usage_cap_period_and_limit_now_also_counts_pending_grants_not_redeemed_only():
+    # THE EXACT BUG THIS PROVES FIXED (Phase 5b security-sweep gap, closed in Phase 5c): this
+    # test USED TO assert the opposite — that the period cap counted only REDEEMED grants — which
+    # was itself the bug locked in as "correct". The real exploit: N different new customers can
+    # each register their own pending grant against the SAME referrer inside one time window (no
+    # lock contention, since the beneficiary phones differ), then all redeem later inside that
+    # same window, blowing past `usage_cap_limit` with zero unlucky timing required — because the
+    # old check only ever counted grants where `redeemed_at` fell in the window, never pending
+    # ones. Here, a single still-PENDING grant (never redeemed) already fills a limit-of-1 window,
+    # and a second registration against the same referrer must be refused immediately — it must
+    # NOT have to wait for the first one to redeem before the cap bites.
+    engine = _engine(_campaign(mode="lifetime", usage_cap_period="day", usage_cap_limit=1))
+    run(engine.register(TENANT, code=CODE, beneficiary_phone="0533333333"))  # pending, never redeemed
+    with pytest.raises(ReferralRedemptionError):
+        run(engine.register(TENANT, code=CODE, beneficiary_phone="0544444444"))
+
+
+def test_usage_cap_period_and_limit_lets_a_pending_grant_outside_the_window_through():
+    # A pending grant counts by its OWN `created` timestamp now — one created long enough ago to
+    # have fallen OUT of the window must not count against a fresh registration inside the window.
+    engine = _engine(_campaign(mode="lifetime", usage_cap_period="day", usage_cap_limit=1))
+    grant = run(engine.register(TENANT, code=CODE, beneficiary_phone="0533333333"))
+    # simulate a pending grant created more than a day ago, directly against the store (no public
+    # API rewinds time) — same technique the module's own hard-cases tests already use.
+    stale = engine._s._data[GRANTS][f"{TENANT}|{grant.id}"]
+    stale["created"] = int(time.time()) - 100000
+    run(engine.register(TENANT, code=CODE, beneficiary_phone="0544444444"))  # must succeed, not refuse

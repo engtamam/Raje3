@@ -60,23 +60,27 @@ def _eraser(store) -> OperationsErasure:
     return OperationsErasure(store=store, pii_salt=SALT, default_cc=CC)
 
 
-# ── grants: both phone roles get found and blanked ───────────────────────────────────────────────
-def test_erasure_by_the_referrers_own_phone_blanks_both_phone_fields_on_their_grant():
+# ── grants: only the erasing party's own field is blanked ────────────────────────────────────────
+def test_erasure_by_the_referrers_own_phone_blanks_only_the_referrer_field():
+    # The beneficiary never asked for erasure and never consented to losing their own number —
+    # a DSAR from one party must never blank the other party's untouched phone.
     store = MemoryDataStore()
     run(_seed_grant(store))
     out = run(_eraser(store).erase(TENANT, REFERRER_PHONE))
     assert "referral_grants:1" in out["erased"]
     row = run(store.get(GRANTS, f"{TENANT}|g1"))
-    assert row["referrer_phone"] == "" and row["beneficiary_phone"] == ""
+    assert row["referrer_phone"] == ""
+    assert row["beneficiary_phone"] == CANON_BENEFICIARY, "the other party's phone must survive"
 
 
-def test_erasure_by_the_beneficiarys_own_phone_also_finds_and_blanks_the_same_grant():
+def test_erasure_by_the_beneficiarys_own_phone_blanks_only_the_beneficiary_field():
     store = MemoryDataStore()
     run(_seed_grant(store))
     out = run(_eraser(store).erase(TENANT, BENEFICIARY_PHONE))
     assert "referral_grants:1" in out["erased"]
     row = run(store.get(GRANTS, f"{TENANT}|g1"))
-    assert row["referrer_phone"] == "" and row["beneficiary_phone"] == ""
+    assert row["beneficiary_phone"] == ""
+    assert row["referrer_phone"] == CANON_REFERRER, "the other party's phone must survive"
 
 
 def test_erasure_never_double_counts_a_grant_matched_by_both_phone_fields():

@@ -9,10 +9,13 @@ import asyncio
 import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
+from app.core.models import Customer
+from app.core.signup import canonical_phone
 from app.core.referral_redemption import (
     MODE_ONCE, MODE_X_TIMES, NEW_CUSTOMER_DISCOUNT_PERCENT, REWARD_CASHBACK_POINTS,
     REWARD_FIXED_POINTS, REWARD_MYSTERY_BOX, ReferralRedemptionEngine, ReferralRedemptionError,
 )
+from app.core.stores import CustomerStore, new_id
 
 CC = "966"
 TENANT = "shop_a"
@@ -64,13 +67,29 @@ def _campaign(**over) -> dict:
 _UNSET = object()
 
 
-def _engine(*, code_to_phone=_UNSET, campaign=_UNSET, loyalty=None) -> ReferralRedemptionEngine:
+async def _seed_customer(store, tenant: str, phone: str) -> None:
+    """Deep-review Phase 5c added a real requirement to register(): the ordinary global-code
+    referrer must already be an existing Customer at this tenant (see referral_redemption.py's
+    own comment on that check). Every test in this file that expects register() to SUCCEED for
+    REFERRER_PHONE needs that phone seeded as a customer first — this is that seed, reused by
+    the default `_engine()` factory below so existing happy-path tests keep testing what they
+    were written to test, not this newer, separate guard (which has its own dedicated tests)."""
+    await CustomerStore(store).save(
+        Customer(id=new_id("cus"), tenant=tenant, phone=canonical_phone(phone, default_cc=CC),
+                subject_ref="ref"))
+
+
+def _engine(*, code_to_phone=_UNSET, campaign=_UNSET, loyalty=None,
+           seed_referrer: bool = True) -> ReferralRedemptionEngine:
     if code_to_phone is _UNSET:
         code_to_phone = {CODE: REFERRER_PHONE}
     if campaign is _UNSET:
         campaign = _campaign()
+    store = MemoryDataStore()
+    if seed_referrer:
+        run(_seed_customer(store, TENANT, REFERRER_PHONE))
     return ReferralRedemptionEngine(
-        store=MemoryDataStore(),
+        store=store,
         referrals_desk=FakeReferralsDesk(code_to_phone=code_to_phone, campaign=campaign),
         loyalty_desk=loyalty or FakeLoyaltyDesk(), pii_salt="s" * 32, default_cc=CC)
 
@@ -168,6 +187,27 @@ def test_usage_cap_period_and_limit_are_enforced_independently_of_mode():
         run(engine.register(TENANT, code=CODE, beneficiary_phone="0544444444"))
 
 
+# ── cap_scope — owner-approved design change (deep-review Phase 5c) ──────────────────────────────
+def test_cap_scope_lifetime_blocks_a_referrer_across_a_brand_new_campaign():
+    engine = _engine(campaign=_campaign(mode=MODE_ONCE, cap_scope="lifetime"))
+    run(engine.register(TENANT, code=CODE, beneficiary_phone="0533333333"))
+    run(engine.redeem(TENANT, "0533333333", visit_id="v1"))
+    # a BRAND-NEW campaign (different id) — with cap_scope=lifetime the referrer's earlier grant
+    # under camp_1 must still block them here, even though campaign_id differs.
+    engine._referrals._campaign = _campaign(mode=MODE_ONCE, cap_scope="lifetime", id="camp_2")
+    with pytest.raises(ReferralRedemptionError):
+        run(engine.register(TENANT, code=CODE, beneficiary_phone="0544444444"))
+
+
+def test_cap_scope_campaign_default_lets_a_brand_new_campaign_reset_the_count():
+    engine = _engine(campaign=_campaign(mode=MODE_ONCE))  # cap_scope omitted -> "campaign" default
+    run(engine.register(TENANT, code=CODE, beneficiary_phone="0533333333"))
+    run(engine.redeem(TENANT, "0533333333", visit_id="v1"))
+    # a brand-new campaign (different id) resets the count — today's exact behaviour, unchanged.
+    engine._referrals._campaign = _campaign(mode=MODE_ONCE, id="camp_2")
+    run(engine.register(TENANT, code=CODE, beneficiary_phone="0544444444"))  # must succeed
+
+
 # ── eligibility() / redeem(): the EntitlementGateway shape ──────────────────────────────────────
 def test_eligibility_is_none_with_no_pending_grant():
     engine = _engine()
@@ -246,6 +286,48 @@ def test_mystery_box_credits_one_of_its_own_outcomes():
     run(engine.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE))
     run(engine.redeem(TENANT, BENEFICIARY_PHONE, visit_id="v1"))
     assert loyalty.awards[0]["points"] in (5, 500)
+
+
+# ── the global code is honoured only where the referrer is ALREADY a customer (deep-review) ─────
+def test_referrer_who_is_an_existing_customer_here_may_be_referred_from():
+    engine = _engine()  # default _engine() already seeds REFERRER_PHONE as a customer
+    grant = run(engine.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE))
+    assert grant.referrer_phone == canonical_phone(REFERRER_PHONE, default_cc=CC)
+
+
+def test_referrer_who_is_not_a_customer_here_at_all_is_refused_like_an_unknown_code():
+    # THE FIX: a shop must not be able to resolve ANY phone's global code and import a stranger's
+    # real number into its own database with zero consent — the referrer must already be a
+    # customer HERE, by any means, before their code is honoured at all.
+    engine = _engine(seed_referrer=False)
+    with pytest.raises(ReferralRedemptionError) as unknown_referrer:
+        run(engine.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE))
+    # a SEPARATE beneficiary — the first call's own `_REGISTER_LOCK` claim is still held (register()
+    # never explicitly releases it; it only expires by TTL), so reusing the same beneficiary phone
+    # here would hit "registration already in progress", not the refusal this test means to compare.
+    with pytest.raises(ReferralRedemptionError) as unknown_code:
+        run(engine.register(TENANT, code="NOSUCHCODE", beneficiary_phone="0577777777"))
+    # SAME REFUSAL SHAPE AS AN UNKNOWN CODE — never revealing WHY (the phone exists but isn't a
+    # customer here, vs. the code simply not existing), since that difference is itself a minor
+    # information disclosure worth avoiding.
+    assert str(unknown_referrer.value) == str(unknown_code.value)
+
+
+# ── a phone with ANY existing Customer row here is not a "new customer" (deep-review) ───────────
+def test_a_genuinely_new_beneficiary_phone_may_register_normally():
+    engine = _engine()
+    grant = run(engine.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE))
+    assert grant.beneficiary_phone == canonical_phone(BENEFICIARY_PHONE, default_cc=CC)
+
+
+def test_a_beneficiary_who_already_has_a_customer_row_here_is_refused_even_with_a_fresh_code():
+    # Owner decision: "new customer" means no existing Customer row at this shop AT ALL — not
+    # through a referral, not through a walk-in visit, not through anything — even if the exact
+    # CODE being entered is one this phone has never used before.
+    engine = _engine()
+    run(_seed_customer(engine._s, TENANT, BENEFICIARY_PHONE))  # e.g. a prior walk-in visit
+    with pytest.raises(ReferralRedemptionError):
+        run(engine.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE))
 
 
 def test_status_multiplier_is_recorded_but_not_credited_this_phase():
