@@ -2919,6 +2919,12 @@ class SBn extends S {
   String get appStoreRequiresAnyContacts => 'যোগাযোগ';
 
   @override
+  String get appStoreRequiresAnyMobileRequests => 'মোবাইল অনুরোধ';
+
+  @override
+  String get appStoreRequiresOr => 'অথবা';
+
+  @override
   String get appStoreOr => 'অথবা';
 
   @override

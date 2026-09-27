@@ -99,6 +99,7 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
       case 'feature.visit': return s.appStoreRequiresAnyVisit;
       case 'feature.bookings': return s.appStoreRequiresAnyBookings;
       case 'feature.contacts': return s.appStoreRequiresAnyContacts;
+      case 'feature.mobile_requests': return s.appStoreRequiresAnyMobileRequests;
       default: return key;
     }
   }
@@ -332,15 +333,21 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
     // navigate to and stays exclusive to «متجر التطبيقات» until it gets a mobile screen.
     // A ROW THAT ALSO NEEDS A CAPABILITY (e.g. 'referrals' — `referrals.manage`) is checked ON
     // TOP of the normal ownership check below, never instead of it — an owned-but-role-
-    // restricted row must still stay invisible to a caller without that capability, same rule
-    // `CapabilityGate` applies everywhere else in this app. Checked on both shelves so
-    // «تطبيقاتي» never shows a row an operator cannot actually open.
+    // restricted row must still stay invisible on «تطبيقاتي» to a caller without that
+    // capability, same rule `CapabilityGate` applies everywhere else in this app. See the
+    // STORE shelf's own note just below for why it is deliberately NOT checked there too.
     final catalog = context.watch<NavProvider>().catalog;
     bool visibleForCapability(AppRow r) => r.id != 'referrals' || catalog.hasAll(['referrals.manage']);
+    // STORE SHELF NEVER FILTERED BY visibleForCapability — a real gap found live: a shop owner
+    // whose own role had not yet been granted `referrals.manage` could never even see the app to
+    // buy it, on the one shelf whose entire job is selling every listed app to whoever can pay
+    // for it (`subscription.activate`, its own real gate, already sits on the actual subscribe
+    // button below). Managing an app once bought and discovering it to buy are two different
+    // permissions — only «تطبيقاتي» (owned apps you can actually open) still applies it.
     final rows = (_tab
             ? kAppRows
-            : kAppRows.where((r) => r.route != null && (r.key == null || _owned?.owns(r.key!) == true)))
-        .where(visibleForCapability)
+            : kAppRows.where((r) => r.route != null && (r.key == null || _owned?.owns(r.key!) == true))
+                .where(visibleForCapability))
         .toList();
 
     return Scaffold(
@@ -407,6 +414,17 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
                       final plan = row.key != null ? _planFor(row.key!) : null;
                       final owned = row.key == null ? true : _owned?.owns(row.key!);
                       final sub = plan != null ? _subFor(plan.id) : null;
+                      // ONLY WHEN GENUINELY UNMET — same "absence is never invented" rule
+                      // billingShared.tsx's own `missingRequirement` already takes (mirrored here
+                      // for a real, clickable badge instead of only a details-sheet sentence).
+                      final needsAny = _tab && plan != null && owned != true
+                              && !plan.requiresAny.any((k) => _owned?.owns(k) == true)
+                          ? plan.requiresAny
+                          : const <String>[];
+                      final requiresAnyRows = needsAny
+                          .map((k) => kAppRows.where((r) => r.key == k).firstOrNull)
+                          .whereType<AppRow>()
+                          .toList();
                       return TweenAnimationBuilder<double>(
                         // STAGGERED REVEAL — each tile fades/rises in a beat after the last, never
                         // all forty at once (2026-09-23 design research, parity/app_store.md's own
@@ -447,6 +465,13 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
                             }
                           },
                           onTapDetails: () => _showDetails(row, plan, owned, sub),
+                          requiresAny: requiresAnyRows,
+                          onRequirementTap: (r) {
+                            final rPlan = r.key != null ? _planFor(r.key!) : null;
+                            final rOwned = r.key == null ? true : _owned?.owns(r.key!);
+                            final rSub = rPlan != null ? _subFor(rPlan.id) : null;
+                            _showDetails(r, rPlan, rOwned, rSub);
+                          },
                         ),
                       );
                     },
@@ -777,11 +802,17 @@ class _AppCard extends StatefulWidget {
     this.discountPercent, this.includedCreditMinor, this.unitsPerHalala,
     required this.showBilling, required this.inCart, required this.onToggleCart,
     required this.onOpen, required this.onTapDetails,
+    this.requiresAny = const [], this.onRequirementTap,
   });
   final AppRow row;
   final bool? owned;
   final BillingPlan? plan;
   final BillingSubscription? sub;
+  /// THE APP(S) THIS ONE NEEDS FIRST — resolved rows, never raw `feature.*` keys, so each badge
+  /// is a real, tappable jump to that app's own details (`AppLauncher.tsx`'s own `AppTile.
+  /// requiresAny` mirrored here). Only ever populated when genuinely unmet.
+  final List<AppRow> requiresAny;
+  final void Function(AppRow)? onRequirementTap;
   /// billingShared's own applied-discount percent for this plan — a small ribbon on the card
   /// face itself, never something the shop only learns after opening details.
   final int? discountPercent;
@@ -802,24 +833,27 @@ class _AppCardState extends State<_AppCard> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final dark = context.isDark;
     final locked = widget.owned == false;
     final icon = _appIcons[widget.row.icon] ?? Icons.apps_rounded;
     final vip = widget.row.vip;
     final accent = _appAccent(widget.row.id);
+    const gold = Color(0xFFD4AF37);
 
     final card = AnimatedScale(
-      scale: _pressed ? 0.96 : 1,
+      scale: _pressed ? 0.97 : 1,
       duration: const Duration(milliseconds: 120),
       curve: Curves.easeOut,
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: AppRadius.cardRadius,
+          color: vip ? null : colors.surface,
           gradient: vip
               ? const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
                   colors: [Color(0xFF1A1207), Color(0xFF2F210C), Color(0xFF4A3512)])
-              : LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
-                  colors: [accent, HSLColor.fromColor(accent).withLightness(0.28).toColor()]),
+              : null,
+          borderRadius: AppRadius.cardRadius,
+          border: vip ? Border.all(color: gold.withValues(alpha: 0.4)) : Border.all(color: colors.borderSubtle),
           boxShadow: dark ? AppShadows.darkCard : AppShadows.card,
         ),
         clipBehavior: Clip.none,
@@ -833,39 +867,51 @@ class _AppCardState extends State<_AppCard> {
                 children: [
                   Row(
                     children: [
+                      // A REAL APP ICON, ON A NEUTRAL CARD — the previous pass painted the WHOLE
+                      // tile in a per-app hashed hue (a "colourful sticker" look, never what a
+                      // real store shelf does). The accent now lives ONLY on the icon badge, a
+                      // soft ring, and the small touches below — the card itself is the same
+                      // clean surface every other card in this app already uses.
                       Container(
                         width: 52, height: 52,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: vip ? const Color(0x33D4AF37) : Colors.white.withValues(alpha: 0.22),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1.5),
+                          color: vip ? gold.withValues(alpha: 0.18) : accent.withValues(alpha: 0.14),
+                          border: Border.all(color: vip ? gold.withValues(alpha: 0.5) : accent.withValues(alpha: 0.35), width: 1.5),
                         ),
                         alignment: Alignment.center,
-                        child: Icon(icon, color: vip ? const Color(0xFFF4E2A4) : Colors.white, size: 28),
+                        child: Icon(icon, color: vip ? const Color(0xFFF4E2A4) : accent, size: 26),
                       ),
                       const Spacer(),
                       if (locked)
                         Container(
                           padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.black.withValues(alpha: 0.28)),
-                          child: const Icon(Icons.lock_rounded, size: 16, color: Colors.white),
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: colors.surfaceAlt),
+                          child: Icon(Icons.lock_rounded, size: 16, color: colors.textMuted),
                         )
                       else if (widget.owned == true)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.28), borderRadius: BorderRadius.circular(AppRadius.pill)),
+                          decoration: BoxDecoration(
+                            color: vip ? gold.withValues(alpha: 0.22) : AppColors.successSoft,
+                            borderRadius: BorderRadius.circular(AppRadius.pill),
+                          ),
                           child: Text(
                             widget.sub?.status == 'trialing' ? S.of(context)!.appStoreTrialing : S.of(context)!.appStoreActive,
-                            style: AppTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
+                            style: AppTextStyles.caption.copyWith(
+                                color: vip ? const Color(0xFFF4E2A4) : AppColors.successOnSoft, fontWeight: FontWeight.w800),
                           ),
                         ),
                     ],
                   ),
-                  const Spacer(),
+                  const SizedBox(height: AppSpacing.sm),
                   Text(
                     widget.row.name, maxLines: 2, overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.headlineSmall.copyWith(fontWeight: FontWeight.w900, color: Colors.white, height: 1.15),
+                    style: AppTextStyles.headlineSmall.copyWith(
+                        fontWeight: FontWeight.w800, height: 1.2,
+                        color: vip ? Colors.white : colors.textPrimary),
                   ),
+                  const Spacer(),
                   if (widget.showBilling && widget.plan != null) ...[
                     const SizedBox(height: 6),
                     if (widget.discountPercent != null)
@@ -874,10 +920,10 @@ class _AppCardState extends State<_AppCard> {
                         textBaseline: TextBaseline.alphabetic,
                         children: [
                           Text(_riyals(widget.plan!.monthlyAmountMinor),
-                              style: AppTextStyles.bodySmall.copyWith(color: Colors.white.withValues(alpha: 0.65), decoration: TextDecoration.lineThrough)),
+                              style: AppTextStyles.bodySmall.copyWith(color: colors.textMuted, decoration: TextDecoration.lineThrough)),
                           const SizedBox(width: 5),
                           Text(S.of(context)!.appStoreDiscountedShort(widget.discountPercent!),
-                              style: AppTextStyles.headlineSmall.copyWith(fontWeight: FontWeight.w900, color: const Color(0xFF8CF5C9))),
+                              style: AppTextStyles.headlineSmall.copyWith(fontWeight: FontWeight.w900, color: AppColors.success)),
                         ],
                       )
                     else
@@ -886,10 +932,12 @@ class _AppCardState extends State<_AppCard> {
                         textBaseline: TextBaseline.alphabetic,
                         children: [
                           Text(_riyals(widget.plan!.monthlyAmountMinor),
-                              style: AppTextStyles.headlineSmall.copyWith(fontWeight: FontWeight.w900, color: Colors.white)),
+                              style: AppTextStyles.headlineSmall.copyWith(
+                                  fontWeight: FontWeight.w900, color: vip ? Colors.white : colors.textPrimary)),
                           const SizedBox(width: 3),
                           Text(S.of(context)!.appStorePerMonthShort,
-                              style: AppTextStyles.bodySmall.copyWith(color: Colors.white.withValues(alpha: 0.85), fontWeight: FontWeight.w600)),
+                              style: AppTextStyles.bodySmall.copyWith(
+                                  color: vip ? Colors.white.withValues(alpha: 0.75) : colors.textMuted, fontWeight: FontWeight.w600)),
                         ],
                       ),
                   ],
@@ -897,15 +945,56 @@ class _AppCardState extends State<_AppCard> {
                     const SizedBox(height: 6),
                     _AiUnitsChip(includedCreditMinor: widget.includedCreditMinor!, unitsPerHalala: widget.unitsPerHalala, compact: true),
                   ],
+                  // THE DEPENDENCY, RIGHT ON THE CARD FACE — small, real, tappable icon badges for
+                  // each app that would satisfy it, never a locked card with no next step named.
+                  if (widget.requiresAny.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 4, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Icon(Icons.link_rounded, size: 12, color: colors.textMuted),
+                        for (var i = 0; i < widget.requiresAny.length; i++) ...[
+                          if (i > 0)
+                            Text(S.of(context)!.appStoreRequiresOr,
+                                style: AppTextStyles.caption.copyWith(color: colors.textMuted, fontSize: 10)),
+                          GestureDetector(
+                            onTap: () => widget.onRequirementTap?.call(widget.requiresAny[i]),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: colors.surfaceAlt,
+                                borderRadius: BorderRadius.circular(AppRadius.pill),
+                                border: Border.all(color: colors.borderSubtle),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(_appIcons[widget.requiresAny[i].icon] ?? Icons.apps_rounded,
+                                      size: 10, color: colors.textSecondary),
+                                  const SizedBox(width: 3),
+                                  Text(widget.requiresAny[i].name,
+                                      style: AppTextStyles.caption.copyWith(fontSize: 10, color: colors.textSecondary, fontWeight: FontWeight.w700)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                   if (widget.showBilling) ...[
                     const SizedBox(height: 8),
                     GestureDetector(
                       onTap: widget.onTapDetails,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(AppRadius.pill)),
+                        decoration: BoxDecoration(
+                          color: vip ? Colors.white.withValues(alpha: 0.18) : accent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(AppRadius.pill),
+                        ),
                         child: Text(S.of(context)!.appStoreDetails,
-                            style: AppTextStyles.bodySmall.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+                            style: AppTextStyles.bodySmall.copyWith(
+                                color: vip ? Colors.white : accent, fontWeight: FontWeight.w800)),
                       ),
                     ),
                   ],
@@ -925,8 +1014,9 @@ class _AppCardState extends State<_AppCard> {
                     width: 40, height: 40,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: widget.inCart ? AppColors.success : Colors.white,
-                      boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 10, offset: Offset(0, 3))],
+                      color: widget.inCart ? AppColors.success : colors.surface,
+                      border: widget.inCart ? null : Border.all(color: colors.borderSubtle),
+                      boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 10, offset: Offset(0, 3))],
                     ),
                     alignment: Alignment.center,
                     child: Icon(widget.inCart ? Icons.check_rounded : Icons.add_shopping_cart_rounded,
@@ -947,7 +1037,7 @@ class _AppCardState extends State<_AppCard> {
       child: card,
     );
 
-    return vip ? RjSheen(borderRadius: AppRadius.cardRadius, tint: const Color(0xFFD4AF37), child: tappable) : tappable;
+    return vip ? RjSheen(borderRadius: AppRadius.cardRadius, tint: gold, child: tappable) : tappable;
   }
 }
 

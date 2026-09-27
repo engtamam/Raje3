@@ -21,7 +21,8 @@ import { AppTile } from './AppTile';
 import { CartBar } from './CartBar';
 import { myApps, allApps, type LauncherApp } from './launcherCatalog';
 import { useAppBilling, includedAiCreditOf } from './useAppBilling';
-import { appDisplayName, CapacityAddonCard, type Plan, type Subscription } from '../billingShared';
+import { appDisplayName, CapacityAddonCard, requiresAny, type Plan, type Subscription } from '../billingShared';
+import { isDenied, isReady } from '../loading';
 import './launcher-i18n';
 
 /** ONE CAPACITY TILE — `Plans.tsx`'s own `CapacityAddonCard` stepper, plus the same in-place
@@ -170,6 +171,15 @@ export function AppLauncher() {
     [owned, canBrowseStore, billing.planByKey],
   );
   const active = tab === 'mine' ? mine : everything;
+
+  // A DEPENDENCY IS RESOLVED BY billingKey ONLY, NEVER BY NAME — the same discipline every other
+  // billing read in this file follows. `everything` (not `active`/the search-filtered list) so a
+  // required app still resolves to a real, clickable tile even while a search term hides it from
+  // the grid itself.
+  const byBillingKey = useMemo(
+    () => new Map(everything.filter((a) => a.billingKey).map((a) => [a.billingKey as string, a])),
+    [everything],
+  );
 
   // FUZZY, NOT SUBSTRING — a shop owner typing "الحجزت" (a real one-letter slip on "الحجوزات")
   // used to get zero results from plain `.includes()`; Fuse tolerates that without us hand-rolling
@@ -323,6 +333,18 @@ export function AppLauncher() {
                 // it mirrors. Every price/subscribe/cancel/feature-showcase behaviour stays
                 // unchanged on «متجر التطبيقات» — the ONLY tab that ever sells anything.
                 const showBilling = tab === 'all';
+                // ONLY WHEN GENUINELY UNMET — a shop that already holds one of the required keys
+                // (or whose ownership read has not settled/was denied) sees no badges at all, the
+                // same posture `missingRequirement`'s own sentence already takes.
+                const needsAny = showBilling && plan && app.ownedByShop !== true
+                    && isReady(owned) && !isDenied(owned) && owned.checked
+                    && !requiresAny(plan).some((k) => owned.keys.includes(k))
+                  ? requiresAny(plan)
+                  : [];
+                const requiresAnyTiles = needsAny
+                  .map((k) => byBillingKey.get(k))
+                  .filter((a): a is LauncherApp => Boolean(a))
+                  .map((a) => ({ label: a.label, icon: a.icon, accent: a.accent, onClick: () => navigate(a.path) }));
                 return (
                   <AppTile
                     key={app.id}
@@ -340,6 +362,7 @@ export function AppLauncher() {
                       vip: app.id === 'whatsapp',
                       inlineFeatures: app.inlineFeatures,
                       featuresAction: app.featuresAction,
+                      requiresAny: requiresAnyTiles,
                     }}
                     onOpen={() => navigate(app.path)}
                     fetchFeatures={fetchFeatures}

@@ -2988,6 +2988,8 @@
   "appStoreRequiresAnyVisit": "تسجيل زيارة",
   "appStoreRequiresAnyBookings": "الحجوزات",
   "appStoreRequiresAnyContacts": "جهات الاتصال",
+  "appStoreRequiresAnyMobileRequests": "خدمات متنقلة",
+  "appStoreRequiresOr": "أو",
   "appStoreOr": "أو",
   "appStoreCascadeWarning": "سيتوقف معه أيضًا: {names}",
   "@appStoreCascadeWarning": { "placeholders": { "names": { "type": "String" } } },

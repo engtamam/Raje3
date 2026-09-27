@@ -1194,6 +1194,8 @@
   "appStoreRequiresAnyVisit": "I-record ang Bisita",
   "appStoreRequiresAnyBookings": "Mga Booking",
   "appStoreRequiresAnyContacts": "Mga Contact",
+  "appStoreRequiresAnyMobileRequests": "Mobile Requests",
+  "appStoreRequiresOr": "o",
   "appStoreOr": "o",
   "appStoreCascadeWarning": "Ihihinto rin ito: {names}",
   "@appStoreCascadeWarning": { "placeholders": { "names": { "type": "String" } } },

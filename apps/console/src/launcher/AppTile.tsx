@@ -39,6 +39,13 @@ export interface AppTileData {
    *  identity flag, not data-driven — there is exactly one such app today, the same way the old
    *  card's own `app?.id === 'whatsapp'` check was. */
   vip?: boolean;
+  /** THE APP(S) THIS ONE NEEDS FIRST (`plan.requires_any`, billingShared.tsx::requiresAny) —
+   *  resolved by the caller into real, clickable tile data (never just the raw `feature.*` key),
+   *  so a shop blocked on a dependency can jump straight to buying it instead of hunting the
+   *  shelf themselves. Only ever populated when the dependency is genuinely UNMET — a shop that
+   *  already owns one of the required apps sees nothing here, same "absence is never invented"
+   *  rule every other read on this tile follows. */
+  requiresAny?: { label: string; icon: LucideIcon; accent: string; onClick: () => void }[];
 }
 
 export function AppTile({
@@ -136,6 +143,27 @@ export function AppTile({
         </span>
 
         {billing ? <AppPriceStrip billing={billing} /> : null}
+
+        {app.requiresAny && app.requiresAny.length > 0 ? (
+          <div className="relative z-[2] flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-semibold text-text-muted">{t('launcher.tile.requires')}</span>
+            {app.requiresAny.map((r, i) => (
+              <span key={r.label} className="flex items-center gap-1.5">
+                {i > 0 ? <span className="text-xs text-text-muted">{t('launcher.tile.requiresOr')}</span> : null}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); r.onClick(); }}
+                  className="flex items-center gap-1 rounded-full border border-border-subtle px-2 py-0.5 text-xs font-bold transition hover:border-accent hover:text-accent"
+                >
+                  <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full text-white" style={{ background: r.accent }}>
+                    <r.icon size={10} />
+                  </span>
+                  {r.label}
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
 
         <div className="relative z-[2] mt-auto flex items-center gap-2">
           {hideDetails ? null : (

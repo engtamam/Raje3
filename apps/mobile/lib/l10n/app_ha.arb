@@ -1194,6 +1194,8 @@
   "appStoreRequiresAnyVisit": "Rubuta Ziyara",
   "appStoreRequiresAnyBookings": "Ajiya",
   "appStoreRequiresAnyContacts": "Ma'amaloli",
+  "appStoreRequiresAnyMobileRequests": "Bukatun Waya",
+  "appStoreRequiresOr": "ko",
   "appStoreOr": "ko",
   "appStoreCascadeWarning": "Wadannan ma za su dakata: {names}",
   "@appStoreCascadeWarning": { "placeholders": { "names": { "type": "String" } } },

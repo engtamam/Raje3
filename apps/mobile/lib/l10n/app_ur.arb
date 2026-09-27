@@ -1194,6 +1194,8 @@
   "appStoreRequiresAnyVisit": "وزٹ ریکارڈ کریں",
   "appStoreRequiresAnyBookings": "بکنگز",
   "appStoreRequiresAnyContacts": "رابطے",
+  "appStoreRequiresAnyMobileRequests": "موبائل درخواستیں",
+  "appStoreRequiresOr": "یا",
   "appStoreOr": "یا",
   "appStoreCascadeWarning": "یہ بھی بند ہو جائیں گی: {names}",
   "@appStoreCascadeWarning": { "placeholders": { "names": { "type": "String" } } },

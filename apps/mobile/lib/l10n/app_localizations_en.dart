@@ -2953,6 +2953,12 @@ class SEn extends S {
   String get appStoreRequiresAnyContacts => 'Contacts';
 
   @override
+  String get appStoreRequiresAnyMobileRequests => 'Mobile Requests';
+
+  @override
+  String get appStoreRequiresOr => 'or';
+
+  @override
   String get appStoreOr => 'or';
 
   @override

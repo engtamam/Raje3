@@ -4953,6 +4953,18 @@ abstract class S {
   /// **'جهات الاتصال'**
   String get appStoreRequiresAnyContacts;
 
+  /// No description provided for @appStoreRequiresAnyMobileRequests.
+  ///
+  /// In ar, this message translates to:
+  /// **'خدمات متنقلة'**
+  String get appStoreRequiresAnyMobileRequests;
+
+  /// No description provided for @appStoreRequiresOr.
+  ///
+  /// In ar, this message translates to:
+  /// **'أو'**
+  String get appStoreRequiresOr;
+
   /// No description provided for @appStoreOr.
   ///
   /// In ar, this message translates to:

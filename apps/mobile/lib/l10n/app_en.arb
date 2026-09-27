@@ -1194,6 +1194,8 @@
   "appStoreRequiresAnyVisit": "Record Visit",
   "appStoreRequiresAnyBookings": "Bookings",
   "appStoreRequiresAnyContacts": "Contacts",
+  "appStoreRequiresAnyMobileRequests": "Mobile Requests",
+  "appStoreRequiresOr": "or",
   "appStoreOr": "or",
   "appStoreCascadeWarning": "This will also stop: {names}",
   "@appStoreCascadeWarning": { "placeholders": { "names": { "type": "String" } } },

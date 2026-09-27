@@ -2984,6 +2984,12 @@ class SFil extends S {
   String get appStoreRequiresAnyContacts => 'Mga Contact';
 
   @override
+  String get appStoreRequiresAnyMobileRequests => 'Mobile Requests';
+
+  @override
+  String get appStoreRequiresOr => 'o';
+
+  @override
   String get appStoreOr => 'o';
 
   @override

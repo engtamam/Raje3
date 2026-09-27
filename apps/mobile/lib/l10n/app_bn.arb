@@ -1194,6 +1194,8 @@
   "appStoreRequiresAnyVisit": "ভিজিট রেকর্ড",
   "appStoreRequiresAnyBookings": "বুকিং",
   "appStoreRequiresAnyContacts": "যোগাযোগ",
+  "appStoreRequiresAnyMobileRequests": "মোবাইল অনুরোধ",
+  "appStoreRequiresOr": "অথবা",
   "appStoreOr": "অথবা",
   "appStoreCascadeWarning": "এগুলোও বন্ধ হয়ে যাবে: {names}",
   "@appStoreCascadeWarning": { "placeholders": { "names": { "type": "String" } } },

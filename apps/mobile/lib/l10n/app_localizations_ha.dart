@@ -2919,6 +2919,12 @@ class SHa extends S {
   String get appStoreRequiresAnyContacts => 'Ma\'amaloli';
 
   @override
+  String get appStoreRequiresAnyMobileRequests => 'Bukatun Waya';
+
+  @override
+  String get appStoreRequiresOr => 'ko';
+
+  @override
   String get appStoreOr => 'ko';
 
   @override

@@ -2930,6 +2930,12 @@ class SAr extends S {
   String get appStoreRequiresAnyContacts => 'جهات الاتصال';
 
   @override
+  String get appStoreRequiresAnyMobileRequests => 'خدمات متنقلة';
+
+  @override
+  String get appStoreRequiresOr => 'أو';
+
+  @override
   String get appStoreOr => 'أو';
 
   @override

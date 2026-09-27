@@ -158,6 +158,7 @@ export const REQUIRES_ANY_KEYS: Record<string, string> = {
   'feature.visit': 'plans.requiresAny.visit',
   'feature.bookings': 'plans.requiresAny.bookings',
   'feature.contacts': 'plans.requiresAny.contacts',
+  'feature.mobile_requests': 'plans.requiresAny.mobileRequests',
 };
 
 /** The OTHER feature keys this plan's own row says at least one of must already be held —

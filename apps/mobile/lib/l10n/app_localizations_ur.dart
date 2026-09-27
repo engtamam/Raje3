@@ -2917,6 +2917,12 @@ class SUr extends S {
   String get appStoreRequiresAnyContacts => 'رابطے';
 
   @override
+  String get appStoreRequiresAnyMobileRequests => 'موبائل درخواستیں';
+
+  @override
+  String get appStoreRequiresOr => 'یا';
+
+  @override
   String get appStoreOr => 'یا';
 
   @override
