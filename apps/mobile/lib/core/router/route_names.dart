@@ -28,6 +28,7 @@ class RouteNames {
   static const String customerDetail = 'customer_detail';
   static const String whatsappAssistant = 'whatsapp_assistant';
   static const String coworking = 'coworking';
+  static const String referrals = 'referrals';
 
   // ── ROUTE PATHS ───────────────────────────────────────────────────────────
   static const String loginPath = '/login';
@@ -80,4 +81,8 @@ class RouteNames {
   /// the phone), same "mobile-only feature, no `feature.*` nav section" shape
   /// `whatsappAssistantPath` already establishes.
   static const String coworkingPath = '/coworking';
+  /// «نظام الإحالة» — pushed FROM «تطبيقاتي» (`apps_store_screen.dart`'s `AppRow.route`), same
+  /// drill-down pattern as `coworkingPath` above; this row DOES carry a real `feature.referrals`
+  /// billing key (app_store_model.dart), gated additionally by the `referrals.manage` capability.
+  static const String referralsPath = '/referrals';
 }

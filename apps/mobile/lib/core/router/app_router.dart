@@ -24,6 +24,7 @@ import 'package:raje3_mobile/features/points/points_screen.dart';
 import 'package:raje3_mobile/features/rating/rating_screen.dart';
 import 'package:raje3_mobile/features/shop/shop_screen.dart';
 import 'package:raje3_mobile/features/mutual_benefit/mutual_benefit_screen.dart';
+import 'package:raje3_mobile/features/referrals/referrals_screen.dart';
 
 import 'package:raje3_mobile/features/services/services_screen.dart';
 import 'package:raje3_mobile/features/shell/main_shell.dart';
@@ -139,6 +140,15 @@ class AppRouter {
               path: RouteNames.coworkingPath,
               name: RouteNames.coworking,
               builder: (context, state) => const CoworkingScreen(),
+            ),
+            // SAME "no feature.* nav section, real route inside the shell" pattern as the
+            // WhatsApp assistant above — reached from the app store's own row (`AppRow.route`,
+            // real `feature.referrals` key), gated additionally by `referrals.manage`
+            // (ReferralsScreen's own CapabilityGate).
+            GoRoute(
+              path: RouteNames.referralsPath,
+              name: RouteNames.referrals,
+              builder: (context, state) => const ReferralsScreen(),
             ),
             for (final section in kNavSections)
               GoRoute(
