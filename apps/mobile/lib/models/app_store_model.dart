@@ -19,6 +19,7 @@ class AppRow {
     this.route,
     required this.icon,
     this.vip = false,
+    this.featuresPath,
   });
 
   final String id;
@@ -33,6 +34,45 @@ class AppRow {
   final String icon;
   /// THE ONE VIP APP — matches AppTile.tsx's own fixed `app.id === 'whatsapp'` flag exactly.
   final bool vip;
+  /// THE REAL FEATURE LIST'S OWN ROUTE — mirrors apps.ts's own `featuresAction` (console),
+  /// resolved here straight to the real gateway path since this app has no catalog-action
+  /// indirection layer for per-feature reads (services/*/app/manifest.py's own registration:
+  /// campaigns→/api/v1/campaigns/features, loyalty→/api/v1/loyalty/features,
+  /// insights→/api/v1/insights/features, bookings→/api/v1/bookings/features,
+  /// whatsapp→/api/v1/assistant/features). Absent for every app operations itself owns
+  /// (تسجيل زيارة/جهات الاتصال/التقييم/ولاء الشركاء/خدمات متنقلة/تبادل منافع) — those carry
+  /// their real features INLINE on `Owned.apps[].features` instead (operations' own `apps.py`),
+  /// same "never both" rule apps.ts's own `featuresAction` docstring states.
+  final String? featuresPath;
+}
+
+/// One real, separately-nameable capability — mirrors apps.ts's own `AppFeature` field for
+/// field (`services/*/app/core/features.py`'s wire shape). `icon`/`tone` are KEYS, never a
+/// raw `IconData`/`Color` at this layer — `_appFeatureIcon`/`_appFeatureTone`
+/// (apps_store_screen.dart) own the one mapping from each to a real widget, so a new backend
+/// feature never needs a matching Flutter PR just to render.
+class AppFeature {
+  const AppFeature({
+    required this.id, required this.title, required this.detail,
+    required this.icon, required this.tone, required this.sharedWith, required this.ownedBy,
+  });
+  final String id;
+  final String title;
+  final String detail;
+  final String icon;
+  final String tone;
+  final List<String> sharedWith;
+  final String ownedBy;
+
+  factory AppFeature.fromJson(Map<String, dynamic> j) => AppFeature(
+        id: (j['id'] as String?) ?? '',
+        title: (j['title'] as String?) ?? '',
+        detail: (j['detail'] as String?) ?? '',
+        icon: (j['icon'] as String?) ?? '',
+        tone: (j['tone'] as String?) ?? '',
+        sharedWith: ((j['shared_with'] as List?) ?? const []).whereType<String>().toList(),
+        ownedBy: (j['owned_by'] as String?) ?? '',
+      );
 }
 
 /// apps.ts's own APP_ROWS, ported 1:1 for the subset with a real or plausible mobile surface —
@@ -41,22 +81,22 @@ const List<AppRow> kAppRows = [
   AppRow(
     id: 'campaigns', key: 'feature.campaigns', name: 'الحملات',
     what: 'يعيد إليك عملاءك على وشك مغادرتك، فيكبر إيرادك من قاعدة عملائك الحالية بدل الاعتماد على زبون جديد فقط.',
-    route: 'messages', icon: 'megaphone',
+    route: 'messages', icon: 'megaphone', featuresPath: '/api/v1/campaigns/features',
   ),
   AppRow(
     id: 'loyalty', key: 'feature.loyalty', name: 'برنامج النقاط',
     what: 'يبني ولاء عميلك لمحلك نفسه، لا لموظف بعينه — فيضمن رجوعه إليك دائماً أياً كان من يخدمه.',
-    route: 'points', icon: 'gift',
+    route: 'points', icon: 'gift', featuresPath: '/api/v1/loyalty/features',
   ),
   AppRow(
     id: 'bookings', key: 'feature.bookings', name: 'الحجوزات',
     what: 'يستثمر كل دقيقة في جدولك، فيرفع عدد العملاء الذين تخدمهم بنفس عدد موظفيك وساعاتهم.',
-    icon: 'calendar',
+    icon: 'calendar', featuresPath: '/api/v1/bookings/features',
   ),
   AppRow(
     id: 'insights', key: 'feature.insights.engine', name: 'صفقات',
     what: 'يحوّل بيانات محلك اليومية إلى نصيحة واضحة بمستوى محلل مبيعات مختص، يقودك كل يوم لأعلى فرصة ترفع دخلك.',
-    route: 'shop', icon: 'sparkles',
+    route: 'shop', icon: 'sparkles', featuresPath: '/api/v1/insights/features',
   ),
   AppRow(
     id: 'rating', key: 'feature.rating', name: 'التقييم',
@@ -77,6 +117,7 @@ const List<AppRow> kAppRows = [
     id: 'whatsapp', key: 'feature.whatsapp', name: 'المساعد الذكي عبر واتساب',
     what: 'يحوّل واتساب إلى مندوب مبيعات يعرف ذوق كل عميل، ويقترح عليه باقاتك وعروضك ونقاطه في الوقت المناسب، فيرفع متوسط فاتورتك.',
     route: 'whatsapp-assistant', icon: 'message-circle', vip: true,
+    featuresPath: '/api/v1/assistant/features',
   ),
   AppRow(
     id: 'partner-loyalty', key: 'feature.partner_loyalty', name: 'ولاء الشركاء',
@@ -102,15 +143,24 @@ const List<AppRow> kAppRows = [
 
 /// `GET /api/v1/subscription/apps` — what this shop actually owns, straight off the wire.
 class OwnedApp {
-  const OwnedApp({required this.key, required this.owned, required this.renewsAt});
+  const OwnedApp({required this.key, required this.owned, required this.renewsAt, required this.features});
   final String key;
   final bool? owned;
   final int? renewsAt;
+  /// ONLY FOR APPS OPERATIONS ITSELF OWNS (تسجيل زيارة/جهات الاتصال/التقييم/ولاء الشركاء/خدمات
+  /// متنقلة/تبادل منافع) — mirrors apps.ts's own `Owned.apps[].features` exactly (operations'
+  /// own `core/apps.py::APPS` rows carry them inline). Every other app's features are absent
+  /// here and read from its own `AppRow.featuresPath` instead — never both.
+  final List<AppFeature> features;
 
   factory OwnedApp.fromJson(Map<String, dynamic> j) => OwnedApp(
         key: (j['key'] as String?) ?? '',
         owned: j['owned'] as bool?,
         renewsAt: (j['renews_at'] as num?)?.toInt(),
+        features: ((j['features'] as List?) ?? const [])
+            .whereType<Map>()
+            .map((m) => AppFeature.fromJson(Map<String, dynamic>.from(m)))
+            .toList(),
       );
 }
 
@@ -138,6 +188,14 @@ class Owned {
   }
 
   int? renewsAtFor(String key) => apps.where((a) => a.key == key).map((a) => a.renewsAt).firstOrNull;
+
+  /// The inline feature list operations already returned for this key, or `null` when this app
+  /// carries none inline (it must be fetched from its own `AppRow.featuresPath` instead).
+  List<AppFeature>? featuresFor(String key) {
+    final row = apps.where((a) => a.key == key).firstOrNull;
+    if (row == null || row.features.isEmpty) return null;
+    return row.features;
+  }
 }
 
 /// `POST /api/v1/subscription/checkout/preview` — useAppBilling.ts's own `CartPreview`.

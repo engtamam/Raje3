@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
+import 'package:raje3_mobile/core/network/api_client.dart';
+import 'package:raje3_mobile/core/services/app_features_service.dart';
 import 'package:raje3_mobile/core/services/auth_service.dart' show BillingOverview, BillingPlan, BillingSubscription, DiscountInfo;
 import 'package:raje3_mobile/features/apps/payment_webview_screen.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
@@ -512,6 +514,8 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => _AppDetailsSheet(
         row: row, plan: plan, owned: owned, sub: sub,
+        inlineFeatures: row.key != null ? _owned?.featuresFor(row.key!) : null,
+        apiClient: auth.apiClient,
         missingRequirement: plan != null ? _missingRequirement(S.of(context)!, plan) : '',
         cascadeNames: cascadeNames,
         discountPercent: discount?.percent,
@@ -578,6 +582,164 @@ const Map<String, IconData> _appIcons = {
   'bot': Icons.smart_toy_rounded,
   'truck': Icons.local_shipping_rounded,
 };
+
+/// Every icon key any backend `core/features.py` currently emits — mirrors the console's own
+/// `rj-ui/AppFeatureList.tsx::APP_ICONS` exactly, key for key. `help_outline_rounded` is the
+/// honest fallback for a key this app has not learned yet — a sparse-looking tile is a far
+/// smaller failure than a blank crash on a card meant to be selling something.
+const Map<String, IconData> _appFeatureIcons = {
+  'clock': Icons.access_time_rounded,
+  'users': Icons.groups_rounded,
+  'alert-triangle': Icons.warning_amber_rounded,
+  'check-badge': Icons.verified_rounded,
+  'move': Icons.open_with_rounded,
+  'shield-check': Icons.shield_rounded,
+  'bell': Icons.notifications_rounded,
+  'check-circle': Icons.check_circle_rounded,
+  'car': Icons.directions_car_filled_rounded,
+  'receipt': Icons.receipt_long_rounded,
+  'search': Icons.search_rounded,
+  'user-plus': Icons.person_add_rounded,
+  'gift': Icons.card_giftcard_rounded,
+  'star': Icons.star_rounded,
+  'message-circle': Icons.chat_bubble_rounded,
+  'calendar': Icons.calendar_month_rounded,
+  'cloud': Icons.cloud_rounded,
+  'layers': Icons.layers_rounded,
+  'megaphone': Icons.campaign_rounded,
+  'sparkles': Icons.auto_awesome_rounded,
+  'truck': Icons.local_shipping_rounded,
+  'map-pin': Icons.location_on_rounded,
+  'hand-heart': Icons.volunteer_activism_rounded,
+  'bot': Icons.smart_toy_rounded,
+};
+
+IconData _appFeatureIcon(String key) => _appFeatureIcons[key] ?? Icons.help_outline_rounded;
+
+/// The five real tones, soft/on-soft — mirrors `rj-ui/AppFeatureList.tsx::TONE_CLASSES` and
+/// `rj-ui/Badge`'s own five-tone vocabulary (never a second palette invented for this screen).
+/// Light/dark pairs read straight off this theme's own `AppColors`/`AppDarkColors` tokens —
+/// the same tone reads correctly in either mode with zero per-brightness logic here.
+(Color, Color) _appFeatureToneColors(BuildContext context, String tone) {
+  final dark = context.isDark;
+  switch (tone) {
+    case 'teal':
+    case 'success':
+      return dark ? (AppDarkColors.successSoft, AppDarkColors.successOnSoft) : (AppColors.successSoft, AppColors.successOnSoft);
+    case 'violet':
+    case 'accent':
+      return dark ? (AppDarkColors.accentSoft, AppDarkColors.accentOnSoft) : (AppColors.accentSoft, AppColors.accentOnSoft);
+    case 'amber':
+    case 'warning':
+      return dark ? (AppDarkColors.warningSoft, AppDarkColors.warningOnSoft) : (AppColors.warningSoft, AppColors.warningOnSoft);
+    case 'rose':
+    case 'danger':
+      return dark ? (AppDarkColors.dangerSoft, AppDarkColors.dangerOnSoft) : (AppColors.dangerSoft, AppColors.dangerOnSoft);
+    case 'blue':
+    case 'info':
+      return dark ? (AppDarkColors.infoSoft, AppDarkColors.infoOnSoft) : (AppColors.infoSoft, AppColors.infoOnSoft);
+    default:
+      return (context.appColors.surfaceAlt, context.appColors.textSecondary);
+  }
+}
+
+/// The feature grid itself — a staggered fade/rise reveal, the SAME `TweenAnimationBuilder`
+/// choreography the store's own tile shelf already uses (2026-09-23 premium-motion pass), so a
+/// card that lists what an app actually does reads with the same craft as the shelf that sold it.
+/// Two columns, never a single scrolling `<ul>`: parity/app_store.md's own review of the
+/// console's showcase-grid redesign (`AppDetailsModal.tsx::FeatureTile`) found the plain bulleted
+/// list read as a receipt, not a pitch — the showcase tiles are what this mirrors, not the plain
+/// `AppFeatureList.tsx` used everywhere else in that console.
+class _AppFeatureGrid extends StatelessWidget {
+  const _AppFeatureGrid({required this.features}) : _skeletonCount = 0;
+  const _AppFeatureGrid.skeleton() : features = const [], _skeletonCount = 4;
+
+  final List<AppFeature> features;
+  final int _skeletonCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = _skeletonCount > 0 ? _skeletonCount : features.length;
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: count,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2, mainAxisSpacing: AppSpacing.sm, crossAxisSpacing: AppSpacing.sm,
+        childAspectRatio: 1.35,
+      ),
+      itemBuilder: (context, i) {
+        final tile = _skeletonCount > 0 ? const _FeatureTileSkeleton() : _FeatureTile(feature: features[i]);
+        return TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: Duration(milliseconds: 260 + i * 55),
+          curve: Curves.easeOutCubic,
+          builder: (context, v, child) => Opacity(
+            opacity: v,
+            child: Transform.translate(offset: Offset(0, (1 - v) * 14), child: child),
+          ),
+          child: tile,
+        );
+      },
+    );
+  }
+}
+
+class _FeatureTile extends StatelessWidget {
+  const _FeatureTile({required this.feature});
+  final AppFeature feature;
+
+  @override
+  Widget build(BuildContext context) {
+    final (bg, fg) = _appFeatureToneColors(context, feature.tone);
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(color: bg, borderRadius: AppRadius.standardRadius),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 30, height: 30,
+            decoration: BoxDecoration(color: fg.withValues(alpha: 0.16), shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: Icon(_appFeatureIcon(feature.icon), size: 15, color: fg),
+          ),
+          const SizedBox(height: 6),
+          Text(feature.title, maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w800, color: fg, height: 1.2)),
+          const SizedBox(height: 2),
+          Text(feature.detail, maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.caption.copyWith(color: fg.withValues(alpha: 0.85), height: 1.25)),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeatureTileSkeleton extends StatelessWidget {
+  const _FeatureTileSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(color: colors.surfaceAlt, borderRadius: AppRadius.standardRadius),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(width: 30, height: 30, decoration: BoxDecoration(color: colors.borderSubtle, shape: BoxShape.circle)),
+          const SizedBox(height: 6),
+          Container(height: 11, width: 70, decoration: BoxDecoration(color: colors.borderSubtle, borderRadius: BorderRadius.circular(4))),
+          const SizedBox(height: 4),
+          Container(height: 9, width: 100, decoration: BoxDecoration(color: colors.borderSubtle, borderRadius: BorderRadius.circular(4))),
+        ],
+      ),
+    );
+  }
+}
 
 String _riyals(int minor) => '${(minor / 100).toStringAsFixed(minor % 100 == 0 ? 0 : 2)} ﷼';
 
@@ -1046,9 +1208,10 @@ class _CartLine extends StatelessWidget {
   }
 }
 
-class _AppDetailsSheet extends StatelessWidget {
+class _AppDetailsSheet extends StatefulWidget {
   const _AppDetailsSheet({
     required this.row, required this.plan, required this.owned, required this.sub,
+    required this.apiClient, this.inlineFeatures,
     this.missingRequirement = '', this.cascadeNames = const [],
     this.discountPercent, this.discountAppName,
     this.potentialDiscountPercent, this.potentialDiscountAppName,
@@ -1059,6 +1222,10 @@ class _AppDetailsSheet extends StatelessWidget {
   final BillingPlan? plan;
   final bool? owned;
   final BillingSubscription? sub;
+  final ApiClient apiClient;
+  /// ALREADY KNOWN (operations' own inline row) — skips the fetch entirely, same rule
+  /// `AppFeaturesService`'s own docstring follows.
+  final List<AppFeature>? inlineFeatures;
   /// billingShared.tsx's own `missingRequirement` — the sentence naming what to activate first,
   /// empty when this plan has no dependency or the shop already holds it.
   final String missingRequirement;
@@ -1076,7 +1243,49 @@ class _AppDetailsSheet extends StatelessWidget {
   final VoidCallback? onUndoCancel;
 
   @override
+  State<_AppDetailsSheet> createState() => _AppDetailsSheetState();
+}
+
+class _AppDetailsSheetState extends State<_AppDetailsSheet> {
+  List<AppFeature>? _fetched;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final path = widget.row.featuresPath;
+    if (widget.inlineFeatures != null || path == null) return;
+    AppFeaturesService(apiClient: widget.apiClient).fetch(path).then((rows) {
+      if (!mounted) return;
+      setState(() {
+        if (rows == null) {
+          _failed = true;
+        } else {
+          _fetched = rows;
+        }
+      });
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final row = widget.row;
+    final plan = widget.plan;
+    final sub = widget.sub;
+    final missingRequirement = widget.missingRequirement;
+    final cascadeNames = widget.cascadeNames;
+    final discountPercent = widget.discountPercent;
+    final discountAppName = widget.discountAppName;
+    final potentialDiscountPercent = widget.potentialDiscountPercent;
+    final potentialDiscountAppName = widget.potentialDiscountAppName;
+    final includedCreditMinor = widget.includedCreditMinor;
+    final unitsPerHalala = widget.unitsPerHalala;
+    final owned = widget.owned;
+    final onSubscribe = widget.onSubscribe;
+    final onCancel = widget.onCancel;
+    final onUndoCancel = widget.onUndoCancel;
+    final features = widget.inlineFeatures ?? _fetched;
+    final loadingFeatures = widget.inlineFeatures == null && row.featuresPath != null && _fetched == null && !_failed;
     final s = S.of(context)!;
     final colors = context.appColors;
     final icon = _appIcons[row.icon] ?? Icons.apps_rounded;
@@ -1110,6 +1319,13 @@ class _AppDetailsSheet extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(row.what, style: AppTextStyles.bodySmall.copyWith(color: colors.textSecondary)),
+                    if (loadingFeatures) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      const _AppFeatureGrid.skeleton(),
+                    ] else if (features != null && features.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      _AppFeatureGrid(features: features),
+                    ],
                     if (plan != null) ...[
                       const SizedBox(height: AppSpacing.md),
                       if (discountPercent != null)
@@ -1117,13 +1333,13 @@ class _AppDetailsSheet extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Text(_riyals(plan!.monthlyAmountMinor),
+                            Text(_riyals(plan.monthlyAmountMinor),
                                 style: AppTextStyles.bodySmall.copyWith(color: colors.textMuted, decoration: TextDecoration.lineThrough)),
                             const SizedBox(width: 6),
                             Text(
                               discountAppName != null
-                                  ? s.appStoreDiscountBadgeWithApp(discountPercent!, discountAppName!)
-                                  : s.appStoreDiscountedShort(discountPercent!),
+                                  ? s.appStoreDiscountBadgeWithApp(discountPercent, discountAppName)
+                                  : s.appStoreDiscountedShort(discountPercent),
                               style: AppTextStyles.headlineSmall.copyWith(color: AppColors.success, fontWeight: FontWeight.w800),
                             ),
                           ],
@@ -1133,7 +1349,7 @@ class _AppDetailsSheet extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Text(_riyals(plan!.monthlyAmountMinor), style: AppTextStyles.headlineSmall),
+                            Text(_riyals(plan.monthlyAmountMinor), style: AppTextStyles.headlineSmall),
                             const SizedBox(width: 4),
                             Text(s.appStorePerMonth, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
                           ],
@@ -1143,13 +1359,13 @@ class _AppDetailsSheet extends StatelessWidget {
                       // the shop is one subscription away from saving.
                       if (potentialDiscountPercent != null && potentialDiscountAppName != null) ...[
                         const SizedBox(height: AppSpacing.sm),
-                        _OfferChip(percent: potentialDiscountPercent!, appName: potentialDiscountAppName!),
+                        _OfferChip(percent: potentialDiscountPercent, appName: potentialDiscountAppName),
                       ],
                       // THE INCLUDED-AI-CREDIT CHIP — a GIFT riding on top of the plan, its own
                       // royal violet-indigo identity, never folded into the price line above.
                       if (includedCreditMinor != null) ...[
                         const SizedBox(height: AppSpacing.sm),
-                        _AiUnitsChip(includedCreditMinor: includedCreditMinor!, unitsPerHalala: unitsPerHalala),
+                        _AiUnitsChip(includedCreditMinor: includedCreditMinor, unitsPerHalala: unitsPerHalala),
                       ],
                       const SizedBox(height: AppSpacing.sm),
                       if (owned == true) ...[
@@ -1190,7 +1406,7 @@ class _AppDetailsSheet extends StatelessWidget {
                                       actions: [
                                         TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(s.mobileRequestsRejectCancel)),
                                         TextButton(
-                                          onPressed: () { Navigator.of(dialogContext).pop(); onCancel!(); },
+                                          onPressed: () { Navigator.of(dialogContext).pop(); onCancel(); },
                                           child: Text(s.appStoreCancelRenewal, style: const TextStyle(color: AppColors.danger)),
                                         ),
                                       ],
