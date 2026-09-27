@@ -117,6 +117,9 @@ export function Visit() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
+  // A NEW CUSTOMER'S OWN REFERRAL CODE — the real "new customer" moment for a walk-in visit
+  // (`recordVisit`'s own hook: only ever attempted when this exact call creates the customer).
+  const [referralCode, setReferralCode] = useState('');
   const [plate, setPlate] = useState('');
   /** What he sees while typing: the same string, with the separator placed for him. */
   const [plateText, setPlateText] = useState('');
@@ -204,6 +207,16 @@ export function Visit() {
   // re-render.
   const [celebration, setCelebration] = useState<MutualBenefitGrantAck | null>(null);
   useEffect(() => queue.subscribeToCelebrations(setCelebration), []);
+
+  // A REFERRAL CODE'S OWN OUTCOME — same "separate one-shot channel" reasoning as the
+  // celebration above (queue.ts's own note): the visit that offered a code may have already
+  // drained by the time the server answers, well after this screen moved on to the next
+  // customer, so this can only ever arrive as a toast, never inline on a still-open form.
+  useEffect(() => queue.subscribeToReferralNotices((reg) => {
+    setNote(reg.ok ? t('visit.referral.registered')
+                  : tf(t, 'visit.referral.rejected', { reason: reg.message || '' }));
+    window.setTimeout(() => setNote(null), 4000);
+  }), [t]);
 
   const toggle = useCallback((id: string) => {
     setChosen((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
@@ -462,6 +475,7 @@ export function Visit() {
       service_ids: chosen,
       quantities: Object.keys(quantities).length > 0 ? quantities : undefined,
       name: name.trim() || undefined,
+      referral_code: referralCode.trim() || undefined,
       plate: showPlate && plate.trim() ? plate.trim() : undefined,
       meter: showMeter && meter ? Number(meter) : undefined,
       package_id: selectedPackageId || undefined,
@@ -494,12 +508,13 @@ export function Visit() {
     setSelectedPackageId('');
     setPhone('');
     setName('');
+    setReferralCode('');
     setPlate('');
     setMeter('');
     setNote(t('visit.saved'));
     window.setTimeout(() => setNote(null), 1500);
   }, [applying, chosen, quantities, couponOn, couponPercent, couponPhone, couponScope, meter, name,
-     phone, plate, selectedPackageId, session, showMeter, showPlate, subject]);
+     phone, plate, referralCode, selectedPackageId, session, showMeter, showPlate, subject]);
 
   const save = useCallback(() => {
     // A WRONG NUMBER IS REFUSED HERE AND NOWHERE ELSE, and the refusal SAYS what is wrong. Silence
@@ -1038,6 +1053,21 @@ export function Visit() {
                 placeholder={t('visit.name.placeholder')}
                 className="h-14 rounded-xl bg-surface-1 px-4 text-lg shadow-sm placeholder:text-text-secondary"
               />
+
+              {/* SHOWN FOR ANY COMPLETE NUMBER, NEW OR RETURNING (owner instruction, 2026-09-27):
+                  who is actually eligible is now the campaign's/affiliate's own configured choice
+                  ("new"/"max_visits"/"open"), not a client-side "must be brand-new" guess — the
+                  field always offers the attempt and the engine's own answer lands as the toast
+                  above (`visit.referral.registered`/`visit.referral.rejected`). */}
+              {phone.length >= 9 ? (
+                <input
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  dir="ltr"
+                  placeholder={t('visit.referralCode.placeholder')}
+                  className="h-14 rounded-xl bg-surface-1 px-4 text-lg shadow-sm placeholder:text-text-secondary"
+                />
+              ) : null}
 
               {showMeter ? (
                 <input

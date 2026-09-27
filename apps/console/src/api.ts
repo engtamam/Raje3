@@ -735,6 +735,10 @@ export interface VisitDraft {
    *  (services/operations `field.py::VisitIn.quantities`). A service missing here means one; this
    *  is never a second way to select a service, only a count on one already in `service_ids`. */
   quantities?: Record<string, number>;
+  /** A NEW CUSTOMER'S OWN REFERRAL CODE — the real "new customer" moment for a walk-in visit
+   *  (`Operations.record_visit`'s own hook: only ever attempted when this exact call creates the
+   *  customer). Never validated here; a rejected code never affects the visit itself. */
+  referral_code?: string;
 }
 
 /** The counter's own celebration moment — present ONLY on the rare visit that just made this
@@ -759,6 +763,7 @@ export interface VisitAck {
    *  wanted one visit and there is one visit; a 409 on a double tap teaches him the screen lies. */
   duplicate: boolean;
   mutual_benefit_grant?: MutualBenefitGrantAck;
+  referral_registration?: ReferralRegistration;
 }
 
 /** A name the field sheet can offer. `has_pin` is what makes it offerable at all. */
