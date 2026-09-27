@@ -153,11 +153,11 @@ export function BookingSettingsDialog({ session, catalog, weekly, assignment, st
                       <div className="flex min-w-[220px] flex-1 items-center gap-2">
                         <input type="time" value={minutesToTime(d.start_minute)}
                               onChange={(e) => setDay(day, { start_minute: timeToMinutes(e.target.value) })}
-                              className="h-9 rounded-lg bg-surface-2 px-2 text-sm" dir="ltr" />
+                              className="h-9 rounded-lg border border-border-subtle bg-surface-1 px-2 text-sm" dir="ltr" />
                         <span className="text-text-secondary">{t('bookingSettings.hours.to')}</span>
                         <input type="time" value={minutesToTime(d.end_minute)}
                               onChange={(e) => setDay(day, { end_minute: timeToMinutes(e.target.value) })}
-                              className="h-9 rounded-lg bg-surface-2 px-2 text-sm" dir="ltr" />
+                              className="h-9 rounded-lg border border-border-subtle bg-surface-1 px-2 text-sm" dir="ltr" />
                       </div>
                     ) : (
                       <span className="flex-1 text-sm text-text-muted">{t('bookingSettings.hours.closed')}</span>
@@ -200,12 +200,12 @@ export function BookingSettingsDialog({ session, catalog, weekly, assignment, st
                       <span className="min-w-0 flex-1 truncate">{s.name}</span>
                       <button type="button" disabled={i === 0} onClick={() => move(s.id, -1)}
                              aria-label={tf(t, 'bookingSettings.assignment.moveUp', { name: s.name })}
-                             className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-2 text-text-secondary disabled:opacity-30">
+                             className="grid size-7 shrink-0 place-items-center rounded-full border border-border-subtle bg-surface-1 text-text-secondary disabled:opacity-30">
                         ↑
                       </button>
                       <button type="button" disabled={i === ordered.length - 1} onClick={() => move(s.id, 1)}
                              aria-label={tf(t, 'bookingSettings.assignment.moveDown', { name: s.name })}
-                             className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-2 text-text-secondary disabled:opacity-30">
+                             className="grid size-7 shrink-0 place-items-center rounded-full border border-border-subtle bg-surface-1 text-text-secondary disabled:opacity-30">
                         ↓
                       </button>
                     </li>

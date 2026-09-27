@@ -180,7 +180,7 @@ export function Steps({ steps, done }: { steps: Step[]; done: ReactNode }) {
           onClick={() => go(-1)}
           disabled={at === 0}
           aria-label={t('steps.previous')}
-          className="grid size-11 shrink-0 place-items-center rounded-xl bg-surface-2 text-lg transition-transform duration-100 active:scale-90 disabled:opacity-30 disabled:active:scale-100"
+          className="grid size-11 shrink-0 place-items-center rounded-xl border border-border-subtle bg-surface-1 text-lg transition-transform duration-100 active:scale-90 disabled:opacity-30 disabled:active:scale-100"
         >
           ▸
         </button>

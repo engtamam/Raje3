@@ -78,7 +78,7 @@ export function CustomerBookingHistory({ session, customerId }: {
         <div className="mb-3 flex flex-col gap-1">
           <p className="text-xs font-semibold text-text-secondary">{t('customerBookingHistory.upcoming')}</p>
           {upcoming.map((b) => (
-            <div key={b.id} className="flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2 text-sm">
+            <div key={b.id} className="flex items-center justify-between rounded-xl border border-border-subtle bg-surface-1 px-3 py-2 text-sm">
               <span>{fmtDate(b.starts_at)} — {fmtTime(b.starts_at, t)}</span>
               <span className={STATUS_CLASS[b.status]}>{t(STATUS_KEY[b.status])}</span>
             </div>

@@ -321,7 +321,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
           <h2 className="mb-2 text-sm text-text-secondary">{t('customer.vehicles')}</h2>
           <ul className="flex flex-wrap gap-2">
             {(record.assets ?? []).map((a) => (
-              <li key={a.id} className="rounded-lg bg-surface-2 px-3 py-1.5 text-sm">
+              <li key={a.id} className="rounded-lg border border-border-subtle bg-surface-1 px-3 py-1.5 text-sm">
                 <span dir="ltr" className="tabular-nums">{a.plate || '—'}</span>
                 {a.make ? <span className="ms-2 text-text-secondary">{a.make} {a.model}</span> : null}
               </li>
@@ -379,7 +379,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
         ) : (
           <ul className="flex flex-col gap-3">
             {live.map((o) => (
-              <li key={`${o.sent_at}-${o.text}`} className="rounded-xl bg-surface-2 p-3">
+              <li key={`${o.sent_at}-${o.text}`} className="rounded-xl border border-border-subtle bg-surface-1 p-3">
                 <p className="font-medium">{o.text}</p>
                 <p className="mt-1 text-sm text-text-secondary">
                   {o.services.length > 0 ? tf(t, 'customer.offers.onServices', { services: o.services.join('، ') }) : t('customer.offers.onAll')}
@@ -403,7 +403,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                 owner asks as often as «ماذا يحمل الآن؟», and an answer that hides what ran out
                 makes his own history unreadable. */}
             {past.map((o) => (
-              <li key={`${o.sent_at}-${o.text}`} className="rounded-xl bg-surface-2 p-3 opacity-60">
+              <li key={`${o.sent_at}-${o.text}`} className="rounded-xl border border-border-subtle bg-surface-1 p-3 opacity-60">
                 <p className="font-medium">{o.text}</p>
                 <p className="mt-2 flex items-center gap-2 text-sm">
                   <Badge tone="neutral">{t('customer.offers.expired')}</Badge>
@@ -559,7 +559,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                 onChange={(e) => setNameDraft(e.target.value)}
                 placeholder={t('customer.manage.namePlaceholder')}
                 aria-label={t('customer.manage.nameAriaLabel')}
-                className="h-11 min-w-0 flex-1 rounded-xl bg-surface-2 px-3 shadow-sm"
+                className="h-11 min-w-0 flex-1 rounded-xl border border-border-subtle bg-surface-1 px-3 shadow-sm"
               />
               <Button
                 onClick={async () => {
@@ -603,7 +603,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
               THE REASON IS REQUIRED because the entry outlives the memory of it: the customer
               may ask in six months, and «+50» with nothing beside it is unanswerable. */}
           {action(catalog, 'loyalty.adjust') ? (
-            <div className="mb-4 flex flex-col gap-2 rounded-xl bg-surface-2 p-3">
+            <div className="mb-4 flex flex-col gap-2 rounded-xl border border-border-subtle bg-surface-1 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium">{t('customer.manage.adjustTitle')}</span>
                 <Hint label={t('customer.manage.adjustHintLabel')}>
@@ -677,7 +677,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                           type="button"
                           onClick={() => { setAdjustNote(r); setPickingReason(false); }}
                           className={`min-h-11 w-full rounded-xl px-3 text-start text-sm ${
-                            adjustNote === r ? 'bg-info-soft text-info-on-soft' : 'bg-surface-2'
+                            adjustNote === r ? 'bg-info-soft text-info-on-soft' : 'border border-border-subtle bg-surface-1'
                           }`}
                         >
                           {r}
@@ -691,7 +691,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                       <button
                         type="button"
                         onClick={() => { setAdjustNote(''); setPickingReason(false); }}
-                        className="min-h-11 w-full rounded-xl bg-surface-2 px-3 text-start text-sm"
+                        className="min-h-11 w-full rounded-xl border border-border-subtle bg-surface-1 px-3 text-start text-sm"
                       >
                         {t('customer.adjustReason.other')}
                       </button>
@@ -779,7 +779,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
               ) : (
                 /* TWO STEPS, AND THE SECOND ONE NAMES HIM. A confirmation that says "are you
                    sure?" is a reflex; one that repeats whose data is about to go is a decision. */
-                <div className="flex flex-col gap-2 rounded-card bg-surface-2 p-3">
+                <div className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-3">
                   <p className="text-sm">
                     {tf(t, 'customer.erase.confirm', { name: record?.customer?.name || t('customer.erase.thisCustomer') })}
                   </p>
@@ -871,7 +871,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                       setPinMsg(t('customer.cycles.pinFailed'));
                     }
                   }}
-                  className="h-10 w-20 rounded-lg bg-surface-2 px-2 text-center tabular-nums"
+                  className="h-10 w-20 rounded-lg border border-border-subtle bg-surface-1 px-2 text-center tabular-nums"
                 />
                 <span className="text-xs text-text-secondary">{t('customer.cycles.days')}</span>
               </span>

@@ -643,7 +643,7 @@ export function Visit() {
               <button
                 type="button"
                 onClick={() => { setChanging(false); }}
-                className="min-h-11 shrink-0 rounded-xl bg-surface-2 text-sm font-semibold"
+                className="min-h-11 shrink-0 rounded-xl border border-border-subtle bg-surface-1 text-sm font-semibold"
               >
                 {t('visit.cancelEdit')}
               </button>
@@ -734,7 +734,7 @@ export function Visit() {
                           type="button"
                           disabled={Boolean(redeeming)}
                           onClick={() => spend(r.id, r.name)}
-                          className="flex w-full items-center justify-between gap-3 rounded-lg bg-surface-2 px-3 py-3 text-start disabled:opacity-60"
+                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface-1 px-3 py-3 text-start disabled:opacity-60"
                         >
                           <span>{r.name}</span>
                           <span className="shrink-0 tabular-nums text-sm text-text-secondary">
@@ -816,7 +816,7 @@ export function Visit() {
           setChanging(true);
           setPlateKnown(false);
         }}
-        className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-surface-2 text-base font-semibold"
+        className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-border-subtle bg-surface-1 text-base font-semibold"
       >
         <Pencil size={15} aria-hidden />
         {t('visit.editCustomer')}
@@ -962,7 +962,7 @@ export function Visit() {
           <button
             type="button"
             onClick={() => { setChosen([]); setSelectedPackageId(''); }}
-            className="min-h-[44px] rounded-xl bg-surface-2 px-4 text-sm font-semibold"
+            className="min-h-[44px] rounded-xl border border-border-subtle bg-surface-1 px-4 text-sm font-semibold"
           >
             {t('visit.chosen.clear')}
           </button>
@@ -1035,7 +1035,7 @@ export function Visit() {
           he missed — and «لا عروض» is the wrong answer for a customer we have never met, and a
           lie when we simply could not ask. Three facts, three sentences. */}
       {!hasPerks && phone.length >= 9 ? (
-        <p className="mb-2 rounded-xl bg-surface-2 px-3 py-2 text-sm text-text-secondary">
+        <p className="mb-2 rounded-xl border border-border-subtle bg-surface-1 px-3 py-2 text-sm text-text-secondary">
           {perks === 'failed'
             ? t('visit.perks.failed')
             : subject

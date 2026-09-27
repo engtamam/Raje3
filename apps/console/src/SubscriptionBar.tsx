@@ -52,7 +52,7 @@ export function SubscriptionBar({ owned, now }: { owned: Loading<Owned>; now: nu
     if (appLeft === null || appLeft > SOON_DAYS) return null;
     return (
       <div role="status"
-           className="flex flex-wrap items-center justify-between gap-2 rounded-card px-4 py-2 text-sm bg-surface-2 text-text-secondary">
+           className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-border-subtle px-4 py-2 text-sm bg-surface-1 text-text-secondary">
         <span>{tf(t, 'subscriptionBar.appRenewsIn', { name: sub.name, days: dayCount(t, appLeft) })}</span>
         <Link to={STORE_PATH} className="font-medium underline underline-offset-4">{t('subscriptionBar.storeLink')}</Link>
       </div>
@@ -76,7 +76,7 @@ export function SubscriptionBar({ owned, now }: { owned: Loading<Owned>; now: nu
     <div
       role="status"
       className={`flex flex-wrap items-center justify-between gap-2 rounded-card px-4 py-2 text-sm ${
-        lapsed ? 'bg-danger/10 text-danger' : 'bg-surface-2 text-text-secondary'
+        lapsed ? 'bg-danger/10 text-danger' : 'border border-border-subtle bg-surface-1 text-text-secondary'
       }`}
     >
       <span>{text}</span>

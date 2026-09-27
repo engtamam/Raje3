@@ -99,7 +99,7 @@ export function WhoIsSaving({
                 className={`rounded-full border px-3 py-1.5 text-sm ${
                   picked === p.id
                     ? 'border-accent bg-accent-soft text-accent-on-soft'
-                    : 'border-border-subtle bg-surface-2'}`}
+                    : 'border-border-subtle bg-surface-1'}`}
               >
                 {p.name}
               </button>

@@ -114,7 +114,7 @@ export function MutualBenefitGrantCelebration({ grant, onClose }: {
                 <span className="font-semibold tabular-nums">{formatDate(grant.expires_at, locale)}</span>
               </div>
 
-              <p className="rounded-xl bg-surface-2 p-3 text-center text-xs text-text-secondary">
+              <p className="rounded-xl border border-border-subtle bg-surface-1 p-3 text-center text-xs text-text-secondary">
                 {t('mbgc.howTo')}
               </p>
             </div>

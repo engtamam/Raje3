@@ -615,7 +615,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                       setSaving(false);
                     }
                   }}
-                  className="h-10 w-28 rounded-lg bg-surface-2 px-3 text-center tabular-nums"
+                  className="h-10 w-28 rounded-lg border border-border-subtle bg-surface-1 px-3 text-center tabular-nums"
                 />
               </label>
             </Card>
@@ -671,7 +671,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                           setSaving(false);
                         }
                       }}
-                      className="h-10 w-28 rounded-lg bg-surface-2 px-3 text-center tabular-nums"
+                      className="h-10 w-28 rounded-lg border border-border-subtle bg-surface-1 px-3 text-center tabular-nums"
                     />
                   </li>
                 ))}
@@ -707,7 +707,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                               setEarnFor(s.id, Number(raw));
                             }
                           }}
-                          className="h-10 w-24 rounded-lg bg-surface-2 px-3 text-center tabular-nums"
+                          className="h-10 w-24 rounded-lg border border-border-subtle bg-surface-1 px-3 text-center tabular-nums"
                         />
                         {/* A DELETE, NOT A WRITE OF TODAY'S GENERAL VALUE: following means tracking
                             it from now on, and writing the current number would freeze it. */}

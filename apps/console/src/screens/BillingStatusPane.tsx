@@ -323,7 +323,7 @@ export function BillingStatusPane({ session, catalog }: { session: Session; cata
                   (`_compute_renewal`, the same function the real invoice runs), so a shop
                   understands exactly what it will pay: list price, what it saves, and tax
                   only when this establishment's own configuration actually applies one. */}
-              <div className="flex flex-col gap-1 rounded-2xl bg-surface-2 p-3 text-xs">
+              <div className="flex flex-col gap-1 rounded-2xl border border-border-subtle bg-surface-1 p-3 text-xs">
                 <div className="flex items-center justify-between text-text-secondary">
                   <span>{t('billingStatus.renewalPreview.subtotal')}</span>
                   <span className="tabular-nums">{riyalsLabel(g.subtotal_minor, t)}</span>

@@ -942,7 +942,7 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
         ) : (
           <div className="flex flex-col gap-2">
             {pending.map((c) => (
-              <div key={c.key} className="flex items-center justify-between gap-2 rounded-card bg-surface-2 p-3 text-sm">
+              <div key={c.key} className="flex items-center justify-between gap-2 rounded-card border border-border-subtle bg-surface-1 p-3 text-sm">
                 <div>
                   <p className="font-medium">{PRICING_KEY_LABEL[c.key] ?? c.key}</p>
                   <p className="text-label text-text-secondary">

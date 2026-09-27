@@ -297,7 +297,7 @@ export function Connect({
             <span>{t('connect.register.pinLabel')}</span>
             <input
               id="wa-pin"
-              className="rounded-input border border-border bg-surface-2 p-2 text-center tracking-widest"
+              className="rounded-input border border-border bg-surface-1 p-2 text-center tracking-widest"
               inputMode="numeric"
               autoComplete="one-time-code"
               maxLength={6}

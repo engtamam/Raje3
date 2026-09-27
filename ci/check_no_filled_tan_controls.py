@@ -71,6 +71,79 @@ ALLOWLIST = {
     "ui/packages/ui/src/design-system/Tabs.tsx",
     "ui/packages/ui/src/design-system/Badge.tsx",
     "ui/packages/ui/src/design-system/Button.tsx",
+    # The sidebar rail's own "this is the section I'm on" row highlight and its icon tile's
+    # inactive fill — a persistent but non-control highlight (the row itself navigates, this is
+    # its state indicator, same posture as AdminNav.tsx/AffiliateNav.tsx below), never a control a
+    # person fills in or presses.
+    "ui/packages/ui/src/shell/AppShell.tsx",
+    # An icon tile beside a scenario-picker button's label — a static tinted chip, not the
+    # button's own fill (the button itself is bg-surface-1/hollow already).
+    "apps/console/src/admin/AdminDisputeReports.tsx",
+    # The admin nav rail's "this is the section I'm on" row highlight, same reasoning as
+    # AppShell.tsx above — a location indicator, not a control at rest.
+    "apps/console/src/admin/AdminNav.tsx",
+    "apps/console/src/affiliates/AffiliateNav.tsx",
+    # An avatar placeholder (no photo yet) — a static tinted circle, not a control.
+    "apps/console/src/affiliates/AffiliateAccount.tsx",
+    # An icon tile beside a static label, same role as KpiCard's icon tile.
+    "apps/console/src/affiliates/AffiliateTools.tsx",
+    # A status-tag fallback colour and a carousel position dot — a fixed tag colour and a
+    # read-only page-position indicator, neither one a control a person picks between.
+    "apps/console/src/affiliates/TicketCarousel.tsx",
+    # The "؟" hint badge — a static glyph tile, not a control (see Hint.tsx's own comment on why
+    # the touch target and the drawn shape are deliberately not the same size).
+    "apps/console/src/AssistantHint.tsx",
+    "apps/console/src/Hint.tsx",
+    # An icon tile inside an "add" affordance — a static chip beside the plus icon.
+    "apps/console/src/BranchSwitch.tsx",
+    # A skeleton loading shimmer (animate-pulse) for a not-yet-loaded app card.
+    "apps/console/src/launcher/AppDetailsModal.tsx",
+    # A "locked" badge on a store tile — a fixed status tag, same role as Badge.tsx's soft fill.
+    "apps/console/src/launcher/AppTile.tsx",
+    # A fallback tone for an app icon chip — the same fixed-tag-colour role as Badge.tsx.
+    "apps/console/src/rj-ui/AppFeatureList.tsx",
+    # Console's own copy of the design-system Badge — identical neutral-tone reasoning.
+    "apps/console/src/rj-ui/Badge.tsx",
+    # A comparison bar's own track — the recessed backdrop the coloured bar sits on top of, same
+    # role as a Segmented track.
+    "apps/console/src/rj-ui/BarCompare.tsx",
+    # Console's own copy of the design-system Button — identical "ghost needs a resting shape"
+    # reasoning as ui/packages/ui/src/design-system/Button.tsx above.
+    "apps/console/src/rj-ui/Button.tsx",
+    # A map's own canvas backdrop — a sunken drawing surface the plotted points sit on top of,
+    # never a control itself.
+    "apps/console/src/rj-ui/GeoMap.tsx",
+    # Console's own copy of the design-system KpiCard — identical icon-tile reasoning.
+    "apps/console/src/rj-ui/KpiCard.tsx",
+    # A range input's own track — the recessed backdrop the accent-coloured fill/thumb sits on,
+    # same role as a Segmented track.
+    "apps/console/src/rj-ui/RangeSlider.tsx",
+    # A clickable card's transient PRESSED-state tint (`active:bg-surface-2`), not a persistent
+    # fill — the same "momentary feedback, not a resting look" posture FilterMenu's hover already
+    # gets an exception for.
+    "apps/console/src/rj-ui/Table.tsx",
+    # A tier-ladder step dot that is neither current nor done — a track/step indicator, not a
+    # control a person picks between.
+    "apps/console/src/rj-ui/TierLadder.tsx",
+    # A WhatsApp phone-mockup's own fake compose bar — a fixed preview of WhatsApp's own UI, not
+    # a real control on this page (same posture as MessagePreview.tsx's fixed WhatsApp bubble
+    # colours).
+    "apps/console/src/rj-ui/WhatsAppPreview.tsx",
+    # Console's own copy of the design-system Skeleton — identical shimmer reasoning.
+    "apps/console/src/rj-ui/Skeleton.tsx",
+    # A table header row background — never a control a person fills in or presses.
+    "apps/console/src/admin/CustomerList.tsx",
+    "apps/console/src/screens/ServicesImportDrawer.tsx",
+    # An inactive app-plan icon tile taking a fixed neutral tone — a fixed-tag-colour role, same
+    # as Badge.tsx.
+    "apps/console/src/admin/PlanCards.tsx",
+    # A read-only service-name tag on a mobile request — a fixed label, not a control.
+    "apps/console/src/screens/MobileRequests.tsx",
+    # A "used in N services" count badge — a fixed-tag-colour role, same as Badge.tsx.
+    "apps/console/src/screens/ProcedureStepsTab.tsx",
+    # A service tile's own image/emoji placeholder backdrop — a sunken canvas the photo or emoji
+    # sits on top of, same role as an avatar placeholder.
+    "apps/console/src/ServiceGrid.tsx",
 }
 
 

@@ -245,7 +245,7 @@ const TONE_VAR: Record<string, string> = {
 const TONE_ICON_BG: Record<string, string> = {
   info: 'bg-info-soft text-info-on-soft', success: 'bg-success-soft text-success-on-soft',
   warning: 'bg-warning-soft text-warning-on-soft', danger: 'bg-danger-soft text-danger-on-soft',
-  accent: 'bg-accent-soft text-accent-on-soft', neutral: 'bg-surface-2 text-text-secondary',
+  accent: 'bg-accent-soft text-accent-on-soft', neutral: 'border border-border-subtle bg-surface-1 text-text-secondary',
 };
 /** THE RAIL'S OWN DOT — the SAME tone as the card's own stripe/icon above, never a second,
  *  independently-assigned colour rotation (that mismatch — the rail picking a colour by POSITION
@@ -1467,7 +1467,7 @@ export function MessagesScreen(
               <label className="flex items-center gap-2 px-1 text-sm">
                 <span className="text-text-secondary">{t('messages.log.branchLabel')}</span>
                 <select
-                  className="min-h-11 flex-1 rounded-xl bg-surface-2 px-3 text-sm"
+                  className="min-h-11 flex-1 rounded-xl border border-border-subtle bg-surface-1 px-3 text-sm"
                   value={logBranch}
                   aria-label={t('messages.log.branchAriaLabel')}
                   onChange={(e) => setLogBranch(e.target.value)}
@@ -1787,7 +1787,7 @@ export function MessagesScreen(
                           {(['matched', 'sent', 'suppressed', 'redeemed'] as const)
                             .filter((k) => typeof runsTotals[k] === 'number')
                             .map((k) => (
-                              <div key={k} className="rounded-lg bg-surface-2 p-2.5 text-center">
+                              <div key={k} className="rounded-lg border border-border-subtle bg-surface-1 p-2.5 text-center">
                                 <div className="text-lg font-semibold tabular-nums">{runsTotals[k]}</div>
                                 <div className="text-xs text-text-secondary">{t(`messages.campaigns.totals.${k}`)}</div>
                               </div>
