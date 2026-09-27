@@ -19,7 +19,10 @@
  * is the section-level gate; this file is the finer, per-button one.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, Calendar1, CircleSlash2, Image as ImageIcon, Layers, Plus, Users } from 'lucide-react';
+import {
+  Briefcase, Building2, Calendar1, Check, CircleSlash2, Copy, Image as ImageIcon, Layers, Plus,
+  Users,
+} from 'lucide-react';
 import { PageHeader } from '../rj-ui/PageHeader';
 import { Segmented } from '../rj-ui/Segmented';
 import { Card } from '../rj-ui/Card';
@@ -82,7 +85,75 @@ function formatWhen(epochSeconds?: number): string {
   return new Date(epochSeconds * 1000).toLocaleString();
 }
 
+// THE REAL, DEPLOYED GATEWAY ORIGIN (vite.config.ts's own `define`, off `config/product.json`'s
+// `urls.app`) — never a hardcoded domain a rebrand would silently miss.
+declare const __PUBLIC_APP_ORIGIN__: string;
+
 type Tab = 'resources' | 'joins' | 'bookings';
+
+// THREE REAL COLOUR IDENTITIES, ONE PER TAB — the owner's own request for "تمايز لوني عالي"
+// (high colour differentiation): الموارد (what you own) reads accent/violet, طلبات الانضمام (a
+// pending decision) reads warning/amber, الحجوزات (a settled fact) reads info/teal. Same "colour
+// before number" precedent Shop.tsx's own Tile and referrals_screen.dart's own reward bands
+// already set — applied here to each tab's own section header and card accents, never the
+// Segmented control itself (rj-ui/Segmented.tsx has no per-option colour slot by design).
+const TAB_ACCENT: Record<Tab, { tone: 'accent' | 'warning' | 'info'; soft: string; onSoft: string; ring: string }> = {
+  resources: { tone: 'accent', soft: 'bg-accent-soft', onSoft: 'text-accent-on-soft', ring: 'ring-accent/30' },
+  joins: { tone: 'warning', soft: 'bg-warning-soft', onSoft: 'text-warning-on-soft', ring: 'ring-warning/30' },
+  bookings: { tone: 'info', soft: 'bg-info-soft', onSoft: 'text-info-on-soft', ring: 'ring-info/30' },
+};
+
+function TabSectionHeader({ tab, icon: Icon, title, said }: {
+  tab: Tab; icon: typeof Layers; title: string; said: string;
+}) {
+  const a = TAB_ACCENT[tab];
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${a.soft} ${a.onSoft} ring-2 ${a.ring}`}>
+        <Icon size={17} aria-hidden />
+      </span>
+      <div className="flex flex-col">
+        <h2 className="text-sm font-bold">{title}</h2>
+        <p className="text-xs text-text-secondary">{said}</p>
+      </div>
+    </div>
+  );
+}
+
+// «الرابط المشترك» — one shareable link per shop (services/coworking/app/api/public.py's own
+// module docstring), handed to whichever freelancers the shop already works with. ALWAYS SHOWN,
+// REGARDLESS OF TAB, same posture the pause banner above already takes — this is a shop-wide
+// fact, not something scoped to one tab's own content.
+function ShareLinkCard({ tenant, t }: { tenant: string; t: (key: string) => string }) {
+  const [copied, setCopied] = useState(false);
+  const url = `${__PUBLIC_APP_ORIGIN__}/p/coworking/${tenant}`;
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard denied — the link is still selectable/readable on screen */ }
+  };
+
+  return (
+    <div className="flex items-center gap-3 rounded-card border border-border-subtle
+                     bg-gradient-to-l from-amber-50 to-orange-50 p-3
+                     dark:from-amber-950/40 dark:to-orange-950/30">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
+        <Briefcase size={18} aria-hidden />
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p className="text-xs font-semibold text-text-secondary">{t('coworking.shareLink.label')}</p>
+        <p dir="ltr" className="truncate text-start font-mono text-xs text-text-primary">{url}</p>
+      </div>
+      <Button size="sm" variant={copied ? 'solid' : 'outline'} onClick={copy}>
+        {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
+        {copied ? t('coworking.shareLink.copied') : t('coworking.shareLink.copy')}
+      </Button>
+    </div>
+  );
+}
 
 // Weekday 0=Monday..6=Sunday, the exact convention `admin.py`'s own `AvailabilityIn` documents
 // (Python's `date.weekday()`) — shown Saturday→Friday order to match the region's own week start,
@@ -261,22 +332,35 @@ export function CoworkingScreen({
   return (
     <div className="flex flex-col gap-3 p-4">
       {switcher}
+      {session.tenant ? <ShareLinkCard tenant={session.tenant} t={t} /> : null}
       {pauseBanner}
       {pauseControl}
       {error ? <p className="text-danger text-sm">{error}</p> : null}
 
       {tab === 'resources' ? (
-        <ResourcesTab
-          session={session} catalog={catalog} resources={resourcesShown} raw={resources}
-          load={load} branch={branch}
-        />
+        <div className="flex flex-col gap-3">
+          <TabSectionHeader tab="resources" icon={Layers}
+            title={t('coworking.tab.resources')} said={t('coworking.resources.said')} />
+          <ResourcesTab
+            session={session} catalog={catalog} resources={resourcesShown} raw={resources}
+            load={load} branch={branch}
+          />
+        </div>
       ) : null}
       {tab === 'joins' ? (
-        <JoinsTab session={session} catalog={catalog} joins={joins} load={load} />
+        <div className="flex flex-col gap-3">
+          <TabSectionHeader tab="joins" icon={Users}
+            title={t('coworking.tab.joins')} said={t('coworking.joins.said')} />
+          <JoinsTab session={session} catalog={catalog} joins={joins} load={load} />
+        </div>
       ) : null}
       {tab === 'bookings' ? (
-        <BookingsTab session={session} catalog={catalog} bookings={bookingsShown} raw={bookings}
-          load={load} resourceNameById={resourceNameById} />
+        <div className="flex flex-col gap-3">
+          <TabSectionHeader tab="bookings" icon={Calendar1}
+            title={t('coworking.tab.bookings')} said={t('coworking.bookings.said')} />
+          <BookingsTab session={session} catalog={catalog} bookings={bookingsShown} raw={bookings}
+            load={load} resourceNameById={resourceNameById} />
+        </div>
       ) : null}
 
       <ConfirmDialog
@@ -427,7 +511,12 @@ function ResourceCard({
     : t('coworking.resources.noPrice');
 
   return (
-    <Card interactive onClick={onOpen} className="flex flex-col gap-2 p-0 overflow-hidden">
+    <Card interactive onClick={onOpen}
+      className={`flex flex-col gap-2 overflow-hidden p-0 ${active ? 'ring-1 ring-accent/20' : 'opacity-80'}`}>
+      {/* A REAL ACCENT STRIP, NOT ANOTHER FLAT GREY TOP — echoes الموارد's own violet identity
+          (`TAB_ACCENT.resources`) on every card, active or not; a paused resource dims instead of
+          losing the strip entirely, so the shelf still reads as "one product family". */}
+      <div className={`h-1 w-full ${active ? 'bg-accent' : 'bg-border-subtle'}`} />
       <div className="flex h-32 items-center justify-center bg-surface-2">
         {imageUrl ? (
           <img src={imageUrl} alt={r.name} className="h-full w-full object-cover" />
