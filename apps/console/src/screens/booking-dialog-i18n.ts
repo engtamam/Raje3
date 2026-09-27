@@ -32,6 +32,9 @@ registerOperatorStrings({
     'bookingDialog.riskAdvice': 'يُنصح بطلب عربون لتأكيد هذا الحجز — القرار لك، والنظام لا يفرضه.',
     'bookingDialog.enableDepositNow': 'فعّل العربون الآن',
     'bookingDialog.nameLabel': 'اسمها (اختياري)',
+    'bookingDialog.referralCodeLabel': 'كود إحالة (اختياري)',
+    'bookingDialog.referralRegistered': 'تم تسجيل كود الإحالة — سيحصل هذا العميل على مكافأته عند حضور الحجز.',
+    'bookingDialog.referralRejected': 'تعذّر تسجيل كود الإحالة: {reason}',
 
     'bookingDialog.servicesHeading': 'الخدمات',
     'bookingDialog.servicesRequired': 'اختر خدمة واحدة على الأقل',
@@ -109,6 +112,9 @@ registerOperatorStrings({
     'bookingDialog.riskAdvice': "A deposit is recommended to confirm this booking — it's your call, the system never forces it.",
     'bookingDialog.enableDepositNow': 'Enable deposit now',
     'bookingDialog.nameLabel': 'Her name (optional)',
+    'bookingDialog.referralCodeLabel': 'Referral code (optional)',
+    'bookingDialog.referralRegistered': 'Referral code registered — this customer gets their reward once the booking is attended.',
+    'bookingDialog.referralRejected': 'Could not register the referral code: {reason}',
 
     'bookingDialog.servicesHeading': 'Services',
     'bookingDialog.servicesRequired': 'Choose at least one service',
@@ -186,6 +192,9 @@ registerOperatorStrings({
     'bookingDialog.riskAdvice': 'اس بکنگ کی تصدیق کے لیے ایڈوانس کی سفارش کی جاتی ہے — فیصلہ آپ کا ہے، نظام مجبور نہیں کرتا۔',
     'bookingDialog.enableDepositNow': 'ابھی ایڈوانس فعال کریں',
     'bookingDialog.nameLabel': 'اس کا نام (اختیاری)',
+    'bookingDialog.referralCodeLabel': 'ریفرل کوڈ (اختیاری)',
+    'bookingDialog.referralRegistered': 'ریفرل کوڈ رجسٹر ہو گیا — یہ کسٹمر بکنگ پر حاضر ہونے پر اپنا انعام پائے گا۔',
+    'bookingDialog.referralRejected': 'ریفرل کوڈ رجسٹر نہیں ہو سکا: {reason}',
 
     'bookingDialog.servicesHeading': 'خدمات',
     'bookingDialog.servicesRequired': 'کم از کم ایک خدمت منتخب کریں',
@@ -263,6 +272,9 @@ registerOperatorStrings({
     'bookingDialog.riskAdvice': 'Ana ba da shawarar tara kuɗi don tabbatar da wannan ajiyar — zaɓinka ne, tsarin ba ya tilastawa.',
     'bookingDialog.enableDepositNow': 'Kunna tara kuɗi yanzu',
     'bookingDialog.nameLabel': 'Sunanta (na zaɓi)',
+    'bookingDialog.referralCodeLabel': 'Lambar ba da shawara (na zaɓi)',
+    'bookingDialog.referralRegistered': 'An yi rijistar lambar ba da shawara — wannan abokin ciniki zai sami ladansa da zarar an halarci ajiyar.',
+    'bookingDialog.referralRejected': 'Ba a iya yin rijistar lambar ba da shawara ba: {reason}',
 
     'bookingDialog.servicesHeading': 'Ayyuka',
     'bookingDialog.servicesRequired': 'Zaɓi sabis guda ɗaya aƙalla',
@@ -340,6 +352,9 @@ registerOperatorStrings({
     'bookingDialog.riskAdvice': 'Iminumungkahi ang deposito para kumpirmahin ang booking na ito — ikaw ang magdedesisyon, hindi ito ipinipilit ng sistema.',
     'bookingDialog.enableDepositNow': 'I-enable ang deposito ngayon',
     'bookingDialog.nameLabel': 'Pangalan niya (opsyonal)',
+    'bookingDialog.referralCodeLabel': 'Referral code (opsyonal)',
+    'bookingDialog.referralRegistered': 'Narehistro ang referral code — makukuha ng kustomer na ito ang gantimpala niya kapag dumalo sa booking.',
+    'bookingDialog.referralRejected': 'Hindi narehistro ang referral code: {reason}',
 
     'bookingDialog.servicesHeading': 'Mga Serbisyo',
     'bookingDialog.servicesRequired': 'Pumili ng kahit isang serbisyo',
@@ -417,6 +432,9 @@ registerOperatorStrings({
     'bookingDialog.riskAdvice': 'এই বুকিং নিশ্চিত করতে অগ্রিম নেওয়ার পরামর্শ দেওয়া হয় — সিদ্ধান্ত আপনার, সিস্টেম কখনো বাধ্য করে না।',
     'bookingDialog.enableDepositNow': 'এখনই অগ্রিম চালু করুন',
     'bookingDialog.nameLabel': 'তার নাম (ঐচ্ছিক)',
+    'bookingDialog.referralCodeLabel': 'রেফারেল কোড (ঐচ্ছিক)',
+    'bookingDialog.referralRegistered': 'রেফারেল কোড নিবন্ধিত হয়েছে — এই গ্রাহক বুকিংয়ে উপস্থিত হলে তার পুরস্কার পাবে।',
+    'bookingDialog.referralRejected': 'রেফারেল কোড নিবন্ধন করা যায়নি: {reason}',
 
     'bookingDialog.servicesHeading': 'সেবাসমূহ',
     'bookingDialog.servicesRequired': 'অন্তত একটি সেবা বেছে নিন',

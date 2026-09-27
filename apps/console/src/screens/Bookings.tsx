@@ -1473,13 +1473,16 @@ export function BookingsScreen({ session, catalog, branch, branches, onBranch }:
           editingBooking={dialog.editing}
           editingCustomerLabel={dialog.editingLabel}
           onClose={() => setDialog('closed')}
-          onCreated={(b) => {
+          onCreated={(b, referralNotice) => {
             const wasEditing = Boolean(dialog.editing);
             setDialog('closed');
             setRows((cur) => (wasEditing
               ? (cur ?? []).map((x) => (x.id === b.id ? b : x))
               : [...(cur ?? []), b]));
-            say(wasEditing ? t('bookings.editSaved') : t('bookings.created'));
+            // ONE TOAST, NOT TWO — `say()` holds a single message; a second immediate call
+            // would silently replace the first before it ever rendered.
+            const created = wasEditing ? t('bookings.editSaved') : t('bookings.created');
+            say(referralNotice ? `${created} — ${referralNotice}` : created);
           }}
         />
       ) : null}

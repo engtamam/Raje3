@@ -416,19 +416,39 @@ export function customerByPhone(
   return call(session, `/api/v1/field/customers/by-phone?phone=${encodeURIComponent(phone)}`);
 }
 
+/** A referral code's own registration attempt — `null` when none was offered. See
+ *  `Operations._register_referral_if_new`'s own docstring for the shape and the "never undo"
+ *  posture: a rejected code never means the customer/visit/booking it was attached to failed. */
+export interface ReferralRegistration {
+  ok: boolean;
+  message?: string;
+  new_customer_reward_type?: string;
+  new_customer_reward_params?: Record<string, unknown>;
+}
+
 /**
  * Resolve or create a customer by phone, with NO visit attached.
  *
  * THE BOOKING DIALOG'S ONE STEP BEFORE IT HAS A `customer_id` TO GIVE BOOKINGS. Same act as
  * `recordVisit`'s own customer resolution (docs/خطة-تنفيذ-الحجوزات.md §6.2: "نفس الفعل
  * الخلفي الذي يستعمله VisitIn, لا إعادة تنفيذ") — never reimplemented here, only called.
+ *
+ * ALSO THE REAL "NEW CUSTOMER" MOMENT FOR A BOOKING (`Operations.ensure_customer`'s own
+ * docstring) — a booking's own attendance always finds an already-existing customer, so a
+ * referral code offered here, when the booking is first made, is the only time it is ever
+ * registered for this door.
  */
 export function ensureCustomer(
-  session: Session, phone: string, name?: string,
-): Promise<{ customer: (CustomerHit & { subject_ref?: string }) | null; reason?: string }> {
+  session: Session, phone: string, name?: string, referralCode?: string,
+): Promise<{
+  customer: (CustomerHit & { subject_ref?: string }) | null; reason?: string;
+  referral_registration?: ReferralRegistration;
+}> {
   return call(session, '/api/v1/field/customers/ensure', {
     method: 'POST',
-    body: JSON.stringify({ phone, name: name || undefined }),
+    body: JSON.stringify({
+      phone, name: name || undefined, referral_code: referralCode || undefined,
+    }),
   });
 }
 

@@ -65,7 +65,11 @@ export interface BookingDialogProps {
    *  now, or merely because it is busy. */
   weekly?: WeeklyHours;
   onClose: () => void;
-  onCreated: (booking: Booking) => void;
+  /** `referralNotice`, WHEN GIVEN, IS A ONE-LINE TOAST TEXT — this dialog closes the moment a
+   *  booking is created (`onClose` runs immediately in every caller), so any referral-code
+   *  feedback has to travel out with the booking itself rather than render inline here, where
+   *  nobody would ever see it. */
+  onCreated: (booking: Booking, referralNotice?: string) => void;
   /** Set when opened from an existing card's action sheet ("تعديل") rather than an empty cell —
    *  the customer is already fixed (no PATCH route changes who a booking is for), so that whole
    *  step is skipped; services, operator, time and note stay editable and are written back with
@@ -120,6 +124,11 @@ export function BookingDialog(
   const [matches, setMatches] = useState<CustomerHit[] | null>([]);
   const [customer, setCustomer] = useState<CustomerHit | null>(initialCustomer ?? null);
   const [name, setName] = useState(initialCustomer?.name ?? '');
+  // A NEW CUSTOMER'S REFERRAL CODE — the only moment this dialog ever has to collect one
+  // (`ensureCustomer`'s own docstring: this IS the real "new customer" moment for a booking).
+  // Never shown once `customer` is set — a returning customer typing one in would be refused by
+  // the engine itself anyway (see `core/referral_redemption.py`'s own new-customer check).
+  const [referralCode, setReferralCode] = useState('');
   const [chosen, setChosen] = useState<string[]>(editing?.service_ids ?? initialServiceIds ?? []);
   /** HOW MANY OF EACH — "2× غسيل خارجي", like the same thing recorded as a visit. Absent for an
    *  id in `chosen` means one, same default the server side already carries. Seeded from the
@@ -481,13 +490,22 @@ export function BookingDialog(
       // THE CUSTOMER, RESOLVED-OR-CREATED HERE, AT THE MOMENT HE COMMITS — not while he types,
       // which would create a row for every phone he tries and abandons.
       let c = customer;
+      let referralNotice: string | undefined;
       if (!c) {
-        const ensured = await ensureCustomer(session, phone, name);
+        const ensured = await ensureCustomer(session, phone, name, referralCode.trim());
         // A REFUSAL RETURNED, NOT THROWN — the route answers 200 with `customer: null` on
         // failure (`reason` is author-written, safe to show), so this is checked explicitly
         // rather than relying on the catch block below to ever see it.
         if (!ensured.customer) { setError(ensured.reason || t('bookingDialog.bookingError')); return; }
         c = ensured.customer;
+        // NEVER BLOCKS THE BOOKING EITHER WAY — a rejected code is only ever a notice, surfaced
+        // by the caller (this dialog closes immediately below); the booking is real regardless.
+        if (ensured.referral_registration) {
+          referralNotice = ensured.referral_registration.ok
+            ? t('bookingDialog.referralRegistered')
+            : tf(t, 'bookingDialog.referralRejected',
+                { reason: ensured.referral_registration.message || '' });
+        }
       }
       const booking = await createBooking(session, {
         branch_id: branchId, operator_id: operatorId, customer_id: c.id, service_ids: chosen,
@@ -509,7 +527,7 @@ export function BookingDialog(
       if (saveToCatalog && singleServiceId && priceMinor !== null) {
         setServicePrice(session, singleServiceId, priceMinor).catch(() => {});
       }
-      onCreated(booking);
+      onCreated(booking, referralNotice);
     } catch (e) {
       const status = e instanceof ApiError ? e.status : (e as { status?: number })?.status;
       setError(status === 402
@@ -594,9 +612,18 @@ export function BookingDialog(
             ) : null}
           </div>
         ) : phone.length >= 3 ? (
-          <Field label={t('bookingDialog.nameLabel')} htmlFor="bkg-name">
-            <Input id="bkg-name" value={name} onChange={(e) => setName(e.target.value)} />
-          </Field>
+          <>
+            <Field label={t('bookingDialog.nameLabel')} htmlFor="bkg-name">
+              <Input id="bkg-name" value={name} onChange={(e) => setName(e.target.value)} />
+            </Field>
+            {/* THE ONLY MOMENT THIS CUSTOMER EVER TYPES ONE IN — `ensureCustomer`'s own docstring:
+                by the time a booking is attended, the customer already exists, so this is the
+                real "new customer" door for a referral code, not the attendance step. */}
+            <Field label={t('bookingDialog.referralCodeLabel')} htmlFor="bkg-referral">
+              <Input id="bkg-referral" value={referralCode} dir="ltr"
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())} />
+            </Field>
+          </>
         ) : null}
 
         {/* ── services ────────────────────────────────────────────────────────────────── */}
