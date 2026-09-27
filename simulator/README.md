@@ -573,6 +573,18 @@ by id and inside the list works end to end; a fresh tenant has none yet; and a c
 readable through a DIFFERENT tenant's own token — cross-tenant isolation holds for real, not
 merely declared. Full simulator suite: 125 passed.
 
+## A ninth real, independent app: services/coworking (`apps/coworking/`)
+
+A genuine change of pace after four apps in a row that each hit a real, different external-peer
+limit: coworking's own admin surface (resources, availability pricing, join-request moderation, a
+tenant-level pause switch) is fully self-contained, no peer needed anywhere.
+
+Proven for real (`tests/test_stage25_coworking.py`): creating a resource and pricing its own
+availability round-trips correctly and shows up in the real list; a phone can be blocked
+pre-emptively with NO prior join request at all (`core/joins.py`'s own documented rule); a fresh
+tenant has no joins or bookings yet; and pausing then resuming the tenant-level switch both hold.
+Full simulator suite: 129 passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
