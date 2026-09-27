@@ -394,6 +394,30 @@ documented `{"earned": 0, "duplicate": True}`, not a gap); a full earn -> create
 lifecycle lowers the real balance by the reward's own cost; and a manual adjustment can never push
 a balance negative. Full simulator suite: 95 passed.
 
+## The simulator composing its OWN scenario (`common/story.py` + `apps/operations/story.py`)
+
+Every scenario before this one was a human hand-ordering real Actions ("create a branch, THEN
+hire, THEN visit"). This is the missing piece: given a CATALOG of `StoryStep`s, each honest about
+what world state it needs (`eligible`) and what it changes (`after`), the composer itself decides,
+at every step, which moves are even valid right now and picks among them — never a fixed order,
+never an invalid call (assigning a request that does not exist yet).
+
+DELIBERATELY NOT A GENERAL PLANNER — no goal, no lookahead, no backtracking, plain STRIPS-style
+preconditions only. Composing a realistic, valid, MULTI-STEP business narrative on its own is the
+win; inventing a genuinely new business goal is a different, harder problem this does not claim to
+solve. App-agnostic like every other `common/` piece: `apps/operations/story.py` is the first real
+step catalog, built entirely on Actions this session already hand-wrote and proved — no new HTTP
+logic, only the CHOICE of when each one is a valid move. Self-contained on purpose (no
+`hire_member`/branch-scoping steps — that combination is already proven elsewhere), so it runs
+against one spawned services/operations with no identity-service peer needed.
+
+Proven for real (`tests/test_stage16_story.py`): a single run picks a real, varied, 10+-move
+narrative touching several distinct kinds of moves, with EVERY single one of the composer's own
+choices a genuinely valid call (never refused); two different random seeds produce two different
+move SEQUENCES (proving this is genuinely composed, not a fixed script wearing a random label);
+and a long enough run drives at least one of its own created mobile requests all the way to a real
+terminal status. Full simulator suite: 98 passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
