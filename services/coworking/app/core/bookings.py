@@ -145,6 +145,12 @@ class BookingService:
                     # STAMPED NOW, NOT READ LIVE LATER — spec §3's own "historical fact that must
                     # never silently change if the shop edits the price later".
                     "hourly_price_minor": resource.hourly_price_minor,
+                    # SAME REASONING, ONE DOOR DOWN (owner decision, 2026-09-27) — the resource's
+                    # OWN branch at booking time, copied rather than joined on every read, so a
+                    # branch-scoped list never needs a second lookup per row; and a booking made
+                    # before a resource was ever reassigned to a different branch still shows the
+                    # branch it was actually booked at, not wherever the resource sits today.
+                    "branch_id": resource.branch_id,
                     "status": BOOKING_CONFIRMED, "created_at": int(now),
                 }
                 await self._store.put(BOOKINGS, booking["id"], booking)

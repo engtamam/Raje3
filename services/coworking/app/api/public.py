@@ -53,12 +53,39 @@ async def list_resources(request: Request, tenant: str) -> JSONResponse:
     """Active resources only, and only the fields a freelancer choosing one needs — never the
     weekly schedule's raw shape (that is what `/slots` computes FROM it, deliberately not exposed
     verbatim, the same "derived, never a second source of truth" discipline
-    `core/availability.py`'s own module doc holds for a booking screen)."""
+    `core/availability.py`'s own module doc holds for a booking screen). `description`/`has_image`
+    are exactly what he needs to pick one — never `branch_id` (which branch a resource sits at is
+    the SHOP's own scoping concern, not a fact the freelancer's booking screen has any use for)."""
     c = request.app.state.container
     resources = await c.resources.list(tenant, include_inactive=False)
-    body = {"resources": [{"id": r.id, "name": r.name, "hourly_price_minor": r.hourly_price_minor}
-                          for r in resources]}
+    body = {"resources": [
+        {"id": r.id, "name": r.name, "hourly_price_minor": r.hourly_price_minor,
+         "description": r.description, "has_image": bool(r.image_key)}
+        for r in resources]}
     return JSONResponse(body, headers=NO_STORE)
+
+
+@router.get("/{tenant}/resources/{resource_id}/image", dependencies=[Depends(rate_limit)])
+async def resource_image(request: Request, tenant: str, resource_id: str):
+    """The photo itself, streamed back — PUBLIC, no auth, same door every other read on this
+    file already is: a freelancer choosing a resource needs to see it before booking, and a photo
+    a shop uploaded to its own public link is not the sensitive content operations' own catalogue
+    photo (gated behind a login) is."""
+    from starlette.responses import Response
+
+    from app.core.catalogue_image import read_image
+    from app.ports.errors import NotFound
+    c = request.app.state.container
+    resource = await c.resources.get(tenant, resource_id)
+    if resource is None or not resource.active or not resource.image_key:
+        return JSONResponse({"error": "NOT_FOUND"}, status_code=status.HTTP_404_NOT_FOUND,
+                            headers=NO_STORE)
+    try:
+        data, ctype = await read_image(c.object_store, resource.image_key)
+    except NotFound:
+        return JSONResponse({"error": "NOT_FOUND"}, status_code=status.HTTP_404_NOT_FOUND,
+                            headers=NO_STORE)
+    return Response(content=data, media_type=ctype, headers=NO_STORE)
 
 
 @router.get("/{tenant}/slots", dependencies=[Depends(rate_limit)])

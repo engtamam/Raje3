@@ -45,6 +45,9 @@ const BRANCH_SCOPED: readonly BranchDomainInfo[] = [
   // and `_operator_branch`/`_branch_allowed` for how the backend derives and applies this.
   { id: 'mobile_requests', labelAr: 'خدمات متنقلة', branchScoped: true,
    derivedFrom: 'assigned_operator_branch' },
+  // Join requests (core/joins.py) stay explicitly shop-wide — a freelancer approved once may book
+  // any resource at that shop; only resources/bookings themselves carry a real branch_id.
+  { id: 'coworking', labelAr: 'مساحة عمل مشتركة', branchScoped: true, derivedFrom: null },
 ];
 
 // ── platform-level: shop-wide, branch has no meaning here at all ────────────────────────────────

@@ -139,6 +139,18 @@ _BRANCH_SCOPED: tuple[BranchDomainInfo, ...] = (
                  "requests stay visible to every branch's manager, and only narrow to the "
                  "assigned technician's own branch once someone is assigned",
     ),
+    BranchDomainInfo(
+        id="coworking",
+        label_ar="مساحة عمل مشتركة",
+        branch_scoped=True,
+        derived_from=None,
+        evidence="owner decision (2026-09-27): services/coworking/app/core/models.py's own "
+                 "Resource.branch_id, its api/v1/admin.py real branch_scope-enforced routes, and "
+                 "its own new adapters/branch_scope.py (copied verbatim from bookings'). Join "
+                 "requests (core/joins.py) stay explicitly SHOP-WIDE, never branch-scoped — a "
+                 "freelancer approved once may book any resource at that shop, by the same "
+                 "owner's own decision — and the tenant-level pause switch stays shop-wide too.",
+    ),
 )
 
 # ── platform-level: shop-wide, branch has no meaning here at all ────────────────────────────────

@@ -78,13 +78,35 @@ class Resource:
     weekly: dict[str, list[list[int]]] = field(default_factory=dict)
     exceptions: dict[str, dict[str, Any]] = field(default_factory=dict)
     created_at: int = 0
+    # "" MEANS UNASSIGNED, A REAL, VISIBLE-TO-EVERYONE STATE (owner decision, 2026-09-27) — the
+    # same "a row with no branch is kept for everyone" rule `app/api/scope.py::visible()` already
+    # holds fleet-wide, never a resource silently hidden because nobody picked a branch for it yet.
+    branch_id: str = ""
+    # THE FREELANCER'S OWN "WHAT AM I BOOKING" ANSWER (owner decision, 2026-09-27) — free text, the
+    # shop's own words, never validated beyond a length ceiling; empty is a real, common answer for
+    # a resource nobody has described yet.
+    description: str = ""
+    # OPAQUE — see `core/catalogue_image.py`'s own module doc for why this is a KEY, never bytes or
+    # a URL. ONE photo per resource, by explicit owner decision — never a gallery.
+    image_key: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id, "tenant": self.tenant, "name": self.name, "active": self.active,
             "hourly_price_minor": self.hourly_price_minor, "weekly": self.weekly,
             "exceptions": self.exceptions, "created_at": self.created_at,
+            "branch_id": self.branch_id, "description": self.description,
+            "image_key": self.image_key,
         }
+
+    def public(self) -> dict[str, Any]:
+        """The same shape `to_dict()` gives an owner, minus the one internal reference nobody
+        outside this service should ever read directly — see `core/catalogue_image.py`'s own
+        module doc on why `image_key` itself never leaves this process."""
+        row = self.to_dict()
+        row.pop("image_key", None)
+        row["has_image"] = bool(self.image_key)
+        return row
 
     @staticmethod
     def from_dict(row: dict[str, Any]) -> "Resource":
@@ -94,4 +116,7 @@ class Resource:
             hourly_price_minor=int(row.get("hourly_price_minor") or 0),
             weekly=row.get("weekly") or {}, exceptions=row.get("exceptions") or {},
             created_at=int(row.get("created_at") or 0),
+            branch_id=str(row.get("branch_id") or ""),
+            description=str(row.get("description") or ""),
+            image_key=str(row.get("image_key") or ""),
         )

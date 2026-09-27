@@ -250,4 +250,6 @@ def build_container(settings: Settings) -> Container:
         store=container.datastore, resources=container.resources,
         joins=container.joins, pause=container.pause,
     )
+    from app.adapters.branch_scope import build as build_branch_scope
+    container.branch_scope = build_branch_scope(settings)
     return container

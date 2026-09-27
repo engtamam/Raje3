@@ -46,6 +46,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "pause toggle costs nothing an owner cannot immediately fix by toggling again",
     },
     {
+        "action": "coworking.resource_image_set",
+        "source": "admin",
+        "critical": False,
+        "resource": "resource",
+        "why": "explains later when/who replaced a resource's public photo — not critical: a "
+               "delay in recording it costs nothing a shop owner cannot immediately fix by "
+               "re-uploading, same reasoning as coworking.pause_changed above",
+    },
+    {
         "action": "coworking.subject_erased",
         "source": "internal",
         "critical": True,

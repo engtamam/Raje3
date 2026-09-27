@@ -136,6 +136,16 @@ class Settings(BaseSettings):
     # this service folds a phone itself rather than importing anyone else's normalizer.
     COWORKING_PHONE_DEFAULT_CC: str = "966"
 
+    # ── branch scope (owner decision, 2026-09-27): resources/bookings are branch-scoped; join
+    # requests deliberately stay shop-wide (core/joins.py's own module doc) ───────────────────────
+    # Same shape as bookings'/reminders'/loyalty's own copy — see adapters/branch_scope.py's own
+    # module doc. Empty URL means "not wired" (a from-scratch dev install with no operations peer),
+    # which reads as unscoped everywhere this adapter is asked, never a boot failure — the same
+    # lenient default those three services already take.
+    OPERATIONS_SERVICE_URL: str = ""         # e.g. http://operations:8000
+    OPERATIONS_SCOPE_PATH: str = "/internal/operations/branch-scope"
+    PEER_TIMEOUT_SECONDS: int = 8
+
     # ── audit trail (Phase 38) — where privileged actions are witnessed ───────
     # `null` records NOTHING and says so; the boot guard below refuses it in production, because a
     # service that cannot witness its own privileged actions has no audit trail at all — and an

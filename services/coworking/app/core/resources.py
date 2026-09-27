@@ -21,12 +21,14 @@ class ResourceService:
     def __init__(self, store: Any) -> None:
         self._store = store
 
-    async def create(self, tenant: str, *, name: str) -> Resource:
+    async def create(self, tenant: str, *, name: str, branch_id: str = "",
+                     description: str = "") -> Resource:
         name = (name or "").strip()
         if not name:
             raise ResourceError("اسم المورد مطلوب")
         resource = Resource(id=str(uuid.uuid4()), tenant=tenant, name=name,
-                            created_at=int(time.time()))
+                            created_at=int(time.time()), branch_id=branch_id.strip(),
+                            description=description.strip())
         await self._store.put(RESOURCES, resource.id, resource.to_dict())
         return resource
 
@@ -48,19 +50,38 @@ class ResourceService:
         return resources
 
     async def update(self, tenant: str, resource_id: str, *, name: str | None = None,
-                     active: bool | None = None) -> Resource:
+                     active: bool | None = None, branch_id: str | None = None,
+                     description: str | None = None) -> Resource:
         resource = await self.get(tenant, resource_id)
         if resource is None:
             raise ResourceError("المورد غير موجود")
         new_name = resource.name if name is None else (name.strip() or resource.name)
         new_active = resource.active if active is None else bool(active)
+        new_branch = resource.branch_id if branch_id is None else branch_id.strip()
+        new_description = resource.description if description is None else description.strip()
         updated = Resource(id=resource.id, tenant=resource.tenant, name=new_name,
                            active=new_active, hourly_price_minor=resource.hourly_price_minor,
                            weekly=resource.weekly, exceptions=resource.exceptions,
-                           created_at=resource.created_at)
+                           created_at=resource.created_at, branch_id=new_branch,
+                           description=new_description, image_key=resource.image_key)
         # DISABLING NEVER TOUCHES EXISTING BOOKINGS (spec §7/§8's own test) — this write only
         # flips the flag `bookings.py::create` reads BEFORE accepting a NEW one; every confirmed
         # row already in `coworking_bookings` is untouched by this call, on purpose.
+        await self._store.put(RESOURCES, resource.id, updated.to_dict())
+        return updated
+
+    async def set_image(self, tenant: str, resource_id: str, *, image_key: str) -> Resource:
+        """Saves the KEY `catalogue_image.py::store_image` already wrote — this method never
+        touches `ObjectStore` itself, matching that module's own "the caller still has to save it
+        onto the row" contract."""
+        resource = await self.get(tenant, resource_id)
+        if resource is None:
+            raise ResourceError("المورد غير موجود")
+        updated = Resource(
+            id=resource.id, tenant=resource.tenant, name=resource.name, active=resource.active,
+            hourly_price_minor=resource.hourly_price_minor, weekly=resource.weekly,
+            exceptions=resource.exceptions, created_at=resource.created_at,
+            branch_id=resource.branch_id, description=resource.description, image_key=image_key)
         await self._store.put(RESOURCES, resource.id, updated.to_dict())
         return updated
 
@@ -83,6 +104,8 @@ class ResourceService:
         updated = Resource(
             id=resource.id, tenant=resource.tenant, name=resource.name, active=resource.active,
             hourly_price_minor=price, weekly=weekly_to_storage(weekly),
-            exceptions=exceptions_to_storage(exceptions or {}), created_at=resource.created_at)
+            exceptions=exceptions_to_storage(exceptions or {}), created_at=resource.created_at,
+            branch_id=resource.branch_id, description=resource.description,
+            image_key=resource.image_key)
         await self._store.put(RESOURCES, resource.id, updated.to_dict())
         return updated
