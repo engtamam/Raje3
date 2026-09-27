@@ -1,0 +1,6 @@
+# service.spec.toml — the record of how this service was generated.
+name = "coworking"
+description = "Hourly co-working resource rental for independent freelancers"
+port = 8034
+
+[drivers]

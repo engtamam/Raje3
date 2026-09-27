@@ -481,6 +481,11 @@ def build_container(settings: Settings) -> Container:
     # without this line landing in the same change.
     container.mobile_ai_assistant_licence = build_feature_licence(
         settings, "feature.mobile_ai_assistant")
+    # SAME REASON AS `mobile_ai_assistant_licence` ABOVE — feature.coworking's own entitlement
+    # check lives entirely inside services/coworking (its own separate microservice, never a
+    # module here); this attribute exists ONLY so `subscribed_write`'s generic "holds ANY app" OR
+    # can see it, not because operations enforces anything about co-working resources itself.
+    container.coworking_licence = build_feature_licence(settings, "feature.coworking")
     container.templates = TemplateLibrary(container.datastore)
     # The door. Built early, because a signup that cannot
     # seed a catalogue is a signup that lands the new owner on an empty «خدماتي».

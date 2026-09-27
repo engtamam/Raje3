@@ -18,7 +18,10 @@
     { "path": "/api/v1/tenancy/*", "upstream": "identity-service:8000" },
     { "path": "/api/*", "upstream": "api-gateway:8000" },
 
-    { "_p": "The customer's own page, opened from a WhatsApp link. It is the only path here a person reaches without a token, and it belongs to portal rather than to the console.",
+    { "_p": "The freelancer's own door into the co-working app (services/coworking/app/api/public.py) — ONE link per SHOP, never per person, so there is no per-customer secret for portal's own HMAC-reference model to protect. A MORE SPECIFIC prefix than the /p/* row below, so the renderer's own longest-prefix-wins rule (see this file's header comment) sends it straight to coworking and never lets the catch-all below shadow it.",
+      "path": "/p/coworking/*", "upstream": "coworking:8000" },
+
+    { "_p": "The customer's own page, opened from a WhatsApp link. It is the only other path here a person reaches without a token, and it belongs to portal rather than to the console.",
       "path": "/p/*", "upstream": "portal:8000" },
 
     { "_p": "Meta's own callback — the webhook subscription handshake and every inbound WhatsApp/SMS/email event. No route existed for this at all until it was found live: the URL Meta was given answered 200 with the CONSOLE's landing page (the catch-all below), so 'verify token could not be validated' was never a token problem — the request never reached notification-service in the first place.",

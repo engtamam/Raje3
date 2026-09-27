@@ -236,6 +236,35 @@ MOBILE_REQUESTS_FEATURES: tuple[dict[str, Any], ...] = (
      },
 )
 
+COWORKING_FEATURES: tuple[dict[str, Any], ...] = (
+    # Inline on this row (never a console `featuresAction`) even though services/coworking owns
+    # the app's actual code — ci/check_every_app_has_features.py's own two valid sources; a remote
+    # `featuresAction` would need apps.ts wired, and this pass is explicitly backend-only, no
+    # console screen at all (spec: "Do NOT wire any console/mobile UI").
+    {"id": "coworking.turns_idle_hours_into_income", "title": "يحوّل وقتك الفاضي إلى دخل حقيقي",
+     "detail": "كرسي أو محطة واقفة بساعات هدوئك تصير مصدر دخل إضافي — تؤجّرها بالساعة لمن يحتاجها",
+     "icon": "trending-up", "tone": "success", "shared_with": [], "owned_by": "",
+     # A fixed hourly rate per resource — no commission/percentage mode: designed then explicitly
+     # rejected by the owner as too complex and unverifiable.
+     },
+    {"id": "coworking.never_touches_your_money", "title": "لا يمسّ فلوسك ولا فلوس مستأجرك أبداً",
+     "detail": "السعر رقم مرجعي بس — الدفع الفعلي مباشر بينك وبين المستأجر، خارج منصتنا تماماً",
+     "icon": "shield", "tone": "blue", "shared_with": [], "owned_by": "",
+     },
+    {"id": "coworking.you_meet_everyone_once", "title": "تعرف كل مستقلّ قبل ما يحجز أول مرة",
+     "detail": "أول محاولة حجز تصير طلب انضمام ينتظر موافقتك — بعدها يحجز مباشرة بلا أي تدخل منك",
+     "icon": "check-circle", "tone": "amber", "shared_with": [], "owned_by": "",
+     },
+    {"id": "coworking.block_anyone_anytime", "title": "احظر أي رقم فوراً، حتى بلا سابق طلب",
+     "detail": "تأخّر عن الموعد أو ما عجبك تعامله؟ احظره ويتوقف عن الحجز عندك نهائياً من لحظتها",
+     "icon": "user-plus", "tone": "violet", "shared_with": [], "owned_by": "",
+     },
+    {"id": "coworking.your_own_link_no_marketplace", "title": "رابطك الخاص، لا سوق عام يشاركك فيه أحد",
+     "detail": "رابط واحد لمحلك تشاركه بنفسك مع من تثق بهم — لا بحث ولا ظهور عشوائي لأي غريب",
+     "icon": "map-pin", "tone": "blue", "shared_with": [], "owned_by": "",
+     },
+)
+
 COUPONS_FEATURES: tuple[dict[str, Any], ...] = (
     # An earlier pass here listed the automatic-redemption mechanism, the privacy design, and the
     # per-attempt audit trail as "features". Cut (owner's own correction, 2026-09-14): those are
@@ -371,6 +400,20 @@ APPS: tuple[dict[str, Any], ...] = (
     {"key": "feature.mobile_ai_assistant", "name": "المساعد الذكي (تطبيق الجوال)",
      "screen": "mobile-ai-assistant",
      "what": "يجاوبك ويرشدك داخل التطبيق بصوتك أو بالكتابة، فوراً وبلا انتظار."},
+    # THE ASTĪDĀFA APP — backend-only for now, built entirely in services/coworking (its own
+    # microservice, never a module here). See that service's own README for the full design:
+    # hourly-only pricing (no commission mode — designed then explicitly rejected as too complex
+    # and unverifiable), NO money moves through this platform (a stored price fact, never a
+    # transaction), one shareable link per SHOP (no cross-shop marketplace/discovery), and a
+    # freelancer's own end-customer is invisible to us entirely — no visit, no customer row.
+    # `screen: 'coworking'` names a real, stable id purely so
+    # `ci/check_listed_apps_are_wired.py`'s own pairing has something to match, the same posture
+    # `feature.mobile_ai_assistant`'s own row above already takes for a surface with no console
+    # screen (this one's whole admin/public surface lives in coworking's own API, not here).
+    {"key": "feature.coworking", "name": "الاستضافة المهنية", "screen": "coworking",
+     "what": "يحوّل وقت محلك الفاضي إلى دخل إضافي — تؤجّر كرسياً أو محطة بالساعة لمستقلّين تثق بهم، "
+             "بلا أي التزام مالي علينا.",
+     "features": list(COWORKING_FEATURES)},
 )
 
 # BOTH ROWS ABOVE WERE MISSING FOR THE SAME REASON, FOUND THE SAME DAY: a plan's

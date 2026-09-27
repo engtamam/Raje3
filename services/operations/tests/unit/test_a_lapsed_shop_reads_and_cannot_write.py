@@ -74,6 +74,7 @@ def test_the_refusal_reaches_the_caller_as_402_with_a_sentence():
         mobile_requests_licence = NullFeatureLicence("feature.mobile_requests", False)
         referral_partnership_licence = NullFeatureLicence("feature.referral_partnership", False)
         mobile_ai_assistant_licence = NullFeatureLicence("feature.mobile_ai_assistant", False)
+        coworking_licence = NullFeatureLicence("feature.coworking", False)
 
     app.state.container = _Container()
 
