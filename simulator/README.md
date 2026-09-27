@@ -483,6 +483,27 @@ attribution wins, permanently — holds for real (a second, different partner's 
 changes nothing); and a brand-new partner with nothing yet reads a clean, empty shops list AND
 statements list. Full simulator suite: 108 passed.
 
+## A fourth real, independent app: services/reminders (`apps/reminders/`)
+
+Self-contained the same way loyalty is — no peer needed for the doors this session wires in: the
+customer's own unauthenticated prefs page (`GET/PUT /api/v1/prefs/{tenant}.{subject_ref}` — the
+opaque reference IS the credential, no token at all, that route's own module docstring on why: a
+forwarded WhatsApp link must never leak "is this a real customer here?"), and the owner's own
+schedule/rules reads.
+
+A REAL GAP THIS OWN FIRST RUN FOUND, in the test's own assumption, not the platform: `set_rule`
+(`PUT /api/v1/reminders/rules/{service_id}`) OVERRIDES an already-learned rule row — it never
+creates one from scratch (`RuleStore.get` first, a clean 404 if nothing is there yet). A service
+with no real visit-event history behind it (this simulator wires no real visit-event bus into
+reminders) genuinely has no row to override, so the correct, honest test proves the REFUSAL, not
+an invented success.
+
+Proven for real (`tests/test_stage20_reminders.py`, 4 tests): an unknown reference reads the exact
+same default switches as a known one (service/personal/warning default ON, marketing defaults OFF
+with no consent yet — PDPL opt-in); stopping one class holds and never touches the others; a fresh
+tenant reads a clean, empty schedule; and overriding a never-learned rule is correctly refused with
+an equally clean, empty rules list. Full simulator suite: 112 passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
