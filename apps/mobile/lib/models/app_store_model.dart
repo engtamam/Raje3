@@ -139,6 +139,14 @@ const List<AppRow> kAppRows = [
     what: 'خدمتك تروح لعنده هو — يطلب موعداً، تراجعه وتقرر، ثم تسجّله زيارة حقيقية بعد ما تتم فعلاً.',
     route: 'mobile-requests', icon: 'truck',
   ),
+  // «الاستضافة المهنية» — mirrors operations' own `core/apps.py::APPS`'s `feature.coworking` row
+  // exactly (same `what` sentence). Backend-only until this pass; `route: 'coworking'` is this
+  // row's real, stable mobile route now (app_router.dart's own `RouteNames.coworkingPath`).
+  AppRow(
+    id: 'coworking', key: 'feature.coworking', name: 'الاستضافة المهنية',
+    what: 'يحوّل وقت محلك الفاضي إلى دخل إضافي — تؤجّر كرسياً أو محطة بالساعة لمستقلّين تثق بهم، بلا أي التزام مالي علينا.',
+    route: 'coworking', icon: 'briefcase',
+  ),
 ];
 
 /// `GET /api/v1/subscription/apps` — what this shop actually owns, straight off the wire.

@@ -13,6 +13,7 @@ import 'package:raje3_mobile/features/account/shop_identity_screen.dart';
 import 'package:raje3_mobile/features/auth/login_screen.dart';
 import 'package:raje3_mobile/features/bookings/bookings_screen.dart';
 import 'package:raje3_mobile/features/campaigns/messages_screen.dart';
+import 'package:raje3_mobile/features/coworking/coworking_screen.dart';
 import 'package:raje3_mobile/features/auth/signup_screen.dart';
 import 'package:raje3_mobile/features/customers/customer_detail_screen.dart';
 import 'package:raje3_mobile/features/customers/customers_screen.dart';
@@ -129,6 +130,15 @@ class AppRouter {
               path: RouteNames.whatsappAssistantPath,
               name: RouteNames.whatsappAssistant,
               builder: (context, state) => const WhatsappAssistantScreen(),
+            ),
+            // SAME MOBILE-ONLY SHAPE AS THE ROUTE ABOVE — `feature.coworking` has no console
+            // screen either (services/operations/app/core/apps.py's own `screen: 'coworking'`
+            // comment), so this route is reached from the app store's own row (`AppRow.route`),
+            // never from `kNavSections` (auto-generated from the console's own catalogue).
+            GoRoute(
+              path: RouteNames.coworkingPath,
+              name: RouteNames.coworking,
+              builder: (context, state) => const CoworkingScreen(),
             ),
             for (final section in kNavSections)
               GoRoute(

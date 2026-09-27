@@ -27,6 +27,7 @@ class RouteNames {
   static const String billing = 'billing';
   static const String customerDetail = 'customer_detail';
   static const String whatsappAssistant = 'whatsapp_assistant';
+  static const String coworking = 'coworking';
 
   // ── ROUTE PATHS ───────────────────────────────────────────────────────────
   static const String loginPath = '/login';
@@ -73,4 +74,10 @@ class RouteNames {
   /// (`apps_store_screen.dart`'s `AppRow.route`), own back button, no bottom bar — this app has
   /// no `feature.*` nav section of its own, same drill-down pattern as billing.
   static const String whatsappAssistantPath = '/whatsapp-assistant';
+  /// «مساحة عمل مشتركة» (الاستضافة المهنية) — pushed FROM the app store's own «تطبيقاتي»/
+  /// «المتجر» row (`apps_store_screen.dart`'s `AppRow.route`), own back button, no bottom bar —
+  /// `services/coworking` has no console screen either (spec: this app's whole surface lives on
+  /// the phone), same "mobile-only feature, no `feature.*` nav section" shape
+  /// `whatsappAssistantPath` already establishes.
+  static const String coworkingPath = '/coworking';
 }
