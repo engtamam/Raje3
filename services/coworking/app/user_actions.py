@@ -35,6 +35,25 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "resource_id", "in": "path", "type": "string", "required": True}],
         "help": "أيام الأسبوع وساعات كل يوم اللي يُتاح فيها هذا المورد للتأجير، وسعر الساعة.",
     },
+    # GENUINE GAP CLOSED (console build, 2026-09-27): admin.py already served both routes below —
+    # `upload_resource_image`/`get_resource_image` — but neither was declared here, so the
+    # catalogue-driven console (catalog.ts's own rule: "no screen composes a URL") had no action id
+    # to call them through and the resource photo feature could never work at all. Same shape as
+    # operations' own `upload_service_image`/`get_service_image` pair.
+    {
+        "id": "coworking.upload_resource_image", "label": "ارفع صورة المورد", "method": "POST",
+        "path": "/api/v1/coworking/resources/{resource_id}/image",
+        "capability": "coworking.manage", "group": "الموارد",
+        "params": [{"name": "resource_id", "in": "path", "type": "string", "required": True}],
+        "help": "صورة واحدة فقط لكل مورد — رفع صورة جديدة يستبدل القديمة.",
+    },
+    {
+        "id": "coworking.get_resource_image", "label": "صورة المورد", "method": "GET",
+        "path": "/api/v1/coworking/resources/{resource_id}/image",
+        "capability": "coworking.manage", "group": "الموارد",
+        "params": [{"name": "resource_id", "in": "path", "type": "string", "required": True}],
+        "help": "صورة المورد نفسها، إن وُجدت.",
+    },
     # ── join requests / block list (spec §6/§7) ─────────────────────────────────────────────
     {
         "id": "coworking.list_joins", "label": "طلبات الانضمام", "method": "GET",
