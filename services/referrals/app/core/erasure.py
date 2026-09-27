@@ -1,78 +1,68 @@
-"""Erasure — the contract every service in this platform answers.
+"""Erasure — the contract every service in this platform answers (docs/contracts/privacy-erase-guide.md).
 
-A new service is born connected to the DSAR fan-out because this file exists. Fill in the two
-methods and it is done; delete this file and the service silently becomes a place personal data
-goes to hide.
+A DIFFERENT SHAPE FROM EVERY OTHER SERVICE'S OWN erasure.py, same reason `services/coworking`'s own
+copy gives: there is no identity-service account behind a referral code, and no `subject_ref` is
+ever stamped onto a row here — the raw, normalized phone number IS the only identifier this
+service's Phase-1 data ever holds (`app/core/referral_code.py`'s own module docstring: "the ONLY
+fact this module keeps"). The caller names the subject as a raw phone, same convention coworking's
+own `core/erasure.py` already established for exactly this identity shape.
 
-WRITE THIS FILE HONESTLY. It is the one piece of code a regulator would read line by line, and the
-three rules below are what separate a compliant answer from a plausible one:
+WHAT IS ERASED, AND WHY DELETE RATHER THAN REDACT. Both `referral_codes_by_phone` and
+`referral_phones_by_code` hold nothing but the phone and the code together — unlike a booking or an
+invoice, there is no separate operational fact worth keeping once the phone is gone (the code
+becoming unresolvable is the correct outcome of an erasure, not a loss of anything this platform
+still needs). Deleted outright, both sides, same posture coworking's own join-request row takes.
 
-  1. **Never report success for work that did not happen.** If you cannot reach the rows, cannot
-     identify the subject, or must keep the data, say so. A false "she was erased" is the worst
-     thing this platform can say. `already_absent` means you LOOKED and found nothing — it is not
-     a default.
-
-  2. **Say what you KEPT, and why, with a basis.** "We kept it" is always an answer with a reason
-     attached, never a silence. A tax invoice, an audit chain, a legal hold, a consent proof —
-     these survive erasure, and the person is entitled to be told which law keeps them.
-
-  3. **Decide delete vs pseudonymise vs redact deliberately.** Look at how the platform's other
-     services chose, because the same walker leads to different answers:
-        billing   pseudonymises — the invoice must survive, the buyer's name must not
-        zatca     retains everything — a signed, hash-chained invoice cannot even be altered
-        webhook   redacts and keeps the row — the delivery history is operational record
-        connector deletes the row — a DLQ entry gets RETRIED, so a redacted one corrupts a CRM
-        job       redacts AND cancels — pending work would still contact the erased person
-        stream    refuses without identification — guessing would delete other people's video
-
-  4. **Be idempotent.** A DSAR retries. Erasing an already-erased subject is a no-op that still
-     returns a receipt; it must never fail the second time.
-
-See docs/contracts/privacy-erase.schema.json for the wire format and
-docs/contracts/privacy-erase-guide.md for the three steps to connect a service.
+ANY REAL REFERRAL RELATIONSHIP THAT LATER REFERENCES THIS CODE AS A FOREIGN STRING (a future
+phase's own campaign/reward data) is that OTHER data's own erasure responsibility, scoped to
+itself — this module's job ends at the mapping it alone owns.
 """
 from __future__ import annotations
 
 from typing import Any
 
 from app.core.pii import subject_ref
+from app.core.referral_code import BY_CODE, BY_PHONE
 
 
 class TemplateErasure:
-    # Both appear in the DSAR's target list, so they must match the data-map row registered for
-    # this service. A mismatch means the DSAR waits for an ack that never arrives.
-    service = "CHANGE-ME-service"
-    category = "CHANGE-ME"
+    service = "referrals"
+    category = "referral_code"
 
-    def __init__(self, *, store, pii_salt: str, max_scan: int = 100_000) -> None:
+    def __init__(self, *, store: Any, pii_salt: str, max_scan: int = 100_000) -> None:
         self._store = store
         self._salt = pii_salt
-        self._max = max_scan          # a DSAR is rare, but must never be an unbounded read
+        self._max = max_scan          # unused here (no paged scan needed — a direct key lookup)
 
     async def erase(self, tenant: str, subject: str) -> dict[str, Any]:
-        ref = subject_ref(self._salt, tenant, subject)
+        phone = subject
+        ref = subject_ref(self._salt, tenant, phone) if self._salt else ""
 
-        # ── TODO: erase this service's subject data ──────────────────────────
-        # Scope EVERY query to `tenant`: one customer's DSAR must never touch another's rows.
-        # Page with a cursor and stop at `self._max` rather than reading an unbounded set.
+        # NO `tenant` SCOPING ON THE ROW ITSELF, DELIBERATELY — the code is global BY DESIGN (one
+        # phone, one code, across every shop), so there is nothing tenant-scoped to filter here;
+        # `tenant` in the signature is the DSAR's own caller shape, unused by this lookup.
+        row = await self._store.get(BY_PHONE, phone)
+        if row is None:
+            return {
+                "service": self.service, "category": self.category, "subject_ref": ref,
+                "erased": [], "retained": [], "already_absent": True,
+            }
+
+        code = row.get("code", "")
+        deleted_phone = await self._store.delete(BY_PHONE, phone)
+        deleted_code = await self._store.delete(BY_CODE, code) if code else False
+
         erased: list[str] = []
-        retained: list[dict[str, str]] = []
-
-        # Example of a retention that is legally required — copy the SHAPE, not the words:
-        # retained.append({
-        #     "what": "invoices:12",
-        #     "basis": "tax_retention",
-        #     "why": "a tax invoice must survive ~10 years by law; the buyer's name is "
-        #            "pseudonymised and the financial record is untouched",
-        # })
+        if deleted_phone:
+            erased.append(f"{BY_PHONE}:1")
+        if deleted_code:
+            erased.append(f"{BY_CODE}:1")
 
         return {
             "service": self.service,
             "category": self.category,
-            "subject_ref": ref,          # the pseudonym — never echo the raw subject back
+            "subject_ref": ref,
             "erased": erased,
-            "retained": retained,
-            # Only true when you looked and there was nothing. Never a default, and never a way to
-            # avoid admitting that a lookup failed.
-            "already_absent": not erased and not retained,
+            "retained": [],
+            "already_absent": not erased,
         }

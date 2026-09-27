@@ -79,7 +79,7 @@ def build_manifest(
              # finds who holds a person. An undeclared holder is never asked, never acks,
              # and is therefore never MISSED — the request closes green on an erasure
              # that did not happen.
-             "erasure_category": "subject"},
+             "erasure_category": "referral_code"},
             # Prefixed with the service's own name, not bare — a bare "/api/v1/admin/ping" is
             # identical across every service's scaffold copy, and one gateway prefix can only
             # point at one upstream (ci/check_deploy_wiring.py's own guard; the fix mirrors

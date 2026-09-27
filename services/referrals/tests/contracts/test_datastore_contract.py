@@ -215,3 +215,57 @@ def test_scan_all_is_deterministic_when_truncated(store):
     first = [r["id"] for r in run(store.scan_all("rows", 3))]
     second = [r["id"] for r in run(store.scan_all("rows", 3))]
     assert first == second and len(first) == 3
+
+
+# ── claim(): the atomic take-if-absent-or-expired primitive ──────────────────────────────────
+# A REAL GAP THIS PINS DOWN — `claim()` exists on the port (added 2026-09-07, coworking/campaigns
+# both depend on it for their own double-booking/double-payout locks) but not one service in this
+# fleet had a contract test proving BOTH adapters actually honour it before this file did. A memory
+# adapter that "claims" via plain dict assignment and a postgres adapter whose ON CONFLICT clause
+# has a typo would both pass every OTHER test here and silently double-grant the exact thing this
+# primitive exists to prevent.
+
+
+def test_claim_wins_when_nobody_holds_the_key(store):
+    won = run(store.claim("locks", "k1", {"who": "a"}, ttl_seconds=30, now=1000.0))
+    assert won is True
+    assert run(store.get("locks", "k1"))["who"] == "a"
+
+
+def test_claim_loses_against_an_unexpired_holder(store):
+    run(store.claim("locks", "k1", {"who": "a"}, ttl_seconds=30, now=1000.0))
+    lost = run(store.claim("locks", "k1", {"who": "b"}, ttl_seconds=30, now=1010.0))
+    assert lost is False
+    # THE LOSER'S VALUE NEVER LANDS — a claim that overwrote the row on failure would let a racing
+    # second caller silently replace the winner's own payload even while correctly returning False.
+    assert run(store.get("locks", "k1"))["who"] == "a"
+
+
+def test_claim_wins_again_once_the_holder_has_expired(store):
+    run(store.claim("locks", "k1", {"who": "a"}, ttl_seconds=10, now=1000.0))
+    won = run(store.claim("locks", "k1", {"who": "b"}, ttl_seconds=30, now=1011.0))
+    assert won is True
+    assert run(store.get("locks", "k1"))["who"] == "b"
+
+
+def test_claim_is_atomic_under_real_concurrency(store):
+    """Sequential calls prove the LOGIC; this proves the ATOMICITY — the one thing a naive
+    read-then-write "claim" (get, check absent, put) cannot give you, and the one thing this
+    primitive exists to replace. Mirrors campaigns' own concurrent-contribution stress test:
+    a store wrapper that forces real interleaving (an await between every "check" and "write" a
+    racy implementation would perform) is the only way a bug here would ever actually show up —
+    a fast in-process loop with no real interleaving would pass a broken implementation too."""
+    import asyncio
+
+    attempts = 12
+    results: list[bool] = []
+
+    async def _one():
+        results.append(await store.claim("race", "k1", {"n": 1}, ttl_seconds=30, now=1000.0))
+
+    async def _all():
+        await asyncio.gather(*(_one() for _ in range(attempts)))
+
+    run(_all())
+    assert results.count(True) == 1, "more than one concurrent claim on the same key won"
+    assert results.count(False) == attempts - 1

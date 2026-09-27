@@ -5,6 +5,7 @@ services replace this with their own schema/repository behind the same port.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -31,13 +32,7 @@ _TABLE = "kv_store"
 _INDEXES = (
     f"CREATE INDEX IF NOT EXISTS kv_value_gin ON {_TABLE} USING gin (value jsonb_path_ops)",
     f"CREATE INDEX IF NOT EXISTS kv_created_desc ON {_TABLE} "
-    f"(collection, COALESCE(value->'created', 'null'::jsonb) DESC, key DESC)",
-    # created_at is the second common ordering field (membership/person rows sort by it); index it too
-    # so those keyset scans are O(page), not O(tenant-rows). Uses jsonb ordering (-> not ->>) so a
-    # NUMERIC timestamp sorts numerically, matching the memory adapter — text ordering placed '100'
-    # before '9' and mis-ordered every 'oldest-first' priority view.
-    f"CREATE INDEX IF NOT EXISTS kv_created_at_desc ON {_TABLE} "
-    f"(collection, COALESCE(value->'created_at', 'null'::jsonb) DESC, key DESC)",
+    f"(collection, COALESCE(value->>'created', '') DESC, key DESC)",
 )
 
 
@@ -76,6 +71,13 @@ class PostgresDataStore:
         self._asyncpg = load("asyncpg", "postgres")
         self._dsn = dsn
         self._pool: Any = None
+        # Guards `_ensure`'s own lazy create — added 2026-09-12, a real gap a QA audit found: two
+        # concurrent first-requests (an app that boots serving traffic immediately, or a burst of
+        # requests all arriving before the very first one finishes `create_pool`) could each see
+        # `self._pool is None`, each start a pool, and the loser's `self._pool = ...` would then
+        # silently discard whichever pool the winner already opened — leaking its connections for
+        # the life of the process, since nothing holds a reference to it any more to `close()` it.
+        self._pool_lock = asyncio.Lock()
         # Pool sizing (see config). min is LAZY and small (1): asyncpg's default is min_size=10, an
         # EAGER floor a pool climbs to on first use and then HOLDS for the process lifetime — so 24
         # services silently consume 240 backend connections against a single postgres whose stock
@@ -86,34 +88,39 @@ class PostgresDataStore:
         self._pool_max = max(self._pool_min, int(pool_max), 1)
         self._pool_timeout = float(pool_timeout)
         self._pool_max_inactive = float(pool_max_inactive_lifetime)
-        # PGBOUNCER COMPATIBILITY. In transaction pooling mode a server connection is handed to a
-        # client only for one transaction, so per-session state — asyncpg's PREPARED STATEMENTS —
-        # does not survive: a statement prepared on one backend is gone on the next, and the query
-        # fails ("prepared statement does not exist"). Disabling the statement cache (0) is the
-        # documented, standard asyncpg+PgBouncer fix — asyncpg then uses unnamed statements that live
-        # only within the transaction. Default 0 so the fleet is PgBouncer-safe out of the box (the
-        # small cost of re-preparing is the accepted trade for many services sharing one Postgres); a
-        # deployment talking DIRECTLY to Postgres may set it higher to get the cache back.
+        # 0 => PgBouncer transaction-mode safe (no asyncpg prepared-statement cache); a pooled
+        # backend can change identity between statements under transaction pooling, and a cached
+        # prepared statement tied to one backend then errors on the next — disabling it is the
+        # documented fix so this adapter works unmodified whether DATASTORE_DSN points at Postgres
+        # directly or at PgBouncer in front of it.
         self._statement_cache_size = max(0, int(statement_cache_size))
 
     async def _ensure(self) -> Any:
-        if self._pool is None:
-            self._pool = await self._asyncpg.create_pool(
-                self._dsn,
-                min_size=self._pool_min,
-                max_size=self._pool_max,
-                timeout=self._pool_timeout,                        # wait this long for a slot, then fail cleanly
-                max_inactive_connection_lifetime=self._pool_max_inactive,  # return idle connections to the server
-                statement_cache_size=self._statement_cache_size,   # 0 => PgBouncer transaction-mode safe
-            )
-            async with self._pool.acquire() as con:
-                await con.execute(
-                    f"CREATE TABLE IF NOT EXISTS {_TABLE} ("
-                    "collection text NOT NULL, key text NOT NULL, "
-                    "value jsonb NOT NULL, PRIMARY KEY (collection, key))"
+        if self._pool is not None:
+            return self._pool
+        # THE LOCK, BEFORE THE `is None` CHECK RUNS AGAIN — the first check above is a fast path
+        # for the (overwhelmingly common) already-initialised case, never re-taken here: two
+        # coroutines can both pass it before either awaits, and it is what this second check,
+        # taken under the lock, exists to catch.
+        async with self._pool_lock:
+            if self._pool is None:
+                pool = await self._asyncpg.create_pool(
+                    self._dsn,
+                    min_size=self._pool_min,
+                    max_size=self._pool_max,
+                    timeout=self._pool_timeout,                        # wait this long for a slot, then fail cleanly
+                    max_inactive_connection_lifetime=self._pool_max_inactive,  # return idle connections to the server
+                    statement_cache_size=self._statement_cache_size,   # 0 => PgBouncer transaction-mode safe
                 )
-                for statement in _INDEXES:
-                    await con.execute(statement)
+                async with pool.acquire() as con:
+                    await con.execute(
+                        f"CREATE TABLE IF NOT EXISTS {_TABLE} ("
+                        "collection text NOT NULL, key text NOT NULL, "
+                        "value jsonb NOT NULL, PRIMARY KEY (collection, key))"
+                    )
+                    for statement in _INDEXES:
+                        await con.execute(statement)
+                self._pool = pool
         return self._pool
 
     async def get(self, collection: str, key: str) -> dict[str, Any] | None:
@@ -139,6 +146,36 @@ class PostgresDataStore:
         async with pool.acquire() as con:
             res = await con.execute(
                 f"DELETE FROM {_TABLE} WHERE collection=$1 AND key=$2", collection, key  # nosec B608 - _TABLE is a trusted constant; values parameterized
+            )
+        return res.endswith("1")
+
+    async def claim(self, collection: str, key: str, value: dict[str, Any],
+                    *, ttl_seconds: float, now: float) -> bool:
+        """See the port. Two statements, each atomic on its own, and that is enough.
+
+        The INSERT wins the uncontended case: `ON CONFLICT DO NOTHING` means the loser of a race
+        writes nothing and is told so by the row count, rather than overwriting the winner.
+
+        The UPDATE is the takeover of an EXPIRED claim, and its `WHERE` carries the expiry test —
+        so the test and the write are one statement under one row lock. Reading the row first and
+        then updating it would put the race back exactly where this method exists to remove it.
+        """
+        row = dict(value)
+        row["expires"] = float(now) + float(ttl_seconds)
+        payload = json.dumps(row)
+        pool = await self._ensure()
+        async with pool.acquire() as con:
+            res = await con.execute(
+                f"INSERT INTO {_TABLE} (collection, key, value) VALUES ($1,$2,$3) "  # nosec B608 - _TABLE is a trusted constant; all values are parameterized
+                "ON CONFLICT (collection, key) DO NOTHING",
+                collection, key, payload,
+            )
+            if res.endswith("1"):
+                return True
+            res = await con.execute(
+                f"UPDATE {_TABLE} SET value=$3 WHERE collection=$1 AND key=$2 "  # nosec B608 - _TABLE is a trusted constant; all values are parameterized
+                "AND COALESCE((value->>'expires')::float8, 0) <= $4",
+                collection, key, payload, float(now),
             )
         return res.endswith("1")
 
@@ -183,7 +220,7 @@ class PostgresDataStore:
         position = _cursor.decode(after) if after else None
         if position is not None:
             last_value, last_id = position
-            args.append(json.dumps(last_value))   # jsonb-compared below (None -> JSON null)
+            args.append("" if last_value is None else str(last_value))
             value_param = len(args)
             args.append(str(last_id))
             id_param = len(args)
@@ -191,14 +228,14 @@ class PostgresDataStore:
             # Tuple comparison: the id tie-break keeps the order total, so a page boundary
             # cannot fall between two rows sharing a `created` value.
             clauses.append(
-                f"(COALESCE(value->'{field}', 'null'::jsonb), key) {comparison} (${value_param}::jsonb, ${id_param})"
+                f"(COALESCE(value->>'{field}', ''), key) {comparison} (${value_param}, ${id_param})"
             )
 
         args.append(limit + 1)          # one extra row tells us whether another page exists
         order = "DESC" if descending else "ASC"
         sql = (
             f"SELECT key, value FROM {_TABLE} WHERE " + " AND ".join(clauses) +  # nosec B608 - _TABLE and the field name are trusted; all VALUES are parameterized
-            f" ORDER BY COALESCE(value->'{field}', 'null'::jsonb) {order}, key {order} LIMIT ${len(args)}"
+            f" ORDER BY COALESCE(value->>'{field}', '') {order}, key {order} LIMIT ${len(args)}"
         )
 
         pool = await self._ensure()

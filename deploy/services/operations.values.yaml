@@ -265,7 +265,7 @@ env:
   # is reachable by the dispatcher and invisible to the map — the erase never runs, and the DSAR
   # still reports complete. That is the precise failure mode this list is written against.
 
-  TENANT_DATA_MAP: "operations:visits,operations:customers,reminders:messages,loyalty:points,campaigns:campaigns,insights:analytics,portal:pages,identity-service:accounts,tenant-service:tenant,authz-service:roles,audit-service:audit,notification-service:notifications,search-service:search,billing-service:billing,onboarding-service:onboarding,ticket-service:tickets,job-service:jobs,wallet-service:wallet,analytics-service:events,webhook-service:deliveries,connector-service:connections,feature-flag-service:flags,backup-service:archives,bookings:bookings,whatsapp-assistant:conversations,affiliate-service:affiliates,assistant-service:conversations,error-collector:signals,coworking:resource_bookings,referrals:referrals"
+  TENANT_DATA_MAP: "operations:visits,operations:customers,reminders:messages,loyalty:points,campaigns:campaigns,insights:analytics,portal:pages,identity-service:accounts,tenant-service:tenant,authz-service:roles,audit-service:audit,notification-service:notifications,search-service:search,billing-service:billing,onboarding-service:onboarding,ticket-service:tickets,job-service:jobs,wallet-service:wallet,analytics-service:events,webhook-service:deliveries,connector-service:connections,feature-flag-service:flags,backup-service:archives,bookings:bookings,whatsapp-assistant:conversations,affiliate-service:affiliates,assistant-service:conversations,error-collector:signals,coworking:resource_bookings,referrals:referral_code"
 
   IDENTITY_SERVICE_URL: "http://identity-service:8000"
   TENANT_SERVICE_URL: "http://tenant-service:8000"

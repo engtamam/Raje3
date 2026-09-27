@@ -9,6 +9,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 
 from app.config import Settings, get_settings
 from app.core.erasure import TemplateErasure
@@ -74,6 +75,30 @@ async def internal_manifest(
     if guard is not None:
         manifest["security"] = {"cwe_guard": guard.report()}
     return manifest
+
+
+class CodeIn(BaseModel):
+    phone: str
+
+
+@router.post("/referrals/code", dependencies=[Depends(require_internal_token)])
+async def mint_or_fetch_code(request: Request, body: CodeIn) -> dict:
+    """The global anonymous referral code (Phase 1) — mint-or-fetch, idempotent. Called by
+    whichever tenant-scoped service needs to show or send a customer's own code (campaigns, in a
+    later phase); this route itself knows nothing about tenants, campaigns, or rewards — see
+    `app/core/referral_code.py`'s own module docstring for the whole design.
+
+    Refuses (400) only on an empty/unparseable phone or genuine mint contention/exhaustion —
+    both real, expected refusals a caller should surface honestly, never retry blindly forever.
+    """
+    from app.core.referral_code import CodeMintFailed, code_for_phone
+
+    c = request.app.state.container
+    try:
+        code = await code_for_phone(c.datastore, body.phone)
+    except CodeMintFailed as exc:
+        return JSONResponse({"error": "BAD_REQUEST", "reason": str(exc)}, status_code=400)
+    return {"code": code}
 
 
 class EraseIn(BaseModel):
