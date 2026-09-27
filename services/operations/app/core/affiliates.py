@@ -29,9 +29,24 @@ SETTLEMENT IS BOOKKEEPING, NEVER MONEY MOVEMENT (plan doc §5's own "بلا أي
 points` is a running counter this service alone maintains (never billing-service, never a wallet);
 `settle()` only ever decrements it and appends an immutable audit row — the actual payment always
 happens OUTSIDE this system, and the shop is simply recording that it happened.
+
+EVERY READ-MODIFY-WRITE HERE IS LOCK-PROTECTED, ON PURPOSE. Three real races live in this module
+if it were not: (1) two concurrent `add()` calls for the SAME phone (or the SAME code, from two
+different phones) both passing their uniqueness checks before either writes — the exact defect
+class `core/referral_redemption.py::register()`'s own `_REGISTER_LOCK` closes for a pending grant;
+(2) two concurrent `credit_sale()` calls for the SAME affiliate (two different new customers
+redeeming at nearly the same moment) racing a classic lost-update on `unsettled_points` — whichever
+write lands second overwrites the first's increment, silently losing a referrer's real credit; and
+(3) two concurrent `settle()` calls both reading the same balance before either decrements it,
+letting an owner double-record (or over-record) a settlement past what was actually owed. All three
+use the SAME `claim()`-based mutex (`_lock`/`_unlock` below) — acquired with a short retry loop
+(never a bare "busy, refuse" the way `register()`'s own lock is, because dropping a REAL sale's
+credit silently is a worse failure here than a few milliseconds' wait) and explicitly released via
+`delete()` the moment the protected section finishes, with the TTL only as a crash safety net.
 """
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from dataclasses import asdict, dataclass
@@ -41,6 +56,10 @@ from app.core.signup import canonical_phone
 
 AFFILIATES = "referral_affiliates"
 SETTLEMENTS = "referral_affiliate_settlements"
+_LOCKS = "referral_affiliate_locks"
+_LOCK_TTL_SECONDS = 5
+_LOCK_RETRY_ATTEMPTS = 100
+_LOCK_RETRY_DELAY_SECONDS = 0.01
 
 REWARD_FIXED_POINTS = "fixed_points"
 REWARD_INVOICE_PERCENTAGE = "invoice_percentage"
@@ -151,6 +170,20 @@ class AffiliateService:
         self._s = store
         self._cc = default_cc
 
+    async def _lock(self, key: str) -> bool:
+        """Retry-until-available, never a bare refuse — see this module's own docstring for why
+        the three callers below cannot afford to silently skip their critical section."""
+        for _ in range(_LOCK_RETRY_ATTEMPTS):
+            won = await self._s.claim(_LOCKS, key, {}, ttl_seconds=_LOCK_TTL_SECONDS,
+                                      now=time.time())
+            if won:
+                return True
+            await asyncio.sleep(_LOCK_RETRY_DELAY_SECONDS)
+        return False
+
+    async def _unlock(self, key: str) -> None:
+        await self._s.delete(_LOCKS, key)
+
     async def add(self, tenant: str, *, phone: str, code: str, discount_percent: Any,
                  reward_type: str, reward_params: dict[str, Any]) -> Affiliate:
         canon_phone = canonical_phone(phone, default_cc=self._cc)
@@ -166,24 +199,35 @@ class AffiliateService:
         percent = _percent(discount_percent, field="نسبة خصم متابعي المسوّق")
         normalized_reward = validate_reward(reward_type, reward_params)
 
-        existing_by_phone = await self.get_by_phone(tenant, canon_phone)
-        if existing_by_phone is not None:
-            # NEVER BOTH ROLES, AND NEVER TWO ACTIVE AFFILIATE ROWS FOR ONE PHONE — the owner's
-            # own instruction: one phone is either an affiliate or an ordinary referrer/customer
-            # at this shop, never both, and never ambiguous between two affiliate terms either.
-            raise AffiliateError("هذا الرقم مسوّق نشط بالفعل عند هذا المتجر")
+        # TENANT-WIDE, DELIBERATELY (not per-phone/per-code separately) — `add()` is a rare,
+        # owner-triggered admin action, never a high-throughput path, so the simplicity of ONE
+        # lock closing BOTH uniqueness checks at once outweighs the (negligible) cost of two
+        # different owners at the same shop never adding affiliates in the exact same instant.
+        lock_key = f"{tenant}|add"
+        if not await self._lock(lock_key):
+            raise AffiliateError("جارٍ إضافة مسوّق آخر الآن — أعد المحاولة بعد لحظة")
+        try:
+            existing_by_phone = await self.get_by_phone(tenant, canon_phone)
+            if existing_by_phone is not None:
+                # NEVER BOTH ROLES, AND NEVER TWO ACTIVE AFFILIATE ROWS FOR ONE PHONE — the
+                # owner's own instruction: one phone is either an affiliate or an ordinary
+                # referrer/customer at this shop, never both, and never ambiguous between two
+                # affiliate terms either.
+                raise AffiliateError("هذا الرقم مسوّق نشط بالفعل عند هذا المتجر")
 
-        existing_by_code = await self.get_by_code(tenant, norm_code, include_inactive=True)
-        if existing_by_code is not None:
-            raise AffiliateError("هذا الكود مستخدم لمسوّق آخر بهذا المتجر")
+            existing_by_code = await self.get_by_code(tenant, norm_code, include_inactive=True)
+            if existing_by_code is not None:
+                raise AffiliateError("هذا الكود مستخدم لمسوّق آخر بهذا المتجر")
 
-        affiliate = Affiliate(
-            id=str(uuid.uuid4()), tenant=tenant, phone=canon_phone, code=norm_code,
-            discount_percent=percent, reward_type=reward_type, reward_params=normalized_reward,
-            created_at=int(time.time()),
-        )
-        await self._s.put(AFFILIATES, f"{tenant}|{affiliate.id}", affiliate.to_dict())
-        return affiliate
+            affiliate = Affiliate(
+                id=str(uuid.uuid4()), tenant=tenant, phone=canon_phone, code=norm_code,
+                discount_percent=percent, reward_type=reward_type,
+                reward_params=normalized_reward, created_at=int(time.time()),
+            )
+            await self._s.put(AFFILIATES, f"{tenant}|{affiliate.id}", affiliate.to_dict())
+            return affiliate
+        finally:
+            await self._unlock(lock_key)
 
     async def get(self, tenant: str, affiliate_id: str) -> Affiliate | None:
         row = await self._s.get(AFFILIATES, f"{tenant}|{affiliate_id}")
@@ -225,11 +269,21 @@ class AffiliateService:
             raise AffiliateError("المسوّق غير موجود")
         if active and not affiliate.active:
             # Re-activating must not silently create a SECOND active row for a phone that picked
-            # up a different active affiliate slot in the meantime (a narrow window, but the same
-            # invariant `add()` enforces at creation must hold here too).
-            other = await self.get_by_phone(tenant, affiliate.phone)
-            if other is not None and other.id != affiliate.id:
-                raise AffiliateError("هذا الرقم مسوّق نشط بالفعل عند هذا المتجر")
+            # up a different active affiliate slot in the meantime — the SAME invariant `add()`
+            # enforces, under the SAME tenant-wide lock, so a reactivation and a fresh `add()` for
+            # the same phone can never both slip through at once.
+            lock_key = f"{tenant}|add"
+            if not await self._lock(lock_key):
+                raise AffiliateError("جارٍ تعديل مسوّق آخر الآن — أعد المحاولة بعد لحظة")
+            try:
+                other = await self.get_by_phone(tenant, affiliate.phone)
+                if other is not None and other.id != affiliate.id:
+                    raise AffiliateError("هذا الرقم مسوّق نشط بالفعل عند هذا المتجر")
+                affiliate.active = True
+                await self._s.put(AFFILIATES, f"{tenant}|{affiliate.id}", affiliate.to_dict())
+                return affiliate
+            finally:
+                await self._unlock(lock_key)
         affiliate.active = bool(active)
         await self._s.put(AFFILIATES, f"{tenant}|{affiliate.id}", affiliate.to_dict())
         return affiliate
@@ -237,17 +291,42 @@ class AffiliateService:
     async def credit_sale(self, tenant: str, affiliate_id: str, points: int) -> Affiliate | None:
         """Called ONLY from `core/referral_redemption.py::redeem()`, once per redeemed grant —
         never exposed over HTTP. `points` is already validated positive by the caller (the same
-        `points > 0` guard `redeem()` checks before ever calling `loyalty.award`)."""
-        affiliate = await self.get(tenant, affiliate_id)
-        if affiliate is None:
+        `points > 0` guard `redeem()` checks before ever calling `loyalty.award`).
+
+        LOCKED, retry-until-available — two different new customers redeeming through the SAME
+        affiliate at nearly the same moment must never lose one's increment to the other's
+        overwrite (a classic lost-update on a plain read-modify-write)."""
+        lock_key = f"{tenant}|{affiliate_id}"
+        if not await self._lock(lock_key):
+            # Best-effort, same posture `redeem()`'s own call site already takes for the loyalty
+            # award beside it: a rare, transient failure here must never fail the customer's own
+            # discount — it only means this one sale's points are missing from the affiliate's
+            # settlement balance until a human notices.
             return None
-        affiliate.unsettled_points += int(points)
-        affiliate.total_earned_points += int(points)
-        await self._s.put(AFFILIATES, f"{tenant}|{affiliate.id}", affiliate.to_dict())
-        return affiliate
+        try:
+            affiliate = await self.get(tenant, affiliate_id)
+            if affiliate is None:
+                return None
+            affiliate.unsettled_points += int(points)
+            affiliate.total_earned_points += int(points)
+            await self._s.put(AFFILIATES, f"{tenant}|{affiliate.id}", affiliate.to_dict())
+            return affiliate
+        finally:
+            await self._unlock(lock_key)
 
     async def settle(self, tenant: str, affiliate_id: str, *, points: int | None = None,
                      note: str = "", actor: str = "") -> tuple[Affiliate, SettlementRecord]:
+        lock_key = f"{tenant}|{affiliate_id}"
+        if not await self._lock(lock_key):
+            raise AffiliateError("جارٍ تحديث رصيد هذا المسوّق الآن — أعد المحاولة بعد لحظة")
+        try:
+            return await self._settle_locked(tenant, affiliate_id, points=points, note=note,
+                                             actor=actor)
+        finally:
+            await self._unlock(lock_key)
+
+    async def _settle_locked(self, tenant: str, affiliate_id: str, *, points: int | None,
+                             note: str, actor: str) -> tuple[Affiliate, SettlementRecord]:
         affiliate = await self.get(tenant, affiliate_id)
         if affiliate is None:
             raise AffiliateError("المسوّق غير موجود")
