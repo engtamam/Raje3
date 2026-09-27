@@ -60,11 +60,9 @@ def build_manifest(
         # someone remembers to advertise them. ADD this service's domain capabilities alongside them
         # (e.g. "files.upload", "files.read"); remove one only if you also remove the route that
         # enforces it. An advertised capability is what the admin panel and onboarding grant against.
-        # NOT "referrals.manage" YET — ci/check_deploy_wiring.py refuses an advertised capability
-        # no route enforces ("an operator can grant it, believe it opened something, and it opened
-        # nothing"), and Phase 0 ships no domain route at all. Add it here THE SAME COMMIT a real
-        # route starts calling require_capability("referrals.manage"), never before.
-        "capabilities": ["platform.secrets", "platform.config"],
+        # Phase 2 adds the first real domain route (app/api/v1/admin.py) enforcing this, so it is
+        # declared the same commit — never before (see ci/check_deploy_wiring.py's own guard).
+        "capabilities": ["platform.secrets", "platform.config", "referrals.manage"],
         "endpoints": [
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
@@ -86,6 +84,10 @@ def build_manifest(
             # loyalty's and campaigns' identical one).
             {"path": "/api/v1/referrals/admin/ping", "tier": "user", "method": "GET"},
             {"path": "/api/v1/referrals/whoami", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/referrals/campaigns", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/referrals/campaigns", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/referrals/campaigns/{}", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/referrals/campaigns/{}/active", "tier": "user", "method": "PUT"},
             # The operator surface: credentials and policy an operator changes after launch.
             # Declared like anything else — a route table built from manifests that omits the
             # place credentials are set is a route table that hides the highest-privilege

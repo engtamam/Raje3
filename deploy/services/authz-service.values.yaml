@@ -143,6 +143,7 @@ env:
     loyalty.read,loyalty.redeem,loyalty.manage,
     bookings.read,bookings.write,bookings.manage,
     coworking.manage,
+    referrals.manage,
     insights.read,
     billing.read,billing.manage,billing.self,
     tenant.read,identity.read,identity.manage,identity.self,compliance.self,compliance.manage,

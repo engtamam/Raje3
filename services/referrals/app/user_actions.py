@@ -31,4 +31,32 @@ from __future__ import annotations
 from typing import Any
 
 
-USER_ACTIONS: list[dict[str, Any]] = []
+USER_ACTIONS: list[dict[str, Any]] = [
+    # ── campaigns (spec §2/§3/§4, Phase 2) ──────────────────────────────────────────────────
+    {
+        "id": "referrals.create_campaign", "label": "أنشئ حملة إحالة", "method": "POST",
+        "path": "/api/v1/referrals/campaigns", "capability": "referrals.manage", "group": "الحملات",
+        "help": "شروط الحملة ثابتة بعد الإنشاء — تغيير الفكرة يعني حملة جديدة، لا تعديل حملة قائمة.",
+    },
+    {
+        "id": "referrals.list_campaigns", "label": "حملاتي", "method": "GET",
+        "path": "/api/v1/referrals/campaigns", "capability": "referrals.manage", "group": "الحملات",
+        "params": [{"name": "active_only", "in": "query", "type": "boolean", "required": False}],
+        "help": "كل حملات الإحالة — النشطة والمتوقفة معاً.",
+    },
+    {
+        "id": "referrals.get_campaign", "label": "تفاصيل حملة", "method": "GET",
+        "path": "/api/v1/referrals/campaigns/{campaign_id}", "capability": "referrals.manage",
+        "group": "الحملات",
+        "params": [{"name": "campaign_id", "in": "path", "type": "string", "required": True}],
+        "help": "شروط ومكافآت حملة إحالة واحدة بالتفصيل.",
+    },
+    {
+        "id": "referrals.set_campaign_active", "label": "أوقف/استأنف حملة", "method": "PUT",
+        "path": "/api/v1/referrals/campaigns/{campaign_id}/active", "capability": "referrals.manage",
+        "group": "الحملات",
+        "params": [{"name": "campaign_id", "in": "path", "type": "string", "required": True}],
+        "confirm": True,
+        "help": "الحقل الوحيد القابل للتغيير بعد إنشاء الحملة — كل شرط ومكافأة يبقى ثابتاً.",
+    },
+]

@@ -162,6 +162,7 @@ class Container:
     telemetry: Telemetry
     audit_sink: Any = None
     consent_gate: Any = None
+    campaigns: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -236,4 +237,8 @@ def build_container(settings: Settings) -> Container:
     from app.core.licence import build_licence
 
     container.licence = build_licence(settings)
+
+    from app.core.campaigns import CampaignService
+
+    container.campaigns = CampaignService(container.datastore)
     return container

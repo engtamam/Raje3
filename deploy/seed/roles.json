@@ -67,6 +67,7 @@
         "bookings.write",
         "bookings.manage",
         "coworking.manage",
+        "referrals.manage",
         "billing.read",
         "billing.manage",
         "billing.self",
