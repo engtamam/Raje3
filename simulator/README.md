@@ -215,6 +215,28 @@ own distinct branch id (never a shared or leaked one), plus a check that a tenan
 that population afterward behaves exactly like any hand-created tenant (a real `ListOperators`
 call against it works). Full simulator suite: 74 passed.
 
+## Platform-scale infrastructure, piece 3 — real background noise alongside a scenario
+
+`common/background.py::run_background_noise` keeps a genuinely independent stream of real traffic
+hitting a real spawned service WHILE a scenario's own deliberate action runs — a real platform is
+never idle waiting for one scenario alone; other real tenants are always busy at the same time, and
+a scenario proven only against a silent service proves far less than the same scenario proven while
+the service is genuinely busy. App-agnostic like every other piece here: the caller supplies
+`make_action() -> Action` (a fresh instance per tick, typically wrapping an already-`populate`-d
+tenant pool), this module knows nothing about what the noise actually does.
+
+An `asyncio.Event`-gated loop, not a fixed per-tick `sleep`: stopping on `async with` exit is
+immediate (`asyncio.wait_for(stop.wait(), timeout=interval)` returns the instant `stop` fires),
+never waiting out whatever tick happened to be mid-sleep — the scenario's own assertions right
+after the block must see the noise already stopped, not still winding down.
+
+Proven for real (`tests/test_background_noise.py`): noise ticks concurrently — measurably more
+than zero ticks — while a real scenario action runs alongside it and still gets its own correct
+result; and a slow-rate noise loop (a 2-second tick interval) still exits in well under a second
+once told to stop, proving the stop is event-gated, not a sleep the caller has to wait out. Full
+simulator suite: 76 passed. All three platform-scale pieces (fleet, population, noise) are
+complete; resuming work on adding more apps is the next item, not part of this initial build.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
