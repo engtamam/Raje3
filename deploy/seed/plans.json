@@ -503,13 +503,20 @@
         "other single-purpose app on this file already takes.",
         "",
         "`screen: 'coworking'` in core/apps.py names the id ci/check_listed_apps_are_wired.py",
-        "checks against — a real, stable id even though there is no console route behind it yet",
-        "(same posture feature.referral_partnership's own row took before its console pass landed)."
+        "checks against — a real, stable id even though there is no console route behind it yet.",
+        "",
+        "LISTED FALSE, UNLIKE feature.referral_partnership'S OWN ROW — that one is genuinely usable",
+        "headless (the discount applies automatically through the beneficiary shop's existing",
+        "flow, no screen ever required for the money-relevant behaviour). This app is the opposite:",
+        "a shop that bought it today has no way to create a resource, set an hourly price, or",
+        "approve a join request at all without a screen — the core purpose is unusable without one.",
+        "adding-a-new-app.md's own rule (\"if the app is not actually usable yet: set listed:false\")",
+        "applies here precisely, not the precedent this comment used to cite."
       ],
       "name": "الاستضافة المهنية",
       "amount": 9900,
       "trial_days": 30,
-      "listed": true,
+      "listed": false,
       "limits": {
         "feature.coworking": {
           "kind": "boolean",
