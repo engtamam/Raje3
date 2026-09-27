@@ -302,6 +302,7 @@ export const NAV_ACCENTS = [
   '#7048E8', // 10 — violet (تحالف استراتيجي)
   '#D9480F', // 11 — burnt orange (خدمات متنقلة)
   '#9C36B5', // 12 — grape (تبادل منافع)
+  '#F59F00', // 13 — amber (الإحالة والمسوّقين)
 ] as const;
 
 export const themeConfig = {
