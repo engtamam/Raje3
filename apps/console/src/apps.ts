@@ -260,6 +260,24 @@ export const APP_ROWS: AppRow[] = [
     // NO featuresAction — operations owns this app's row too, same posture as coupons/mobile
     // requests above.
   },
+  // «الإحالة والمسوّقين» — services/referrals + core/referral_redemption.py, now fully real
+  // (campaigns, till-side redemption, the affiliate tier, configurable beneficiary eligibility).
+  // FOUND MISSING LIVE (2026-09-27, the same day its plan row was flipped to `listed: true`):
+  // this row never existed here at all, so `allApps()`'s own `APP_ROWS.filter((a) => a.section ||
+  // a.openPath)` had nothing to find — a real, priced, screen-having app was invisible on the one
+  // shelf whose entire job is selling it, even though nav.ts's own `referrals` section (and the
+  // real Referrals.tsx screen behind it) already existed.
+  {
+    id: 'referrals',
+    key: 'feature.referrals',
+    name: 'الإحالة والمسوّقين',
+    what: 'يحوّل عملاءك الحاليين إلى فريق مبيعات حقيقي — كل عميل يجلب عميلاً جديداً يكسب الاثنان مكافأة حقيقية.',
+    section: 'referrals',
+    onCustomer: '',
+    icon: 'user-plus', tone: 'info',
+    // NO featuresAction — operations owns this app's row too, same posture as coupons/mobile
+    // requests/mutual-benefit above.
+  },
   // «المساعد الذكي (تطبيق الجوال)» — on-device (Gemma 4, apps/mobile only). NO console screen
   // EXISTS OR EVER WILL — this app's whole surface is the phone (owner's own words: "كل شي في
   // تطبيق الجوال"). `openPath: '/account'` is a DELIBERATE, HONEST fallback, not a real

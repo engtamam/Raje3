@@ -300,6 +300,28 @@ COUPONS_FEATURES: tuple[dict[str, Any], ...] = (
      },
 )
 
+# `feature.referrals` — services/referrals + core/referral_redemption.py's own module docstring.
+# NOT `feature.mutual_benefit`: an ORDINARY customer refers a friend for a reward (both real
+# customers of THIS shop), never a cross-tenant eligibility detection between two shops.
+REFERRALS_FEATURES: tuple[dict[str, Any], ...] = (
+    {"id": "referrals.win_win_by_design", "title": "مكافأة حقيقية للطرفين، لا لك وحدك",
+     "detail": "كل إحالة ناجحة تكسب صاحبها مكافأة، وتمنح العميل الجديد خصماً أو نقاطاً ترحيبية —"
+              " قاعدة الطرفين إلزامية على كل حملة",
+     "icon": "user-plus", "tone": "success", "shared_with": [], "owned_by": ""},
+    {"id": "referrals.eight_reward_shapes", "title": "ثمانية أشكال مكافأة تختار منها",
+     "detail": "نقاط ثابتة، نسبة من الفاتورة، مضاعف عند الترقية، صندوق حظ، وغيرها — تصمّم الحملة"
+              " اللي تناسبك",
+     "icon": "gift", "tone": "violet", "shared_with": [], "owned_by": ""},
+    {"id": "referrals.affiliate_tier", "title": "طبقة مسوّقين مستقلة بشروطها الخاصة",
+     "detail": "أضف مسوّقاً بكوده الخاص وخصمه ومكافأته المتفاوَض عليها، مستقلة تماماً عن حملتك"
+              " العادية",
+     "icon": "megaphone", "tone": "amber", "shared_with": [], "owned_by": ""},
+    {"id": "referrals.configurable_eligibility", "title": "أنت تقرر من يقدر يستخدم الكود",
+     "detail": "عميل جديد فقط، حتى عدد زيارات معيّن، أو مفتوح للجميع — قرارك أنت لكل حملة"
+              " ولكل مسوّق",
+     "icon": "check-circle", "tone": "info", "shared_with": [], "owned_by": ""},
+)
+
 # SHARE OF `feature.mutual_benefit` — see docs/خطة-شراكة-استراتيجية-الإحالة.md and
 # core/mutual_benefit.py's own module docstring. NOT `coupons.py`: a completely different
 # feature, financially unrelated — this one never touches money, pricing, or billing at all.
@@ -421,7 +443,8 @@ APPS: tuple[dict[str, Any], ...] = (
     # `listed: true` 2026-09-27 (deploy/seed/plans.json) the same day this stopped being sold ahead
     # of being built.
     {"key": "feature.referrals", "name": "الإحالة والمسوقين", "screen": "referrals",
-     "what": "برنامج إحالة ومسوّقين يكافئ من يرشّح محلّك لعملاء جدد."},
+     "what": "برنامج إحالة ومسوّقين يكافئ من يرشّح محلّك لعملاء جدد.",
+     "features": list(REFERRALS_FEATURES)},
 )
 
 # BOTH ROWS ABOVE WERE MISSING FOR THE SAME REASON, FOUND THE SAME DAY: a plan's

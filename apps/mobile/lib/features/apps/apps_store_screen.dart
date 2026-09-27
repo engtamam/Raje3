@@ -53,6 +53,7 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
   Map<String, DiscountInfo> _discountPotential = const {};
   double? _unitsPerHalala;
   bool _aiEnabled = true;
+  Map<String, List<AppFeature>>? _staticFeatures;
 
   /// billingShared.tsx's own PREREQ_KEYS/DEPENDENT_KEYS — client-side cascade rule, same one
   /// `useAppBilling.ts::cascadeTargets` follows: cancelling the shop's LAST prerequisite (تسجيل
@@ -70,6 +71,7 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
     final auth = context.read<AuthProvider>();
     final (applied, potential) = await auth.fetchDiscountPreview();
     final (unitsPerHalala, aiEnabled) = await auth.fetchAiUnitsPerHalala();
+    final staticFeatures = await AppFeaturesService(apiClient: auth.apiClient).fetchStatic();
     final results = await Future.wait([auth.fetchOwnership(), auth.fetchPurchasablePlans(), auth.fetchBillingOverview()]);
     if (!mounted) return;
     setState(() {
@@ -80,6 +82,7 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
       _discountPotential = potential;
       _unitsPerHalala = unitsPerHalala;
       _aiEnabled = aiEnabled;
+      _staticFeatures = staticFeatures;
     });
   }
 
@@ -87,6 +90,15 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
   /// `!includedCreditMinor` guard, plus the platform-wide AI switch gate `AppLauncher.tsx`'s own
   /// `billing.aiEnabled ? includedAiCreditOf(plan) : undefined` applies.
   int? _includedCreditFor(BillingPlan? plan) => (_aiEnabled ? plan?.includedCreditMinor : null);
+
+  /// The tenant-free feature list for an operations-owned app, preferred over `Owned.apps[].
+  /// features` (which only ever answers for an app already bought) — see `kStaticFeaturesSubkey`'s
+  /// own docstring.
+  List<AppFeature>? _staticFeaturesFor(String key) {
+    final subkey = kStaticFeaturesSubkey[key];
+    if (subkey == null) return null;
+    return _staticFeatures?[subkey];
+  }
 
   /// The real app name behind a discount's `owning_key` — resolved from [kAppRows], never
   /// invented (mirrors AppLauncher.tsx's own `appNameOf`).
@@ -549,7 +561,9 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => _AppDetailsSheet(
         row: row, plan: plan, owned: owned, sub: sub,
-        inlineFeatures: row.key != null ? _owned?.featuresFor(row.key!) : null,
+        inlineFeatures: row.key != null
+            ? (_staticFeaturesFor(row.key!) ?? _owned?.featuresFor(row.key!))
+            : null,
         apiClient: auth.apiClient,
         missingRequirement: plan != null ? _missingRequirement(S.of(context)!, plan) : '',
         cascadeNames: cascadeNames,

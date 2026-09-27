@@ -148,22 +148,36 @@ async def apps(request: Request, principal=Depends(_OWNER)) -> dict:
 
 @router.get("/apps/static-features", dependencies=[Depends(rate_limit)])
 async def apps_static_features(principal=Depends(require_user)) -> dict:
-    """«ايش فيه» — تسجيل زيارة/جهات الاتصال/التقييم's own catalog, the ONE gap the other five
-    services' `.../features` routes never had: `/apps` just above answers a TENANT's own held
-    apps, and there was no standalone, tenant-free read of these three apps' feature lists at
-    all — bookings/loyalty/campaigns/insights/whatsapp-assistant each got a real `.../features`
-    route, but operations only ever spread `VISIT_FEATURES`/`CONTACTS_FEATURES`/`RATING_FEATURES`
-    inline into `public()`'s per-shop answer, which needs `held`/`checked` neither of which the
-    admin panel — no shop, no tenant — can ever supply. Found live: PlanCards.tsx fell back to
-    the raw boolean-limit list for these three specifically, one lone card among a shelf of rich
-    ones (owner's own screenshot). Same posture as every sibling route: `require_user` only, no
-    capability, no subscription check — the content is identical for every caller regardless of
-    tenant, same as the constants it reads.
+    """«ايش فيه» — every operations-owned app's own catalog, the ONE gap the other five services'
+    `.../features` routes never had: `/apps` just above answers a TENANT's own held apps, and
+    there was no standalone, tenant-free read of these apps' feature lists at all —
+    bookings/loyalty/campaigns/insights/whatsapp-assistant each got a real `.../features` route,
+    but operations only ever spread these constants inline into `public()`'s per-shop answer,
+    which needs `held`/`checked` neither of which a caller BROWSING an app they do not yet own
+    can ever supply (the same read a store card's own "التفاصيل" makes, before any purchase).
+
+    ORIGINALLY THREE (تسجيل زيارة/جهات الاتصال/التقييم), added for the admin panel alone (no
+    shop, no tenant, could ever ask `/apps`) — found live, a SECOND, wider gap: the shop-owner-
+    facing store shelf itself (console `AppTile`/mobile `apps_store_screen.dart`) had the exact
+    same problem for every OTHER operations-owned app with no `featuresAction` of its own
+    (المساعد الذكي عبر واتساب's siblings تبادل منافع/الاستضافة المهنية/خدمات متنقلة/ولاء
+    الشركاء): `Owned.apps[].features` only ever answers for an app already bought, so a shop
+    deciding WHETHER to buy one saw an empty features section — the one moment a real feature
+    list matters most. All seven now ride the same tenant-free read.
+
+    Same posture as every sibling route: `require_user` only, no capability, no subscription
+    check — the content is identical for every caller regardless of tenant, same as the constants
+    it reads.
     """
     return {
         "visit": list(app_catalogue.VISIT_FEATURES),
         "contacts": list(app_catalogue.CONTACTS_FEATURES),
         "rating": list(app_catalogue.RATING_FEATURES),
+        "mobile_requests": list(app_catalogue.MOBILE_REQUESTS_FEATURES),
+        "coworking": list(app_catalogue.COWORKING_FEATURES),
+        "coupons": list(app_catalogue.COUPONS_FEATURES),
+        "mutual_benefit": list(app_catalogue.MUTUAL_BENEFIT_FEATURES),
+        "referrals": list(app_catalogue.REFERRALS_FEATURES),
     }
 
 

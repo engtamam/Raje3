@@ -75,6 +75,18 @@ class AppFeature {
       );
 }
 
+/// `GET /api/v1/subscription/apps/static-features`'s own real, tenant-free subkeys — mirrors the
+/// console's own `launcher/launcherCatalog.ts::STATIC_FEATURES_SUBKEY` exactly. A row operations
+/// owns outright carries no `featuresPath` of its own (its features ride along with
+/// `Owned.apps[].features` instead), which only ever answers for an app already bought — a shop
+/// still deciding WHETHER to buy one saw an empty features section otherwise.
+const Map<String, String> kStaticFeaturesSubkey = {
+  'feature.visit': 'visit', 'feature.contacts': 'contacts', 'feature.rating': 'rating',
+  'feature.mobile_requests': 'mobile_requests', 'feature.coworking': 'coworking',
+  'feature.partner_loyalty': 'coupons', 'feature.mutual_benefit': 'mutual_benefit',
+  'feature.referrals': 'referrals',
+};
+
 /// apps.ts's own APP_ROWS, ported 1:1 for the subset with a real or plausible mobile surface —
 /// see parity/app_store.md §1 for the full 13-row source table this is drawn from.
 const List<AppRow> kAppRows = [

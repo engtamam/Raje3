@@ -8,7 +8,7 @@
  * (المتجر)» is the full catalog, locked cards included — the same thing متجر التطبيقات/Plans.tsx
  * already sell, just browsable from the front door instead of a rail row away.
  */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import Fuse from 'fuse.js';
@@ -155,7 +155,24 @@ export function AppLauncher() {
   // `planByKey` to know which rows are unlisted.
   const billing = useAppBilling(session, catalog);
 
-  const mine = useMemo(() => myApps(catalog, owned), [catalog, owned]);
+  // THE TENANT-FREE FEATURE LIST FOR EVERY OPERATIONS-OWNED APP (`subscription.
+  // apps_static_features`) — fetched ONCE, regardless of ownership, so a shop still deciding
+  // whether to BUY one of these (تسجيل زيارة/جهات الاتصال/التقييم/ولاء الشركاء/خدمات متنقلة/
+  // تبادل منافع/الإحالة والمسوّقين) sees its real features too, not only after buying it
+  // (`Owned.apps[].features` only ever answers for an app already owned — found live, the same
+  // gap PlanCards.tsx's own `static-features` fallback already fixed for the admin panel alone).
+  const [staticFeatures, setStaticFeatures] = useState<Record<string, AppFeature[]> | null>(null);
+  useEffect(() => {
+    const a = action(catalog, 'subscription.apps_static_features');
+    if (!a) return;
+    let live = true;
+    call<Record<string, AppFeature[]>>(session, a)
+      .then((res) => { if (live) setStaticFeatures(res); })
+      .catch(() => { if (live) setStaticFeatures(null); });
+    return () => { live = false; };
+  }, [catalog, session]);
+
+  const mine = useMemo(() => myApps(catalog, owned, staticFeatures), [catalog, owned, staticFeatures]);
   // AN UNLISTED PLAN'S APP HAS EXACTLY ONE HOME: نفس تطبيقاتي، لمن يملكه فعلاً — never «كل
   // التطبيقات» too (found live, owner's own report: a plan marked `listed: false` — a negotiated,
   // invite-only deal, deploy/seed/plans.json's own convention — still rendered a full tile here
@@ -166,9 +183,9 @@ export function AppLauncher() {
   // uses — one source of truth, not a second filter that could disagree with it.
   const everything = useMemo(
     () => (canBrowseStore
-      ? allApps(owned).filter((a) => !a.billingKey || a.ownedByShop === true || billing.planByKey[a.billingKey])
+      ? allApps(owned, staticFeatures).filter((a) => !a.billingKey || a.ownedByShop === true || billing.planByKey[a.billingKey])
       : []),
-    [owned, canBrowseStore, billing.planByKey],
+    [owned, canBrowseStore, billing.planByKey, staticFeatures],
   );
   const active = tab === 'mine' ? mine : everything;
 

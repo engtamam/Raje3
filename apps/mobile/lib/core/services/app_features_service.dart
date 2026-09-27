@@ -28,4 +28,26 @@ class AppFeaturesService {
       return null;
     }
   }
+
+  /// `GET /api/v1/subscription/apps/static-features` — the ONE tenant-free read of every
+  /// operations-owned app's real feature list (services/operations/app/api/v1/subscription.py's
+  /// own docstring). Fetched ONCE, regardless of ownership, so a shop still deciding whether to
+  /// BUY one of these (تسجيل زيارة/جهات الاتصال/التقييم/ولاء الشركاء/خدمات متنقلة/تبادل منافع/
+  /// الإحالة والمسوّقين) sees its real features too — `Owned.apps[].features` only ever answers
+  /// for an app already owned, the exact gap found live on both the console and this screen.
+  Future<Map<String, List<AppFeature>>?> fetchStatic() async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('/api/v1/subscription/apps/static-features');
+      final body = response.data;
+      if (body is! Map) return null;
+      return body.map((key, value) => MapEntry(
+          key as String,
+          ((value as List?) ?? const [])
+              .whereType<Map>()
+              .map((m) => AppFeature.fromJson(Map<String, dynamic>.from(m)))
+              .toList(growable: false)));
+    } on DioException {
+      return null;
+    }
+  }
 }
