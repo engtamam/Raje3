@@ -23,6 +23,7 @@ import 'package:raje3_mobile/features/points/points_screen.dart';
 import 'package:raje3_mobile/features/rating/rating_screen.dart';
 import 'package:raje3_mobile/features/shop/shop_screen.dart';
 import 'package:raje3_mobile/features/mutual_benefit/mutual_benefit_screen.dart';
+import 'package:raje3_mobile/features/referrals/referrals_screen.dart';
 
 import 'package:raje3_mobile/features/services/services_screen.dart';
 import 'package:raje3_mobile/features/shell/main_shell.dart';
@@ -129,6 +130,14 @@ class AppRouter {
               path: RouteNames.whatsappAssistantPath,
               name: RouteNames.whatsappAssistant,
               builder: (context, state) => const WhatsappAssistantScreen(),
+            ),
+            // SAME "no feature.* nav section, real route inside the shell" pattern as the
+            // WhatsApp assistant above — referrals has no billing key of its own, it is gated
+            // purely by the `referrals.manage` capability (ReferralsScreen's own CapabilityGate).
+            GoRoute(
+              path: RouteNames.referralsPath,
+              name: RouteNames.referrals,
+              builder: (context, state) => const ReferralsScreen(),
             ),
             for (final section in kNavSections)
               GoRoute(

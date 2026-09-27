@@ -27,6 +27,7 @@ class RouteNames {
   static const String billing = 'billing';
   static const String customerDetail = 'customer_detail';
   static const String whatsappAssistant = 'whatsapp_assistant';
+  static const String referrals = 'referrals';
 
   // ── ROUTE PATHS ───────────────────────────────────────────────────────────
   static const String loginPath = '/login';
@@ -73,4 +74,8 @@ class RouteNames {
   /// (`apps_store_screen.dart`'s `AppRow.route`), own back button, no bottom bar — this app has
   /// no `feature.*` nav section of its own, same drill-down pattern as billing.
   static const String whatsappAssistantPath = '/whatsapp-assistant';
+  /// «نظام الإحالة» — pushed FROM «تطبيقاتي» (`apps_store_screen.dart`'s `AppRow.route`), same
+  /// no-`feature.*`-nav-section pattern the WhatsApp assistant route already uses: this app has
+  /// no `feature.*` billing key, it is gated purely by the `referrals.manage` capability instead.
+  static const String referralsPath = '/referrals';
 }

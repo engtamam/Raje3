@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
+import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/network/api_client.dart';
 import 'package:raje3_mobile/core/services/app_features_service.dart';
 import 'package:raje3_mobile/core/services/auth_service.dart' show BillingOverview, BillingPlan, BillingSubscription, DiscountInfo;
@@ -329,9 +330,18 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
     // «تطبيقاتي» = owned AND has somewhere real to open — launcherCatalog.ts::myApps only ever
     // lists a row with a real section/openPath; an owned row with neither has nothing to
     // navigate to and stays exclusive to «متجر التطبيقات» until it gets a mobile screen.
-    final rows = _tab
-        ? kAppRows
-        : kAppRows.where((r) => r.route != null && (r.key == null || _owned?.owns(r.key!) == true)).toList();
+    // A ROW THAT ALSO NEEDS A CAPABILITY (e.g. 'referrals' — `referrals.manage`) is checked ON
+    // TOP of the normal ownership check below, never instead of it — an owned-but-role-
+    // restricted row must still stay invisible to a caller without that capability, same rule
+    // `CapabilityGate` applies everywhere else in this app. Checked on both shelves so
+    // «تطبيقاتي» never shows a row an operator cannot actually open.
+    final catalog = context.watch<NavProvider>().catalog;
+    bool visibleForCapability(AppRow r) => r.id != 'referrals' || catalog.hasAll(['referrals.manage']);
+    final rows = (_tab
+            ? kAppRows
+            : kAppRows.where((r) => r.route != null && (r.key == null || _owned?.owns(r.key!) == true)))
+        .where(visibleForCapability)
+        .toList();
 
     return Scaffold(
       backgroundColor: AppColors.surface0,

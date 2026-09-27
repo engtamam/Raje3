@@ -139,6 +139,17 @@ const List<AppRow> kAppRows = [
     what: 'خدمتك تروح لعنده هو — يطلب موعداً، تراجعه وتقرر، ثم تسجّله زيارة حقيقية بعد ما تتم فعلاً.',
     route: 'mobile-requests', icon: 'truck',
   ),
+  // REAL KEY, SAME PATTERN EVERY OTHER ROW HERE USES (`feature.referrals`,
+  // services/operations/app/core/apps.py) — a `listed: false` platform-tax feature, same shape
+  // `feature.mutual_benefit`/`feature.coworking` already take, never `key: null` (that would skip
+  // the real ownership check this row's own subscription state still has to pass). Layered with
+  // the `referrals.manage` capability on top in the store's own row-filter below, since this is
+  // one that genuinely needs BOTH: owned by the shop AND the caller's own role allows managing it.
+  AppRow(
+    id: 'referrals', key: 'feature.referrals', name: 'نظام الإحالة',
+    what: 'يحوّل عملاءك الحاليين إلى فريق مبيعات حقيقي — كل عميل يجلب عميلاً جديداً يكسب الاثنان مكافأة حقيقية.',
+    route: 'referrals', icon: 'user-plus',
+  ),
 ];
 
 /// `GET /api/v1/subscription/apps` — what this shop actually owns, straight off the wire.

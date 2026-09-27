@@ -2765,5 +2765,194 @@
     "requires": [
       "bookings.list"
     ]
+  },
+  "referrals": {
+    "title": {
+      "ar": "نظام الإحالة",
+      "en": "Referral program"
+    },
+    "body": {
+      "ar": "شاشة صاحب المحل لمراقبة برنامج الإحالة وإدارته: حالة الحملة، الأعلى إيرادًا، وأرصدة الشركاء.",
+      "en": "The owner's own screen for monitoring and managing the referral program: campaign state, top revenue drivers, and affiliate balances."
+    },
+    "kind": "field",
+    "anchor": "referrals",
+    "requires": [
+      "referrals.manage"
+    ]
+  },
+  "referrals.add_button": {
+    "title": {
+      "ar": "حملة إحالة جديدة",
+      "en": "New referral campaign"
+    },
+    "body": {
+      "ar": "يفتح معالج إنشاء حملة إحالة جديدة (النمط ثم المكافآت). شروط الحملة ثابتة بعد الإنشاء — لا تعديل لاحقًا، فقط إيقاف/تفعيل.",
+      "en": "Opens the wizard to create a new referral campaign (mode, then rewards). Terms are fixed once created — only pause/resume after that, never an edit."
+    },
+    "kind": "action",
+    "anchor": "referrals.add_button",
+    "requires": [
+      "referrals.manage"
+    ]
+  },
+  "referrals.campaign_card": {
+    "title": {
+      "ar": "بطاقة الحملة",
+      "en": "Campaign card"
+    },
+    "body": {
+      "ar": "مكافأة صاحب الإحالة ومكافأة العميل الجديد الإلزامية للحملة الحالية.",
+      "en": "The referrer's own reward and the current campaign's mandatory new-customer reward."
+    },
+    "kind": "field",
+    "anchor": "referrals.campaign_card"
+  },
+  "referrals.toggle_active": {
+    "title": {
+      "ar": "تفعيل/إيقاف الحملة",
+      "en": "Activate/pause the campaign"
+    },
+    "body": {
+      "ar": "المفتاح الوحيد القابل للتغيير في حملة إحالة بعد إنشائها.",
+      "en": "The one and only thing that can change on a referral campaign after it is created."
+    },
+    "kind": "action",
+    "anchor": "referrals.toggle_active",
+    "requires": [
+      "referrals.manage"
+    ]
+  },
+  "referrals.main_tabs": {
+    "title": {
+      "ar": "تبويبات نظام الإحالة",
+      "en": "Referral program tabs"
+    },
+    "body": {
+      "ar": "التبديل بين بطاقة الحملة وقائمة الأعلى إيرادًا/الشركاء.",
+      "en": "Switches between the campaign card and the top-revenue/affiliates list."
+    },
+    "kind": "field",
+    "anchor": "referrals.main_tabs"
+  },
+  "referrals.leaderboard": {
+    "title": {
+      "ar": "الأعلى إيرادًا",
+      "en": "Top revenue drivers"
+    },
+    "body": {
+      "ar": "المُحيلون الأعلى إيرادًا فعليًا، لا بعدد مرات الاستخدام فقط.",
+      "en": "The referrers who drove the most real revenue, never ranked by redemption count alone."
+    },
+    "kind": "field",
+    "anchor": "referrals.leaderboard"
+  },
+  "referrals.affiliate_card": {
+    "title": {
+      "ar": "بطاقة شريك",
+      "en": "Affiliate card"
+    },
+    "body": {
+      "ar": "رصيد الشريك غير المسوّى وإجمالي ما كسبه، مع مشاركة كوده.",
+      "en": "The affiliate's own unsettled balance and lifetime earnings, with a share action for their code."
+    },
+    "kind": "action",
+    "anchor": "referrals.affiliate_card"
+  },
+  "referrals.wizard_mode": {
+    "title": {
+      "ar": "نمط الحملة",
+      "en": "Campaign mode"
+    },
+    "body": {
+      "ar": "مرة واحدة، عدد محدد، أو بلا حد لكل عميل مُحيل.",
+      "en": "Once, a fixed number of times, or unlimited per referring customer."
+    },
+    "kind": "field",
+    "anchor": "referrals.wizard_mode"
+  },
+  "referrals.wizard_back_button": {
+    "title": {
+      "ar": "السابق",
+      "en": "Back"
+    },
+    "body": {
+      "ar": "يعود لخطوة اختيار النمط.",
+      "en": "Returns to the mode-selection step."
+    },
+    "kind": "action",
+    "anchor": "referrals.wizard_back_button"
+  },
+  "referrals.wizard_cap_limit_field": {
+    "title": {
+      "ar": "عدد سقف الاستخدام",
+      "en": "Usage cap count"
+    },
+    "body": {
+      "ar": "أقصى عدد إحالات تُحتسب لكل فترة (اختياري).",
+      "en": "The maximum number of referrals counted per period (optional)."
+    },
+    "kind": "field",
+    "anchor": "referrals.wizard_cap_limit_field"
+  },
+  "referrals.wizard_min_spend_field": {
+    "title": {
+      "ar": "حد أدنى للفاتورة",
+      "en": "Minimum invoice"
+    },
+    "body": {
+      "ar": "أقل مبلغ فاتورة يشترط لاعتماد الإحالة (اختياري).",
+      "en": "The smallest invoice amount required for the referral to count (optional)."
+    },
+    "kind": "field",
+    "anchor": "referrals.wizard_min_spend_field"
+  },
+  "referrals.wizard_reward_type": {
+    "title": {
+      "ar": "نوع مكافأة صاحب الإحالة",
+      "en": "Referrer reward type"
+    },
+    "body": {
+      "ar": "أحد الأنواع الثمانية الحقيقية لمكافأة من يُحيل عميلًا.",
+      "en": "One of the eight real reward shapes for the person who referred a new customer."
+    },
+    "kind": "field",
+    "anchor": "referrals.wizard_reward_type"
+  },
+  "referrals.wizard_reward_value_field": {
+    "title": {
+      "ar": "قيمة مكافأة صاحب الإحالة",
+      "en": "Referrer reward value"
+    },
+    "body": {
+      "ar": "عدد النقاط أو النسبة، حسب نوع المكافأة المختار.",
+      "en": "Points or percent, depending on the chosen reward type."
+    },
+    "kind": "field",
+    "anchor": "referrals.wizard_reward_value_field"
+  },
+  "referrals.wizard_new_customer_type": {
+    "title": {
+      "ar": "نوع مكافأة العميل الجديد",
+      "en": "New-customer reward type"
+    },
+    "body": {
+      "ar": "مكافأة إلزامية للعميل الجديد — نقاط ترحيبية أو خصم على فاتورته الأولى.",
+      "en": "A mandatory reward for the new customer — welcome points or a discount on their first invoice."
+    },
+    "kind": "field",
+    "anchor": "referrals.wizard_new_customer_type"
+  },
+  "referrals.wizard_new_customer_value_field": {
+    "title": {
+      "ar": "قيمة مكافأة العميل الجديد",
+      "en": "New-customer reward value"
+    },
+    "body": {
+      "ar": "عدد النقاط أو نسبة الخصم، حسب النوع المختار.",
+      "en": "Points or discount percent, depending on the chosen type."
+    },
+    "kind": "field",
+    "anchor": "referrals.wizard_new_customer_value_field"
   }
 }
