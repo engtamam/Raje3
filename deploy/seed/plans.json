@@ -98,7 +98,7 @@
     "feature.mutual_benefit": "تبادل منافع (إحالة عملاء) — cross-tenant customer-referral eligibility detection between two consenting shops (services/operations/app/core/mutual_benefit.py). Standalone (plan.standalone). NEVER a billing/money feature — the discount itself is applied by the beneficiary shop however it normally does; this app only organises the relationship and detects eligibility",
     "feature.mobile_ai_assistant": "المساعد الذكي (تطبيق الجوال) — on-device Gemma 4 assistant, apps/mobile only, no console screen. Standalone (plan.standalone). Priced at 0 on purpose (zero server inference cost to us) but a REAL subscribe/cancel-able plan, not an auto-grant — the owner's own explicit call, so a shop can turn it off like any other app and we can price it for real later with no code change",
     "feature.coworking": "الاستضافة المهنية — hourly co-working resource rental, its own standalone microservice (services/coworking). Standalone (plan.standalone). Hourly-ONLY pricing, no money moves through this platform (a stored price fact only), and no cross-shop marketplace — one shareable link per shop",
-    "feature.referrals": "الإحالة والمسوقين — referral & affiliate marketing (services/referrals). Phase 0 only: platform-tax-only service, zero domain routes yet — this key exists so the entitlement is ready the day a real route calls it, never sold under launch pressure. `listed: false` on its own plan row hides the card until then"
+    "feature.referrals": "الإحالة والمسوقين — referral & affiliate marketing (services/referrals). Real campaigns, till-side redemption, and the affiliate/marketer tier all shipped and tested — sold at 9900 halalas, `listed: true` since 2026-09-27"
   },
   "_removed": [
     "feature.roles.custom IS GONE, and its absence is the honest state. It was sold on every tier",
@@ -433,7 +433,11 @@
         "shop B applies its own discount however it normally does. We only detect eligibility and",
         "notify. See services/operations/app/core/mutual_benefit.py's own module docstring.",
         "",
-        "`plan.standalone` — same posture as ولاء الشركاء/خدمات متنقلة: no other app is required first.",
+        "REQUIRES_ANY (owner's own instruction, 2026-09-27), REPLACING `plan.standalone` — same",
+        "reasoning الإحالة والمسوقين's own row now takes: eligibility is detected off a REAL",
+        "customer touchpoint (a walk-in visit, an attended booking, or a completed mobile-service",
+        "request) at the beneficiary shop, and a shop holding none of the three has no touchpoint",
+        "for this engine to ever detect against.",
         "",
         "`screen: 'mutual-benefit'` in core/apps.py names the console section — a real screen",
         "(apps/console/src/screens/MutualBenefit.tsx), live since 2026-09-16. Mobile has none",
@@ -448,9 +452,9 @@
           "kind": "boolean",
           "limit": 1
         },
-        "plan.standalone": {
-          "kind": "boolean",
-          "limit": 1
+        "plan.requires_any": {
+          "kind": "list",
+          "list": ["feature.visit", "feature.bookings", "feature.mobile_requests"]
         }
       }
     },
@@ -532,32 +536,35 @@
     },
     {
       "_": [
-        "PHASE 0 ONLY — platform-tax-only, zero domain logic (docs/adding-a-new-app.md). No screen,",
-        "no working flow, and this row exists purely so `ci/check_entitlements.py` finds a sold",
-        "counterpart the day `services/referrals`'s own core/licence.py starts being called.",
+        "WAS PHASE 0 ONLY (platform-tax, zero domain logic) — `listed` stayed false until a real",
+        "screen and flow existed. FLIPPED TO `listed: true` 2026-09-27: campaigns, the till-side",
+        "redemption engine, the affiliate/marketer tier, configurable beneficiary eligibility, and",
+        "both console and mobile UI (add-affiliate forms, campaign builders) all shipped and are",
+        "covered end to end by real tests (services/referrals, services/operations) — this is no",
+        "longer sold ahead of being built (docs/خطة-تطبيق-الإحالة-والمسوقين-2026-09-27.md).",
         "",
-        "`listed: false` HIDES THE CARD ENTIRELY (launcher/useAppBilling.ts filters `listed !== false`",
-        "before rendering) — the sentence in `limit_keys` above exists to satisfy the entitlements",
-        "gate without ever reaching a real customer, exactly the posture `feature.roles.custom` did",
-        "NOT have and paid for. Flip `listed` to `true` (and set a real `amount`) once Phase 2+ ships",
-        "an actual screen and flow — docs/خطة-تطبيق-الإحالة-والمسوقين-2026-09-27.md is that plan.",
+        "AMOUNT UNCHANGED — 9900 (99 ريال) was already the real price the day this row was written;",
+        "only visibility changed.",
         "",
-        "`plan.standalone` — no other app is required first, same posture every free/standalone row",
-        "on this file already takes; a referral program does not need a visit register or a booking",
-        "calendar to exist as its own commitment."
+        "REQUIRES_ANY (owner's own instruction, 2026-09-27), REPLACING `plan.standalone` — same",
+        "reasoning الحملات/برنامج النقاط's own rows already take: a referral/affiliate reward is",
+        "credited against a REAL customer touchpoint (a walk-in visit, an attended booking, or a",
+        "completed mobile-service request), and a shop holding NONE of the three has no touchpoint",
+        "for a referral to ever attach to. `may_add` (services/operations/app/core/subscribe.py)",
+        "refuses the purchase unless the shop already holds at least one of the three."
       ],
       "name": "الإحالة والمسوقين",
       "amount": 9900,
       "trial_days": 30,
-      "listed": false,
+      "listed": true,
       "limits": {
         "feature.referrals": {
           "kind": "boolean",
           "limit": 1
         },
-        "plan.standalone": {
-          "kind": "boolean",
-          "limit": 1
+        "plan.requires_any": {
+          "kind": "list",
+          "list": ["feature.visit", "feature.bookings", "feature.mobile_requests"]
         }
       }
     },
