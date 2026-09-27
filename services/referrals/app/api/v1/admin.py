@@ -38,11 +38,16 @@ class CampaignIn(BaseModel):
     min_spend_minor: int = Field(default=0, ge=0)
     usage_cap_period: str = Field(default="", max_length=16)
     usage_cap_limit: int = Field(default=0, ge=0)
+    # See core/models.py's own CAP_SCOPE_CAMPAIGN/CAP_SCOPE_LIFETIME — default keeps today's
+    # behaviour (a new campaign resets the count) for every shop that never sets this.
+    cap_scope: str = Field(default="campaign", max_length=16)
 
 
 @router.post("/campaigns", dependencies=[Depends(rate_limit)])
 async def create_campaign(request: Request, body: CampaignIn,
                           principal: Principal = Depends(_MANAGE)) -> dict:
+    if not principal.tenant:
+        return _refuse("هذا الاعتماد غير مرتبط بمنشأة.", status_code=status.HTTP_403_FORBIDDEN)
     c = request.app.state.container
     try:
         campaign = await c.campaigns.create(
@@ -52,6 +57,7 @@ async def create_campaign(request: Request, body: CampaignIn,
             new_customer_reward_params=body.new_customer_reward_params,
             x_times_limit=body.x_times_limit, min_spend_minor=body.min_spend_minor,
             usage_cap_period=body.usage_cap_period, usage_cap_limit=body.usage_cap_limit,
+            cap_scope=body.cap_scope,
         )
     except CampaignError as exc:
         return _refuse(str(exc))
@@ -61,6 +67,8 @@ async def create_campaign(request: Request, body: CampaignIn,
 @router.get("/campaigns", dependencies=[Depends(rate_limit)])
 async def list_campaigns(request: Request, active_only: bool = False,
                          principal: Principal = Depends(_MANAGE)) -> dict:
+    if not principal.tenant:
+        return _refuse("هذا الاعتماد غير مرتبط بمنشأة.", status_code=status.HTTP_403_FORBIDDEN)
     c = request.app.state.container
     rows = await c.campaigns.list(_tenant(principal), active_only=active_only)
     return {"campaigns": [r.to_dict() for r in rows]}
@@ -69,6 +77,8 @@ async def list_campaigns(request: Request, active_only: bool = False,
 @router.get("/campaigns/{campaign_id}", dependencies=[Depends(rate_limit)])
 async def get_campaign(request: Request, campaign_id: str,
                        principal: Principal = Depends(_MANAGE)) -> dict:
+    if not principal.tenant:
+        return _refuse("هذا الاعتماد غير مرتبط بمنشأة.", status_code=status.HTTP_403_FORBIDDEN)
     c = request.app.state.container
     campaign = await c.campaigns.get(_tenant(principal), campaign_id)
     if campaign is None:
@@ -83,6 +93,8 @@ class ActiveIn(BaseModel):
 @router.put("/campaigns/{campaign_id}/active", dependencies=[Depends(rate_limit)])
 async def set_campaign_active(request: Request, campaign_id: str, body: ActiveIn,
                               principal: Principal = Depends(_MANAGE)) -> dict:
+    if not principal.tenant:
+        return _refuse("هذا الاعتماد غير مرتبط بمنشأة.", status_code=status.HTTP_403_FORBIDDEN)
     c = request.app.state.container
     try:
         campaign = await c.campaigns.set_active(_tenant(principal), campaign_id, active=body.active)

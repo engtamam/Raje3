@@ -880,12 +880,12 @@ USER_ACTIONS: list[dict[str, Any]] = [
     },
     {
         "id": "affiliate.list", "label": "قائمة المسوّقين", "method": "GET",
-        "path": "/api/v1/affiliates", "capability": "operations.read", "group": "المسوّقون",
+        "path": "/api/v1/affiliates", "capability": "operations.affiliates_read", "group": "المسوّقون",
         "help": "كل مسوّق أُضيف بهذا المتجر، برصيده الحالي غير المُسوَّى.",
     },
     {
         "id": "affiliate.get", "label": "تفاصيل مسوّق", "method": "GET",
-        "path": "/api/v1/affiliates/{affiliate_id}", "capability": "operations.read",
+        "path": "/api/v1/affiliates/{affiliate_id}", "capability": "operations.affiliates_read",
         "group": "المسوّقون",
         "params": [{"name": "affiliate_id", "in": "path", "type": "string", "required": True}],
         "help": "شروط مسوّق واحد بالتفصيل ورصيده الحالي.",
@@ -907,7 +907,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "affiliate.list_settlements", "label": "سجل تسويات مسوّق", "method": "GET",
         "path": "/api/v1/affiliates/{affiliate_id}/settlements",
-        "capability": "operations.read", "group": "المسوّقون",
+        "capability": "operations.affiliates_read", "group": "المسوّقون",
         "params": [{"name": "affiliate_id", "in": "path", "type": "string", "required": True}],
         "help": "كل تسوية سُجِّلت لهذا المسوّق: المبلغ، من نفّذها، ومتى.",
     },
@@ -923,7 +923,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
     },
     {
         "id": "referral.report_leaderboard", "label": "أفضل السفراء والمسوّقين", "method": "GET",
-        "path": "/api/v1/referrals/reports/leaderboard", "capability": "operations.read",
+        "path": "/api/v1/referrals/reports/leaderboard", "capability": "operations.affiliates_read",
         "group": "تقارير الإحالة",
         "params": [{"name": "since", "in": "query", "type": "integer", "required": False},
                   {"name": "until", "in": "query", "type": "integer", "required": False},
@@ -940,7 +940,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
     },
     {
         "id": "referral.report_affiliates", "label": "أداء المسوّقين", "method": "GET",
-        "path": "/api/v1/referrals/reports/affiliates", "capability": "operations.read",
+        "path": "/api/v1/referrals/reports/affiliates", "capability": "operations.affiliates_read",
         "group": "تقارير الإحالة",
         "help": "كل مسوّق أُضيف، برصيده الحالي وإجمالي الإيراد اللي جابه.",
     },

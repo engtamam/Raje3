@@ -144,6 +144,7 @@ env:
     bookings.read,bookings.write,bookings.manage,
     coworking.manage,
     referrals.manage,
+    operations.affiliates_read,
     insights.read,
     billing.read,billing.manage,billing.self,
     tenant.read,identity.read,identity.manage,identity.self,compliance.self,compliance.manage,

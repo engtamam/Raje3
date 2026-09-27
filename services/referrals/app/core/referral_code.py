@@ -122,7 +122,24 @@ async def code_for_phone(datastore: Any, raw_phone: str, *, now: float | None = 
             if row and row.get("code"):
                 return row["code"]
             await asyncio.sleep(_PHONE_RETRY_DELAY_SECONDS)
-        raise CodeMintFailed("تعذّر إصدار الكود — حاول مرة أخرى")
+
+        # THE FULL RETRY WINDOW PASSED WITH NO CODE EVER LANDING ON `BY_PHONE` — either a crash
+        # happened between winning the `BY_CODE` claim (step 2) and writing it back here (step 3),
+        # in which case the real code is sitting in `BY_CODE` right now, findable by its own
+        # `phone` field; or nothing ever got that far and this phone's mint is genuinely abandoned.
+        # Waited through the whole retry window already, so telling these two apart is certain, not
+        # a guess.
+        recovered, _cursor = await datastore.find(BY_CODE, {"phone": phone}, limit=1)
+        if recovered:
+            code = recovered[0]["code"]
+            await datastore.put(BY_PHONE, phone, {"phone": phone, "code": code})
+            return code
+
+        # GENUINELY ABANDONED — the stale placeholder this same call (or a dead predecessor) left
+        # in `BY_PHONE` is worse than nothing: it would win every future claim and lock this phone
+        # out forever. Clear it and mint from scratch, once.
+        await datastore.delete(BY_PHONE, phone)
+        return await code_for_phone(datastore, raw_phone, now=now)
 
     length = _DEFAULT_LENGTH
     streak = 0

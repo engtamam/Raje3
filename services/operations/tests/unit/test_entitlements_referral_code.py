@@ -12,9 +12,11 @@ import pytest
 from app.adapters.datastore.memory import MemoryDataStore
 from app.core.entitlements import (SOURCE_CAMPAIGN, SOURCE_REFERRAL, SOURCE_REFERRAL_CODE,
                                    EntitlementGateway)
+from app.core.models import Customer
+from app.core.signup import canonical_phone
 from app.core.operations import Operations
 from app.core.referral_redemption import ReferralRedemptionEngine
-from app.core.stores import VisitStore
+from app.core.stores import CustomerStore, VisitStore, new_id
 
 CC = "966"
 TENANT = "tnt_refcode"
@@ -54,9 +56,21 @@ class FakeLoyaltyDesk:
         return {"earned": points}
 
 
-def _referral_engine(**over) -> ReferralRedemptionEngine:
+async def _seed_customer(store, tenant: str, phone: str) -> None:
+    """The referrer must already be an existing customer here (deep-review Phase 5c) — the
+    default referrer phone below is seeded so these end-to-end tests keep exercising what they
+    were written to test."""
+    await CustomerStore(store).save(
+        Customer(id=new_id("cus"), tenant=tenant, phone=canonical_phone(phone, default_cc=CC),
+                subject_ref="ref"))
+
+
+def _referral_engine(*, store=None, **over) -> ReferralRedemptionEngine:
+    store = store or MemoryDataStore()
+    referrer_phone = over.get("referrer_phone", "0511111111")
+    run(_seed_customer(store, TENANT, referrer_phone))
     return ReferralRedemptionEngine(
-        store=MemoryDataStore(), referrals_desk=FakeReferralsDesk(**over),
+        store=store, referrals_desk=FakeReferralsDesk(**over),
         loyalty_desk=FakeLoyaltyDesk(), pii_salt="s" * 32, default_cc=CC)
 
 

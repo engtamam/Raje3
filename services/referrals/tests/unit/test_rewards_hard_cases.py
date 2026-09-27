@@ -67,6 +67,31 @@ def test_infinite_multiplier_is_refused():
                         {"referrals_required": 5, "multiplier": float("inf")})
 
 
+def test_infinite_points_is_refused_not_a_500():
+    # int(float("inf")) raises OverflowError, not TypeError/ValueError — json accepts the
+    # non-standard `Infinity` literal by default, so a crafted admin POST can reach this.
+    with pytest.raises(RewardError):
+        validate_reward(REWARD_FIXED_POINTS, {"points": float("inf")})
+    with pytest.raises(RewardError):
+        validate_reward(REWARD_FIXED_POINTS, {"points": float("-inf")})
+
+
+def test_nan_points_is_refused_not_a_500():
+    with pytest.raises(RewardError):
+        validate_reward(REWARD_FIXED_POINTS, {"points": float("nan")})
+
+
+def test_infinite_and_nan_points_refused_through_a_second_positive_int_field():
+    # `referrals_required` (status_multiplier) goes through the same `_positive_int` — proving the
+    # fix is in the shared helper, not a one-off patch on `fixed_points` alone.
+    with pytest.raises(RewardError):
+        validate_reward(REWARD_STATUS_MULTIPLIER,
+                        {"referrals_required": float("inf"), "multiplier": 2.0})
+    with pytest.raises(RewardError):
+        validate_reward(REWARD_STATUS_MULTIPLIER,
+                        {"referrals_required": float("nan"), "multiplier": 2.0})
+
+
 def test_string_nan_and_inf_are_refused():
     with pytest.raises(RewardError):
         validate_reward(REWARD_STATUS_MULTIPLIER,

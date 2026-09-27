@@ -70,7 +70,15 @@ GRANTS = "referral_redemption_grants"
 # never gets picked up by `eligibility()` (which only ever reads the newest). Short TTL: it only
 # needs to outlive one peer HTTP round trip (referrer lookup + active campaign) plus one write.
 _REGISTER_LOCK = "referral_redemption_register_lock"
-_REGISTER_LOCK_TTL_SECONDS = 5
+# 15s, NOT 5s (deep-review Phase 5c fix). The locked section can make up to TWO sequential
+# blocking HTTP calls to the referrals peer (`lookup_code`, then `active_campaign`), each
+# individually budgeted up to `ReferralsDesk`'s own 5-second timeout — a worst-case combined wait
+# of ~10s. A 5s TTL could expire while the original request is still genuinely in flight (the peer
+# merely slow, not down), letting a concurrent retry for the SAME beneficiary phone win a fresh
+# claim and create a second, duplicate pending grant — reopening exactly the double-grant race
+# this lock exists to close, specifically under peer-slowness conditions. 15s = two 5s peer
+# timeouts + 5s real margin.
+_REGISTER_LOCK_TTL_SECONDS = 15
 
 REWARD_FIXED_POINTS = "fixed_points"
 REWARD_INVOICE_PERCENTAGE = "invoice_percentage"
@@ -114,7 +122,13 @@ def _referrer_points(reward_type: str, params: dict[str, Any], *, invoice_minor:
     if reward_type == REWARD_FIXED_POINTS or reward_type == REWARD_CASHBACK_POINTS:
         return int(params.get("points") or 0)
     if reward_type == REWARD_INVOICE_PERCENTAGE:
-        percent = int(params.get("percent") or 0)
+        # CLAMPED TO [0, 100] — DEFENSE IN DEPTH (deep-review Phase 5c fix). services/referrals'
+        # own `rewards.py` already validates 0 < percent <= 99 at campaign-creation time, so an
+        # out-of-range value is not independently exploitable through any reviewed path today; but
+        # this side reads whatever the peer forwards, with no guard of its own, and never trusting
+        # an unclamped number from a peer (a future schema change, a bug on that side, a
+        # compromised peer) is cheap insurance against computing a reward larger than the invoice.
+        percent = min(max(int(params.get("percent") or 0), 0), 100)
         # halalas -> points 1:1 below a real conversion table (none exists yet — plan doc §7's own
         # "قاعدة تحويل توضيحية... رقم مرجعي فقط"); a real rate is a reporting-phase concern, not
         # this one, and rounding DOWN never credits a fraction the shop did not actually intend.
@@ -124,7 +138,7 @@ def _referrer_points(reward_type: str, params: dict[str, Any], *, invoice_minor:
         # this visit are not known here (loyalty computes them independently, after this runs);
         # matched against the invoice as the same stand-in `invoice_percentage` uses, honestly,
         # until a real cross-service read of "points this visit just earned" exists.
-        percent = int(params.get("percent") or 0)
+        percent = min(max(int(params.get("percent") or 0), 0), 100)  # same defense-in-depth clamp
         return (invoice_minor * percent) // 100
     if reward_type == REWARD_MYSTERY_BOX:
         outcomes = params.get("outcomes") or []
@@ -222,6 +236,16 @@ class ReferralRedemptionEngine:
         if existing is not None:
             return existing
 
+        # "NEW CUSTOMER" MEANS NO EXISTING Customer ROW AT THIS TENANT, THROUGH ANY MEANS — owner
+        # decision (deep-review Phase 5c): a phone that already has a Customer row here (a walk-in
+        # visit, a booking, anything, with or without a referral) is definitively not eligible for
+        # the new-customer reward, even if the specific code being entered is one this person has
+        # never used before. Checked here, BEFORE either grant path below (ordinary or affiliate)
+        # and before any campaign/usage-cap logic runs, so an existing customer never gets past
+        # this point regardless of which reward shape they would otherwise have qualified for.
+        if await self._customers.by_phone(tenant, canon_beneficiary) is not None:
+            raise ReferralRedemptionError("هذا العميل مسجّل بالفعل عند هذا المتجر")
+
         # PHASE 4 — a shop-local affiliate custom code, checked FIRST and entirely locally (no
         # services/referrals round trip at all: an affiliate's code is never registered globally,
         # see core/affiliates.py's own module docstring). A match here short-circuits the whole
@@ -266,6 +290,21 @@ class ReferralRedemptionEngine:
                 return await self._register_affiliate_grant(
                     tenant, code=code, canon_beneficiary=canon_beneficiary, affiliate=affiliate,
                     invoice_minor=invoice_minor)
+
+        # OWNER DECISION (deep-review Phase 5c): the global anonymous referral code is honoured
+        # ONLY at a shop the referrer is ALREADY an existing customer of (a Customer row already
+        # exists for this phone at THIS tenant, by ANY means — a walk-in visit, a booking,
+        # anything, not necessarily a referral). Without this, ANY shop could resolve ANY phone's
+        # global code and import that person's real phone number into its own database even
+        # though they never dealt with the shop before, with zero consent — a real cross-tenant
+        # PII disclosure. Refused with the EXACT SAME message and shape as an unknown code —
+        # never revealing to the caller WHETHER the phone exists but isn't a customer here versus
+        # the code simply not existing at all, since that difference is itself a minor
+        # information disclosure worth avoiding. Deliberately NOT applied to an affiliate's own
+        # custom code (already returned above, in both branches) — an affiliate is onboarded BY
+        # the shop directly, so this concern does not apply to them.
+        if await self._customers.by_phone(tenant, canon_referrer) is None:
+            raise ReferralRedemptionError("كود الإحالة غير صالح")
 
         try:
             campaign = await self._referrals.active_campaign(tenant)
@@ -334,10 +373,16 @@ class ReferralRedemptionEngine:
             return
         campaign_id = str(campaign.get("id") or "")
         mode = str(campaign.get("mode") or "")
-        rows, _ = await self._s.find(
-            GRANTS, {"tenant": tenant, "referrer_phone": referrer_phone,
-                    "campaign_id": campaign_id}, limit=100000)
-        redeemed = [r for r in rows if r.get("redeemed_at")]
+        # CAP SCOPE (owner-approved design change, deep-review Phase 5c): "campaign" (default,
+        # absent on any pre-existing campaign row) is today's behaviour, scoped to this one
+        # campaign_id — a brand-new campaign resets the count. "lifetime" is an opt-in that counts
+        # every grant ever registered against this referrer at this tenant, across ALL campaigns —
+        # the campaign_id filter is simply dropped from the query in that case.
+        cap_scope = str(campaign.get("cap_scope") or "campaign")
+        query: dict[str, Any] = {"tenant": tenant, "referrer_phone": referrer_phone}
+        if cap_scope != "lifetime":
+            query["campaign_id"] = campaign_id
+        rows, _ = await self._s.find(GRANTS, query, limit=100000)
 
         # ONCE/X_TIMES ARE ABSOLUTE, LIFETIME CAPS — counted against EVERY grant that exists at
         # all (pending or redeemed), never redeemed-only. A grant here has no expiry (nothing
@@ -366,7 +411,20 @@ class ReferralRedemptionEngine:
         if period and limit:
             now = time.time()
             window_seconds = {"day": 86400, "week": 7 * 86400, "month": 31 * 86400}.get(period, 0)
-            in_window = [r for r in redeemed if now - int(r.get("redeemed_at") or 0) <= window_seconds]
+            # SAME EXPLOIT CLASS AS ONCE/X_TIMES ABOVE (deep-review Phase 5b security-sweep gap,
+            # closed here in Phase 5c) — this used to count only REDEEMED grants whose
+            # `redeemed_at` fell in the window, which let N different new customers each register
+            # their own pending grant against the SAME referrer inside one window (no lock
+            # contention, since the beneficiary phones differ) and all redeem later inside that
+            # same window, blowing past `usage_cap_limit` with zero unlucky timing required. A
+            # pending grant counts by its OWN `created` timestamp (it has no `redeemed_at` yet); a
+            # redeemed grant counts by `redeemed_at`, same as before — the "active grants count
+            # against an absolute-ish cap" principle already applied to once/x_times, adapted for
+            # a rolling window instead of a lifetime total.
+            in_window = [
+                r for r in active
+                if now - int((r.get("redeemed_at") or r.get("created")) or 0) <= window_seconds
+            ]
             if len(in_window) >= limit:
                 raise ReferralRedemptionError(
                     f"هذا السفير وصل لسقف الاستخدام لهذه الحملة ({limit} لكل {period})")

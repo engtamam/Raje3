@@ -55,6 +55,16 @@ NEW_CUSTOMER_REWARD_TYPES = (NEW_CUSTOMER_DISCOUNT_PERCENT, NEW_CUSTOMER_WELCOME
 
 USAGE_CAP_PERIODS = ("day", "week", "month")
 
+# ── usage-cap scope (owner-approved design change, deep-review Phase 5c) — the shop's own choice
+# of whether a referrer's once/x_times slot resets when a brand-new campaign starts, or persists
+# across every campaign that referrer has ever been counted against at this shop. DEFAULT is
+# "campaign" (today's behaviour, unchanged for every shop that never touches the field): a new
+# campaign_id is a fresh count. "lifetime" is an opt-IN to the stricter behaviour — never a silent
+# change for anyone who does not explicitly choose it.
+CAP_SCOPE_CAMPAIGN = "campaign"
+CAP_SCOPE_LIFETIME = "lifetime"
+CAP_SCOPES = (CAP_SCOPE_CAMPAIGN, CAP_SCOPE_LIFETIME)
+
 
 @dataclass(frozen=True)
 class Campaign:
@@ -71,6 +81,17 @@ class Campaign:
     new_customer_reward_type: str
     new_customer_reward_params: dict[str, Any]
     active: bool = True
+    # NANOSECOND CREATION MARK, INTERNAL TIE-BREAK ONLY — `created_at` (whole seconds) keeps its
+    # exact current meaning everywhere else (services/operations' reporting code depends on it
+    # being unix-seconds); this field exists ONLY so "the most recently created active campaign"
+    # is genuinely deterministic by creation order even when two campaigns are created within the
+    # same wall-clock second, instead of falling back on the datastore's own incidental secondary
+    # sort (descending UUID string in MemoryDataStore, which is not creation order at all).
+    created_ns: int = 0
+    # See CAP_SCOPE_CAMPAIGN/CAP_SCOPE_LIFETIME above. Absent on any campaign row created before
+    # this field existed — `from_dict` defaults a missing value to "campaign", the exact behaviour
+    # that row already had, so an old campaign's meaning never silently changes underneath it.
+    cap_scope: str = CAP_SCOPE_CAMPAIGN
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -81,7 +102,7 @@ class Campaign:
             "reward_type": self.reward_type, "reward_params": self.reward_params,
             "new_customer_reward_type": self.new_customer_reward_type,
             "new_customer_reward_params": self.new_customer_reward_params,
-            "active": self.active,
+            "active": self.active, "created_ns": self.created_ns, "cap_scope": self.cap_scope,
         }
 
     @staticmethod
@@ -96,4 +117,6 @@ class Campaign:
             new_customer_reward_type=row["new_customer_reward_type"],
             new_customer_reward_params=dict(row.get("new_customer_reward_params") or {}),
             active=bool(row.get("active", True)),
+            created_ns=int(row.get("created_ns") or 0),
+            cap_scope=row.get("cap_scope") or CAP_SCOPE_CAMPAIGN,
         )

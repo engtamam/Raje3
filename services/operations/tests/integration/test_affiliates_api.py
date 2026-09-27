@@ -44,7 +44,8 @@ def client(auth_env) -> TestClient:
     return _make_app()
 
 
-def _token(*, tenant: str, caps=("operations.manage", "operations.read")) -> str:
+def _token(*, tenant: str,
+          caps=("operations.manage", "operations.read", "operations.affiliates_read")) -> str:
     now = dt.datetime.now(dt.timezone.utc)
     claims = {"sub": "owner-1", "iss": ISS, "aud": AUD, "tenant": tenant,
               "exp": now + dt.timedelta(minutes=5), "iat": now, "caps": list(caps)}
@@ -77,6 +78,38 @@ def test_read_only_capability_cannot_add(client):
     r = client.post("/api/v1/affiliates", json=_affiliate_body(),
                     headers=_auth(tenant="shop-read-only", caps=("something.else",)))
     assert r.status_code == 403
+
+
+# ── the 3 payout/phone reads require operations.affiliates_read, not plain operations.read ──────
+def test_plain_operations_read_cannot_list_affiliates(client):
+    r = client.get("/api/v1/affiliates", headers=_auth(tenant="shop-a", caps=("operations.read",)))
+    assert r.status_code == 403
+
+
+def test_plain_operations_read_cannot_get_an_affiliate(client):
+    created = client.post("/api/v1/affiliates", json=_affiliate_body(phone="0566666666",
+                                                                     code="PAYOUT1"),
+                          headers=_auth(tenant="shop-payouts")).json()
+    r = client.get(f"/api/v1/affiliates/{created['id']}",
+                   headers=_auth(tenant="shop-payouts", caps=("operations.read",)))
+    assert r.status_code == 403
+
+
+def test_plain_operations_read_cannot_list_settlements(client):
+    created = client.post("/api/v1/affiliates", json=_affiliate_body(phone="0577777777",
+                                                                     code="PAYOUT2"),
+                          headers=_auth(tenant="shop-payouts2")).json()
+    r = client.get(f"/api/v1/affiliates/{created['id']}/settlements",
+                   headers=_auth(tenant="shop-payouts2", caps=("operations.read",)))
+    assert r.status_code == 403
+
+
+def test_operations_affiliates_read_alone_can_list_affiliates(client):
+    client.post("/api/v1/affiliates", json=_affiliate_body(phone="0588888888", code="PAYOUT3"),
+               headers=_auth(tenant="shop-payouts3"))
+    r = client.get("/api/v1/affiliates",
+                   headers=_auth(tenant="shop-payouts3", caps=("operations.affiliates_read",)))
+    assert r.status_code == 200
 
 
 # ── happy path ───────────────────────────────────────────────────────────────────────────────────

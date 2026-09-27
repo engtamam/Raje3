@@ -10,9 +10,12 @@ import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
 from app.adapters.referrals_desk import ReferralsPeerUnavailable
+from app.core.models import Customer
+from app.core.signup import canonical_phone
 from app.core.referral_redemption import (
     MODE_ONCE, NEW_CUSTOMER_DISCOUNT_PERCENT, ReferralRedemptionEngine, ReferralRedemptionError,
 )
+from app.core.stores import CustomerStore, new_id
 
 CC = "966"
 TENANT = "shop_a"
@@ -71,9 +74,21 @@ class FakeLoyaltyDesk:
         return {"earned": points}
 
 
-def _engine(*, referrals=None, loyalty=None, store=None) -> ReferralRedemptionEngine:
+async def _seed_customer(store, tenant: str, phone: str) -> None:
+    """The referrer must already be an existing customer here (deep-review Phase 5c) — every
+    test below that expects register() to SUCCEED for REFERRER_PHONE needs it seeded first."""
+    await CustomerStore(store).save(
+        Customer(id=new_id("cus"), tenant=tenant, phone=canonical_phone(phone, default_cc=CC),
+                subject_ref="ref"))
+
+
+def _engine(*, referrals=None, loyalty=None, store=None,
+           seed_referrer: bool = True) -> ReferralRedemptionEngine:
+    store = store or MemoryDataStore()
+    if seed_referrer:
+        run(_seed_customer(store, TENANT, REFERRER_PHONE))
     return ReferralRedemptionEngine(
-        store=store or MemoryDataStore(), referrals_desk=referrals or FakeReferralsDesk(),
+        store=store, referrals_desk=referrals or FakeReferralsDesk(),
         loyalty_desk=loyalty or FakeLoyaltyDesk(), pii_salt="s" * 32, default_cc=CC)
 
 
@@ -225,3 +240,24 @@ def test_a_campaign_missing_reward_params_entirely_never_crashes_registration_or
     result = run(engine.redeem(TENANT, BENEFICIARY_PHONE, visit_id="v1"))
     assert result is True
     assert engine._loyalty.awards == []
+
+
+# ── an out-of-range percent from the peer must never produce a reward larger than the invoice ────
+def test_an_out_of_range_invoice_percentage_from_a_faked_peer_is_clamped_not_trusted():
+    # services/referrals' own rewards.py already validates 0 < percent <= 99 at campaign-creation
+    # time — this is defense in depth for a malformed/hostile value the peer forwards anyway (a
+    # future schema change, a bug on that side, a compromised peer), never independently
+    # exploitable through any reviewed path today.
+    engine = _engine(referrals=FakeReferralsDesk(
+        campaign=_campaign(reward_type="invoice_percentage", reward_params={"percent": 5000})))
+    run(engine.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE, invoice_minor=1000))
+    run(engine.redeem(TENANT, BENEFICIARY_PHONE, visit_id="v1"))
+    assert engine._loyalty.awards[0]["points"] <= 1000  # never more than the invoice itself
+
+
+def test_a_negative_percent_from_a_faked_peer_is_clamped_to_zero_not_negative():
+    engine = _engine(referrals=FakeReferralsDesk(
+        campaign=_campaign(reward_type="points_match", reward_params={"percent": -50})))
+    run(engine.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE, invoice_minor=1000))
+    run(engine.redeem(TENANT, BENEFICIARY_PHONE, visit_id="v1"))
+    assert engine._loyalty.awards == []  # points <= 0 never credited at all

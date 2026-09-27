@@ -146,11 +146,16 @@ class OperationsErasure:
                     gid = row.get("id", "")
                     if gid in grant_ids_seen:
                         continue
+                    # BLANK ONLY THE FIELD(S) THAT ACTUALLY EQUAL THIS SUBJECT'S PHONE — the query
+                    # matched on `field`, never on the other role's field, so the other party's
+                    # number must survive untouched unless it independently equals the same phone
+                    # too (the self-referral edge case: shouldn't exist by business rules, but if it
+                    # ever did, both fields genuinely belong to the one subject being erased here).
                     changed = False
-                    if row.get("referrer_phone"):
+                    if row.get("referrer_phone") == canon_phone:
                         row["referrer_phone"] = ""
                         changed = True
-                    if row.get("beneficiary_phone"):
+                    if row.get("beneficiary_phone") == canon_phone:
                         row["beneficiary_phone"] = ""
                         changed = True
                     if changed:
