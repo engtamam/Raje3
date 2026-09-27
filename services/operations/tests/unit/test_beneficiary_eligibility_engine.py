@@ -157,6 +157,87 @@ def test_affiliate_new_refuses_even_though_the_campaign_is_wide_open():
         run(engine.register(TENANT, code=AFFILIATE_CODE, beneficiary_phone=BENEFICIARY_PHONE))
 
 
+def test_self_referral_is_refused_even_under_open_eligibility():
+    # SCENARIO: "open" removes the "must be new" restriction, but it must never be read as
+    # removing the SEPARATE self-referral rule — the two are independent refusals, checked in
+    # order (self-referral first, unconditionally, before eligibility is ever consulted).
+    store = MemoryDataStore()
+    run(_seed_customer(store, TENANT, REFERRER_PHONE))
+    engine = _engine(store=store, campaign=_campaign(beneficiary_eligibility="open"))
+    with pytest.raises(ReferralRedemptionError):
+        run(engine.register(TENANT, code=CODE, beneficiary_phone=REFERRER_PHONE))
+
+
+def test_self_referral_via_the_affiliates_own_code_is_refused_even_under_open_eligibility():
+    store = MemoryDataStore()
+    run(_seed_customer(store, TENANT, REFERRER_PHONE))
+    affiliates = AffiliateService(store, default_cc=CC)
+    run(affiliates.add(TENANT, phone=REFERRER_PHONE, code=AFFILIATE_CODE, discount_percent=25,
+                       reward_type=AFF_REWARD_FIXED_POINTS, reward_params={"points": 40},
+                       beneficiary_eligibility="open"))
+    engine = ReferralRedemptionEngine(
+        store=store, referrals_desk=FakeReferralsDesk(campaign=_campaign()),
+        loyalty_desk=FakeLoyaltyDesk(), pii_salt="s" * 32, default_cc=CC, affiliates=affiliates)
+    with pytest.raises(ReferralRedemptionError):
+        run(engine.register(TENANT, code=AFFILIATE_CODE, beneficiary_phone=REFERRER_PHONE))
+
+
+def test_eligibility_is_checked_before_min_spend_so_the_ineligible_reason_is_never_masked():
+    # ORDERING SCENARIO: an over-the-limit beneficiary who ALSO fails min-spend must see the
+    # eligibility refusal, not a misleading "invoice too low" message for a code that was never
+    # going to be honoured regardless of the invoice amount.
+    store = MemoryDataStore()
+    run(_seed_customer(store, TENANT, BENEFICIARY_PHONE, visit_count=99))
+    engine = _engine(store=store, campaign=_campaign(
+        beneficiary_eligibility="max_visits", beneficiary_max_visits=1, min_spend_minor=100_00))
+    with pytest.raises(ReferralRedemptionError, match="تجاوز عدد الزيارات"):
+        run(engine.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE,
+                            invoice_minor=0))
+
+
+def test_eligibility_is_checked_before_the_usage_cap_so_an_ineligible_beneficiary_never_counts_against_it():
+    # ORDERING SCENARIO: an ineligible beneficiary must be refused BEFORE the referrer's own
+    # once/x_times slot is ever consumed — an ineligible attempt must never burn through a
+    # referrer's real, limited usage cap.
+    store = MemoryDataStore()
+    run(_seed_customer(store, TENANT, BENEFICIARY_PHONE, visit_count=99))
+    engine = _engine(store=store, campaign=_campaign(
+        mode=MODE_ONCE, beneficiary_eligibility="max_visits", beneficiary_max_visits=1))
+    with pytest.raises(ReferralRedemptionError):
+        run(engine.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE))
+    # THE CAP WAS NEVER TOUCHED — a genuinely new beneficiary can still register under the same
+    # once-per-referrer campaign afterwards.
+    grant = run(engine.register(TENANT, code=CODE, beneficiary_phone="0533333333"))
+    assert grant.referrer_phone == canonical_phone(REFERRER_PHONE, default_cc=CC)
+
+
+def test_visit_count_is_read_fresh_each_time_not_cached_across_calls():
+    # SCENARIO: a customer who was over the limit, then had their own visit_count corrected
+    # downward by an unrelated process (e.g. a manual fix), is re-evaluated against the real,
+    # current count — never a stale snapshot from an earlier check. Calls the engine's own
+    # private eligibility check directly (rather than two full `register()` calls) because
+    # `register()` itself holds a short-lived per-beneficiary lock unrelated to eligibility — see
+    # `_REGISTER_LOCK` — that would otherwise make a second immediate call collide for a reason
+    # that has nothing to do with what this test is proving.
+    store = MemoryDataStore()
+    customers = CustomerStore(store)
+    phone = canonical_phone(BENEFICIARY_PHONE, default_cc=CC)
+    run(customers.save(Customer(id=new_id("cus"), tenant=TENANT, phone=phone, subject_ref="ref",
+                               visit_count=5)))
+    engine = _engine(store=store, campaign=_campaign(
+        beneficiary_eligibility="max_visits", beneficiary_max_visits=2))
+    with pytest.raises(ReferralRedemptionError):
+        run(engine._check_beneficiary_eligibility(
+            TENANT, phone, eligibility="max_visits", max_visits=2))
+
+    customer = run(customers.by_phone(TENANT, phone))
+    customer.visit_count = 1
+    run(customers.save(customer))
+    # NO EXCEPTION THIS TIME — same engine, same beneficiary, only the stored visit_count changed.
+    run(engine._check_beneficiary_eligibility(
+        TENANT, phone, eligibility="max_visits", max_visits=2))
+
+
 def test_affiliate_max_visits_enforced_via_the_affiliates_own_global_code_too():
     # reached via the affiliate's ORDINARY global code (not their custom one) — same enforcement.
     store = MemoryDataStore()

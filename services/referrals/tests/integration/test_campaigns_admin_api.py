@@ -158,3 +158,60 @@ def test_set_active_on_unknown_id_is_404_not_500(client):
     r = client.put("/api/v1/referrals/campaigns/does-not-exist/active",
                    json={"active": False}, headers=_auth(tenant="shop-a"))
     assert r.status_code == 404
+
+
+# ── beneficiary eligibility, through the real route (owner instruction, 2026-09-27) ─────────────
+def test_absent_eligibility_defaults_to_new_through_the_real_route(client):
+    created = client.post("/api/v1/referrals/campaigns", json=_campaign_body(),
+                          headers=_auth(tenant="shop-elig1")).json()
+    assert created["beneficiary_eligibility"] == "new"
+    assert created["beneficiary_max_visits"] == 0
+
+
+def test_max_visits_eligibility_round_trips_through_the_real_route(client):
+    created = client.post(
+        "/api/v1/referrals/campaigns",
+        json=_campaign_body(beneficiary_eligibility="max_visits", beneficiary_max_visits=5),
+        headers=_auth(tenant="shop-elig2")).json()
+    assert created["beneficiary_eligibility"] == "max_visits"
+    assert created["beneficiary_max_visits"] == 5
+    got = client.get(f"/api/v1/referrals/campaigns/{created['id']}",
+                     headers=_auth(tenant="shop-elig2"))
+    assert got.json()["beneficiary_eligibility"] == "max_visits"
+    assert got.json()["beneficiary_max_visits"] == 5
+
+
+def test_an_unknown_eligibility_value_is_a_400_not_a_500(client):
+    r = client.post("/api/v1/referrals/campaigns",
+                    json=_campaign_body(beneficiary_eligibility="whatever"),
+                    headers=_auth(tenant="shop-elig3"))
+    assert r.status_code == 400
+    assert r.json()["error"] == "BAD_REQUEST"
+
+
+def test_a_negative_max_visits_is_a_422_at_the_route_boundary(client):
+    r = client.post("/api/v1/referrals/campaigns",
+                    json=_campaign_body(beneficiary_eligibility="max_visits",
+                                        beneficiary_max_visits=-1),
+                    headers=_auth(tenant="shop-elig4"))
+    assert r.status_code == 422
+
+
+def test_eligibility_survives_set_active_through_the_real_route(client):
+    # REGRESSION, over real HTTP: core/campaigns.py::set_active used to rebuild the Campaign
+    # without carrying beneficiary_eligibility/beneficiary_max_visits at all, so a pause/resume
+    # silently reset a shop's real "open"/"max_visits" choice back to "new"/0 (test_campaigns.py's
+    # own unit-level regression test proves the same fix at the service layer).
+    created = client.post(
+        "/api/v1/referrals/campaigns",
+        json=_campaign_body(beneficiary_eligibility="open"),
+        headers=_auth(tenant="shop-elig5")).json()
+    paused = client.put(f"/api/v1/referrals/campaigns/{created['id']}/active",
+                        json={"active": False}, headers=_auth(tenant="shop-elig5")).json()
+    assert paused["beneficiary_eligibility"] == "open"
+    resumed = client.put(f"/api/v1/referrals/campaigns/{created['id']}/active",
+                         json={"active": True}, headers=_auth(tenant="shop-elig5")).json()
+    assert resumed["beneficiary_eligibility"] == "open"
+    reread = client.get(f"/api/v1/referrals/campaigns/{created['id']}",
+                        headers=_auth(tenant="shop-elig5")).json()
+    assert reread["beneficiary_eligibility"] == "open"

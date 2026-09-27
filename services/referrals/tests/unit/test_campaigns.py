@@ -205,6 +205,31 @@ def test_cap_scope_survives_set_active_unchanged():
     assert updated.cap_scope == "lifetime"
 
 
+def test_beneficiary_eligibility_survives_set_active_unchanged():
+    # REGRESSION: `set_active` used to rebuild a fresh `Campaign(...)` without carrying
+    # `beneficiary_eligibility`/`beneficiary_max_visits` at all — every pause/resume silently
+    # reset a shop's real "open"/"max_visits" choice back to the dataclass default "new"/0,
+    # exactly the failure `test_cap_scope_survives_set_active_unchanged` above already guards
+    # cap_scope against. A shop that paused and resumed a campaign would have had its real
+    # eligibility setting quietly rewritten to something it never chose.
+    svc = _svc()
+    c = run(svc.create(TENANT, mode=MODE_ONCE, reward_type=REWARD_FIXED_POINTS,
+                       reward_params={"points": 50}, beneficiary_eligibility="max_visits",
+                       beneficiary_max_visits=7, **_WIN_WIN))
+    updated = run(svc.set_active(TENANT, c.id, active=False))
+    assert updated.beneficiary_eligibility == "max_visits"
+    assert updated.beneficiary_max_visits == 7
+    resumed = run(svc.set_active(TENANT, c.id, active=True))
+    assert resumed.beneficiary_eligibility == "max_visits"
+    assert resumed.beneficiary_max_visits == 7
+    # AND THE STORE ITSELF, not just the in-memory return value — `to_dict()` must have been
+    # given the real values too, or a fresh `get()` after set_active would read the default back.
+    reread = run(svc.get(TENANT, c.id))
+    assert reread is not None
+    assert reread.beneficiary_eligibility == "max_visits"
+    assert reread.beneficiary_max_visits == 7
+
+
 def test_an_old_campaign_row_missing_cap_scope_defaults_to_campaign_on_read():
     # A row written before this field existed — `from_dict` must default it to "campaign", the
     # exact behaviour that row already had, never a silent change underneath it.

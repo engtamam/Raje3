@@ -148,6 +148,8 @@ class CampaignService:
             new_customer_reward_type=campaign.new_customer_reward_type,
             new_customer_reward_params=campaign.new_customer_reward_params,
             active=bool(active), created_ns=campaign.created_ns, cap_scope=campaign.cap_scope,
+            beneficiary_eligibility=campaign.beneficiary_eligibility,
+            beneficiary_max_visits=campaign.beneficiary_max_visits,
         )
         await self._store.put(CAMPAIGNS, campaign.id, updated.to_dict())
         return updated

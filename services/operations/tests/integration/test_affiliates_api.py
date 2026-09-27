@@ -223,3 +223,56 @@ def test_settlements_list_starts_empty_for_a_real_affiliate(client):
                    headers=_auth(tenant="shop-settle3"))
     assert r.status_code == 200
     assert r.json()["settlements"] == []
+
+
+# ── beneficiary eligibility, through the real route (owner instruction, 2026-09-27) ─────────────
+def test_absent_eligibility_defaults_to_new_through_the_real_route(client):
+    created = client.post("/api/v1/affiliates", json=_affiliate_body(phone="0561111111",
+                                                                      code="ELIG1"),
+                          headers=_auth(tenant="shop-elig1")).json()
+    assert created["beneficiary_eligibility"] == "new"
+    assert created["beneficiary_max_visits"] == 0
+
+
+def test_max_visits_eligibility_round_trips_through_the_real_route(client):
+    created = client.post(
+        "/api/v1/affiliates",
+        json=_affiliate_body(phone="0562222222", code="ELIG2",
+                             beneficiary_eligibility="max_visits", beneficiary_max_visits=4),
+        headers=_auth(tenant="shop-elig2")).json()
+    assert created["beneficiary_eligibility"] == "max_visits"
+    assert created["beneficiary_max_visits"] == 4
+    got = client.get(f"/api/v1/affiliates/{created['id']}", headers=_auth(tenant="shop-elig2"))
+    assert got.json()["beneficiary_eligibility"] == "max_visits"
+    assert got.json()["beneficiary_max_visits"] == 4
+
+
+def test_an_unknown_eligibility_value_is_a_400_not_a_500(client):
+    r = client.post("/api/v1/affiliates",
+                    json=_affiliate_body(phone="0563333333", code="ELIG3",
+                                         beneficiary_eligibility="whatever"),
+                    headers=_auth(tenant="shop-elig3"))
+    assert r.status_code == 400
+    assert r.json()["error"] == "BAD_REQUEST"
+
+
+def test_a_negative_max_visits_is_a_422_at_the_route_boundary(client):
+    r = client.post("/api/v1/affiliates",
+                    json=_affiliate_body(phone="0564444444", code="ELIG4",
+                                         beneficiary_eligibility="max_visits",
+                                         beneficiary_max_visits=-1),
+                    headers=_auth(tenant="shop-elig4"))
+    assert r.status_code == 422
+
+
+def test_two_affiliates_at_the_same_shop_keep_independent_eligibility_through_real_http(client):
+    a1 = client.post("/api/v1/affiliates",
+                     json=_affiliate_body(phone="0565555555", code="ELIG5A",
+                                          beneficiary_eligibility="open"),
+                     headers=_auth(tenant="shop-elig5")).json()
+    a2 = client.post("/api/v1/affiliates",
+                     json=_affiliate_body(phone="0566666677", code="ELIG5B",
+                                          beneficiary_eligibility="new"),
+                     headers=_auth(tenant="shop-elig5")).json()
+    assert a1["beneficiary_eligibility"] == "open"
+    assert a2["beneficiary_eligibility"] == "new"
