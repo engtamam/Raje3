@@ -237,6 +237,46 @@ once told to stop, proving the stop is event-gated, not a sleep the caller has t
 simulator suite: 76 passed. All three platform-scale pieces (fleet, population, noise) are
 complete; resuming work on adding more apps is the next item, not part of this initial build.
 
+## Visit recording wired in (`apps/operations/` — same real service, a different one of its doors)
+
+`RecordVisitAction`/`RecordUniqueVisitAction` (`apps/operations/actions.py`) drive
+`POST /api/v1/field/visits` (services/operations/app/api/v1/field.py) — "this endpoint is the
+product, as far as the shop floor is concerned" in that route's own words, and the human-operator
+door, distinct from `till.py`'s machine-credential door already covered by the branches/staff
+module. `service_ids` needs no real catalogue entry to work here: the field door only ever refuses
+an EMPTY list or a blank id (`allow_unknown_services` stays False on this path in
+core/operations.py) — a made-up id is simply priced at 0, exactly like a shop that typed a
+service's name before saving its catalogue row.
+
+Proven for real (`tests/test_stage11_visits.py`): a visit round-trips a genuine customer and visit
+record (phone normalised to E.164 by the real service, not echoed raw); an empty service list is
+refused cleanly (HTTP 422 from `VisitIn`'s own `min_length=1`, never a crash); the SAME
+idempotency-key race this project already proved once for referrals holds here too — 12 concurrent
+callers recording the identical sale under one key get back the SAME visit id, never 12 counted
+visits for one customer who tapped save once; and a load run of 40 independent new-customer visits
+reports a clean 0% error rate. Full simulator suite: 80 passed.
+
+## Mobile/on-the-go service-request queue wired in (`apps/operations/mobile_requests_actions.py`)
+
+A technician sent TO the customer rather than the customer coming to the shop
+(`app/api/v1/mobile_requests.py`) — the shop's own manual create door plus the full review-queue
+lifecycle: create → assign → accept/reject → complete/no-show. Two capability tiers, matched
+exactly as that route file's own docstring describes: `operations.mobile_requests_manage` (the
+full queue, any request) and `operations.mobile_requests_execute` (a field operator's scoped half
+— list and complete/no-show only their OWN assigned request, enforced server-side via
+`expected_assignee`, never trusted from the caller's own claimed identity). Every action here takes
+an explicit `caller_subject`/`caller_caps` (the same shape `ListOperatorsAction` already uses) —
+this queue's whole design is WHO is calling, so proving the manager/execute split apart needs a
+different identity per call, never one fixed one.
+
+Proven for real (`tests/test_stage12_mobile_requests.py`, 6 tests): the full lifecycle from create
+through complete records a genuine Visit with its own visit id; a rejected request refuses a later
+accept rather than allowing it; a no-show never carries a visit id; an execute-tier operator can
+complete only their OWN assigned request — a DIFFERENT operator's attempt on the same request is
+refused, not silently no-op'd; two operators each assigned a different request see only their own
+in `list`, never each other's; and a manager sees everything regardless. Full simulator suite: 86
+passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,

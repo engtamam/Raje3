@@ -96,6 +96,70 @@ class RegisterUniqueReferralAction:
 
 
 @dataclass
+class RecordVisitAction:
+    """The shop floor's own action: `POST /api/v1/field/visits` (services/operations/app/api/v1/
+    field.py::record_visit) — "this endpoint is the product, as far as the shop floor is
+    concerned" in that route's own words. Unlike the till door (`till.py`), a human operator is
+    NEVER required to send an `idempotency_key` — see that route's own comment on why a human
+    retyping the same visit twice is recording a second real visit, not a retry.
+
+    `service_ids` needs no real catalogue entry to work here: the field door only rejects an EMPTY
+    list or a blank id (core/operations.py::record_visit, `allow_unknown_services` stays False on
+    this path) — a made-up id is simply priced at 0 and recorded as-is, exactly like a shop that
+    added a service today and typed its name before saving the catalogue row."""
+
+    base_url: str
+    tenant: str
+    phone: str
+    service_ids: list[str] = field(default_factory=lambda: ["svc-simulated"])
+    branch_id: str = ""
+    idempotency_key: str = ""
+    name: str = "record_visit"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        body: dict[str, Any] = {"phone": self.phone, "service_ids": self.service_ids}
+        if self.branch_id:
+            body["branch_id"] = self.branch_id
+        if self.idempotency_key:
+            body["idempotency_key"] = self.idempotency_key
+        headers = auth_header(tenant=self.tenant, caps=("operations.record",))
+        async with httpx.AsyncClient() as client:
+            r = await client.post(f"{self.base_url}/api/v1/field/visits", json=body,
+                                  headers=headers, timeout=10.0)
+        if r.status_code != 201:
+            return ActionResult(ok=False, detail=f"record_visit: unexpected HTTP {r.status_code} "
+                                                  f"{r.text}")
+        payload = r.json()
+        # `record_visit` is one of this route's own "returned, not raised" refusals — a business
+        # rule failing (an empty phone, no service chosen) still answers HTTP 201 with
+        # `{"recorded": False, ...}` rather than a 4xx (see that route's own comment on why: the
+        # platform strips a raised HTTPException's detail, and the reason IS the whole answer).
+        if "recorded" in payload and payload["recorded"] is False:
+            return ActionResult(ok=False, detail=payload.get("reason") or "recording refused",
+                                data=payload)
+        return ActionResult(ok=True, detail="visit recorded", data=payload)
+
+
+@dataclass
+class RecordUniqueVisitAction:
+    """Stage-8-style load variant: a fresh, random customer phone on every invocation, so N calls
+    represent N independent new customers — never N callers racing to record the SAME visit twice
+    (that is `RecordVisitAction`'s own idempotency-key job). Composes `RecordVisitAction` rather
+    than duplicating its own HTTP logic, the same pattern `RegisterUniqueReferralAction` uses."""
+
+    base_url: str
+    tenant: str
+    branch_id: str = ""
+    name: str = "record_visit_unique"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        phone = f"05{random.randint(10_000_000, 99_999_999)}"
+        inner = RecordVisitAction(base_url=self.base_url, tenant=self.tenant, phone=phone,
+                                  branch_id=self.branch_id)
+        return await inner.run(ctx)
+
+
+@dataclass
 class CreateBranchAction:
     """The owner's own action: `POST /api/v1/staff/branches` (services/operations/app/api/v1/
     staff.py). The tenant's first-ever branch call also silently creates its own "main" branch
