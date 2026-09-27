@@ -117,3 +117,91 @@ def test_missing_required_fields_is_a_422_not_a_500(client_and_engine):
     client, _ = client_and_engine
     r = client.post("/api/v1/till/referral/register", json={}, headers=_auth(tenant=TENANT))
     assert r.status_code == 422
+
+
+def test_a_credential_missing_operations_record_is_403(client_and_engine):
+    client, engine = client_and_engine
+    now = dt.datetime.now(dt.timezone.utc)
+    tok = jwt.encode({"sub": "someone", "iss": ISS, "aud": AUD, "caps": ["something.else"],
+                      "tenant": TENANT, "exp": now + dt.timedelta(minutes=5), "iat": now},
+                     SECRET, algorithm="HS256")
+    r = client.post("/api/v1/till/referral/register", json={"code": "AB123", "phone": "0501234567"},
+                    headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 403
+    assert engine.calls == []
+
+
+def test_an_oversized_code_is_a_422_not_forwarded_to_the_engine(client_and_engine):
+    client, engine = client_and_engine
+    r = client.post("/api/v1/till/referral/register",
+                    json={"code": "X" * 17, "phone": "0501234567"}, headers=_auth(tenant=TENANT))
+    assert r.status_code == 422
+    assert engine.calls == []
+
+
+def test_an_oversized_phone_is_a_422_not_forwarded_to_the_engine(client_and_engine):
+    client, engine = client_and_engine
+    r = client.post("/api/v1/till/referral/register",
+                    json={"code": "AB123", "phone": "0" * 33}, headers=_auth(tenant=TENANT))
+    assert r.status_code == 422
+    assert engine.calls == []
+
+
+def test_a_negative_invoice_minor_is_a_422_not_forwarded_to_the_engine(client_and_engine):
+    client, engine = client_and_engine
+    r = client.post("/api/v1/till/referral/register",
+                    json={"code": "AB123", "phone": "0501234567", "invoice_minor": -1},
+                    headers=_auth(tenant=TENANT))
+    assert r.status_code == 422
+    assert engine.calls == []
+
+
+def test_a_code_shaped_like_an_injection_attempt_reaches_the_engine_as_inert_text(
+        client_and_engine):
+    # Nothing downstream treats `code` as anything but an opaque string key (see
+    # adapters/referrals_desk.py's own docstring) — this proves the till route itself does no
+    # parsing/interpolation of it either; a hostile-looking string is just refused like any other
+    # unknown code, never a crash.
+    client, engine = client_and_engine
+    engine.refuse_with = "كود الإحالة غير صالح"
+    hostile = "1' OR '1'='1"  # 12 chars — stays within the code's own max_length=16
+    r = client.post("/api/v1/till/referral/register",
+                    json={"code": hostile, "phone": "0501234567"}, headers=_auth(tenant=TENANT))
+    assert r.status_code == 200
+    assert r.json()["ok"] is False
+    assert engine.calls[0]["code"] == hostile
+
+
+def test_a_tenant_cannot_register_a_code_against_another_tenant_via_the_body(client_and_engine):
+    # The route only ever reads the tenant off the VERIFIED principal (`principal.tenant`) — a
+    # request body has no tenant field at all for a caller to smuggle a different one through.
+    client, engine = client_and_engine
+    r = client.post("/api/v1/till/referral/register",
+                    json={"code": "AB123", "phone": "0501234567", "tenant": "someone-elses-shop"},
+                    headers=_auth(tenant=TENANT))
+    assert r.status_code == 200
+    assert engine.calls[0]["tenant"] == TENANT
+
+
+def test_register_attempt_is_audited_on_both_success_and_refusal(client_and_engine):
+    client, engine = client_and_engine
+
+    recorded: list[dict] = []
+
+    class FakeAuditor:
+        async def record(self, action, **kw):
+            recorded.append({"action": action, **kw})
+
+    client.app.state.auditor = FakeAuditor()
+
+    r1 = client.post("/api/v1/till/referral/register",
+                     json={"code": "AB123", "phone": "0501234567"}, headers=_auth(tenant=TENANT))
+    assert r1.status_code == 200
+
+    engine.refuse_with = "كود الإحالة غير صالح"
+    r2 = client.post("/api/v1/till/referral/register",
+                     json={"code": "ZZZZZ", "phone": "0501234567"}, headers=_auth(tenant=TENANT))
+    assert r2.status_code == 200
+
+    actions = [r["action"] for r in recorded]
+    assert actions.count("referral.register_attempt") == 2

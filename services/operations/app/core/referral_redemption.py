@@ -54,6 +54,16 @@ from app.core.signup import canonical_phone
 from app.core.stores import CustomerStore, new_id
 
 GRANTS = "referral_redemption_grants"
+# THE RACE `register()` CLOSES WITH IT: two concurrent calls for the SAME never-before-seen
+# beneficiary phone (a fast double-tap, a retried request racing the original — the exact same
+# defect class `core/offer_lock.py::OfferApplyLock` closes for `apply_offer`, ported here on the
+# datastore's own `claim()` instead of the cache, since this engine holds no cache reference) would
+# otherwise both pass the "any pending grant?" read before either has written one, and both create
+# their own grant — an orphaned duplicate that never counts against the referrer's usage cap and
+# never gets picked up by `eligibility()` (which only ever reads the newest). Short TTL: it only
+# needs to outlive one peer HTTP round trip (referrer lookup + active campaign) plus one write.
+_REGISTER_LOCK = "referral_redemption_register_lock"
+_REGISTER_LOCK_TTL_SECONDS = 5
 
 REWARD_FIXED_POINTS = "fixed_points"
 REWARD_INVOICE_PERCENTAGE = "invoice_percentage"
@@ -173,6 +183,24 @@ class ReferralRedemptionEngine:
         if existing is not None:
             return existing
 
+        # SERIALISE THE "NO PENDING GRANT YET, CREATE ONE" PATH — see this module's own
+        # `_REGISTER_LOCK` note. A caller that loses the claim is a genuine concurrent collision,
+        # not a data problem; it is told to retry, exactly like `OfferApplyBusy` tells a caller
+        # racing `apply_offer`.
+        won = await self._s.claim(_REGISTER_LOCK, f"{tenant}|{canon_beneficiary}",
+                                  {"actor": actor}, ttl_seconds=_REGISTER_LOCK_TTL_SECONDS,
+                                  now=time.time())
+        if not won:
+            raise ReferralRedemptionError(
+                "جارٍ تسجيل كود لهذا العميل الآن — أعد المحاولة بعد لحظة")
+
+        # RE-CHECK INSIDE THE CLAIM — the racer that just lost it may have been the one that
+        # actually finished first; trusting the read from before the claim was won would create
+        # the exact duplicate the claim exists to prevent.
+        existing = await self._pending_for_beneficiary(tenant, canon_beneficiary)
+        if existing is not None:
+            return existing
+
         try:
             referrer_phone = await self._referrals.lookup_code(code)
         except ReferralsPeerUnavailable as exc:
@@ -182,7 +210,17 @@ class ReferralRedemptionEngine:
             raise ReferralRedemptionError("كود الإحالة غير صالح")
 
         canon_referrer = canonical_phone(referrer_phone, default_cc=self._cc)
-        if canon_referrer and canon_referrer == canon_beneficiary:
+        if not canon_referrer:
+            # NEVER an anonymous referrer. A referrer phone that fails to canonicalize would
+            # otherwise fall through with `referrer_phone=""` — `_enforce_usage_cap` skips its
+            # own check entirely for an empty phone (nothing to count against), which would turn
+            # one malformed record into an uncapped, uncredited discount mill: every registration
+            # against it grants the NEW customer's own reward for free with no referrer on the
+            # hook and no cap ever triggering. Refusing outright is the only safe answer to data
+            # this shape, exactly the same "refuse, do not guess" posture the referrer lookup
+            # itself already takes for an unreadable peer.
+            raise ReferralRedemptionError("كود الإحالة غير صالح")
+        if canon_referrer == canon_beneficiary:
             raise ReferralRedemptionError("لا يمكن للعميل استخدام كوده الخاص")
 
         try:
