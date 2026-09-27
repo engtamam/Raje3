@@ -169,6 +169,7 @@ class ManualCreateIn(BaseModel):
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
     operator_id: str = Field(default="", max_length=200)
+    referral_code: str = Field(default="", max_length=16)
 
 
 @router.post("", dependencies=[Depends(rate_limit)])
@@ -193,7 +194,7 @@ async def create_mobile_request(request: Request, body: ManualCreateIn,
         row = await svc.create(
             tenant=tenant, phone=body.phone, customer_name=body.customer_name,
             service_ids=body.service_ids, requested_time=body.requested_time,
-            lat=body.lat, lng=body.lng)
+            lat=body.lat, lng=body.lng, referral_code=body.referral_code)
         if body.operator_id:
             row = await svc.assign(tenant, row.id, operator_id=body.operator_id)
     except MobileRequestError as exc:

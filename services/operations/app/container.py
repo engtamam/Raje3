@@ -398,6 +398,10 @@ def build_container(settings: Settings) -> Container:
         store=container.datastore, referrals_desk=container.referrals_desk,
         loyalty_desk=container.loyalty_desk, pii_salt=settings.PII_SALT,
         default_cc=settings.SIGNUP_PHONE_DEFAULT_CC, affiliates=container.affiliates)
+    # THE WALK-IN DOOR ONTO THE SAME ENGINE — a visit recorded with no till involved at all is now
+    # able to register a new customer's referral code too, not just an integrated till's own
+    # `/referral/register` route. See `Operations.with_referral_redemption_engine`'s own docstring.
+    container.operations.with_referral_redemption_engine(container.referral_redemption)
 
     # PHASE 5a — read-only performance reporting over the same grants/affiliate rows above.
     from app.core.referral_reports import ReferralReportService

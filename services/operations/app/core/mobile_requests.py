@@ -142,6 +142,11 @@ class MobileServiceRequest:
     # never an engine deciding for them). The operator id `assign()` set it to, or "" (unassigned
     # — visible to every manager, to no plain operator). See `assign()`'s own docstring.
     assigned_to: str = ""
+    # A NEW CUSTOMER'S REFERRAL CODE, offered when the request was submitted — the only moment a
+    # customer booking a mobile-service request ever types one in. Carried on the ROW (not just
+    # passed straight through) so it survives until `complete()` actually turns this into a real
+    # visit, which may be days after the code was offered.
+    referral_code: str = ""
 
     @property
     def maps_url(self) -> str:
@@ -207,7 +212,7 @@ class MobileRequestService:
     # ── creation — the WhatsApp bot's own door ─────────────────────────────────────────────────
     async def create(self, *, tenant: str, phone: str, customer_name: str,
                      service_ids: list[str], requested_time: int,
-                     lat: float, lng: float) -> MobileServiceRequest:
+                     lat: float, lng: float, referral_code: str = "") -> MobileServiceRequest:
         phone = canonical_phone(phone, default_cc=self._cc)
         if not phone:
             raise MobileRequestError("رقم الجوال غير صحيح.")
@@ -224,7 +229,7 @@ class MobileRequestService:
             id=f"mreq_{uuid.uuid4().hex}", tenant=tenant, phone=phone,
             customer_name=customer_name[:128], service_ids=list(service_ids),
             requested_time=int(requested_time), lat=float(lat), lng=float(lng),
-            status=PENDING, created=now)
+            status=PENDING, created=now, referral_code=(referral_code or "").strip()[:16])
         await self._s.put(MOBILE_REQUESTS, f"{tenant}|{row.id}",
                           {"tenant_key": tenant, **asdict(row)})
         return row
@@ -316,7 +321,8 @@ class MobileRequestService:
         recorded = await self._ops.record_visit(
             tenant=tenant, phone=row.phone, service_ids=row.service_ids,
             name=row.customer_name, occurred_at=occurred_at or _now(),
-            idempotency_key=f"mreq:{row.id}", note=row.note)
+            idempotency_key=f"mreq:{row.id}", note=row.note,
+            referral_code=row.referral_code)
         # SAME "not already seamed" GUARD api/v1/field.py's OWN route uses — a duplicate-key retry
         # (idempotency_key above) returns the SAME already-recorded visit, and re-running its seams
         # a second time would re-publish `visit.recorded` and re-schedule its own rating request.

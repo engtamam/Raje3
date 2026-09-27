@@ -80,6 +80,11 @@ class VisitIn(BaseModel):
     # (so the visit still shows what was actually done); this is purely the attribution loyalty
     # reads to price the visit by the package's own point value instead of summing components.
     package_id: str = Field(default="", max_length=64)
+    # A NEW CUSTOMER'S REFERRAL CODE — the same "type it in once, at the counter" door the
+    # integrated till's own `/referral/register` already has, now open to a walk-in visit too.
+    # Ignored (never even attempted) unless this call actually creates a new customer — see
+    # `Operations.record_visit`'s own referral hook.
+    referral_code: str = Field(default="", max_length=16)
     # OPTIONAL, and blank is a real value — a required name produces "عميل" and "." and "ااا",
     # which are worse than blank because an invented name becomes a greeting in a real message.
     name: str = Field(default="", max_length=128)
@@ -214,7 +219,8 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
             plate=body.plate, operator_id=operator_id, branch_id=body.branch_id,
             meter=body.meter, note=body.note, custom_service=body.custom_service,
             idempotency_key=body.idempotency_key, occurred_at=body.occurred_at,
-            package_id=package_id, quantities=body.quantities)
+            package_id=package_id, quantities=body.quantities,
+            referral_code=body.referral_code)
     except OperationError as exc:
         # RETURNED, NOT RAISED — the third time this file says it, and the one place it was not
         # done. The plate refusal above and the offer refusal below both return; this raised, and
@@ -270,6 +276,8 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
           "created_customer": result.created_customer, "duplicate": result.duplicate}
     if coupon_result is not None:
         out["coupon_attempt"] = coupon_result.public()
+    if result.referral_registration is not None:
+        out["referral_registration"] = result.referral_registration
 
     # THE COUNTER'S OWN CELEBRATION MOMENT — `None` on every ordinary visit; a real grant only on
     # the rare one that just made this customer eligible for a NEW partner reward (owner's own
@@ -606,6 +614,10 @@ async def customer_by_phone(request: Request, phone: str,
 class EnsureCustomerIn(BaseModel):
     phone: str = Field(min_length=1, max_length=32)
     name: str = Field(default="", max_length=128)
+    # A NEW CUSTOMER'S REFERRAL CODE — the real "new customer" moment for a booking (see
+    # `Operations.ensure_customer`'s own docstring): the console's new-booking dialog calls this
+    # route BEFORE it has a `customer_id`, which is the only time this customer ever types one in.
+    referral_code: str = Field(default="", max_length=16)
 
 
 @router.post("/customers/ensure", dependencies=[Depends(subscribed_write_or_customer_creating_app), Depends(rate_limit)])
@@ -630,7 +642,9 @@ async def ensure_customer(request: Request, body: EnsureCustomerIn, background: 
     not waiting on a search index write to get his `customer_id` back.
     """
     try:
-        c = await _svc(request).ensure_customer(_tenant(principal), body.phone, body.name)
+        c, referral_registration = await _svc(request).ensure_customer(
+            _tenant(principal), body.phone, body.name,
+            referral_code=body.referral_code, actor=principal.subject)
     except OperationError as exc:
         # RETURNED, NOT RAISED — same rule as `record_visit` above: the platform strips
         # HTTPException detail on the way out (CWE-209 by design), and the console dialog calling
@@ -639,7 +653,10 @@ async def ensure_customer(request: Request, body: EnsureCustomerIn, background: 
     seams = request.app.state.container.seams
     background.add_task(seams.index_customer_row, tenant=_tenant(principal), customer_id=c.id,
                         phone=c.phone, name=c.name, plates=[])
-    return {"customer": {**c.public(), "subject_ref": c.subject_ref}}
+    out = {"customer": {**c.public(), "subject_ref": c.subject_ref}}
+    if referral_registration is not None:
+        out["referral_registration"] = referral_registration
+    return out
 
 
 class ResolveIn(BaseModel):

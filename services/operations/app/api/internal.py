@@ -1255,6 +1255,9 @@ class MobileServiceRequestIn(BaseModel):
     requested_time: int = Field(gt=0)
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
+    # A NEW CUSTOMER'S REFERRAL CODE, if the bot's own conversation collected one — carried
+    # through to `complete()` later, since this request may not turn into a real visit for days.
+    referral_code: str = Field(default="", max_length=16)
 
 
 @router.post("/operations/mobile-requests", dependencies=[Depends(require_internal_token)])
@@ -1286,7 +1289,7 @@ async def internal_create_mobile_request(request: Request, body: MobileServiceRe
         row = await c.mobile_requests.create(
             tenant=body.tenant, phone=body.phone, customer_name=body.customer_name,
             service_ids=body.service_ids, requested_time=body.requested_time,
-            lat=body.lat, lng=body.lng)
+            lat=body.lat, lng=body.lng, referral_code=body.referral_code)
     except MobileRequestError as exc:
         # RETURNED, NOT RAISED — same rule the visit routes around it follow: whatsapp-assistant's
         # own conversation needs a real sentence to relay back to the customer, not a stripped
@@ -2130,6 +2133,11 @@ async def read_branch_operators(request: Request, body: BranchOperatorsIn) -> di
 class CustomerIdByPhoneIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     phone: str = Field(min_length=1, max_length=32)
+    # A NEW CUSTOMER'S REFERRAL CODE — the WhatsApp booking Flow's own real "new customer" moment
+    # (see `Operations.ensure_customer`'s own docstring): this route resolves-or-creates the
+    # customer BEFORE bookings' `create()` ever runs, so this is the only time this customer ever
+    # types a code in for a booking made over WhatsApp.
+    referral_code: str = Field(default="", max_length=16)
 
 
 @router.post("/operations/customer-id-by-phone", dependencies=[Depends(require_internal_token)])
@@ -2155,7 +2163,9 @@ async def customer_id_by_phone(request: Request, body: CustomerIdByPhoneIn,
         # docstring above), so every row it creates genuinely first reached this shop over
         # WhatsApp. An already-existing customer keeps his real original source (Customer.source's
         # own docstring), so a return visitor resolved here through a booking never gets relabeled.
-        cust = await c.operations.ensure_customer(body.tenant, body.phone, source="whatsapp")
+        cust, referral_registration = await c.operations.ensure_customer(
+            body.tenant, body.phone, source="whatsapp",
+            referral_code=body.referral_code, actor="whatsapp")
     except OperationError as exc:
         return {"customer_id": "", "reason": str(exc)}
     # SAME BACKGROUND SEAM `/api/v1/field/customers/ensure` fires — a customer resolved here for
@@ -2163,7 +2173,10 @@ async def customer_id_by_phone(request: Request, body: CustomerIdByPhoneIn,
     # not only after his first attended visit (see that route's own note on this exact gap).
     background.add_task(c.seams.index_customer_row, tenant=body.tenant, customer_id=cust.id,
                         phone=cust.phone, name=cust.name, plates=[])
-    return {"customer_id": cust.id, "subject_ref": cust.subject_ref}
+    out = {"customer_id": cust.id, "subject_ref": cust.subject_ref}
+    if referral_registration is not None:
+        out["referral_registration"] = referral_registration
+    return out
 
 
 @router.post("/operations/operators", dependencies=[Depends(require_internal_token)])
