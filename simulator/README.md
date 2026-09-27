@@ -172,6 +172,31 @@ a new unit test on `branch_scope` itself constructing the exact shape a stop lea
 correctly (`test_operator_api.py`) — 290 existing operations tests re-run clean, full suite green
 (2599 passed), `check_deploy_wiring.py` clean.
 
+## Platform-scale infrastructure, piece 1 — running a fleet of real services together
+
+Before adding more apps, the platform itself needs to feel real: many real services running
+together, wired to each other automatically, so a new app plugs into a busy platform instead of an
+empty sandbox. Piece 1 of that (a bulk tenant/population generator and real background "noise"
+activity are pieces 2 and 3, not yet built): `common/fleet.py`.
+
+Every `apps/<name>/service.py::spawn(*, port=None, extra_env=None)` already exists — a fleet is
+just a list of `ServiceSpec(name, spawn, needs={ENV_VAR: "other service's name"}, extra_env={...})`.
+`run_fleet` topologically sorts them (a post-order DFS — `FleetCycleError`/
+`FleetUnknownDependencyError` refused up front, before anything spawns, never discovered as a
+missing env var deep inside some other service's own boot failure), spawns each only once every
+service it needs is already up and healthy, resolves each `needs` entry to that dependency's real
+`base_url` automatically, and tears every one down together in reverse order the moment the
+fleet's own `with` block exits — success, failure, or an exception raised inside it, the same
+teardown guarantee `environment.py::run_service` already gives one process, extended to however
+many a scenario asks for.
+
+Proven against the same two real services `test_stage10_branches.py` already wired by hand
+(identity + operations): the fleet-wired pair hires a real member end to end through
+`IDENTITY_SERVICE_URL` resolved automatically, with none of that manual base_url-passing
+(`tests/test_platform_fleet.py`, 5 tests — the happy path, partial-teardown-on-failure via a
+side-channel wrapper since a failing `__aenter__` never binds `fleet` in the caller's `with` body,
+unknown-dependency refusal, cycle refusal, and a fleet of one). Full simulator suite: 72 passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
