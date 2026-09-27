@@ -125,6 +125,16 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
     await Share.share('استخدم كود الإحالة "${row.code}" عند زيارتك القادمة واحصل على مكافأتك!');
   }
 
+  Future<void> _openAddAffiliateSheet() async {
+    final added = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AffiliateWizardSheet(service: _service),
+    );
+    if (added == true && mounted) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     // SCREEN-LEVEL GATE, HIDE NOT DISABLE — same precedent points_screen.dart's own FAB uses,
@@ -181,7 +191,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
             if (_tab == _Tab.campaign)
               ..._campaignSlivers(canManage, campaign)
             else
-              ..._leaderboardSlivers(),
+              ..._leaderboardSlivers(canManage),
           ],
         ),
       ),
@@ -229,7 +239,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
     ];
   }
 
-  List<Widget> _leaderboardSlivers() {
+  List<Widget> _leaderboardSlivers(bool canManage) {
     if (_leaderboardForbidden) {
       return const [
         SliverPadding(
@@ -258,6 +268,23 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
           sliver: SliverToBoxAdapter(child: _LeaderboardCard(rows: _leaderboard!)),
+        ),
+      if (canManage)
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+          sliver: SliverToBoxAdapter(
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: KbAnchor(
+                id: 'referrals.add_affiliate_button',
+                child: OutlinedButton.icon(
+                  onPressed: _openAddAffiliateSheet,
+                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                  label: const Text('مسوّق جديد'),
+                ),
+              ),
+            ),
+          ),
         ),
       if (_affiliates!.isNotEmpty)
         SliverPadding(
@@ -721,6 +748,11 @@ class _CampaignWizardSheetState extends State<_CampaignWizardSheet> {
   final _newCustomerPointsController = TextEditingController(text: '20');
   final _newCustomerPercentController = TextEditingController(text: '10');
 
+  // WHO MAY REDEEM (owner instruction, 2026-09-27) — a real, independent question from `_mode`
+  // above (that caps how many times the REFERRER's own code pays out).
+  String _eligibility = kEligibilityNew;
+  final _eligibilityMaxVisitsController = TextEditingController(text: '1');
+
   bool _saving = false;
   String? _error;
 
@@ -732,6 +764,7 @@ class _CampaignWizardSheetState extends State<_CampaignWizardSheet> {
     _rewardPercentController.dispose();
     _newCustomerPointsController.dispose();
     _newCustomerPercentController.dispose();
+    _eligibilityMaxVisitsController.dispose();
     super.dispose();
   }
 
@@ -762,6 +795,9 @@ class _CampaignWizardSheetState extends State<_CampaignWizardSheet> {
       usageCapPeriod: _capPeriod,
       usageCapLimit: int.tryParse(_capLimitController.text.trim()) ?? 0,
       capScope: _capScope,
+      beneficiaryEligibility: _eligibility,
+      beneficiaryMaxVisits: _eligibility == kEligibilityMaxVisits
+          ? (int.tryParse(_eligibilityMaxVisitsController.text.trim()) ?? 1) : 0,
     );
     if (!mounted) return;
     if (reason == null) {
@@ -958,6 +994,190 @@ class _CampaignWizardSheetState extends State<_CampaignWizardSheet> {
                 decoration: const InputDecoration(isDense: true, hintText: 'عدد النقاط'),
               ),
       ),
+      const SizedBox(height: AppSpacing.lg),
+      const Divider(),
+      const SizedBox(height: AppSpacing.sm),
+      Text('من يقدر يستخدم الكود', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
+      const SizedBox(height: AppSpacing.xs),
+      KbAnchor(
+        id: 'referrals.wizard_eligibility',
+        child: SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: kEligibilityNew, label: Text('عميل جديد')),
+            ButtonSegment(value: kEligibilityMaxVisits, label: Text('عدد زيارات')),
+            ButtonSegment(value: kEligibilityOpen, label: Text('مفتوح')),
+          ],
+          selected: {_eligibility},
+          onSelectionChanged: (v) => setState(() => _eligibility = v.first),
+        ),
+      ),
+      if (_eligibility == kEligibilityMaxVisits) ...[
+        const SizedBox(height: AppSpacing.sm),
+        TextField(
+          controller: _eligibilityMaxVisitsController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(isDense: true, hintText: 'أقصى عدد زيارات مسموح'),
+        ),
+      ],
     ];
+  }
+}
+
+/// The marketer/influencer tier's own add sheet — the backend route (`POST /api/v1/affiliates`,
+/// `affiliate.add`) already existed with zero mobile UI before this. [appSheetMaxHeight] exactly
+/// like every other sheet in this app. AN AFFILIATE'S TERMS ARE FULLY INDEPENDENT OF ANY CAMPAIGN
+/// (core/affiliates.py's own module docstring) — this sheet never reads or touches a campaign.
+class _AffiliateWizardSheet extends StatefulWidget {
+  const _AffiliateWizardSheet({required this.service});
+  final ReferralsService service;
+
+  @override
+  State<_AffiliateWizardSheet> createState() => _AffiliateWizardSheetState();
+}
+
+class _AffiliateWizardSheetState extends State<_AffiliateWizardSheet> {
+  final _phoneController = TextEditingController();
+  final _codeController = TextEditingController();
+  final _discountController = TextEditingController(text: '15');
+
+  String _rewardType = kAffiliateRewardFixedPoints;
+  final _rewardPointsController = TextEditingController(text: '40');
+  final _rewardPercentController = TextEditingController(text: '10');
+
+  String _eligibility = kEligibilityNew;
+  final _eligibilityMaxVisitsController = TextEditingController(text: '1');
+
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _codeController.dispose();
+    _discountController.dispose();
+    _rewardPointsController.dispose();
+    _rewardPercentController.dispose();
+    _eligibilityMaxVisitsController.dispose();
+    super.dispose();
+  }
+
+  Map<String, dynamic> get _rewardParams => _rewardType == kAffiliateRewardInvoicePercentage
+      ? {'percent': int.tryParse(_rewardPercentController.text.trim()) ?? 0}
+      : {'points': int.tryParse(_rewardPointsController.text.trim()) ?? 0};
+
+  Future<void> _submit() async {
+    setState(() { _saving = true; _error = null; });
+    final reason = await widget.service.addAffiliate(
+      phone: _phoneController.text.trim(),
+      code: _codeController.text.trim(),
+      discountPercent: int.tryParse(_discountController.text.trim()) ?? 0,
+      rewardType: _rewardType,
+      rewardParams: _rewardParams,
+      beneficiaryEligibility: _eligibility,
+      beneficiaryMaxVisits: _eligibility == kEligibilityMaxVisits
+          ? (int.tryParse(_eligibilityMaxVisitsController.text.trim()) ?? 1) : 0,
+    );
+    if (!mounted) return;
+    if (reason == null) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    setState(() { _saving = false; _error = reason.isNotEmpty ? reason : 'تعذّر إضافة المسوّق'; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: Container(
+        constraints: BoxConstraints(maxHeight: appSheetMaxHeight(context)),
+        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xl),
+        decoration: const BoxDecoration(
+          color: AppColors.surface1,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.card)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('مسوّق جديد', style: AppTextStyles.headlineSmall),
+              const SizedBox(height: AppSpacing.lg),
+              TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(isDense: true, hintText: 'جوال المسوّق'),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: _codeController,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(isDense: true, hintText: 'كوده الخاص'),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: _discountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(isDense: true, hintText: 'خصم العميل الجديد %'),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text('نوع مكافأة المسوّق', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
+              const SizedBox(height: AppSpacing.xs),
+              SegmentedButton<String>(
+                segments: [
+                  for (final r in kAffiliateRewardTypes) ButtonSegment(value: r, label: Text(rewardTypeLabel(r))),
+                ],
+                selected: {_rewardType},
+                onSelectionChanged: (v) => setState(() => _rewardType = v.first),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              (_rewardType == kAffiliateRewardInvoicePercentage)
+                  ? TextField(
+                      controller: _rewardPercentController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(isDense: true, hintText: 'النسبة %'),
+                    )
+                  : TextField(
+                      controller: _rewardPointsController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(isDense: true, hintText: 'عدد النقاط'),
+                    ),
+              const SizedBox(height: AppSpacing.lg),
+              const Divider(),
+              const SizedBox(height: AppSpacing.sm),
+              Text('من يقدر يستخدم كود هذا المسوّق', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
+              const SizedBox(height: AppSpacing.xs),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: kEligibilityNew, label: Text('عميل جديد')),
+                  ButtonSegment(value: kEligibilityMaxVisits, label: Text('عدد زيارات')),
+                  ButtonSegment(value: kEligibilityOpen, label: Text('مفتوح')),
+                ],
+                selected: {_eligibility},
+                onSelectionChanged: (v) => setState(() => _eligibility = v.first),
+              ),
+              if (_eligibility == kEligibilityMaxVisits) ...[
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: _eligibilityMaxVisitsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(isDense: true, hintText: 'أقصى عدد زيارات مسموح'),
+                ),
+              ],
+              if (_error != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                AppAlert(type: AlertType.error, message: _error!),
+              ],
+              const SizedBox(height: AppSpacing.lg),
+              PrimaryButton(
+                text: 'إضافة المسوّق',
+                isLoading: _saving,
+                onPressed: _saving ? null : _submit,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

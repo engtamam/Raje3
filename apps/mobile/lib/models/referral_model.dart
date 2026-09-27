@@ -34,6 +34,20 @@ const List<String> kNewCustomerRewardTypes = [kNewCustomerDiscountPercent, kNewC
 
 const List<String> kUsageCapPeriods = ['day', 'week', 'month'];
 
+// ── who may redeem at all (owner instruction, 2026-09-27; services/referrals/app/core/models.py::
+// ELIGIBILITY_*) — a real, independent question from `mode` above: this is which BENEFICIARY
+// phones are even eligible to try, not how many times the REFERRER's code pays out.
+const String kEligibilityNew = 'new';
+const String kEligibilityMaxVisits = 'max_visits';
+const String kEligibilityOpen = 'open';
+const List<String> kBeneficiaryEligibilities = [kEligibilityNew, kEligibilityMaxVisits, kEligibilityOpen];
+
+// ── the affiliate's own two reward types (services/operations/app/core/affiliates.py::REWARD_TYPES)
+// — a smaller catalogue than the ordinary campaign's eight, deliberately.
+const String kAffiliateRewardFixedPoints = kRewardFixedPoints;
+const String kAffiliateRewardInvoicePercentage = kRewardInvoicePercentage;
+const List<String> kAffiliateRewardTypes = [kAffiliateRewardFixedPoints, kAffiliateRewardInvoicePercentage];
+
 /// `Campaign.to_dict()` — CAMPAIGN TERMS ARE IMMUTABLE ONCE CREATED (services/referrals/app/core/models.py's
 /// own module docstring). The only field this app ever PATCHes after creation is `active`
 /// (`PUT /api/v1/referrals/campaigns/{id}/active`) — there is deliberately no edit-terms UI here.
@@ -52,6 +66,8 @@ class ReferralCampaign {
     required this.newCustomerRewardParams,
     required this.active,
     required this.capScope,
+    required this.beneficiaryEligibility,
+    required this.beneficiaryMaxVisits,
   });
 
   final String id;
@@ -67,6 +83,8 @@ class ReferralCampaign {
   final Map<String, dynamic> newCustomerRewardParams;
   final bool active;
   final String capScope;
+  final String beneficiaryEligibility;
+  final int beneficiaryMaxVisits;
 
   factory ReferralCampaign.fromJson(Map<String, dynamic> j) => ReferralCampaign(
         id: (j['id'] as String?) ?? '',
@@ -83,6 +101,8 @@ class ReferralCampaign {
             Map<String, dynamic>.from(j['new_customer_reward_params'] as Map? ?? const {}),
         active: (j['active'] as bool?) ?? true,
         capScope: (j['cap_scope'] as String?) ?? kCapScopeCampaign,
+        beneficiaryEligibility: (j['beneficiary_eligibility'] as String?) ?? kEligibilityNew,
+        beneficiaryMaxVisits: (j['beneficiary_max_visits'] as num?)?.toInt() ?? 0,
       );
 }
 

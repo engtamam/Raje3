@@ -43,6 +43,8 @@ class ReferralsService {
     String usageCapPeriod = '',
     int usageCapLimit = 0,
     String capScope = kCapScopeCampaign,
+    String beneficiaryEligibility = kEligibilityNew,
+    int beneficiaryMaxVisits = 0,
   }) async {
     try {
       final response = await apiClient.dio.post<dynamic>('/api/v1/referrals/campaigns', data: {
@@ -56,6 +58,8 @@ class ReferralsService {
         'usage_cap_period': usageCapPeriod,
         'usage_cap_limit': usageCapLimit,
         'cap_scope': capScope,
+        'beneficiary_eligibility': beneficiaryEligibility,
+        'beneficiary_max_visits': beneficiaryMaxVisits,
       });
       final status = response.statusCode ?? 0;
       if (status >= 200 && status < 300) return null;
@@ -127,6 +131,36 @@ class ReferralsService {
           .toList(growable: false);
     } on DioException {
       return null;
+    }
+  }
+
+  /// `POST /api/v1/affiliates` (services/operations/app/api/v1/affiliates.py) — the shop adds an
+  /// affiliate directly by phone, with fully negotiated terms of its own, never a request/approval
+  /// step. Same "real refusal sentence, or null on success" shape as [createCampaign].
+  Future<String?> addAffiliate({
+    required String phone,
+    required String code,
+    required int discountPercent,
+    required String rewardType,
+    required Map<String, dynamic> rewardParams,
+    String beneficiaryEligibility = kEligibilityNew,
+    int beneficiaryMaxVisits = 0,
+  }) async {
+    try {
+      final response = await apiClient.dio.post<dynamic>('/api/v1/affiliates', data: {
+        'phone': phone,
+        'code': code,
+        'discount_percent': discountPercent,
+        'reward_type': rewardType,
+        'reward_params': rewardParams,
+        'beneficiary_eligibility': beneficiaryEligibility,
+        'beneficiary_max_visits': beneficiaryMaxVisits,
+      });
+      final status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) return null;
+      return _refusal(response.data);
+    } on DioException catch (e) {
+      return _refusal(e.response?.data);
     }
   }
 
