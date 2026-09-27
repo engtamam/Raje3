@@ -560,6 +560,19 @@ for any signed-in caller; consent reads "unknown" before AND after recording, ho
 compliance peer configured; and recording either a grant or a withdrawal never crashes either way.
 Full simulator suite: 122 passed.
 
+## An eighth real, independent app: services/referrals (`apps/referrals/`)
+
+The global, standalone anonymous-referral-code campaign engine — distinct from services/
+operations' own affiliate/referral_redemption door already wired in `apps/operations/` (that one
+is per-affiliate, this one is a shop's own standing referral campaign). Fully self-contained,
+per-tenant CRUD, no peer needed at all — a genuine change of pace after four apps in a row that
+each hit a real, different external-peer limit.
+
+Proven for real (`tests/test_stage24_referrals.py`): creating a campaign and reading it back both
+by id and inside the list works end to end; a fresh tenant has none yet; and a campaign is never
+readable through a DIFFERENT tenant's own token — cross-tenant isolation holds for real, not
+merely declared. Full simulator suite: 125 passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
