@@ -868,6 +868,49 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "capability": "operations.mobile_requests_manage", "group": "خدمات متنقلة",
         "help": "اختياري بالكامل — تسمية من سينفّذ الطلب، ليعرف تحميل كل موظف ويقدر يوزّع بنفسه.",
     },
+    # ── المسوّقون والمؤثرون — Phase 4 of services/referrals' own plan doc. NOT the ordinary
+    # referral code above (core/referral_redemption.py): a distinct tier the shop assigns
+    # directly, by phone, with its own negotiated code/discount/reward — never both roles for one
+    # phone at once (core/affiliates.py's own module docstring).
+    {
+        "id": "affiliate.add", "label": "أضف مسوّقاً", "method": "POST",
+        "path": "/api/v1/affiliates", "capability": "operations.manage", "group": "المسوّقون",
+        "help": "كود مخصص، نسبة خصم لمتابعيه، ومكافأة لكل عملية بيع عبر كوده — مستقلة كليًا عن "
+               "حملة الإحالة العادية.",
+    },
+    {
+        "id": "affiliate.list", "label": "قائمة المسوّقين", "method": "GET",
+        "path": "/api/v1/affiliates", "capability": "operations.read", "group": "المسوّقون",
+        "help": "كل مسوّق أُضيف بهذا المتجر، برصيده الحالي غير المُسوَّى.",
+    },
+    {
+        "id": "affiliate.get", "label": "تفاصيل مسوّق", "method": "GET",
+        "path": "/api/v1/affiliates/{affiliate_id}", "capability": "operations.read",
+        "group": "المسوّقون",
+        "params": [{"name": "affiliate_id", "in": "path", "type": "string", "required": True}],
+        "help": "شروط مسوّق واحد بالتفصيل ورصيده الحالي.",
+    },
+    {
+        "id": "affiliate.set_active", "label": "أوقف/فعّل مسوّقاً", "method": "PUT",
+        "path": "/api/v1/affiliates/{affiliate_id}/active", "capability": "operations.manage",
+        "group": "المسوّقون", "confirm": True,
+        "params": [{"name": "affiliate_id", "in": "path", "type": "string", "required": True}],
+        "help": "الإيقاف لا يمس رصيده المتراكم — يبقى بانتظار التسوية حتى لو أُوقف.",
+    },
+    {
+        "id": "affiliate.settle", "label": "سجّل تسوية مع مسوّق", "method": "POST",
+        "path": "/api/v1/affiliates/{affiliate_id}/settle", "capability": "operations.manage",
+        "group": "المسوّقون", "confirm": True,
+        "params": [{"name": "affiliate_id", "in": "path", "type": "string", "required": True}],
+        "help": "توثيق فقط — التحويل الفعلي يصير خارج النظام، هنا فقط تُسجَّل أنه تم وبأي مبلغ.",
+    },
+    {
+        "id": "affiliate.list_settlements", "label": "سجل تسويات مسوّق", "method": "GET",
+        "path": "/api/v1/affiliates/{affiliate_id}/settlements",
+        "capability": "operations.read", "group": "المسوّقون",
+        "params": [{"name": "affiliate_id", "in": "path", "type": "string", "required": True}],
+        "help": "كل تسوية سُجِّلت لهذا المسوّق: المبلغ، من نفّذها، ومتى.",
+    },
 ]
 
 

@@ -438,6 +438,13 @@ def build_manifest(
             {"path": "/api/v1/till/rating-request", "tier": "user", "method": "POST"},
             {"path": "/api/v1/till/coupons/grant", "tier": "user", "method": "POST"},
             {"path": "/api/v1/till/referral/register", "tier": "user", "method": "POST"},
+            # ── Phase 4 of the referral/affiliate app — see api/v1/affiliates.py's own docstring.
+            {"path": "/api/v1/affiliates", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/affiliates", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/{}", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/{}/active", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/affiliates/{}/settle", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/affiliates/{}/settlements", "tier": "user", "method": "GET"},
             # ── Salla — see api/v1/salla.py's own module docstring for the install/callback split.
             {"path": "/api/v1/staff/salla/install", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/salla/status", "tier": "user", "method": "GET"},

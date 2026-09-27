@@ -892,6 +892,31 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "documents for a shop-to-shop coupon",
     },
     {
+        "action": "affiliate.added",
+        "source": "internal",
+        "critical": False,
+        "resource": "affiliate",
+        "why": "a distinct marketer tier the owner assigns directly, with its own negotiated "
+               "code/discount/reward — an owner needs to see who was onboarded, by whom, and when",
+    },
+    {
+        "action": "affiliate.status_changed",
+        "source": "internal",
+        "critical": False,
+        "resource": "affiliate",
+        "why": "pausing/resuming a marketer changes whether their code earns anything right now, "
+               "without touching their negotiated terms or their unsettled balance",
+    },
+    {
+        "action": "affiliate.settlement_recorded",
+        "source": "internal",
+        "critical": True,
+        "resource": "affiliate_settlement",
+        "why": "the platform moves no money for this at all (plan doc §5's own \"بلا أي تدخل "
+               "مالي\") — which is exactly why the RECORD of what an owner claims was paid, by "
+               "whom, and for how many points, is the only accountability that exists for it",
+    },
+    {
         "action": "coupon.grant_attempt",
         "source": "internal",
         "critical": False,

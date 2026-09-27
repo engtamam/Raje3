@@ -150,6 +150,15 @@ class ReferralGrant:
     redeemed_visit_id: str = ""
     referrer_reward_credited: bool = False
     referrer_points_credited: int = 0
+    # PHASE 4 — see core/affiliates.py's own module docstring for the full "never both roles"
+    # design. "referral" (the default, and every grant this dataclass shape predates Phase 4)
+    # means an ordinary campaign-sourced grant; "affiliate" means the referrer held (at the
+    # moment of `register()`) an active Affiliate row at this tenant, so `referrer_reward_type/
+    # params` and `new_customer_reward_type/params` above came from THAT affiliate's own
+    # negotiated terms, never the tenant's ordinary campaign — the two are mutually exclusive per
+    # grant, decided once at register() and never re-derived at redeem().
+    source: str = "referral"
+    affiliate_id: str = ""
 
     def public_for_beneficiary(self) -> dict[str, Any]:
         return {"eligible": True,
@@ -159,13 +168,18 @@ class ReferralGrant:
 
 class ReferralRedemptionEngine:
     def __init__(self, *, store: Any, referrals_desk: ReferralsDesk, loyalty_desk: Any,
-                pii_salt: str, default_cc: str) -> None:
+                pii_salt: str, default_cc: str, affiliates: Any = None) -> None:
         self._s = store
         self._referrals = referrals_desk
         self._loyalty = loyalty_desk
         self._customers = CustomerStore(store)
         self._salt = pii_salt
         self._cc = default_cc
+        # OPTIONAL, same posture every peer on this engine already takes (`referrals_desk`'s own
+        # `configured` property, `loyalty_desk`'s). `None` means Phase 4's affiliate tier simply
+        # never triggers — every code is read as an ordinary referral code, exactly Phase 3's
+        # own behaviour before this module existed.
+        self._affiliates = affiliates
 
     # ── register: the cashier's own action, once, per new customer ─────────────────────────────
     async def register(self, tenant: str, *, code: str, beneficiary_phone: str,
@@ -201,6 +215,17 @@ class ReferralRedemptionEngine:
         if existing is not None:
             return existing
 
+        # PHASE 4 — a shop-local affiliate custom code, checked FIRST and entirely locally (no
+        # services/referrals round trip at all: an affiliate's code is never registered globally,
+        # see core/affiliates.py's own module docstring). A match here short-circuits the whole
+        # ordinary-campaign path below — an affiliate's terms are independent of it by design.
+        if self._affiliates is not None:
+            affiliate = await self._affiliates.get_by_code(tenant, code)
+            if affiliate is not None:
+                return await self._register_affiliate_grant(
+                    tenant, code=code, canon_beneficiary=canon_beneficiary, affiliate=affiliate,
+                    invoice_minor=invoice_minor)
+
         try:
             referrer_phone = await self._referrals.lookup_code(code)
         except ReferralsPeerUnavailable as exc:
@@ -222,6 +247,18 @@ class ReferralRedemptionEngine:
             raise ReferralRedemptionError("كود الإحالة غير صالح")
         if canon_referrer == canon_beneficiary:
             raise ReferralRedemptionError("لا يمكن للعميل استخدام كوده الخاص")
+
+        # PHASE 4 — "ما فيه حد يقعد بالاثنين" (never both roles at once), enforced even when the
+        # customer entered the referrer's ORDINARY global code rather than their affiliate one: if
+        # this phone currently holds an active Affiliate row here, the affiliate's own negotiated
+        # terms apply, never the tenant's ordinary campaign — the two reward shapes must never mix
+        # for one person at one shop.
+        if self._affiliates is not None:
+            affiliate = await self._affiliates.get_by_phone(tenant, canon_referrer)
+            if affiliate is not None:
+                return await self._register_affiliate_grant(
+                    tenant, code=code, canon_beneficiary=canon_beneficiary, affiliate=affiliate,
+                    invoice_minor=invoice_minor)
 
         try:
             campaign = await self._referrals.active_campaign(tenant)
@@ -247,6 +284,29 @@ class ReferralRedemptionEngine:
             referrer_reward_type=str(campaign.get("reward_type") or ""),
             referrer_reward_params=dict(campaign.get("reward_params") or {}),
             invoice_minor=int(invoice_minor or 0),
+        )
+        await self._s.put(GRANTS, f"{tenant}|{grant.id}", asdict(grant))
+        return grant
+
+    async def _register_affiliate_grant(self, tenant: str, *, code: str, canon_beneficiary: str,
+                                        affiliate: Any, invoice_minor: int) -> ReferralGrant:
+        """Build and store an affiliate-sourced grant — no campaign, no usage cap, no min-spend:
+        an affiliate's terms are a single negotiated relationship, independent of the tenant's
+        ordinary referral campaign (plan doc §5: "مستقلة كليًا عن قواعد العملاء العاديين")."""
+        canon_referrer = canonical_phone(affiliate.phone, default_cc=self._cc)
+        if not canon_referrer:
+            raise ReferralRedemptionError("كود الإحالة غير صالح")
+        if canon_referrer == canon_beneficiary:
+            raise ReferralRedemptionError("لا يمكن للعميل استخدام كوده الخاص")
+
+        grant = ReferralGrant(
+            id=str(uuid.uuid4()), tenant=tenant, code=code, referrer_phone=canon_referrer,
+            beneficiary_phone=canon_beneficiary, campaign_id="", mode="", created=int(time.time()),
+            new_customer_reward_type=NEW_CUSTOMER_DISCOUNT_PERCENT,
+            new_customer_reward_params={"percent": affiliate.discount_percent},
+            referrer_reward_type=affiliate.reward_type,
+            referrer_reward_params=dict(affiliate.reward_params),
+            invoice_minor=int(invoice_minor or 0), source="affiliate", affiliate_id=affiliate.id,
         )
         await self._s.put(GRANTS, f"{tenant}|{grant.id}", asdict(grant))
         return grant
@@ -323,10 +383,14 @@ class ReferralRedemptionEngine:
                                       invoice_minor=grant.invoice_minor)
             if points > 0:
                 referrer = await self._customer_for_phone(tenant, grant.referrer_phone)
+                is_affiliate = grant.source == "affiliate"
+                # TAGGED DIFFERENTLY, SAME LEDGER — plan doc §5's own "وسم مصدر مختلف" rule,
+                # exactly the same reasoning cashback already reuses the ordinary points system by
+                # tag alone. Nothing about the loyalty call itself changes.
                 out = await self._loyalty.award(
                     tenant=tenant, subject_ref=referrer.subject_ref, points=points,
-                    idempotency_key=f"referral:{grant.id}", reason="referral",
-                    actor="referrals")
+                    idempotency_key=f"referral:{grant.id}",
+                    reason="affiliate" if is_affiliate else "referral", actor="referrals")
                 # A 200 response is not itself proof of a credit — a lapsed licence answers
                 # `{"earned": 0, ...}` with no "_status" key at all (see loyalty's own
                 # `/internal/loyalty/award`), so reading THAT as success would mark a grant
@@ -337,6 +401,13 @@ class ReferralRedemptionEngine:
                         (int(out.get("earned") or 0) > 0 or out.get("duplicate")):
                     grant.referrer_reward_credited = True
                     grant.referrer_points_credited = points
+                    if is_affiliate and grant.affiliate_id and self._affiliates is not None:
+                        # BEST-EFFORT, LIKE THE LOYALTY CALL ABOVE IT — a failure here never
+                        # un-credits the loyalty points already awarded above; it only means this
+                        # one sale's points are missing from the affiliate's own settlement
+                        # balance until a human notices, the same accepted-gap posture
+                        # `LoyaltyDesk.rating_bonus`'s own docstring already takes.
+                        await self._affiliates.credit_sale(tenant, grant.affiliate_id, points)
 
         await self._s.put(GRANTS, f"{tenant}|{grant.id}", asdict(grant))
         return True

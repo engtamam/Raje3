@@ -385,13 +385,19 @@ def build_container(settings: Settings) -> Container:
     # `referrals` (code/campaign reads) and `loyalty` (crediting the referrer's own reward) over
     # HTTP, same "empty URL means disabled" posture every optional peer here takes.
     from app.adapters.referrals_desk import build_referrals_desk
+    from app.core.affiliates import AffiliateService
     from app.core.referral_redemption import ReferralRedemptionEngine
 
     container.referrals_desk = build_referrals_desk(settings)
+    # PHASE 4 — the marketer/influencer tier (core/affiliates.py's own module docstring), wholly
+    # this shop's own data, wired into the SAME redemption engine so a code typed at the till
+    # never needs to know in advance whether it belongs to an ordinary referrer or an affiliate.
+    container.affiliates = AffiliateService(container.datastore,
+                                            default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
     container.referral_redemption = ReferralRedemptionEngine(
         store=container.datastore, referrals_desk=container.referrals_desk,
         loyalty_desk=container.loyalty_desk, pii_salt=settings.PII_SALT,
-        default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
+        default_cc=settings.SIGNUP_PHONE_DEFAULT_CC, affiliates=container.affiliates)
 
     # THE "جماعي" MILESTONE HOOK — a separate service (campaigns), reached over HTTP, unlike the
     # in-process mutual-benefit engine just above. `build_milestone_peer` returns a silent no-op
