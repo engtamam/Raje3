@@ -73,6 +73,8 @@ interface Campaign {
   new_customer_reward_params: Record<string, unknown>;
   active: boolean;
   cap_scope: 'campaign' | 'lifetime' | string;
+  beneficiary_eligibility: 'new' | 'max_visits' | 'open' | string;
+  beneficiary_max_visits: number;
 }
 
 interface Summary {
@@ -126,6 +128,8 @@ const REFERRER_REWARD_TYPES = [
 ] as const;
 const NEW_CUSTOMER_REWARD_TYPES = ['discount_percent', 'welcome_points'] as const;
 const MODES = ['once', 'x_times', 'lifetime'] as const;
+const ELIGIBILITIES = ['new', 'max_visits', 'open'] as const;
+const AFFILIATE_REWARD_TYPES = ['fixed_points', 'invoice_percentage'] as const;
 
 /** The last 4 digits of a phone, and nothing else — this screen never shows a full number
  *  outside the ledger tab (`operations.affiliates_read`, where the code itself already
@@ -175,6 +179,11 @@ export function ReferralsScreen({ session, catalog }: { session: Session; catalo
   const [mode, setMode] = useState<string>('once');
   const [rewardType, setRewardType] = useState<string>('fixed_points');
   const [ncRewardType, setNcRewardType] = useState<string>('discount_percent');
+  const [eligibility, setEligibility] = useState<string>('new');
+
+  const [addingAffiliate, setAddingAffiliate] = useState(false);
+  const [affiliateRewardType, setAffiliateRewardType] = useState<string>('fixed_points');
+  const [affiliateEligibility, setAffiliateEligibility] = useState<string>('new');
 
   // WHAT THIS PERSON MAY DO. An absent action is a permission fact — the control simply is not
   // rendered, exactly the convention Points.tsx and Coupons.tsx already use.
@@ -185,6 +194,7 @@ export function ReferralsScreen({ session, catalog }: { session: Session; catalo
   const canLeaderboard = action(catalog, 'referral.report_leaderboard');
   const canCampaignReport = action(catalog, 'referral.report_campaigns');
   const canAffiliateReport = action(catalog, 'referral.report_affiliates');
+  const canAddAffiliate = action(catalog, 'affiliate.add');
 
   // A GENERATION NUMBER, same reasoning as Points.tsx's own `loadGen` — two overlapping loads
   // (a tab switch right after a save) must not let an older response overwrite a newer one.
@@ -301,11 +311,48 @@ export function ReferralsScreen({ session, catalog }: { session: Session; catalo
         usage_cap_period: String(form.get('cap_period') || ''),
         usage_cap_limit: num('cap_limit', 0),
         cap_scope: String(form.get('cap_scope') || 'campaign'),
+        beneficiary_eligibility: eligibility,
+        beneficiary_max_visits: eligibility === 'max_visits' ? num('eligibility_max_visits', 1) : 0,
       });
       setAdding(false);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('referrals.error.addFailed'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const createAffiliate = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!canAddAffiliate) return;
+    const form = new FormData(e.currentTarget);
+    const num = (name: string, fallback = 0): number => {
+      const raw = String(form.get(name) ?? '').trim();
+      return raw === '' ? fallback : Number(raw);
+    };
+
+    const rewardParams: Record<string, unknown> = affiliateRewardType === 'fixed_points'
+      ? { points: num('reward_points') }
+      : { percent: num('reward_percent') };
+
+    setSaving(true);
+    setError('');
+    try {
+      await call(session, canAddAffiliate, {
+        phone: String(form.get('phone') || '').trim(),
+        code: String(form.get('code') || '').trim(),
+        discount_percent: num('discount_percent', 10),
+        reward_type: affiliateRewardType,
+        reward_params: rewardParams,
+        beneficiary_eligibility: affiliateEligibility,
+        beneficiary_max_visits: affiliateEligibility === 'max_visits'
+          ? num('eligibility_max_visits', 1) : 0,
+      });
+      setAddingAffiliate(false);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('referrals.error.addAffiliateFailed'));
     } finally {
       setSaving(false);
     }
@@ -435,6 +482,20 @@ export function ReferralsScreen({ session, catalog }: { session: Session; catalo
                 </Select>
               </Field>
 
+              <Field label={t('referrals.form.eligibility.label')} htmlFor="rf-eligibility">
+                <Select id="rf-eligibility" name="eligibility" value={eligibility}
+                        onChange={(e) => setEligibility(e.target.value)}>
+                  {ELIGIBILITIES.map((v) => (
+                    <option key={v} value={v}>{eligibilityLabel(t, v)}</option>
+                  ))}
+                </Select>
+              </Field>
+              {eligibility === 'max_visits' ? (
+                <Field label={t('referrals.form.eligibilityMaxVisits.label')} htmlFor="rf-eligibility-max">
+                  <Input id="rf-eligibility-max" name="eligibility_max_visits" type="number" min={1} required dir="ltr" defaultValue={1} />
+                </Field>
+              ) : null}
+
               <div className="flex gap-2">
                 <Button type="submit" disabled={saving}>{t('referrals.form.save')}</Button>
                 <Button type="button" variant="ghost" onClick={() => setAdding(false)}>{t('referrals.form.cancel')}</Button>
@@ -490,6 +551,7 @@ export function ReferralsScreen({ session, catalog }: { session: Session; catalo
                         </Badge>
                       </span>
                     ) : null}
+                    <span>{t('referrals.form.eligibility.label')}: {eligibilityLine(t, c.beneficiary_eligibility, c.beneficiary_max_visits)}</span>
                   </div>
                 </li>
               ))}
@@ -527,7 +589,52 @@ export function ReferralsScreen({ session, catalog }: { session: Session; catalo
         </section>
       ) : (
         <section className="flex flex-col gap-3">
-          <Head title={t('referrals.affiliates.title')} said={t('referrals.affiliates.said')} />
+          <Head title={t('referrals.affiliates.title')} said={t('referrals.affiliates.said')}
+                action={canAddAffiliate && !addingAffiliate
+                  ? <Button onClick={() => setAddingAffiliate(true)}>{t('referrals.affiliates.add')}</Button>
+                  : null} />
+
+          {addingAffiliate ? (
+            <form onSubmit={createAffiliate}
+                  className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+              <Field label={t('referrals.affiliates.form.phone.label')} htmlFor="af-phone">
+                <Input id="af-phone" name="phone" required dir="ltr" />
+              </Field>
+              <Field label={t('referrals.affiliates.form.code.label')} htmlFor="af-code">
+                <Input id="af-code" name="code" required dir="ltr" />
+              </Field>
+              <Field label={t('referrals.affiliates.form.discountPercent.label')} htmlFor="af-discount">
+                <Input id="af-discount" name="discount_percent" type="number" min={1} max={99} required dir="ltr" defaultValue={10} />
+              </Field>
+              <Field label={t('referrals.affiliates.form.rewardType.label')} htmlFor="af-reward">
+                <Select id="af-reward" name="reward_type" value={affiliateRewardType}
+                        onChange={(e) => setAffiliateRewardType(e.target.value)}>
+                  {AFFILIATE_REWARD_TYPES.map((r) => <option key={r} value={r}>{rewardTypeLabel(t, r)}</option>)}
+                </Select>
+              </Field>
+              <RewardFields t={t} kind={affiliateRewardType} prefix="reward" />
+
+              <Field label={t('referrals.form.eligibility.label')} htmlFor="af-eligibility">
+                <Select id="af-eligibility" name="eligibility" value={affiliateEligibility}
+                        onChange={(e) => setAffiliateEligibility(e.target.value)}>
+                  {ELIGIBILITIES.map((v) => (
+                    <option key={v} value={v}>{eligibilityLabel(t, v)}</option>
+                  ))}
+                </Select>
+              </Field>
+              {affiliateEligibility === 'max_visits' ? (
+                <Field label={t('referrals.form.eligibilityMaxVisits.label')} htmlFor="af-eligibility-max">
+                  <Input id="af-eligibility-max" name="eligibility_max_visits" type="number" min={1} required dir="ltr" defaultValue={1} />
+                </Field>
+              ) : null}
+
+              <div className="flex gap-2">
+                <Button type="submit" disabled={saving}>{t('referrals.affiliates.form.save')}</Button>
+                <Button type="button" variant="ghost" onClick={() => setAddingAffiliate(false)}>{t('referrals.affiliates.form.cancel')}</Button>
+              </div>
+            </form>
+          ) : null}
+
           {!canAffiliateReport ? null
             : affiliates === null || affiliates === undefined || affiliates.length === 0 ? (
             <EmptyState title={t('referrals.affiliates.empty.title')}
@@ -543,6 +650,18 @@ export function ReferralsScreen({ session, catalog }: { session: Session; catalo
       )}
     </div>
   );
+}
+
+function eligibilityLabel(t: T, e: string): string {
+  if (e === 'max_visits') return t('referrals.form.eligibility.maxVisits');
+  if (e === 'open') return t('referrals.form.eligibility.open');
+  return t('referrals.form.eligibility.new');
+}
+
+function eligibilityLine(t: T, e: string, maxVisits: number): string {
+  if (e === 'max_visits') return tf(t, 'referrals.campaign.eligibility.maxVisits', { n: String(maxVisits) });
+  if (e === 'open') return t('referrals.campaign.eligibility.open');
+  return t('referrals.campaign.eligibility.new');
 }
 
 function modeLabel(t: T, m: string): string {
