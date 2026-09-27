@@ -1,5 +1,12 @@
-"""App-specific (see the README's own taxonomy): how to spawn a REAL `services/coworking` process
-— fully self-contained, no peer needed for any of its own admin routes."""
+"""App-specific (see the README's own taxonomy): how to spawn a REAL `services/coworking` process.
+
+Every admin route still WORKS standalone — an unconfigured `OPERATIONS_SERVICE_URL` reads as
+unscoped everywhere `branch_scope` is asked (same lenient default bookings/reminders/loyalty
+already take), never a boot failure. A scenario that wants to prove REAL branch narrowing needs a
+real Fleet (`ServiceSpec(name="operations", ...)` + `ServiceSpec(name="coworking", spawn=spawn,
+needs={"OPERATIONS_SERVICE_URL": "operations"})`) — this spawn recipe already accepts
+`extra_env`, so no code change here was needed for that, only the Fleet spec itself.
+"""
 from __future__ import annotations
 
 from collections.abc import AsyncIterator

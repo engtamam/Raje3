@@ -148,12 +148,28 @@ success.
 
 The taxonomy (`apps/<name>/` per real service) is what the next app plugs into without touching
 anything in `common/` or `shared/` — proven ten times over now, not just claimed once. Full
-simulator suite: 132 passed. Remaining real services (`portal`, `secrets-admin`) do not fit this
+simulator suite: 164 passed. Remaining real services (`portal`, `secrets-admin`) do not fit this
 simulator's own current shape (portal serves only externally-keyed HTML consent screens after its
 full customer page was deleted by product decision; secrets-admin talks to a real Kubernetes API
 this simulator has no business reaching from a local process) — named here rather than silently
 skipped. `affiliate-service` is deliberately excluded by owner decision (2026-09-27) and is not a
 gap.
+
+**Stage 28 — coworking's own real branch-scoping + single-photo/description support, proven, not
+just wired:** `services/coworking` gained a `BranchScope` adapter (copied verbatim from
+`bookings`/`loyalty`/`reminders`'s own — resources/bookings are branch-scoped, join requests and
+the tenant-level pause switch are DELIBERATELY excluded, an explicit owner decision, since a
+freelancer approved once may book any resource at that shop) and a single-photo/description
+catalogue feature (copied verbatim from `services/operations/app/core/catalogue_image.py` — ONE
+photo per resource, never several). `test_stage28_coworking_branch_and_image.py` proves, with real
+HTTP: a resource's public shape never leaks its internal `image_key` (only `has_image`); a real
+photo round-trips its exact bytes through upload→read; and, through a real 3-service Fleet
+(identity+operations+coworking), a manager genuinely scoped to one branch never sees a resource
+assigned to another. Writing this test caught a real, live bug: the image-upload route emitted an
+audit action (`coworking.resource_image_set`) that was never declared in
+`auditable_actions.py`, which made `Auditor.record()` raise on every real upload — fixed by
+declaring it, same "no real peer wired is a correct refusal, an undeclared audit action is a real
+bug" discipline this whole session has held throughout.
 
 ## Roles/capabilities module (built after the 8-stage plan, same principles)
 

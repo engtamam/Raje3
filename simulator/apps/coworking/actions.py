@@ -16,21 +16,29 @@ _MANAGE_CAP = "coworking.manage"
 
 @dataclass
 class CreateResourceAction:
-    """`POST /api/v1/coworking/resources`."""
+    """`POST /api/v1/coworking/resources` — `branch_id`/`description` real, optional fields (owner
+    decision, 2026-09-27): "" for either is a real, valid answer, never a required one."""
 
     base_url: str
     tenant: str
     resource_name: str
+    branch_id: str = ""
+    description: str = ""
+    caller_subject: str = "owner"
     name: str = "create_coworking_resource"
 
     async def run(self, ctx: Context) -> ActionResult:
-        headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,))
+        headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,),
+                              subject=self.caller_subject)
+        body = {"name": self.resource_name, "branch_id": self.branch_id,
+               "description": self.description}
         r = await httpclient.request(
             "POST", f"{self.base_url}/api/v1/coworking/resources",
-            json={"name": self.resource_name}, headers=headers, timeout=10.0)
+            json=body, headers=headers, timeout=10.0)
         if r.status_code != 200:
-            return ActionResult(ok=False, detail=f"create_coworking_resource refused: "
-                                                  f"{r.status_code} {r.text}")
+            return ActionResult(ok=False, detail=f"create_coworking_resource: unexpected HTTP "
+                                                  f"{r.status_code} {r.text}",
+                                data={"status": r.status_code})
         payload = r.json()
         if payload.get("error"):
             return ActionResult(ok=False, detail=payload.get("reason") or "create refused",
@@ -45,16 +53,72 @@ class ListResourcesAction:
 
     base_url: str
     tenant: str
+    caller_subject: str = "owner"
     name: str = "list_coworking_resources"
 
     async def run(self, ctx: Context) -> ActionResult:
-        headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,))
+        headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,),
+                              subject=self.caller_subject)
         r = await httpclient.request("GET", f"{self.base_url}/api/v1/coworking/resources",
                                      headers=headers, timeout=10.0)
         if r.status_code != 200:
             return ActionResult(ok=False, detail=f"list_coworking_resources refused: "
                                                   f"{r.status_code} {r.text}")
         return ActionResult(ok=True, detail="resources read", data=r.json())
+
+
+@dataclass
+class UploadResourceImageAction:
+    """`POST /api/v1/coworking/resources/{id}/image` — ONE photo per resource, real base64 bytes,
+    same shape operations' own catalogue upload already uses."""
+
+    base_url: str
+    tenant: str
+    resource_id: str
+    data_base64: str
+    content_type: str = "image/png"
+    caller_subject: str = "owner"
+    name: str = "upload_coworking_resource_image"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,),
+                              subject=self.caller_subject)
+        body = {"content_type": self.content_type, "data_base64": self.data_base64}
+        r = await httpclient.request(
+            "POST", f"{self.base_url}/api/v1/coworking/resources/{self.resource_id}/image",
+            json=body, headers=headers, timeout=10.0)
+        if r.status_code != 200:
+            return ActionResult(ok=False, detail=f"upload_coworking_resource_image: "
+                                                  f"unexpected HTTP {r.status_code} {r.text}",
+                                data={"status": r.status_code})
+        payload = r.json()
+        if payload.get("error"):
+            return ActionResult(ok=False, detail=payload.get("reason") or "upload refused",
+                                data=payload)
+        return ActionResult(ok=True, detail="image uploaded", data=payload)
+
+
+@dataclass
+class GetResourceImageAction:
+    """`GET /api/v1/coworking/resources/{id}/image` — the raw bytes, streamed back."""
+
+    base_url: str
+    tenant: str
+    resource_id: str
+    caller_subject: str = "owner"
+    name: str = "get_coworking_resource_image"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,),
+                              subject=self.caller_subject)
+        r = await httpclient.request(
+            "GET", f"{self.base_url}/api/v1/coworking/resources/{self.resource_id}/image",
+            headers=headers, timeout=10.0)
+        if r.status_code != 200:
+            return ActionResult(ok=False, detail=f"get_coworking_resource_image: unexpected "
+                                                  f"HTTP {r.status_code}", data={"status": r.status_code})
+        return ActionResult(ok=True, detail="image read", data={"bytes": r.content,
+                                                                "content_type": r.headers.get("content-type")})
 
 
 @dataclass
