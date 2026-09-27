@@ -504,6 +504,39 @@ with no consent yet — PDPL opt-in); stopping one class holds and never touches
 tenant reads a clean, empty schedule; and overriding a never-learned rule is correctly refused with
 an equally clean, empty rules list. Full simulator suite: 112 passed.
 
+## A fifth real, independent app: services/campaigns (`apps/campaigns/`)
+
+Self-contained differently than the last two: unlike loyalty/mutual-benefit's own `NullPlans`
+(defaults to REFUSE), campaigns' own default `NullLicence` ALLOWS everything outside production —
+a genuinely different real default this simulator's own per-app conventions must never assume
+carries over, proven rather than assumed. `GoalsAction`/`ListCampaignsAction`/
+`PauseCampaignAction` all work standalone.
+
+ANOTHER REAL, HONEST ENVIRONMENTAL LIMIT: `CreateCampaignAction` cannot actually launch a campaign
+in any environment this simulator spawns — `core/templates.py`'s own gate requires a real,
+Meta-approved WhatsApp template for the chosen goal, a genuine external peer (WhatsApp Business
+API) no fleet here reaches. The correct, provable test is the clean refusal by name
+("لا يوجد قالب مفعّل لهذا الهدف"), the same honest shape `mutual_benefit_actions.py` and
+`apps/bookings/`'s own docstrings already name for their own different peers — a pattern repeating
+for a third time, now clearly a general property of this simulator's own current reach, not a
+one-off.
+
+Proven for real (`tests/test_stage21_campaigns.py`, 4 tests): goals are readable with the
+different, permissive licence default; creating a campaign with no approved template is refused by
+name; pausing a campaign that does not exist is a clean 404, never a crash; and a fresh tenant with
+none yet reads a clean, empty list. Full simulator suite: 116 passed.
+
+## A sixth real, independent app: services/insights (`apps/insights/`)
+
+The dashboard/branches/refresh reads — self-contained for a fresh tenant with no real visit-event
+history behind it (no real event bus wired into insights either), so every proof here is honestly
+about the empty/zero state a brand-new establishment actually sees, the same shape reminders'
+own empty-schedule proof already established for a different app.
+
+Proven for real (`tests/test_stage22_insights.py`): a fresh tenant's dashboard reads cleanly with
+no history yet; a fresh tenant has no branches to compare; and refreshing a fresh tenant's own
+snapshot on demand works. Full simulator suite: 119 passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
