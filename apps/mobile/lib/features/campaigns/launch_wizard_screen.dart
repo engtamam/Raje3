@@ -26,7 +26,9 @@ const Map<String, String> _kGoalReasonId = {
 };
 
 /// Which goal gives which of three rewards — `models.py::REWARD_ENABLED_GOALS`.
-const Set<String> _kRewardEnabledGoals = {'occasion', 'win_back', 'service_offer', 'package_offer'};
+const Set<String> _kRewardEnabledGoals = {
+  'occasion', 'win_back', 'service_offer', 'package_offer', 'community_milestone',
+};
 
 /// Launching a campaign — a full-screen, step-by-step wizard (Launch.tsx's own job, rebuilt for
 /// a phone instead of a wide rail+canvas+phone triptych). Three steps, and the middle one is the
@@ -93,6 +95,11 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
   DateTime? _endsOn;
   String _rewardType = 'discount';
 
+  // «الهدف الجماعي» ONLY — the shared target the whole cohort is revealed at together
+  // (services/campaigns/app/core/milestone.py). Meaningless for every other goal.
+  final _milestoneThresholdController = TextEditingController();
+  bool _milestoneRecurring = false;
+
   // «كافئ المخلصين»'s OWN THRESHOLDS — meaningless for every other goal.
   double _loyaltyWindowDays = 90;
   double _loyaltyMinVisits = 3;
@@ -149,6 +156,7 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
     'service_offer': Icons.local_offer_rounded,
     'package_offer': Icons.card_giftcard_rounded,
     'occasion': Icons.cake_outlined,
+    'community_milestone': Icons.track_changes_rounded,
   };
 
   @override
@@ -164,6 +172,7 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
     _offerAmountController.addListener(_scheduleLivePreview);
     _rewardPointsController.addListener(_scheduleLivePreview);
     _ownerTextController.addListener(_scheduleLivePreview);
+    _milestoneThresholdController.addListener(_scheduleLivePreview);
   }
 
   @override
@@ -172,6 +181,7 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
     _ownerTextController.dispose();
     _offerAmountController.dispose();
     _rewardPointsController.dispose();
+    _milestoneThresholdController.dispose();
     super.dispose();
   }
 
@@ -185,6 +195,13 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
   }
 
   bool get _rewardEnabled => _kRewardEnabledGoals.contains(_picked?.goal);
+
+  bool get _isMilestone => _picked?.goal == 'community_milestone';
+
+  int get _milestoneThreshold {
+    final digits = _milestoneThresholdController.text.replaceAll(RegExp('[^0-9]'), '');
+    return int.tryParse(digits) ?? 0;
+  }
 
   /// THE MORNING OF HIS DAY, not its last minute — a greeting belongs at the start of the day.
   int get _occasionFireAt {
@@ -237,6 +254,15 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
     if (picked.goal == 'service_offer' && _serviceIds.isEmpty) return false;
     if (picked.goal == 'package_offer' && _packageIds.isEmpty) return false;
     if (picked.goal == 'occasion' && _occasionOn == null) return false;
+    if (_isMilestone) {
+      // «الهدف الجماعي»'S OWN TWO REQUIREMENTS — a shared target under 2 is not a milestone
+      // (`MIN_MILESTONE_THRESHOLD`, backend), it carries an end date even though its message has
+      // no textual "date" blank, and a RECURRING round needs an explicit start too
+      // (`validate_milestone_recurrence`) — answered by turning on «متى تُطلق: لاحقاً» below.
+      if (_milestoneThreshold < 2) return false;
+      if (_endsOn == null) return false;
+      if (_milestoneRecurring && _combinedFireAt == 0) return false;
+    }
     if (_rewardEnabled) {
       if (_rewardType == 'gift') {
         final needed = picked.goal == 'package_offer' ? _packageIds : _serviceIds;
@@ -273,6 +299,8 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
       'window_weekdays': _windowOn ? _windowWeekdays.toList() : <int>[],
       'reward_type': _rewardEnabled ? _rewardType : 'discount',
       'reward_points': _rewardPoints,
+      'milestone_threshold': _isMilestone ? _milestoneThreshold : 0,
+      'milestone_recurring': _isMilestone && _milestoneRecurring,
     };
   }
 
@@ -355,6 +383,8 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
                 _picked = g;
                 _step = _Step.fields;
                 _livePreview = null;
+                _milestoneThresholdController.clear();
+                _milestoneRecurring = false;
               }),
             ),
           _Step.fields => _FieldsStep(
@@ -370,6 +400,9 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
               rewardType: _rewardType,
               onRewardTypeChanged: (t) => _mutate(() => _rewardType = t),
               rewardPointsController: _rewardPointsController,
+              milestoneThresholdController: _milestoneThresholdController,
+              milestoneRecurring: _milestoneRecurring,
+              onMilestoneRecurringChanged: (v) => _mutate(() => _milestoneRecurring = v),
               serviceIds: _serviceIds,
               packageIds: _packageIds,
               onServiceToggled: (id) => _mutate(() {
@@ -557,6 +590,9 @@ class _FieldsStep extends StatelessWidget {
     required this.rewardType,
     required this.onRewardTypeChanged,
     required this.rewardPointsController,
+    required this.milestoneThresholdController,
+    required this.milestoneRecurring,
+    required this.onMilestoneRecurringChanged,
     required this.serviceIds,
     required this.packageIds,
     required this.onServiceToggled,
@@ -603,6 +639,9 @@ class _FieldsStep extends StatelessWidget {
   final String rewardType;
   final ValueChanged<String> onRewardTypeChanged;
   final TextEditingController rewardPointsController;
+  final TextEditingController milestoneThresholdController;
+  final bool milestoneRecurring;
+  final ValueChanged<bool> onMilestoneRecurringChanged;
   final List<String> serviceIds;
   final List<String> packageIds;
   final ValueChanged<String> onServiceToggled;
@@ -779,7 +818,42 @@ class _FieldsStep extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
               ],
-              if (goal.hasBlank('date')) ...[
+              if (goal.goal == 'community_milestone') ...[
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: context.appColors.surfaceAlt,
+                    borderRadius: AppRadius.standardRadius,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(ct(context, 'milestoneTitle'), style: AppTextStyles.labelMedium),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(ct(context, 'milestoneThresholdLabel'), style: AppTextStyles.caption),
+                      const SizedBox(height: 4),
+                      AppTextField(
+                        controller: milestoneThresholdController,
+                        hintText: '10',
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(ct(context, 'milestoneThresholdHint'), style: AppTextStyles.caption),
+                      const SizedBox(height: AppSpacing.sm),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(ct(context, 'milestoneRecurringLabel'), style: AppTextStyles.labelMedium),
+                        value: milestoneRecurring,
+                        onChanged: onMilestoneRecurringChanged,
+                      ),
+                      if (milestoneRecurring)
+                        Text(ct(context, 'milestoneRecurringHint'), style: AppTextStyles.caption),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
+              if (goal.hasBlank('date') || goal.goal == 'community_milestone') ...[
                 Text(ct(context, 'endsOnLabel'), style: AppTextStyles.labelMedium),
                 const SizedBox(height: AppSpacing.sm),
                 SecondaryButton(

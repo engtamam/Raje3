@@ -508,6 +508,35 @@ const Map<String, Map<String, String>> _kCampaignsStrings = {
     'ar': 'يوم المناسبة', 'en': 'The occasion day', 'bn': 'উপলক্ষ্যের দিন', 'ur': 'موقع کا دن',
     'ha': 'Ranar taron', 'fil': 'Araw ng okasyon',
   },
+  'milestoneTitle': {
+    'ar': 'الهدف الجماعي', 'en': 'Community goal', 'bn': 'সামষ্টিক লক্ষ্য', 'ur': 'اجتماعی ہدف',
+    'ha': "Manufar al'umma", 'fil': 'Layunin ng komunidad',
+  },
+  'milestoneThresholdLabel': {
+    'ar': 'كم عميل لازم يوصلوا؟', 'en': 'How many customers must reach it?',
+    'bn': 'কতজন গ্রাহক পৌঁছাতে হবে?', 'ur': 'کتنے گاہکوں کا پہنچنا ضروری ہے؟',
+    'ha': 'Nawa abokan ciniki dole su kai?', 'fil': 'Ilang customer ang dapat umabot?',
+  },
+  'milestoneThresholdHint': {
+    'ar': 'العرض يفتح لكل من ساهم، دفعة واحدة، أول ما يوصلون هذا العدد.',
+    'en': 'The offer opens for everyone who contributed, all at once, the moment this number is reached.',
+    'bn': 'যারা অবদান রেখেছেন তাদের সবার জন্য একসাথে অফারটি খুলে যায়, এই সংখ্যায় পৌঁছানোর সাথে সাথে।',
+    'ur': 'یہ پیشکش ہر اس شخص کے لیے کھلتی ہے جس نے حصہ لیا، ایک ساتھ، جیسے ہی یہ تعداد پوری ہو جائے۔',
+    'ha': 'Tayin yana buɗewa ga duk wanda ya ba da gudummawa, lokaci ɗaya, da zarar an kai wannan adadin.',
+    'fil': 'Bubukas ang alok para sa lahat ng nag-ambag, sabay-sabay, sa sandaling maabot ang bilang na ito.',
+  },
+  'milestoneRecurringLabel': {
+    'ar': 'يتكرر تلقائياً', 'en': 'Repeats automatically', 'bn': 'স্বয়ংক্রিয়ভাবে পুনরাবৃত্তি হবে',
+    'ur': 'خودکار طور پر دہرائیں', 'ha': 'Yana maimaitawa kansa', 'fil': 'Awtomatikong uulitin',
+  },
+  'milestoneRecurringHint': {
+    'ar': 'يبدأ عدّاد جديد بنفس المدة أول ما تنتهي كل جولة. فعّل «متى تُطلق» بتاريخ محدد ليكون هذا واضحاً.',
+    'en': 'A new round starts with the same length the moment each one ends. Turn on "When does it launch?" with a set date to make this clear.',
+    'bn': 'প্রতিটি রাউন্ড শেষ হওয়ার সাথে সাথে একই দৈর্ঘ্যের নতুন রাউন্ড শুরু হবে। এটি স্পষ্ট রাখতে "কখন চালু হবে?"-এ একটি নির্দিষ্ট তারিখ চালু করুন।',
+    'ur': 'ہر دور ختم ہوتے ہی اسی مدت کے ساتھ نیا دور شروع ہوگا۔ اسے واضح رکھنے کے لیے "کب شروع ہوگی؟" میں مقررہ تاریخ آن کریں۔',
+    'ha': 'Sabon zagaye yana farawa da tsawon lokaci iri ɗaya da zarar kowanne ya ƙare. Kunna "Yaushe za a kaddamar?" da takamaiman rana don wannan ya bayyana.',
+    'fil': 'Magsisimula ang bagong round nang parehong haba sa sandaling matapos ang bawat isa. I-on ang "Kailan ilulunsad?" na may nakatakdang petsa para malinaw ito.',
+  },
   'whenTitle': {
     'ar': 'متى تُطلق؟', 'en': 'When does it launch?', 'bn': 'কখন চালু হবে?', 'ur': 'کب شروع ہوگی؟',
     'ha': 'Yaushe za a kaddamar?', 'fil': 'Kailan ilulunsad?',
