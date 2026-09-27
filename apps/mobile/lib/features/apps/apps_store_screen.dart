@@ -61,6 +61,12 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
   static const _prereqKeys = ['feature.visit', 'feature.bookings'];
   static const _dependentKeys = ['feature.loyalty', 'feature.rating', 'feature.insights.engine', 'feature.campaigns'];
 
+  // A GENERATION NUMBER — two overlapping `_load()` calls (a subscribe/cancel's own refresh
+  // racing a manual pull-to-refresh) must never let the EARLIER call's response overwrite the
+  // LATER one's, whichever network round-trip happens to finish last. Found live (deep audit,
+  // 2026-09-27): nothing previously guarded against this at all.
+  int _loadGen = 0;
+
   @override
   void initState() {
     super.initState();
@@ -68,12 +74,13 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
   }
 
   Future<void> _load() async {
+    final gen = ++_loadGen;
     final auth = context.read<AuthProvider>();
     final (applied, potential) = await auth.fetchDiscountPreview();
     final (unitsPerHalala, aiEnabled) = await auth.fetchAiUnitsPerHalala();
     final staticFeatures = await AppFeaturesService(apiClient: auth.apiClient).fetchStatic();
     final results = await Future.wait([auth.fetchOwnership(), auth.fetchPurchasablePlans(), auth.fetchBillingOverview()]);
-    if (!mounted) return;
+    if (!mounted || gen != _loadGen) return;
     setState(() {
       _owned = results[0] as Owned?;
       _plans = results[1] as List<BillingPlan>?;
@@ -313,11 +320,12 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
     await _load();
   }
 
-  Future<void> _quickSubscribe(BillingPlan plan) async {
+  Future<bool> _quickSubscribe(BillingPlan plan) async {
     setState(() => _error = '');
     final ok = await _subscribeOrCheckout(plan);
-    if (!mounted) return;
+    if (!mounted) return false;
     if (ok) await _load();
+    return ok;
   }
 
   /// Same honest posture mutual_benefit_screen.dart's own `_refusalMessage` takes — the
@@ -581,12 +589,17 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
                   for (final target in cascade) {
                     await auth.cancelSubscription(target.id);
                   }
+                  await _load();
                 }
-                if (ok) await _load();
+                return ok;
               }
             : null,
         onUndoCancel: sub != null && sub.cancelAtPeriodEnd
-            ? () async { final ok = await auth.undoCancelSubscription(sub.id); if (ok) await _load(); }
+            ? () async {
+                final ok = await auth.undoCancelSubscription(sub.id);
+                if (ok) await _load();
+                return ok;
+              }
             : null,
       ),
     );
@@ -1353,9 +1366,18 @@ class _AppDetailsSheet extends StatefulWidget {
   final String? potentialDiscountAppName;
   final int? includedCreditMinor;
   final double? unitsPerHalala;
-  final VoidCallback? onSubscribe;
-  final VoidCallback? onCancel;
-  final VoidCallback? onUndoCancel;
+  /// RETURNS WHETHER IT SUCCEEDED — so the sheet itself can close on a real success and stay
+  /// open, busy-cleared, on a refusal. Found live (deep audit, 2026-09-27): this sheet is a
+  /// FROZEN SNAPSHOT, built once from the parent's state at the moment it opened — a bottom
+  /// sheet lives in its own route/overlay, so the parent's own `setState` after `_load()`
+  /// refreshes the grid underneath but never rebuilds an already-open sheet with fresh
+  /// plan/owned/sub. Subscribing or cancelling through this sheet used to leave it showing the
+  /// exact stale button/badge until manually closed and reopened — the whole point of these
+  /// callbacks reporting success is so THIS state class can close itself the moment the parent's
+  /// own data is already fresh, rather than pretending to still reflect it live.
+  final Future<bool> Function()? onSubscribe;
+  final Future<bool> Function()? onCancel;
+  final Future<bool> Function()? onUndoCancel;
 
   @override
   State<_AppDetailsSheet> createState() => _AppDetailsSheetState();
@@ -1364,6 +1386,25 @@ class _AppDetailsSheet extends StatefulWidget {
 class _AppDetailsSheetState extends State<_AppDetailsSheet> {
   List<AppFeature>? _fetched;
   bool _failed = false;
+  // BUSY GUARDS — found live (deep audit, 2026-09-27): none of these three buttons ever disabled
+  // themselves while their own async call was in flight, and (combined with the frozen-snapshot
+  // bug above) never visibly changed either, inviting a real double-submit on a slow connection.
+  bool _busySubscribe = false;
+  bool _busyCancel = false;
+  bool _busyUndoCancel = false;
+
+  Future<void> _run(Future<bool> Function() action, void Function(bool) setBusy) async {
+    setBusy(true);
+    setState(() {});
+    final ok = await action();
+    if (!mounted) return;
+    if (ok) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setBusy(false);
+    setState(() {});
+  }
 
   @override
   void initState() {
@@ -1490,7 +1531,17 @@ class _AppDetailsSheetState extends State<_AppDetailsSheet> {
                               requires: const ['billing.undo_cancel'],
                               child: KbAnchor(
                                 id: 'apps.details_undo_cancel',
-                                child: SizedBox(width: double.infinity, child: OutlinedButton(onPressed: onUndoCancel, child: Text(s.appStoreUndoCancel))),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton(
+                                    onPressed: _busyUndoCancel
+                                        ? null
+                                        : () => _run(onUndoCancel, (v) => _busyUndoCancel = v),
+                                    child: _busyUndoCancel
+                                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                                        : Text(s.appStoreUndoCancel),
+                                  ),
+                                ),
                               ),
                             ),
                         ] else if (onCancel != null)
@@ -1501,7 +1552,9 @@ class _AppDetailsSheetState extends State<_AppDetailsSheet> {
                               child: SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton(
-                                  onPressed: () => showDialog<void>(
+                                  onPressed: _busyCancel
+                                      ? null
+                                      : () => showDialog<void>(
                                     context: context,
                                     builder: (dialogContext) => AlertDialog(
                                       content: Column(
@@ -1521,13 +1574,18 @@ class _AppDetailsSheetState extends State<_AppDetailsSheet> {
                                       actions: [
                                         TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(s.mobileRequestsRejectCancel)),
                                         TextButton(
-                                          onPressed: () { Navigator.of(dialogContext).pop(); onCancel(); },
+                                          onPressed: () {
+                                            Navigator.of(dialogContext).pop();
+                                            _run(onCancel, (v) => _busyCancel = v);
+                                          },
                                           child: Text(s.appStoreCancelRenewal, style: const TextStyle(color: AppColors.danger)),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  child: Text(s.appStoreCancelRenewal, style: const TextStyle(color: AppColors.danger)),
+                                  child: _busyCancel
+                                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                                      : Text(s.appStoreCancelRenewal, style: const TextStyle(color: AppColors.danger)),
                                 ),
                               ),
                             ),
@@ -1547,7 +1605,14 @@ class _AppDetailsSheetState extends State<_AppDetailsSheet> {
                       else if (onSubscribe != null)
                         CapabilityGate(
                           requires: const ['subscription.activate'],
-                          child: SizedBox(width: double.infinity, child: PrimaryButton(text: s.appStoreSubscribe, onPressed: onSubscribe)),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: PrimaryButton(
+                              text: s.appStoreSubscribe,
+                              isLoading: _busySubscribe,
+                              onPressed: _busySubscribe ? null : () => _run(onSubscribe, (v) => _busySubscribe = v),
+                            ),
+                          ),
                         ),
                     ],
                   ],
