@@ -313,6 +313,27 @@ listed by hand) is auto-called with its own generated body and none of them 500 
 surfaced real 503s from exactly the peer-dependent routes named above, confirmed as the
 by-design refusal rather than a defect before excluding them. Full simulator suite: 89 passed.
 
+## Two real gaps closed together (`tests/test_stage14_integration.py`)
+
+Two things this session had proven only apart, never together, closed with two more tests:
+
+1. **The mobile-requests app's own BRANCH dimension, with REAL hired operators.**
+   `test_stage12_mobile_requests.py`'s own manager/execute split used made-up operator ids
+   (`"op-a"`, `"op-b"`, ...) that resolve to no real Operator row at all — `_operator_branch`
+   always answered `""` (unassigned, always visible), so branch narrowing was never actually
+   exercised for this app, only capability-tier narrowing. Here a real Fleet (identity+operations)
+   hires a real manager scoped to branch A (`visible_branch_ids`) and a real technician at branch
+   B, assigns a request to that technician, and proves the branch-A manager never sees it while
+   the unnarrowed owner still does — the exact branch-scoping discipline `branches.py`'s own
+   module docstring describes, now proven for this app too, not assumed to carry over.
+2. **Visit recording running ALONGSIDE the platform-scale pieces, not alone.** A real Fleet, a real
+   `populate`-d pool of 10 tenants, real background noise (`RecordUniqueVisitAction` ticking
+   against that pool), and the scenario's own deliberate visit recording running concurrently with
+   all of it — proving the pieces compose the way `population.py`/`background.py`'s own
+   "app-agnostic" design claims, not just each piece proven alone.
+
+Full simulator suite: 91 passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
