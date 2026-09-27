@@ -445,6 +445,11 @@ def build_manifest(
             {"path": "/api/v1/affiliates/{}/active", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/affiliates/{}/settle", "tier": "user", "method": "POST"},
             {"path": "/api/v1/affiliates/{}/settlements", "tier": "user", "method": "GET"},
+            # ── Phase 5a of the referral/affiliate app — read-only performance reporting.
+            {"path": "/api/v1/referrals/reports/summary", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/referrals/reports/leaderboard", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/referrals/reports/campaigns", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/referrals/reports/affiliates", "tier": "user", "method": "GET"},
             # ── Salla — see api/v1/salla.py's own module docstring for the install/callback split.
             {"path": "/api/v1/staff/salla/install", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/salla/status", "tier": "user", "method": "GET"},

@@ -29,6 +29,7 @@ from app.api.v1.platform import router as platform_router
 from app.api.v1.salla import router as salla_router
 from app.api.v1.staff import router as staff_router
 from app.api.v1.affiliates import router as affiliates_router
+from app.api.v1.referral_reports import router as referral_reports_router
 
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 
@@ -155,3 +156,5 @@ router.include_router(salla_router)
 router.include_router(mobile_requests_router)
 # Phase 4 of the referral/affiliate app — the shop's own marketer/influencer admin surface.
 router.include_router(affiliates_router)
+# Phase 5a of the referral/affiliate app — read-only performance reporting.
+router.include_router(referral_reports_router)

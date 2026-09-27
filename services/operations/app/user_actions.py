@@ -911,6 +911,39 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "affiliate_id", "in": "path", "type": "string", "required": True}],
         "help": "كل تسوية سُجِّلت لهذا المسوّق: المبلغ، من نفّذها، ومتى.",
     },
+    # ── تقارير الإحالة والمسوّقين — Phase 5a. القراءة فقط، بلا أي كتابة؛ راجع core/
+    # referral_reports.py's own module docstring للمقاييس المتعمَّد استبعادها (K-factor، النقرات).
+    {
+        "id": "referral.report_summary", "label": "ملخص أداء الإحالة", "method": "GET",
+        "path": "/api/v1/referrals/reports/summary", "capability": "operations.read",
+        "group": "تقارير الإحالة",
+        "params": [{"name": "since", "in": "query", "type": "integer", "required": False},
+                  {"name": "until", "in": "query", "type": "integer", "required": False}],
+        "help": "الإيراد الحقيقي، تكلفة المكافآت، معدل التحويل، وعملاء جدد اكتُسبوا فعليًا.",
+    },
+    {
+        "id": "referral.report_leaderboard", "label": "أفضل السفراء والمسوّقين", "method": "GET",
+        "path": "/api/v1/referrals/reports/leaderboard", "capability": "operations.read",
+        "group": "تقارير الإحالة",
+        "params": [{"name": "since", "in": "query", "type": "integer", "required": False},
+                  {"name": "until", "in": "query", "type": "integer", "required": False},
+                  {"name": "limit", "in": "query", "type": "integer", "required": False}],
+        "help": "مرتّبة حسب الإيراد الفعلي، لا عدد مرات الاستخدام وحده.",
+    },
+    {
+        "id": "referral.report_campaigns", "label": "أداء حملات الإحالة", "method": "GET",
+        "path": "/api/v1/referrals/reports/campaigns", "capability": "operations.read",
+        "group": "تقارير الإحالة",
+        "params": [{"name": "since", "in": "query", "type": "integer", "required": False},
+                  {"name": "until", "in": "query", "type": "integer", "required": False}],
+        "help": "لكل حملة إحالة عادية: كم تسجيل، كم فعليًا انصرف، وأي إيراد جاء منه.",
+    },
+    {
+        "id": "referral.report_affiliates", "label": "أداء المسوّقين", "method": "GET",
+        "path": "/api/v1/referrals/reports/affiliates", "capability": "operations.read",
+        "group": "تقارير الإحالة",
+        "help": "كل مسوّق أُضيف، برصيده الحالي وإجمالي الإيراد اللي جابه.",
+    },
 ]
 
 

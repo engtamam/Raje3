@@ -399,6 +399,11 @@ def build_container(settings: Settings) -> Container:
         loyalty_desk=container.loyalty_desk, pii_salt=settings.PII_SALT,
         default_cc=settings.SIGNUP_PHONE_DEFAULT_CC, affiliates=container.affiliates)
 
+    # PHASE 5a — read-only performance reporting over the same grants/affiliate rows above.
+    from app.core.referral_reports import ReferralReportService
+
+    container.referral_reports = ReferralReportService(container.datastore)
+
     # THE "جماعي" MILESTONE HOOK — a separate service (campaigns), reached over HTTP, unlike the
     # in-process mutual-benefit engine just above. `build_milestone_peer` returns a silent no-op
     # when `CAMPAIGNS_SERVICE_URL` is unset, the same "empty means disabled, not a guess" posture
