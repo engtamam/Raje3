@@ -8,8 +8,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Any
 
-import httpx
-
+from simulator.common import httpclient
 from simulator.common.action import ActionResult, Context
 from simulator.shared.auth import auth_header
 
@@ -32,9 +31,8 @@ class AddAffiliateAction:
         body = {"phone": self.phone, "code": self.code, "discount_percent": self.discount_percent,
                 "reward_type": self.reward_type, "reward_params": self.reward_params}
         headers = auth_header(tenant=self.tenant, caps=("operations.manage",))
-        async with httpx.AsyncClient() as client:
-            r = await client.post(f"{self.base_url}/api/v1/affiliates", json=body,
-                                  headers=headers, timeout=10.0)
+        r = await httpclient.request("POST", f"{self.base_url}/api/v1/affiliates", json=body,
+                                     headers=headers, timeout=10.0)
         if r.status_code != 200:
             return ActionResult(ok=False, detail=f"add_affiliate refused: {r.status_code} {r.text}")
         payload = r.json()
@@ -60,9 +58,9 @@ class RegisterReferralAction:
         body = {"code": self.code, "phone": self.beneficiary_phone,
                "invoice_minor": self.invoice_minor}
         headers = auth_header(tenant=self.tenant, caps=("operations.record",))
-        async with httpx.AsyncClient() as client:
-            r = await client.post(f"{self.base_url}/api/v1/till/referral/register", json=body,
-                                  headers=headers, timeout=10.0)
+        r = await httpclient.request(
+            "POST", f"{self.base_url}/api/v1/till/referral/register", json=body,
+            headers=headers, timeout=10.0)
         if r.status_code != 200:
             return ActionResult(ok=False,
                                 detail=f"register_referral: unexpected HTTP {r.status_code}")
@@ -123,9 +121,8 @@ class RecordVisitAction:
         if self.idempotency_key:
             body["idempotency_key"] = self.idempotency_key
         headers = auth_header(tenant=self.tenant, caps=("operations.record",))
-        async with httpx.AsyncClient() as client:
-            r = await client.post(f"{self.base_url}/api/v1/field/visits", json=body,
-                                  headers=headers, timeout=10.0)
+        r = await httpclient.request("POST", f"{self.base_url}/api/v1/field/visits", json=body,
+                                     headers=headers, timeout=10.0)
         if r.status_code != 201:
             return ActionResult(ok=False, detail=f"record_visit: unexpected HTTP {r.status_code} "
                                                   f"{r.text}")
@@ -179,9 +176,8 @@ class CreateBranchAction:
     async def run(self, ctx: Context) -> ActionResult:
         headers = auth_header(tenant=self.tenant, caps=("operations.manage",))
         body = {"name": self.branch_name, "city": self.city, "lat": self.lat, "lng": self.lng}
-        async with httpx.AsyncClient() as client:
-            r = await client.post(f"{self.base_url}/api/v1/staff/branches", json=body,
-                                  headers=headers, timeout=10.0)
+        r = await httpclient.request("POST", f"{self.base_url}/api/v1/staff/branches", json=body,
+                                     headers=headers, timeout=10.0)
         if r.status_code != 201:
             return ActionResult(ok=False, detail=f"create_branch refused: {r.status_code} {r.text}")
         payload = r.json()
@@ -209,9 +205,8 @@ class HireMemberAction:
         headers = auth_header(tenant=self.tenant, caps=("operations.manage",))
         body = {"name": self.member_name, "phone": self.phone, "password": self.password,
                "role": self.role, "branch_id": self.branch_id}
-        async with httpx.AsyncClient() as client:
-            r = await client.post(f"{self.base_url}/api/v1/staff/members", json=body,
-                                  headers=headers, timeout=10.0)
+        r = await httpclient.request("POST", f"{self.base_url}/api/v1/staff/members", json=body,
+                                     headers=headers, timeout=10.0)
         if r.status_code != 201:
             return ActionResult(ok=False, detail=f"hire_member refused: {r.status_code} {r.text}")
         payload = r.json()
@@ -241,10 +236,9 @@ class SetOperatorScopeAction:
             body["visible_branch_ids"] = self.visible_branch_ids
         if self.active is not None:
             body["active"] = self.active
-        async with httpx.AsyncClient() as client:
-            r = await client.patch(
-                f"{self.base_url}/api/v1/staff/operators/{self.operator_id}", json=body,
-                headers=headers, timeout=10.0)
+        r = await httpclient.request(
+            "PATCH", f"{self.base_url}/api/v1/staff/operators/{self.operator_id}", json=body,
+            headers=headers, timeout=10.0)
         if r.status_code != 200:
             return ActionResult(ok=False, detail=f"set_operator_scope refused: {r.status_code} "
                                                   f"{r.text}")
@@ -266,9 +260,8 @@ class ListOperatorsAction:
     async def run(self, ctx: Context) -> ActionResult:
         headers = auth_header(tenant=self.tenant, caps=self.caller_caps,
                               subject=self.caller_subject)
-        async with httpx.AsyncClient() as client:
-            r = await client.get(f"{self.base_url}/api/v1/staff/operators", headers=headers,
-                                 timeout=10.0)
+        r = await httpclient.request("GET", f"{self.base_url}/api/v1/staff/operators",
+                                     headers=headers, timeout=10.0)
         if r.status_code != 200:
             return ActionResult(ok=False, detail=f"list_operators refused: {r.status_code} "
                                                   f"{r.text}", data={"status": r.status_code})

@@ -20,8 +20,7 @@ import string
 from dataclasses import dataclass, field
 from typing import Any
 
-import httpx
-
+from . import httpclient
 from .action import ActionResult, Context
 from .discovery import DeclaredAction
 
@@ -32,8 +31,7 @@ async def fetch_openapi(base_url: str) -> dict[str, Any]:
     """The service's own live schema — `ENV=test` (every spawned service in this simulator boots
     this way, see `shared/service_env.py`) is precisely what keeps `/openapi.json` switched on;
     `main.py` disables it only in production."""
-    async with httpx.AsyncClient() as client:
-        r = await client.get(f"{base_url}/openapi.json", timeout=10.0)
+    r = await httpclient.request("GET", f"{base_url}/openapi.json", timeout=10.0)
     r.raise_for_status()
     return r.json()
 
@@ -166,8 +164,7 @@ class AutoAction:
         headers = auth_header(tenant=self.tenant, caps=(self.declared.capability,),
                               subject=self.caller_subject)
         url = f"{self.base_url}{self._filled_path()}"
-        async with httpx.AsyncClient() as client:
-            r = await client.request(self.declared.method, url, json=body, headers=headers,
+        r = await httpclient.request(self.declared.method, url, json=body, headers=headers,
                                      timeout=10.0)
         # THE ONLY THING AN AUTO-GENERATED CALL CAN HONESTLY ASSERT: the route did not CRASH. A
         # well-formed-but-meaningless body (a random phone, a made-up service id) is very often

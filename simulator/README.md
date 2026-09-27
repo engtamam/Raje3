@@ -334,6 +334,34 @@ Two things this session had proven only apart, never together, closed with two m
 
 Full simulator suite: 91 passed.
 
+## A real, safe speed-up (`common/httpclient.py`) — and two attempts that were NOT safe
+
+The suite runs real uvicorn subprocesses per test, so it is slow by design — that cost buys the
+whole premise (see the top of this README). Two speed-ups were tried and reverted; one was kept:
+
+- **Kept: pooled HTTP connections.** Every Action used to open a brand-new `httpx.AsyncClient()`
+  per call — fine at low volume, but a load/population/noise run already fires hundreds of
+  individual short-lived connections at one spawned service within seconds, and none of them were
+  ever reused. `common/httpclient.py` pools ONE client per (event loop, origin) pair via a
+  `WeakKeyDictionary` keyed on the loop object itself (never `id(loop)` — Python can and does
+  reuse a closed loop's integer id for a brand new one, which would silently hand a fresh loop a
+  dead client). Applied across every Action/check/matrix-sweep call site. Real, measured, safe:
+  full suite time roughly halved (257s -> 130s), zero behaviour change, 91/91 still passing.
+- **Reverted: one server shared across an entire test session.** Every test spawning its own
+  server is most of the suite's own wall-clock cost, so sharing one across many tests looked like
+  the obvious win. First attempt (session-scoped, shared across ALL files) failed with
+  intermittent `ConnectError`s under cumulative load. Second attempt (module-scoped, one server
+  per FILE, tried again after the pooling fix above) failed just as hard, and traced to something
+  more fundamental than load: `asyncio.run()` calls `loop.shutdown_asyncgens()` on exit, which
+  sends `GeneratorExit` into ANY async generator still suspended in that loop — including
+  `run_service`'s own generator sitting at its `yield`, whose `finally` block terminates the
+  spawned process. A fixture that enters a service with one `asyncio.run()` call and exits it with
+  a LATER, separate one has the server torn down the instant the FIRST call returns, before any
+  test ever runs against it. Making a shared server survive this would need its own persistent
+  background event loop (a dedicated thread), a real, separate piece of infrastructure — not a
+  quick fixture — so it was reverted rather than half-built. Every test in this suite still spawns
+  its own server, and that is intentional, not an oversight.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,

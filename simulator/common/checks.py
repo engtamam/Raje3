@@ -15,6 +15,8 @@ from typing import Any
 
 import httpx
 
+from . import httpclient
+
 
 @dataclass
 class CheckResult:
@@ -24,8 +26,7 @@ class CheckResult:
 
 async def _call(method: str, url: str, *, headers: dict[str, str],
                 json_body: dict[str, Any] | None, timeout: float) -> httpx.Response:
-    async with httpx.AsyncClient() as client:
-        return await client.request(method, url, json=json_body, headers=headers, timeout=timeout)
+    return await httpclient.request(method, url, json=json_body, headers=headers, timeout=timeout)
 
 
 async def check_forged_signature_is_refused(
@@ -82,9 +83,8 @@ async def check_cross_tenant_isolation(
     B must never see what tenant A can see through it. Works for any resource whose scoping comes
     from the TOKEN (`principal.tenant`), never the URL itself, which is exactly how every route
     reviewed across this whole project's own referral/affiliate feature is built."""
-    async with httpx.AsyncClient() as client:
-        ra = await client.request(method, url, headers=tenant_a_headers, timeout=timeout)
-        rb = await client.request(method, url, headers=tenant_b_headers, timeout=timeout)
+    ra = await httpclient.request(method, url, headers=tenant_a_headers, timeout=timeout)
+    rb = await httpclient.request(method, url, headers=tenant_b_headers, timeout=timeout)
     if ra.status_code == 200 and rb.status_code == 200 and ra.text == rb.text:
         return CheckResult(ok=False, detail="tenant B's own token saw tenant A's exact data — "
                                             "cross-tenant leak")

@@ -9,8 +9,7 @@ identity itself, over the same internal door a background job would use
 """
 from __future__ import annotations
 
-import httpx
-
+from simulator.common import httpclient
 from simulator.shared.service_env import INTERNAL_SERVICE_TOKEN
 
 
@@ -33,9 +32,9 @@ async def lookup_person_id(base_url: str, *, tenant: str, phone: str,
     `None` if no such member exists — read straight from identity-service's own member directory,
     never guessed or derived."""
     canonical = _canonical_saudi_phone(phone)
-    async with httpx.AsyncClient() as client:
-        r = await client.get(f"{base_url}/internal/tenancy/members", params={"tenant": tenant},
-                             headers={"X-Internal-Token": INTERNAL_SERVICE_TOKEN}, timeout=timeout)
+    r = await httpclient.request(
+        "GET", f"{base_url}/internal/tenancy/members", params={"tenant": tenant},
+        headers={"X-Internal-Token": INTERNAL_SERVICE_TOKEN}, timeout=timeout)
     r.raise_for_status()
     for member in r.json().get("members", []):
         if member.get("identifier") == canonical:

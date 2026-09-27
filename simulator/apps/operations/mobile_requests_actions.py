@@ -15,8 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-import httpx
-
+from simulator.common import httpclient
 from simulator.common.action import ActionResult, Context
 from simulator.shared.auth import auth_header
 
@@ -52,9 +51,9 @@ class CreateMobileRequestAction:
         }
         headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,),
                               subject=self.caller_subject)
-        async with httpx.AsyncClient() as client:
-            r = await client.post(f"{self.base_url}/api/v1/staff/mobile-requests", json=body,
-                                  headers=headers, timeout=10.0)
+        r = await httpclient.request(
+            "POST", f"{self.base_url}/api/v1/staff/mobile-requests", json=body,
+            headers=headers, timeout=10.0)
         if r.status_code != 200:
             return ActionResult(ok=False, detail=f"create_mobile_request refused: "
                                                   f"{r.status_code} {r.text}")
@@ -80,9 +79,9 @@ class ListMobileRequestsAction:
         headers = auth_header(tenant=self.tenant, caps=self.caller_caps,
                               subject=self.caller_subject)
         params = {"status_filter": self.status_filter} if self.status_filter else {}
-        async with httpx.AsyncClient() as client:
-            r = await client.get(f"{self.base_url}/api/v1/staff/mobile-requests", params=params,
-                                 headers=headers, timeout=10.0)
+        r = await httpclient.request(
+            "GET", f"{self.base_url}/api/v1/staff/mobile-requests", params=params,
+            headers=headers, timeout=10.0)
         if r.status_code != 200:
             return ActionResult(ok=False, detail=f"list_mobile_requests refused: "
                                                   f"{r.status_code} {r.text}",
@@ -107,10 +106,9 @@ class AssignMobileRequestAction:
     async def run(self, ctx: Context) -> ActionResult:
         headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,),
                               subject=self.caller_subject)
-        async with httpx.AsyncClient() as client:
-            r = await client.post(
-                f"{self.base_url}/api/v1/staff/mobile-requests/{self.request_id}/assign",
-                json={"operator_id": self.operator_id}, headers=headers, timeout=10.0)
+        r = await httpclient.request(
+            "POST", f"{self.base_url}/api/v1/staff/mobile-requests/{self.request_id}/assign",
+            json={"operator_id": self.operator_id}, headers=headers, timeout=10.0)
         if r.status_code != 200:
             return ActionResult(ok=False, detail=f"assign_mobile_request refused: "
                                                   f"{r.status_code} {r.text}")
@@ -130,10 +128,9 @@ class AcceptMobileRequestAction:
     async def run(self, ctx: Context) -> ActionResult:
         headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,),
                               subject=self.caller_subject)
-        async with httpx.AsyncClient() as client:
-            r = await client.post(
-                f"{self.base_url}/api/v1/staff/mobile-requests/{self.request_id}/accept",
-                headers=headers, timeout=10.0)
+        r = await httpclient.request(
+            "POST", f"{self.base_url}/api/v1/staff/mobile-requests/{self.request_id}/accept",
+            headers=headers, timeout=10.0)
         if r.status_code != 200:
             return ActionResult(ok=False, detail=f"accept_mobile_request refused: "
                                                   f"{r.status_code} {r.text}")
@@ -154,10 +151,9 @@ class RejectMobileRequestAction:
     async def run(self, ctx: Context) -> ActionResult:
         headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,),
                               subject=self.caller_subject)
-        async with httpx.AsyncClient() as client:
-            r = await client.post(
-                f"{self.base_url}/api/v1/staff/mobile-requests/{self.request_id}/reject",
-                json={"reason": self.reason}, headers=headers, timeout=10.0)
+        r = await httpclient.request(
+            "POST", f"{self.base_url}/api/v1/staff/mobile-requests/{self.request_id}/reject",
+            json={"reason": self.reason}, headers=headers, timeout=10.0)
         if r.status_code != 200:
             return ActionResult(ok=False, detail=f"reject_mobile_request refused: "
                                                   f"{r.status_code} {r.text}")
@@ -180,10 +176,9 @@ class CompleteMobileRequestAction:
     async def run(self, ctx: Context) -> ActionResult:
         headers = auth_header(tenant=self.tenant, caps=self.caller_caps,
                               subject=self.caller_subject)
-        async with httpx.AsyncClient() as client:
-            r = await client.post(
-                f"{self.base_url}/api/v1/staff/mobile-requests/{self.request_id}/complete",
-                headers=headers, timeout=10.0)
+        r = await httpclient.request(
+            "POST", f"{self.base_url}/api/v1/staff/mobile-requests/{self.request_id}/complete",
+            headers=headers, timeout=10.0)
         if r.status_code != 200:
             return ActionResult(ok=False, detail=f"complete_mobile_request refused: "
                                                   f"{r.status_code} {r.text}")
@@ -205,10 +200,9 @@ class NoShowMobileRequestAction:
     async def run(self, ctx: Context) -> ActionResult:
         headers = auth_header(tenant=self.tenant, caps=self.caller_caps,
                               subject=self.caller_subject)
-        async with httpx.AsyncClient() as client:
-            r = await client.post(
-                f"{self.base_url}/api/v1/staff/mobile-requests/{self.request_id}/no-show",
-                headers=headers, timeout=10.0)
+        r = await httpclient.request(
+            "POST", f"{self.base_url}/api/v1/staff/mobile-requests/{self.request_id}/no-show",
+            headers=headers, timeout=10.0)
         if r.status_code != 200:
             return ActionResult(ok=False, detail=f"no_show_mobile_request refused: "
                                                   f"{r.status_code} {r.text}")

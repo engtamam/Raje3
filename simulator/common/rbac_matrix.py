@@ -9,8 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import httpx
-
+from . import httpclient
 from .discovery import DeclaredAction
 from ..shared.auth import auth_header
 from ..shared.roles import Role
@@ -58,22 +57,21 @@ async def check_action_against_every_role(
     url = f"{base_url}{path}"
 
     results: list[MatrixResult] = []
-    async with httpx.AsyncClient() as client:
-        for role in roles.values():
-            headers = auth_header(tenant=tenant, caps=tuple(role.capabilities))
-            r = await client.request(action.method, url, headers=headers, json=json_body,
+    for role in roles.values():
+        headers = auth_header(tenant=tenant, caps=tuple(role.capabilities))
+        r = await httpclient.request(action.method, url, headers=headers, json=json_body,
                                      timeout=timeout)
-            expected_allowed = action.capability in role.capabilities
-            if expected_allowed:
-                ok = r.status_code != 403
-                detail = ("" if ok else
-                          f"role {role.name!r} HOLDS {action.capability!r} but was refused 403")
-            else:
-                ok = r.status_code == 403
-                detail = ("" if ok else
-                          f"role {role.name!r} LACKS {action.capability!r} but got "
-                          f"{r.status_code}, not 403")
-            results.append(MatrixResult(
-                action_id=action.id, role_name=role.name, expected_allowed=expected_allowed,
-                status_code=r.status_code, ok=ok, detail=detail))
+        expected_allowed = action.capability in role.capabilities
+        if expected_allowed:
+            ok = r.status_code != 403
+            detail = ("" if ok else
+                      f"role {role.name!r} HOLDS {action.capability!r} but was refused 403")
+        else:
+            ok = r.status_code == 403
+            detail = ("" if ok else
+                      f"role {role.name!r} LACKS {action.capability!r} but got "
+                      f"{r.status_code}, not 403")
+        results.append(MatrixResult(
+            action_id=action.id, role_name=role.name, expected_allowed=expected_allowed,
+            status_code=r.status_code, ok=ok, detail=detail))
     return results
