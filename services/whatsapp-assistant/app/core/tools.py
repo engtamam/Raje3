@@ -142,6 +142,7 @@ class MobileLocationRequest:
     — never free text."""
     service_ids: list[str]
     requested_time: int
+    referral_code: str = ""
 
 
 class ToolValidationError(Exception):
@@ -726,7 +727,12 @@ async def _tool_request_mobile_visit(ctx: ToolContext, args: dict[str, Any]) -> 
             if reason:
                 raise ToolValidationError(reason)
 
-    return MobileLocationRequest(service_ids=service_ids, requested_time=starts_at)
+    # A NEW CUSTOMER'S OWN REFERRAL CODE — same "the model fills it only when the customer
+    # actually said one" posture as propose_booking's own referral_code (this function's own
+    # sibling above); never validated here, only carried along until the request is created.
+    referral_code = str(args.get("referral_code") or "").strip()
+    return MobileLocationRequest(service_ids=service_ids, requested_time=starts_at,
+                                 referral_code=referral_code)
 
 
 # ── WHICH APP(S) EACH TOOL BELONGS TO ───────────────────────────────────────────────────────────

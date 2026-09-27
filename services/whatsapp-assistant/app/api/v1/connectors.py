@@ -343,12 +343,14 @@ async def propose_reschedule_booking(body: ProposeRescheduleBookingIn, request: 
 class RequestMobileVisitIn(_ConnectorBase):
     service_ids: list[str] = Field(min_length=1)
     starts_at_iso: str
+    referral_code: str = ""
 
 
 @router.post("/request_mobile_visit", dependencies=[Depends(require_connector_token)])
 async def request_mobile_visit(body: RequestMobileVisitIn, request: Request) -> dict:
     return await _invoke(request, tool="request_mobile_visit", ctx=body, args={
-        "service_ids": body.service_ids, "starts_at_iso": body.starts_at_iso})
+        "service_ids": body.service_ids, "starts_at_iso": body.starts_at_iso,
+        "referral_code": body.referral_code})
 
 
 class CheckGrowthOpportunitiesIn(_ConnectorBase):

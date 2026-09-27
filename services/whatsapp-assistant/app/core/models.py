@@ -153,6 +153,11 @@ class ConversationState:
     # A REAL, ALREADY-VALIDATED epoch instant (core/tools.py::request_mobile_visit re-checks it
     # against the shop's own real working hours before this is ever stamped) — never free text.
     mobile_request_time: int = 0
+    # A NEW CUSTOMER'S REFERRAL CODE, offered when `request_mobile_visit` was validated — carried
+    # here the same way `mobile_request_service_ids`/`mobile_request_time` are, since this request
+    # may not become a real one (and register the code) until the shop marks it complete, days
+    # later (services/operations/app/core/mobile_requests.py::complete's own referral hook).
+    mobile_request_referral_code: str = ""
     updated: int = field(default_factory=lambda: int(time.time()))
 
 

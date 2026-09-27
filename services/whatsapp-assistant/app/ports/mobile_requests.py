@@ -28,7 +28,7 @@ class NullMobileRequests:
 
     async def create(self, *, tenant: str, phone: str, customer_name: str,
                      service_ids: list[str], requested_time: int,
-                     lat: float, lng: float) -> CreatedMobileRequest:
+                     lat: float, lng: float, referral_code: str = "") -> CreatedMobileRequest:
         raise MobileRequestFailed("mobile requests are not configured on this deployment")
 
     async def hours(self, tenant: str) -> dict[str, Any] | None:

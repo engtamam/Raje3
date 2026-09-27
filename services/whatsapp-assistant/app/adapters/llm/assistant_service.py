@@ -298,6 +298,9 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             "properties": {
                 "service_ids": {"type": "array", "items": {"type": "string"}},
                 "starts_at_iso": {"type": "string"},
+                "referral_code": {"type": "string", "description": (
+                    "Optional. Fill this ONLY when the customer explicitly mentions a referral "
+                    "code someone gave them. Never invent one, never ask for one unprompted.")},
             },
             "required": ["service_ids", "starts_at_iso"],
         },

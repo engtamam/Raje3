@@ -1667,6 +1667,7 @@ class ConversationEngine:
                 conv.awaiting_mobile_location = True
                 conv.mobile_request_service_ids = result.service_ids
                 conv.mobile_request_time = result.requested_time
+                conv.mobile_request_referral_code = result.referral_code
                 conv.state = "idle"
                 conv.session_closed_at = now
                 conv.batch_deadline = 0
@@ -1849,6 +1850,7 @@ class ConversationEngine:
 
             service_ids = list(conv.mobile_request_service_ids)
             requested_time = conv.mobile_request_time
+            referral_code = conv.mobile_request_referral_code
             # CLEARED BEFORE THE PEER CALL, NOT AFTER — same "one shot" discipline as
             # `pending_proposal_id` being cleared before its own peer write (handle_button_reply
             # below): a customer re-sharing their pin a second time (WhatsApp lets them re-tap
@@ -1857,6 +1859,7 @@ class ConversationEngine:
             conv.awaiting_mobile_location = False
             conv.mobile_request_service_ids = []
             conv.mobile_request_time = 0
+            conv.mobile_request_referral_code = ""
             conv.state = "idle"
             conv.session_closed_at = now
             await self._save(conv)
@@ -1869,7 +1872,7 @@ class ConversationEngine:
                 await self._mobile_requests.create(
                     tenant=tenant, phone=from_number, customer_name="",
                     service_ids=service_ids, requested_time=requested_time,
-                    lat=lat, lng=lng)
+                    lat=lat, lng=lng, referral_code=referral_code)
             except MobileRequestFailed as exc:
                 # operations' own real refusal reason (e.g. the working-hours check catching a
                 # race — the schedule changed between the proposal and now) is worth relaying
