@@ -277,6 +277,42 @@ refused, not silently no-op'd; two operators each assigned a different request s
 in `list`, never each other's; and a manager sees everything regardless. Full simulator suite: 86
 passed.
 
+## Generating Actions FROM a route's own schema (`common/autogen.py`)
+
+The answer to "why do we write the scenario — can't the simulator understand the app and generate
+the actions itself?" Two different things were being conflated: WHICH routes exist (already
+smart-linked — `common/discovery.py` reads `user_actions.py`/`admin_actions.py` directly) versus
+WHAT VALID CALL to make (a schema alone can say a field is a 3-32 char string; it cannot say it
+should look like a Saudi phone number, or that a mobile request needs a branch to exist first —
+business-meaningful, multi-step scenarios stay hand-written, same `apps/<name>/actions.py` files
+this session already built).
+
+`autogen.py` automates the MECHANICAL part a schema fully determines: it reads a spawned service's
+own LIVE `/openapi.json` (the smartest possible link — not parsed source, the running app's own
+answer to "what do you accept", the same document this repo's generated SDKs already come from;
+`ENV=test`, which every spawned service boots with, is what keeps it switched on — `main.py`
+disables it only in production), matches each declared route from `discovery.py` to its real
+request-body schema, and generates ONE schema-valid instance per required field (boundary-aware:
+nearest to a field's own minimum/length, never a full property-based search — that duplicates
+Schemathesis' own job on a spec, not something to reinvent here) — a single, real HTTP call needing
+zero hand-written code per route.
+
+An auto-generated call can only honestly claim one thing: the route did not CRASH. A well-formed
+but business-meaningless body (a random phone, a made-up service id) is routinely and correctly
+refused (4xx) by a rule this generator knows nothing about — that is success for THIS purpose.
+503 is excluded from "crash" too, deliberately: this codebase's own documented posture, seen
+already in several routes this simulator drives (till.py's licence check, field.py's PDF export,
+subscription's own checkout) is "an unreachable PEER refuses cleanly (503) rather than guesses",
+and a route under test here has no billing/pdf-conversion/payment peer behind it at all — so a 503
+is that exact, correct, by-design refusal, not a bug. Only a genuine 500 is `ok=False`.
+
+Proven for real (`tests/test_stage13_autogen.py`): a body generated purely from `/api/v1/field/
+visits`'s own live schema — never hand-typed — is accepted by the real route (HTTP 201); and every
+declared, parameterless route in services/operations' real catalogue (dozens, discovered, not
+listed by hand) is auto-called with its own generated body and none of them 500 — the first run
+surfaced real 503s from exactly the peer-dependent routes named above, confirmed as the
+by-design refusal rather than a defect before excluding them. Full simulator suite: 89 passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
