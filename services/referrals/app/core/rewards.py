@@ -31,9 +31,17 @@ class RewardError(Exception):
 
 
 def _positive_int(value: Any, *, field: str, minimum: int = 1) -> int:
+    # bool is a subclass of int in Python — int(True) == 1 would otherwise silently accept a
+    # caller's stray `"points": true` as "1 point" instead of refusing the obviously wrong type.
+    if isinstance(value, bool):
+        raise RewardError(f"{field}: قيمة غير صالحة")
     try:
         n = int(value)
     except (TypeError, ValueError):
+        raise RewardError(f"{field}: قيمة غير صالحة")
+    # A float that isn't a whole number (50.9) truncating silently to 50 is a silent data loss,
+    # not a normalization — refuse it instead of guessing which integer the caller meant.
+    if isinstance(value, float) and value != n:
         raise RewardError(f"{field}: قيمة غير صالحة")
     if n < minimum:
         raise RewardError(f"{field}: يجب أن يكون {minimum} على الأقل")
@@ -48,9 +56,16 @@ def _percent(value: Any, *, field: str) -> int:
 
 
 def _multiplier(value: Any, *, field: str) -> float:
+    if isinstance(value, bool):
+        raise RewardError(f"{field}: قيمة غير صالحة")
     try:
         m = float(value)
     except (TypeError, ValueError):
+        raise RewardError(f"{field}: قيمة غير صالحة")
+    # float() happily parses "nan"/"inf" strings too — NaN fails every ordered comparison
+    # (silently falling through as "invalid range" is fine), but +inf must be caught explicitly
+    # since nothing above it exists to bound it.
+    if m != m or m in (float("inf"), float("-inf")):
         raise RewardError(f"{field}: قيمة غير صالحة")
     if not (1.0 < m <= _MAX_MULTIPLIER):
         raise RewardError(f"{field}: يجب أن يكون بين 1 و{_MAX_MULTIPLIER}")
@@ -106,6 +121,9 @@ def _validate_time_boost(params: dict[str, Any]) -> dict[str, Any]:
         raise RewardError("أوقات التعزيز: يجب تحديد نافذة زمنية واحدة على الأقل")
     normalized = []
     for w in windows:
+        if not isinstance(w, dict) or any(isinstance(w.get(k), bool)
+                                          for k in ("weekday", "start_minute", "end_minute")):
+            raise RewardError("أوقات التعزيز: نافذة زمنية غير صالحة")
         try:
             weekday, start, end = int(w["weekday"]), int(w["start_minute"]), int(w["end_minute"])
         except (KeyError, TypeError, ValueError):
@@ -125,6 +143,8 @@ def _validate_mystery_box(params: dict[str, Any]) -> dict[str, Any]:
         raise RewardError("صندوق الحظ: يحتاج احتمالين على الأقل")
     normalized = []
     for o in outcomes:
+        if not isinstance(o, dict):
+            raise RewardError("صندوق الحظ: احتمال غير صالح")
         points = _positive_int(o.get("points"), field="نقاط احتمال بصندوق الحظ")
         weight = _positive_int(o.get("weight"), field="وزن احتمال بصندوق الحظ")
         normalized.append({"points": points, "weight": weight})
@@ -147,6 +167,8 @@ def validate_reward(reward_type: str, params: dict[str, Any]) -> dict[str, Any]:
     validator = _REWARD_VALIDATORS.get(reward_type)
     if validator is None:
         raise RewardError(f"نوع مكافأة غير معروف: {reward_type}")
+    if params is not None and not isinstance(params, dict):
+        raise RewardError("مكافأة الإحالة: بيانات غير صالحة")
     return validator(params or {})
 
 
@@ -171,4 +193,6 @@ def validate_new_customer_reward(reward_type: str, params: dict[str, Any]) -> di
     validator = _NEW_CUSTOMER_VALIDATORS.get(reward_type)
     if validator is None:
         raise RewardError(f"نوع مكافأة غير معروف للعميل الجديد: {reward_type}")
+    if params is not None and not isinstance(params, dict):
+        raise RewardError("مكافأة العميل الجديد: بيانات غير صالحة")
     return validator(params or {})
