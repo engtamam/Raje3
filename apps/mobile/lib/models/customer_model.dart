@@ -389,3 +389,18 @@ class CustomerBooking {
     );
   }
 }
+
+/// A referral code's own registration attempt, riding along on `/customers/ensure`'s response —
+/// see `Operations._register_referral_if_new`'s own docstring for the shape and the "never undo"
+/// posture: a rejected code never means the customer resolution it rode along with failed.
+class ReferralRegistration {
+  final bool ok;
+  final String message;
+
+  const ReferralRegistration({required this.ok, required this.message});
+
+  factory ReferralRegistration.fromJson(Map<String, dynamic> json) => ReferralRegistration(
+        ok: json['ok'] as bool? ?? false,
+        message: json['message'] as String? ?? '',
+      );
+}

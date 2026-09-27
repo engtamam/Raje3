@@ -57,6 +57,10 @@ class _NewBookingSheetState extends State<NewBookingSheet> {
   // customer step
   final _phoneController = TextEditingController();
   final _nameController = TextEditingController();
+  // THE REAL "NEW CUSTOMER" MOMENT FOR A BOOKING — see `CustomersService.ensure`'s own docstring:
+  // a booking's own attendance always finds an already-existing customer, so this is the only
+  // time this customer ever has to type a referral code in.
+  final _referralCodeController = TextEditingController();
   Customer? _selectedCustomer;
   List<CustomerHit> _suggestions = const [];
   Timer? _debounce;
@@ -147,6 +151,7 @@ class _NewBookingSheetState extends State<NewBookingSheet> {
     _pageController.dispose();
     _phoneController.dispose();
     _nameController.dispose();
+    _referralCodeController.dispose();
     _noteController.dispose();
     _depositController.dispose();
     super.dispose();
@@ -373,11 +378,23 @@ class _NewBookingSheetState extends State<NewBookingSheet> {
 
       var customer = _selectedCustomer;
       if (customer == null) {
-        customer = await _customersService.ensure(
-            phone: _phoneController.text.trim(), name: _nameController.text.trim());
-        if (customer == null) {
+        final ensured = await _customersService.ensure(
+            phone: _phoneController.text.trim(), name: _nameController.text.trim(),
+            referralCode: _referralCodeController.text.trim());
+        final ensuredCustomer = ensured.customer;
+        if (ensuredCustomer == null) {
           setState(() => _error = 'تعذّر تسجيل العميل — تحقق من الرقم');
           return;
+        }
+        customer = ensuredCustomer;
+        // NEVER BLOCKS THE BOOKING EITHER WAY — a rejected code is only ever a notice, shown
+        // right before this sheet closes; the customer/booking it rode along with is real
+        // regardless (see CustomersService.ensure's own docstring).
+        final rr = ensured.referralRegistration;
+        if (rr != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
+              rr.ok ? 'تم تسجيل كود الإحالة — سيحصل هذا العميل على مكافأته عند حضور الحجز.'
+                    : 'تعذّر تسجيل كود الإحالة: ${rr.message}')));
         }
       }
       final created = await widget.bookingsService.create(
@@ -522,6 +539,15 @@ class _NewBookingSheetState extends State<NewBookingSheet> {
             KbAnchor(
               id: 'bookings.new_sheet.name_field',
               child: AppTextField(labelText: 'الاسم (اختياري لعميل جديد)', controller: _nameController),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            KbAnchor(
+              id: 'bookings.new_sheet.referral_code_field',
+              child: AppTextField(
+                labelText: 'كود إحالة (اختياري)',
+                controller: _referralCodeController,
+                textDirection: TextDirection.ltr,
+              ),
             ),
           ],
           if (_selectedCustomer != null && _risk != null && _risk!.risky) ...[

@@ -765,7 +765,8 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
       _saving = true;
       _error = null;
     });
-    final customer = await widget.service.ensure(phone: phone, name: _nameController.text.trim());
+    final result = await widget.service.ensure(phone: phone, name: _nameController.text.trim());
+    final customer = result.customer;
     if (!mounted) return;
     if (customer == null) {
       setState(() {

@@ -55,15 +55,34 @@ class CustomersService {
   }
 
   /// `POST /api/v1/field/customers/ensure` — resolve-or-create, no visit attached.
-  Future<Customer?> ensure({required String phone, String name = ''}) async {
+  ///
+  /// THE REAL "NEW CUSTOMER" MOMENT FOR A BOOKING — a booking's own attendance always finds an
+  /// already-existing customer (`Operations.ensure_customer`'s own docstring), so a referral
+  /// code offered here, when the booking is first made, is the only time it is ever registered
+  /// for this door. `referralRegistration` is `null` when none was offered; a rejected one is
+  /// still returned — never allowed to undo the customer resolution it rode along with.
+  Future<({Customer? customer, ReferralRegistration? referralRegistration})> ensure({
+    required String phone, String name = '', String referralCode = '',
+  }) async {
     try {
-      final response = await apiClient.dio.post<dynamic>('/api/v1/field/customers/ensure',
-          data: {'phone': phone, if (name.isNotEmpty) 'name': name});
+      final response = await apiClient.dio.post<dynamic>('/api/v1/field/customers/ensure', data: {
+        'phone': phone,
+        if (name.isNotEmpty) 'name': name,
+        if (referralCode.isNotEmpty) 'referral_code': referralCode,
+      });
       final body = response.data;
-      if (body is! Map || body['customer'] == null) return null;
-      return Customer.fromJson(Map<String, dynamic>.from(body['customer'] as Map));
+      if (body is! Map || body['customer'] == null) {
+        return (customer: null, referralRegistration: null);
+      }
+      final rr = body['referral_registration'];
+      return (
+        customer: Customer.fromJson(Map<String, dynamic>.from(body['customer'] as Map)),
+        referralRegistration: rr is Map
+            ? ReferralRegistration.fromJson(Map<String, dynamic>.from(rr))
+            : null,
+      );
     } on DioException {
-      return null;
+      return (customer: null, referralRegistration: null);
     }
   }
 
