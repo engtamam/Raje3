@@ -504,6 +504,16 @@ String rewardDetail(String type, Map<String, dynamic> params) {
   }
 }
 
+/// THE CAMPAIGN'S OWN «قاعدة الطرفين» CARD — redesigned for real colour differentiation between
+/// its two halves (owner's own request): the REFERRER's reward reads in the emerald "success"
+/// register (the money coming BACK to the shop's own customer), the NEW CUSTOMER's reward reads
+/// in the sapphire "info" register (the win handed to a stranger walking in) — never the same
+/// grey row twice, so the eye sorts "whose reward is this" before it reads a single word, the
+/// same "colour before number" precedent Shop.tsx's own Tile already sets for this fleet.
+///
+/// A THIN GRADIENT BORDER AND A FAINT CORNER MEDALLION give the card its own premium presence,
+/// echoing the hero's teal-to-blue "growth" identity one level down, rather than sitting as one
+/// more plain grey `AppCard` among the screen's other panels.
 class _CampaignDetailCard extends StatelessWidget {
   const _CampaignDetailCard({required this.campaign, required this.canManage, required this.busy, required this.onToggleActive});
   final ReferralCampaign campaign;
@@ -514,55 +524,172 @@ class _CampaignDetailCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final dark = context.isDark;
+    final active = campaign.active;
+    final borderTint = (dark ? const Color(0xFF3DD9C6) : const Color(0xFF12406B))
+        .withValues(alpha: dark ? 0.35 : 0.16);
+
     return KbAnchor(
       id: 'referrals.campaign_card',
-      child: AppCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text('مكافأة صاحب الإحالة', style: AppTextStyles.labelMedium),
-                ),
-                if (canManage)
-                  KbAnchor(
-                    id: 'referrals.toggle_active',
-                    child: Switch(value: campaign.active, onChanged: busy ? null : (_) => onToggleActive()),
-                  ),
-              ],
-            ),
-            Row(
-              children: [
-                Icon(Icons.card_giftcard_rounded, size: 18, color: colors.textSecondary),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text('${rewardTypeLabel(campaign.rewardType)} — ${rewardDetail(campaign.rewardType, campaign.rewardParams)}',
-                      style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
-                ),
-              ],
-            ),
-            const Divider(height: AppSpacing.lg),
-            const Text('مكافأة العميل الجديد (إلزامية — قاعدة الطرفين)', style: AppTextStyles.labelMedium),
-            const SizedBox(height: AppSpacing.xs),
-            Row(
-              children: [
-                Icon(Icons.person_add_alt_1_rounded, size: 18, color: colors.textSecondary),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                      '${rewardTypeLabel(campaign.newCustomerRewardType)} — ${rewardDetail(campaign.newCustomerRewardType, campaign.newCustomerRewardParams)}',
-                      style: AppTextStyles.bodyMedium),
-                ),
-              ],
-            ),
-            if (campaign.minSpendMinor > 0) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text('حد أدنى للفاتورة: ${(campaign.minSpendMinor / 100).toStringAsFixed(2)} ﷼',
-                  style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
-            ],
-          ],
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: AppRadius.cardRadius,
+          border: Border.all(color: borderTint, width: 1.4),
+          boxShadow: dark ? AppShadows.darkCard : AppShadows.card,
         ),
+        child: ClipRRect(
+          borderRadius: AppRadius.cardRadius,
+          child: Stack(
+            children: [
+              // A FAINT PREMIUM MEDALLION, THE SAME "BRANCHING NODE" MOTIF THE HERO ALREADY
+              // OWNS — never a second, competing icon language on the same screen.
+              Positioned.directional(
+                textDirection: Directionality.of(context),
+                top: -14,
+                end: -14,
+                child: Icon(Icons.workspace_premium_rounded, size: 76,
+                    color: (dark ? const Color(0xFF3DD9C6) : const Color(0xFF12406B))
+                        .withValues(alpha: 0.07)),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Flexible(
+                                child: Text('تفاصيل حملة الإحالة', style: AppTextStyles.headlineSmall,
+                                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: (active ? AppColors.success : colors.textMuted).withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                                ),
+                                child: Text(active ? 'نشطة' : 'متوقفة',
+                                    style: AppTextStyles.caption.copyWith(
+                                        color: active ? AppColors.success : colors.textMuted,
+                                        fontWeight: FontWeight.w800)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (canManage)
+                          KbAnchor(
+                            id: 'referrals.toggle_active',
+                            child: Switch(value: campaign.active, onChanged: busy ? null : (_) => onToggleActive()),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _RewardBand(
+                      color: AppColors.success, onColor: AppColors.successOnSoft, softColor: AppColors.successSoft,
+                      icon: Icons.card_giftcard_rounded,
+                      label: 'مكافأة صاحب الإحالة',
+                      value: '${rewardTypeLabel(campaign.rewardType)} — ${rewardDetail(campaign.rewardType, campaign.rewardParams)}',
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Expanded(child: Divider(height: 1, color: colors.borderSubtle)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                            child: Icon(Icons.swap_vert_rounded, size: 16, color: colors.textMuted),
+                          ),
+                          Expanded(child: Divider(height: 1, color: colors.borderSubtle)),
+                        ],
+                      ),
+                    ),
+                    _RewardBand(
+                      color: AppColors.info, onColor: AppColors.infoOnSoft, softColor: AppColors.infoSoft,
+                      icon: Icons.person_add_alt_1_rounded,
+                      label: 'مكافأة العميل الجديد (إلزامية — قاعدة الطرفين)',
+                      value: '${rewardTypeLabel(campaign.newCustomerRewardType)} — '
+                          '${rewardDetail(campaign.newCustomerRewardType, campaign.newCustomerRewardParams)}',
+                    ),
+                    if (campaign.minSpendMinor > 0) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: colors.surfaceAlt,
+                          borderRadius: BorderRadius.circular(AppRadius.pill),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.receipt_long_rounded, size: 13, color: colors.textMuted),
+                            const SizedBox(width: 4),
+                            Text('حد أدنى للفاتورة: ${(campaign.minSpendMinor / 100).toStringAsFixed(2)} ﷼',
+                                style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One coloured half of the campaign card — a soft-tinted band with its own circular icon badge,
+/// never sharing a colour with the other half. `softColor`/`onColor` are the SAME semantic
+/// soft/on-soft pair the console's own Badge/KpiCard already use for success/info, so this reads
+/// as one consistent brand vocabulary, not a bespoke palette invented for this one card.
+class _RewardBand extends StatelessWidget {
+  const _RewardBand({
+    required this.color, required this.onColor, required this.softColor,
+    required this.icon, required this.label, required this.value,
+  });
+  final Color color;
+  final Color onColor;
+  final Color softColor;
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: softColor,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            child: Icon(icon, size: 17, color: Colors.white),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: AppTextStyles.caption.copyWith(color: onColor, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(value, style: AppTextStyles.bodyMedium.copyWith(color: onColor, fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
