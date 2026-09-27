@@ -96,7 +96,8 @@
     "feature.visit": "تسجيل زيارة — the visit register itself, sold as its own standalone app (services/operations/app/api/subscribed.py::subscribed_write_or_visit). Also GRANTS the reminders engine (adaptive rhythm, engagement scoring) as an included FEATURE, not a separate purchase — see services/reminders/app/api/subscribed.py::subscribed_write",
     "feature.mobile_requests": "خدمات متنقلة — a shop whose service travels to the customer (services/operations/app/core/mobile_requests.py). Standalone (plan.standalone) — the shop's own staff can type a request in by hand from day one; the WhatsApp bot is an additional door once feature.whatsapp is also bought, never a prerequisite",
     "feature.mutual_benefit": "تبادل منافع (إحالة عملاء) — cross-tenant customer-referral eligibility detection between two consenting shops (services/operations/app/core/mutual_benefit.py). Standalone (plan.standalone). NEVER a billing/money feature — the discount itself is applied by the beneficiary shop however it normally does; this app only organises the relationship and detects eligibility",
-    "feature.mobile_ai_assistant": "المساعد الذكي (تطبيق الجوال) — on-device Gemma 4 assistant, apps/mobile only, no console screen. Standalone (plan.standalone). Priced at 0 on purpose (zero server inference cost to us) but a REAL subscribe/cancel-able plan, not an auto-grant — the owner's own explicit call, so a shop can turn it off like any other app and we can price it for real later with no code change"
+    "feature.mobile_ai_assistant": "المساعد الذكي (تطبيق الجوال) — on-device Gemma 4 assistant, apps/mobile only, no console screen. Standalone (plan.standalone). Priced at 0 on purpose (zero server inference cost to us) but a REAL subscribe/cancel-able plan, not an auto-grant — the owner's own explicit call, so a shop can turn it off like any other app and we can price it for real later with no code change",
+    "feature.coworking": "الاستضافة المهنية — hourly co-working resource rental, its own standalone microservice (services/coworking). Standalone (plan.standalone). Hourly-ONLY pricing, no money moves through this platform (a stored price fact only), and no cross-shop marketplace — one shareable link per shop"
   },
   "_removed": [
     "feature.roles.custom IS GONE, and its absence is the honest state. It was sold on every tier",
@@ -478,6 +479,47 @@
       "listed": true,
       "limits": {
         "feature.mobile_ai_assistant": {
+          "kind": "boolean",
+          "limit": 1
+        },
+        "plan.standalone": {
+          "kind": "boolean",
+          "limit": 1
+        }
+      }
+    },
+    {
+      "_": [
+        "الاستضافة المهنية — hourly co-working resource rental, its own standalone microservice",
+        "(services/coworking, backend-only this pass — no console/mobile UI, the owner's own",
+        "explicit scope for this increment). See that service's own README for the full design:",
+        "hourly-ONLY pricing (a commission/percentage-of-income mode was designed then explicitly",
+        "rejected as too complex and unverifiable), NO money moves through this platform (a stored",
+        "price fact only — cash or whatever happens directly between the shop and the freelancer,",
+        "outside our system entirely, same posture this platform already takes on payment refunds),",
+        "and NO cross-shop marketplace or discovery — one shareable link per SHOP, handed directly",
+        "to whichever freelancers it already works with.",
+        "",
+        "`plan.standalone` — a shop with no other app at all may buy this, same posture every",
+        "other single-purpose app on this file already takes.",
+        "",
+        "`screen: 'coworking'` in core/apps.py names the id ci/check_listed_apps_are_wired.py",
+        "checks against — a real, stable id even though there is no console route behind it yet.",
+        "",
+        "LISTED FALSE, UNLIKE feature.referral_partnership'S OWN ROW — that one is genuinely usable",
+        "headless (the discount applies automatically through the beneficiary shop's existing",
+        "flow, no screen ever required for the money-relevant behaviour). This app is the opposite:",
+        "a shop that bought it today has no way to create a resource, set an hourly price, or",
+        "approve a join request at all without a screen — the core purpose is unusable without one.",
+        "adding-a-new-app.md's own rule (\"if the app is not actually usable yet: set listed:false\")",
+        "applies here precisely, not the precedent this comment used to cite."
+      ],
+      "name": "الاستضافة المهنية",
+      "amount": 9900,
+      "trial_days": 30,
+      "listed": false,
+      "limits": {
+        "feature.coworking": {
           "kind": "boolean",
           "limit": 1
         },
