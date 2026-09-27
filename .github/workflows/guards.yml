@@ -1246,6 +1246,19 @@ jobs:
       - name: every console screen with Arabic text routes it through operator-i18n
         run: python3 ci/check_operator_i18n_coverage.py
 
+      # Dropped from this workflow on 2026-09-16 only because that push's token lacked the
+      # `workflow` scope GitHub requires to touch .github/workflows/* — never re-added since.
+      # Both checks pass clean today; re-wiring them here closes that gap for real.
+      - name: a hardcoded colour does not shadow a theme token
+        run: python3 ci/check_a_hardcoded_color_does_not_shadow_a_token.py
+
+      - name: a hand-rolled card does not skip the shared component
+        run: python3 ci/check_a_hand_rolled_card_skips_the_shared_component.py
+
+      # Written 2026-09-26 (insights' own association threshold, 200->100) but never wired in.
+      - name: the association-learning threshold agrees everywhere it is believed
+        run: python3 ci/check_insights_association_threshold_agrees.py
+
       - name: a locked app buys through the one shared subscribe flow, never a copy of it
         run: python3 ci/check_subscribe_flow_not_duplicated.py
 
