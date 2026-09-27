@@ -85,6 +85,15 @@ class CampaignService:
             campaigns = [c for c in campaigns if c.active]
         return campaigns
 
+    async def get_active_for_tenant(self, tenant: str) -> Campaign | None:
+        """The one campaign a till-side redemption checks against. MOST-RECENTLY-CREATED active
+        campaign, deliberately — `list()` already sorts `created_at desc`, so a shop that paused
+        an old campaign and started a new one is never caught by a stale first match. A shop
+        running two active campaigns at once (not refused anywhere in this phase) still gets a
+        single, deterministic answer rather than an arbitrary one."""
+        campaigns = await self.list(tenant, active_only=True)
+        return campaigns[0] if campaigns else None
+
     async def set_active(self, tenant: str, campaign_id: str, *, active: bool) -> Campaign:
         """The ONLY mutable field — see this module's own `models.py` docstring for why every
         other term is fixed for the campaign's whole life."""

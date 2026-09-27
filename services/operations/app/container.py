@@ -380,6 +380,19 @@ def build_container(settings: Settings) -> Container:
         default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
     container.operations.with_mutual_benefit_engine(container.mutual_benefit)
 
+    # THE GLOBAL ANONYMOUS REFERRAL CODE'S OWN TILL-SIDE REDEMPTION (services/referrals, Phase 3)
+    # — the SECOND real EntitlementGateway source, alongside mutual_benefit above. Reaches
+    # `referrals` (code/campaign reads) and `loyalty` (crediting the referrer's own reward) over
+    # HTTP, same "empty URL means disabled" posture every optional peer here takes.
+    from app.adapters.referrals_desk import build_referrals_desk
+    from app.core.referral_redemption import ReferralRedemptionEngine
+
+    container.referrals_desk = build_referrals_desk(settings)
+    container.referral_redemption = ReferralRedemptionEngine(
+        store=container.datastore, referrals_desk=container.referrals_desk,
+        loyalty_desk=container.loyalty_desk, pii_salt=settings.PII_SALT,
+        default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
+
     # THE "جماعي" MILESTONE HOOK — a separate service (campaigns), reached over HTTP, unlike the
     # in-process mutual-benefit engine just above. `build_milestone_peer` returns a silent no-op
     # when `CAMPAIGNS_SERVICE_URL` is unset, the same "empty means disabled, not a guess" posture
@@ -396,7 +409,8 @@ def build_container(settings: Settings) -> Container:
     from app.core.entitlements import EntitlementGateway
 
     container.entitlement_gateway = EntitlementGateway(
-        mutual_benefit_engine=container.mutual_benefit, campaign_chooser=reminders_offer_chooser)
+        mutual_benefit_engine=container.mutual_benefit, campaign_chooser=reminders_offer_chooser,
+        referral_code_engine=container.referral_redemption)
     container.operations.with_entitlement_gateway(container.entitlement_gateway)
 
     # Salla — infrastructure only, see core/marketplaces/salla.py's own module docstring.

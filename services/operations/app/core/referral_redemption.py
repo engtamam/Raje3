@@ -1,0 +1,316 @@
+"""Phase 3 of docs/خطة-تطبيق-الإحالة-والمسوقين-2026-09-27.md — till-time redemption of the
+global anonymous referral code (services/referrals' own Phase 1/2), the SECOND real source
+`core/entitlements.py::EntitlementGateway` aggregates, alongside `MutualBenefitEngine`.
+
+WHY THIS LIVES HERE, NOT IN services/referrals. The plan doc's own words: "كل تفاصيل الإحالة
+الحقيقية (مين أحال مين، النقاط، السجل، التقارير) تعيش بالكامل داخل قاعدة كل محل المعزولة زي اليوم
+بالضبط". services/referrals holds only the global phone<->code identity and each shop's campaign
+CONFIG (both tenant-agnostic or read-only from here); every fact about WHO redeemed WHOM, at
+which shop, is this shop's own isolated data — same isolation `MutualBenefitGrant` already keeps
+for partnership grants, applied here to a different kind of grant.
+
+THE TWO-STEP LIFECYCLE, MIRRORING `MutualBenefitGrant` EXACTLY:
+  1. `register()` — a cashier types in a code a new customer presented (till action, §Phase 3
+     "التحقق من الكود عند الكاشير"). This is where every refusal happens: unknown code,
+     self-referral, no active campaign, below the campaign's min spend, the referrer's own usage
+     cap already spent. A clean pass creates a PENDING grant, keyed by the new customer's own
+     phone at THIS tenant — terms (both rewards) copied from the campaign at this moment, never
+     referenced live, same "copy, not reference" discipline `MutualBenefitGrant` already takes.
+  2. `eligibility()`/`redeem()` — called BY `EntitlementGateway`, from the SAME
+     `Operations.apply_offer()` every other source already goes through. Nothing here changes
+     `apply_offer` or `record_visit`: the pending grant is picked up automatically the next time
+     the new customer's own visit applies an offer, exactly like a mutual-benefit grant is.
+
+USAGE CAPS ARE ENFORCED AT `register()`, NOT AT REDEMPTION. A cap counts REDEEMED grants (a
+referrer earning credit `x_times`, or once, or without limit) — checking it at redemption time
+would let a cashier register five codes for five different new customers past the cap and only
+discover the refusal when the fifth one's OWN visit tries to apply an offer, which is a much
+worse moment to explain a refusal than the moment the code was typed in.
+
+THE REFERRER'S OWN REWARD IS CREDITED ON REDEEM, NOT ON REGISTER — the new customer might never
+return to spend the discount, and a grant nobody redeemed must cost the referrer nothing (same
+"redeemed vs expired unused" discipline `MutualBenefitEngine.kpis()` already reports on). Five of
+the eight reward types resolve to an immediate points credit and are live this phase
+(`fixed_points`, `cashback_points`, `points_match`, `invoice_percentage`, `mystery_box` — a
+weighted draw, resolved once, at redemption). The other three — `status_multiplier`, `time_boost`
+(both would need loyalty's OWN earn engine to read a per-customer modifier it does not have a
+concept of yet) and `milestone_free_item` (needs a redeemable-gift mechanism this product does not
+have outside `MutualBenefitGrant`'s own narrow one) are recorded honestly on the grant
+(`referrer_reward_credited = False`) but not yet acted on — a real, deliberate Phase 3 boundary,
+not a placeholder: see the plan doc's own Phase 4/5 sections for where this is expected to land.
+"""
+from __future__ import annotations
+
+import random
+import time
+import uuid
+from dataclasses import asdict, dataclass
+from typing import Any
+
+from app.adapters.referrals_desk import ReferralsDesk, ReferralsPeerUnavailable
+from app.core.models import Customer
+from app.core.pii import subject_ref as _subject_ref
+from app.core.signup import canonical_phone
+from app.core.stores import CustomerStore, new_id
+
+GRANTS = "referral_redemption_grants"
+
+REWARD_FIXED_POINTS = "fixed_points"
+REWARD_INVOICE_PERCENTAGE = "invoice_percentage"
+REWARD_POINTS_MATCH = "points_match"
+REWARD_MILESTONE_FREE_ITEM = "milestone_free_item"
+REWARD_CASHBACK_POINTS = "cashback_points"
+REWARD_STATUS_MULTIPLIER = "status_multiplier"
+REWARD_TIME_BOOST = "time_boost"
+REWARD_MYSTERY_BOX = "mystery_box"
+
+# THE FIVE LIVE THIS PHASE — see the module docstring for why the other three are recorded, not
+# credited, yet.
+_IMMEDIATE_POINTS_REWARDS = (
+    REWARD_FIXED_POINTS, REWARD_CASHBACK_POINTS, REWARD_POINTS_MATCH, REWARD_INVOICE_PERCENTAGE,
+    REWARD_MYSTERY_BOX,
+)
+
+NEW_CUSTOMER_DISCOUNT_PERCENT = "discount_percent"
+NEW_CUSTOMER_WELCOME_POINTS = "welcome_points"
+
+MODE_ONCE = "once"
+MODE_X_TIMES = "x_times"
+MODE_LIFETIME = "lifetime"
+
+
+class ReferralRedemptionError(Exception):
+    """A refusal a cashier should read verbatim — never a stack trace."""
+
+
+def _new_customer_text(reward_type: str, params: dict[str, Any]) -> str:
+    if reward_type == NEW_CUSTOMER_DISCOUNT_PERCENT:
+        return f"خصم عميل جديد بالإحالة: {params.get('percent', 0)}%"
+    if reward_type == NEW_CUSTOMER_WELCOME_POINTS:
+        return f"نقاط ترحيب بالإحالة: {params.get('points', 0)} نقطة"
+    return "مكافأة إحالة نشطة"
+
+
+def _referrer_points(reward_type: str, params: dict[str, Any], *, invoice_minor: int) -> int:
+    """How many points the REFERRER earns for this one redemption — pure, no I/O. `invoice_minor`
+    is the NEW customer's own paid amount, needed only by the two reward types that scale off it."""
+    if reward_type == REWARD_FIXED_POINTS or reward_type == REWARD_CASHBACK_POINTS:
+        return int(params.get("points") or 0)
+    if reward_type == REWARD_INVOICE_PERCENTAGE:
+        percent = int(params.get("percent") or 0)
+        # halalas -> points 1:1 below a real conversion table (none exists yet — plan doc §7's own
+        # "قاعدة تحويل توضيحية... رقم مرجعي فقط"); a real rate is a reporting-phase concern, not
+        # this one, and rounding DOWN never credits a fraction the shop did not actually intend.
+        return (invoice_minor * percent) // 100
+    if reward_type == REWARD_POINTS_MATCH:
+        # "نسبة من إجمالي نقاط العميل الجديد بهذي الزيارة" — the new customer's OWN points for
+        # this visit are not known here (loyalty computes them independently, after this runs);
+        # matched against the invoice as the same stand-in `invoice_percentage` uses, honestly,
+        # until a real cross-service read of "points this visit just earned" exists.
+        percent = int(params.get("percent") or 0)
+        return (invoice_minor * percent) // 100
+    if reward_type == REWARD_MYSTERY_BOX:
+        outcomes = params.get("outcomes") or []
+        if not outcomes:
+            return 0
+        weights = [int(o.get("weight") or 0) for o in outcomes]
+        if sum(weights) <= 0:
+            return 0
+        chosen = random.choices(outcomes, weights=weights, k=1)[0]
+        return int(chosen.get("points") or 0)
+    return 0
+
+
+@dataclass
+class ReferralGrant:
+    id: str
+    tenant: str
+    code: str
+    referrer_phone: str
+    beneficiary_phone: str
+    campaign_id: str
+    mode: str
+    created: int
+    new_customer_reward_type: str
+    new_customer_reward_params: dict[str, Any]
+    referrer_reward_type: str
+    referrer_reward_params: dict[str, Any]
+    invoice_minor: int = 0
+    redeemed_at: int = 0
+    redeemed_visit_id: str = ""
+    referrer_reward_credited: bool = False
+    referrer_points_credited: int = 0
+
+    def public_for_beneficiary(self) -> dict[str, Any]:
+        return {"eligible": True,
+                "new_customer_reward_type": self.new_customer_reward_type,
+                "new_customer_reward_params": self.new_customer_reward_params}
+
+
+class ReferralRedemptionEngine:
+    def __init__(self, *, store: Any, referrals_desk: ReferralsDesk, loyalty_desk: Any,
+                pii_salt: str, default_cc: str) -> None:
+        self._s = store
+        self._referrals = referrals_desk
+        self._loyalty = loyalty_desk
+        self._customers = CustomerStore(store)
+        self._salt = pii_salt
+        self._cc = default_cc
+
+    # ── register: the cashier's own action, once, per new customer ─────────────────────────────
+    async def register(self, tenant: str, *, code: str, beneficiary_phone: str,
+                       invoice_minor: int = 0, actor: str = "") -> ReferralGrant:
+        canon_beneficiary = canonical_phone(beneficiary_phone, default_cc=self._cc)
+        if not canon_beneficiary:
+            raise ReferralRedemptionError("رقم جوال العميل مطلوب")
+        code = (code or "").strip().upper()
+        if not code:
+            raise ReferralRedemptionError("كود الإحالة مطلوب")
+
+        # IDEMPOTENT — a cashier retrying (a network blip, a double tap) must not stack a second
+        # pending grant on the same customer; the first one already carries the terms that apply.
+        existing = await self._pending_for_beneficiary(tenant, canon_beneficiary)
+        if existing is not None:
+            return existing
+
+        try:
+            referrer_phone = await self._referrals.lookup_code(code)
+        except ReferralsPeerUnavailable as exc:
+            raise ReferralRedemptionError(
+                "تعذّر التحقق من الكود الآن. أعد المحاولة بعد قليل.") from exc
+        if referrer_phone is None:
+            raise ReferralRedemptionError("كود الإحالة غير صالح")
+
+        canon_referrer = canonical_phone(referrer_phone, default_cc=self._cc)
+        if canon_referrer and canon_referrer == canon_beneficiary:
+            raise ReferralRedemptionError("لا يمكن للعميل استخدام كوده الخاص")
+
+        try:
+            campaign = await self._referrals.active_campaign(tenant)
+        except ReferralsPeerUnavailable as exc:
+            raise ReferralRedemptionError(
+                "تعذّر التحقق من حملة الإحالة الآن. أعد المحاولة بعد قليل.") from exc
+        if campaign is None:
+            raise ReferralRedemptionError("لا توجد حملة إحالة نشطة بهذا المتجر")
+
+        min_spend = int(campaign.get("min_spend_minor") or 0)
+        if min_spend and int(invoice_minor or 0) < min_spend:
+            raise ReferralRedemptionError(
+                f"الفاتورة أقل من الحد الأدنى المطلوب لهذه الحملة ({min_spend} هللة)")
+
+        await self._enforce_usage_cap(tenant, referrer_phone=canon_referrer, campaign=campaign)
+
+        grant = ReferralGrant(
+            id=str(uuid.uuid4()), tenant=tenant, code=code, referrer_phone=canon_referrer,
+            beneficiary_phone=canon_beneficiary, campaign_id=str(campaign.get("id") or ""),
+            mode=str(campaign.get("mode") or ""), created=int(time.time()),
+            new_customer_reward_type=str(campaign.get("new_customer_reward_type") or ""),
+            new_customer_reward_params=dict(campaign.get("new_customer_reward_params") or {}),
+            referrer_reward_type=str(campaign.get("reward_type") or ""),
+            referrer_reward_params=dict(campaign.get("reward_params") or {}),
+            invoice_minor=int(invoice_minor or 0),
+        )
+        await self._s.put(GRANTS, f"{tenant}|{grant.id}", asdict(grant))
+        return grant
+
+    async def _pending_for_beneficiary(self, tenant: str, beneficiary_phone: str
+                                       ) -> ReferralGrant | None:
+        rows, _ = await self._s.find(
+            GRANTS, {"tenant": tenant, "beneficiary_phone": beneficiary_phone}, limit=1000)
+        pending = [r for r in rows if not r.get("redeemed_at")]
+        if not pending:
+            return None
+        pending.sort(key=lambda r: int(r.get("created") or 0), reverse=True)
+        return ReferralGrant(**pending[0])
+
+    async def _enforce_usage_cap(self, tenant: str, *, referrer_phone: str,
+                                 campaign: dict[str, Any]) -> None:
+        if not referrer_phone:
+            return
+        campaign_id = str(campaign.get("id") or "")
+        mode = str(campaign.get("mode") or "")
+        rows, _ = await self._s.find(
+            GRANTS, {"tenant": tenant, "referrer_phone": referrer_phone,
+                    "campaign_id": campaign_id}, limit=100000)
+        redeemed = [r for r in rows if r.get("redeemed_at")]
+
+        if mode == MODE_ONCE and len(redeemed) >= 1:
+            raise ReferralRedemptionError("هذا السفير استخدم مكافأة هذه الحملة من قبل")
+        if mode == MODE_X_TIMES:
+            limit = int(campaign.get("x_times_limit") or 0)
+            if limit and len(redeemed) >= limit:
+                raise ReferralRedemptionError("هذا السفير وصل للحد الأقصى لهذه الحملة")
+
+        period = str(campaign.get("usage_cap_period") or "")
+        limit = int(campaign.get("usage_cap_limit") or 0)
+        if period and limit:
+            now = time.time()
+            window_seconds = {"day": 86400, "week": 7 * 86400, "month": 31 * 86400}.get(period, 0)
+            in_window = [r for r in redeemed if now - int(r.get("redeemed_at") or 0) <= window_seconds]
+            if len(in_window) >= limit:
+                raise ReferralRedemptionError(
+                    f"هذا السفير وصل لسقف الاستخدام لهذه الحملة ({limit} لكل {period})")
+
+    # ── the EntitlementGateway shape — called from Operations.apply_offer, unchanged ────────────
+    async def eligibility(self, tenant: str, phone: str) -> dict[str, Any] | None:
+        canon = canonical_phone(phone, default_cc=self._cc)
+        if not canon:
+            return None
+        grant = await self._pending_for_beneficiary(tenant, canon)
+        return grant.public_for_beneficiary() if grant is not None else None
+
+    async def redeem(self, tenant: str, phone: str, *, visit_id: str) -> bool:
+        """IDEMPOTENT ON `visit_id`, same reason and same shape as
+        `MutualBenefitEngine.redeem`'s own docstring: `EntitlementGateway.finalize` calls this
+        BEFORE the visit is stamped, so a retry after a partial failure must not credit the
+        referrer's own reward twice."""
+        canon = canonical_phone(phone, default_cc=self._cc)
+        if not canon:
+            return False
+        rows, _ = await self._s.find(
+            GRANTS, {"tenant": tenant, "beneficiary_phone": canon}, limit=1000)
+        already = next((r for r in rows if r.get("redeemed_visit_id") == visit_id), None)
+        if already is not None:
+            return True
+        pending = [r for r in rows if not r.get("redeemed_at")]
+        if not pending:
+            return False
+        pending.sort(key=lambda r: int(r.get("created") or 0), reverse=True)
+        grant = ReferralGrant(**pending[0])
+        grant.redeemed_at = int(time.time())
+        grant.redeemed_visit_id = visit_id
+
+        if grant.referrer_reward_type in _IMMEDIATE_POINTS_REWARDS and grant.referrer_phone:
+            points = _referrer_points(grant.referrer_reward_type, grant.referrer_reward_params,
+                                      invoice_minor=grant.invoice_minor)
+            if points > 0:
+                referrer = await self._customer_for_phone(tenant, grant.referrer_phone)
+                out = await self._loyalty.award(
+                    tenant=tenant, subject_ref=referrer.subject_ref, points=points,
+                    idempotency_key=f"referral:{grant.id}", reason="referral",
+                    actor="referrals")
+                # A 200 response is not itself proof of a credit — a lapsed licence answers
+                # `{"earned": 0, ...}` with no "_status" key at all (see loyalty's own
+                # `/internal/loyalty/award`), so reading THAT as success would mark a grant
+                # "credited" for points nobody actually received. `duplicate: True` (this exact
+                # idempotency key already posted) is the one other honest success shape — it means
+                # an earlier call already earned it, not that this call did.
+                if out is not None and "_status" not in out and \
+                        (int(out.get("earned") or 0) > 0 or out.get("duplicate")):
+                    grant.referrer_reward_credited = True
+                    grant.referrer_points_credited = points
+
+        await self._s.put(GRANTS, f"{tenant}|{grant.id}", asdict(grant))
+        return True
+
+    async def _customer_for_phone(self, tenant: str, phone: str) -> Customer:
+        """Resolve-or-create, mirroring `Operations._resolve_customer`'s own reasoning: a referrer
+        earning their FIRST ever reward at this shop may not be a customer here yet, and a phone
+        number that shows up always becomes one rather than being turned away."""
+        existing = await self._customers.by_phone(tenant, phone)
+        if existing is not None:
+            return existing
+        customer = Customer(id=new_id("cus"), tenant=tenant, phone=phone,
+                            subject_ref=_subject_ref(self._salt, tenant, phone),
+                            created=int(time.time()), source="referral")
+        return await self._customers.save(customer)

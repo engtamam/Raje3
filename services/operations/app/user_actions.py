@@ -951,6 +951,11 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
      "why": "an external store/site granting a shop-to-shop coupon from a real order, same "
             "service-account door as every other till.py route — the console reaches the same "
             "engine through /staff/coupons/grant instead"},
+    {"method": "POST", "path": "/api/v1/till/referral/register",
+     "why": "a cashier's software validating a referral code at the counter (services/referrals' "
+            "own Phase 3), same service-account door as every other till.py route — no console "
+            "surface exists for this yet, and the pending grant it creates applies automatically "
+            "the next time /till/offer/apply runs for that same customer"},
     {"method": "GET", "path": "/api/v1/salla/callback",
      "why": "Salla's own browser redirect back after the owner approves the consent screen — "
             "arrives with no Bearer token to check, same reasoning as signup's own unauthenticated "

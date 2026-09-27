@@ -302,6 +302,11 @@ env:
   # service, and it is optional in code: an unreachable loyalty is a missing table, never a failed
   # signup.
   LOYALTY_SERVICE_URL: "http://loyalty:8000"
+  # THE GLOBAL ANONYMOUS REFERRAL CODE'S OWN TILL-SIDE REDEMPTION (services/referrals, Phase 3) —
+  # same optionality as LOYALTY_SERVICE_URL above: an unreachable/unset referrals means this
+  # source is simply never asked, the same posture core/entitlements.py's own gateway already
+  # takes for every optional source.
+  REFERRALS_SERVICE_URL: "http://referrals:8000"
   # WHO BROUGHT THIS SHOP — the affiliate portal's own attribution (core/signup.py's own
   # affiliate_ref note). Same optionality as LOYALTY_SERVICE_URL above: a shop signing up with no
   # `?aff=` link never calls this at all, and the stamp is best-effort either way (a bad/unknown

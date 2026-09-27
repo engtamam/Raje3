@@ -920,3 +920,61 @@ async def grant_coupon_at_the_counter(request: Request, body: TillCouponIn,
 
     from app.core.coupons import GRANTED
     return {"ok": att.outcome == GRANTED, "reason": att.outcome, "attempt": att.public()}
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+#  THE GLOBAL ANONYMOUS REFERRAL CODE (services/referrals, Phase 3) — see core/referral_redemption.py's
+#  own module docstring for the two-step lifecycle: this route only ever does step 1 (register a
+#  code a new customer presented). Step 2 (the discount actually applying) is `/offer/apply` above,
+#  UNCHANGED — the pending grant this creates is picked up automatically the next time that route
+#  runs for this same customer, exactly like a mutual-benefit grant already is.
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+
+
+class TillReferralRegisterIn(BaseModel):
+    """A new customer presents someone else's referral code at the till."""
+
+    code: str = Field(min_length=1, max_length=16)
+    phone: str = Field(min_length=3, max_length=32)
+    # WHAT THIS VISIT'S OWN INVOICE COMES TO, checked against the campaign's own min-spend — an
+    # integrated till already computes this for `/visits`' own `total_minor`; this route asks for
+    # it separately because registration happens BEFORE the visit itself is necessarily recorded.
+    invoice_minor: int = Field(default=0, ge=0)
+
+
+@router.post("/referral/register", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def register_referral_code_at_the_counter(
+    request: Request, body: TillReferralRegisterIn, principal: Principal = Depends(_TILL)
+) -> Any:
+    """Validate a referral code at the till (§Phase 3 "التحقق من الكود عند الكاشير") and, on a
+    clean pass, record the pending grant that `/offer/apply` will apply automatically.
+
+    STILL `operations.record`, same posture as `/coupons/grant` right above: the till does not
+    gain a capability over the referral ledger, it asks us, and we ask the redemption engine with
+    our own credential.
+
+    UNGATED BY A SPECIFIC FEATURE KEY, same reasoning `/offer/apply` and `/redeem` already
+    document — this never confiscates something a customer was already promised, and
+    services/referrals' own Phase 0 registered `feature.referrals` as platform-tax-only
+    (`listed: false`), not a separately purchasable app with its own paid gate.
+    """
+    if not principal.tenant:
+        return {"ok": False, "reason": "REFUSED", "message": "هذا الاعتماد غير مرتبط بمنشأة."}
+    tenant = principal.tenant
+    engine = request.app.state.container.referral_redemption
+
+    await request.app.state.auditor.record(
+        "referral.register_attempt", actor=f"till:{principal.subject}", tenant=tenant,
+        resource=f"referral_code:{body.code[:16]}",
+        ip=request.client.host if request.client else "")
+
+    from app.core.referral_redemption import ReferralRedemptionError
+
+    try:
+        grant = await engine.register(
+            tenant, code=body.code, beneficiary_phone=body.phone,
+            invoice_minor=body.invoice_minor, actor=f"till:{principal.subject}")
+    except ReferralRedemptionError as exc:
+        return {"ok": False, "reason": "REFUSED", "message": str(exc)}
+    return {"ok": True, "new_customer_reward_type": grant.new_customer_reward_type,
+           "new_customer_reward_params": grant.new_customer_reward_params}

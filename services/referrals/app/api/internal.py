@@ -101,6 +101,37 @@ async def mint_or_fetch_code(request: Request, body: CodeIn) -> dict:
     return {"code": code}
 
 
+@router.get("/referrals/lookup/{code}", dependencies=[Depends(require_internal_token)])
+async def lookup_code(request: Request, code: str) -> dict:
+    """Resolve a referral code to its referrer's phone (Phase 1's own reverse index) — the one
+    question a till-side redemption in another service needs answered before it can validate a
+    code a customer presented. 404, not a null field, when the code is unknown: the caller (e.g.
+    operations' own referral redemption engine) treats an unreachable/empty answer as "cannot
+    verify" and a 404 as "genuinely invalid", the same distinction every internal read in this
+    fleet keeps (see app/core/erasure.py's own 'refuse, do not guess' posture, applied here to a
+    read instead of a write)."""
+    from app.core.referral_code import phone_for_code
+
+    c = request.app.state.container
+    phone = await phone_for_code(c.datastore, code)
+    if phone is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "UNKNOWN_CODE")
+    return {"phone": phone}
+
+
+@router.get("/referrals/campaigns/active", dependencies=[Depends(require_internal_token)])
+async def active_campaign_for_tenant(request: Request, tenant: str) -> dict:
+    """The one campaign a till-side redemption in another service checks a code against — see
+    `CampaignService.get_active_for_tenant`'s own docstring for which campaign wins when a shop
+    somehow has more than one active. 404 when the shop has none: a caller must refuse the
+    redemption outright ("لا توجد حملة إحالة نشطة"), never silently apply a stale default."""
+    c = request.app.state.container
+    campaign = await c.campaigns.get_active_for_tenant(tenant)
+    if campaign is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NO_ACTIVE_CAMPAIGN")
+    return campaign.to_dict()
+
+
 class EraseIn(BaseModel):
     tenant: str
     subject: str

@@ -882,6 +882,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "top-up?» is actually answered from",
     },
     {
+        "action": "referral.register_attempt",
+        "source": "internal",
+        "critical": False,
+        "resource": "referral_code",
+        "why": "a cashier typed in someone else's referral code for a new customer — every "
+               "attempt, successful or refused, is a promise (a discount, a referrer's reward) "
+               "an owner needs explained later, same reasoning coupon.grant_attempt already "
+               "documents for a shop-to-shop coupon",
+    },
+    {
         "action": "coupon.grant_attempt",
         "source": "internal",
         "critical": False,

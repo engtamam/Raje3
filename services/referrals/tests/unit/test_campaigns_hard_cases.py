@@ -141,3 +141,33 @@ def test_min_spend_minor_zero_is_the_boundary_not_an_error():
                           reward_type=REWARD_FIXED_POINTS, reward_params={"points": 50},
                           **_WIN_WIN))
     assert c.min_spend_minor == 0
+
+
+# ── get_active_for_tenant — the read Phase 3's till-side redemption depends on ─────────────────
+def test_get_active_for_tenant_is_none_with_no_campaigns():
+    assert run(_svc().get_active_for_tenant(TENANT)) is None
+
+
+def test_get_active_for_tenant_ignores_paused_campaigns():
+    svc = _svc()
+    c = run(svc.create(TENANT, mode=MODE_ONCE, reward_type=REWARD_FIXED_POINTS,
+                       reward_params={"points": 50}, **_WIN_WIN))
+    run(svc.set_active(TENANT, c.id, active=False))
+    assert run(svc.get_active_for_tenant(TENANT)) is None
+
+
+def test_get_active_for_tenant_picks_the_most_recently_created_one():
+    svc = _svc()
+    run(svc.create(TENANT, mode=MODE_ONCE, reward_type=REWARD_FIXED_POINTS,
+                   reward_params={"points": 1}, **_WIN_WIN))
+    newer = run(svc.create(TENANT, mode=MODE_ONCE, reward_type=REWARD_FIXED_POINTS,
+                           reward_params={"points": 2}, **_WIN_WIN))
+    active = run(svc.get_active_for_tenant(TENANT))
+    assert active.id == newer.id
+
+
+def test_get_active_for_tenant_never_leaks_another_tenants_campaign():
+    svc = _svc()
+    run(svc.create(OTHER, mode=MODE_ONCE, reward_type=REWARD_FIXED_POINTS,
+                   reward_params={"points": 50}, **_WIN_WIN))
+    assert run(svc.get_active_for_tenant(TENANT)) is None

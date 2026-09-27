@@ -401,6 +401,10 @@ class Settings(BaseSettings):
     # Empty means a shop starts with no rewards — a missing table rather than a failed signup,
     # which is the right trade for a peer that may not be deployed.
     LOYALTY_SERVICE_URL: str = ""            # e.g. http://loyalty:8000
+    # THE GLOBAL ANONYMOUS REFERRAL CODE, AND THIS SHOP'S OWN CAMPAIGN — services/referrals holds
+    # both (see its own docs/خطة-تطبيق-الإحالة-والمسوقين-2026-09-27.md). Optional, same posture as
+    # LOYALTY_SERVICE_URL above it: a shop with no referral campaign never calls this at all.
+    REFERRALS_SERVICE_URL: str = ""          # e.g. http://referrals:8000
     # WHO BROUGHT THIS SHOP — the affiliate portal's own attribution, deliberately separate from
     # PartnerRegistry/partner_key just above: a marketer earns a flat amount on an identity-
     # authenticated account, a till partner earns a percentage on a bearer key. See

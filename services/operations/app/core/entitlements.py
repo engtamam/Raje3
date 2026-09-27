@@ -47,12 +47,18 @@ from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 
 SOURCE_REFERRAL = "mutual_benefit"
+SOURCE_REFERRAL_CODE = "referral_code"
 SOURCE_CAMPAIGN = "reminders_campaign"
 
 # The priority list `choose()` walks, top to bottom — see the module docstring for WHY referral
-# outranks a campaign offer. A future third source is added here, in its own decided position, not
-# appended blindly to the end.
-_PRIORITY = (SOURCE_REFERRAL, SOURCE_CAMPAIGN)
+# outranks a campaign offer. `referral_code` (services/referrals' own global anonymous code,
+# core/referral_redemption.py) is a SECOND cross-party promise, same reasoning as the mutual-
+# benefit one above it: a referrer trusts this code to pay out, and a shop's own reminders
+# campaign is entirely internal marketing that can be resent at will — so `referral_code` outranks
+# `reminders_campaign` too, but sits BELOW `mutual_benefit` (an existing, already-decided
+# partnership between two specific shops is a narrower, more deliberate commitment than a
+# platform-wide anonymous code either shop could have joined at any time).
+_PRIORITY = (SOURCE_REFERRAL, SOURCE_REFERRAL_CODE, SOURCE_CAMPAIGN)
 
 
 class EntitlementPeerUnavailable(RuntimeError):
@@ -90,9 +96,11 @@ class EntitlementGateway:
     contract changed, only who calls it."""
 
     def __init__(self, *, mutual_benefit_engine: Any = None,
-                campaign_chooser: CampaignChooser | None = None) -> None:
+                campaign_chooser: CampaignChooser | None = None,
+                referral_code_engine: Any = None) -> None:
         self._referral = mutual_benefit_engine
         self._campaign_chooser = campaign_chooser
+        self._referral_code = referral_code_engine
 
     async def choose(self, *, tenant: str, subject_ref: str, phone: str,
                      service_ids: list[str]) -> Entitlement | None:
@@ -124,6 +132,28 @@ class EntitlementGateway:
                 referral = Entitlement(source=SOURCE_REFERRAL, ref=f"referral:{phone}",
                                        text=text, finalize_key=phone)
 
+        referral_code: Entitlement | None = None
+        if self._referral_code is not None and phone:
+            try:
+                elig = await self._referral_code.eligibility(tenant, phone)
+            except Exception as exc:                                          # noqa: BLE001
+                raise EntitlementPeerUnavailable(str(exc)) from exc
+            if elig and elig.get("eligible"):
+                from app.core.referral_redemption import (
+                    NEW_CUSTOMER_DISCOUNT_PERCENT, NEW_CUSTOMER_WELCOME_POINTS)
+
+                reward_type = elig.get("new_customer_reward_type")
+                params = elig.get("new_customer_reward_params") or {}
+                if reward_type == NEW_CUSTOMER_DISCOUNT_PERCENT:
+                    text = f"خصم عميل جديد بالإحالة: {params.get('percent', 0)}%"
+                elif reward_type == NEW_CUSTOMER_WELCOME_POINTS:
+                    text = f"نقاط ترحيب بالإحالة: {params.get('points', 0)} نقطة"
+                else:
+                    text = "مكافأة إحالة نشطة"
+                referral_code = Entitlement(source=SOURCE_REFERRAL_CODE,
+                                            ref=f"referral_code:{phone}", text=text,
+                                            finalize_key=phone)
+
         campaign: Entitlement | None = None
         if self._campaign_chooser is not None:
             try:
@@ -137,7 +167,8 @@ class EntitlementGateway:
                     text=str(chosen.get("text") or ""),
                     campaign_id=str(chosen.get("campaign_id") or ""))
 
-        by_source = {SOURCE_REFERRAL: referral, SOURCE_CAMPAIGN: campaign}
+        by_source = {SOURCE_REFERRAL: referral, SOURCE_REFERRAL_CODE: referral_code,
+                    SOURCE_CAMPAIGN: campaign}
         for source in _PRIORITY:
             if by_source.get(source) is not None:
                 return by_source[source]
@@ -151,5 +182,7 @@ class EntitlementGateway:
         actually redeemed."""
         if entitlement.source == SOURCE_REFERRAL and self._referral is not None:
             await self._referral.redeem(tenant, entitlement.finalize_key, visit_id=visit_id)
+        elif entitlement.source == SOURCE_REFERRAL_CODE and self._referral_code is not None:
+            await self._referral_code.redeem(tenant, entitlement.finalize_key, visit_id=visit_id)
         # SOURCE_CAMPAIGN needs no finalize call of its own — reminders tracks nothing further to
         # confirm; `apply_offer` stamping the visit IS the whole record, exactly as it always was.
