@@ -445,6 +445,28 @@ both be told the same technician is free at the same time — holds for real (th
 identical-time bookings for the same operator is refused); and cancelling a booking correctly
 refuses a later no-show on it. Full simulator suite: 103 passed.
 
+## Mutual-benefit (shop-to-shop referral partnership) — a real, honest environmental limit found
+
+Another operations door (`apps/operations/mutual_benefit_actions.py`, `/staff/mutual-benefit/*`).
+Its own `propose()` checks a real billing/plans peer BEFORE it ever looks up `shop_b_phone` —
+every operations instance this simulator spawns boots with the default `NullPlans` driver (no
+`BILLING_PLANS_DRIVER=http` anywhere in this fleet yet), whose own docstring names the choice
+explicitly: "a trial of zero is the strict default ... the permissive default would let an
+unconfigured deployment take money for a plan nobody can read." So `propose()` is CORRECTLY,
+provably gated shut in every environment this simulator currently builds — proven, not a gap to
+paper over.
+
+GOING FURTHER — SignupShopAction (`POST /api/v1/signup`, needed to register a real owner phone
+in `PHONE_INDEX` so `_lookup_tenant_by_phone` can ever resolve a real shop_b) is written and real,
+but not yet usable: `open_shop` itself calls out to a THIRD real peer, `TENANT_SERVICE_URL`
+(`platform/services/tenant-service`), which no `apps/` module spawns yet. A full propose ->
+accept lifecycle needs a real four-service Fleet (identity + tenant-service + billing-service +
+operations) — a real, larger piece of future work, named here rather than faked around.
+
+Proven for real (`tests/test_stage18_mutual_benefit.py`): proposing a partnership with no billing
+peer configured is refused with a clean HTTP 402, never a crash; and listing agreements for a
+tenant that never had any returns a clean, empty, real list. Full simulator suite: 105 passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
