@@ -93,3 +93,121 @@ class RegisterUniqueReferralAction:
         inner = RegisterReferralAction(base_url=self.base_url, tenant=self.tenant, code=self.code,
                                        beneficiary_phone=phone, invoice_minor=self.invoice_minor)
         return await inner.run(ctx)
+
+
+@dataclass
+class CreateBranchAction:
+    """The owner's own action: `POST /api/v1/staff/branches` (services/operations/app/api/v1/
+    staff.py). The tenant's first-ever branch call also silently creates its own "main" branch
+    first (`B.ensure_main`) — real platform behaviour, not something this action works around."""
+
+    base_url: str
+    tenant: str
+    branch_name: str
+    city: str = "الرياض"
+    # REQUIRED FROM THE SECOND BRANCH ON (services/operations/app/api/v1/staff.py's own
+    # create_branch docstring) — a real coordinate, not a placeholder, so a scenario creating
+    # more than one branch does not need to know this rule to get past it.
+    lat: float = 24.7136
+    lng: float = 46.6753
+    name: str = "create_branch"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=("operations.manage",))
+        body = {"name": self.branch_name, "city": self.city, "lat": self.lat, "lng": self.lng}
+        async with httpx.AsyncClient() as client:
+            r = await client.post(f"{self.base_url}/api/v1/staff/branches", json=body,
+                                  headers=headers, timeout=10.0)
+        if r.status_code != 201:
+            return ActionResult(ok=False, detail=f"create_branch refused: {r.status_code} {r.text}")
+        payload = r.json()
+        ctx.data[f"branch:{self.branch_name}"] = payload
+        return ActionResult(ok=True, detail="branch created", data=payload)
+
+
+@dataclass
+class HireMemberAction:
+    """The owner's own action: `POST /api/v1/staff/members` — a REAL login, not a PIN (services/
+    operations/app/api/v1/staff.py::hire_member). This is the only way to give someone a
+    `person_id` that `branch_scope()` can ever match against a JWT's own `sub` claim — needs a
+    real spawned identity-service behind `IDENTITY_SERVICE_URL` (see apps/identity/service.py)."""
+
+    base_url: str
+    tenant: str
+    phone: str
+    password: str
+    role: str
+    branch_id: str
+    member_name: str = "Test Member"
+    name: str = "hire_member"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=("operations.manage",))
+        body = {"name": self.member_name, "phone": self.phone, "password": self.password,
+               "role": self.role, "branch_id": self.branch_id}
+        async with httpx.AsyncClient() as client:
+            r = await client.post(f"{self.base_url}/api/v1/staff/members", json=body,
+                                  headers=headers, timeout=10.0)
+        if r.status_code != 201:
+            return ActionResult(ok=False, detail=f"hire_member refused: {r.status_code} {r.text}")
+        payload = r.json()
+        ctx.data[f"member:{self.phone}"] = payload
+        return ActionResult(ok=True, detail="member hired", data=payload)
+
+
+@dataclass
+class SetOperatorScopeAction:
+    """The owner's own action: `PATCH /api/v1/staff/operators/{id}` — the one route that can set
+    `visible_branch_ids`, `visible_all`, or deactivate (`active=False`) someone after hiring."""
+
+    base_url: str
+    tenant: str
+    operator_id: str
+    visible_all: bool | None = None
+    visible_branch_ids: list[str] | None = None
+    active: bool | None = None
+    name: str = "set_operator_scope"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=("operations.manage",))
+        body: dict[str, Any] = {}
+        if self.visible_all is not None:
+            body["visible_all"] = self.visible_all
+        if self.visible_branch_ids is not None:
+            body["visible_branch_ids"] = self.visible_branch_ids
+        if self.active is not None:
+            body["active"] = self.active
+        async with httpx.AsyncClient() as client:
+            r = await client.patch(
+                f"{self.base_url}/api/v1/staff/operators/{self.operator_id}", json=body,
+                headers=headers, timeout=10.0)
+        if r.status_code != 200:
+            return ActionResult(ok=False, detail=f"set_operator_scope refused: {r.status_code} "
+                                                  f"{r.text}")
+        return ActionResult(ok=True, detail="scope updated", data=r.json())
+
+
+@dataclass
+class ListOperatorsAction:
+    """`GET /api/v1/staff/operators` — the exact route `branch_scope()` narrows (services/
+    operations/app/api/v1/staff.py::list_operators). `caller_subject` (the `sub` claim) is what
+    `branch_scope()` matches against a real Operator row's own `person_id`."""
+
+    base_url: str
+    tenant: str
+    caller_subject: str
+    caller_caps: tuple[str, ...] = ("operations.read", "bookings.read")
+    name: str = "list_operators"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=self.caller_caps,
+                              subject=self.caller_subject)
+        async with httpx.AsyncClient() as client:
+            r = await client.get(f"{self.base_url}/api/v1/staff/operators", headers=headers,
+                                 timeout=10.0)
+        if r.status_code != 200:
+            return ActionResult(ok=False, detail=f"list_operators refused: {r.status_code} "
+                                                  f"{r.text}", data={"status": r.status_code})
+        payload = r.json()
+        return ActionResult(ok=True, detail=f"{len(payload.get('operators', []))} operator(s) "
+                                            f"visible", data=payload)

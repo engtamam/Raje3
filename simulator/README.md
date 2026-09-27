@@ -142,6 +142,36 @@ As agreed when this was scoped: this stays an on-demand deep tool (it spawns a r
 fast per-commit gate — a lightweight static "every capability is reachable by someone" check
 already exists in `ci/check_deploy_wiring.py`'s own guard 14, so nothing new was needed there.
 
+## Branches module — and a real bug it found on its first real run
+
+`apps/identity/` spawns a REAL `platform/services/identity-service` alongside services/
+operations — needed because branch-scope isolation can only be tested with a REAL login
+(`person_id`), which the four-digit PIN never provides (attribution only, never authentication).
+`apps/identity/directory.py::lookup_person_id` resolves a hired phone to its real `person_id` via
+identity's own internal member directory, since `hire_member`'s own HTTP response deliberately
+never returns it (a real privacy boundary, not a gap this module works around). New Actions:
+`CreateBranchAction`, `HireMemberAction`, `SetOperatorScopeAction`, `ListOperatorsAction` — all
+real HTTP against services/operations' real `staff.py` routes.
+
+**Run for real, this immediately found a genuine, live security bug — not a simulator artifact
+(`tests/test_stage10_branches.py`'s own capstone test):** stopping an employee
+(`update_operator`) blanks their `person_id` (so nothing later mistakes the row for a live login)
+— but left NOTHING behind for `api/scope.py::branch_scope` to match a dismissed employee's own
+still-valid, unexpired JWT against (revoking their membership at identity does not invalidate a
+token already issued). That lookup fell through to "no row for this subject at all", which reads
+as UNASSIGNED — the same answer an owner gets — widening the person just stopped to see every
+branch. The exact regression `branch_scope`'s own docstring already named as fixed once, reopened
+by a later, unrelated change (blanking `person_id`).
+
+**Fixed for real, immediately, in the actual platform code** (not just in the simulator):
+`Operator.revoked_person_id` (core/models.py) is where that identity now moves to instead of
+vanishing; `update_operator` sets it the same moment it blanks `person_id`; `branch_scope` checks
+it as a second, explicit match. Proven at three levels: the simulator's own end-to-end HTTP test,
+a new unit test on `branch_scope` itself constructing the exact shape a stop leaves behind
+(`test_branches.py`), and a new route-level test on `update_operator` proving the field is set
+correctly (`test_operator_api.py`) — 290 existing operations tests re-run clean, full suite green
+(2599 passed), `check_deploy_wiring.py` clean.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
