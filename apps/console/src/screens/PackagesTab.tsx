@@ -451,7 +451,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
 
                 {/* A REAL PHOTO, LARGE, OR A NEUTRAL PLACEHOLDER — same "absence is a visible fact,
                     never a hidden gap" posture as Services.tsx's own board card. */}
-                <div className="relative -mx-4 -mt-4 mb-1 aspect-[16/9] overflow-hidden bg-surface-2">
+                <div className="relative -mx-4 -mt-4 mb-1 aspect-[16/9] overflow-hidden bg-surface-1">
                   {images[p.id] ? (
                     <img src={images[p.id]} alt="" className="h-full w-full object-cover" />
                   ) : (
@@ -523,7 +523,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                 placeholder={t('packages.form.namePlaceholder')}
-                className="h-10 rounded-lg bg-surface-2 px-3"
+                className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-3"
               />
             </label>
 
@@ -534,7 +534,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                 onChange={(e) => setDraft({ ...draft, description: e.target.value })}
                 placeholder={t('packages.form.descriptionPlaceholder')}
                 maxLength={300}
-                className="h-10 rounded-lg bg-surface-2 px-3"
+                className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-3"
               />
             </label>
 
@@ -542,7 +542,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
               <div className="flex flex-col gap-1">
                 <span className="text-sm font-medium">{t('packages.form.image')}</span>
                 <div className="flex items-center gap-3">
-                  <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-surface-2 text-text-muted">
+                  <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg border border-border-subtle bg-surface-1 text-text-muted">
                     {images[draft.id] ? (
                       <img src={images[draft.id]} alt="" className="h-full w-full object-cover" />
                     ) : <ImageOff size={20} aria-hidden />}
@@ -576,7 +576,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                       key={s.id} type="button" onClick={() => toggleService(s.id)}
                       className={
                         'flex items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm transition-colors ' +
-                        (checked ? 'bg-surface-2 text-text-primary' : 'hover:bg-surface-2')
+                        (checked ? 'bg-surface-2/90 text-text-primary' : 'hover:bg-surface-2')
                       }
                     >
                       <span className={
@@ -599,7 +599,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                   value={draft.priceText} inputMode="decimal"
                   onChange={(e) => setDraft({ ...draft, priceText: e.target.value })}
                   placeholder="0"
-                  className="h-10 rounded-lg bg-surface-2 px-3"
+                  className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-3"
                 />
               </label>
               <label className="flex flex-col gap-1">
@@ -607,7 +607,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                 <input
                   value={draft.pointsText} inputMode="numeric"
                   onChange={(e) => setDraft({ ...draft, pointsText: e.target.value })}
-                  className="h-10 rounded-lg bg-surface-2 px-3"
+                  className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-3"
                 />
                 {draft.serviceIds.length >= 2 && Number(draft.pointsText) !== suggestedPoints ? (
                   <button type="button" className="text-start text-xs text-text-secondary underline"
@@ -626,7 +626,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
               <input
                 value={draft.personCountText} inputMode="numeric"
                 onChange={(e) => setDraft({ ...draft, personCountText: e.target.value })}
-                placeholder="1" className="h-10 w-24 rounded-lg bg-surface-2 px-3"
+                placeholder="1" className="h-10 w-24 rounded-lg border border-border-subtle bg-surface-1 px-3"
               />
             </label>
 
@@ -641,13 +641,13 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                   <span className="text-xs text-text-secondary">{t('packages.form.startsAt')}</span>
                   <input type="date" value={draft.startsAt}
                         onChange={(e) => setDraft({ ...draft, startsAt: e.target.value })}
-                        className="h-10 rounded-lg bg-surface-2 px-3" />
+                        className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-3" />
                 </label>
                 <label className="flex flex-col gap-1">
                   <span className="text-xs text-text-secondary">{t('packages.form.endsAt')}</span>
                   <input type="date" value={draft.endsAt}
                         onChange={(e) => setDraft({ ...draft, endsAt: e.target.value })}
-                        className="h-10 rounded-lg bg-surface-2 px-3" />
+                        className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-3" />
                 </label>
               </div>
 
@@ -659,7 +659,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                            'rounded-full px-3 py-1 text-xs font-medium transition-colors ' +
                            (draft.recurrence === r.value
                              ? 'bg-text-primary text-surface-1'
-                             : 'bg-surface-2 text-text-secondary hover:bg-surface-3')
+                             : 'border border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-3')
                          }>
                     {r.label}
                   </button>
@@ -680,7 +680,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                              className={
                                'rounded-full px-3 py-1 text-xs transition-colors ' +
                                (checked ? 'bg-surface-3 text-text-primary'
-                                       : 'bg-surface-2 text-text-secondary hover:bg-surface-3')
+                                       : 'border border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-3')
                              }>
                         {w.label}
                       </button>
@@ -703,7 +703,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                              className={
                                'h-8 rounded-md text-xs transition-colors ' +
                                (checked ? 'bg-surface-3 text-text-primary'
-                                       : 'bg-surface-2 text-text-secondary hover:bg-surface-3')
+                                       : 'border border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-3')
                              }>
                         {day}
                       </button>
@@ -718,13 +718,13 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                     <span className="text-xs text-text-secondary">{t('packages.form.yearlyFrom')}</span>
                     <input type="date" value={draft.yearlyFrom}
                           onChange={(e) => setDraft({ ...draft, yearlyFrom: e.target.value })}
-                          className="h-10 rounded-lg bg-surface-2 px-3" />
+                          className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-3" />
                   </label>
                   <label className="flex flex-col gap-1">
                     <span className="text-xs text-text-secondary">{t('packages.form.yearlyTo')}</span>
                     <input type="date" value={draft.yearlyTo}
                           onChange={(e) => setDraft({ ...draft, yearlyTo: e.target.value })}
-                          className="h-10 rounded-lg bg-surface-2 px-3" />
+                          className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-3" />
                   </label>
                 </div>
               ) : null}

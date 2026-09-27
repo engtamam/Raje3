@@ -423,7 +423,7 @@ export function MessagePreview({
                       </button>
 
                       {isOpen ? (
-                        <div className="flex flex-col gap-3 border-t border-border-subtle bg-surface-2 px-3 py-3">
+                        <div className="flex flex-col gap-3 border-t border-border-subtle bg-surface-1 px-3 py-3">
                           {/* ── THE SHAPE, THEN THE EXAMPLE ────────────────────────────
                               THE GAP THIS CLOSED: «العميل يقرا الرساله ما يعرف وين الفراغات».
                               What was here was the filled example alone — what the shop's
@@ -654,7 +654,7 @@ export function Bubble({ text, caption, active, activeLabel, busy, onChoose, act
         disabled={onChoose ? busy : undefined}
         aria-pressed={onChoose ? false : undefined}
         className={[
-          // WHATSAPP'S OWN SENT-BUBBLE GREEN, FIXED — never the theme's `bg-surface-2` (owner's
+          // WHATSAPP'S OWN SENT-BUBBLE GREEN, FIXED — never the theme's flat neutral surface token (owner's
           // own instruction: "خلي المثال ثابت في رسالة خضراء مثل الواتساب"). A brand colour, not a
           // semantic one — same literal `#DCF8C6`/`#111b21` pair `rj-ui/WhatsAppPreview.tsx`'s own
           // phone-mockup bubble already uses, so a shop sees the identical bubble whether it is

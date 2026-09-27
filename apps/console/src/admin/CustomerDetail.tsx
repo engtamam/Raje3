@@ -259,7 +259,7 @@ function BillingTab({ session, tenant, catalog, planNames }: {
         )}
       </div>
 
-      <div className="rounded-card border border-dashed border-border-subtle bg-surface-2 p-4 text-center">
+      <div className="rounded-card border border-dashed border-border-subtle bg-surface-1 p-4 text-center">
         <p className="text-sm text-text-secondary">
           "منح تجربة مجانية" — إجراء إداري جديد كلياً، غير موجود بالخادم حالياً. يحتاج تصميماً وبناءً منفصلاً قبل إضافته هنا.
         </p>
@@ -485,7 +485,7 @@ export function TicketDetailView({ ticket, events }: { ticket: TicketDetail; eve
         {events.length === 0 ? <p className="text-sm text-text-muted">لا ردود بعد.</p> : (
           <div className="flex flex-col gap-2">
             {events.map((e) => (
-              <div key={e.id} className="rounded-lg bg-surface-2 p-3 text-sm">
+              <div key={e.id} className="rounded-lg border border-border-subtle bg-surface-1 p-3 text-sm">
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <span dir="ltr" className="text-label text-text-muted">{e.actor || '—'}</span>
                   <span dir="ltr" className="text-label text-text-muted">{new Date(e.ts).toLocaleString('ar-SA')}</span>
@@ -1336,7 +1336,7 @@ function EvidenceFileSection({ session, tenant, catalog }: {
                 أُنشئ بواسطة <span dir="ltr">{file.requested_by}</span> — {unixDate(file.generated_at)}
               </p>
               {Object.entries(file.sections).map(([key, section]) => (
-                <div key={key} className="rounded-card border border-border-subtle bg-surface-2 p-3">
+                <div key={key} className="rounded-card border border-border-subtle bg-surface-1 p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <h4 className="text-sm font-medium">{EVIDENCE_SECTION_LABEL[key] ?? key}</h4>
                     <Badge tone={section.status === 'read' ? 'success' : 'neutral'}>

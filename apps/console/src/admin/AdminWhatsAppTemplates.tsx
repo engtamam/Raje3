@@ -281,7 +281,7 @@ function TemplateCard({ template, session, submitAction, registerAction, flowJso
     <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2.5">
-          <span className="mt-0.5 inline-flex rounded-lg bg-surface-2 p-2 text-text-secondary">
+          <span className="mt-0.5 inline-flex rounded-lg border border-border-subtle bg-surface-1 p-2 text-text-secondary">
             <FileText size={16} />
           </span>
           <div>
@@ -295,7 +295,7 @@ function TemplateCard({ template, session, submitAction, registerAction, flowJso
       </div>
 
       {template.body ? (
-        <p className="whitespace-pre-wrap rounded-lg bg-surface-2 p-3 text-sm text-text-secondary">
+        <p className="whitespace-pre-wrap rounded-lg border border-border-subtle bg-surface-1 p-3 text-sm text-text-secondary">
           {renderBidiSafe(template.body)}
         </p>
       ) : null}
@@ -447,7 +447,7 @@ function TestSendPanel({ session, action, templates }: {
     <Card className="flex flex-col gap-3 p-4">
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
              className="flex w-full items-center gap-2.5 text-start">
-        <span className="inline-flex rounded-lg bg-surface-2 p-2 text-text-secondary">
+        <span className="inline-flex rounded-lg border border-border-subtle bg-surface-1 p-2 text-text-secondary">
           <FlaskConical size={16} />
         </span>
         <span className="flex-1">
@@ -572,7 +572,7 @@ function SeedRenewalFlowPanel({ session, action }: { session: AdminSession; acti
   return (
     <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-start gap-2.5">
-        <span className="inline-flex rounded-lg bg-surface-2 p-2 text-text-secondary">
+        <span className="inline-flex rounded-lg border border-border-subtle bg-surface-1 p-2 text-text-secondary">
           <FlaskConical size={16} />
         </span>
         <div className="flex-1">

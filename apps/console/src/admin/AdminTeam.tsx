@@ -224,7 +224,7 @@ function AddMemberDialog({ session, action, open, onClose, onAdded }: {
       {inviteToken ? (
         <div className="flex flex-col gap-2">
           <p className="text-sm text-text-secondary">أُرسلت الدعوة. رمزها (يظهر مرة واحدة فقط):</p>
-          <p dir="ltr" className="break-all rounded-input bg-surface-2 p-2 font-mono text-sm">{inviteToken}</p>
+          <p dir="ltr" className="break-all rounded-input border border-border-subtle bg-surface-1 p-2 font-mono text-sm">{inviteToken}</p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">

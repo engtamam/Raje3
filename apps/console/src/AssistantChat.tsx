@@ -73,15 +73,15 @@ export function AssistantChat({ session, surface }: { session: Session; surface:
               {turn.question}
             </div>
             {turn.pending ? (
-              <div className="self-start rounded-2xl bg-surface-2 px-3 py-2 text-sm text-text-secondary">
+              <div className="self-start rounded-2xl border border-border-subtle bg-surface-1 px-3 py-2 text-sm text-text-secondary">
                 ...
               </div>
             ) : turn.error ? (
-              <div className="self-start rounded-2xl bg-surface-2 px-3 py-2 text-sm text-danger">
+              <div className="self-start rounded-2xl border border-border-subtle bg-surface-1 px-3 py-2 text-sm text-danger">
                 {turn.error}
               </div>
             ) : turn.answer ? (
-              <div className="flex max-w-[85%] flex-col gap-1 self-start rounded-2xl bg-surface-2 px-3 py-2 text-sm">
+              <div className="flex max-w-[85%] flex-col gap-1 self-start rounded-2xl border border-border-subtle bg-surface-1 px-3 py-2 text-sm">
                 <span>{turn.answer.answer}</span>
                 {turn.answer.actions.length > 0 ? (
                   <div className="flex flex-wrap gap-2 pt-1">

@@ -327,7 +327,7 @@ function SubscribedFieldsCard({ session, tenant, action }: { session: AdminSessi
        : Array.isArray(apps) ? (
         <ul className="flex flex-col gap-2 text-label">
           {apps.map((a, i) => (
-            <li key={a.whatsapp_business_api_data?.id ?? i} className="rounded-md bg-surface-2 p-2">
+            <li key={a.whatsapp_business_api_data?.id ?? i} className="rounded-md border border-border-subtle bg-surface-1 p-2">
               <div className="font-medium">{a.whatsapp_business_api_data?.name || a.whatsapp_business_api_data?.id || '—'}</div>
               {a.subscribed_fields && a.subscribed_fields.length ? (
                 <div dir="ltr" className="mt-1 flex flex-wrap gap-1">

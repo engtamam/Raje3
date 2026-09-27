@@ -524,7 +524,7 @@ export function People({ session, operators, branches, add, edit, hire, setHours
                       type="radio" name="op-role" value={r.value} checked={selected}
                       onChange={() => setRole(r.value)} className="sr-only"
                     />
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-2 text-text-primary">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border-subtle bg-surface-1 text-text-primary">
                       <Icon size={18} aria-hidden />
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col">
@@ -761,7 +761,7 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
       </div>
 
       {editing ? (
-        <div className="flex flex-wrap items-end gap-2 rounded-xl bg-surface-2 p-2">
+        <div className="flex flex-wrap items-end gap-2 rounded-xl border border-border-subtle bg-surface-1 p-2">
           <Field label={t('team.form.name')} htmlFor={`op-name-${o.id}`}>
             <Input id={`op-name-${o.id}`} value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
@@ -875,7 +875,7 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
           </span>
 
           {hoursOpen ? (
-            <div className="mt-2 flex flex-col gap-2 rounded-xl bg-surface-2 p-2">
+            <div className="mt-2 flex flex-col gap-2 rounded-xl border border-border-subtle bg-surface-1 p-2">
               {HOURS_DISPLAY_ORDER.map((day) => {
                 const d = hoursDraft[String(day)]
                   ?? { closed: false, start_minute: 480, end_minute: 1320 };
@@ -1161,7 +1161,7 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
         // find it — and until this cycle that name existed nowhere in the product: no row, no
         // tab, no address. Now it is a place, and this is a link to it rather than an
         // instruction.
-        <div className="flex flex-col items-start gap-2 rounded-card bg-surface-2 p-3">
+        <div className="flex flex-col items-start gap-2 rounded-card border border-border-subtle bg-surface-1 p-3">
           {/* Not "your current subscription" (singular) — the branch cap is the SUM of the base's
               own gauge plus every "extra branch" add-on subscription he holds (billing-service
               merges gauge limits across every live subscription), never one subscription's own

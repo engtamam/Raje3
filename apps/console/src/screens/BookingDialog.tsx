@@ -723,7 +723,7 @@ export function BookingDialog(
                       type="button"
                       onClick={() => pickSlot(s)}
                       className={`rounded-full px-3 py-2 text-sm font-medium transition-colors ${
-                        picked ? 'bg-accent text-accent-contrast' : 'bg-surface-2 text-text-primary hover:bg-surface-3'
+                        picked ? 'bg-accent text-accent-contrast' : 'border border-border-subtle bg-surface-1 text-text-primary hover:bg-surface-3'
                       }`}
                     >
                       {timeOfEpoch(s.startsAt)}{opName ? tf(t, 'bookingDialog.withOperator', { name: opName }) : ''}

@@ -80,7 +80,7 @@ export function BookingsMonthView({ session, branchId, date, today, t, onSelectD
               {count === null ? null : count > 0 ? (
                 // TINTED, NOT FLAT GREY — this number is not a decoration on the cell, it is the
                 // one fact this whole view exists to show: "something is booked here". A neutral
-                // `bg-surface-2` badge said the same nothing whether a day held one booking or
+                // the flat neutral surface token badge said the same nothing whether a day held one booking or
                 // twenty, no different from the cell's own background; the accent tint (the same
                 // one this session's other screens use for "there is real activity here") makes a
                 // day WITH bookings visibly distinct from an empty one at a glance, before the

@@ -44,7 +44,7 @@ export function bannerVisible(cfg: FooterConfig, now: Date, preview = false): bo
 }
 
 const BANNER_TONE: Record<string, string> = {
-  info: 'bg-surface-2 text-text-secondary',
+  info: 'border border-border-subtle bg-surface-1 text-text-secondary',
   accent: 'bg-accent-soft text-accent-on-soft',
   success: 'bg-success-soft text-success-on-soft',
   warning: 'bg-warning-soft text-warning-on-soft',

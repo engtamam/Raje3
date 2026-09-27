@@ -216,7 +216,7 @@ export function AdminCompliance({ session }: { session: AdminSession }) {
           so and names the narrowing search as optional. Shown ONLY on the two tabs that scope this
           way, and only before a search narrows them to one shop. */}
       {TENANT_SCOPED_TABS.has(realActive) && !foundCustomer ? (
-        <p className="rounded-card bg-surface-2 px-3 py-2 text-sm text-text-secondary">
+        <p className="rounded-card border border-border-subtle bg-surface-1 px-3 py-2 text-sm text-text-secondary">
           القائمة أدناه تعرض كل الطلبات المفتوحة من كل المحلات، الأقدم أولاً — ابحث عن عميل برقم
           جواله أعلاه لو تبي تضيّقها لمحل واحد بعينه.
         </p>

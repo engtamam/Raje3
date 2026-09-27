@@ -311,7 +311,7 @@ export function MsgWordLimitCard({ session, catalog }: { session: Session; catal
             min={MSG_WORD_LIMIT_MIN} max={MSG_WORD_LIMIT_MAX} value={draft} disabled={busy}
             aria-label={t('accountPanes.wordLimit.title')}
             onChange={(e) => { setDraft(Number(e.target.value) || 0); setSaved(false); }}
-            className="h-11 w-32 rounded-xl bg-surface-2 px-3"
+            className="h-11 w-32 rounded-xl border border-border-subtle bg-surface-1 px-3"
           />
         </Field>
       ) : (
@@ -586,7 +586,7 @@ function BrandCard({ tenant, onSave, onSaveName }:
           onChange={(e) => setName(e.target.value)}
           maxLength={120}
           autoComplete="organization"
-          className="h-11 rounded-xl bg-surface-2 px-3"
+          className="h-11 rounded-xl border border-border-subtle bg-surface-1 px-3"
         />
       </label>
 
@@ -595,7 +595,7 @@ function BrandCard({ tenant, onSave, onSaveName }:
           press. «إزالة» sits beside it only when there is something to remove, and takes the width
           it needs rather than half the row — the two are not equals. */}
       <div className="flex flex-wrap items-center gap-2">
-        <label className="grid min-h-11 flex-1 cursor-pointer place-items-center rounded-xl bg-surface-2 px-3 text-sm">
+        <label className="grid min-h-11 flex-1 cursor-pointer place-items-center rounded-xl border border-border-subtle bg-surface-1 px-3 text-sm">
           {logo ? t('accountPanes.changeLogo') : t('accountPanes.uploadLogo')}
           <input
             type="file"
@@ -606,7 +606,7 @@ function BrandCard({ tenant, onSave, onSaveName }:
         </label>
         {logo ? (
           <button type="button" onClick={() => setLogo('')}
-                  className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm text-text-secondary">
+                  className="min-h-11 rounded-xl border border-border-subtle bg-surface-1 px-3 text-sm text-text-secondary">
             {t('accountPanes.removeLogo')}
           </button>
         ) : null}
@@ -645,7 +645,7 @@ function BrandCard({ tenant, onSave, onSaveName }:
               const hex = raw.startsWith('#') ? raw : `#${raw}`;
               setColour(/^#[0-9a-fA-F]{6}$/.test(hex) ? hex.toUpperCase() : raw);
             }}
-            className="h-11 w-32 rounded-xl bg-surface-2 px-3 text-center tabular-nums"
+            className="h-11 w-32 rounded-xl border border-border-subtle bg-surface-1 px-3 text-center tabular-nums"
           />
           <button
             type="button"
@@ -840,7 +840,7 @@ function Row({ label, value }: { label: string; value: string }) {
 
 function Quiet({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-card bg-surface-2 p-4 text-sm text-text-secondary">{children}</p>
+    <p className="rounded-card border border-border-subtle bg-surface-1 p-4 text-sm text-text-secondary">{children}</p>
   );
 }
 

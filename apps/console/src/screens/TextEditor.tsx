@@ -52,7 +52,7 @@ export interface Mandatory { id: string; label: string; sample?: string; note?: 
 interface Draft { html: string }
 
 const CHIP =
-  'rich-chip mx-0.5 inline-block rounded-md bg-surface-2 px-1.5 py-0.5 text-xs ' +
+  'rich-chip mx-0.5 inline-block rounded-md border border-border-subtle bg-surface-1 px-1.5 py-0.5 text-xs ' +
   'font-medium text-text-secondary align-baseline';
 
 function chipHtml(slot: Slot): string {
@@ -225,7 +225,7 @@ export function TextEditor({
               key={s.id}
               type="button"
               onClick={() => insert(s)}
-              className="flex items-center gap-1 rounded-full border border-border-subtle bg-surface-2 px-2.5 py-1 text-xs hover:bg-surface-3"
+              className="flex items-center gap-1 rounded-full border border-border-subtle bg-surface-1 px-2.5 py-1 text-xs hover:bg-surface-3"
             >
               <Plus size={12} aria-hidden />
               {s.label}
@@ -252,7 +252,7 @@ export function TextEditor({
             NOT in the palette above: offering it as a chip would let him drop a second one
             mid-sentence, which the save then refuses. */}
         {mandatory ? (
-          <div className="flex flex-wrap items-center gap-2 rounded-card border border-dashed border-border-subtle bg-surface-2 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-card border border-dashed border-border-subtle bg-surface-1 px-3 py-2">
             <span className="text-xs text-text-secondary">{t('textEditor.mandatoryLine')}</span>
             <span className={CHIP} aria-label={tf(t, 'textEditor.mandatoryAriaLabel', { label: mandatory.label })}>{mandatory.label}</span>
             <Lock size={12} aria-hidden className="text-text-secondary" />
@@ -265,7 +265,7 @@ export function TextEditor({
           <h3 className="text-xs text-text-secondary">{t('textEditor.previewTitle')}</h3>
           {/* WHATSAPP'S OWN SENT-BUBBLE GREEN, FIXED — same literal colours as MessagePreview.tsx's
               own `Bubble` and rj-ui/WhatsAppPreview.tsx's phone mockup, never the theme's
-              `bg-surface-2` (owner's own instruction: "خلي المثال ثابت في رسالة خضراء مثل
+              the flat neutral surface token (owner's own instruction: "خلي المثال ثابت في رسالة خضراء مثل
               الواتساب"). A brand colour, not a semantic one. */}
           <div className="rounded-2xl rounded-ss-sm bg-[#DCF8C6] p-3 text-sm leading-relaxed text-[#111b21] shadow-sm">
             {sample || '…'}
