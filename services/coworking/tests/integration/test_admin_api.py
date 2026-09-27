@@ -117,6 +117,27 @@ def test_join_approve_reject_block_flow(client):
     assert rejected.status_code == 404, "reject with no pending row must be refused, not silently ok"
 
 
+def test_block_normalizes_a_hand_typed_phone_the_same_way_a_booking_attempt_would(client):
+    # An owner types the number he already knows by heart, not the canonical +966 form a
+    # freelancer's own request would carry — this must still block the SAME identity, or the
+    # block silently does nothing (the exact bug this test exists to pin down).
+    r = client.post("/api/v1/coworking/resources", json={"name": "كرسي 1"}, headers=_auth()).json()
+    client.put(f"/api/v1/coworking/resources/{r['id']}/availability",
+              json={"weekly": {str(d): [{"start_minute": 0, "end_minute": 1440}] for d in range(7)},
+                    "exceptions": {}, "hourly_price_minor": 5000}, headers=_auth())
+
+    block = client.post("/api/v1/coworking/joins/0501234567/block", headers=_auth())
+    assert block.status_code == 200 and block.json()["status"] == "blocked"
+
+    attempt = client.post(
+        "/p/coworking/shopA/bookings",
+        json={"phone": "+966501234567", "resource_id": r["id"],
+              "starts_at": 1_900_000_000, "ends_at": 1_900_003_600},
+    )
+    assert attempt.status_code == 400
+    assert attempt.json()["error"] == "BLOCKED"
+
+
 def test_pause_blocks_new_bookings_via_admin_toggle(client):
     r = client.put("/api/v1/coworking/pause", json={"paused": True}, headers=_auth())
     assert r.status_code == 200 and r.json()["paused"] is True

@@ -14,8 +14,10 @@ from starlette.responses import JSONResponse
 from app.api.auth import Principal, require_user
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
+from app.config import get_settings
 from app.core.bookings import BookingRefused
 from app.core.joins import JoinError
+from app.core.phone import canonical_phone
 from app.core.resources import ResourceError
 
 router = APIRouter(prefix="/api/v1/coworking", tags=["coworking-admin"])
@@ -25,6 +27,13 @@ _MANAGE = require_capability("coworking.manage")
 
 def _tenant(principal: Principal) -> str:
     return principal.tenant or ""
+
+
+def _phone(raw: str) -> str:
+    # SAME NORMALIZER `public.py` USES — an owner typing a number by hand ("0501234567") must
+    # resolve to the exact same key a freelancer's own booking attempt does ("+966501234567"), or
+    # `block()` silently blocks a row nobody ever books under while the real identity stays free.
+    return canonical_phone(raw, default_cc=get_settings().COWORKING_PHONE_DEFAULT_CC)
 
 
 def _refuse(reason: str, *, status_code: int = status.HTTP_400_BAD_REQUEST) -> JSONResponse:
@@ -120,6 +129,7 @@ async def list_joins(request: Request, status: str | None = None,
 async def approve_join(request: Request, phone: str,
                        principal: Principal = Depends(_MANAGE)) -> dict:
     c = request.app.state.container
+    phone = _phone(phone)
     try:
         return await c.joins.approve(_tenant(principal), phone)
     except JoinError as exc:
@@ -130,6 +140,7 @@ async def approve_join(request: Request, phone: str,
 async def reject_join(request: Request, phone: str,
                       principal: Principal = Depends(_MANAGE)) -> dict:
     c = request.app.state.container
+    phone = _phone(phone)
     try:
         await c.joins.reject(_tenant(principal), phone)
     except JoinError as exc:
@@ -142,6 +153,7 @@ async def block_phone(request: Request, phone: str,
                       principal: Principal = Depends(_MANAGE)) -> dict:
     """Answerable even with no prior join request at all — see `core/joins.py`'s own module doc."""
     c = request.app.state.container
+    phone = _phone(phone)
     return await c.joins.block(_tenant(principal), phone)
 
 
@@ -149,6 +161,7 @@ async def block_phone(request: Request, phone: str,
 async def unblock_phone(request: Request, phone: str,
                         principal: Principal = Depends(_MANAGE)) -> dict:
     c = request.app.state.container
+    phone = _phone(phone)
     await c.joins.unblock(_tenant(principal), phone)
     return {"unblocked": True}
 
