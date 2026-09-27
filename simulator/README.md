@@ -110,6 +110,38 @@ service) plugs into without touching anything in `common/` or `shared/`. Scaling
 apps, more scenarios, and a genuinely adversarial/security-focused scenario library is future work,
 not part of this initial build.
 
+## Roles/capabilities module (built after the 8-stage plan, same principles)
+
+Research first (see the design discussion this was built from): every existing CI gate around
+roles/capabilities is STATIC analysis (do the two role-seed files agree, does the owner hold every
+capability, is every capability reachable by someone) — confirmed as a real, load-bearing set of
+guards (`ci/check_roles.py`, `ci/check_deploy_wiring.py`'s own guard 14, `ci/check_capability_
+truth.py`), but NOTHING actually calls every route as every role over real HTTP and watches what
+happens. This module is that missing dynamic check, and it is deliberately "smart-linked" to the
+real code rather than hand-maintained:
+
+- `shared/roles.py::load_roles` reads `deploy/seed/roles.json` directly — a new role, or a new
+  capability grant to an existing one, is picked up the next time this runs, zero edits here.
+- `common/discovery.py::discover_actions` reads a service's own `app/user_actions.py`/
+  `admin_actions.py` (the exact `ast.literal_eval`-safe parsing every other catalog gate in this
+  repo already uses) — a new declared route is picked up the same way.
+- `common/rbac_matrix.py::check_action_against_every_role` is the actual check: a role holding the
+  route's declared capability must never get 403; a role without it must always get 403.
+
+Run for real against services/operations' own catalog (119 real declared actions discovered, not
+a fixture), this surfaced a genuine, useful limit of the single-capability model itself — not a
+platform bug: a handful of real routes are gated by `require_any_capability` (an OR the
+declaration only names one side of), or declare a capability purely for catalog grouping with no
+real enforcement (both admitted in the real source's own comments), or need an identity claim
+beyond any capability (`partner.*`). These are a short, source-documented allowlist in
+`tests/test_stage9_rbac_matrix.py` — every OTHER action in the sweep is asserted strictly, so a
+genuinely new mismatch anywhere else is caught, not hidden (5 tests, 64 total across the whole
+simulator now).
+
+As agreed when this was scoped: this stays an on-demand deep tool (it spawns a real server), not a
+fast per-commit gate — a lightweight static "every capability is reachable by someone" check
+already exists in `ci/check_deploy_wiring.py`'s own guard 14, so nothing new was needed there.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
