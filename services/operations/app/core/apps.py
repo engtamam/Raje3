@@ -414,6 +414,14 @@ APPS: tuple[dict[str, Any], ...] = (
      "what": "يحوّل وقت محلك الفاضي إلى دخل إضافي — تؤجّر كرسياً أو محطة بالساعة لمستقلّين تثق بهم، "
              "بلا أي التزام مالي علينا.",
      "features": list(COWORKING_FEATURES)},
+    # REFERRAL & AFFILIATE MARKETING — Phase 0 of docs/خطة-تطبيق-الإحالة-والمسوقين-2026-09-27.md:
+    # a real, deployed, empty `services/referrals` (platform-tax-only, no domain routes at all
+    # yet — see docs/adding-a-new-app.md). Plan row is `listed: false` (deploy/seed/plans.json),
+    # same posture `feature.mutual_benefit`'s own row took before its console screen existed.
+    # `features` is left OUT ENTIRELY rather than padded with a placeholder bullet — there is no
+    # honest sentence to write yet about a domain that has not been built (`no-placeholder-drift`).
+    {"key": "feature.referrals", "name": "الإحالة والمسوقين", "screen": "referrals",
+     "what": "برنامج إحالة ومسوّقين يكافئ من يرشّح محلّك لعملاء جدد."},
 )
 
 # BOTH ROWS ABOVE WERE MISSING FOR THE SAME REASON, FOUND THE SAME DAY: a plan's

@@ -495,6 +495,10 @@ def build_container(settings: Settings) -> Container:
     # module here); this attribute exists ONLY so `subscribed_write`'s generic "holds ANY app" OR
     # can see it, not because operations enforces anything about co-working resources itself.
     container.coworking_licence = build_feature_licence(settings, "feature.coworking")
+    # Same rule, same reason: `feature.referrals` joined `core/apps.py::APPS` (Phase 0 backend
+    # registration), so it must join here in the same change or `subscribed_write`'s generic
+    # OR-gate reads it as unwired and opens for every shop.
+    container.referrals_licence = build_feature_licence(settings, "feature.referrals")
     container.templates = TemplateLibrary(container.datastore)
     # The door. Built early, because a signup that cannot
     # seed a catalogue is a signup that lands the new owner on an empty «خدماتي».
