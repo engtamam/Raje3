@@ -52,4 +52,9 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/coworking/admin/ping", "capability": "platform.secrets", "group": "المنصة",
         "help": "يؤكّد أن الخدمة تستقبل رمزك وتردّ.",
     },
+    {
+        "id": "coworking.whoami", "label": "من أنا", "method": "GET",
+        "path": "/api/v1/coworking/whoami", "capability": "platform.config", "group": "المنصة",
+        "help": "يؤكّد هوية المستدعي والصلاحيات التي يحملها رمزه الحالي تجاه هذه الخدمة.",
+    },
 ]

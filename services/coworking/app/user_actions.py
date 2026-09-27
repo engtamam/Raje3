@@ -103,3 +103,30 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "يوقف كل الحجوزات الجديدة مؤقتاً أو دائماً — الحجوزات المؤكَّدة سابقاً لا تتأثر أبداً.",
     },
 ]
+
+# THE PLATFORM'S OWN MECHANISM (see operations/app/user_actions.py, the first to use it). The
+# `/p/coworking/{tenant}/*` routes are the freelancer's own public door (api/public.py's own
+# docstring) — reached with NO token at all (that is the whole point: a freelancer's first ever
+# booking attempt is what CREATES their join request), so none of them can appear in a catalog of
+# what a caller's OWN token lets them do. They are real, wired, and tested; they simply belong to
+# nobody's action list, the same reason affiliate-service's `/apply` and `/apply/request-otp`
+# routes stay out of its own USER_ACTIONS.
+UNDECLARED_ROUTES: list[dict[str, str]] = [
+    {"method": "GET", "path": "/p/coworking/{tenant}/resources",
+     "why": "the freelancer's public catalogue of a shop's rentable resources — read before any "
+            "join request or token exists"},
+    {"method": "GET", "path": "/p/coworking/{tenant}/slots",
+     "why": "same reason as /resources: browsed before any join request or token exists"},
+    {"method": "GET", "path": "/p/coworking/{tenant}/status",
+     "why": "same reason as /resources: browsed before any join request or token exists"},
+    {"method": "POST", "path": "/p/coworking/{tenant}/join",
+     "why": "it creates the join request an approval would later be granted against — the "
+            "catalogue is fetched WITH a token, so a route that exists precisely because there is "
+            "no token yet cannot appear in a list of what its holder may do"},
+    {"method": "POST", "path": "/p/coworking/{tenant}/bookings",
+     "why": "the freelancer books by phone number alone, once approved — still no platform token, "
+            "same reason as /join"},
+    {"method": "GET", "path": "/p/coworking/{tenant}/my-bookings",
+     "why": "the freelancer's own view of their bookings, looked up by phone — same reason as "
+            "/bookings: no platform token is ever issued to a freelancer"},
+]

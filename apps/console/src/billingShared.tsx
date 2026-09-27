@@ -86,6 +86,7 @@ export const LIMIT_KEYS: Record<string, { label: string; unit?: string }> = {
   'feature.mobile_requests': { label: 'plans.limit.mobileRequests.label' },
   'feature.referral_partnership': { label: 'plans.limit.referralPartnership.label' },
   'feature.mobile_ai_assistant': { label: 'plans.limit.mobileAiAssistant.label' },
+  'feature.coworking': { label: 'plans.limit.coworking.label' },
   'plan.standalone': { label: 'plans.limit.standalone.label' },
   // `plan.requires_any` NEVER ACTUALLY PRINTS via `planLines` (its value is a list, never a
   // positive `limit`) — the entry exists only so `ci/check_entitlements.py` finds the wording it
