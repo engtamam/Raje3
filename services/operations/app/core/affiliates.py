@@ -96,6 +96,27 @@ def _percent(value: Any, *, field: str) -> int:
     return n
 
 
+_ELIGIBILITY_VALUES = {"new", "max_visits", "open"}
+
+
+def _validate_beneficiary_eligibility(eligibility: str, max_visits: Any) -> tuple[str, int]:
+    """Same three real values `core/referral_redemption.py::_check_beneficiary_eligibility`
+    reads — validated here, at write time, so a bad value never reaches the engine at redeem
+    time, where a refusal is a much worse moment to explain than a rejected admin form."""
+    value = (eligibility or "new").strip()
+    if value not in _ELIGIBILITY_VALUES:
+        raise AffiliateError("قيمة غير صالحة لمن يقدر يستخدم كود هذا المسوّق")
+    if value != "max_visits":
+        return value, 0
+    try:
+        n = int(max_visits)
+    except (TypeError, ValueError):
+        raise AffiliateError("عدد الزيارات المسموح يجب أن يكون رقمًا") from None
+    if n < 0:
+        raise AffiliateError("عدد الزيارات المسموح يجب أن يكون صفرًا أو أكثر")
+    return value, n
+
+
 def validate_reward(reward_type: str, params: dict[str, Any]) -> dict[str, Any]:
     """The affiliate's own per-sale reward — deliberately just these two shapes (a flat point
     count, or a percentage of the sale), never the full 8-type ordinary referral catalogue: an
@@ -123,6 +144,14 @@ class Affiliate:
     active: bool = True
     unsettled_points: int = 0
     total_earned_points: int = 0
+    # WHO MAY REDEEM THIS AFFILIATE'S OWN CODE (owner instruction, 2026-09-27) — independent of
+    # the tenant's ordinary campaign setting of the same shape
+    # (services/referrals' own Campaign.beneficiary_eligibility): an affiliate's terms are already
+    # fully independent of the campaign everywhere else in this fleet, and this is no exception.
+    # See core/referral_redemption.py::_check_beneficiary_eligibility for the three real values
+    # ("new" / "max_visits" / "open") and exactly what each means.
+    beneficiary_eligibility: str = "new"
+    beneficiary_max_visits: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -136,6 +165,11 @@ class Affiliate:
             created_at=int(row.get("created_at") or 0), active=bool(row.get("active", True)),
             unsettled_points=int(row.get("unsettled_points") or 0),
             total_earned_points=int(row.get("total_earned_points") or 0),
+            # ABSENT ON ANY ROW ADDED BEFORE THIS SETTING EXISTED — defaults to "new", the exact
+            # rule that already applied unconditionally, so an old affiliate's real behaviour never
+            # silently changes underneath it.
+            beneficiary_eligibility=str(row.get("beneficiary_eligibility") or "new"),
+            beneficiary_max_visits=int(row.get("beneficiary_max_visits") or 0),
         )
 
 
@@ -185,7 +219,8 @@ class AffiliateService:
         await self._s.delete(_LOCKS, key)
 
     async def add(self, tenant: str, *, phone: str, code: str, discount_percent: Any,
-                 reward_type: str, reward_params: dict[str, Any]) -> Affiliate:
+                 reward_type: str, reward_params: dict[str, Any],
+                 beneficiary_eligibility: str = "new", beneficiary_max_visits: Any = 0) -> Affiliate:
         canon_phone = canonical_phone(phone, default_cc=self._cc)
         if not canon_phone:
             raise AffiliateError("رقم جوال المسوّق مطلوب")
@@ -198,6 +233,8 @@ class AffiliateService:
 
         percent = _percent(discount_percent, field="نسبة خصم متابعي المسوّق")
         normalized_reward = validate_reward(reward_type, reward_params)
+        eligibility, max_visits = _validate_beneficiary_eligibility(
+            beneficiary_eligibility, beneficiary_max_visits)
 
         # TENANT-WIDE, DELIBERATELY (not per-phone/per-code separately) — `add()` is a rare,
         # owner-triggered admin action, never a high-throughput path, so the simplicity of ONE
@@ -223,6 +260,7 @@ class AffiliateService:
                 id=str(uuid.uuid4()), tenant=tenant, phone=canon_phone, code=norm_code,
                 discount_percent=percent, reward_type=reward_type,
                 reward_params=normalized_reward, created_at=int(time.time()),
+                beneficiary_eligibility=eligibility, beneficiary_max_visits=max_visits,
             )
             await self._s.put(AFFILIATES, f"{tenant}|{affiliate.id}", affiliate.to_dict())
             return affiliate

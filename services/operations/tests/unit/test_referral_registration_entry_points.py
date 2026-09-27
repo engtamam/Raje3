@@ -79,18 +79,20 @@ def test_a_visit_with_no_code_never_calls_the_engine(ops_and_engine):
     assert engine.calls == []
 
 
-def test_a_returning_customers_visit_never_calls_the_engine_even_with_a_code(ops_and_engine):
-    """The whole point of gating on `created_customer` — a returning customer typing in a code he
-    found somewhere is never even asked about; the engine's own new-customer check would refuse
-    it anyway, and every returning visit should not pay for a peer round trip that can only fail."""
+def test_a_returning_customers_visit_still_offers_the_code_to_the_engine(ops_and_engine):
+    """Owner instruction, 2026-09-27: who is eligible is now the campaign's/affiliate's OWN
+    configured choice ("new"/"max_visits"/"open"), not a client-side "must be brand-new" shortcut
+    — so a returning customer's code is always offered to the engine, which may well accept it
+    under "max_visits"/"open"."""
     svc, engine = ops_and_engine
     run(svc.record_visit(tenant=TENANT, phone="0501234567", service_ids=["srv_1"],
                          idempotency_key="first"))
     res = run(svc.record_visit(tenant=TENANT, phone="0501234567", service_ids=["srv_1"],
                                idempotency_key="second", referral_code="AB123"))
     assert res.created_customer is False
-    assert res.referral_registration is None
-    assert engine.calls == []
+    assert res.referral_registration == {"ok": True, "new_customer_reward_type": "discount_percent",
+                                         "new_customer_reward_params": {"percent": 10}}
+    assert len(engine.calls) == 1
 
 
 def test_a_refused_code_never_undoes_the_visit_already_written(ops_and_engine):
@@ -173,10 +175,11 @@ def test_a_request_with_no_code_never_touches_the_engine_on_completion(mobile_sv
     assert engine.calls == []
 
 
-def test_a_second_request_from_the_same_now_returning_phone_never_registers(mobile_svc_and_engine):
+def test_a_second_request_from_the_same_now_returning_phone_still_registers(mobile_svc_and_engine):
     """The customer this beneficiary phone belongs to was already created by the FIRST completed
     request; a second request (even with a code attached) belongs to a returning customer by the
-    time it is completed."""
+    time it is completed — but owner instruction 2026-09-27 means eligibility is now the
+    campaign's/affiliate's own configured choice, so the code is still offered to the engine."""
     s, engine = mobile_svc_and_engine
     first = run(s.create(tenant=TENANT, phone="0501234567", customer_name="أحمد",
                          service_ids=["srv_1"], requested_time=1_800_000_000,
@@ -190,7 +193,7 @@ def test_a_second_request_from_the_same_now_returning_phone_never_registers(mobi
                           lat=24.7, lng=46.6, referral_code="ZZZZZ"))
     run(s.accept(TENANT, second.id, actor="owner1"))
     run(s.complete(TENANT, second.id))
-    assert len(engine.calls) == 1              # unchanged — the second attempt never fired
+    assert len(engine.calls) == 2              # the second attempt now fires too
 
 
 # ── 3. ensure_customer — the real "new customer" moment for a booking ───────────────────────────
@@ -205,14 +208,16 @@ def test_ensure_customer_with_a_code_on_a_brand_new_phone_registers_it(ops_and_e
                              "invoice_minor": 0, "actor": "console"}]
 
 
-def test_ensure_customer_called_twice_only_registers_on_the_first(ops_and_engine):
+def test_ensure_customer_called_twice_still_registers_on_the_second(ops_and_engine):
+    """Owner instruction, 2026-09-27: eligibility is the engine's own configured decision, not a
+    "found an existing customer" shortcut here — so a second call with a code still offers it."""
     svc, engine = ops_and_engine
     first, first_reg = run(svc.ensure_customer(TENANT, "0501234567", referral_code="AB123"))
     second, second_reg = run(svc.ensure_customer(TENANT, "0501234567", referral_code="ZZZZZ"))
     assert second.id == first.id
     assert first_reg is not None
-    assert second_reg is None                  # the second call found an EXISTING customer
-    assert len(engine.calls) == 1
+    assert second_reg is not None
+    assert len(engine.calls) == 2
 
 
 def test_ensure_customer_with_no_code_returns_none_and_never_calls_the_engine(ops_and_engine):

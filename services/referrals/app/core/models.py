@@ -65,6 +65,19 @@ CAP_SCOPE_CAMPAIGN = "campaign"
 CAP_SCOPE_LIFETIME = "lifetime"
 CAP_SCOPES = (CAP_SCOPE_CAMPAIGN, CAP_SCOPE_LIFETIME)
 
+# ── who may REDEEM the code at all (owner instruction, 2026-09-27) — a different question from
+# `mode` above (mode caps how many times the REFERRER's code pays out; this is about which
+# BENEFICIARY phones are even eligible to try). "new" (default, and every campaign row from before
+# this setting existed) is the original, unconditional rule: no existing Customer row at this
+# tenant. "max_visits" widens it to a customer whose own real visit_count has not yet passed
+# `beneficiary_max_visits`. "open" removes the restriction entirely. See
+# services/operations/app/core/referral_redemption.py::_check_beneficiary_eligibility for where
+# this is actually enforced — this service only stores and validates the shop's own choice.
+ELIGIBILITY_NEW = "new"
+ELIGIBILITY_MAX_VISITS = "max_visits"
+ELIGIBILITY_OPEN = "open"
+BENEFICIARY_ELIGIBILITIES = (ELIGIBILITY_NEW, ELIGIBILITY_MAX_VISITS, ELIGIBILITY_OPEN)
+
 
 @dataclass(frozen=True)
 class Campaign:
@@ -92,6 +105,12 @@ class Campaign:
     # this field existed — `from_dict` defaults a missing value to "campaign", the exact behaviour
     # that row already had, so an old campaign's meaning never silently changes underneath it.
     cap_scope: str = CAP_SCOPE_CAMPAIGN
+    # Absent on any campaign row created before this setting existed — `from_dict` defaults a
+    # missing value to "new", the exact rule that already applied unconditionally, so an old
+    # campaign's real behaviour never silently changes underneath it (same posture `cap_scope`
+    # above already takes).
+    beneficiary_eligibility: str = ELIGIBILITY_NEW
+    beneficiary_max_visits: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -103,6 +122,8 @@ class Campaign:
             "new_customer_reward_type": self.new_customer_reward_type,
             "new_customer_reward_params": self.new_customer_reward_params,
             "active": self.active, "created_ns": self.created_ns, "cap_scope": self.cap_scope,
+            "beneficiary_eligibility": self.beneficiary_eligibility,
+            "beneficiary_max_visits": self.beneficiary_max_visits,
         }
 
     @staticmethod
@@ -119,4 +140,6 @@ class Campaign:
             active=bool(row.get("active", True)),
             created_ns=int(row.get("created_ns") or 0),
             cap_scope=row.get("cap_scope") or CAP_SCOPE_CAMPAIGN,
+            beneficiary_eligibility=row.get("beneficiary_eligibility") or ELIGIBILITY_NEW,
+            beneficiary_max_visits=int(row.get("beneficiary_max_visits") or 0),
         )

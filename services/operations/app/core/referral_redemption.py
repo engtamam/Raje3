@@ -103,6 +103,14 @@ MODE_ONCE = "once"
 MODE_X_TIMES = "x_times"
 MODE_LIFETIME = "lifetime"
 
+# WHO MAY REDEEM (owner instruction, 2026-09-27) — configurable per campaign AND, independently,
+# per affiliate (never one shared setting for both: an affiliate's own terms are already fully
+# independent of the tenant's ordinary campaign everywhere else in this file). Replaces what used
+# to be one universal, unconditional rule ("must be a brand-new customer, always, no exception").
+ELIGIBILITY_NEW = "new"
+ELIGIBILITY_MAX_VISITS = "max_visits"
+ELIGIBILITY_OPEN = "open"
+
 
 class ReferralRedemptionError(Exception):
     """A refusal a cashier should read verbatim — never a stack trace."""
@@ -236,23 +244,18 @@ class ReferralRedemptionEngine:
         if existing is not None:
             return existing
 
-        # "NEW CUSTOMER" MEANS NO EXISTING Customer ROW AT THIS TENANT, THROUGH ANY MEANS — owner
-        # decision (deep-review Phase 5c): a phone that already has a Customer row here (a walk-in
-        # visit, a booking, anything, with or without a referral) is definitively not eligible for
-        # the new-customer reward, even if the specific code being entered is one this person has
-        # never used before. Checked here, BEFORE either grant path below (ordinary or affiliate)
-        # and before any campaign/usage-cap logic runs, so an existing customer never gets past
-        # this point regardless of which reward shape they would otherwise have qualified for.
-        if await self._customers.by_phone(tenant, canon_beneficiary) is not None:
-            raise ReferralRedemptionError("هذا العميل مسجّل بالفعل عند هذا المتجر")
-
         # PHASE 4 — a shop-local affiliate custom code, checked FIRST and entirely locally (no
         # services/referrals round trip at all: an affiliate's code is never registered globally,
         # see core/affiliates.py's own module docstring). A match here short-circuits the whole
-        # ordinary-campaign path below — an affiliate's terms are independent of it by design.
+        # ordinary-campaign path below — an affiliate's terms are independent of it by design,
+        # including its OWN "who may redeem" setting, never the tenant's campaign-level one.
         if self._affiliates is not None:
             affiliate = await self._affiliates.get_by_code(tenant, code)
             if affiliate is not None:
+                await self._check_beneficiary_eligibility(
+                    tenant, canon_beneficiary,
+                    eligibility=affiliate.beneficiary_eligibility,
+                    max_visits=affiliate.beneficiary_max_visits)
                 return await self._register_affiliate_grant(
                     tenant, code=code, canon_beneficiary=canon_beneficiary, affiliate=affiliate,
                     invoice_minor=invoice_minor)
@@ -287,6 +290,10 @@ class ReferralRedemptionEngine:
         if self._affiliates is not None:
             affiliate = await self._affiliates.get_by_phone(tenant, canon_referrer)
             if affiliate is not None:
+                await self._check_beneficiary_eligibility(
+                    tenant, canon_beneficiary,
+                    eligibility=affiliate.beneficiary_eligibility,
+                    max_visits=affiliate.beneficiary_max_visits)
                 return await self._register_affiliate_grant(
                     tenant, code=code, canon_beneficiary=canon_beneficiary, affiliate=affiliate,
                     invoice_minor=invoice_minor)
@@ -314,6 +321,11 @@ class ReferralRedemptionEngine:
         if campaign is None:
             raise ReferralRedemptionError("لا توجد حملة إحالة نشطة بهذا المتجر")
 
+        await self._check_beneficiary_eligibility(
+            tenant, canon_beneficiary,
+            eligibility=str(campaign.get("beneficiary_eligibility") or ELIGIBILITY_NEW),
+            max_visits=int(campaign.get("beneficiary_max_visits") or 0))
+
         min_spend = int(campaign.get("min_spend_minor") or 0)
         if min_spend and int(invoice_minor or 0) < min_spend:
             raise ReferralRedemptionError(
@@ -333,6 +345,37 @@ class ReferralRedemptionEngine:
         )
         await self._s.put(GRANTS, f"{tenant}|{grant.id}", asdict(grant))
         return grant
+
+    async def _check_beneficiary_eligibility(self, tenant: str, canon_beneficiary: str, *,
+                                             eligibility: str, max_visits: int) -> None:
+        """Who may actually redeem — configurable per campaign/affiliate (owner instruction,
+        2026-09-27), replacing what used to be one universal, unconditional "must be a brand-new
+        customer" rule enforced before either grant path even ran.
+
+        "new" (default, and every campaign/affiliate row from before this setting existed) — the
+        ORIGINAL rule, unchanged: no existing Customer row at this tenant, through any means (a
+        walk-in visit, a booking, anything, with or without a referral).
+
+        "max_visits" — an existing customer is still eligible as long as their own real,
+        already-tracked `Customer.visit_count` has not yet passed `max_visits` — never a second
+        counter this module maintains itself, so it can never drift from what `record_visit`'s own
+        counters already say.
+
+        "open" — no restriction at all; any phone may redeem, new or returning.
+        """
+        if eligibility == ELIGIBILITY_OPEN:
+            return
+        customer = await self._customers.by_phone(tenant, canon_beneficiary)
+        if customer is None:
+            return  # genuinely new — eligible under every mode, including "new" itself
+        if eligibility == ELIGIBILITY_MAX_VISITS:
+            if customer.visit_count <= max(0, int(max_visits or 0)):
+                return
+            raise ReferralRedemptionError(
+                "هذا العميل تجاوز عدد الزيارات المسموح لاستخدام كود الإحالة")
+        # "new" (or an unrecognised/legacy value) — fail toward the original, stricter rule rather
+        # than silently opening access on a value this engine does not understand.
+        raise ReferralRedemptionError("هذا العميل مسجّل بالفعل عند هذا المتجر")
 
     async def _register_affiliate_grant(self, tenant: str, *, code: str, canon_beneficiary: str,
                                         affiliate: Any, invoice_minor: int) -> ReferralGrant:

@@ -10,7 +10,8 @@ import uuid
 from typing import Any
 
 from app.core.models import (
-    CAMPAIGNS, CAP_SCOPE_CAMPAIGN, CAP_SCOPES, MODE_X_TIMES, MODES, USAGE_CAP_PERIODS, Campaign,
+    BENEFICIARY_ELIGIBILITIES, CAMPAIGNS, CAP_SCOPE_CAMPAIGN, CAP_SCOPES, ELIGIBILITY_MAX_VISITS,
+    ELIGIBILITY_NEW, MODE_X_TIMES, MODES, USAGE_CAP_PERIODS, Campaign,
 )
 from app.core.rewards import RewardError, validate_new_customer_reward, validate_reward
 
@@ -29,6 +30,7 @@ class CampaignService:
         x_times_limit: int = 0, min_spend_minor: int = 0,
         usage_cap_period: str = "", usage_cap_limit: int = 0,
         cap_scope: str = CAP_SCOPE_CAMPAIGN,
+        beneficiary_eligibility: str = ELIGIBILITY_NEW, beneficiary_max_visits: int = 0,
     ) -> Campaign:
         if mode not in MODES:
             raise CampaignError(f"نمط إحالة غير معروف: {mode}")
@@ -40,6 +42,8 @@ class CampaignService:
         cap_scope = (cap_scope or CAP_SCOPE_CAMPAIGN).strip().lower()
         if cap_scope not in CAP_SCOPES:
             raise CampaignError(f"نطاق سقف الاستخدام غير معروف: {cap_scope}")
+        beneficiary_eligibility, beneficiary_max_visits = self._validate_beneficiary_eligibility(
+            beneficiary_eligibility, beneficiary_max_visits)
 
         # MANDATORY, UNCONDITIONALLY — spec §4c's own "قاعدة الطرفين": a campaign with no honest
         # win-win reward for the new customer must never reach the store at all.
@@ -59,9 +63,29 @@ class CampaignService:
             new_customer_reward_type=new_customer_reward_type,
             new_customer_reward_params=normalized_new_customer,
             active=True, created_ns=time.time_ns(), cap_scope=cap_scope,
+            beneficiary_eligibility=beneficiary_eligibility,
+            beneficiary_max_visits=beneficiary_max_visits,
         )
         await self._store.put(CAMPAIGNS, campaign.id, campaign.to_dict())
         return campaign
+
+    @staticmethod
+    def _validate_beneficiary_eligibility(eligibility: str, max_visits: Any) -> tuple[str, int]:
+        """Same three real values `services/operations/app/core/referral_redemption.py::
+        _check_beneficiary_eligibility` reads — validated here, at write time, so a bad value
+        never reaches the engine at redeem time."""
+        value = (eligibility or ELIGIBILITY_NEW).strip()
+        if value not in BENEFICIARY_ELIGIBILITIES:
+            raise CampaignError(f"قيمة غير معروفة لمن يقدر يستخدم الكود: {value}")
+        if value != ELIGIBILITY_MAX_VISITS:
+            return value, 0
+        try:
+            n = int(max_visits)
+        except (TypeError, ValueError):
+            raise CampaignError("عدد الزيارات المسموح يجب أن يكون رقمًا") from None
+        if n < 0:
+            raise CampaignError("عدد الزيارات المسموح يجب أن يكون صفرًا أو أكثر")
+        return value, n
 
     @staticmethod
     def _validate_usage_cap(period: str, limit: int) -> tuple[str, int]:

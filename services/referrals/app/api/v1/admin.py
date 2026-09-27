@@ -41,6 +41,10 @@ class CampaignIn(BaseModel):
     # See core/models.py's own CAP_SCOPE_CAMPAIGN/CAP_SCOPE_LIFETIME — default keeps today's
     # behaviour (a new campaign resets the count) for every shop that never sets this.
     cap_scope: str = Field(default="campaign", max_length=16)
+    # Who may redeem at all — "new" (default, today's unconditional rule) / "max_visits" / "open".
+    # See core/models.py's own ELIGIBILITY_* constants.
+    beneficiary_eligibility: str = Field(default="new", max_length=16)
+    beneficiary_max_visits: int = Field(default=0, ge=0)
 
 
 @router.post("/campaigns", dependencies=[Depends(rate_limit)])
@@ -58,6 +62,8 @@ async def create_campaign(request: Request, body: CampaignIn,
             x_times_limit=body.x_times_limit, min_spend_minor=body.min_spend_minor,
             usage_cap_period=body.usage_cap_period, usage_cap_limit=body.usage_cap_limit,
             cap_scope=body.cap_scope,
+            beneficiary_eligibility=body.beneficiary_eligibility,
+            beneficiary_max_visits=body.beneficiary_max_visits,
         )
     except CampaignError as exc:
         return _refuse(str(exc))

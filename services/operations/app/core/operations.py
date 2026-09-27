@@ -265,20 +265,24 @@ class Operations:
     async def _register_referral_if_new(self, tenant: str, *, created_customer: bool, phone: str,
                                         referral_code: str, invoice_minor: int,
                                         actor: str) -> dict | None:
-        """The one place a referral code is ever attempted — shared by every real "a new customer
-        just showed up" moment this class has (`record_visit`, `ensure_customer`), the same engine
-        the till's own `/referral/register` route calls directly.
+        """The one place a referral code is ever attempted — shared by every real "a code was
+        offered alongside a real transaction" moment this class has (`record_visit`,
+        `ensure_customer`), the same engine the till's own `/referral/register` route calls
+        directly.
 
-        ONLY EVER TRIED FOR A CUSTOMER THIS CALL JUST CREATED — `register()`'s own new-customer
-        check would refuse an existing one anyway, and trying it on every returning customer would
-        waste a peer round trip on the overwhelming majority of calls, which offer no code.
+        ALWAYS TRIED WHEN A CODE IS OFFERED, REGARDLESS OF NEW/RETURNING (owner instruction,
+        2026-09-27) — who is actually eligible is now the campaign's/affiliate's OWN configured
+        choice (`referral_redemption.py::_check_beneficiary_eligibility`: "new" / "max_visits" /
+        "open"), not a shortcut decided here. `created_customer` is kept as a parameter only
+        because callers still compute and pass it (harmless, unused for gating) — it is no longer
+        read below.
 
         NEVER RAISED, NEVER ALLOWED TO UNDO WHAT ALREADY HAPPENED — a rejected code (wrong,
-        self-referral, already a customer through some other door) is returned so the caller's own
-        screen can show it, but the customer/visit/booking this was attached to has already been
-        saved by the time this runs and must never be undone over it. Same posture the mutual-
-        benefit hook right above this one already holds."""
-        if not (created_customer and referral_code.strip() and self._referral_redemption is not None):
+        self-referral, ineligible under this campaign's/affiliate's own setting) is returned so the
+        caller's own screen can show it, but the customer/visit/booking this was attached to has
+        already been saved by the time this runs and must never be undone over it. Same posture the
+        mutual-benefit hook right above this one already holds."""
+        if not (referral_code.strip() and self._referral_redemption is not None):
             return None
         from app.core.referral_redemption import ReferralRedemptionError
 

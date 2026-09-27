@@ -48,6 +48,8 @@ def _public(affiliate: Any) -> dict:
         "reward_params": affiliate.reward_params, "active": affiliate.active,
         "created_at": affiliate.created_at, "unsettled_points": affiliate.unsettled_points,
         "total_earned_points": affiliate.total_earned_points,
+        "beneficiary_eligibility": affiliate.beneficiary_eligibility,
+        "beneficiary_max_visits": affiliate.beneficiary_max_visits,
     }
 
 
@@ -57,6 +59,11 @@ class AffiliateIn(BaseModel):
     discount_percent: int = Field(ge=1, le=99)
     reward_type: str = Field(min_length=1, max_length=32)
     reward_params: dict = Field(default_factory=dict)
+    # WHO MAY REDEEM THIS AFFILIATE'S OWN CODE — "new" (default) / "max_visits" / "open". See
+    # core/affiliates.py::_validate_beneficiary_eligibility for the real validation (this file
+    # never re-implements it, only forwards what the caller sent).
+    beneficiary_eligibility: str = Field(default="new", max_length=16)
+    beneficiary_max_visits: int = Field(default=0, ge=0)
 
 
 @router.post("", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
@@ -69,7 +76,9 @@ async def add_affiliate(request: Request, body: AffiliateIn,
     try:
         affiliate = await affiliates.add(
             tenant, phone=body.phone, code=body.code, discount_percent=body.discount_percent,
-            reward_type=body.reward_type, reward_params=body.reward_params)
+            reward_type=body.reward_type, reward_params=body.reward_params,
+            beneficiary_eligibility=body.beneficiary_eligibility,
+            beneficiary_max_visits=body.beneficiary_max_visits)
     except AffiliateError as exc:
         return _refuse(str(exc))
     await request.app.state.auditor.record(
