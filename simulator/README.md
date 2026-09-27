@@ -585,6 +585,21 @@ pre-emptively with NO prior join request at all (`core/joins.py`'s own documente
 tenant has no joins or bookings yet; and pausing then resuming the tenant-level switch both hold.
 Full simulator suite: 129 passed.
 
+## A tenth real, independent app: services/error-collector (`apps/error_collector/`)
+
+The platform-wide error-signal stream — fully self-contained. Two doors, two different privileges
+(that route file's own module docstring): reporting needs only a valid session (any authenticated
+caller — gating this behind a capability would mean the only errors ever heard about are the ones
+that happen to our own operators); reading the stream needs a real PLATFORM capability
+(`platform.observability`), never a tenant one, since the stream crosses every tenant on the
+platform by construction.
+
+Proven for real (`tests/test_stage26_error_collector.py`): any authenticated caller can report a
+signal with no special capability; a reported signal shows up in the real stream, filterable by
+its own service name; and the stream is genuinely cross-tenant — a signal reported under a
+DIFFERENT tenant is still visible through the platform-tier read, proving "crosses every tenant by
+construction" rather than merely declaring it. Full simulator suite: 132 passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
