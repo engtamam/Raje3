@@ -15,6 +15,7 @@ import { MutualBenefit } from './screens/MutualBenefitRoute';
 import { Team } from './screens/TeamRoute';
 import { MobileRequests } from './screens/MobileRequestsRoute';
 import { Bookings } from './screens/BookingsRoute';
+import { Coworking } from './screens/CoworkingRoute';
 import { ShopScreen } from './screens/Shop';
 import { Support } from './screens/SupportRoute';
 import { WhatsAppAssistantRoute } from './screens/WhatsAppAssistantRoute';
@@ -68,6 +69,7 @@ const shopRouter = createBrowserRouter([
       ) },
       { path: 'visit', element: <Visit /> },
       { path: 'bookings', element: <Bookings /> },
+      { path: 'coworking', element: <Coworking /> },
       { path: 'customers', element: <Customers /> },
       // NOT A SECTION IN THE NAV, and deliberately: it is reached BY opening a
       // customer, never by choosing it. A tenth nav entry for a screen that needs an
