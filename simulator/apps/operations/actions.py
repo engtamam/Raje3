@@ -186,6 +186,65 @@ class CreateBranchAction:
 
 
 @dataclass
+class EnsureCustomerAction:
+    """`POST /api/v1/field/customers/ensure` — resolve-or-create a customer by phone, with no
+    visit attached (services/operations/app/api/v1/field.py::ensure_customer). The real, minimal
+    way to get a real `customer_id` another app (bookings' own `subject_refs.resolve` peer call)
+    can actually find — a made-up id refuses with "العميلة غير موجودة", a real privacy/consistency
+    check, not a gap this action works around."""
+
+    base_url: str
+    tenant: str
+    phone: str
+    customer_name: str = ""
+    name: str = "ensure_customer"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=("operations.record",))
+        body = {"phone": self.phone, "name": self.customer_name}
+        r = await httpclient.request(
+            "POST", f"{self.base_url}/api/v1/field/customers/ensure", json=body,
+            headers=headers, timeout=10.0)
+        if r.status_code != 200:
+            return ActionResult(ok=False, detail=f"ensure_customer: unexpected HTTP "
+                                                  f"{r.status_code} {r.text}")
+        payload = r.json()
+        if payload.get("customer") is None:
+            return ActionResult(ok=False, detail=payload.get("reason") or "ensure refused",
+                                data=payload)
+        return ActionResult(ok=True, detail="customer ensured", data=payload["customer"])
+
+
+@dataclass
+class CreateServiceAction:
+    """The owner's own action: `POST /api/v1/staff/services` (services/operations/app/api/v1/
+    staff.py). `duration_minutes` defaults to 0 ("not configured", the route's own real default) —
+    a scenario that needs bookings' own `create()` to succeed must set a real, positive value
+    explicitly, since `duration_minutes=0` is exactly what makes bookings refuse "مدة غير مضبوطة"
+    (see `apps/bookings/service.py`'s own module docstring)."""
+
+    base_url: str
+    tenant: str
+    service_name: str
+    duration_minutes: int = 30
+    price_minor: int = 0
+    name: str = "create_service"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=("operations.manage_services",))
+        body = {"name": self.service_name, "duration_minutes": self.duration_minutes,
+               "price_minor": self.price_minor}
+        r = await httpclient.request("POST", f"{self.base_url}/api/v1/staff/services", json=body,
+                                     headers=headers, timeout=10.0)
+        if r.status_code != 201:
+            return ActionResult(ok=False, detail=f"create_service refused: {r.status_code} "
+                                                  f"{r.text}")
+        payload = r.json()
+        ctx.data[f"service:{self.service_name}"] = payload
+        return ActionResult(ok=True, detail="service created", data=payload)
+
+
+@dataclass
 class HireMemberAction:
     """The owner's own action: `POST /api/v1/staff/members` — a REAL login, not a PIN (services/
     operations/app/api/v1/staff.py::hire_member). This is the only way to give someone a

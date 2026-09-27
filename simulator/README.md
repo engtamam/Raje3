@@ -418,6 +418,33 @@ move SEQUENCES (proving this is genuinely composed, not a fixed script wearing a
 and a long enough run drives at least one of its own created mobile requests all the way to a real
 terminal status. Full simulator suite: 98 passed.
 
+## A third real app: services/bookings (`apps/bookings/`) — the first one that NEEDS a real peer
+
+Every app before this one could spawn and do something meaningful alone. Bookings genuinely
+cannot: `create()` asks operations over real HTTP for TWO real answers before it will write
+anything — a service's own configured duration in minutes (`POST /internal/operations/
+service-durations`) and whether `customer_id` resolves to a real customer at all (`POST /internal/
+operations/customers/subject-ref`) — so every test here spawns a real `Fleet` (operations +
+bookings), proving `common/fleet.py` composes with a THIRD real app, not just the two it was built
+against.
+
+A REAL GAP THIS OWN FIRST RUN FOUND, in the actions again, not the platform: this simulator's own
+usual "a made-up id is fine, no real catalogue entry needed" convention (used safely everywhere
+else — `RecordVisitAction`'s service ids, `AssignMobileRequestAction`'s operator id) does NOT hold
+for bookings' own `customer_id`, because bookings genuinely calls out to verify it. Fixed by adding
+`EnsureCustomerAction` (operations' own `POST /api/v1/field/customers/ensure`) so a scenario gets a
+REAL customer id first — the same lesson `EarnPointsAction`'s empty `service_ids` taught for
+loyalty, a different app, the identical shape of mistake: this simulator's own conventions are
+per-app facts, never something to assume carries over.
+
+Proven for real (`tests/test_stage17_bookings.py`, 5 tests): a made-up `customer_id` is refused by
+name, and a real, `ensure`-d one lets the identical booking through; an unconfigured (0-minute)
+service refuses a booking by name too; a full create -> list -> reschedule -> attend lifecycle
+works end to end; the one guarantee a bookings product actually sells — two customers can never
+both be told the same technician is free at the same time — holds for real (the second of two
+identical-time bookings for the same operator is refused); and cancelling a booking correctly
+refuses a later no-show on it. Full simulator suite: 103 passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
