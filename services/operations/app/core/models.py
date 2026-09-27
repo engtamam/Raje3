@@ -510,6 +510,16 @@ class Operator:
     # this row; nothing else in the product joins the two. Without it, "show this manager only his
     # branch" has no way to know which manager is asking.
     person_id: str = ""
+    # THE PERSON_ID A STOPPED ROW USED TO HOLD, kept AFTER `person_id` above is blanked on stop
+    # (api/v1/staff.py's own `update_operator`) — a real, live security gap this closes: blanking
+    # `person_id` alone left NOTHING on the row for `api/scope.py::branch_scope` to match a
+    # dismissed employee's own still-valid, unexpired JWT against, so that lookup fell all the way
+    # through to "no row for this subject at all" — the SAME answer an unassigned owner gets —
+    # widening a stopped employee to see every branch instead of the REVOKED (see nothing) answer
+    # that same lookup is supposed to give. `person_id` still gets blanked (the "has_login"/
+    # rehire-required rule below still needs that), but the identity a stale token might still
+    # carry is preserved here, permanently, so `branch_scope` can still recognise it.
+    revoked_person_id: str = ""
     # WHAT HE MAY SEE, which is not where he WORKS. `branch_id` above is his station: it decides
     # where his visits are counted, and it is one place. This decides which branches' numbers,
     # messages and customers he may read, and an owner asks for more than one of those often — a

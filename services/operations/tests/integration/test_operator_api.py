@@ -1019,6 +1019,32 @@ def test_a_failed_revoke_refuses_rather_than_reporting_him_stopped(client, monke
     assert op.active is True, "still active is at least TRUE — a false «stopped» is the defect"
 
 
+def test_stopping_moves_his_identity_to_revoked_person_id_never_just_erases_it(client, monkeypatch):
+    """A real gap found live by an end-to-end simulator run, not a hypothetical: `person_id` gets
+    blanked on stop (the line above this one already proves that), but blanking it with nothing
+    left in its place meant `branch_scope`'s own lookup could never again recognise this exact
+    person as "this row, now stopped" — it matched no row at all, which reads as unassigned, which
+    means the whole establishment. `revoked_person_id` is where that identity has to land instead,
+    checked directly here at the route level (core/scope.py's own unit tests cover the read side)."""
+    fake = _Signup()
+    monkeypatch.setattr(client.app.state.container, "signup", fake, raising=False)
+    _hired(client, "t_revoke_id", "u_revoke_id", oid="opr_revoke_id")
+
+    r = client.patch("/api/v1/staff/operators/opr_revoke_id", json={"active": False},
+                     headers=_auth("operations.manage", tenant="t_revoke_id"))
+    assert r.status_code == 200, r.text
+
+    import asyncio
+
+    from app.core.stores import OperatorStore
+
+    op = asyncio.run(
+        OperatorStore(client.app.state.container.datastore).get("t_revoke_id", "opr_revoke_id"))
+    assert op.person_id == "", "still blanked — the has_login/rehire-required rule is unchanged"
+    assert op.revoked_person_id == "u_revoke_id", (
+        "the identity a stale token might still carry must be preserved, not simply discarded")
+
+
 def test_he_is_not_brought_back_by_flipping_the_flag(client, monkeypatch):
     """His membership is gone and only a password nobody here holds can mint another. A toggle
     would return a name to «فريقي» that consumes a seat and cannot open the app."""

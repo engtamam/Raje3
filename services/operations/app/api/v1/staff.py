@@ -456,7 +456,16 @@ async def update_operator(request: Request, operator_id: str, body: OperatorPatc
     # HIS ROW STAYS, HIS LOGIN DOES NOT. Old visits still name him — an employee who left is
     # history, not a gap — but the link to a membership that no longer exists is cleared, so
     # nothing later mistakes it for a live account.
+    #
+    # THE OLD IDENTITY MOVES TO `revoked_person_id`, NOT INTO THE VOID — a real gap a live test
+    # caught: blanking `person_id` with nothing left in its place meant a dismissed employee's own
+    # still-valid, unexpired JWT (identity revoking the membership does not invalidate a token
+    # already issued) matched NO row at all in `branch_scope`'s own lookup, which reads that as
+    # "unassigned" and answers with the WHOLE establishment — promoting the very person being
+    # stopped to see every branch, the exact widening this mechanism exists to prevent. Model.py's
+    # own `revoked_person_id` field is what `branch_scope` now also checks.
     if stopping:
+        op.revoked_person_id = op.person_id
         op.person_id = ""
     await store.save(op)
     # SEATS ARE REPORTED AGAIN, because stopping somebody frees his seat — a gauge is the CURRENT
