@@ -100,15 +100,60 @@ real tolerance that passes, and the same real report is checked against a delibe
 one that correctly fails (13 tests in `tests/test_stage8_observation_and_load.py`, 59 total across
 all eight stages).
 
-## Where this stands now
+## Where this stands now (session summary)
 
-Every stage in the original build plan is built and proven, each on top of the last, with zero
-changes to an earlier stage required to add a later one — the composability the whole design was
-meant to test for itself, not just claim. `simulator/apps/operations/` is the one app wired in so
-far; the taxonomy (`apps/<name>/` per real service) is what the next app (referrals, or any other
-service) plugs into without touching anything in `common/` or `shared/`. Scaling this out to more
-apps, more scenarios, and a genuinely adversarial/security-focused scenario library is future work,
-not part of this initial build.
+Every stage in the original 8-stage build plan is built and proven, each on top of the last, with
+zero changes to an earlier stage required to add a later one — the composability the whole design
+was meant to test for itself, not just claim. Everything below it was built the same way, in the
+same session: small, confirmed, real.
+
+**Ten real apps wired in, real HTTP against real spawned processes, zero mocks anywhere:**
+`operations` (referrals/affiliates, branches/staff, visit recording, mobile service requests,
+mutual-benefit partnerships, the partner/reseller commission console), `loyalty`, `bookings`,
+`reminders`, `campaigns`, `insights`, `whatsapp-assistant`, `referrals` (the standalone campaign
+engine), `coworking`, `error-collector`.
+
+**Platform-scale infrastructure, all three pieces:** `common/fleet.py` (many real services spawned
+together, auto-wired, torn down together), `common/population.py` (hundreds of real, independent
+tenants created concurrently against one spawned service), `common/background.py` (real traffic
+ticking concurrently alongside a scenario's own deliberate action).
+
+**The simulator composing its own scenario:** `common/story.py` — given a catalog of `StoryStep`s
+(precondition + build + effect), the composer picks its own next move from real, observed world
+state each tick; never a human hand-ordering a fixed sequence. `apps/operations/story.py` is the
+first real step catalog, proven to produce genuinely different, genuinely valid multi-step
+narratives across different random seeds.
+
+**Auto-generation from a route's own live schema:** `common/autogen.py` reads a spawned service's
+real `/openapi.json` and generates a schema-valid call for any discovered, parameterless route
+with zero hand-written code per route — proven across services/operations' full real catalogue.
+
+**A real, measured performance win, and two that were tried and reverted:** pooling HTTP
+connections (`common/httpclient.py`) roughly halved full-suite wall time with zero risk; sharing
+one server across many tests was tried twice and reverted twice, for a real, understood reason
+(`asyncio.run()`'s own `shutdown_asyncgens()`), documented so it is not re-attempted blind.
+
+**Two genuine, live bugs this session's own first real runs found and fixed IN THE ACTUAL PLATFORM
+CODE, not just in the simulator:** the referral system's own double-registration race
+(`_REGISTER_LOCK` in `referral_redemption.py`), and a stopped employee's stale token widening to
+see every branch instead of being revoked (`Operator.revoked_person_id`, `branch_scope()`) — both
+found by the simulator's own first real run against real services, not invented test cases.
+
+**A recurring, now-general finding: "no real peer wired" is a real, correct refusal, proven
+several times over, never papered around** — mutual-benefit's billing/plans gate, campaigns' own
+Meta-approved-WhatsApp-template gate, whatsapp-assistant's compliance-service consent gate, and
+bookings' own customer/duration peer checks all refuse cleanly and correctly in every environment
+this simulator spawns, and every one of those refusals is what the test proves, not an invented
+success.
+
+The taxonomy (`apps/<name>/` per real service) is what the next app plugs into without touching
+anything in `common/` or `shared/` — proven ten times over now, not just claimed once. Full
+simulator suite: 132 passed. Remaining real services (`portal`, `secrets-admin`) do not fit this
+simulator's own current shape (portal serves only externally-keyed HTML consent screens after its
+full customer page was deleted by product decision; secrets-admin talks to a real Kubernetes API
+this simulator has no business reaching from a local process) — named here rather than silently
+skipped. `affiliate-service` is deliberately excluded by owner decision (2026-09-27) and is not a
+gap.
 
 ## Roles/capabilities module (built after the 8-stage plan, same principles)
 
