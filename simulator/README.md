@@ -362,6 +362,38 @@ whole premise (see the top of this README). Two speed-ups were tried and reverte
   quick fixture — so it was reverted rather than half-built. Every test in this suite still spawns
   its own server, and that is intentional, not an oversight.
 
+## A genuinely SECOND real app: services/loyalty (`apps/loyalty/`)
+
+Every app before this one was another door on services/operations — proving the pieces work
+together says nothing about whether `common/`'s own "app-agnostic" claim is real, or just true by
+accident because operations was the only app that ever exercised it. `services/loyalty` is a
+wholly separate real service (own process, own datastore, own capabilities) — its own
+`assert_peers_config_ok`/`assert_licence_config_ok` boot guards only fire in production, so
+`ENV=test` (every spawned service's own default) lets it spawn standalone with no billing/
+reminders/tenant peer wired in.
+
+`EarnPointsAction` drives the INTERNAL door (`/internal/loyalty/earn`, `X-Internal-Token`) — the
+same one the real event bus/catch-up calls, and the ONLY way a point ever enters the ledger (no
+public "grant yourself points" route exists, by design). Every other action
+(`BalanceAction`/`RedeemAction`/`AdjustPointsAction`/`CreateRewardAction`/`SetGeneralPointsAction`)
+drives the ordinary `/api/v1/loyalty/*` capability-gated door.
+
+A REAL GAP THIS OWN FIRST RUN FOUND, in the ACTIONS not the platform: a fresh tenant starts with
+NOTHING configured in its earning tree, and `service_ids=[]` (this simulator's own usual
+"no real catalogue needed" convention, borrowed from `RecordVisitAction`) earns ZERO regardless —
+`EarnTree.points_for` sums a rate PER SERVICE ID in the list, so an empty list sums nothing no
+matter how high the general rate is set. Fixed by giving `EarnPointsAction` the same non-empty
+default `service_ids` `RecordVisitAction` already uses, and adding `SetGeneralPointsAction` so a
+scenario configures a real earning rule first, the same as an owner would from the settings screen
+before a single visit is ever recorded.
+
+Proven for real (`tests/test_stage15_loyalty.py`, 4 tests): earning against a real visit grows the
+real balance by exactly the configured rate; 8 concurrent deliveries of the SAME `visit_id` earn
+points exactly ONCE (only the first carries a `balance` in its own response — every later one is a
+documented `{"earned": 0, "duplicate": True}`, not a gap); a full earn -> create-reward -> redeem
+lifecycle lowers the real balance by the reward's own cost; and a manual adjustment can never push
+a balance negative. Full simulator suite: 95 passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
