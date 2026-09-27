@@ -287,13 +287,15 @@ class ProposeBookingIn(_ConnectorBase):
     package_id: str = ""
     starts_at_iso: str
     reward_id: str = ""
+    referral_code: str = ""
 
 
 @router.post("/propose_booking", dependencies=[Depends(require_connector_token)])
 async def propose_booking(body: ProposeBookingIn, request: Request) -> dict:
     return await _invoke(request, tool="propose_booking", ctx=body, args={
         "service_id": body.service_id, "package_id": body.package_id,
-        "starts_at_iso": body.starts_at_iso, "reward_id": body.reward_id})
+        "starts_at_iso": body.starts_at_iso, "reward_id": body.reward_id,
+        "referral_code": body.referral_code})
 
 
 class GetServiceProcedureIn(_ConnectorBase):

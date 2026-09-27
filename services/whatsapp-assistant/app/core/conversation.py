@@ -1968,7 +1968,16 @@ class ConversationEngine:
             # note) is deliberately not surfaced here: the customer is told the plain truth
             # either way, because either way their booking IS confirmed. The gap is logged there
             # for reconciliation, not hidden from the customer by lying about their own booking.
-            return ReplyPlan(kind="text", text="تم تأكيد موعدك.")
+            text = "تم تأكيد موعدك."
+            # A REFERRAL CODE'S OWN OUTCOME — never allowed to affect the sentence above, only
+            # to follow it. `booking.referral_registration` is absent unless the customer
+            # actually offered a code (core/tools.py::_tool_propose_booking's own note).
+            rr = (result.get("booking") or {}).get("referral_registration")
+            if rr:
+                text += ("\nتم تسجيل كود الإحالة — ستحصل على مكافأتك عند حضور الموعد."
+                        if rr.get("ok")
+                        else f"\nتعذّر تسجيل كود الإحالة: {rr.get('message') or 'كود غير صالح'}")
+            return ReplyPlan(kind="text", text=text)
         if result["kind"] == "cancel":
             return ReplyPlan(kind="text", text="تم إلغاء موعدك.")
         if result["kind"] == "reschedule":

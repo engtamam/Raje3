@@ -255,6 +255,13 @@ async def _tool_propose_booking(ctx: ToolContext, args: dict[str, Any]) -> ToolR
             reward_id = ""
             reward_dropped = True
 
+    # A NEW CUSTOMER'S OWN REFERRAL CODE — the model fills this ONLY when the customer actually
+    # said one in the conversation (see the tool's own schema description); never validated here,
+    # never trusted as real — it rides along as plain intent and is checked for real, against the
+    # real engine, only at confirm time (`_confirm_propose_booking` below), the same "the model
+    # proposes, the backend decides" posture `reward_id` right above already holds.
+    referral_code = str(args.get("referral_code") or "").strip()
+
     proposal_id = f"prp_{uuid.uuid4().hex[:24]}"
     proposal_args: dict[str, Any] = {"starts_at": starts_at}
     if package_id:
@@ -263,6 +270,8 @@ async def _tool_propose_booking(ctx: ToolContext, args: dict[str, Any]) -> ToolR
         proposal_args["service_id"] = service_id
     if reward_id:
         proposal_args["reward_id"] = reward_id
+    if referral_code:
+        proposal_args["referral_code"] = referral_code
     proposal = PendingProposal(
         id=proposal_id, tenant=ctx.tenant, subject_ref=ctx.subject_ref,
         conversation_id=ctx.conversation_id, tool="propose_booking",
@@ -972,12 +981,14 @@ async def _confirm_propose_booking(ctx: ExecuteContext, row: dict, args: dict[st
                 tenant=ctx.tenant, subject_ref=subject_ref, package_id=package_id,
                 starts_at=int(args["starts_at"]), idempotency_key=ctx.idempotency_key,
                 branch_id=ctx.branch_id, from_number=ctx.from_number,
-                intended_reward_id=str(args.get("reward_id") or ""))
+                intended_reward_id=str(args.get("reward_id") or ""),
+                referral_code=str(args.get("referral_code") or ""))
         else:
             booking = await ctx.booking_provider.hold_and_confirm(
                 tenant=ctx.tenant, subject_ref=subject_ref, service_id=args["service_id"],
                 starts_at=int(args["starts_at"]), idempotency_key=ctx.idempotency_key,
                 branch_id=ctx.branch_id, from_number=ctx.from_number,
+                referral_code=str(args.get("referral_code") or ""),
                 intended_reward_id=str(args.get("reward_id") or ""))
     except ToolValidationError:
         raise

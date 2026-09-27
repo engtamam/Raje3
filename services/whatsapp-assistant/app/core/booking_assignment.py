@@ -202,11 +202,18 @@ class RealBookingProvider:
                                                     operator_id=operator_id)
         return picked
 
-    async def _resolve_customer_id(self, tenant: str, from_number: str) -> str:
+    async def _resolve_customer_id(self, tenant: str, from_number: str, referral_code: str = ""
+                                   ) -> tuple[str, dict[str, Any] | None]:
+        """`(customer_id, referral_registration)` — the second is `None` unless a code was
+        actually offered; see `hold_and_confirm_multi`'s own note on why this is the real
+        "new customer" moment for a WhatsApp-initiated booking, never `hold_and_confirm` alone."""
         # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
-        result = await asyncio.to_thread(
-            self._customer_id_by_phone.call, {"tenant": tenant, "phone": from_number})
-        return str((result or {}).get("customer_id") or "")
+        body: dict[str, Any] = {"tenant": tenant, "phone": from_number}
+        if referral_code:
+            body["referral_code"] = referral_code
+        result = await asyncio.to_thread(self._customer_id_by_phone.call, body)
+        return (str((result or {}).get("customer_id") or ""),
+               (result or {}).get("referral_registration"))
 
     async def availability(self, *, tenant: str, service_id: str, earliest: int,
                            horizon_days: int, branch_id: str = "",
@@ -239,7 +246,7 @@ class RealBookingProvider:
     async def hold_and_confirm(self, *, tenant: str, subject_ref: str, service_id: str,
                                starts_at: int, idempotency_key: str, branch_id: str = "",
                                from_number: str = "", intended_reward_id: str = "",
-                               preferred_operator_id: str = "") -> dict:
+                               preferred_operator_id: str = "", referral_code: str = "") -> dict:
         """The single-service shape the AI text channel's own port (`app/ports/booking_provider.py`)
         still declares — kept byte-for-byte unchanged so `ConfigDrivenAvailabilityProvider`'s own
         matching signature, and every `tools.py` call site, need no edit. See
@@ -249,13 +256,14 @@ class RealBookingProvider:
             tenant=tenant, subject_ref=subject_ref, service_ids=[service_id],
             starts_at=starts_at, idempotency_key=idempotency_key, branch_id=branch_id,
             from_number=from_number, intended_reward_id=intended_reward_id,
-            preferred_operator_id=preferred_operator_id)
+            preferred_operator_id=preferred_operator_id, referral_code=referral_code)
 
     async def hold_and_confirm_multi(self, *, tenant: str, subject_ref: str,
                                      service_ids: list[str], starts_at: int, idempotency_key: str,
                                      branch_id: str = "", from_number: str = "",
                                      intended_reward_id: str = "",
-                                     preferred_operator_id: str = "") -> dict:
+                                     preferred_operator_id: str = "",
+                                     referral_code: str = "") -> dict:
         """The real write, for one service or several — see module docstring on why this is a
         SIBLING to `hold_and_confirm`, not a signature change to it (same shape as
         `hold_and_confirm_package` right below being a sibling of this one, not a merge into it).
@@ -263,7 +271,15 @@ class RealBookingProvider:
         list and computes duration from the REAL set server-side (confirmed directly against
         `InternalCreateBookingIn`) — nothing about the write itself is new; only the operator
         pick now has to find someone eligible for EVERY chosen service (see `_eligible_pool`'s
-        own docstring), not just one."""
+        own docstring), not just one.
+
+        `referral_code` IS RESOLVED HERE, NOT AT THE BOOKING WRITE — `_resolve_customer_id` is
+        the real "new customer" moment (owner instruction, 2026-09-27): by the time
+        bookings-service's own `create()` runs, the customer already exists either way, same
+        reasoning `services/operations/app/core/operations.py::ensure_customer`'s own docstring
+        holds for the console/mobile booking dialogs. A real grant or a rejection rides back on
+        the returned dict's own `referral_registration` key — never allowed to affect whether the
+        booking itself is made."""
         if not service_ids:
             raise BookingAssignmentError("no service chosen — cannot create a real booking")
         if not branch_id:
@@ -271,7 +287,8 @@ class RealBookingProvider:
         if not from_number:
             raise BookingAssignmentError("no phone on this conversation — cannot resolve a customer")
 
-        customer_id = await self._resolve_customer_id(tenant, from_number)
+        customer_id, referral_registration = await self._resolve_customer_id(
+            tenant, from_number, referral_code)
         if not customer_id:
             raise BookingAssignmentError("could not resolve a real customer for this phone")
 
@@ -295,6 +312,8 @@ class RealBookingProvider:
         result = await asyncio.to_thread(self._create_booking.call, body)
         if result is None or not result.get("id"):
             raise BookingAssignmentError("bookings-service refused or was unreachable")
+        if referral_registration is not None:
+            result["referral_registration"] = referral_registration
         return result
 
     # ── packages (book a PACKAGE instead of a single service) ─────────────────────────────────
@@ -352,13 +371,15 @@ class RealBookingProvider:
 
     async def hold_and_confirm_package(self, *, tenant: str, subject_ref: str, package_id: str,
                                        starts_at: int, idempotency_key: str, branch_id: str = "",
-                                       from_number: str = "", intended_reward_id: str = "") -> dict:
+                                       from_number: str = "", intended_reward_id: str = "",
+                                       referral_code: str = "") -> dict:
         if not branch_id:
             raise BookingAssignmentError("no branch on this conversation — cannot create a real booking")
         if not from_number:
             raise BookingAssignmentError("no phone on this conversation — cannot resolve a customer")
 
-        customer_id = await self._resolve_customer_id(tenant, from_number)
+        customer_id, referral_registration = await self._resolve_customer_id(
+            tenant, from_number, referral_code)
         if not customer_id:
             raise BookingAssignmentError("could not resolve a real customer for this phone")
 
@@ -373,6 +394,8 @@ class RealBookingProvider:
         result = await asyncio.to_thread(self._create_booking.call, body)
         if result is None or not result.get("id"):
             raise BookingAssignmentError("bookings-service refused or was unreachable")
+        if referral_registration is not None:
+            result["referral_registration"] = referral_registration
         return result
 
     # ── booking management (view/cancel/reschedule an EXISTING booking) ──────────────────────
@@ -391,7 +414,7 @@ class RealBookingProvider:
         `_own_booking`)."""
         if self._bookings_for_customer is None:
             raise BookingAssignmentError("booking management is not enabled on this deployment")
-        customer_id = await self._resolve_customer_id(tenant, from_number)
+        customer_id, _rr = await self._resolve_customer_id(tenant, from_number)
         if not customer_id:
             raise BookingAssignmentError("could not resolve a real customer for this phone")
         # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
@@ -404,7 +427,7 @@ class RealBookingProvider:
                              reason: str = "", branch_id: str = "") -> dict:
         if self._cancel_booking is None:
             raise BookingAssignmentError("booking management is not enabled on this deployment")
-        customer_id = await self._resolve_customer_id(tenant, from_number)
+        customer_id, _rr = await self._resolve_customer_id(tenant, from_number)
         if not customer_id:
             raise BookingAssignmentError("could not resolve a real customer for this phone")
         # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
@@ -420,7 +443,7 @@ class RealBookingProvider:
                                  starts_at: int, branch_id: str = "") -> dict:
         if self._reschedule_booking is None:
             raise BookingAssignmentError("booking management is not enabled on this deployment")
-        customer_id = await self._resolve_customer_id(tenant, from_number)
+        customer_id, _rr = await self._resolve_customer_id(tenant, from_number)
         if not customer_id:
             raise BookingAssignmentError("could not resolve a real customer for this phone")
         # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.

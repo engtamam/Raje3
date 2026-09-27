@@ -71,6 +71,12 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
                 "starts_at_iso": {"type": "string"},
                 "reward_id": {"type": "string", "description": (
                     "Optional. Only an id the context block actually showed for this customer.")},
+                "referral_code": {"type": "string", "description": (
+                    "Optional. Fill this ONLY when the customer explicitly mentions a referral "
+                    "code someone gave them (e.g. \"عندي كود إحالة ABC123\"). Never invent one, "
+                    "never ask for one unprompted, and never re-send it on a later confirm if "
+                    "the customer already has a booking history with this shop — the backend "
+                    "itself decides whether the code is valid, this is only how it hears it.")},
             },
             "required": ["starts_at_iso"],
         },

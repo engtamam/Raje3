@@ -904,7 +904,7 @@ async def test_a_new_booking_confirm_still_reports_success_when_marking_it_consu
     class _CreateOnlyProvider(_FakeManagementProvider):
         async def hold_and_confirm(self, *, tenant, subject_ref, service_id, starts_at,
                                    idempotency_key, branch_id="", from_number="",
-                                   intended_reward_id=""):
+                                   intended_reward_id="", referral_code=""):
             return {"id": "bkg_new_1", "status": "booked"}
 
     provider = _CreateOnlyProvider()
