@@ -467,6 +467,22 @@ Proven for real (`tests/test_stage18_mutual_benefit.py`): proposing a partnershi
 peer configured is refused with a clean HTTP 402, never a crash; and listing agreements for a
 tenant that never had any returns a clean, empty, real list. Full simulator suite: 105 passed.
 
+## The partner (till-company/reseller commission) console (`apps/operations/partner_actions.py`)
+
+Another operations door, entirely self-contained (no peer needed) — `app/api/v1/platform.py`'s own
+partner registry (us registering a reseller, minting its one-time-visible key) plus
+`app/api/v1/partner.py`'s own scoped read-only console (a partner reading its OWN shops/statements,
+never a path parameter — that route's own docstring: "a partner id in a URL is a partner id an
+attacker can change"). Needed `shared/auth.py::mint_token`/`auth_header` to grow an `extra_claims`
+parameter — the first token this simulator has ever needed to carry something beyond the standard
+`tenant`/`caps`/`subject` shape (a partner console's own `partner` claim).
+
+Proven for real (`tests/test_stage19_partners.py`): a tenant stamped to a real partner's real key
+shows up in THAT partner's own scoped shop list; core/partners.py's own headline rule — first
+attribution wins, permanently — holds for real (a second, different partner's key arriving later
+changes nothing); and a brand-new partner with nothing yet reads a clean, empty shops list AND
+statements list. Full simulator suite: 108 passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
