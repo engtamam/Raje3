@@ -1,0 +1,95 @@
+# coworking — deployment values.
+#
+# الاستضافة المهنية (feature.coworking) — hourly co-working resource rental, its own standalone
+# microservice, backend-only this pass (no console/mobile screen — deploy/seed/plans.json's own
+# comment on this app's row and services/operations/app/core/apps.py's COWORKING_FEATURES both
+# explain why). The freelancer's own public door (/p/coworking/{tenant}/*) is the actual delivery
+# surface today — a link the shop shares by hand — while the owner side is reached service-to-
+# service through the gateway, same posture bookings.values.yaml took before its own console pass.
+#
+# Defaults are SAFE, not scalable: one replica, in-memory drivers. To scale out, move every
+# stateful port to a shared driver below; the chart REFUSES to render replicas>1 otherwise.
+service:
+  name: coworking
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/raje3/coworking
+  # PLACEHOLDER — this service has not been built or published yet (platform/scripts/
+  # create_service.py's own convention: "CI rewrites this at publish; never a :latest tag").
+  # ship.sh / publish-images.sh must run and overwrite this before any rollout is attempted;
+  # a rollout against this digest fails at image pull, which is the correct, loud failure.
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    # MEASURED-NOT-GUESSED CONVENTION (see loyalty.values.yaml's own note): every live service on
+    # this fleet sits at 2-4m at rest. 20m matches the fleet's floor rather than the chart's
+    # unmeasured 50m default — revisit once this service actually carries traffic.
+    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+autoscaling:
+  enabled: false        # flip on once you have load; requests.cpu above makes it real
+
+existingSecret: coworking-secrets   # INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_*
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    # No internet. It calls audit-service and (optionally) compliance-service — both in-cluster.
+    internet: false
+
+metrics:
+  serviceMonitor: false
+
+env:
+  # Same fix as insights/operations/reminders' own DATASTORE_POOL_MAX — the platform default
+  # (pool_max=5) is a real ceiling under fleet-wide concurrent load, not a leak.
+  DATASTORE_POOL_MAX: "10"
+  # ── The request budget per person (§1.1, see loyalty.values.yaml for the full derivation) ──
+  RATELIMIT_MAX: "600"
+  RATELIMIT_WINDOW_SECONDS: "60"
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── this app's own domain knob (spec §5/§7) ──────────────────────────────────────────────
+  COWORKING_PHONE_DEFAULT_CC: "966"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+ingress:
+  enabled: false   # operator/freelancer-only, reached through the gateway — no console screen exists yet
+
+# ── the SHARED secrets ────────────────────────────────────────────────────────────────────────
+# Identical values across every service, injected by the chart from one source. BACKUP_KEK is the
+# one this service cannot do without: /internal/backup/export answers 503 without it, so a
+# resource's booking history would be absent from the archive while the fleet reported itself
+# backed up.
+#
+# PII_SALT must be the SAME value every other service holds — two different salts fold one
+# person to two pseudonyms. INTERNAL_SERVICE_TOKEN authenticates peer-service calls
+# (audit, compliance) and the gateway's own admin_actions/whoami reach.
+# secretRefs: BACKUP_KEK, PII_SALT, INTERNAL_SERVICE_TOKEN
