@@ -273,9 +273,13 @@ class Operations:
         ALWAYS TRIED WHEN A CODE IS OFFERED, REGARDLESS OF NEW/RETURNING (owner instruction,
         2026-09-27) — who is actually eligible is now the campaign's/affiliate's OWN configured
         choice (`referral_redemption.py::_check_beneficiary_eligibility`: "new" / "max_visits" /
-        "open"), not a shortcut decided here. `created_customer` is kept as a parameter only
-        because callers still compute and pass it (harmless, unused for gating) — it is no longer
-        read below.
+        "open"), never a shortcut decided here. `created_customer` is STILL forwarded, though —
+        every caller here (`record_visit`, `ensure_customer`) saves the beneficiary's own Customer
+        row BEFORE this hook ever runs, so the engine's own "does a row exist" lookup can no
+        longer tell "just created by this exact call" from "already existed" once it runs. Only
+        the caller knows which one is true (from `_resolve_customer`'s own pre-save answer) — see
+        `register()`'s own `beneficiary_created_this_call` docstring for why passing it through is
+        the only correct way to keep "new" mode meaning "new", not "always refused".
 
         NEVER RAISED, NEVER ALLOWED TO UNDO WHAT ALREADY HAPPENED — a rejected code (wrong,
         self-referral, ineligible under this campaign's/affiliate's own setting) is returned so the
@@ -289,7 +293,8 @@ class Operations:
         try:
             grant = await self._referral_redemption.register(
                 tenant, code=referral_code, beneficiary_phone=phone,
-                invoice_minor=invoice_minor, actor=actor)
+                invoice_minor=invoice_minor, actor=actor,
+                beneficiary_created_this_call=created_customer)
             return {"ok": True, "new_customer_reward_type": grant.new_customer_reward_type,
                    "new_customer_reward_params": grant.new_customer_reward_params}
         except ReferralRedemptionError as exc:

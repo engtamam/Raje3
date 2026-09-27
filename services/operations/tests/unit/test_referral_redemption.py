@@ -10,6 +10,7 @@ import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
 from app.core.models import Customer
+from app.core.operations import _normalise_phone
 from app.core.signup import canonical_phone
 from app.core.referral_redemption import (
     MODE_ONCE, MODE_X_TIMES, NEW_CUSTOMER_DISCOUNT_PERCENT, REWARD_CASHBACK_POINTS,
@@ -75,7 +76,7 @@ async def _seed_customer(store, tenant: str, phone: str) -> None:
     the default `_engine()` factory below so existing happy-path tests keep testing what they
     were written to test, not this newer, separate guard (which has its own dedicated tests)."""
     await CustomerStore(store).save(
-        Customer(id=new_id("cus"), tenant=tenant, phone=canonical_phone(phone, default_cc=CC),
+        Customer(id=new_id("cus"), tenant=tenant, phone=_normalise_phone(phone),
                 subject_ref="ref"))
 
 

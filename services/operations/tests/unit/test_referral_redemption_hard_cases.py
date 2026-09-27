@@ -11,6 +11,7 @@ import pytest
 from app.adapters.datastore.memory import MemoryDataStore
 from app.adapters.referrals_desk import ReferralsPeerUnavailable
 from app.core.models import Customer
+from app.core.operations import _normalise_phone
 from app.core.signup import canonical_phone
 from app.core.referral_redemption import (
     MODE_ONCE, NEW_CUSTOMER_DISCOUNT_PERCENT, ReferralRedemptionEngine, ReferralRedemptionError,
@@ -78,7 +79,7 @@ async def _seed_customer(store, tenant: str, phone: str) -> None:
     """The referrer must already be an existing customer here (deep-review Phase 5c) — every
     test below that expects register() to SUCCEED for REFERRER_PHONE needs it seeded first."""
     await CustomerStore(store).save(
-        Customer(id=new_id("cus"), tenant=tenant, phone=canonical_phone(phone, default_cc=CC),
+        Customer(id=new_id("cus"), tenant=tenant, phone=_normalise_phone(phone),
                 subject_ref="ref"))
 
 

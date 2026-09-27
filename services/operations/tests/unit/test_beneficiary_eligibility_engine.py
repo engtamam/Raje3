@@ -13,6 +13,7 @@ from app.adapters.datastore.memory import MemoryDataStore
 from app.core.affiliates import REWARD_FIXED_POINTS as AFF_REWARD_FIXED_POINTS
 from app.core.affiliates import AffiliateService
 from app.core.models import Customer
+from app.core.operations import _normalise_phone
 from app.core.signup import canonical_phone
 from app.core.referral_redemption import (
     MODE_ONCE, NEW_CUSTOMER_DISCOUNT_PERCENT, REWARD_FIXED_POINTS, ReferralRedemptionEngine,
@@ -67,7 +68,7 @@ def _campaign(**over) -> dict:
 
 async def _seed_customer(store, tenant: str, phone: str, *, visit_count: int = 0) -> None:
     await CustomerStore(store).save(
-        Customer(id=new_id("cus"), tenant=tenant, phone=canonical_phone(phone, default_cc=CC),
+        Customer(id=new_id("cus"), tenant=tenant, phone=_normalise_phone(phone),
                 subject_ref="ref", visit_count=visit_count))
 
 
@@ -120,6 +121,58 @@ def test_a_genuinely_new_customer_is_eligible_under_every_mode():
         engine = _engine(campaign=campaign)
         grant = run(engine.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE))
         assert grant.beneficiary_phone == canonical_phone(BENEFICIARY_PHONE, default_cc=CC)
+
+
+# ── beneficiary_created_this_call: the real-entry-point regression ─────────────────────────────
+# `record_visit`/`ensure_customer` save the beneficiary's own Customer row BEFORE ever calling
+# register() — so under "new" mode, a plain by_phone lookup would find that JUST-SAVED row and
+# refuse every brand-new customer, always (a real bug caught only by a genuine end-to-end HTTP
+# test through the real engine, not by any fake-engine wiring test). `beneficiary_created_this_call`
+# is the caller-supplied fact that lets "new" mode still mean "new".
+def test_new_mode_accepts_when_the_beneficiarys_own_row_already_exists_but_was_created_this_call():
+    store = MemoryDataStore()
+    phone = _normalise_phone(BENEFICIARY_PHONE)
+    # Simulates record_visit's own ordering: the row is saved BEFORE register() ever runs.
+    run(CustomerStore(store).save(Customer(id=new_id("cus"), tenant=TENANT, phone=phone,
+                                          subject_ref="ref", visit_count=1)))
+    engine = _engine(store=store, campaign=_campaign(beneficiary_eligibility="new"))
+    grant = run(engine.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE,
+                                beneficiary_created_this_call=True))
+    assert grant.beneficiary_phone == canonical_phone(BENEFICIARY_PHONE, default_cc=CC)
+
+
+def test_new_mode_still_refuses_a_genuinely_returning_customer_even_with_the_flag_unset():
+    # THE FLAG IS NEVER A BLANKET BYPASS — a caller that correctly reports "I did NOT just create
+    # this row" (the ordinary returning-customer case) must still be refused under "new".
+    store = MemoryDataStore()
+    run(_seed_customer(store, TENANT, BENEFICIARY_PHONE))
+    engine = _engine(store=store, campaign=_campaign(beneficiary_eligibility="new"))
+    with pytest.raises(ReferralRedemptionError):
+        run(engine.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE,
+                            beneficiary_created_this_call=False))
+
+
+def test_the_flag_is_irrelevant_under_open_and_max_visits_modes():
+    store = MemoryDataStore()
+    phone = _normalise_phone(BENEFICIARY_PHONE)
+    run(CustomerStore(store).save(Customer(id=new_id("cus"), tenant=TENANT, phone=phone,
+                                          subject_ref="ref", visit_count=1)))
+    # "open": accepted regardless of the flag either way.
+    engine_open = _engine(store=store, campaign=_campaign(beneficiary_eligibility="open"))
+    run(engine_open.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE,
+                             beneficiary_created_this_call=False))
+
+
+def test_the_till_route_default_never_passes_the_flag_and_keeps_refusing_an_existing_customer():
+    # THE TILL'S OWN DIRECT ROUTE (`/referral/register`) never saves anything first — it asks a
+    # standing question about a phone that may have been a customer for years. It must NEVER pass
+    # `beneficiary_created_this_call=True` for a real existing customer, and the default (False)
+    # must keep the ORIGINAL "new" behaviour intact for that standing question.
+    store = MemoryDataStore()
+    run(_seed_customer(store, TENANT, BENEFICIARY_PHONE))
+    engine = _engine(store=store, campaign=_campaign(beneficiary_eligibility="new"))
+    with pytest.raises(ReferralRedemptionError):
+        run(engine.register(TENANT, code=CODE, beneficiary_phone=BENEFICIARY_PHONE))  # no flag at all
 
 
 # ── affiliate paths — independent of whatever the ordinary campaign says ────────────────────────
@@ -221,21 +274,25 @@ def test_visit_count_is_read_fresh_each_time_not_cached_across_calls():
     # that has nothing to do with what this test is proving.
     store = MemoryDataStore()
     customers = CustomerStore(store)
-    phone = canonical_phone(BENEFICIARY_PHONE, default_cc=CC)
-    run(customers.save(Customer(id=new_id("cus"), tenant=TENANT, phone=phone, subject_ref="ref",
-                               visit_count=5)))
+    # SEEDED IN THE REAL STORAGE FORM (`_normalise_phone`, no leading "+") — the method itself
+    # re-normalises whatever `canon_beneficiary` shape it is called with, so seeding any other
+    # form here would defeat the very lookup this test means to exercise.
+    stored_phone = _normalise_phone(BENEFICIARY_PHONE)
+    canon_beneficiary = canonical_phone(BENEFICIARY_PHONE, default_cc=CC)
+    run(customers.save(Customer(id=new_id("cus"), tenant=TENANT, phone=stored_phone,
+                               subject_ref="ref", visit_count=5)))
     engine = _engine(store=store, campaign=_campaign(
         beneficiary_eligibility="max_visits", beneficiary_max_visits=2))
     with pytest.raises(ReferralRedemptionError):
         run(engine._check_beneficiary_eligibility(
-            TENANT, phone, eligibility="max_visits", max_visits=2))
+            TENANT, canon_beneficiary, eligibility="max_visits", max_visits=2))
 
-    customer = run(customers.by_phone(TENANT, phone))
+    customer = run(customers.by_phone(TENANT, stored_phone))
     customer.visit_count = 1
     run(customers.save(customer))
     # NO EXCEPTION THIS TIME — same engine, same beneficiary, only the stored visit_count changed.
     run(engine._check_beneficiary_eligibility(
-        TENANT, phone, eligibility="max_visits", max_visits=2))
+        TENANT, canon_beneficiary, eligibility="max_visits", max_visits=2))
 
 
 def test_affiliate_max_visits_enforced_via_the_affiliates_own_global_code_too():

@@ -47,7 +47,8 @@ def client_and_engine():
             self.calls: list[dict] = []
             self.refuse_with: str | None = None
 
-        async def register(self, tenant, *, code, beneficiary_phone, invoice_minor, actor):
+        async def register(self, tenant, *, code, beneficiary_phone, invoice_minor, actor,
+                           beneficiary_created_this_call=False):
             self.calls.append({"tenant": tenant, "code": code, "phone": beneficiary_phone,
                               "invoice_minor": invoice_minor})
             if self.refuse_with:

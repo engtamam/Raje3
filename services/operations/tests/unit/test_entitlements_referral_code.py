@@ -13,8 +13,8 @@ from app.adapters.datastore.memory import MemoryDataStore
 from app.core.entitlements import (SOURCE_CAMPAIGN, SOURCE_REFERRAL, SOURCE_REFERRAL_CODE,
                                    EntitlementGateway)
 from app.core.models import Customer
+from app.core.operations import Operations, _normalise_phone
 from app.core.signup import canonical_phone
-from app.core.operations import Operations
 from app.core.referral_redemption import ReferralRedemptionEngine
 from app.core.stores import CustomerStore, VisitStore, new_id
 
@@ -59,9 +59,14 @@ class FakeLoyaltyDesk:
 async def _seed_customer(store, tenant: str, phone: str) -> None:
     """The referrer must already be an existing customer here (deep-review Phase 5c) — the
     default referrer phone below is seeded so these end-to-end tests keep exercising what they
-    were written to test."""
+    were written to test.
+
+    SEEDED IN THE REAL STORAGE FORM (`_normalise_phone`, no leading "+") — every real writer of a
+    Customer row uses it; `canonical_phone`'s "+966..." form is what `referral_redemption.py` uses
+    for its OWN internal bookkeeping, never what `Customer.phone` is actually stored as (see that
+    module's own import-time note)."""
     await CustomerStore(store).save(
-        Customer(id=new_id("cus"), tenant=tenant, phone=canonical_phone(phone, default_cc=CC),
+        Customer(id=new_id("cus"), tenant=tenant, phone=_normalise_phone(phone),
                 subject_ref="ref"))
 
 

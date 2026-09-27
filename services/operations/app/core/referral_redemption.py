@@ -56,6 +56,14 @@ from typing import Any
 
 from app.adapters.referrals_desk import ReferralsDesk, ReferralsPeerUnavailable
 from app.core.models import Customer
+# `Customer.phone` is ALWAYS stored in `_normalise_phone`'s form ("966501234567", no leading
+# "+") — every real writer of a Customer row (record_visit, ensure_customer, mobile_requests)
+# goes through it. `canonical_phone` below produces a DIFFERENT form ("+966501234567") and is
+# used everywhere ELSE in this file (GRANTS, pseudonym hashing, affiliate-phone matching) where
+# it is self-consistent — but comparing IT against `CustomerStore.by_phone` (an exact-match
+# lookup) never matches a real customer row. Every by_phone lookup below re-normalises through
+# THIS function first, never through `canonical_phone` alone.
+from app.core.operations import _normalise_phone as _customer_phone_form
 from app.core.pii import subject_ref as _subject_ref
 from app.core.signup import canonical_phone
 from app.core.stores import CustomerStore, new_id
@@ -212,7 +220,22 @@ class ReferralRedemptionEngine:
 
     # ── register: the cashier's own action, once, per new customer ─────────────────────────────
     async def register(self, tenant: str, *, code: str, beneficiary_phone: str,
-                       invoice_minor: int = 0, actor: str = "") -> ReferralGrant:
+                       invoice_minor: int = 0, actor: str = "",
+                       beneficiary_created_this_call: bool = False) -> ReferralGrant:
+        """`beneficiary_created_this_call` — set by a caller that JUST saved a brand-new Customer
+        row for this exact phone, in this exact transaction, moments before calling this method
+        (`record_visit`, `ensure_customer`, `mobile_requests`' own completion) — never by the
+        till's own direct `/referral/register` route, which asks a standing question about a phone
+        it did not just create.
+
+        WHY THIS EXISTS: those callers save the customer BEFORE the referral hook runs (so the
+        real visit/booking is never lost to a referral-side failure) — by the time `register()`
+        below runs, a `by_phone` lookup ALWAYS finds a row, whether that phone was a genuine
+        stranger a moment ago or has been a customer for years. Under "new" mode, that makes the
+        lookup unable to tell "just created by me" from "already existed" — this flag is the one
+        fact only the caller can supply. "max_visits"/"open" need no such help: a real, fresh
+        `Customer.visit_count` (exactly 1 for a customer this same call created) already answers
+        the question correctly on its own."""
         canon_beneficiary = canonical_phone(beneficiary_phone, default_cc=self._cc)
         if not canon_beneficiary:
             raise ReferralRedemptionError("رقم جوال العميل مطلوب")
@@ -255,7 +278,8 @@ class ReferralRedemptionEngine:
                 await self._check_beneficiary_eligibility(
                     tenant, canon_beneficiary,
                     eligibility=affiliate.beneficiary_eligibility,
-                    max_visits=affiliate.beneficiary_max_visits)
+                    max_visits=affiliate.beneficiary_max_visits,
+                    known_new=beneficiary_created_this_call)
                 return await self._register_affiliate_grant(
                     tenant, code=code, canon_beneficiary=canon_beneficiary, affiliate=affiliate,
                     invoice_minor=invoice_minor)
@@ -293,7 +317,8 @@ class ReferralRedemptionEngine:
                 await self._check_beneficiary_eligibility(
                     tenant, canon_beneficiary,
                     eligibility=affiliate.beneficiary_eligibility,
-                    max_visits=affiliate.beneficiary_max_visits)
+                    max_visits=affiliate.beneficiary_max_visits,
+                    known_new=beneficiary_created_this_call)
                 return await self._register_affiliate_grant(
                     tenant, code=code, canon_beneficiary=canon_beneficiary, affiliate=affiliate,
                     invoice_minor=invoice_minor)
@@ -310,7 +335,7 @@ class ReferralRedemptionEngine:
         # information disclosure worth avoiding. Deliberately NOT applied to an affiliate's own
         # custom code (already returned above, in both branches) — an affiliate is onboarded BY
         # the shop directly, so this concern does not apply to them.
-        if await self._customers.by_phone(tenant, canon_referrer) is None:
+        if await self._customers.by_phone(tenant, _customer_phone_form(canon_referrer)) is None:
             raise ReferralRedemptionError("كود الإحالة غير صالح")
 
         try:
@@ -324,7 +349,8 @@ class ReferralRedemptionEngine:
         await self._check_beneficiary_eligibility(
             tenant, canon_beneficiary,
             eligibility=str(campaign.get("beneficiary_eligibility") or ELIGIBILITY_NEW),
-            max_visits=int(campaign.get("beneficiary_max_visits") or 0))
+            max_visits=int(campaign.get("beneficiary_max_visits") or 0),
+            known_new=beneficiary_created_this_call)
 
         min_spend = int(campaign.get("min_spend_minor") or 0)
         if min_spend and int(invoice_minor or 0) < min_spend:
@@ -347,25 +373,35 @@ class ReferralRedemptionEngine:
         return grant
 
     async def _check_beneficiary_eligibility(self, tenant: str, canon_beneficiary: str, *,
-                                             eligibility: str, max_visits: int) -> None:
+                                             eligibility: str, max_visits: int,
+                                             known_new: bool = False) -> None:
         """Who may actually redeem — configurable per campaign/affiliate (owner instruction,
         2026-09-27), replacing what used to be one universal, unconditional "must be a brand-new
         customer" rule enforced before either grant path even ran.
 
         "new" (default, and every campaign/affiliate row from before this setting existed) — the
         ORIGINAL rule, unchanged: no existing Customer row at this tenant, through any means (a
-        walk-in visit, a booking, anything, with or without a referral).
+        walk-in visit, a booking, anything, with or without a referral) — EXCEPT the row THIS
+        exact call's own caller just created (`known_new`, `register()`'s own
+        `beneficiary_created_this_call`): a `by_phone` lookup can no longer tell that case apart
+        from a real returning customer, because the caller's own save always runs before this
+        check does (see that parameter's own docstring) — so a caller-supplied "yes, I just made
+        this row" is trusted outright, without even reading `by_phone`.
 
         "max_visits" — an existing customer is still eligible as long as their own real,
         already-tracked `Customer.visit_count` has not yet passed `max_visits` — never a second
         counter this module maintains itself, so it can never drift from what `record_visit`'s own
-        counters already say.
+        counters already say. `known_new` needs no special case here: a customer this same call
+        just created has `visit_count == 1`, which the ordinary comparison already answers
+        correctly on its own — reading the real row is still worth doing, not skipping.
 
         "open" — no restriction at all; any phone may redeem, new or returning.
         """
         if eligibility == ELIGIBILITY_OPEN:
             return
-        customer = await self._customers.by_phone(tenant, canon_beneficiary)
+        if eligibility == ELIGIBILITY_NEW and known_new:
+            return
+        customer = await self._customers.by_phone(tenant, _customer_phone_form(canon_beneficiary))
         if customer is None:
             return  # genuinely new — eligible under every mode, including "new" itself
         if eligibility == ELIGIBILITY_MAX_VISITS:
@@ -538,7 +574,14 @@ class ReferralRedemptionEngine:
     async def _customer_for_phone(self, tenant: str, phone: str) -> Customer:
         """Resolve-or-create, mirroring `Operations._resolve_customer`'s own reasoning: a referrer
         earning their FIRST ever reward at this shop may not be a customer here yet, and a phone
-        number that shows up always becomes one rather than being turned away."""
+        number that shows up always becomes one rather than being turned away.
+
+        `phone` ARRIVES AS `grant.referrer_phone` — this file's own `canonical_phone` form, never
+        the form `Customer.phone` is actually stored in (see this module's own import-time note).
+        Re-normalised here, first, so a referrer who is already a real customer here is FOUND, not
+        silently duplicated under a second row with mismatched formatting and no connection to
+        their real loyalty balance."""
+        phone = _customer_phone_form(phone)
         existing = await self._customers.by_phone(tenant, phone)
         if existing is not None:
             return existing

@@ -11,6 +11,7 @@ from app.adapters.datastore.memory import MemoryDataStore
 from app.adapters.referrals_desk import ReferralsPeerUnavailable
 from app.core.affiliates import REWARD_FIXED_POINTS, REWARD_INVOICE_PERCENTAGE, AffiliateService
 from app.core.models import Customer
+from app.core.operations import _normalise_phone
 from app.core.signup import canonical_phone
 from app.core.referral_redemption import (
     MODE_ONCE, NEW_CUSTOMER_DISCOUNT_PERCENT, ReferralRedemptionEngine, ReferralRedemptionError,
@@ -65,7 +66,7 @@ async def _seed_customer(store, tenant: str, phone: str) -> None:
     Phase 5c) — AFFILIATE_PHONE is seeded by default below so those fallthrough tests keep
     exercising what they were written to test."""
     await CustomerStore(store).save(
-        Customer(id=new_id("cus"), tenant=tenant, phone=canonical_phone(phone, default_cc=CC),
+        Customer(id=new_id("cus"), tenant=tenant, phone=_normalise_phone(phone),
                 subject_ref="ref"))
 
 
