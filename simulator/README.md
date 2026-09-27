@@ -197,6 +197,24 @@ Proven against the same two real services `test_stage10_branches.py` already wir
 side-channel wrapper since a failing `__aenter__` never binds `fleet` in the caller's `with` body,
 unknown-dependency refusal, cycle refusal, and a fleet of one). Full simulator suite: 72 passed.
 
+## Platform-scale infrastructure, piece 2 — populating a service with many real tenants at once
+
+`common/population.py::populate` creates MANY real, independent tenants against one already-
+running real service, bounded concurrency (same overload reasoning as `load.py::run_load`), kept
+app-agnostic the same way `common/` already is everywhere else: the caller supplies
+`make_action(tenant_id) -> Action` (today, `CreateBranchAction`; any other app's own "create my
+first real record" action tomorrow, with zero changes to this module). Unlike `run_load` (which
+repeats ONE caller `count` times), every invocation here is a DIFFERENT tenant with its own fresh,
+isolated `Context` — not a style choice, a correctness requirement, since two tenants must never
+share scratch data. Results come back aligned to `tenant_id`, never just completion order, since
+"which tenant got which result" is the entire point of this call.
+
+Proven at genuine scale against one real, already-spawned services/operations
+(`tests/test_population_scale.py`): 300 real tenants created concurrently, each getting back its
+own distinct branch id (never a shared or leaked one), plus a check that a tenant pulled out of
+that population afterward behaves exactly like any hand-created tenant (a real `ListOperators`
+call against it works). Full simulator suite: 74 passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
