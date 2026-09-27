@@ -21,7 +21,7 @@
  */
 import type { LucideIcon } from 'lucide-react';
 import {
-  CalendarClock, ClipboardPlus, Gift, HandHeart, Handshake, LifeBuoy, Megaphone, MessageSquare, Star,
+  CalendarClock, ClipboardPlus, Gift, HandHeart, Handshake, LifeBuoy, Megaphone, MessageSquare, Share2, Star,
   TrendingUp, Truck, Users, Wrench,
 } from 'lucide-react';
 import { NAV_ACCENTS } from '../../../ui/packages/ui/src/theme';
@@ -145,6 +145,13 @@ export const SECTIONS: Section[] = [
   // own AppGate is what draws the locked upgrade card for a shop that has not bought it yet.
   { service: 'operations', id: 'mobile-requests', path: '/mobile-requests', label: 'خدمات متنقلة',
    icon: Truck, requires: ['operations.mobile_requests_list'], accent: NAV_ACCENTS[11] },
+  // «الإحالة والمسوّقين» — the ordinary CUSTOMER-to-CUSTOMER referral program (services/referrals'
+  // campaigns + services/operations' redemption/reports), never to be confused with «شراكة
+  // استراتيجية» (cross-TENANT) above. No entry in apps.ts: this is not a purchasable app tier,
+  // just a capability every section inside the screen already checks — gated here on the plain
+  // list action, same reasoning as «خدماتي ومنتجاتي».
+  { service: 'referrals', id: 'referrals', path: '/referrals', label: 'الإحالة والمسوّقين',
+   icon: Share2, requires: ['referrals.list_campaigns'], accent: NAV_ACCENTS[8] },
   // OPEN WHATEVER APPS THE SHOP HAS BOUGHT, and this comment used to say the opposite — it repeated a sentence
   // the spec has since corrected. The indicators are FREE (16.1): they are the demand engine, not
   // a feature to withhold. What `feature.insights.engine` locks is three of the twenty — the
