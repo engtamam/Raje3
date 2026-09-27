@@ -537,6 +537,29 @@ Proven for real (`tests/test_stage22_insights.py`): a fresh tenant's dashboard r
 no history yet; a fresh tenant has no branches to compare; and refreshing a fresh tenant's own
 snapshot on demand works. Full simulator suite: 119 passed.
 
+## A seventh real, independent app: services/whatsapp-assistant (`apps/whatsapp_assistant/`)
+
+The WhatsApp bot's own backend — two doors: the ordinary tenant-token surface
+(`AssistantFeaturesAction`) and the connector door (the real "tools" Meta's own agent calls),
+gated by its OWN separate `CONNECTOR_API_TOKEN` secret (never `INTERNAL_SERVICE_TOKEN` — that
+route's own comment: "a SEPARATE secret ... never INTERNAL_SERVICE_TOKEN"), so `service.py` mints
+one and exposes it as a module constant the same way `shared/service_env.py` exposes
+`INTERNAL_SERVICE_TOKEN`.
+
+A FOURTH REPEAT OF THE SAME REAL SHAPE: `CONSENT_GATE_DRIVER` defaults to `"null"` outside
+production — `check_consent` always answers "unknown" and `record_consent` is a real, accepted
+no-op, since consent is genuinely tracked by a THIRD real peer (`COMPLIANCE_SERVICE_URL`) no fleet
+here spawns yet. Four apps in, four different peers (billing/plans, WhatsApp/Meta templates,
+tenant-service, and now compliance-service) hitting the identical shape of gap independently is no
+longer a coincidence worth re-discovering each time — it is simply what "no real peer wired" means
+consistently across this whole platform, and every one of them is proven as a correct refusal
+rather than assumed away.
+
+Proven for real (`tests/test_stage23_whatsapp_assistant.py`, 3 tests): the features catalog reads
+for any signed-in caller; consent reads "unknown" before AND after recording, honestly, with no
+compliance peer configured; and recording either a grant or a withdrawal never crashes either way.
+Full simulator suite: 122 passed.
+
 ## The taxonomy
 
 Validated against real precedent (Chaos Toolkit, Gremlin, LitmusChaos, Locust/Gatling, Hypothesis,
