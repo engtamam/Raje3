@@ -66,6 +66,10 @@ def build_manifest(
             {"path": "/api/v1/coworking/resources/{resource_id}", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/coworking/resources/{resource_id}/availability", "tier": "user",
              "method": "PUT"},
+            {"path": "/api/v1/coworking/resources/{resource_id}/image", "tier": "user",
+             "method": "POST"},
+            {"path": "/api/v1/coworking/resources/{resource_id}/image", "tier": "user",
+             "method": "GET"},
             # ── join requests / block list (spec §6/§7) ─────────────────────────────────────
             {"path": "/api/v1/coworking/joins", "tier": "user", "method": "GET"},
             {"path": "/api/v1/coworking/joins/{phone}/approve", "tier": "user", "method": "POST"},
