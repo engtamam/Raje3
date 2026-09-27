@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:provider/provider.dart';
 
+import 'package:raje3_mobile/core/constants/api_constants.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/providers/branch_provider.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
@@ -42,6 +44,12 @@ class CoworkingScreen extends StatefulWidget {
 
 enum _Tab { resources, joins }
 
+// TWO REAL COLOUR IDENTITIES, ONE PER TAB — mirrors the console's own `TAB_ACCENT` (Coworking.tsx,
+// the owner's own request for "تمايز لوني عالي"): الموارد (what you own) reads the hero's own
+// violet, طلبات الانضمام (a pending decision) reads amber — never the same flat look repeated.
+const _resourcesAccent = Color(0xFF6A4CF5);
+const _joinsAccent = Color(0xFFE8A93A);
+
 class _CoworkingScreenState extends State<CoworkingScreen> {
   late final CoworkingService _service;
 
@@ -56,7 +64,8 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
   @override
   void initState() {
     super.initState();
-    _service = CoworkingService(apiClient: context.read<AuthProvider>().apiClient);
+    _service =
+        CoworkingService(apiClient: context.read<AuthProvider>().apiClient);
     _load();
   }
 
@@ -100,7 +109,8 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => ResourceSheet(service: _service, branches: branchProvider.branches),
+      builder: (_) =>
+          ResourceSheet(service: _service, branches: branchProvider.branches),
     );
     if (created == true && mounted) _load();
   }
@@ -111,7 +121,8 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => ResourceSheet(service: _service, branches: branchProvider.branches, existing: r),
+      builder: (_) => ResourceSheet(
+          service: _service, branches: branchProvider.branches, existing: r),
     );
     if (changed == true && mounted) _load();
   }
@@ -141,7 +152,11 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
     // so the mobile-side filter mirrors that exactly rather than a plain equality check.
     final selectedBranchId = branchProvider.selected?.id;
     final visibleResources = (_resources ?? const [])
-        .where((r) => !branchProvider.hasChoice || selectedBranchId == null || r.branchId.isEmpty || r.branchId == selectedBranchId)
+        .where((r) =>
+            !branchProvider.hasChoice ||
+            selectedBranchId == null ||
+            r.branchId.isEmpty ||
+            r.branchId == selectedBranchId)
         .toList();
 
     return KbAnchor(
@@ -172,7 +187,16 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+                sliver: SliverToBoxAdapter(
+                  child: _ShareLinkCard(
+                      tenant: context.read<AuthProvider>().user?.id ?? ''),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
                 sliver: SliverToBoxAdapter(
                   child: KbAnchor(
                     id: 'coworking.main_tabs',
@@ -180,10 +204,31 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
                       value: _tab,
                       onChanged: (v) => setState(() => _tab = v),
                       options: const [
-                        SegmentedFilterOption(value: _Tab.resources, label: 'الموارد'),
-                        SegmentedFilterOption(value: _Tab.joins, label: 'طلبات الانضمام'),
+                        SegmentedFilterOption(
+                            value: _Tab.resources, label: 'الموارد'),
+                        SegmentedFilterOption(
+                            value: _Tab.joins, label: 'طلبات الانضمام'),
                       ],
                     ),
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+                sliver: SliverToBoxAdapter(
+                  child: _TabSectionHeader(
+                    accent: _tab == _Tab.resources
+                        ? _resourcesAccent
+                        : _joinsAccent,
+                    icon: _tab == _Tab.resources
+                        ? Icons.chair_alt_rounded
+                        : Icons.how_to_reg_rounded,
+                    title:
+                        _tab == _Tab.resources ? 'الموارد' : 'طلبات الانضمام',
+                    said: _tab == _Tab.resources
+                        ? 'مواردك القابلة للتأجير بالساعة — صورها وأسعارها وأوقاتها'
+                        : 'من يطلب الانضمام لأول مرة — وافق أو ارفض أو امنع',
                   ),
                 ),
               ),
@@ -198,11 +243,13 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
     );
   }
 
-  List<Widget> _resourcesSlivers(List<CoworkingResource> visible, bool canManage) {
+  List<Widget> _resourcesSlivers(
+      List<CoworkingResource> visible, bool canManage) {
     if (_resources == null) {
       return [
         const SliverPadding(
-            padding: EdgeInsets.all(AppSpacing.xl), sliver: SliverToBoxAdapter(child: AppLoadingIndicator())),
+            padding: EdgeInsets.all(AppSpacing.xl),
+            sliver: SliverToBoxAdapter(child: AppLoadingIndicator())),
       ];
     }
     if (_resourcesFailed) {
@@ -225,14 +272,16 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
         const SliverPadding(
           padding: EdgeInsets.all(AppSpacing.xl),
           sliver: SliverToBoxAdapter(
-            child: EmptyState(icon: Icons.meeting_room_outlined, title: 'لا يوجد موارد بعد'),
+            child: EmptyState(
+                icon: Icons.meeting_room_outlined, title: 'لا يوجد موارد بعد'),
           ),
         ),
       ];
     }
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.xxl),
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md, 0, AppSpacing.md, AppSpacing.xxl),
         sliver: SliverList.separated(
           itemCount: visible.length,
           separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
@@ -240,7 +289,8 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
             resource: visible[i],
             canManage: canManage,
             onTap: canManage ? () => _openEditSheet(visible[i]) : null,
-            onToggleActive: canManage ? () => _quickToggleActive(visible[i]) : null,
+            onToggleActive:
+                canManage ? () => _quickToggleActive(visible[i]) : null,
             onBookings: () => _openBookingsSheet(visible[i]),
           ),
         ),
@@ -252,7 +302,8 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
     if (_joins == null) {
       return [
         const SliverPadding(
-            padding: EdgeInsets.all(AppSpacing.xl), sliver: SliverToBoxAdapter(child: AppLoadingIndicator())),
+            padding: EdgeInsets.all(AppSpacing.xl),
+            sliver: SliverToBoxAdapter(child: AppLoadingIndicator())),
       ];
     }
     if (_joinsFailed) {
@@ -275,15 +326,18 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
         const SliverPadding(
           padding: EdgeInsets.all(AppSpacing.xl),
           sliver: SliverToBoxAdapter(
-            child: EmptyState(icon: Icons.how_to_reg_outlined, title: 'لا يوجد طلبات انضمام'),
+            child: EmptyState(
+                icon: Icons.how_to_reg_outlined, title: 'لا يوجد طلبات انضمام'),
           ),
         ),
       ];
     }
-    final sorted = [..._joins!]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final sorted = [..._joins!]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.xxl),
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md, 0, AppSpacing.md, AppSpacing.xxl),
         sliver: SliverList.separated(
           itemCount: sorted.length,
           separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
@@ -300,7 +354,8 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
     ];
   }
 
-  Future<void> _actOnJoin(CoworkingJoin j, Future<bool> Function(String) action) async {
+  Future<void> _actOnJoin(
+      CoworkingJoin j, Future<bool> Function(String) action) async {
     final ok = await action(j.phone);
     if (ok && mounted) _load();
   }
@@ -309,7 +364,11 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
 /// The hero — carries only the shop-wide pause switch, deliberately with no branch chip inside
 /// it (see this file's own header doc on why pause is never branch-scoped).
 class _CoworkingHero extends StatelessWidget {
-  const _CoworkingHero({required this.paused, required this.busy, required this.canManage, required this.onChanged});
+  const _CoworkingHero(
+      {required this.paused,
+      required this.busy,
+      required this.canManage,
+      required this.onChanged});
   final bool? paused;
   final bool busy;
   final bool canManage;
@@ -330,13 +389,15 @@ class _CoworkingHero extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         gradient: gradient,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppRadius.card)),
+        borderRadius: const BorderRadius.vertical(
+            bottom: Radius.circular(AppRadius.card)),
         boxShadow: dark ? AppShadows.darkButton : AppShadows.button,
       ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.lg),
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.lg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -345,30 +406,45 @@ class _CoworkingHero extends StatelessWidget {
                   Container(
                     width: 40,
                     height: 40,
-                    decoration: const BoxDecoration(color: Colors.white24, shape: BoxShape.circle),
-                    child: const Icon(Icons.meeting_room_rounded, color: Colors.white, size: 20),
+                    decoration: const BoxDecoration(
+                        color: Colors.white24, shape: BoxShape.circle),
+                    child: const Icon(Icons.meeting_room_rounded,
+                        color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   const Text('الاستضافة المهنية',
-                      style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800)),
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppRadius.card),
                 ),
                 child: Row(
                   children: [
-                    Icon(isPaused ? Icons.pause_circle_rounded : Icons.play_circle_rounded,
-                        color: Colors.white, size: 20),
+                    Icon(
+                        isPaused
+                            ? Icons.pause_circle_rounded
+                            : Icons.play_circle_rounded,
+                        color: Colors.white,
+                        size: 20),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        isPaused ? 'إيقاف استقبال حجوزات جديدة — مفعّل' : 'استقبال حجوزات جديدة يعمل',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                        isPaused
+                            ? 'إيقاف استقبال حجوزات جديدة — مفعّل'
+                            : 'استقبال حجوزات جديدة يعمل',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13),
                       ),
                     ),
                     if (canManage)
@@ -376,11 +452,16 @@ class _CoworkingHero extends StatelessWidget {
                         id: 'coworking.pause_switch',
                         child: paused == null
                             ? const SizedBox(
-                                width: 20, height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
                             : IgnorePointer(
                                 ignoring: busy,
-                                child: Switch(value: isPaused, onChanged: onChanged, activeThumbColor: Colors.white),
+                                child: Switch(
+                                    value: isPaused,
+                                    onChanged: onChanged,
+                                    activeThumbColor: Colors.white),
                               ),
                       ),
                   ],
@@ -426,72 +507,236 @@ class _ResourceCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: colors.surface,
               borderRadius: AppRadius.cardRadius,
-              border: Border.all(color: colors.borderSubtle),
+              border: Border.all(
+                  color: active
+                      ? _resourcesAccent.withValues(alpha: 0.25)
+                      : colors.borderSubtle),
               boxShadow: dark ? AppShadows.darkCard : AppShadows.card,
             ),
-            padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    _ResourceThumb(resource: resource),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                // A REAL ACCENT STRIP, NOT ANOTHER FLAT GREY TOP — echoes الموارد's own violet
+                // identity (`_resourcesAccent`) on every card; a paused resource dims to the
+                // ordinary border colour instead of losing the strip entirely.
+                Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: active ? _resourcesAccent : colors.borderSubtle,
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(AppRadius.card)),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Text(resource.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
-                          if (resource.description.isNotEmpty)
-                            Text(resource.description,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
-                          Text('${(resource.hourlyPriceMinor / 100).toStringAsFixed(0)} ر.س / ساعة',
-                              style: AppTextStyles.caption.copyWith(color: colors.textSecondary)),
+                          _ResourceThumb(resource: resource),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(resource.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTextStyles.bodyMedium
+                                        .copyWith(fontWeight: FontWeight.w700)),
+                                if (resource.description.isNotEmpty)
+                                  Text(resource.description,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTextStyles.caption
+                                          .copyWith(color: colors.textMuted)),
+                                Text(
+                                    '${(resource.hourlyPriceMinor / 100).toStringAsFixed(0)} ر.س / ساعة',
+                                    style: AppTextStyles.caption
+                                        .copyWith(color: colors.textSecondary)),
+                              ],
+                            ),
+                          ),
+                          AppBadge(
+                            text: active ? 'نشط' : 'متوقف',
+                            backgroundColor: active
+                                ? AppColors.successSoft
+                                : colors.surfaceAlt,
+                            textColor: active
+                                ? AppColors.successOnSoft
+                                : colors.textMuted,
+                          ),
                         ],
                       ),
-                    ),
-                    AppBadge(
-                      text: active ? 'نشط' : 'متوقف',
-                      backgroundColor: active ? AppColors.successSoft : colors.surfaceAlt,
-                      textColor: active ? AppColors.successOnSoft : colors.textMuted,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SecondaryButton(
-                        text: 'الحجوزات',
-                        icon: Icons.event_note_outlined,
-                        onPressed: onBookings,
-                      ),
-                    ),
-                    if (onToggleActive != null) ...[
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: CapabilityGate(
-                          requires: const ['coworking.manage'],
-                          child: SecondaryButton(
-                            text: active ? 'إيقاف' : 'تفعيل',
-                            icon: active ? Icons.pause_circle_outline : Icons.play_circle_outline,
-                            onPressed: onToggleActive,
+                      const SizedBox(height: AppSpacing.sm),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SecondaryButton(
+                              text: 'الحجوزات',
+                              icon: Icons.event_note_outlined,
+                              onPressed: onBookings,
+                            ),
                           ),
-                        ),
+                          if (onToggleActive != null) ...[
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: CapabilityGate(
+                                requires: const ['coworking.manage'],
+                                child: SecondaryButton(
+                                  text: active ? 'إيقاف' : 'تفعيل',
+                                  icon: active
+                                      ? Icons.pause_circle_outline
+                                      : Icons.play_circle_outline,
+                                  onPressed: onToggleActive,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// «الرابط المشترك» — one shareable link per shop (services/coworking/app/api/public.py's own
+/// module docstring), handed to whichever freelancers the shop already works with. ALWAYS SHOWN,
+/// regardless of tab — a shop-wide fact, same posture the hero's own pause switch already takes.
+class _ShareLinkCard extends StatefulWidget {
+  const _ShareLinkCard({required this.tenant});
+  final String tenant;
+
+  @override
+  State<_ShareLinkCard> createState() => _ShareLinkCardState();
+}
+
+class _ShareLinkCardState extends State<_ShareLinkCard> {
+  bool _copied = false;
+
+  Future<void> _copy(String url) async {
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!mounted) return;
+    setState(() => _copied = true);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.tenant.isEmpty) return const SizedBox.shrink();
+    final url = '${ApiConstants.baseUrl}/p/coworking/${widget.tenant}';
+    final dark = context.isDark;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(
+            color: dark ? const Color(0xFF3A2D0E) : const Color(0xFFF3E3C2)),
+        gradient: LinearGradient(
+          colors: dark
+              ? [const Color(0xFF2A2010), const Color(0xFF241C4D)]
+              : [const Color(0xFFFFF6E6), const Color(0xFFFFEFDA)],
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+                color: const Color(0xFFE8A93A).withValues(alpha: 0.18),
+                shape: BoxShape.circle),
+            child: const Icon(Icons.work_outline_rounded,
+                color: Color(0xFFB5791C), size: 18),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('رابط المستقلين — شاركه مع من تثق به',
+                    style: AppTextStyles.caption
+                        .copyWith(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(url,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textDirection: TextDirection.ltr,
+                    style: AppTextStyles.caption.copyWith(
+                        color: context.appColors.textMuted,
+                        fontFamily: 'monospace')),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          IconButton(
+            onPressed: () => _copy(url),
+            icon: Icon(_copied ? Icons.check_rounded : Icons.copy_rounded,
+                color: _copied ? AppColors.success : const Color(0xFFB5791C),
+                size: 18),
+            tooltip: 'نسخ الرابط',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One coloured section header — icon in a colour-matched circle, title + subtitle — mirrors the
+/// console's own `TabSectionHeader` (Coworking.tsx), applied per active tab.
+class _TabSectionHeader extends StatelessWidget {
+  const _TabSectionHeader(
+      {required this.accent,
+      required this.icon,
+      required this.title,
+      required this.said});
+  final Color accent;
+  final IconData icon;
+  final String title;
+  final String said;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+              border:
+                  Border.all(color: accent.withValues(alpha: 0.3), width: 1.5)),
+          child: Icon(icon, color: accent, size: 16),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                  style: AppTextStyles.bodyMedium
+                      .copyWith(fontWeight: FontWeight.w800)),
+              Text(said,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.caption
+                      .copyWith(color: colors.textSecondary)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -516,7 +761,8 @@ class _ResourceThumb extends StatelessWidget {
               // Real photo bytes are fetched lazily inside the edit sheet only — the list card
               // shows the placeholder icon, never a per-row network call the sheet-height gate's
               // own "no unbounded content" reasoning would otherwise flag on a busy list.
-              child: Icon(Icons.photo_rounded, color: colors.textMuted, size: 22),
+              child:
+                  Icon(Icons.photo_rounded, color: colors.textMuted, size: 22),
             )
           : Icon(Icons.chair_alt_rounded, color: colors.textMuted, size: 22),
     );

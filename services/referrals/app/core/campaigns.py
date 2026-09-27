@@ -20,6 +20,27 @@ class CampaignError(Exception):
     """A refusal a caller should show verbatim — never a stack trace."""
 
 
+# STRICTLY MONOTONIC, NEVER JUST `time.time_ns()` — found live (2026-09-27, a flaky ship-time
+# test failure under real CPU contention): two campaigns created back-to-back in a tight loop can
+# read the IDENTICAL `time.time_ns()` value on a real machine under load, because the OS clock's
+# actual resolution is coarser than one nanosecond even though the return type implies it. A tie
+# here breaks `get_active_for_tenant`'s own "most recently created" promise (`max()` over a tied
+# key returns whichever row happens to come first in the store's own iteration order, not
+# necessarily the truly-latest one) — a real determinism bug under concurrent creation, not only
+# a test artifact. `_last_created_ns` remembers the highest value ever handed out FOR THE WHOLE
+# PROCESS (module-level, not per-tenant — nanoseconds are already a global, wall-clock-rooted
+# scale, and a shared counter costs nothing extra to keep globally strictly increasing) and the
+# next call is bumped past it when the clock has not visibly moved.
+_last_created_ns = 0
+
+
+def _next_created_ns() -> int:
+    global _last_created_ns
+    now = time.time_ns()
+    _last_created_ns = now if now > _last_created_ns else _last_created_ns + 1
+    return _last_created_ns
+
+
 class CampaignService:
     def __init__(self, store: Any) -> None:
         self._store = store
@@ -62,7 +83,7 @@ class CampaignService:
             reward_type=reward_type, reward_params=normalized_reward,
             new_customer_reward_type=new_customer_reward_type,
             new_customer_reward_params=normalized_new_customer,
-            active=True, created_ns=time.time_ns(), cap_scope=cap_scope,
+            active=True, created_ns=_next_created_ns(), cap_scope=cap_scope,
             beneficiary_eligibility=beneficiary_eligibility,
             beneficiary_max_visits=beneficiary_max_visits,
         )
