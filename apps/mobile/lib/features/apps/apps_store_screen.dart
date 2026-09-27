@@ -581,6 +581,7 @@ const Map<String, IconData> _appIcons = {
   'hand-heart': Icons.volunteer_activism_rounded,
   'bot': Icons.smart_toy_rounded,
   'truck': Icons.local_shipping_rounded,
+  'briefcase': Icons.work_rounded,
 };
 
 /// Every icon key any backend `core/features.py` currently emits — mirrors the console's own
