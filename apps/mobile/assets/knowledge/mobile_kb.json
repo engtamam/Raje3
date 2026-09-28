@@ -2190,6 +2190,18 @@
     "kind": "action",
     "anchor": "account.shop.branches.detail.working_hours.clear"
   },
+  "account.version_footer": {
+    "title": {
+      "ar": "رقم نسخة التطبيق",
+      "en": "App version number"
+    },
+    "body": {
+      "ar": "يفيد عند التواصل بخصوص مشكلة، لتحديد أي نسخة مثبتة عندك.",
+      "en": "Useful when reporting an issue, to know exactly which version you have installed."
+    },
+    "kind": "field",
+    "anchor": "account.version_footer"
+  },
   "points": {
     "title": {
       "ar": "نقاط الولاء",

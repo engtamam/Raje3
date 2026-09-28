@@ -53,6 +53,20 @@ echo "build_apk_direct: mobile screen KB granularity..."
 python3 "$REPO_ROOT/ci/check_mobile_screen_kb_granularity.py" || {
   echo "build_apk_direct: KB granularity gap(s) found above — nothing built." >&2; exit 1; }
 
+# GATED ON THE SIX-LOCALE i18n CHECKS TOO — same owner call, same day (2026-09-28): these three
+# also existed CI-only before now. check_mobile_screen_localized.py's SCREENS list was expanded
+# from 28 files to every currently-clean file in lib/ (129), so a new raw-Arabic string in ANY
+# already-migrated file is caught immediately, not just in the original hand-picked set.
+echo "build_apk_direct: mobile l10n is wired into MaterialApp..."
+python3 "$REPO_ROOT/ci/check_mobile_localization_is_wired.py" || {
+  echo "build_apk_direct: l10n not wired — nothing built." >&2; exit 1; }
+echo "build_apk_direct: no raw Arabic outside S.of(context)..."
+python3 "$REPO_ROOT/ci/check_mobile_screen_localized.py" --all || {
+  echo "build_apk_direct: raw Arabic string(s) found above — nothing built." >&2; exit 1; }
+echo "build_apk_direct: all six locales carry the same keys..."
+python3 "$REPO_ROOT/ci/check_mobile_arb_locales_match.py" || {
+  echo "build_apk_direct: locale key drift found above — nothing built." >&2; exit 1; }
+
 # ASCII FILENAME, NOT "راجع.apk" — found live (2026-09-28): GitHub Releases' own asset-upload API
 # silently refuses a non-ASCII asset name (both `gh release upload` and a direct multipart POST
 # to uploads.github.com reproduced it — a real platform limitation, not our tooling), storing the

@@ -1416,6 +1416,12 @@ jobs:
       - name: no migrated mobile screen carries a raw, unlocalized Arabic string
         run: python3 ci/check_mobile_screen_localized.py --all
 
+      # All six lib/l10n/*.arb files must carry the same key set — a key added to app_ar.arb and
+      # left untranslated in the other five ships silently (Flutter's generator does not fail on
+      # a missing key, it just falls back), the mobile mirror of ci/check_i18n.py's console rule.
+      - name: all six mobile locales carry the same translation keys
+        run: python3 ci/check_mobile_arb_locales_match.py
+
       # Every KbAnchor/KbHintButton wired into a mobile screen must have a matching
       # assets/knowledge/mobile_kb.json entry, and every KB entry's anchor must still be
       # referenced by some widget — drift in either direction fails here, the same shape

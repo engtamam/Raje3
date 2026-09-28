@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:raje3_mobile/core/constants/api_constants.dart';
+import 'package:raje3_mobile/core/constants/app_constants.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/router/route_names.dart';
+import 'package:raje3_mobile/core/utils/device_info.dart';
 import 'package:raje3_mobile/core/utils/url_helper.dart';
 import 'package:raje3_mobile/core/utils/validators.dart';
 import 'package:raje3_mobile/features/home/app_tone.dart';
@@ -163,6 +165,8 @@ class AccountScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: AppSpacing.xl),
+              const KbAnchor(id: 'account.version_footer', child: _VersionFooter()),
             ],
           ),
         ),
@@ -195,6 +199,27 @@ class AccountScreen extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const _ChangePasswordSheet(),
+    );
+  }
+}
+
+class _VersionFooter extends StatelessWidget {
+  const _VersionFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: FutureBuilder<String>(
+        future: DeviceInfoHelper.getFullVersion(),
+        builder: (context, snapshot) {
+          final version = snapshot.data;
+          if (version == null) return const SizedBox.shrink();
+          return Text(
+            '${AppConstants.appNameAr} $version',
+            style: TextStyle(fontSize: 12, color: context.isDark ? AppDarkColors.textMuted : AppColors.textMuted),
+          );
+        },
+      ),
     );
   }
 }
