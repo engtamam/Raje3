@@ -12,7 +12,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/api-gateway
-  digest: "sha256:b0ac0cf62af8da598388253c1689c45290f21d61981b31f977a46f51a90fd5f3"   # v0.25.35
+  digest: "sha256:19dae1f3bb4d6323575fd569b12b23a19fbb8fe9da00b2105226e43b0b4aa024"   # v0.25.36
 
 replicas: 1
 
@@ -283,6 +283,7 @@ env:
       {"prefix":"/api/v1/platform/statements","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/wallet-topups","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/coupons","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/platform/app-visibility","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/template-help","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/silent","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/limits","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},

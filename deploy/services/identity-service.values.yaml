@@ -23,7 +23,7 @@ image:
   # and falls back to the legacy no-AAD format on InvalidTag, so every pre-existing sealed secret
   # keeps working with no migration or re-entry, and the next write to each row re-seals it with
   # the AAD. Confirmed safe by the sister session before this repin.
-  digest: "sha256:a80974c1296147426adc1f7fe083e1f8060c189fdbc94cb7c59b1e4aa832b50d"   # v0.25.35
+  digest: "sha256:04002a2f23220def1cb46a983eca3ee987ac6dc1467ae5af08bf907875b1c6c5"   # v0.25.36
 
 replicas: 1
 
