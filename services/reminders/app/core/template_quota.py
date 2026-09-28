@@ -33,6 +33,14 @@ COLLECTION = "custom_template_quota"
 _QUOTA_LOCKS = "reminders_template_quota_locks"
 _QUOTA_LOCK_TTL_SECONDS = 10
 
+# ONE RELEASE PER SUBMISSION, EVER — a `claim()` on the submission's own idempotency_key, held for
+# a TTL long enough it never practically expires (this is a permanent marker, not a lock; `claim`
+# is reused here only because it is the one primitive that makes "first time only" atomic). Without
+# this, a redelivered Meta rejection (or any retried caller) decrements the same tenant's lifetime
+# count a second time, manufacturing free slots the owner never actually had.
+_RELEASED = "reminders_template_quota_released"
+_RELEASED_TTL_SECONDS = 10 * 365 * 86_400
+
 
 class QuotaError(Exception):
     """The template ceiling refused this submission. Carries the Arabic reason the owner is shown."""
@@ -69,10 +77,20 @@ class TemplateQuota:
         finally:
             await self._s.delete(_QUOTA_LOCKS, tenant)
 
-    async def release(self, tenant: str) -> None:
+    async def release(self, tenant: str, idempotency_key: str = "") -> None:
         """Give the unit back — Meta rejected the submission. Best-effort, never raises: the
-        submission has already failed, and a caller must not fail a second time over accounting."""
+        submission has already failed, and a caller must not fail a second time over accounting.
+
+        `idempotency_key` (the SAME key `take()`'s own caller stamped on the submission) makes
+        this itself idempotent: a retried release for a submission already reversed is a no-op,
+        not a second refund — see this module's own `_RELEASED` note."""
         try:
+            if idempotency_key:
+                first_time = await self._s.claim(
+                    _RELEASED, idempotency_key, {"tenant": tenant},
+                    ttl_seconds=_RELEASED_TTL_SECONDS, now=time.time())
+                if not first_time:
+                    return
             row = await self._s.get(COLLECTION, tenant)
             if not row:
                 return

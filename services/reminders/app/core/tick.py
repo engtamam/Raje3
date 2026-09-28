@@ -325,7 +325,7 @@ class Tick:
         reached = 0
         if due:
             ceiling = await self._ceiling.read(tenant)
-            reached = await self._reach.count(tenant, now=now) if ceiling.known() else 0
+            reached = (await self._reach.count(tenant, now=now))[0] if ceiling.known() else 0
             room = Room(left=ceiling.remaining(reached))
 
         # PRIORITY ORDER (spec 8.4.2 section 4). Two messages competing for one daily slot must

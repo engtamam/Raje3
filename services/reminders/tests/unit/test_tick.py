@@ -492,7 +492,7 @@ def test_a_sent_reminder_records_the_person_reached(st):
 
     sched(st)
     go(st, FakeSender(), quota=FakeQuota())
-    assert run(Reach(st).count("t1", now=at(10))) == 1
+    assert run(Reach(st).count("t1", now=at(10)))[0] == 1
 
 
 def test_a_message_that_failed_reaches_nobody_and_counts_as_nobody(st):
@@ -502,7 +502,7 @@ def test_a_message_that_failed_reaches_nobody_and_counts_as_nobody(st):
 
     sched(st)
     go(st, FakeSender(fail=True), quota=FakeQuota())
-    assert run(Reach(st).count("t1", now=at(10))) == 0
+    assert run(Reach(st).count("t1", now=at(10)))[0] == 0
 
 
 def test_a_message_stopped_at_the_ceiling_reaches_nobody(st):
@@ -510,7 +510,7 @@ def test_a_message_stopped_at_the_ceiling_reaches_nobody(st):
 
     sched(st, template_type="svc_follow_up")
     go_policy(st, CeilingSender(), template_type="svc_follow_up", quota=FakeQuota())
-    assert run(Reach(st).count("t1", now=at(10))) == 0
+    assert run(Reach(st).count("t1", now=at(10)))[0] == 0
 
 
 # ── the ceiling, known BEFORE the send ─────────────────────────────────────────────────────────

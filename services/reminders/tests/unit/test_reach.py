@@ -26,14 +26,14 @@ def test_three_messages_to_one_person_count_as_one():
     r = reach()
     for _ in range(3):
         run(r.record(T, "sub_a", now=NOW))
-    assert run(r.count(T, now=NOW)) == 1
+    assert run(r.count(T, now=NOW))[0] == 1
 
 
 def test_three_people_count_as_three():
     r = reach()
     for who in ("sub_a", "sub_b", "sub_c"):
         run(r.record(T, who, now=NOW))
-    assert run(r.count(T, now=NOW)) == 3
+    assert run(r.count(T, now=NOW))[0] == 3
 
 
 def test_a_second_message_to_someone_already_reached_is_free():
@@ -48,13 +48,13 @@ def test_a_second_message_to_someone_already_reached_is_free():
 def test_someone_reached_23_hours_ago_still_counts():
     r = reach()
     run(r.record(T, "sub_a", now=NOW))
-    assert run(r.count(T, now=NOW + 23 * 3600)) == 1
+    assert run(r.count(T, now=NOW + 23 * 3600))[0] == 1
 
 
 def test_someone_reached_25_hours_ago_does_not():
     r = reach()
     run(r.record(T, "sub_a", now=NOW))
-    assert run(r.count(T, now=NOW + 25 * 3600)) == 0
+    assert run(r.count(T, now=NOW + 25 * 3600))[0] == 0
     assert run(r.would_be_new(T, "sub_a", now=NOW + 25 * 3600)) is True
 
 
@@ -65,15 +65,15 @@ def test_the_window_is_not_a_calendar_day():
     r = reach()
     run(r.record(T, "sub_a", now=NOW))
     # One second short of the window: still counted, whatever the clock says.
-    assert run(r.count(T, now=NOW + WINDOW - 1)) == 1
-    assert run(r.count(T, now=NOW + WINDOW)) == 0
+    assert run(r.count(T, now=NOW + WINDOW - 1))[0] == 1
+    assert run(r.count(T, now=NOW + WINDOW))[0] == 0
 
 
 def test_one_shop_never_sees_another():
     r = reach()
     run(r.record("a", "sub_x", now=NOW))
     run(r.record("b", "sub_y", now=NOW))
-    assert run(r.count("a", now=NOW)) == 1
+    assert run(r.count("a", now=NOW))[0] == 1
 
 
 # ── it does not grow for ever ──────────────────────────────────────────────────────────────────
@@ -93,4 +93,4 @@ def test_pruning_drops_what_has_aged_out_and_keeps_what_has_not():
     run(r.record(T, "old", now=NOW))
     run(r.record(T, "new", now=NOW + 23 * 3600))
     assert run(r.prune(now=NOW + 25 * 3600)) == 1
-    assert run(r.count(T, now=NOW + 25 * 3600)) == 1
+    assert run(r.count(T, now=NOW + 25 * 3600))[0] == 1

@@ -78,12 +78,18 @@ class Reach:
         await self._s.put(REACHED, key, {"id": key, "tenant": tenant,
                                          "subject_ref": subject_ref, "at": at})
 
-    async def count(self, tenant: str, *, now: int | None = None, limit: int = 5000) -> int:
-        """Distinct people reached inside the window."""
+    async def count(self, tenant: str, *, now: int | None = None, limit: int = 5000
+                    ) -> tuple[int, bool]:
+        """Distinct people reached inside the window. Returns (count, truncated) — sorted newest
+        first, so hitting `limit` means a tenant with more than `limit` rows total may have had
+        some genuinely-in-window rows pushed past the cap; `truncated` is honest about that rather
+        than silently under-reporting, same contract as this service's other capped reads."""
         at = _now() if now is None else now
         rows, _ = await self._s.find(REACHED, {"tenant": tenant}, limit=limit,
                                      sort=("at", "desc"))
-        return sum(1 for r in (rows or []) if at - int(r.get("at") or 0) < self._window)
+        rows = rows or []
+        return (sum(1 for r in rows if at - int(r.get("at") or 0) < self._window),
+               len(rows) >= limit)
 
     async def would_be_new(self, tenant: str, subject_ref: str, *,
                            now: int | None = None) -> bool:

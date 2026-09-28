@@ -299,7 +299,7 @@ class Scheduler:
         due_by_service = {}
         for sid in services:
             svc = cfgs.get(sid, {})
-            if float(svc.get("cycle_days", intervals[sid])) <= 0 and sid not in intervals:
+            if float(svc.get("cycle_days", intervals[sid])) <= 0:
                 continue
             due_by_service[sid] = adaptive.next_due_at(
                 last_visit_at=occurred, interval_days=intervals[sid],

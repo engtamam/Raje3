@@ -6,6 +6,7 @@
 # =============================================================================
 from __future__ import annotations
 
+import asyncio
 import time
 
 import hmac
@@ -197,7 +198,15 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
     # `TICK_MAX_TENANTS` times per tick for a job that only needs to happen once.
     await c.tick.prune_reach(now=now)
 
+    tick_deadline = time.monotonic() + s.TICK_TIME_BUDGET_SECONDS
+    tenants_processed = 0
     for tenant in tenants[:s.TICK_MAX_TENANTS]:
+        if time.monotonic() >= tick_deadline:
+            # FAIL SHORT, NOT LONG — a widespread peer slowdown must never let this tick still be
+            # running when the next one fires. The remaining tenants are caught up next tick.
+            c.telemetry.event("tick_time_budget_exceeded", tenants_remaining=len(tenants) - tenants_processed)
+            break
+        tenants_processed += 1
         cfg = await _service_config(c, tenant)
         try:
             got = await c.ingest.catch_up(tenant, now=now, service_config=cfg,
@@ -238,7 +247,8 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
         for k, v in res.reasons.items():
             reasons[k] = reasons.get(k, 0) + v
 
-    return {"tenants": len(tenants), "caught_up": caught, "sent": sent,
+    return {"tenants": len(tenants), "tenants_processed": tenants_processed,
+            "caught_up": caught, "sent": sent,
             "suppressed": suppressed, "deferred": deferred, "failed": failed,
             # The reason counts, not just the totals. "312 suppressed" is an alarm; "312
             # suppressed, all outside the window" is a working system doing its job.
@@ -621,10 +631,17 @@ async def _service_config(c, tenant: str) -> dict:
         # everything. Only "default" means «nobody said» — and that is precisely where his
         # catalogue must answer instead of our 90.
         chosen = tree.resolve(sid, "interval_days")
-        cycle = (float(cycles.get(sid) or 0) if chosen.source == "default"
-                 else float(chosen.value or 0))
+        # NO SECOND FALLBACK ONCE THE OWNER HAS SPOKEN. `chosen.source != "default"` means a real
+        # decision at the service/group/general level — including an explicit zero, "this service
+        # has no cycle" — and `cycle or v.get("interval_days")` used to silently reintroduce a
+        # nonzero value from the tree's own separately-resolved read exactly when that decision was
+        # zero. Only the "nobody said" (default) case still falls back, catalogue first.
+        if chosen.source == "default":
+            cycle = float(cycles.get(sid) or 0) or float(v.get("interval_days") or 0)
+        else:
+            cycle = float(chosen.value or 0)
         out[sid] = {
-            "cycle_days": cycle or (v.get("interval_days") or 0),
+            "cycle_days": cycle,
             "lead_days": v.get("lead_days") or 0,
             "follow_up_days": v.get("follow_up_days") or 0,
             # A service switched off schedules nothing NEW. Existing schedules are left alone: the
@@ -949,9 +966,9 @@ async def _spent_or_empty(tenant: str, subject_ref: str) -> set[str] | None:
 
     cfg = get_settings()
     try:
-        return spent_refs(operations_url=cfg.OPERATIONS_SERVICE_URL,
-                          token=cfg.INTERNAL_SERVICE_TOKEN,
-                          tenant=tenant, subject_ref=subject_ref)
+        return await asyncio.to_thread(
+            spent_refs, operations_url=cfg.OPERATIONS_SERVICE_URL,
+            token=cfg.INTERNAL_SERVICE_TOKEN, tenant=tenant, subject_ref=subject_ref)
     except SpentUnknown:
         return None
 
@@ -1090,7 +1107,7 @@ async def backup_verify(request: Request, body: BackupVerifyIn,
     try:
         return await _backup.verify_restore(
             request.app.state.container.datastore, body.archive,
-            unseal=unseal, token=secrets.token_hex(8))
+            unseal=unseal, token=secrets.token_hex(8), declaration=BACKUP)
     except _backup.BackupError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
@@ -1104,7 +1121,8 @@ async def backup_import(request: Request, body: BackupImportIn,
         return await _backup.import_archive(
             request.app.state.container.datastore, body.archive,
             unseal=unseal, overwrite=body.overwrite, into_tenant=body.into_tenant,
-            prune=body.prune, scan_cap=settings.BACKUP_MAX_ROWS_PER_COLLECTION)
+            prune=body.prune, scan_cap=settings.BACKUP_MAX_ROWS_PER_COLLECTION,
+            declaration=BACKUP)
     except _backup.BackupError as exc:
         # A bad archive is the caller's problem, not a 500: the checksum failed, the key did not
         # match, or a row had no identity. Say which, so an operator can act.
@@ -1141,10 +1159,10 @@ async def room(request: Request, tenant: str) -> dict:
     s = get_settings()
     ceiling = await c.ceiling.read(tenant)
     now = int(time.time())
-    used = await Reach(c.datastore, window=s.REACH_WINDOW_SECONDS).count(tenant, now=now)
+    used, truncated = await Reach(c.datastore, window=s.REACH_WINDOW_SECONDS).count(tenant, now=now)
     return {"limit": int(getattr(ceiling, "limit", 0) or 0),
             "tier": str(getattr(ceiling, "tier", "") or ""),
-            "used": int(used or 0)}
+            "used": int(used or 0), "truncated": truncated}
 
 
 # ── the customer's five switches, on the tier the caller actually is ────────────────────────────
