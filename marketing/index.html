@@ -162,6 +162,20 @@ header{
 .ev-item[aria-expanded="true"] .ev-src{display:block}
 .ev-item[aria-expanded="true"]{background:var(--card-2)}
 
+/* ── mobile app download strip ───────────────────────────────────────────────────────────── */
+.store-badge{
+  display:inline-flex; align-items:center; gap:12px; margin-top:8px;
+  background:var(--card); border:1px solid var(--line-2); border-radius:14px; padding:12px 20px;
+  text-decoration:none; box-shadow:var(--shadow); transition:background .12s ease;
+}
+.store-badge:hover{background:var(--card-2)}
+.store-badge svg{width:26px; height:26px; flex:none; color:var(--gold)}
+.store-badge .txt{display:flex; flex-direction:column; align-items:flex-start; line-height:1.3}
+.store-badge .txt small{font-size:12px; color:var(--muted)}
+.store-badge .txt strong{font-size:16px; font-weight:800; color:var(--ink)}
+.store-badge.soon{opacity:.55; cursor:default; pointer-events:none}
+.store-badges{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:18px}
+
 /* ── cards ────────────────────────────────────────────────────────────────────────────────── */
 .grid{display:grid; gap:18px}
 @media(min-width:760px){ .grid-3{grid-template-columns:repeat(3,1fr)} .grid-2{grid-template-columns:repeat(2,1fr)} }
@@ -706,6 +720,32 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
         <li id="ref-11"><span class="claim">30-50% من انقطاع العملاء يصير أول 90 يوم</span>
           <a href="https://sundaysky.com/blog/customer-onboarding-statistics/" target="_blank" rel="noreferrer">SundaySky — Customer Onboarding Statistics ↗</a></li>
       </ol>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="card" style="max-width:560px; margin:0 auto; text-align:center">
+      <span class="eyebrow">تطبيق الجوال</span>
+      <h2 style="font-size:1.5rem">راجِع، وأنت متحرك</h2>
+      <p class="lead" style="margin:0 auto">تابع حجوزاتك وعملاءك من جوالك مباشرة.</p>
+      <div class="store-badges" style="justify-content:center">
+        <a class="store-badge" href="https://github.com/engtamam/raje3-mobile-releases/releases/latest/download/app-release.apk">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0 0l-5-5m5 5l5-5M5 20h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="txt">
+            <small>تحميل مباشر لأندرويد</small>
+            <strong>حمّل تطبيق راجِع</strong>
+          </div>
+        </a>
+        <div class="store-badge soon">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 2.5v19a1 1 0 001.5.87l15-9.5a1 1 0 000-1.74l-15-9.5A1 1 0 004 2.5z"/></svg>
+          <div class="txt">
+            <small>قريباً على</small>
+            <strong>Google Play</strong>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
