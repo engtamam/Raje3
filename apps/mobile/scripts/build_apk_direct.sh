@@ -33,7 +33,25 @@ fi
 API_BASE_URL="${API_BASE_URL:-https://kobo-cloud.com}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$ROOT/../.." && pwd)"
 cd "$ROOT"
+
+# GATED ON THE MOBILE-KB CHECKS — the owner's own explicit call (2026-09-28), after finding these
+# gates existed (wired into .github/workflows/guards.yml) but never actually blocked a real build:
+# ship.sh has its own pre-flight gate list for base-services, but nothing analogous ever ran before
+# a mobile build, so real KB coverage gaps (an anchor used in a screen with no matching
+# mobile_kb.json entry, or an interactive widget with no anchor at all — the assistant cannot
+# explain either) shipped silently, release after release. Same "nothing built, nothing shipped"
+# posture ship.sh's own gates use.
+echo "build_apk_direct: mobile KB anchors are covered..."
+python3 "$REPO_ROOT/ci/check_mobile_kb_anchors_are_covered.py" || {
+  echo "build_apk_direct: KB anchor gaps found above — nothing built." >&2; exit 1; }
+echo "build_apk_direct: every mobile screen action is anchored..."
+python3 "$REPO_ROOT/ci/check_mobile_screen_actions_are_anchored.py" || {
+  echo "build_apk_direct: unanchored interactive widget(s) found above — nothing built." >&2; exit 1; }
+echo "build_apk_direct: mobile screen KB granularity..."
+python3 "$REPO_ROOT/ci/check_mobile_screen_kb_granularity.py" || {
+  echo "build_apk_direct: KB granularity gap(s) found above — nothing built." >&2; exit 1; }
 
 # ASCII FILENAME, NOT "راجع.apk" — found live (2026-09-28): GitHub Releases' own asset-upload API
 # silently refuses a non-ASCII asset name (both `gh release upload` and a direct multipart POST
