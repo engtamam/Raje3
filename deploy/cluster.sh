@@ -86,9 +86,22 @@ elif [ -n "${REMOTE:-}" ]; then
     # "connection refused" as if the cluster were down. `ship.sh`'s own 4/4 verify step waited
     # out a full ten-minute rollout timeout per service against exactly this, eight times in a
     # row, before the real cause (this line, not the fleet) was found.
+    # `-i "$KEY"`, SAME FIX AS ship.sh's OWN `SSH=(...)` ARRAY (its own comment above) — FOUND
+    # MISSING HERE TOO, LIVE (2026-09-28): this bare `ssh` call has no identity flag at all, so it
+    # depends entirely on an ssh-agent/`~/.ssh/config` identity being loaded — which an automated
+    # caller (ops-mcp's own `deploy_ship`, which sets `KEY`) never has. Every earlier ship still
+    # LOOKED like it worked because the FIRST ssh connection this run made (via ship.sh's own
+    # correctly-keyed SSH=(...) array, opened before this wrapper's own first call) multiplexes
+    # over the same ControlMaster socket when both calls share ssh_config's ControlPath — so this
+    # wrapper's key-less call silently rode along on someone else's already-authenticated
+    # connection. `verify_running`'s own 15-second-interval, up-to-10-minute poll loop outlives
+    # that socket's idle timeout: the moment it lapses, every following bare call here opens a
+    # FRESH connection with no key and fails, which is exactly why every "no ready pod after 10
+    # minutes" this session traced back to "Permission denied (publickey)" rather than a real
+    # unhealthy pod — the pod was fine; this ssh call could no longer prove it.
     local cmd="sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl" a
     for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
-    ssh -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=15 \
+    ssh ${KEY:+-i "$KEY"} -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=15 \
         -p "${PORT:-22}" "$REMOTE" "$cmd"
   }
   export -f kubectl 2>/dev/null || true
