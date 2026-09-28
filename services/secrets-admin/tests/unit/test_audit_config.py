@@ -56,7 +56,13 @@ def test_a_non_http_audit_url_is_refused():
 
 def test_production_happy_config_passes():
     Settings(ENV="production", AUDIT_SINK_DRIVER="http",
-             AUDIT_SERVICE_URL="http://audit-service:8000", **_OK).assert_audit_config_ok()
+             AUDIT_SERVICE_URL="https://audit-service:8000", **_OK).assert_audit_config_ok()
+
+
+def test_a_plain_http_audit_url_is_refused_in_production():
+    with pytest.raises(ValueError, match="unencrypted"):
+        Settings(ENV="production", AUDIT_SINK_DRIVER="http",
+                 AUDIT_SERVICE_URL="http://audit-service:8000", **_OK).assert_audit_config_ok()
 
 
 # ── container wiring ──────────────────────────────────────────────────────────

@@ -269,6 +269,11 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"AUDIT_SERVICE_URL {self.AUDIT_SERVICE_URL!r} must start with http:// or https://"
             )
+        if self.AUDIT_SERVICE_URL and self.AUDIT_SERVICE_URL.startswith("http://"):
+            raise ValueError(
+                f"AUDIT_SERVICE_URL {self.AUDIT_SERVICE_URL!r} is plain http:// in production — "
+                "audit records would cross the network unencrypted. Use https://."
+            )
 
     @field_validator("INTERNAL_SERVICE_TOKEN")
     @classmethod

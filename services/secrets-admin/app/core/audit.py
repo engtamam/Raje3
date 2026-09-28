@@ -39,7 +39,10 @@ Two rules that keep the fail-open path honest:
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+_logger = logging.getLogger(__name__)
 
 from app.core.auditable import DeclarationError
 from app.ports.audit_sink import FAILED, AuditEvent, AuditReceipt
@@ -115,7 +118,7 @@ class Auditor:
                 "service": self._service, "action": action, "status": receipt.status,
                 "critical": action in self._critical, "detail": receipt.detail})
         except Exception:
-            pass          # observability must never break the action, or the audit, or both
+            _logger.error("audit_gap_telemetry_failed", extra={"action": action})
 
 
 def build_auditor(settings, container) -> Auditor:

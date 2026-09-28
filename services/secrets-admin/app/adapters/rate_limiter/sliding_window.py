@@ -65,7 +65,7 @@ def check(tat: float, now_ms: float, *, limit: int, window_ms: int, cost: int = 
 
     if debt <= headroom:
         new_tat = tat + cost * interval
-        remaining = int((headroom - debt) // interval)
+        remaining = int((headroom - debt) // (cost * interval))
         reset_ms = int(debt + cost * interval)     # when this key's credit fully clears
         return Decision(True, remaining, 0, new_tat, reset_ms)
 

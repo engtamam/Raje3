@@ -221,6 +221,10 @@ SECRETS: tuple[SecretEntry, ...] = (
 #: key -> entry. Built once; the routes look up by key and 404 on anything not here.
 BY_KEY: dict[str, SecretEntry] = {e.key: e for e in SECRETS}
 
+_suffixes = [e.annotation_suffix for e in SECRETS]
+if len(_suffixes) != len(set(_suffixes)):
+    raise AssertionError("two SECRETS entries collide on the same annotation_suffix")
+
 # ── the annotation names, in ONE place ────────────────────────────────────────────────────────
 #
 # THE PREFIX IS OURS AND MUST STAY OURS. `kubernetes.io/` and `k8s.io/` are reserved, and an

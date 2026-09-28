@@ -27,7 +27,7 @@ import datetime as _dt
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.api.auth import Principal
 from app.api.authz import require_capability
@@ -83,6 +83,18 @@ class SecretIn(BaseModel):
     """
 
     value: str = Field(max_length=4096)
+
+    @field_validator("value", mode="before")
+    @classmethod
+    def _strip(cls, v: str) -> str:
+        return v.strip() if isinstance(v, str) else v
+
+    @field_validator("value")
+    @classmethod
+    def _no_control_chars(cls, v: str) -> str:
+        if any((ord(c) < 0x20 and c != "\t") or ord(c) == 0x7f for c in v):
+            raise ValueError("value contains control characters")
+        return v
 
 
 @router.get("", dependencies=[Depends(rate_limit)])
@@ -187,6 +199,10 @@ async def set_secret(request: Request, key: str, body: SecretIn,
     value = body.value.strip()
     if not value:
         return _refuse("أدخل القيمة — لا يمكن حفظ مفتاح فارغ.")
+    if len(value) < 5:
+        # last4_of reveals the WHOLE value for anything this short — refused rather than
+        # stored, since the "hint" would be a full disclosure.
+        return _refuse("القيمة قصيرة جداً لتُخزَّن بأمان.")
 
     at = _now_iso()
     actor = getattr(principal, "subject", "") or ""
