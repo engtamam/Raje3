@@ -22,6 +22,14 @@ from typing import Any
 BACKUP: dict[str, Any] = {
     "object_prefix": "",        # set if this service stores files in the object store
     "collections": [
+        # THE OPERATOR SURFACE (core/secret_store.py/core/runtime_config.py, pasted verbatim into
+        # every service) — found live (2026-09-28), a 13-service audit: neither was declared here
+        # at all. Both mix a platform-wide row and per-tenant overrides in the SAME collection —
+        # the same reasoning portal's own `runtime_config` entry is declared under — so
+        # `tenant_scoped: False`, whole-collection restore only. Unlike `signals` below, these are
+        # not ephemeral: an operator-set credential or knob must survive a restore.
+        {"name": "operator_secrets", "tenant_scoped": False},
+        {"name": "runtime_config", "tenant_scoped": False},
     ],
     "excluded": [
         # NOT BACKED UP, AND THIS IS THE ONE ENTRY THAT NEEDED AN ARGUMENT RATHER THAN A HABIT.

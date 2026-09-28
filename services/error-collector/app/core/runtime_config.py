@@ -58,9 +58,9 @@ _DENY_SUFFIXES = ("_KEY", "_KEYS", "_SECRET", "_SECRETS", "_TOKEN", "_TOKENS",
                   "_PASSWORD", "_PASSWORDS", "_DSN", "_URL", "_SALT")
 
 # Explicit exceptions: values that LOOK like wiring by name but are ordinary policy.
-_ALLOW = frozenset({
-    "ASSISTANT_NOT_FOUND_TEXT", "ASSISTANT_UNAVAILABLE_TEXT",
-})
+# EMPTY IN THIS SERVICE — RUNTIME_POLICY (app/runtime_policy.py) only ever declares
+# SIGNAL_RETENTION_DAYS/SIGNAL_REAP_LIMIT, neither of which the deny-list would catch anyway.
+_ALLOW: frozenset[str] = frozenset()
 
 
 class RuntimeConfigError(ValueError):
@@ -176,10 +176,11 @@ class RuntimeConfig:
                 try:
                     return json.loads(row["value"])
                 except ValueError:
-                    # A corrupt row must not take the service down: the configured default is a
-                    # working answer, and a broken override is an operator problem rather than an
-                    # outage.
-                    return default
+                    # A corrupt row must not take the service down, AND MUST NOT SHORT-CIRCUIT PAST
+                    # THE NEXT SCOPE — a broken tenant override skips to the PLATFORM override, the
+                    # same as if the tenant had never set one at all; only the configured default,
+                    # after every scope, is a working answer treated as final.
+                    continue
         return default
 
     async def effective(self, *, tenant: str, settings) -> dict[str, Any]:
