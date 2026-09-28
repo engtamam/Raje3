@@ -34,6 +34,33 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // arm64-v8a ONLY — found live (2026-09-28): the direct-download APK jumped from ~69MB to
+        // ~180MB the moment flutter_gemma_litertlm was added, and `flutter build apk
+        // --target-platform=android-arm64` (scripts/build_apk_direct.sh) turned out to only
+        // restrict FLUTTER's own compiled output (libapp.so/libflutter.so) — it does nothing to a
+        // third-party AAR's own bundled native libs. flutter_litert (flutter_gemma's own inference
+        // runtime dependency) ships prebuilt .so files for all four ABIs, and without this filter
+        // Gradle packages every one of them into a single APK regardless of --target-platform.
+        // arm64-v8a covers the overwhelming majority of real devices this app is installed on
+        // (the exact reasoning build_apk_direct.sh's own header already gives for that flag).
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
+    }
+
+    // BELT AND SUSPENDERS ON THE SAME FIX — found live (2026-09-28): `ndk.abiFilters` alone did
+    // NOT strip anything here, even after a clean build. flutter_litert's own build.gradle.kts
+    // contributes its downloaded .so files as a GENERATED jniLibs source directory via the AGP 9
+    // Variant API (`androidComponents.onVariants { jniLibs.addGeneratedSourceDirectory(...) }`),
+    // copying every ABI folder from upstream unconditionally — `abiFilters` (meant for THIS
+    // module's own NDK-compiled output) never gets a say over a source contributed that way.
+    // Excluding the unwanted ABI paths at the final packaging step works regardless of which
+    // module or mechanism contributed them.
+    packaging {
+        jniLibs {
+            excludes += setOf("lib/armeabi-v7a/**", "lib/x86_64/**", "lib/x86/**")
+        }
     }
 
     signingConfigs {
