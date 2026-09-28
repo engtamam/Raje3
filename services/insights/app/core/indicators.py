@@ -577,11 +577,19 @@ def engine_reserve(visits: list[dict], *, now: int, weeks: int = 8,
     # So the percentile is clamped to a multiple of the MEDIAN, which is what actually makes it
     # robust: the median cannot be moved by one freak week, and a real trend moves both together.
     median = counts[len(counts) // 2]
-    if median and picked > median * outlier_factor:
-        picked = int(median * outlier_factor)
+    if median:
+        if picked > median * outlier_factor:
+            picked = int(median * outlier_factor)
+        was_clamped_to_floor = False
+    else:
+        # MEDIAN ZERO IS NOT "NO CLAMP" — a shop whose typical week is zero is exactly the one a
+        # single spike must not be allowed to set policy for. With no reliable non-zero signal,
+        # fall back to the floor rather than trust the outlier.
+        picked = floor
+        was_clamped_to_floor = True
 
     want = max(picked, floor)
-    basis = "percentile" if picked >= floor else "floor"
+    basis = "floor" if was_clamped_to_floor or picked < floor else "percentile"
 
     return {"reserve": want, "basis": basis, "weekday": weekday, "samples": len(counts)}
 

@@ -1,8 +1,9 @@
 """The dashboard's routes — reads only, and one subscription switch.
 
-EVERYTHING HERE READS A SNAPSHOT. No route computes an indicator on the request path: that is the
-whole reason the snapshot exists (core/tick.py), and a route that "just recomputes this one" is how
-the guarantee is lost one endpoint at a time.
+EVERYTHING HERE READS A SNAPSHOT. No route computes an indicator on the request path EXCEPT
+`refresh()` below, which is the one deliberate, cooldown-bounded exception (see its own docstring)
+— every other route reads only, and a route that "just recomputes this one" outside that single
+door is how the guarantee is lost one endpoint at a time.
 
 THE PLAN IS CHECKED AT EVERY ROUTE, NOT ONLY IN THE CATALOGUE. The console is a map and never the
 authority — a client that stops asking is a client that sees everything.
@@ -453,7 +454,7 @@ async def platform_summary(request: Request, principal: Principal = Depends(_PLA
 
 
 class DisputeReportIn(BaseModel):
-    phone: str = Field(min_length=1, max_length=32)
+    phone: str = Field(min_length=1, max_length=32, pattern=r"^[0-9+()\- ]{1,32}$")
     # FIXED 2026-09-12, a real gap a QA audit found: this field lacked the max_length its siblings
     # both carry, so an unbounded string could reach the scenario lookup below.
     scenario: str = Field(min_length=1, max_length=64)
@@ -524,16 +525,22 @@ async def dispute_report(request: Request, body: DisputeReportIn,
               out_path=docx_path, generated_at_label=now.strftime("%Y-%m-%d %H:%M"),
               warnings=result.errors or None)
 
+    import shutil
+    from starlette.background import BackgroundTask
+    cleanup = BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True)
+
     if body.file_format == "docx":
         return FileResponse(docx_path, media_type=
                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                           filename=docx_path.name)
+                           filename=docx_path.name, background=cleanup)
 
     try:
         pdf_path = convert_to_pdf(docx_path)
     except PdfConversionUnavailable as exc:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
-    return FileResponse(pdf_path, media_type="application/pdf", filename=pdf_path.name)
+    return FileResponse(pdf_path, media_type="application/pdf", filename=pdf_path.name,
+                        background=cleanup)
 
 
 def _fmt_report_ts(ts: int | None) -> str:
