@@ -88,8 +88,13 @@ async def erase_subject(request: Request, body: EraseIn) -> dict:
     during a DSAR fan-out. Idempotent — a DSAR retries, so erasing an already-erased subject must
     not fail. See `core/erasure.py`'s own module doc for why this service's identity model makes
     that lookup different from every other service's own erasure.py."""
+    from app.core.pii import subject_ref
     c = request.app.state.container
     s = get_settings()
+    ref = subject_ref(s.PII_SALT, body.tenant, body.subject)
+    await request.app.state.auditor.record(
+        "coworking.subject_erase_requested", actor="", tenant=body.tenant,
+        resource=f"subject:{ref}", ip=request.client.host if request.client else "")
     eraser = CoworkingErasure(store=c.datastore, pii_salt=s.PII_SALT, max_scan=s.ERASURE_MAX_SCAN)
     result = await eraser.erase(body.tenant, body.subject)
     await request.app.state.auditor.record(
@@ -142,7 +147,7 @@ async def backup_verify(request: Request, body: BackupVerifyIn,
     try:
         return await _backup.verify_restore(
             request.app.state.container.datastore, body.archive,
-            unseal=unseal, token=secrets.token_hex(8))
+            unseal=unseal, token=secrets.token_hex(8), declaration=BACKUP)
     except _backup.BackupError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
@@ -155,6 +160,7 @@ async def backup_import(request: Request, body: BackupImportIn,
         return await _backup.import_archive(
             request.app.state.container.datastore, body.archive,
             unseal=unseal, overwrite=body.overwrite, into_tenant=body.into_tenant,
-            prune=body.prune, scan_cap=settings.BACKUP_MAX_ROWS_PER_COLLECTION)
+            prune=body.prune, scan_cap=settings.BACKUP_MAX_ROWS_PER_COLLECTION,
+            declaration=BACKUP)
     except _backup.BackupError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc

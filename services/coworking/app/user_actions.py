@@ -131,6 +131,12 @@ USER_ACTIONS: list[dict[str, Any]] = [
 # nobody's action list, the same reason affiliate-service's `/apply` and `/apply/request-otp`
 # routes stay out of its own USER_ACTIONS.
 UNDECLARED_ROUTES: list[dict[str, str]] = [
+    {"method": "GET", "path": "/p/coworking/{tenant}",
+     "why": "the portal page itself — the freelancer's shareable link, opened with no token at "
+            "all before any of the reads below it are even called"},
+    {"method": "GET", "path": "/p/coworking/{tenant}/shop",
+     "why": "the portal page's own header read (shop name/logo/accent/pause) — same reason as "
+            "/resources: browsed before any join request or token exists"},
     {"method": "GET", "path": "/p/coworking/{tenant}/resources",
      "why": "the freelancer's public catalogue of a shop's rentable resources — read before any "
             "join request or token exists"},

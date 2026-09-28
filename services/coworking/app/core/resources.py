@@ -55,7 +55,9 @@ class ResourceService:
         resource = await self.get(tenant, resource_id)
         if resource is None:
             raise ResourceError("المورد غير موجود")
-        new_name = resource.name if name is None else (name.strip() or resource.name)
+        if name is not None and not name.strip():
+            raise ResourceError("اسم المورد لا يمكن أن يكون فارغاً")
+        new_name = resource.name if name is None else name.strip()
         new_active = resource.active if active is None else bool(active)
         new_branch = resource.branch_id if branch_id is None else branch_id.strip()
         new_description = resource.description if description is None else description.strip()

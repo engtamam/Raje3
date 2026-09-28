@@ -14,6 +14,13 @@ BACKUP: dict[str, Any] = {
         {"name": "coworking_joins", "tenant_scoped": True},
         {"name": "coworking_bookings", "tenant_scoped": True},
         {"name": "coworking_settings", "tenant_scoped": True},
+        # THE OPERATOR SURFACE (core/secret_store.py/core/runtime_config.py, pasted verbatim into
+        # every service) — found live (2026-09-28), a 13-service audit: neither was declared here
+        # at all. Both mix a platform-wide row and per-tenant overrides in the SAME collection —
+        # the same reasoning portal's own `runtime_config` entry is declared under — so
+        # `tenant_scoped: False`, whole-collection restore only.
+        {"name": "operator_secrets", "tenant_scoped": False},
+        {"name": "runtime_config", "tenant_scoped": False},
     ],
     "excluded": [
         {"name": "coworking_claims",

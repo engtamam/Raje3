@@ -105,19 +105,30 @@ def test_back_to_back_bookings_with_zero_gap_leave_no_slot_between_them():
 
 
 def test_is_free_matches_free_slots_for_the_same_candidate():
-    assert is_free(BASIC, [], starts_at=_riyadh_epoch(2026, 8, 16, 9, 0), duration_minutes=30)
-    assert not is_free(BASIC, [], starts_at=_riyadh_epoch(2026, 8, 16, 12, 45), duration_minutes=30)
+    start = _riyadh_epoch(2026, 8, 16, 9, 0)
+    assert is_free(BASIC, [], starts_at=start, ends_at=start + 30 * 60)
+    start2 = _riyadh_epoch(2026, 8, 16, 12, 45)
+    assert not is_free(BASIC, [], starts_at=start2, ends_at=start2 + 30 * 60)
 
 
 def test_is_free_also_refuses_an_unconfigured_duration():
+    start = _riyadh_epoch(2026, 8, 16, 9, 0)
     with pytest.raises(DurationNotConfigured):
-        is_free(BASIC, [], starts_at=_riyadh_epoch(2026, 8, 16, 9, 0), duration_minutes=0)
+        is_free(BASIC, [], starts_at=start, ends_at=start)
 
 
 def test_is_free_rejects_a_booking_a_slot_grid_would_never_offer_in_the_first_place():
     """The authoritative check is not bound to the grid's own granularity — 09:07 is a real,
     checkable candidate even though `free_slots` only ever offers 09:00/09:15/..."""
-    assert is_free(BASIC, [], starts_at=_riyadh_epoch(2026, 8, 16, 9, 7), duration_minutes=20)
+    start = _riyadh_epoch(2026, 8, 16, 9, 7)
+    assert is_free(BASIC, [], starts_at=start, ends_at=start + 20 * 60)
+
+
+def test_is_free_checks_the_real_span_not_a_whole_minute_rounding():
+    """A 90-second booking must be checked at its real 90 seconds, not rounded up to 2 minutes —
+    the exact regression `duration_minutes` used to force on every caller."""
+    start = _riyadh_epoch(2026, 8, 16, 9, 0)
+    assert is_free(BASIC, [], starts_at=start, ends_at=start + 90)
 
 
 def test_nearest_slot_finds_the_first_opening_after_a_fully_booked_morning():

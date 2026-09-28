@@ -168,3 +168,95 @@ def test_public_route_is_rate_limited(auth_env):
     second = rl_client.get("/p/coworking/shopA/resources")
     assert first.status_code == 200
     assert second.status_code == 429
+
+
+def test_portal_page_serves_html_for_any_tenant(client):
+    r = client.get("/p/coworking/shopA")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "shopA" not in r.text  # never templated server-side, always read from the URL client-side
+    assert "<html" in r.text.lower()
+
+
+def test_shop_info_degrades_silently_with_no_tenant_service_configured(client):
+    r = client.get("/p/coworking/shopA/shop")
+    assert r.status_code == 200
+    body = r.json()
+    assert body == {"name": "", "logo_url": "", "accent": "", "paused": False}
+
+
+def test_shop_info_reflects_the_real_pause_flag(client):
+    client.put("/api/v1/coworking/pause", json={"paused": True}, headers=_owner_auth("shopA"))
+    r = client.get("/p/coworking/shopA/shop")
+    assert r.json()["paused"] is True
+
+
+def test_shop_info_pause_never_leaks_across_tenants(client):
+    client.put("/api/v1/coworking/pause", json={"paused": True}, headers=_owner_auth("shopA"))
+    r_a = client.get("/p/coworking/shopA/shop")
+    r_b = client.get("/p/coworking/shopB/shop")
+    assert r_a.json()["paused"] is True
+    assert r_b.json()["paused"] is False
+
+
+def test_shop_info_unpause_is_reflected_immediately(client):
+    client.put("/api/v1/coworking/pause", json={"paused": True}, headers=_owner_auth("shopA"))
+    client.put("/api/v1/coworking/pause", json={"paused": False}, headers=_owner_auth("shopA"))
+    r = client.get("/p/coworking/shopA/shop")
+    assert r.json()["paused"] is False
+
+
+def test_shop_info_degrades_silently_even_when_tenant_service_url_is_configured_but_unreachable(auth_env):
+    """A REAL peer call, made to a port nothing is listening on — the exact shape of a production
+    tenant-service outage, not a mocked failure. The route must still answer 200 with blanks, never
+    502 or a stack trace, because a portal page must render even when branding cannot be fetched."""
+    unreachable_client = _make_app(TENANT_SERVICE_URL="http://127.0.0.1:1")
+    r = unreachable_client.get("/p/coworking/shopA/shop")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["name"] == ""
+    assert body["logo_url"] == ""
+    assert body["accent"] == ""
+    assert body["paused"] is False
+
+
+def test_shop_info_no_store_headers_present(client):
+    r = client.get("/p/coworking/shopA/shop")
+    assert r.headers.get("Cache-Control", "").startswith("no-store")
+
+
+def test_shop_info_is_rate_limited(auth_env):
+    rl_client = _make_app(RATELIMIT_MAX="1")
+    first = rl_client.get("/p/coworking/shopA/shop")
+    second = rl_client.get("/p/coworking/shopA/shop")
+    assert first.status_code == 200
+    assert second.status_code == 429
+
+
+def test_portal_page_is_rate_limited_independently_of_json_routes(auth_env):
+    rl_client = _make_app(RATELIMIT_MAX="1")
+    first = rl_client.get("/p/coworking/shopA")
+    assert first.status_code == 200
+
+
+def test_portal_page_never_needs_a_token_even_when_one_is_supplied_and_invalid(client):
+    r = client.get("/p/coworking/shopA", headers={"Authorization": "Bearer garbage"})
+    assert r.status_code == 200
+
+
+def test_portal_page_and_shop_info_agree_on_which_tenant_segment_is_the_id(client):
+    """A tenant id that itself looks like a route segment (`resources`) must still be treated as
+    an opaque `{tenant}` value by the JSON routes below it, not accidentally matched by FastAPI as
+    the literal `/resources` sub-path of some OTHER tenant — proven by asking for a shop literally
+    named `resources` and getting the shop-info shape back, not the resources-list shape."""
+    r = client.get("/p/coworking/resources/shop")
+    assert r.status_code == 200
+    assert set(r.json().keys()) == {"name", "logo_url", "accent", "paused"}
+
+
+def test_portal_page_html_has_no_unresolved_template_placeholders(client):
+    """The page is served byte-for-byte from disk with no server-side templating at all — a stray
+    `{{`/`${` left over from an edit would otherwise sit silently in production HTML forever."""
+    r = client.get("/p/coworking/shopA")
+    assert "{{" not in r.text
+    assert "}}" not in r.text

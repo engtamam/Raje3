@@ -136,6 +136,10 @@ class Settings(BaseSettings):
     # this service folds a phone itself rather than importing anyone else's normalizer.
     COWORKING_PHONE_DEFAULT_CC: str = "966"
 
+    # ── the public portal's own shop-branding read (see core/shop_info.py's own module doc) ────
+    TENANT_SERVICE_URL: str = ""             # e.g. http://tenant-service:8000
+    SIGNUP_TIMEOUT_SECONDS: int = 10
+
     # ── branch scope (owner decision, 2026-09-27): resources/bookings are branch-scoped; join
     # requests deliberately stay shop-wide (core/joins.py's own module doc) ───────────────────────
     # Same shape as bookings'/reminders'/loyalty's own copy — see adapters/branch_scope.py's own

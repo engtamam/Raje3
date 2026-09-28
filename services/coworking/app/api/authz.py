@@ -39,3 +39,17 @@ def require_any_capability(*caps: str):
         return principal
 
     return dep
+
+
+def require_capability_scoped(*caps: str):
+    """Same as `require_capability`, plus: refuses when the token carries no tenant at all — for
+    per-shop admin surfaces where every read/write is scoped by `principal.tenant`, unlike the
+    platform-wide operator surface (`platform.secrets`/`platform.config`) whose tokens have none."""
+    base = require_capability(*caps)
+
+    async def dep(principal: Principal = Depends(base)) -> Principal:
+        if not principal.tenant:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="FORBIDDEN")
+        return principal
+
+    return dep

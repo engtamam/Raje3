@@ -56,7 +56,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):  # type: ignore[override]
         response: Response = await call_next(request)
-        apply_security_headers(response, self._headers)
+        # A route that already set its own CSP (the public portal HTML page — real inline
+        # script/style/img/fetch to the same origin, which the default `default-src 'none'`
+        # would otherwise block outright) keeps it; every other response gets the strict default.
+        headers = dict(self._headers)
+        if "content-security-policy" in {k.lower() for k in response.headers.keys()}:
+            headers.pop("Content-Security-Policy", None)
+        apply_security_headers(response, headers)
         return response
 
 
@@ -89,12 +95,14 @@ class BodyLimitMiddleware(BaseHTTPMiddleware):
         # mechanism Starlette's own `Request.body()` uses, so every downstream reader (`.body()`,
         # `.json()`, a route's own Pydantic parse) sees the identical bytes exactly once rather
         # than an already-exhausted stream.
-        body = b""
+        chunks = []
+        total = 0
         async for chunk in request.stream():
-            body += chunk
-            if len(body) > self._max:
+            total += len(chunk)
+            if total > self._max:
                 return JSONResponse({"error": "PAYLOAD_TOO_LARGE"}, status_code=413)
-        request._body = body
+            chunks.append(chunk)
+        request._body = b"".join(chunks)
         return await call_next(request)
 
 

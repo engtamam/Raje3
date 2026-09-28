@@ -92,6 +92,8 @@ def build_manifest(
             {"path": "/api/v1/coworking/operator/config/{key}", "tier": "user", "method": "DELETE"},
             # ── the freelancer's own public door (spec §6) — see api/public.py's own docstring
             # for why this is served here rather than by portal, despite the `/p/*` prefix ─────
+            {"path": "/p/coworking/{tenant}", "tier": "public", "method": "GET"},
+            {"path": "/p/coworking/{tenant}/shop", "tier": "public", "method": "GET"},
             {"path": "/p/coworking/{tenant}/resources", "tier": "public", "method": "GET"},
             {"path": "/p/coworking/{tenant}/slots", "tier": "public", "method": "GET"},
             {"path": "/p/coworking/{tenant}/status", "tier": "public", "method": "GET"},

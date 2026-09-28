@@ -21,12 +21,12 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from starlette.responses import JSONResponse
 
 from app.adapters.branch_scope import DENIED, visible
 from app.api.auth import Principal, require_user
-from app.api.authz import require_capability
+from app.api.authz import require_capability_scoped
 from app.api.ratelimit import rate_limit
 from app.config import get_settings
 from app.core.bookings import BookingRefused
@@ -37,7 +37,7 @@ from app.core.resources import ResourceError
 
 router = APIRouter(prefix="/api/v1/coworking", tags=["coworking-admin"])
 
-_MANAGE = require_capability("coworking.manage")
+_MANAGE = require_capability_scoped("coworking.manage")
 
 
 def _tenant(principal: Principal) -> str:
@@ -217,11 +217,12 @@ async def get_resource_image(request: Request, resource_id: str,
     from app.ports.errors import NotFound
     c = request.app.state.container
     resource = await c.resources.get(_tenant(principal), resource_id)
+    if resource is not None:
+        refusal = await _require_branch(c, principal, resource.branch_id)
+        if refusal is not None:
+            return refusal
     if resource is None or not resource.image_key:
         return JSONResponse({"error": "NOT_FOUND"}, status_code=status.HTTP_404_NOT_FOUND)
-    refusal = await _require_branch(c, principal, resource.branch_id)
-    if refusal is not None:
-        return refusal
     try:
         data, ctype = await read_image(c.object_store, resource.image_key)
     except NotFound:
@@ -232,6 +233,12 @@ async def get_resource_image(request: Request, resource_id: str,
 class WindowIn(BaseModel):
     start_minute: int = Field(..., ge=0, le=24 * 60)
     end_minute: int = Field(..., ge=0, le=24 * 60)
+
+    @model_validator(mode="after")
+    def _ordered(self) -> "WindowIn":
+        if self.end_minute <= self.start_minute:
+            raise ValueError("end_minute must be after start_minute")
+        return self
 
 
 class DayExceptionIn(BaseModel):
@@ -316,7 +323,10 @@ async def unblock_phone(request: Request, phone: str,
                         principal: Principal = Depends(_MANAGE)) -> dict:
     c = request.app.state.container
     phone = _phone(phone)
-    await c.joins.unblock(_tenant(principal), phone)
+    try:
+        await c.joins.unblock(_tenant(principal), phone)
+    except JoinError as exc:
+        return _refuse(str(exc), status_code=status.HTTP_404_NOT_FOUND)
     return {"unblocked": True}
 
 

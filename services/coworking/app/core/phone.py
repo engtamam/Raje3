@@ -37,4 +37,6 @@ def canonical_phone(raw: str, *, default_cc: str = DEFAULT_CC) -> str:
         digits = default_cc + digits[1:]
     elif not digits.startswith(default_cc):
         digits = default_cc + digits
+    if not (8 <= len(digits) <= 15):  # E.164 real-world range — never a too-short/garbage identity
+        return ""
     return "+" + digits

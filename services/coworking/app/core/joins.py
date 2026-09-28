@@ -89,5 +89,6 @@ class JoinRegistry:
         straight to APPROVED, because the shop revoking a block is not the shop vouching for the
         person again; it only lets them ask."""
         row = await self._store.get(JOINS, _key(tenant, phone))
-        if row is not None and row.get("status") == JOIN_BLOCKED:
-            await self._store.delete(JOINS, _key(tenant, phone))
+        if row is None or row.get("status") != JOIN_BLOCKED:
+            raise JoinError("هذا الرقم غير محظور")
+        await self._store.delete(JOINS, _key(tenant, phone))

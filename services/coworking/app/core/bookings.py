@@ -115,10 +115,9 @@ class BookingService:
         assert status == JOIN_APPROVED
 
         # ── 6a. cheap, advisory check BEFORE contending for a lane ──────────────────────────────
-        duration_minutes = (ends_at - starts_at) // 60
         schedule = _schedule_from_resource(resource)
         busy = await self._busy(tenant, resource_id, window_start=starts_at, window_end=ends_at)
-        if not av.is_free(schedule, busy, starts_at=starts_at, duration_minutes=duration_minutes):
+        if not av.is_free(schedule, busy, starts_at=starts_at, ends_at=ends_at):
             raise BookingRefused("SLOT_UNAVAILABLE",
                                  "هذا الوقت غير متاح — إما خارج ساعات عمل هذا المورد أو محجوز مسبقاً")
 
@@ -136,7 +135,7 @@ class BookingService:
                                          "هذا المورد متوقف حالياً عن استقبال حجوزات جديدة")
                 schedule = _schedule_from_resource(resource)
                 busy = await self._busy(tenant, resource_id, window_start=starts_at, window_end=ends_at)
-                if not av.is_free(schedule, busy, starts_at=starts_at, duration_minutes=duration_minutes):
+                if not av.is_free(schedule, busy, starts_at=starts_at, ends_at=ends_at):
                     raise BookingRefused("SLOT_UNAVAILABLE",
                                          "هذا الوقت أصبح غير متاح — اختر وقتاً آخر")
                 booking = {

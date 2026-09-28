@@ -20,16 +20,25 @@ and never another freelancer's bookings at the SAME shop either.
 """
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, Query, Request, status
 from pydantic import BaseModel, Field
-from starlette.responses import JSONResponse
+from starlette.responses import HTMLResponse, JSONResponse
 
 from app.api.ratelimit import rate_limit
 from app.config import get_settings
 from app.core.bookings import BookingRefused, JoinRequired
 from app.core.phone import canonical_phone
+from app.core.shop_info import fetch_shop_info
 
 router = APIRouter(prefix="/p/coworking", tags=["coworking-public"])
+
+# Read once at import time, not per request — the page is one static file, shared by every tenant
+# (the tenant is read from the URL client-side, see the script's own `location.pathname` parse).
+_PORTAL_HTML = (Path(__file__).resolve().parent.parent / "static" / "portal.html").read_text(
+    encoding="utf-8")
 
 # Never cached anywhere between here and the freelancer's own browser — a shared/cached response
 # to "what is free right now" or "what are my bookings" is stale the instant anyone else acts,
@@ -38,7 +47,12 @@ NO_STORE = {"Cache-Control": "no-store, no-cache, must-revalidate, private",
            "Pragma": "no-cache"}
 
 
+_PHONE_SHAPE_RE = re.compile(r"^[0-9+()\- ]{3,32}$")  # phone punctuation only — no digits buried in junk
+
+
 def _phone(raw: str) -> str:
+    if not _PHONE_SHAPE_RE.match(raw or ""):
+        return ""
     return canonical_phone(raw, default_cc=get_settings().COWORKING_PHONE_DEFAULT_CC)
 
 
@@ -46,6 +60,22 @@ def _refuse(reason: str, message: str, *,
            status_code: int = status.HTTP_400_BAD_REQUEST) -> JSONResponse:
     return JSONResponse({"error": reason, "reason": message}, status_code=status_code,
                         headers=NO_STORE)
+
+
+@router.get("/{tenant}", dependencies=[Depends(rate_limit)])
+async def portal_page(tenant: str) -> HTMLResponse:
+    """The freelancer's own landing page — the shareable link a shop hands out (console/mobile's
+    own `ShareLinkCard`). ONE static page for every tenant; it reads `{tenant}` from its own URL
+    and calls the JSON routes below exactly like any other client of this file would.
+
+    ITS OWN CSP, NOT THE SERVICE'S GLOBAL `default-src 'none'` — this is the one HTML page in the
+    service, with real inline <script>/<style> and same-origin <img>/fetch calls the global JSON-
+    API policy would otherwise block outright."""
+    headers = {**NO_STORE, "Content-Security-Policy": (
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+        "img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; "
+        "frame-ancestors 'none'")}
+    return HTMLResponse(_PORTAL_HTML, headers=headers)
 
 
 @router.get("/{tenant}/resources", dependencies=[Depends(rate_limit)])
@@ -62,6 +92,18 @@ async def list_resources(request: Request, tenant: str) -> JSONResponse:
         {"id": r.id, "name": r.name, "hourly_price_minor": r.hourly_price_minor,
          "description": r.description, "has_image": bool(r.image_key)}
         for r in resources]}
+    return JSONResponse(body, headers=NO_STORE)
+
+
+@router.get("/{tenant}/shop", dependencies=[Depends(rate_limit)])
+async def shop_info(request: Request, tenant: str) -> JSONResponse:
+    """What the portal's own header needs — the shop's name/logo/accent (see `core/shop_info.py`'s
+    own module doc for why this is a peer call) and whether it is paused right now (spec §5) so a
+    freelancer sees that BEFORE trying to book, not only as a refusal after picking a slot."""
+    c = request.app.state.container
+    info = await fetch_shop_info(get_settings(), tenant)
+    paused = await c.pause.is_paused(tenant)
+    body = {"name": info.name, "logo_url": info.logo_url, "accent": info.accent, "paused": paused}
     return JSONResponse(body, headers=NO_STORE)
 
 

@@ -250,16 +250,18 @@ def free_slots(schedule: Schedule, busy: Sequence[Busy], *, duration_minutes: in
                                  granularity_minutes=granularity_minutes))
 
 
-def is_free(schedule: Schedule, busy: Sequence[Busy], *, starts_at: int, duration_minutes: int) -> bool:
+def is_free(schedule: Schedule, busy: Sequence[Busy], *, starts_at: int, ends_at: int) -> bool:
     """The authoritative check for one exact, already-chosen time — what the claim (docs/خطة-
     تنفيذ-الحجوزات.md §2/§3) re-checks inside the lock. `free_slots` is the advisory, grid-shaped
     view; this is the precise yes/no for the one candidate a drop or a confirm actually commits to,
-    which need not land on the grid's own granularity."""
-    if duration_minutes <= 0:
+    which need not land on the grid's own granularity.
+
+    Takes `ends_at` directly (never `duration_minutes`) — a span that isn't a whole-minute multiple
+    must still be checked at its real length, not one rounded by the caller."""
+    if ends_at <= starts_at:
         raise DurationNotConfigured(
-            "duration_minutes is 0 or unset — this service's booking length was never "
+            "ends_at is at or before starts_at — this service's booking length was never "
             "configured, not merely fully booked")
-    ends_at = starts_at + duration_minutes * 60
     day = _riyadh_date(starts_at)
     windows = schedule.windows_on(day)
     day_epoch = _day_start_epoch(day)

@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex" />
+<title>احجز مكانك</title>
+<style>
+  :root{
+    --accent:#6A4CF5;
+    --bg:#0b0b10;
+    --surface:#15151d;
+    --surface2:#1c1c26;
+    --text:#f3f3f7;
+    --muted:#9a9aab;
+    --line:#2a2a36;
+    --radius:18px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif;}
+  body{padding-bottom:40px;}
+  .hero{
+    position:relative;padding:28px 18px 56px;
+    background:linear-gradient(160deg, var(--accent) 0%, #0b0b10 130%);
+    overflow:hidden;
+  }
+  .hero::after{content:"";position:absolute;inset:0;
+    background:radial-gradient(120% 90% at 100% 0%, rgba(255,255,255,.18), transparent 60%);}
+  .hero-top{display:flex;align-items:center;gap:14px;position:relative;z-index:1;}
+  .logo{width:56px;height:56px;border-radius:16px;background:rgba(255,255,255,.15);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none;
+    border:1px solid rgba(255,255,255,.35);}
+  .logo img{width:100%;height:100%;object-fit:cover;}
+  .logo .fallback{font-size:22px;font-weight:800;}
+  .shop-name{font-size:20px;font-weight:800;margin:0;}
+  .shop-sub{margin:4px 0 0;font-size:13px;color:rgba(255,255,255,.8);}
+  .paused-banner{position:relative;z-index:1;margin-top:18px;background:rgba(0,0,0,.35);
+    border:1px solid rgba(255,255,255,.25);border-radius:14px;padding:12px 14px;font-size:13px;
+    display:none;}
+  .paused-banner.show{display:block;}
+
+  .wrap{padding:0 14px;margin-top:-32px;position:relative;z-index:2;}
+  .phone-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px;display:flex;gap:10px;align-items:center;box-shadow:0 10px 30px rgba(0,0,0,.35);}
+  .phone-card input{flex:1;background:var(--surface2);border:1px solid var(--line);
+    border-radius:12px;color:var(--text);padding:12px 14px;font-size:15px;direction:ltr;
+    text-align:right;}
+  .phone-card input:focus{outline:2px solid var(--accent);}
+  .phone-card .saved{font-size:12px;color:#7ee787;}
+
+  .section-title{font-size:15px;font-weight:800;margin:22px 2px 10px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    overflow:hidden;cursor:pointer;transition:transform .15s ease;}
+  .card:active{transform:scale(.97);}
+  .card-photo{width:100%;aspect-ratio:4/3;background:var(--surface2);position:relative;
+    display:flex;align-items:center;justify-content:center;}
+  .card-photo img{width:100%;height:100%;object-fit:cover;display:block;}
+  .card-photo .ph-fallback{font-size:34px;opacity:.35;}
+  .badge-live{position:absolute;top:8px;inset-inline-start:8px;background:rgba(0,0,0,.55);
+    color:#7ee787;font-size:11px;font-weight:700;padding:4px 9px;border-radius:99px;
+    display:flex;align-items:center;gap:5px;}
+  .badge-live::before{content:"";width:6px;height:6px;border-radius:99px;background:#7ee787;}
+  .card-body{padding:10px 12px 12px;}
+  .card-name{font-size:14px;font-weight:700;margin:0 0 4px;}
+  .card-price{font-size:13px;color:var(--accent);font-weight:800;}
+
+  .empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius);
+    padding:28px 16px;text-align:center;color:var(--muted);font-size:14px;}
+
+  .sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;
+    transition:opacity .2s ease;z-index:50;}
+  .sheet-backdrop.show{opacity:1;pointer-events:auto;}
+  .sheet{position:fixed;left:0;right:0;bottom:0;max-height:88vh;background:var(--bg);
+    border-radius:22px 22px 0 0;transform:translateY(100%);transition:transform .25s cubic-bezier(.32,.72,0,1);
+    z-index:51;display:flex;flex-direction:column;box-shadow:0 -10px 40px rgba(0,0,0,.5);}
+  .sheet.show{transform:translateY(0);}
+  .sheet-handle{width:40px;height:5px;background:var(--line);border-radius:99px;margin:10px auto 4px;}
+  .sheet-scroll{overflow-y:auto;padding:4px 16px 16px;}
+  .sheet-photo{width:100%;aspect-ratio:16/10;border-radius:16px;overflow:hidden;background:var(--surface2);
+    display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+  .sheet-photo img{width:100%;height:100%;object-fit:cover;}
+  .sheet-title{font-size:19px;font-weight:800;margin:0 0 6px;}
+  .sheet-price{color:var(--accent);font-weight:800;font-size:15px;margin-bottom:10px;}
+  .sheet-desc{color:var(--muted);font-size:13.5px;line-height:1.7;margin-bottom:18px;}
+  .slots-label{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px;}
+  .day-row{margin-bottom:14px;}
+  .day-label{font-size:12.5px;color:var(--muted);margin-bottom:6px;}
+  .slot-list{display:flex;flex-wrap:wrap;gap:8px;}
+  .slot-btn{background:var(--surface2);border:1px solid var(--line);color:var(--text);
+    border-radius:11px;padding:9px 12px;font-size:13px;cursor:pointer;}
+  .slot-btn.selected{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700;}
+  .no-slots{color:var(--muted);font-size:13px;}
+  .sheet-cta{padding:12px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line);
+    background:var(--surface);}
+  .btn{width:100%;border:0;border-radius:14px;padding:15px;font-size:15px;font-weight:800;
+    color:#fff;background:var(--accent);cursor:pointer;}
+  .btn:disabled{opacity:.5;}
+  .btn.secondary{background:var(--surface2);color:var(--text);border:1px solid var(--line);}
+  .status-msg{font-size:13px;text-align:center;margin-top:10px;color:var(--muted);}
+  .status-msg.ok{color:#7ee787;}
+  .status-msg.warn{color:#f5c56a;}
+  .status-msg.err{color:#ff8a8a;}
+  .close-x{position:absolute;top:10px;inset-inline-end:12px;width:32px;height:32px;border-radius:99px;
+    background:var(--surface2);border:1px solid var(--line);color:var(--text);font-size:16px;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .loading{padding:40px 0;text-align:center;color:var(--muted);font-size:13px;}
+</style>
+</head>
+<body>
+  <div class="hero">
+    <div class="hero-top">
+      <div class="logo"><span class="fallback" id="logoFallback">؟</span><img id="logoImg" style="display:none" /></div>
+      <div>
+        <p class="shop-name" id="shopName">جارٍ التحميل…</p>
+        <p class="shop-sub">اختر مساحتك واحجز مباشرة</p>
+      </div>
+    </div>
+    <div class="paused-banner" id="pausedBanner">هذا المحل أوقف استقبال حجوزات جديدة مؤقتاً</div>
+  </div>
+
+  <div class="wrap">
+    <div class="phone-card">
+      <input id="phoneInput" type="tel" placeholder="رقم جوالك (05xxxxxxxx)" />
+      <span class="saved" id="phoneSaved" style="display:none">محفوظ</span>
+    </div>
+
+    <p class="section-title">المساحات المتاحة</p>
+    <div id="grid" class="grid"></div>
+  </div>
+
+  <div class="sheet-backdrop" id="backdrop"></div>
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <div class="close-x" id="closeSheet">✕</div>
+    <div class="sheet-scroll" id="sheetContent"></div>
+  </div>
+
+<script>
+(function(){
+  var path = location.pathname.replace(/\/+$/, "");
+  var parts = path.split("/").filter(Boolean); // ["p","coworking","{tenant}"]
+  var tenant = parts[parts.length - 1] || "";
+  var API = "/p/coworking/" + encodeURIComponent(tenant);
+
+  var els = {
+    logoImg: document.getElementById("logoImg"),
+    logoFallback: document.getElementById("logoFallback"),
+    shopName: document.getElementById("shopName"),
+    pausedBanner: document.getElementById("pausedBanner"),
+    phoneInput: document.getElementById("phoneInput"),
+    phoneSaved: document.getElementById("phoneSaved"),
+    grid: document.getElementById("grid"),
+    backdrop: document.getElementById("backdrop"),
+    sheet: document.getElementById("sheet"),
+    sheetContent: document.getElementById("sheetContent"),
+    closeSheet: document.getElementById("closeSheet"),
+  };
+
+  var savedPhone = "";
+  try { savedPhone = localStorage.getItem("rj_portal_phone_" + tenant) || ""; } catch (e) {}
+  if (savedPhone) { els.phoneInput.value = savedPhone; els.phoneSaved.style.display = "inline"; }
+  els.phoneInput.addEventListener("input", function(){
+    var v = els.phoneInput.value.trim();
+    try { localStorage.setItem("rj_portal_phone_" + tenant, v); } catch (e) {}
+    els.phoneSaved.style.display = v ? "inline" : "none";
+  });
+
+  function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  }); }
+  function riyals(minor){ return (Number(minor||0)/100).toFixed(2) + " ر.س / ساعة"; }
+
+  async function getJSON(url, opts){
+    var res = await fetch(url, opts || {});
+    var body = null;
+    try { body = await res.json(); } catch (e) {}
+    return { ok: res.ok, status: res.status, body: body || {} };
+  }
+
+  async function loadShop(){
+    var r = await getJSON(API + "/shop");
+    var info = r.body || {};
+    if (info.name) els.shopName.textContent = info.name;
+    else els.shopName.textContent = "متجرك";
+    if (info.accent) document.documentElement.style.setProperty("--accent", info.accent);
+    if (info.logo_url) {
+      els.logoImg.src = info.logo_url;
+      els.logoImg.style.display = "block";
+      els.logoFallback.style.display = "none";
+    } else {
+      els.logoFallback.textContent = (info.name || "؟").trim().charAt(0) || "؟";
+    }
+    if (info.paused) els.pausedBanner.classList.add("show");
+  }
+
+  var resourcesCache = [];
+
+  async function loadResources(){
+    els.grid.innerHTML = '<div class="loading">جارٍ تحميل المساحات…</div>';
+    var r = await getJSON(API + "/resources");
+    var resources = (r.body && r.body.resources) || [];
+    resourcesCache = resources;
+    if (!resources.length) {
+      els.grid.innerHTML = '';
+      var empty = document.createElement("div");
+      empty.className = "empty";
+      empty.style.gridColumn = "1 / -1";
+      empty.textContent = "لا توجد مساحات متاحة حالياً";
+      els.grid.appendChild(empty);
+      return;
+    }
+    els.grid.innerHTML = "";
+    resources.forEach(function(res){
+      var card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML =
+        '<div class="card-photo">' +
+          (res.has_image
+            ? '<img src="' + API + '/resources/' + encodeURIComponent(res.id) + '/image" loading="lazy" />'
+            : '<span class="ph-fallback">🪑</span>') +
+          '<span class="badge-live">متاح الآن</span>' +
+        '</div>' +
+        '<div class="card-body">' +
+          '<p class="card-name">' + esc(res.name) + '</p>' +
+          '<p class="card-price">' + riyals(res.hourly_price_minor) + '</p>' +
+        '</div>';
+      card.addEventListener("click", function(){ openSheet(res); });
+      els.grid.appendChild(card);
+    });
+  }
+
+  function currentPhone(){ return els.phoneInput.value.trim(); }
+
+  function openSheet(res){
+    var photoHtml = res.has_image
+      ? '<img src="' + API + '/resources/' + encodeURIComponent(res.id) + '/image" />'
+      : '<span class="ph-fallback" style="font-size:48px">🪑</span>';
+    els.sheetContent.innerHTML =
+      '<div class="sheet-photo">' + photoHtml + '</div>' +
+      '<p class="sheet-title">' + esc(res.name) + '</p>' +
+      '<p class="sheet-price">' + riyals(res.hourly_price_minor) + '</p>' +
+      (res.description ? '<p class="sheet-desc">' + esc(res.description) + '</p>' : '') +
+      '<p class="slots-label">الأوقات المتاحة (7 أيام القادمة)</p>' +
+      '<div id="slotsArea"><div class="loading">جارٍ تحميل الأوقات…</div></div>';
+    show();
+    loadSlots(res);
+  }
+
+  var DAY_NAMES = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+  var selectedSlot = null;
+
+  async function loadSlots(res){
+    selectedSlot = null;
+    var now = Math.floor(Date.now() / 1000);
+    var windowEnd = now + 7 * 86400;
+    var r = await getJSON(API + "/slots?resource_id=" + encodeURIComponent(res.id) +
+      "&window_start=" + now + "&window_end=" + windowEnd + "&duration_minutes=60");
+    var slots = (r.body && r.body.slots) || [];
+    var area = document.getElementById("slotsArea");
+    if (!area) return;
+    if (!slots.length) {
+      area.innerHTML = '<p class="no-slots">لا توجد أوقات متاحة هذا الأسبوع</p>';
+      renderCta(res, null);
+      return;
+    }
+    var byDay = {};
+    slots.forEach(function(s){
+      var d = new Date(s.starts_at * 1000);
+      var key = d.toDateString();
+      (byDay[key] = byDay[key] || []).push(s);
+    });
+    var html = "";
+    Object.keys(byDay).forEach(function(key){
+      var first = byDay[key][0];
+      var d = new Date(first.starts_at * 1000);
+      var label = DAY_NAMES[d.getDay()] + " " + d.getDate() + "/" + (d.getMonth() + 1);
+      html += '<div class="day-row"><p class="day-label">' + label + '</p><div class="slot-list">';
+      byDay[key].forEach(function(s){
+        var t = new Date(s.starts_at * 1000);
+        var hh = ("0" + t.getHours()).slice(-2);
+        var mm = ("0" + t.getMinutes()).slice(-2);
+        html += '<button class="slot-btn" data-start="' + s.starts_at + '" data-end="' + s.ends_at + '">' +
+          hh + ":" + mm + '</button>';
+      });
+      html += '</div></div>';
+    });
+    area.innerHTML = html;
+    area.querySelectorAll(".slot-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        area.querySelectorAll(".slot-btn").forEach(function(b){ b.classList.remove("selected"); });
+        btn.classList.add("selected");
+        selectedSlot = { starts_at: Number(btn.dataset.start), ends_at: Number(btn.dataset.end) };
+        renderCta(res, selectedSlot);
+      });
+    });
+    renderCta(res, null);
+  }
+
+  function renderCta(res, slot){
+    var old = els.sheetContent.querySelector(".sheet-cta-inline");
+    if (old) old.remove();
+    var box = document.createElement("div");
+    box.className = "sheet-cta-inline";
+    box.innerHTML =
+      '<button class="btn" id="bookBtn" ' + (slot ? "" : "disabled") + '>' +
+        (slot ? "احجز هذا الموعد" : "اختر وقتاً أولاً") +
+      '</button>' +
+      '<div class="status-msg" id="bookMsg"></div>';
+    els.sheetContent.appendChild(box);
+    var btn = document.getElementById("bookBtn");
+    if (btn) btn.addEventListener("click", function(){ submitBooking(res, slot); });
+  }
+
+  async function submitBooking(res, slot){
+    var phone = currentPhone();
+    var msg = document.getElementById("bookMsg");
+    if (!phone) {
+      msg.className = "status-msg err";
+      msg.textContent = "أدخل رقم جوالك أولاً بالأعلى";
+      return;
+    }
+    var btn = document.getElementById("bookBtn");
+    btn.disabled = true;
+    btn.textContent = "جارٍ الحجز…";
+    var r = await getJSON(API + "/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone: phone, resource_id: res.id,
+        starts_at: slot.starts_at, ends_at: slot.ends_at,
+      }),
+    });
+    if (r.status === 202 && r.body && r.body.status === "join_required") {
+      msg.className = "status-msg warn";
+      msg.textContent = "أُرسل طلب انضمام للمحل — بانتظار الموافقة، وبعدها تقدر تحجز";
+      btn.textContent = "بانتظار موافقة المحل";
+      return;
+    }
+    if (!r.ok) {
+      msg.className = "status-msg err";
+      msg.textContent = (r.body && r.body.reason) || "تعذّر الحجز، حاول مرة أخرى";
+      btn.disabled = false;
+      btn.textContent = "احجز هذا الموعد";
+      return;
+    }
+    msg.className = "status-msg ok";
+    msg.textContent = "تم الحجز بنجاح ✅";
+    btn.textContent = "تم الحجز";
+  }
+
+  function show(){
+    els.backdrop.classList.add("show");
+    els.sheet.classList.add("show");
+  }
+  function hide(){
+    els.backdrop.classList.remove("show");
+    els.sheet.classList.remove("show");
+  }
+  els.backdrop.addEventListener("click", hide);
+  els.closeSheet.addEventListener("click", hide);
+
+  loadShop();
+  loadResources();
+})();
+</script>
+</body>
+</html>

@@ -39,14 +39,17 @@ class CoworkingErasure:
 
     async def erase(self, tenant: str, subject: str) -> dict[str, Any]:
         phone = subject
-        ref = subject_ref(self._salt, tenant, phone) if self._salt else ""
+        if not self._salt:
+            raise ValueError("PII_SALT is empty — refusing to erase rather than silently "
+                             "redacting nothing")
+        ref = subject_ref(self._salt, tenant, phone)
 
         deleted_join = await self._store.delete(JOINS, f"{tenant}:{phone}")
 
         rows, truncated = await self._page(BOOKINGS, {"tenant": tenant, "freelancer_phone": phone})
         redacted = 0
         for row in rows:
-            if row.get("freelancer_phone") == ref or not ref:
+            if row.get("freelancer_phone") == ref:
                 continue
             row = {**row, "freelancer_phone": ref or "[محذوف]"}
             await self._store.put(BOOKINGS, row["id"], row)
