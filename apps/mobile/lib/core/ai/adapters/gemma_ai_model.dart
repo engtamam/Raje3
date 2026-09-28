@@ -37,8 +37,34 @@ class GemmaAiModel implements AiModel {
   // same public URL scripts/fetch_ai_model.sh already fetches at BUILD time, fetched instead at
   // RUNTIME, on-device, once, on first launch. No token, no auth — the litert-community repo on
   // Hugging Face is public.
-  static const _networkModelUrl =
-      'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-gpu.litertlm';
+  //
+  // THREE CANDIDATES, TRIED STRONGEST TO WEAKEST — found live (2026-09-28): "Failed to create
+  // engine. Model may be invalid" on Gemma 4 E4B is a widely-reported, Google-acknowledged upstream
+  // regression (google-ai-edge/LiteRT-LM#1864, google-ai-edge/gallery#557), not something wrong
+  // with our own download or device — it fails identically on GPU and CPU, and even inside
+  // Google's own model Gallery app, on a range of real chipsets. There is no fix we can ship for a
+  // bug in someone else's runtime/model pair. Each fallback is a genuinely DIFFERENT model (not a
+  // re-download of the same broken bytes), so a device that can't init one gets a real independent
+  // next attempt instead of a permanent dead end. Owner's own explicit ordering (2026-09-28,
+  // discussed and compared): E4B (best quality) → E2B (same family, ~1/3 the size, still
+  // Gemma-native tool-calling) → Qwen3-0.6B (last resort only — a real, verified-working litertlm
+  // build, ~1/4 E2B's size and far less capable, but Qwen's own broader multilingual training
+  // means it is not obviously worse than E2B specifically on Arabic, and it is small enough that
+  // an init failure here would point at something more fundamental than model incompatibility).
+  static const _networkCandidates = [
+    (
+      modelType: ModelType.gemma4,
+      url: 'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-gpu.litertlm',
+    ),
+    (
+      modelType: ModelType.gemma4,
+      url: 'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-gpu.litertlm',
+    ),
+    (
+      modelType: ModelType.qwen3,
+      url: 'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/qwen3_0_6b_mixed_int4.litertlm',
+    ),
+  ];
 
   @override
   String get driver => 'gemma';
@@ -72,49 +98,86 @@ class GemmaAiModel implements AiModel {
   @override
   Future<void> ensureReady({List<AiTool> tools = const []}) async {
     if (_status == AiModelStatus.ready) return;
-    // A RETRY AFTER error PURGES ANY STALE PARTIAL FIRST — found live (2026-09-28): a download
-    // interrupted before this device ever got the foreground-service fix (v0.1.11 and earlier)
-    // can leave a corrupt/incomplete file on disk with its own "already handled" bookkeeping. The
-    // OS-level downloader below reattaches to that same on-disk state by a path-derived id, not by
-    // content — so every retry kept loading the SAME broken file forever, "stable network" or not.
-    // performCleanup() is flutter_gemma's own official answer to exactly this: "delete orphaned
-    // files and stale metadata left by interrupted installs."
-    if (_status == AiModelStatus.error) {
-      try {
-        await FlutterGemma.performCleanup();
-      } catch (_) {
-        // Best-effort — a cleanup failure must not block the retry it exists to unblock.
+
+    if (AiConfig.modelSource == 'download') {
+      // STRONGEST TO WEAKEST — see [_networkCandidates]'s own doc comment for why this is a real
+      // fallback chain of different models, not a naive retry of the same broken download.
+      Object? lastError;
+      for (final candidate in _networkCandidates) {
+        // PURGE ANY STALE PARTIAL BEFORE EVERY ATTEMPT, not just after a whole-method retry —
+        // found live (2026-09-28): a download interrupted before this device ever got the
+        // foreground-service fix (v0.1.11 and earlier) can leave a corrupt/incomplete file on
+        // disk with its own "already handled" bookkeeping. The OS-level downloader reattaches to
+        // that same on-disk state by a path-derived id, not by content — so a later candidate in
+        // this SAME loop could otherwise inherit a previous candidate's leftover state too.
+        // performCleanup() is flutter_gemma's own official answer: "delete orphaned files and
+        // stale metadata left by interrupted installs."
+        if (_status == AiModelStatus.error || _status == AiModelStatus.downloading) {
+          try {
+            await FlutterGemma.performCleanup();
+          } catch (_) {
+            // Best-effort — a cleanup failure must not block the attempt it exists to unblock.
+          }
+        }
+        try {
+          _setStatus(AiModelStatus.downloading);
+          final installer = FlutterGemma.installModel(
+            modelType: candidate.modelType,
+            fileType: ModelFileType.litertlm,
+          );
+          // Direct-download APK, model fetched AFTER install (GitHub Releases' 2GB-per-file cap —
+          // see this class's own header comment). `.fromNetwork` is flutter_gemma's own
+          // downloader: resumable, and it re-uses whatever it already staged on a previous
+          // ensureReady() that got interrupted rather than starting over.
+          // foreground: true — WITHOUT IT, background_downloader never calls Android's
+          // WorkManager.setForeground(), regardless of the manifest permissions already declared
+          // (found live 2026-09-28: the manifest fix alone did nothing, because nothing in this
+          // file ever asked for the service the manifest merely allows). A multi-GB transfer with
+          // no foreground service is the OS's to kill on a whim; this is the flag that actually
+          // shows the "Downloading model" notification and keeps it alive.
+          await installer
+              .fromNetwork(candidate.url, foreground: true)
+              .withProgress((progress) => _progressController.add(progress))
+              .install();
+
+          _setStatus(AiModelStatus.loading);
+          final model = await FlutterGemma.getActiveModel(
+            maxTokens: 2048,
+            preferredBackend: PreferredBackend.gpu,
+          );
+          // TOOLS ARE DECLARED HERE, ONCE — see AiModel.ensureReady's own doc comment on why the
+          // plugin has no per-message tool list. [_convertTools] is the only place this file ever
+          // touches flutter_gemma's own Tool type — [AiTool] stays the port's own shape everywhere
+          // else, per ai_model.dart's own doc comment on why. modelType matches whichever
+          // candidate just loaded — Qwen3's own chat template is not Gemma's.
+          final chat = await model.createChat(modelType: candidate.modelType, tools: _convertTools(tools));
+          _model = model;
+          _chat = chat;
+          _setStatus(AiModelStatus.ready);
+          return;
+        } catch (e) {
+          lastError = e;
+          // Try the next candidate — never rethrown here, only after the last one also fails.
+        }
       }
+      // NEVER RETHROWN — see AiModel.ensureReady's own doc comment: a failed model load degrades
+      // the assistant surface, it does not crash whatever screen opened it. The last candidate's
+      // exception is kept on [lastError] so a caller CAN still learn why, on demand.
+      _lastError = lastError?.toString();
+      _setStatus(AiModelStatus.error);
+      return;
     }
+
+    // 'asset' and 'pack' modes: ONE fixed on-device file, not a fallback chain — see this class's
+    // own header comment on why those two never fetch a candidate list. Never rethrown, same as
+    // the 'download' branch above.
     try {
       _setStatus(AiModelStatus.downloading);
-
-      // ModelType.gemma4, NOT .gemmaIt — this is item 1 of the models checklist: Gemma 4's
-      // native function-calling tokens (see ai_model.dart's own doc comment on why actions
-      // never needed a different model file, only this one flag) only activate under this
-      // model type. The file itself hasn't changed; ai_config.dart already points at a real
-      // Gemma 4 E4B build.
       final installer = FlutterGemma.installModel(
         modelType: ModelType.gemma4,
         fileType: ModelFileType.litertlm,
       );
-
-      if (AiConfig.modelSource == 'download') {
-        // Direct-download APK, model fetched AFTER install (GitHub Releases' 2GB-per-file cap —
-        // see this file's own field-level doc comment). `.fromNetwork` is flutter_gemma's own
-        // downloader: resumable, and it re-uses whatever it already staged on a previous
-        // ensureReady() that got interrupted rather than starting over.
-        // foreground: true — WITHOUT IT, background_downloader never calls Android's
-        // WorkManager.setForeground(), regardless of the manifest permissions already declared
-        // (found live 2026-09-28: the manifest fix alone did nothing, because nothing in this
-        // file ever asked for the service the manifest merely allows). A ~2.77GB transfer with no
-        // foreground service is the OS's to kill on a whim; this is the flag that actually shows
-        // the "Downloading model" notification and keeps it alive.
-        await installer
-            .fromNetwork(_networkModelUrl, foreground: true)
-            .withProgress((progress) => _progressController.add(progress))
-            .install();
-      } else if (AiConfig.modelSource == 'asset') {
+      if (AiConfig.modelSource == 'asset') {
         // Direct-download build with the model still bundled in-APK (scripts/build_apk_direct.sh,
         // kept as the other direct-build option — see AiConfig.modelSource's own doc comment).
         // No Play Store underneath a sideloaded APK, so no asset pack to fetch(); the file is
@@ -153,18 +216,11 @@ class GemmaAiModel implements AiModel {
         maxTokens: 2048,
         preferredBackend: PreferredBackend.gpu,
       );
-      // TOOLS ARE DECLARED HERE, ONCE — see AiModel.ensureReady's own doc comment on why the
-      // plugin has no per-message tool list. [_convertTools] is the only place this file ever
-      // touches flutter_gemma's own Tool type — [AiTool] stays the port's own shape everywhere
-      // else, per ai_model.dart's own doc comment on why.
       final chat = await model.createChat(modelType: ModelType.gemma4, tools: _convertTools(tools));
       _model = model;
       _chat = chat;
       _setStatus(AiModelStatus.ready);
     } catch (e) {
-      // NEVER RETHROWN — see AiModel.ensureReady's own doc comment: a failed model load
-      // degrades the assistant surface, it does not crash whatever screen opened it. The
-      // exception itself is kept on [lastError] so a caller CAN still learn why, on demand.
       _lastError = e.toString();
       _setStatus(AiModelStatus.error);
     }
