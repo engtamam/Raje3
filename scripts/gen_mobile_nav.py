@@ -62,6 +62,8 @@ ICON_MAP = {
     "HandHeart": "Icons.volunteer_activism_outlined",
     "Truck": "Icons.local_shipping_outlined",
     "Wrench": "Icons.build_outlined",
+    "Building2": "Icons.business_outlined",
+    "Share2": "Icons.share_outlined",
     "Megaphone": "Icons.campaign_outlined",
     "Gift": "Icons.card_giftcard_outlined",
     "LifeBuoy": "Icons.support_outlined",

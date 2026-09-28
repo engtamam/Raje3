@@ -65,6 +65,14 @@ const List<NavSectionDef> kNavSections = [
     service: 'bookings',
   ),
   NavSectionDef(
+    id: 'coworking',
+    path: '/coworking',
+    label: 'مساحة عمل مشتركة',
+    icon: Icons.business_outlined,
+    requires: ['coworking.list_resources'],
+    service: 'coworking',
+  ),
+  NavSectionDef(
     id: 'customers',
     path: '/customers',
     label: 'جهات الاتصال',
@@ -103,6 +111,14 @@ const List<NavSectionDef> kNavSections = [
     icon: Icons.local_shipping_outlined,
     requires: ['operations.mobile_requests_list'],
     service: 'operations',
+  ),
+  NavSectionDef(
+    id: 'referrals',
+    path: '/referrals',
+    label: 'الإحالة والمسوّقين',
+    icon: Icons.share_outlined,
+    requires: ['referrals.list_campaigns'],
+    service: 'referrals',
   ),
   NavSectionDef(
     id: 'services',

@@ -132,30 +132,36 @@ class AppRouter {
               name: RouteNames.whatsappAssistant,
               builder: (context, state) => const WhatsappAssistantScreen(),
             ),
-            // SAME MOBILE-ONLY SHAPE AS THE ROUTE ABOVE — `feature.coworking` has no console
-            // screen either (services/operations/app/core/apps.py's own `screen: 'coworking'`
-            // comment), so this route is reached from the app store's own row (`AppRow.route`),
-            // never from `kNavSections` (auto-generated from the console's own catalogue).
+            // EXPLICIT, NOT GENERATED — kNavSections DOES include 'coworking' now (console's own
+            // nav.ts has carried it for a while; the generator was just stale, see the loop's own
+            // comment below). Kept as its own GoRoute anyway, reached from both the home grid AND
+            // the app store's own row (`AppRow.route`), since CoworkingScreen's own CapabilityGate
+            // is the real gate either way.
             GoRoute(
               path: RouteNames.coworkingPath,
               name: RouteNames.coworking,
               builder: (context, state) => const CoworkingScreen(),
             ),
-            // SAME "no feature.* nav section, real route inside the shell" pattern as the
-            // WhatsApp assistant above — reached from the app store's own row (`AppRow.route`,
-            // real `feature.referrals` key), gated additionally by `referrals.manage`
+            // EXPLICIT, NOT GENERATED — same reasoning as coworking above. Reached from the home
+            // grid, the app store's own row, and gated additionally by `referrals.manage`
             // (ReferralsScreen's own CapabilityGate).
             GoRoute(
               path: RouteNames.referralsPath,
               name: RouteNames.referrals,
               builder: (context, state) => const ReferralsScreen(),
             ),
+            // 'coworking'/'referrals' EXCLUDED — found live (2026-09-28): the nav generator was
+            // stale (an unmapped lucide icon made it fail silently and never got re-run after
+            // console's nav.ts added both), so this loop never saw them before. Now that it does,
+            // they'd collide with the two explicit, more-specifically-gated GoRoutes above
+            // (GoRouter throws on a duplicate route name) — those routes stay authoritative.
             for (final section in kNavSections)
-              GoRoute(
-                path: section.path,
-                name: section.id,
-                builder: (context, state) => _screenFor(section),
-              ),
+              if (section.id != RouteNames.coworking && section.id != RouteNames.referrals)
+                GoRoute(
+                  path: section.path,
+                  name: section.id,
+                  builder: (context, state) => _screenFor(section),
+                ),
           ],
         ),
       ],
