@@ -1,7 +1,7 @@
 name: raje3_mobile
 description: Raje3 mobile app — thin client, every screen talks to our own server directly.
 publish_to: 'none'
-version: 0.1.0+1
+version: 0.1.6+6
 
 environment:
   sdk: '>=3.5.0 <4.0.0'

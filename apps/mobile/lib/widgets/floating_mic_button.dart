@@ -184,6 +184,14 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
     }
   }
 
+  void _showLastError() {
+    final error = _assistant.aiModel.lastError;
+    if (!mounted || error == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error), duration: const Duration(seconds: 8)),
+    );
+  }
+
   /// The one place `_state` moves back to idle — always re-arms passive wake-word listening
   /// alongside it (a no-op if the mic session it just gave up is unrelated, or if wake-word
   /// listening isn't available on this device at all).
@@ -352,6 +360,12 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
           if (_fraction != null) widget.localStorage.setMicButtonPosition(_fraction!);
         },
         onTap: _onTap,
+        // LONG-PRESS SHOWS THE REAL EXCEPTION, NOT JUST "IT FAILED" — ensureReady() never
+        // rethrows (by design, see AiModel.ensureReady's own doc comment), so before
+        // AiModel.lastError existed a support report only ever carried "the red circle stayed
+        // red", never the actual reason. A tap keeps retrying (the fix above); a long-press
+        // is a diagnostic escape hatch that does not interrupt that flow.
+        onLongPress: _modelStatus == AiModelStatus.error ? _showLastError : null,
         child: AnimatedBuilder(
           animation: _pulseController,
           builder: (context, child) {

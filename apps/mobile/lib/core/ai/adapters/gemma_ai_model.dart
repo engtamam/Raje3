@@ -59,6 +59,11 @@ class GemmaAiModel implements AiModel {
   @override
   Stream<int> get downloadProgress => _progressController.stream;
 
+  String? _lastError;
+
+  @override
+  String? get lastError => _lastError;
+
   void _setStatus(AiModelStatus next) {
     _status = next;
     _statusController.add(next);
@@ -85,8 +90,14 @@ class GemmaAiModel implements AiModel {
         // see this file's own field-level doc comment). `.fromNetwork` is flutter_gemma's own
         // downloader: resumable, and it re-uses whatever it already staged on a previous
         // ensureReady() that got interrupted rather than starting over.
+        // foreground: true — WITHOUT IT, background_downloader never calls Android's
+        // WorkManager.setForeground(), regardless of the manifest permissions already declared
+        // (found live 2026-09-28: the manifest fix alone did nothing, because nothing in this
+        // file ever asked for the service the manifest merely allows). A ~2.77GB transfer with no
+        // foreground service is the OS's to kill on a whim; this is the flag that actually shows
+        // the "Downloading model" notification and keeps it alive.
         await installer
-            .fromNetwork(_networkModelUrl)
+            .fromNetwork(_networkModelUrl, foreground: true)
             .withProgress((progress) => _progressController.add(progress))
             .install();
       } else if (AiConfig.modelSource == 'asset') {
@@ -136,9 +147,11 @@ class GemmaAiModel implements AiModel {
       _model = model;
       _chat = chat;
       _setStatus(AiModelStatus.ready);
-    } catch (_) {
+    } catch (e) {
       // NEVER RETHROWN — see AiModel.ensureReady's own doc comment: a failed model load
-      // degrades the assistant surface, it does not crash whatever screen opened it.
+      // degrades the assistant surface, it does not crash whatever screen opened it. The
+      // exception itself is kept on [lastError] so a caller CAN still learn why, on demand.
+      _lastError = e.toString();
       _setStatus(AiModelStatus.error);
     }
   }
