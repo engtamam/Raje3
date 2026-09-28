@@ -106,6 +106,7 @@ dependencies:
   # maintained and returns the identical raw `Stream<Uint8List>` PCM shape.
   flutter_litert: ^3.9.0
   record: ^7.1.1
+  flutter_gemma_litertlm: ^1.8.5
 
 dev_dependencies:
   flutter_test:
