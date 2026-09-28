@@ -338,6 +338,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
     // the button always renders at Stack's default alignment, never where a drag left it. This
     // widget's build() must return Positioned directly — no RenderObjectWidget between it and
     // whatever Stack this sits in.
+    final dark = context.isDark;
     final size = MediaQuery.sizeOf(context);
     final width = size.width;
     final height = size.height;
@@ -422,8 +423,12 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
                   child: CircularProgressIndicator(
                     value: _downloadPercent > 0 ? _downloadPercent / 100 : null,
                     strokeWidth: 2.5,
-                    color: AppColors.accentContrast,
-                    backgroundColor: AppColors.accentContrast.withValues(alpha: 0.25),
+                    // BLUE, NOT accentContrast (white) — found live (2026-09-28): this ring sits
+                    // OUTSIDE the button's own colored circle (size + 6, against the screen's own
+                    // light background), so white-on-white was invisible. A real device could not
+                    // tell the download was even running.
+                    color: dark ? AppDarkColors.info : AppColors.info,
+                    backgroundColor: (dark ? AppDarkColors.info : AppColors.info).withValues(alpha: 0.25),
                   ),
                 ),
               if (_state == _VoiceState.idle && _modelStatus == AiModelStatus.error)
