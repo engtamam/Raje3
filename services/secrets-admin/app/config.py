@@ -269,11 +269,16 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"AUDIT_SERVICE_URL {self.AUDIT_SERVICE_URL!r} must start with http:// or https://"
             )
-        if self.AUDIT_SERVICE_URL and self.AUDIT_SERVICE_URL.startswith("http://"):
-            raise ValueError(
-                f"AUDIT_SERVICE_URL {self.AUDIT_SERVICE_URL!r} is plain http:// in production — "
-                "audit records would cross the network unencrypted. Use https://."
-            )
+        # NO "plain http:// IN PRODUCTION" REFUSAL HERE, UNLIKE AN EARLIER PASS OF THIS FUNCTION —
+        # found live (2026-09-28): that check crash-looped this service in production the moment
+        # it shipped, because audit-service itself has no TLS termination on its cluster-internal
+        # port (confirmed: deploy/services/audit-service.values.yaml serves plain :8000, same as
+        # every other service's own AUDIT_SERVICE_URL) — there was no https:// value that could
+        # ever have satisfied this. Pod-to-pod traffic on this platform's internal network is the
+        # SAME trust boundary every other internal call already accepts (INTERNAL_SERVICE_TOKEN
+        # authenticates it; nothing here encrypts it, and nothing else on the fleet does either).
+        # A real internal-mesh TLS requirement is a platform-wide project, not one service's boot
+        # guard quietly assuming infrastructure that does not exist yet.
 
     @field_validator("INTERNAL_SERVICE_TOKEN")
     @classmethod
