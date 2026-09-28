@@ -180,14 +180,19 @@ verify_running() {
   # for CLUSTER_VIA=ssh (and is simply the real binary, KUBECONFIG already in the environment,
   # for CLUSTER_VIA=node/local) — so this function now asks it the same way every other script
   # under deploy/ does, instead of answering the question a second time.
-  for _ in $(seq 1 40); do
+  # 1 MINUTE, NOT 10 — shortened 2026-09-28, now that cluster.sh's own kubectl() wrapper carries
+  # -i "$KEY" (this file's own fix above): a real pod on this fleet has always come up in single-
+  # digit seconds every time this session watched one by hand, so ten minutes of retrying was
+  # never patience for a slow rollout, only headroom for the ssh auth failure that fix closes. A
+  # genuinely stuck pod still fails loudly below, just after 1 minute instead of 10.
+  for _ in $(seq 1 4); do
     running="$(kubectl -n "$NS" get pods --no-headers 2>/dev/null \
       | awk -v svc="$svc" '$1 ~ ("^" svc "-[0-9a-f]") && $3=="Running" && $2=="1/1" {print $1; exit}')"
     [ -n "$running" ] && break
     sleep 15
   done
   if [ -z "$running" ]; then
-    red "$svc: no ready pod after 10 minutes"
+    red "$svc: no ready pod after 1 minute"
     kubectl -n "$NS" get pods --no-headers | grep "^$svc-"
     kubectl -n "$NS" logs \
       "$(kubectl -n "$NS" get pods --no-headers | awk -v svc="$svc" '$1 ~ ("^" svc "-") {print $1; exit}')" \
