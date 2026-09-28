@@ -30,7 +30,12 @@ NS="${NS:-base-services}"
 # and doing that from the box being checked is how a drifted node certifies itself. cluster.sh
 # above already read target.env — this only insists on the half of it that ssh needs.
 : "${REMOTE:?REMOTE is required — set it in deploy/target.env}"
-SSH=(ssh -o BatchMode=yes -o ConnectTimeout=20 -p "${PORT:-22}" "$REMOTE")
+#  `-i "$KEY"` — the SAME fix ship.sh's own SSH=(...) array and cluster.sh's ssh-mode kubectl()
+#  wrapper both needed (their own comments tell the same story) — found here too, live
+#  (2026-09-28), by sweeping every deploy/ script for the same shape rather than waiting for this
+#  one to fail its own way first. Optional (`${KEY:+...}`), so a caller relying on an
+#  agent/config identity instead of an explicit path keeps working exactly as before.
+SSH=(ssh ${KEY:+-i "$KEY"} -o BatchMode=yes -o ConnectTimeout=20 -p "${PORT:-22}" "$REMOTE")
 
 C_G=$'\e[32m'; C_R=$'\e[31m'; C_Y=$'\e[33m'; C_D=$'\e[2m'; C_N=$'\e[0m'
 

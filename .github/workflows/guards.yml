@@ -1104,6 +1104,15 @@ jobs:
       - name: a deploy script that decides for itself where the cluster is
         run: python3 ci/check_every_deploy_script_finds_the_cluster.py
 
+      # AND EVERY ssh/scp CALL NAMES AN IDENTITY. Two scripts (ship.sh, verify-fleet.sh) and one
+      # ssh-mode kubectl() wrapper (cluster.sh) all carried a bare ssh call with no -i — every
+      # unattended run silently fell back to whatever identity an ssh-agent happened to hold,
+      # which an automated ship never has, and one of the three "worked" anyway by riding a
+      # multiplexed connection someone else's correctly-keyed call had already opened, right up
+      # until that connection's idle timeout lapsed mid-ship.
+      - name: every ssh/scp call carries an identity
+        run: python3 ci/check_ssh_calls_carry_identity.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave
