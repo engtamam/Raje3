@@ -7,7 +7,13 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.notify import Notifier
+from app.core.notify import Notifier, receipt_text
+
+
+def test_receipt_text_never_contains_the_reward_name():
+    text = receipt_text(reward_name="غسلة مجانية VIP", cost=100, remaining=37)
+    assert "غسلة" not in text and "VIP" not in text
+    assert "100" in text and "37" in text
 
 
 class _MergingSender:

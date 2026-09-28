@@ -144,6 +144,67 @@ def test_overwrite_replaces_when_the_operator_asks():
     assert report["overwritten"] >= 1
 
 
+# ── the REAL manifest, not the generic id-keyed DECL above ────────────────────
+# Found live (2026-09-28): every test above uses the generic `DECL` fixture, whose collections are
+# all id-keyed — none of them ever exercised the real `app.backup_manifest.BACKUP` declaration or a
+# real `Balance` row at all, which is exactly how a broken restore for the one collection that is
+# NOT id-keyed (`loyalty_balances`, keyed by `Balance.key` = `f"{tenant}|{subject_ref}"`) went
+# undetected: `backup_import`/`backup_verify` never even passed `declaration=BACKUP` to
+# `import_archive`/`verify_restore`, so the key template declared here was never consulted in
+# production — every restore of a real archive raised `KeyError('id')` on the first balance row.
+def test_loyalty_balances_round_trips_through_the_real_manifest_declaration():
+    from app.backup_manifest import BACKUP
+    from app.core.models import Balance
+
+    st = MemoryDataStore()
+    bal = Balance(tenant="acme", subject_ref="sub_1", points=120, last_movement_at=1, created_at=1)
+    run(st.put("loyalty_balances", bal.key, bal.to_dict()))
+
+    seal, unseal = B.make_sealer("backup-key")
+    archive = run(B.export(st, BACKUP, service="loyalty", version="1.0.0",
+                           taken_at="2026-07-22T00:00:00Z", seal=seal, tenant="", scan_cap=1000))
+
+    dst = MemoryDataStore()
+    report = run(B.import_archive(dst, archive, unseal=unseal, declaration=BACKUP))
+    assert report["inserted"] >= 1
+    restored = run(dst.get("loyalty_balances", bal.key))
+    assert restored == bal.to_dict()
+
+
+def test_loyalty_balances_verify_restore_also_uses_the_real_key_template():
+    from app.backup_manifest import BACKUP
+    from app.core.models import Balance
+
+    st = MemoryDataStore()
+    bal = Balance(tenant="acme", subject_ref="sub_1", points=50)
+    run(st.put("loyalty_balances", bal.key, bal.to_dict()))
+
+    seal, unseal = B.make_sealer("backup-key")
+    archive = run(B.export(st, BACKUP, service="loyalty", version="1.0.0",
+                           taken_at="2026-07-22T00:00:00Z", seal=seal, tenant="", scan_cap=1000))
+    report = run(B.verify_restore(st, archive, unseal=unseal, token="tok1", declaration=BACKUP))
+    assert report["mismatches"] == []
+
+
+def test_without_declaration_a_balance_row_fails_loud_not_silent():
+    """Proves the ROOT CAUSE, not just the fix — without `declaration=BACKUP` passed through
+    (the exact bug this whole file's own header note describes), the default `"{id}"` template
+    cannot build a key for a row with no `id` field, and that must fail loud, never silently
+    drop the row."""
+    from app.backup_manifest import BACKUP
+    from app.core.models import Balance
+
+    st = MemoryDataStore()
+    bal = Balance(tenant="acme", subject_ref="sub_1", points=50)
+    run(st.put("loyalty_balances", bal.key, bal.to_dict()))
+
+    seal, unseal = B.make_sealer("backup-key")
+    archive = run(B.export(st, BACKUP, service="loyalty", version="1.0.0",
+                           taken_at="2026-07-22T00:00:00Z", seal=seal, tenant="", scan_cap=1000))
+    with pytest.raises(B.BackupError, match="id"):
+        run(B.import_archive(MemoryDataStore(), archive, unseal=unseal))  # no declaration=BACKUP
+
+
 def test_a_row_with_no_identity_is_refused():
     """Restoring an id-less row twice would duplicate it — refuse rather than double-write."""
     seal, unseal = B.make_sealer("backup-key")

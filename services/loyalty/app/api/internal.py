@@ -177,7 +177,7 @@ async def backup_verify(request: Request, body: BackupVerifyIn,
     try:
         return await _backup.verify_restore(
             request.app.state.container.datastore, body.archive,
-            unseal=unseal, token=secrets.token_hex(8))
+            unseal=unseal, token=secrets.token_hex(8), declaration=BACKUP)
     except _backup.BackupError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
@@ -191,7 +191,8 @@ async def backup_import(request: Request, body: BackupImportIn,
         return await _backup.import_archive(
             request.app.state.container.datastore, body.archive,
             unseal=unseal, overwrite=body.overwrite, into_tenant=body.into_tenant,
-            prune=body.prune, scan_cap=settings.BACKUP_MAX_ROWS_PER_COLLECTION)
+            prune=body.prune, scan_cap=settings.BACKUP_MAX_ROWS_PER_COLLECTION,
+            declaration=BACKUP)
     except _backup.BackupError as exc:
         # A bad archive is the caller's problem, not a 500: the checksum failed, the key did not
         # match, or a row had no identity. Say which, so an operator can act.
@@ -643,16 +644,16 @@ async def loyalty_history(request: Request, tenant: str, subject_ref: str, limit
 
 # ── the till (spec §9.8) ───────────────────────────────────────────────────────────────────────
 class TillRedeemIn(BaseModel):
-    tenant: str
-    subject_ref: str
-    reward_id: str
+    tenant: str = Field(min_length=1, max_length=128)
+    subject_ref: str = Field(min_length=8, max_length=128)
+    reward_id: str = Field(min_length=1, max_length=128)
     # THEIR transaction reference. The till is the only party that knows whether two calls are the
     # same sale — a key we generated would be new on every retry, which is the doubling this
     # prevents.
-    idempotency_key: str
+    idempotency_key: str = Field(min_length=1, max_length=128)
     # The cashier's account, as their system holds it. Recorded AS GIVEN: their system is the
     # account system, and building a second one here would be a login nobody asked for (spec §3.5).
-    actor: str = ""
+    actor: str = Field(default="", max_length=256)
     # WHICH BRANCH handed the reward over. A shop with three branches that knows who spent a
     # customer's points and not where knows half of what it asked. Optional: a till that does not
     # send it records a redemption with no branch rather than failing — the same rule visits
@@ -743,7 +744,8 @@ async def internal_report(request: Request, body: ReportIn) -> dict:
         # DRAINED. Ten thousand newest redemptions, cursor discarded, then filtered by `since` —
         # so a shop with more than that many redemptions newer than the window reported a number
         # smaller than the truth, and the report gave no sign of it.
-        rows = await drain(c.datastore, "loyalty_redemptions", {"tenant": body.tenant},
+        from app.core.models import REDEMPTIONS
+        rows = await drain(c.datastore, REDEMPTIONS, {"tenant": body.tenant},
                            sort=("created_at", "desc"))
         recent = [r for r in (rows or []) if int(r.get("created_at") or 0) >= body.since]
         rep["redeemed_since"] = sum(int(r.get("cost") or 0) for r in recent)

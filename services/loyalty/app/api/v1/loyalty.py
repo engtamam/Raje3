@@ -15,7 +15,7 @@ endpoint returned 200 while doing nothing (playbook §4.20).
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -89,7 +89,7 @@ async def _may_grow(request: Request, principal: Principal) -> JSONResponse | No
 
 
 @router.get("/balance/{subject_ref}", dependencies=[Depends(rate_limit)])
-async def balance(request: Request, subject_ref: str,
+async def balance(request: Request, subject_ref: str = Path(min_length=8, max_length=128),
                   principal: Principal = Depends(_READ)) -> dict:
     """The balance, and ONLY what it can buy (spec §9.5).
 
@@ -248,7 +248,7 @@ async def record_free_visit(c, tenant: str, rec, actor: str) -> bool:
 
 # ── the customer's own history ─────────────────────────────────────────────────────────────────
 @router.get("/history/{subject_ref}", dependencies=[Depends(rate_limit)])
-async def history(request: Request, subject_ref: str, limit: int = 25,
+async def history(request: Request, subject_ref: str = Path(min_length=8, max_length=128), limit: int = 25,
                   principal: Principal = Depends(_READ)) -> dict:
     c = request.app.state.container
     tenant = _tenant(principal)
@@ -308,10 +308,11 @@ async def adjust(request: Request, body: AdjustIn,
     AUDITED BEFORE THE WRITE. A balance moved by hand with no record of who moved it is the one
     entry in this ledger nobody can defend.
     """
-    # GROWS THE PROGRAMME: minting points by hand is the shop owing more.
-    refusal = await _may_grow(request, principal)
-    if refusal is not None:
-        return refusal
+    # Only a POSITIVE adjustment grows the programme's obligation; a negative one corrects it.
+    if body.delta > 0:
+        refusal = await _may_grow(request, principal)
+        if refusal is not None:
+            return refusal
     c = request.app.state.container
     tenant = _tenant(principal)
     actor = getattr(principal, "subject", "") or ""
@@ -339,7 +340,7 @@ async def adjust(request: Request, body: AdjustIn,
                 "loyalty.adjusted", actor=actor, tenant=tenant,
                 resource=f"subject:{body.subject_ref}",
                 ip=request.client.host if request.client else "",
-                metadata={"delta": body.delta, "note": body.note[:120]})
+                metadata={"delta": body.delta, "note": body.note[:280]})
 
             entry = await c.ledger.post(
                 tenant=tenant, subject_ref=body.subject_ref, delta=body.delta, reason="adjust",

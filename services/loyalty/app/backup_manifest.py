@@ -26,7 +26,12 @@ BACKUP: dict[str, Any] = {
         # balances and not entries would produce totals nobody can explain and `reconcile` would
         # then "repair" every one of them to zero.
         {"name": "loyalty_entries", "tenant_scoped": True},
-        {"name": "loyalty_balances", "tenant_scoped": True},
+        # NO `id` FIELD — `Balance` is keyed by `key` (`f"{tenant}|{subject_ref}"`, see its own
+        # `.key` property and `to_dict()`), never by an `id`. Found live (2026-09-28): with no
+        # `key` template here, `import_archive`'s default `"{id}"` raised `KeyError('id')` on the
+        # very first balance row, aborting the WHOLE restore — every customer's points balance was
+        # silently unrestorable from any backup taken before this fix.
+        {"name": "loyalty_balances", "tenant_scoped": True, "key": "{key}"},
         # The receipts. They carry the reward's name and cost AS THEY WERE, so losing them loses
         # the only record of what a customer was actually told.
         {"name": "loyalty_redemptions", "tenant_scoped": True},
@@ -37,6 +42,12 @@ BACKUP: dict[str, Any] = {
         # The catch-up cursor (ج-2). Not data loss, but a restore without it re-reads every
         # visit an establishment ever had — bounded, and slow enough to miss its window.
         {"name": "loyalty_watermarks", "tenant_scoped": True},
+        # THE OPERATOR SURFACE (core/runtime_config.py, pasted verbatim into every service) —
+        # found live (2026-09-28), a 13-service audit: never declared here at all. Mixes a
+        # platform-wide row and per-tenant overrides in the SAME collection — the same reasoning
+        # portal's own identical entry is declared under — so `tenant_scoped: False`,
+        # whole-collection restore only.
+        {"name": "runtime_config", "tenant_scoped": False},
     ],
     "excluded": [],
 }

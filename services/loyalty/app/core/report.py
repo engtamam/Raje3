@@ -77,7 +77,8 @@ async def build(store: Any, tenant: str) -> dict:
         # The warning: how much of everything granted died unspent. A high share means the
         # thresholds are beyond his customers' reach, and the programme is annoying them rather
         # than holding them.
-        "expired_share": round(expired / granted, 3) if granted else 0.0,
+        "expired_share": round(expired / (granted + max(adjusted, 0)), 3)
+                        if (granted + max(adjusted, 0)) else 0.0,
         "redemptions": len(reds),
         "by_type": by_type,
         "top_rewards": sorted(by_reward.items(), key=lambda kv: -kv[1])[:5],

@@ -222,10 +222,11 @@ async def import_archive(datastore, archive: dict[str, Any], *,
             src_tenant = next(iter(_src_tenants), "")
 
     inserted = skipped = overwritten = remapped = 0
+    scoped = {e.get("name"): e.get("tenant_scoped", True) for e in (declaration or {}).get("collections", [])}
     for name, rows in (body.get("collections") or {}).items():
         template = templates.get(name, _DEFAULT_KEY)
         for row in rows:
-            if into_tenant and "tenant" in row:
+            if into_tenant and "tenant" in row and scoped.get(name, True):
                 # Defence in depth: every remapped row must belong to the declared source tenant, so
                 # a mislabelled archive cannot smuggle another tenant's row into the clone.
                 row_tenant = str(row.get("tenant", "")).strip()

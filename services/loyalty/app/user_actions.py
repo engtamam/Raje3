@@ -23,8 +23,8 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "id": "loyalty.features", "label": "مميزات برنامج النقاط", "method": "GET",
         "path": "/api/v1/loyalty/features", "capability": "loyalty.read",
         "group": "التطبيقات",
-        # لا يتحقق من الاشتراك إطلاقاً (app/api/v1/features.py's own docstring) — بطاقة المتجر
-        # تُقرأ قبل الشراء، والقدرة loyalty.read دور وظيفي لا اشتراك.
+        # الراوت لا يتحقق من loyalty.read فعليًا (require_user فقط، بطاقة المتجر تُقرأ قبل الشراء) —
+        # هذا الحقل توثيقي فقط، لا بوابة حقيقية.
         "help": "قائمة المميزات الحقيقية اللي يوفّرها برنامج النقاط، بصياغة تسويقية قصيرة.",
     },
     {
