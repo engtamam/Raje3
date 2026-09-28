@@ -15,6 +15,13 @@
 # --target-platform=android-arm64 only, deliberately — the overwhelming majority of real devices,
 # and (in 'asset' mode) a single-ABI APK keeps the download at the model's own size instead of
 # doubling it for arm32 as well.
+#
+# API_BASE_URL IS PASSED EXPLICITLY, NOT LEFT TO ApiConstants' OWN DEFAULT — found live
+# (2026-09-28): every release build until now (this script AND the Play bundle) never set it, so
+# ApiConstants.baseUrl fell back to its own emulator-only default (http://10.0.2.2:3000, "map to
+# the host machine's localhost") — unreachable from any real phone. A real, signed, installable
+# APK that could never reach the server shipped and was never caught because nobody had tested it
+# against the actual production network until now.
 set -euo pipefail
 
 MODE="${MODE:-download}"
@@ -23,16 +30,22 @@ if [ "$MODE" != "download" ] && [ "$MODE" != "asset" ]; then
   exit 1
 fi
 
+API_BASE_URL="${API_BASE_URL:-https://kobo-cloud.com}"
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+OUT_DIR="$ROOT/build/app/outputs/flutter-apk"
+APK="$OUT_DIR/راجع.apk"
+
 if [ "$MODE" = "download" ]; then
-  echo "build_apk_direct: building the release APK (AI_MODEL_SOURCE=download — model fetched post-install, not bundled)..."
+  echo "build_apk_direct: building the release APK (AI_MODEL_SOURCE=download — model fetched post-install, not bundled; API_BASE_URL=$API_BASE_URL)..."
   flutter build apk --release \
     --target-platform=android-arm64 \
-    --dart-define=AI_MODEL_SOURCE=download
+    --dart-define=AI_MODEL_SOURCE=download \
+    --dart-define=API_BASE_URL="$API_BASE_URL"
 
-  APK="$ROOT/build/app/outputs/flutter-apk/app-release.apk"
+  mv -f "$OUT_DIR/app-release.apk" "$APK"
   echo "build_apk_direct: done — $APK ($(du -h "$APK" | cut -f1))"
   exit 0
 fi
@@ -80,10 +93,11 @@ with open(path, "w", encoding="utf-8") as f:
     f.writelines(lines)
 PY
 
-echo "build_apk_direct: building the release APK (this takes a while — a ~2.77GB asset to pack)..."
+echo "build_apk_direct: building the release APK (this takes a while — a ~2.77GB asset to pack; API_BASE_URL=$API_BASE_URL)..."
 flutter build apk --release \
   --target-platform=android-arm64 \
-  --dart-define=AI_MODEL_SOURCE=asset
+  --dart-define=AI_MODEL_SOURCE=asset \
+  --dart-define=API_BASE_URL="$API_BASE_URL"
 
-APK="$ROOT/build/app/outputs/flutter-apk/app-release.apk"
+mv -f "$OUT_DIR/app-release.apk" "$APK"
 echo "build_apk_direct: done — $APK ($(du -h "$APK" | cut -f1))"

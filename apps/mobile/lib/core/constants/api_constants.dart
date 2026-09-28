@@ -20,13 +20,23 @@ import 'package:raje3_mobile/core/config/app_config.dart';
 class ApiConstants {
   /// Compile-time override for the API base URL.
   /// Set via: flutter run --dart-define=API_BASE_URL=https://api.example.com
+  ///
+  /// EVERY RELEASE BUILD MUST PASS THIS — found live (2026-09-28): neither
+  /// scripts/build_apk_direct.sh nor the Play `flutter build appbundle` command passed it for a
+  /// while, so [baseUrl] silently fell back to the emulator-only default below on a real,
+  /// signed, installable release build. It built, signed, and shipped with no error anywhere —
+  /// the failure only shows up as "the app can't reach the server" on an actual phone. Both
+  /// build commands now pass `--dart-define=API_BASE_URL=https://kobo-cloud.com`
+  /// (scripts/build_apk_direct.sh, ops-mcp's own mobile.build_bundle_command) — if a THIRD one is
+  /// ever added, it needs this too.
   static const String _envUrl = String.fromEnvironment('API_BASE_URL');
 
   /// Resolved base URL — prefers env override, then platform default.
   ///
   /// Android emulator: 10.0.2.2 maps to the host machine's localhost.
   /// iOS simulator / web: localhost:3000.
-  /// Production: set API_BASE_URL via --dart-define at build time.
+  /// Production: set API_BASE_URL via --dart-define at build time — see [_envUrl]'s own doc
+  /// comment above for why this is not optional.
   static String get baseUrl {
     if (_envUrl.isNotEmpty) return _envUrl;
     if (kIsWeb) return 'http://localhost:3000';
