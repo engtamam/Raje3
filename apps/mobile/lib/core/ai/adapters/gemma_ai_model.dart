@@ -72,6 +72,20 @@ class GemmaAiModel implements AiModel {
   @override
   Future<void> ensureReady({List<AiTool> tools = const []}) async {
     if (_status == AiModelStatus.ready) return;
+    // A RETRY AFTER error PURGES ANY STALE PARTIAL FIRST — found live (2026-09-28): a download
+    // interrupted before this device ever got the foreground-service fix (v0.1.11 and earlier)
+    // can leave a corrupt/incomplete file on disk with its own "already handled" bookkeeping. The
+    // OS-level downloader below reattaches to that same on-disk state by a path-derived id, not by
+    // content — so every retry kept loading the SAME broken file forever, "stable network" or not.
+    // performCleanup() is flutter_gemma's own official answer to exactly this: "delete orphaned
+    // files and stale metadata left by interrupted installs."
+    if (_status == AiModelStatus.error) {
+      try {
+        await FlutterGemma.performCleanup();
+      } catch (_) {
+        // Best-effort — a cleanup failure must not block the retry it exists to unblock.
+      }
+    }
     try {
       _setStatus(AiModelStatus.downloading);
 
