@@ -1,4 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- REQUIRED FOR ANY NETWORK CALL AT ALL — found live (2026-09-28), reported by the owner as
+         "cannot connect to server" on login: this permission was missing entirely. Android
+         blocks every socket the app opens without it, so EVERY api call failed the same way,
+         not just login — it happened to go unnoticed until now because a plugin dependency's
+         own manifest may have merged an equivalent declaration in on some builds, which is not
+         something to depend on. Declared explicitly here regardless of what any dependency does. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="راجع"
         android:name="${applicationName}"
