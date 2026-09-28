@@ -197,7 +197,7 @@ async def backup_verify(request: Request, body: BackupVerifyIn,
     try:
         return await _backup.verify_restore(
             request.app.state.container.datastore, body.archive,
-            unseal=unseal, token=secrets.token_hex(8))
+            unseal=unseal, token=secrets.token_hex(8), declaration=BACKUP)
     except _backup.BackupError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
@@ -211,7 +211,8 @@ async def backup_import(request: Request, body: BackupImportIn,
         return await _backup.import_archive(
             request.app.state.container.datastore, body.archive,
             unseal=unseal, overwrite=body.overwrite, into_tenant=body.into_tenant,
-            prune=body.prune, scan_cap=settings.BACKUP_MAX_ROWS_PER_COLLECTION)
+            prune=body.prune, scan_cap=settings.BACKUP_MAX_ROWS_PER_COLLECTION,
+            declaration=BACKUP)
     except _backup.BackupError as exc:
         # A bad archive is the caller's problem, not a 500: the checksum failed, the key did not
         # match, or a row had no identity. Say which, so an operator can act.
@@ -543,10 +544,10 @@ async def internal_bookings_for_customer(request: Request, body: InternalForCust
     result is that customer's own history and nothing else — there is no parameter here that
     could name a different customer's data."""
     c = request.app.state.container
-    rows = await c.booking_ops.bookings_for_customer(body.tenant, body.customer_id)
+    rows, truncated = await c.booking_ops.bookings_for_customer(body.tenant, body.customer_id)
     if body.branch_id:
         rows = [b for b in rows if b.branch_id == body.branch_id]
-    return {"bookings": [b.public() for b in rows]}
+    return {"bookings": [b.public() for b in rows], "truncated": truncated}
 
 
 class InternalForSubjectIn(BaseModel):
@@ -563,8 +564,8 @@ async def internal_bookings_for_subject(request: Request, body: InternalForSubje
     the only route that hands out a real `customer_id` writes on every call — a real id just to
     look a history up. Read-only end to end: nothing on this path ever creates or touches a row."""
     c = request.app.state.container
-    rows = await c.booking_ops.bookings_for_subject(body.tenant, body.subject_ref)
-    return {"bookings": [b.public() for b in rows]}
+    rows, truncated = await c.booking_ops.bookings_for_subject(body.tenant, body.subject_ref)
+    return {"bookings": [b.public() for b in rows], "truncated": truncated}
 
 
 class InternalByActorIn(BaseModel):

@@ -31,6 +31,12 @@ BACKUP: dict[str, Any] = {
         # re-derivation step to keep honest.
         {"name": "booking_slots", "tenant_scoped": True,
          "key": "{tenant}|{branch_id}|{bucket}|{booking_id}"},
+        # THE OPERATOR SURFACE (core/runtime_config.py, pasted verbatim into every service) —
+        # found live (2026-09-28), a 13-service audit: never declared here at all. Mixes a
+        # platform-wide row (tenant "") and per-tenant overrides in the SAME collection — the
+        # same reasoning portal's own identical entry is declared under — so `tenant_scoped:
+        # False`, whole-collection restore only.
+        {"name": "runtime_config", "tenant_scoped": False},
     ],
     "excluded": [
         {"name": "booking_claims", "reason": "sub-15-second lock lanes, never worth a day-old "

@@ -6,7 +6,7 @@ package across a service boundary).
 """
 from __future__ import annotations
 
-MAX_QUANTITY = 100_000
+MAX_QUANTITY = 1_000
 
 
 def check_quantities(v: dict[str, int]) -> dict[str, int]:

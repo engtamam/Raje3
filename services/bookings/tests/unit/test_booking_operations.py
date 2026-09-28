@@ -160,17 +160,18 @@ def test_a_quantity_doubles_the_slot_duration_it_asks_for():
     assert booking.quantities == {"svc1": 2}
 
 
-def test_a_quantity_for_a_service_not_on_the_booking_is_dropped():
+def test_a_quantity_for_a_service_not_on_the_booking_is_refused():
+    """A stale client-side quantity for a service that isn't on this booking used to be silently
+    dropped; now it refuses instead of quietly booking the wrong count."""
     ops = _ops(minutes={"svc1": 30})
 
     async def run():
-        return await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
-                                customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
-                                quantities={"svc_never_chosen": 5})
+        with pytest.raises(OperationError, match="لا تطابق"):
+            await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                            customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
+                            quantities={"svc_never_chosen": 5})
 
-    booking = _run(run())
-    assert booking.quantities == {}
-    assert booking.duration_minutes == 30
+    _run(run())
 
 
 def test_an_out_of_range_quantity_refuses_before_any_booking_is_created():

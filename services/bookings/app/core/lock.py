@@ -62,7 +62,10 @@ def _span_buckets(starts_at: int, duration_minutes: int) -> list[int]:
     time, and a lock with nothing to claim would be no lock at all.
     """
     starts_at = int(starts_at)
-    end = starts_at + max(1, int(duration_minutes) * 60)
+    # Capped at 7 days — no real booking is ever longer; without this a bad quantities/duration
+    # answer could claim an unbounded number of lanes (resource exhaustion).
+    minutes = min(max(1, int(duration_minutes)), 10_080)
+    end = starts_at + minutes * 60
     first, last = starts_at_bucket(starts_at), starts_at_bucket(end - 1)
     return list(range(first, last + 1, BUCKET_SECONDS))
 
