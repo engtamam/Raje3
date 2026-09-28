@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart' show Share;
+import 'package:share_plus/share_plus.dart';
 
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
@@ -122,7 +122,9 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
 
   Future<void> _shareAffiliateCode(ReferralAffiliateRow row) async {
     if (row.code.isEmpty) return;
-    await Share.share('استخدم كود الإحالة "${row.code}" عند زيارتك القادمة واحصل على مكافأتك!');
+    await SharePlus.instance.share(
+      ShareParams(text: 'استخدم كود الإحالة "${row.code}" عند زيارتك القادمة واحصل على مكافأتك!'),
+    );
   }
 
   Future<void> _openAddAffiliateSheet() async {

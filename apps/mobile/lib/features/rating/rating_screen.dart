@@ -314,7 +314,9 @@ class _RatingScreenState extends State<RatingScreen> {
       final ext = format == 'docx' ? 'docx' : 'pdf';
       final file = File('${dir.path}/rating_report_${now.millisecondsSinceEpoch}.$ext');
       await file.writeAsBytes(bytes);
-      await Share.shareXFiles([XFile(file.path)], text: s.ratingExportTitle);
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(file.path)], text: s.ratingExportTitle),
+      );
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.ratingExportFailed)));

@@ -27,12 +27,12 @@ void main() {
 
   group('buildAiModel', () {
     // THE REAL DEFAULT NOW (owner's own decision, 2026-09-21: "خلي الميزة مفعلة كليا") — 'gemma',
-    // pointed at a real bundled-asset path (owner's own later reversal, 2026-09-22: the model
-    // ships inside the app, never downloaded — see AiConfig.gemmaModelAssetPath's own doc
-    // comment), so a build with nothing set actually builds the real adapter, not the null one.
-    test('defaults to GemmaAiModel, pointed at the bundled asset path, with nothing set', () {
+    // sourced via a Play Asset Delivery pack by default (owner's own later decision, 2026-09-22:
+    // see AiConfig's own doc comment), so a build with nothing set actually builds the real
+    // adapter, not the null one.
+    test('defaults to GemmaAiModel, sourced from the Play Asset Delivery pack, with nothing set', () {
       expect(AiConfig.modelDriver, 'gemma');
-      expect(AiConfig.gemmaModelAssetPath, isNotEmpty);
+      expect(AiConfig.modelSource, 'pack');
       final model = buildAiModel();
       expect(model, isA<GemmaAiModel>());
       expect(model.status, AiModelStatus.needsDownload);

@@ -1280,8 +1280,9 @@ class AuthService {
       final response =
           await apiClient.dio.get<dynamic>('/api/v1/billing/discount-preview');
       final body = response.data;
-      if (body is! Map)
+      if (body is! Map) {
         return (const <String, DiscountInfo>{}, const <String, DiscountInfo>{});
+      }
       Map<String, DiscountInfo> parse(String key) {
         final m = body[key];
         if (m is! Map) return const {};
@@ -1413,8 +1414,9 @@ class AuthService {
       final response =
           await apiClient.dio.post<dynamic>('/api/v1/subscription/renew-now');
       final data = response.data;
-      if (response.statusCode != 200 && response.statusCode != 201)
+      if (response.statusCode != 200 && response.statusCode != 201) {
         return const [];
+      }
       if (data is! Map) return const [];
       final urls = data['pay_urls'];
       if (urls is! List) return const [];

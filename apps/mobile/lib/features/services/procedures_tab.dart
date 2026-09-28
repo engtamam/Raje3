@@ -360,7 +360,7 @@ Future<void> _shareBytes(List<int> bytes, String label, S s) async {
   final dir = await getTemporaryDirectory();
   final file = File('${dir.path}/procedures_${DateTime.now().millisecondsSinceEpoch}.pdf');
   await file.writeAsBytes(bytes);
-  await Share.shareXFiles([XFile(file.path)], text: label);
+  await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: label));
 }
 
 class _SeverityDot extends StatelessWidget {

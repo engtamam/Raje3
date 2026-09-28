@@ -177,7 +177,9 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
     return subs.where((s) {
       if (s.id == cancelling.id ||
           s.status == 'canceled' ||
-          s.cancelAtPeriodEnd) return false;
+          s.cancelAtPeriodEnd) {
+        return false;
+      }
       final p = plans.where((pp) => pp.id == s.planId).firstOrNull;
       return p != null && _dependentKeys.contains(p.appKey);
     }).toList(growable: false);
