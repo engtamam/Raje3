@@ -33,6 +33,18 @@ BACKUP: dict[str, Any] = {
         # Platform-scoped: one row per establishment under the reserved tenant. A per-tenant
         # restore must not be able to raise its own ceiling.
         {"name": "audience_caps", "tenant_scoped": False},
+        # THE COUNTERS THEMSELVES — found live (2026-09-28), a 13-service audit: neither was
+        # declared here at all. Both are the one place `goal_stats.py`/`milestone.py` persist real,
+        # user-visible progress (goal usage/reach counts; a milestone campaign's shared
+        # contribution total) — losing either on restore silently zeroes numbers an owner is
+        # actively watching, or resets a milestone's progress toward its threshold.
+        {"name": "campaign_goal_stats", "tenant_scoped": True},
+        {"name": "campaign_milestone_progress", "tenant_scoped": True},
+        # THE OPERATOR SURFACE (core/runtime_config.py, pasted verbatim into every service) —
+        # same gap, same fix as every sibling service: mixes a platform-wide row and per-tenant
+        # overrides in the SAME collection, so `tenant_scoped: False`, whole-collection restore
+        # only.
+        {"name": "runtime_config", "tenant_scoped": False},
     ],
     "excluded": [
         # THE PRESS CLAIMS (ز-4). Ten-minute keys that say «this launch is already happening».
