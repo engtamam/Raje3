@@ -94,6 +94,15 @@ env:
   # database. Raised fleet-wide rather than per-incident so the next burst (a mass redeploy, a
   # traffic spike) does not rediscover this one service at a time.
   DATASTORE_POOL_MAX: "10"
+
+  # THE GATEWAY MIDDLEWARE'S OWN DEFAULT (1 MiB) IS SMALLER THAN A SINGLE LOGO PHOTO. The brand
+  # logo travels as a base64 data URI inside {"branding": {"logo_url": ...}} — base64 inflates the
+  # real bytes by 4/3, and a real gallery photo easily exceeds 1 MiB even after the mobile app's
+  # own maxWidth/maxHeight resize (found live, 2026-09-28, reported by the owner: "الشعار عند
+  # الحفظ ما يتحفظ" — the PUT was failing on a bare 413 with no visible error surfaced clearly
+  # enough to notice). Same fix, same reasoning, as affiliate-service's and operations' own
+  # BODY_LIMIT_BYTES overrides for their own photo uploads.
+  BODY_LIMIT_BYTES: "3000000"
   # v0.25.36's tenant-003 boot guard refuses to start unless this route is explicitly allow-
   # listed. "*" (not a named service) because INTERNAL_CALLER_DRIVER is still the default
   # "shared" here — no assertion-based caller identity is deployed for this service, so every

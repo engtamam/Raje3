@@ -39,6 +39,12 @@ dependencies:
   # URI in `branding.logo_url` (PUT /api/v1/tenant/branding) — same field, same shape as the
   # console's own `shrink()`.
   image_picker: ^1.1.2
+  # «منشأتي»'s own brand-color field — pure Dart, no native/platform code (unlike most plugins
+  # this session already fought with), so no gradle/manifest risk. Mobile had no picker at all
+  # (found live, 2026-09-28, reported by the owner): a plain hex text field with no way to open a
+  # palette, unlike console's own `<input type="color">` (apps/console/src/screens/account/
+  # IdentityPane.tsx) which opens the browser's native wheel.
+  flutter_colorpicker: ^1.1.0
   # «التقييم»'s own «تصدير التقرير» — a real binary (PDF/DOCX) POST response, saved to a temp file
   # then handed to the OS share sheet. No local database anywhere else in this app; these two are
   # here purely as OS-integration glue for one already-real server endpoint, not new storage.
