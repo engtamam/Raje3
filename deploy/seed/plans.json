@@ -275,7 +275,7 @@
         "percent 0 grants nothing — the feature stays off until an operator sets one."
       ],
       "name": "بوت خدمة العملاء الذكي",
-      "amount": 19900,
+      "amount": 9900,
       "trial_days": 14,
       "listed": true,
       "credit_percent_of_price": true,
@@ -378,12 +378,20 @@
         "BACKEND ONLY AS OF THIS ROW — the three console surfaces (a rail tab, a checkbox inside",
         "تسجيل زيارة, and the platform admin's settings/tiers panel) are a later, separate pass;",
         "`screen: 'partner-loyalty'` in core/apps.py is declared now so",
-        "`ci/check_listed_apps_are_wired.py` never sees this row unwired once it ships."
+        "`ci/check_listed_apps_are_wired.py` never sees this row unwired once it ships.",
+        "",
+        "PRICE 0 AND UNLISTED, OWNER'S OWN CALL (2026-09-28): this app is for specific partners the",
+        "platform picks by hand, never something a shop finds and subscribes to on its own — so it",
+        "is free (no money changes hands for a hand-picked partnership) and hidden from the store",
+        "(`listed: false`). Still a REAL, subscribable plan (`active` stays true) — a platform",
+        "operator grants it to a chosen tenant directly, the same `active-but-unlisted` shape",
+        "`plans.limit.referrals.label`'s own neighbours use elsewhere on this list for a negotiated,",
+        "not-browsed-to plan."
       ],
       "name": "ولاء الشركاء",
-      "amount": 9900,
+      "amount": 0,
       "trial_days": 30,
-      "listed": true,
+      "listed": false,
       "limits": {
         "feature.partner_loyalty": {
           "kind": "boolean",

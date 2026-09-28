@@ -19,7 +19,7 @@ image:
   # create_service.py's own convention: "CI rewrites this at publish; never a :latest tag").
   # ship.sh / publish-images.sh must run and overwrite this before any rollout is attempted;
   # a rollout against this digest fails at image pull, which is the correct, loud failure.
-  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  digest: "sha256:9537b0ff2ab969c982a8e3d5ce0b52302a77602da557123cb010f0238630749e"   # 70fdbe08, published by publish-images.sh
 
 replicas: 1
 
@@ -71,6 +71,9 @@ env:
 
   # ── this app's own domain knob (spec §5/§7) ──────────────────────────────────────────────
   COWORKING_PHONE_DEFAULT_CC: "966"
+
+  # ── the public portal's own shop-branding read (core/shop_info.py) ───────────────────────
+  TENANT_SERVICE_URL: "http://tenant-service:8000"
 
   AUDIT_SINK_DRIVER: "http"
   AUDIT_SERVICE_URL: "http://audit-service:8000"
