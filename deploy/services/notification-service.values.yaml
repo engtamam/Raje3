@@ -16,7 +16,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/notification-service
-  digest: "sha256:6a55cbc3392d78c0f4923c9db25f23cf655dbb7cbe245f02e466d29a52c1f100"   # v0.25.35
+  digest: "sha256:456f7b132ff370f468f306dbc50683feff405cd2ebc3e4de8f96d5c3cf40ec27"   # v0.25.36
 
 replicas: 1
 
@@ -261,17 +261,33 @@ env:
   # lawful basis — the single most expensive mistake available in this file.
   NOTIFY_CONSENT_PURPOSES: |
     {
-      "summer_promo_offer": "marketing",
-      "national_day_promo": "marketing",
-      "free_addon_offer": "marketing",
-      "winback_discount_offer": "marketing",
-      "travel_checkup_promo": "marketing",
-      "weekend_special_deal": "marketing",
-      "second_car_discount": "marketing",
-      "new_oil_product_launch": "marketing",
-      "refer_a_friend_promo": "marketing",
-      "loyalty_points_claim": "marketing",
-      "campaign.send": "marketing"
+      "svc_service_reminder_masculine": "marketing",
+      "svc_service_reminder_feminine": "marketing",
+      "mkt_offer_masculine": "marketing",
+      "mkt_offer_feminine": "marketing",
+      "mkt_offer_masculine_photo_button": "marketing",
+      "mkt_offer_feminine_photo_button": "marketing",
+      "mkt_winback_masculine": "marketing",
+      "mkt_winback_feminine": "marketing",
+      "mkt_winback_masculine_photo_button": "marketing",
+      "mkt_winback_feminine_photo_button": "marketing",
+      "mkt_loyalty_activation_masculine": "marketing",
+      "mkt_loyalty_activation_feminine": "marketing",
+      "mkt_loyalty_activation_masculine_photo_button": "marketing",
+      "mkt_loyalty_activation_feminine_photo_button": "marketing",
+      "mkt_announcement_masculine": "marketing",
+      "mkt_announcement_feminine": "marketing",
+      "mkt_announcement_masculine_photo_button": "marketing",
+      "mkt_announcement_feminine_photo_button": "marketing",
+      "mkt_personal_occasion_masculine": "marketing",
+      "mkt_personal_occasion_feminine": "marketing",
+      "mkt_personal_occasion_masculine_photo_button": "marketing",
+      "mkt_personal_occasion_feminine_photo_button": "marketing",
+      "mkt_community_milestone_masculine": "marketing",
+      "mkt_community_milestone_feminine": "marketing",
+      "mkt_community_milestone_launch_masculine": "marketing",
+      "mkt_community_milestone_launch_feminine": "marketing",
+      "wa_catalog_carousel": "marketing"
     }
   # Closed when the gate cannot answer. An unsent marketing message is a smaller harm than one
   # sent with no lawful basis, and the gated set is by definition what a regulator asks about.
