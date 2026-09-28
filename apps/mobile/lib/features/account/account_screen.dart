@@ -210,12 +210,12 @@ class _VersionFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: FutureBuilder<String>(
-        future: DeviceInfoHelper.getFullVersion(),
+        future: DeviceInfoHelper.getAppVersion(),
         builder: (context, snapshot) {
           final version = snapshot.data;
           if (version == null) return const SizedBox.shrink();
           return Text(
-            '${AppConstants.appNameAr} $version',
+            '${AppConstants.appNameAr} v$version',
             style: TextStyle(fontSize: 12, color: context.isDark ? AppDarkColors.textMuted : AppColors.textMuted),
           );
         },

@@ -36,6 +36,28 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_ROOT="$(cd "$ROOT/../.." && pwd)"
 cd "$ROOT"
 
+# AUTO-BUMP pubspec.yaml's patch version — found live (2026-09-28): a hand-edited version that
+# nobody remembered to bump before v0.1.7 shipped left the account screen's own version footer
+# (account_screen.dart) reading v0.1.6 a full release behind reality. This is the ONE place a
+# version is decided for a direct-download build, so every other consumer (the version footer,
+# mobile_release_publish's own tag) can just read what this script already wrote instead of a
+# human keeping two files in sync by hand. Skipped entirely when SKIP_VERSION_BUMP=1 (kept for a
+# rebuild of the SAME version — a hotfix retry, a local test build nobody is about to publish).
+if [ "${SKIP_VERSION_BUMP:-0}" != "1" ]; then
+  CURRENT_VERSION="$(grep -m1 '^version:' pubspec.yaml | sed 's/^version:[[:space:]]*//')"
+  # X.Y.Z only, no +build — Android's versionCode is fixed at 1 for this build (owner's own
+  # 2026-09-28 call: this channel is direct-download only, never Google Play, so versionCode
+  # never needs to increase; see pubspec.yaml's own version line if that ever changes).
+  IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+  NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+  sed -i "s/^version:.*/version: $NEW_VERSION/" pubspec.yaml
+  echo "build_apk_direct: version bumped $CURRENT_VERSION -> $NEW_VERSION (pubspec.yaml)"
+else
+  NEW_VERSION="$(grep -m1 '^version:' pubspec.yaml | sed 's/^version:[[:space:]]*//')"
+  echo "build_apk_direct: SKIP_VERSION_BUMP=1 — building $NEW_VERSION as-is"
+fi
+echo "build_apk_direct: RELEASE_VERSION=v$NEW_VERSION"
+
 # GATED ON THE MOBILE-KB CHECKS — the owner's own explicit call (2026-09-28), after finding these
 # gates existed (wired into .github/workflows/guards.yml) but never actually blocked a real build:
 # ship.sh has its own pre-flight gate list for base-services, but nothing analogous ever ran before
