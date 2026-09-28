@@ -18,7 +18,7 @@ image:
   # create_service.py's own convention: "CI rewrites this at publish; never a :latest tag").
   # ship.sh / publish-images.sh must run and overwrite this before any rollout is attempted;
   # a rollout against this digest fails at image pull, which is the correct, loud failure.
-  digest: "sha256:c75555c53f877d0511f39944f7e5f154f8146c075ca5d503181644e6ae1dfe26"   # a7927650, published by publish-images.sh
+  digest: "sha256:c166f14fa201a3d81b9b3f959b6a96ac389966dd2b02fa4012ffbf6d1bb75ca2"   # b164a489, published by publish-images.sh
 
 replicas: 1
 
@@ -38,6 +38,16 @@ resources:
     memory: 128Mi
   limits:
     memory: 256Mi
+
+# CRONJOB PODS YIELD TO REAL SERVICES UNDER NODE CONTENTION — found live (2026-09-28): with
+# this off (the chart default), a seconds-lived CronJob pod competes for scheduling at the
+# same priority as an always-on Deployment, and can win the race and starve it (deploy/k3s/
+# priorityclasses.yaml explains the whole mechanism; api-gateway.values.yaml was the only
+# service that had already turned this on). This only changes what priority THIS service's
+# OWN CronJob pods get (base-services-batch, never-preempt) — zero risk to the Deployment
+# itself, which stays at default priority unless it separately sets priorityClassName.
+priorityClasses:
+  enabled: true
 
 autoscaling:
   enabled: false        # flip on once you have load; requests.cpu above makes it real

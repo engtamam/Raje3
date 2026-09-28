@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/loyalty
-  digest: "sha256:10f7400937abde6022423b4670622cc0bed1757eef43bf283e11d46e067c0b0b"   # b65afcda, published by publish-images.sh
+  digest: "sha256:9ac846751babc301f165ebc0c18af110ef3457ff6736807246a07a8e8b3cae60"   # b164a489, published by publish-images.sh
 
 replicas: 1
 
@@ -39,6 +39,16 @@ resources:
     memory: 128Mi
   limits:
     memory: 256Mi
+
+# CRONJOB PODS YIELD TO REAL SERVICES UNDER NODE CONTENTION — found live (2026-09-28): with
+# this off (the chart default), a seconds-lived CronJob pod competes for scheduling at the
+# same priority as an always-on Deployment, and can win the race and starve it (deploy/k3s/
+# priorityclasses.yaml explains the whole mechanism; api-gateway.values.yaml was the only
+# service that had already turned this on). This only changes what priority THIS service's
+# OWN CronJob pods get (base-services-batch, never-preempt) — zero risk to the Deployment
+# itself, which stays at default priority unless it separately sets priorityClassName.
+priorityClasses:
+  enabled: true
 
 autoscaling:
   enabled: false        # flip on once you have load; requests.cpu above makes it real

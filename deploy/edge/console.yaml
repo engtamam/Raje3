@@ -21,6 +21,21 @@ spec:
   replicas: 1
   selector:
     matchLabels: { app: console }
+  # SINGLE REPLICA: REPLACE, DO NOT SURGE — found live (2026-09-28): this raw manifest (never
+  # rendered through platform/deploy/chart, which already carries this exact fix for every
+  # helm-templated service) had no `strategy` block at all, so it fell back to Kubernetes' own
+  # RollingUpdate default (25% maxSurge) — for replicas:1 that rounds up to "create the new pod
+  # BEFORE killing the old one", doubling console's own CPU reservation for the whole rollout.
+  # On a single-node cluster already near its real capacity, that transient double-booking was
+  # enough by itself to leave the new pod Pending indefinitely (confirmed: this exact deployment
+  # stuck on exactly this ship). maxSurge:0 kills the old pod first, freeing its slot, then starts
+  # the new one — a few seconds of unavailability, the same trade every other single-replica
+  # service on this fleet already makes.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
   template:
     metadata:
       labels: { app: console }
@@ -32,7 +47,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: console
-          image: ghcr.io/engtamam/raje3/console@sha256:146bb16fde4de271828dc42d1c7f2e5aca4b3ad333db89456c25f3bda4e53db8   # 28fd5409, published by publish-images.sh
+          image: ghcr.io/engtamam/raje3/console@sha256:460a877a9c07095777ef01a4ecd34abdf9a6256eaf837a81ec62ee423269929f   # b164a489, published by publish-images.sh
           ports:
             - { containerPort: 8080 }
           # "Stealth" launch mode — see apps/console/Caddyfile's own @landing_off matcher. "true"
