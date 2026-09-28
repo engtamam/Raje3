@@ -66,6 +66,7 @@
   "assistantSend": "পাঠান",
   "assistantUnavailable": "সহায়ক এখন উপলব্ধ নেই।",
   "assistantPreparing": "সহায়ক প্রস্তুত হচ্ছে...",
+  "assistantRetryDownload": "আবার চেষ্টা করুন",
   "assistantSpeak": "উত্তর শুনুন",
   "assistantStopSpeaking": "থামান",
   "assistantActionUnavailable": "আপনি এখন এটি করতে পারবেন না।",

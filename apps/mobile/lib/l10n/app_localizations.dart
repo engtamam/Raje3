@@ -501,6 +501,12 @@ abstract class S {
   /// **'جاري تجهيز المساعد...'**
   String get assistantPreparing;
 
+  /// No description provided for @assistantRetryDownload.
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة المحاولة'**
+  String get assistantRetryDownload;
+
   /// No description provided for @assistantSpeak.
   ///
   /// In ar, this message translates to:

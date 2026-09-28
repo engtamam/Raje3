@@ -66,6 +66,7 @@
   "assistantSend": "Send",
   "assistantUnavailable": "The assistant is not available right now.",
   "assistantPreparing": "Preparing the assistant...",
+  "assistantRetryDownload": "Retry",
   "assistantSpeak": "Listen to the answer",
   "assistantStopSpeaking": "Stop speaking",
   "assistantActionUnavailable": "You can't do this right now.",

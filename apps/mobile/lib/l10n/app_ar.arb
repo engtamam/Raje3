@@ -204,6 +204,7 @@
   "assistantSend": "إرسال",
   "assistantUnavailable": "المساعد غير متاح حالياً.",
   "assistantPreparing": "جاري تجهيز المساعد...",
+  "assistantRetryDownload": "إعادة المحاولة",
   "assistantSpeak": "استمع للرد",
   "assistantStopSpeaking": "إيقاف الصوت",
   "assistantActionUnavailable": "ما تقدر تسوي هذا الآن.",

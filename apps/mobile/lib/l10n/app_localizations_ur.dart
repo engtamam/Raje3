@@ -226,6 +226,9 @@ class SUr extends S {
   String get assistantPreparing => 'معاون تیار کیا جا رہا ہے...';
 
   @override
+  String get assistantRetryDownload => 'دوبارہ کوشش کریں';
+
+  @override
   String get assistantSpeak => 'جواب سنیں';
 
   @override

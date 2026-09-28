@@ -227,6 +227,9 @@ class SHa extends S {
   String get assistantPreparing => 'Ana shirya mataimaki...';
 
   @override
+  String get assistantRetryDownload => 'Sake gwadawa';
+
+  @override
   String get assistantSpeak => 'Saurari amsa';
 
   @override

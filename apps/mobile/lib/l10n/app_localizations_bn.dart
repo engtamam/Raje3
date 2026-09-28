@@ -227,6 +227,9 @@ class SBn extends S {
   String get assistantPreparing => 'সহায়ক প্রস্তুত হচ্ছে...';
 
   @override
+  String get assistantRetryDownload => 'আবার চেষ্টা করুন';
+
+  @override
   String get assistantSpeak => 'উত্তর শুনুন';
 
   @override

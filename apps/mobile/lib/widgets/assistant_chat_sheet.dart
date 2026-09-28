@@ -47,6 +47,8 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
   final _scrollController = ScrollController();
   late final List<AssistantTurn> _turns = widget.seed == null ? [] : [widget.seed!];
   AiModelStatus _status = AiModelStatus.unavailable;
+  int _downloadPercent = 0;
+  StreamSubscription<int>? _downloadProgressSubscription;
   bool _answering = false;
   AssistantTurn? _speaking;
 
@@ -66,6 +68,9 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
     _assistant.statusStream.listen((s) {
       if (mounted) setState(() => _status = s);
     });
+    _downloadProgressSubscription = _assistant.downloadProgress.listen((p) {
+      if (mounted) setState(() => _downloadPercent = p);
+    });
     if (_status != AiModelStatus.ready) {
       _assistant.ensureReady(context.read<NavProvider>().catalog);
     }
@@ -75,8 +80,19 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _downloadProgressSubscription?.cancel();
     _tts.stop();
     super.dispose();
+  }
+
+  /// Retries the exact same [AssistantService.ensureReady] the sheet's own initState already
+  /// tried once — a lost connection mid-download previously left [_status] stuck at
+  /// [AiModelStatus.error] forever, with no way back short of force-closing the app (found live,
+  /// 2026-09-28). [AiModelStatus.unavailable] gets no such button: that state means the device or
+  /// build genuinely cannot run the model at all, not a failure retrying would ever fix.
+  void _retryDownload() {
+    setState(() => _status = AiModelStatus.downloading);
+    _assistant.ensureReady(context.read<NavProvider>().catalog);
   }
 
   Future<void> _toggleSpeak(AssistantTurn turn) async {
@@ -208,11 +224,30 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
 
   Widget _buildBody(ScrollController scrollController) {
     final s = S.of(context)!;
-    if (_status == AiModelStatus.unavailable || _status == AiModelStatus.error) {
+    if (_status == AiModelStatus.unavailable) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Text(s.assistantUnavailable, style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
+        ),
+      );
+    }
+    if (_status == AiModelStatus.error) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(s.assistantUnavailable, style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
+              const SizedBox(height: AppSpacing.md),
+              FilledButton.icon(
+                onPressed: _retryDownload,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: Text(s.assistantRetryDownload),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -223,9 +258,13 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(),
+              CircularProgressIndicator(value: _downloadPercent > 0 ? _downloadPercent / 100 : null),
               const SizedBox(height: AppSpacing.md),
-              Text(s.assistantPreparing, style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
+              Text(
+                _downloadPercent > 0 ? '${s.assistantPreparing} ($_downloadPercent%)' : s.assistantPreparing,
+                style: AppTextStyles.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),

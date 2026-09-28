@@ -54,6 +54,14 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
 
   Offset? _fraction;
   _VoiceState _state = _VoiceState.idle;
+  // MIRRORS AssistantService'S OWN STATE, PURELY FOR THE SMALL DOWNLOAD RING BELOW — the app
+  // itself never blocks on this: the model downloads in the background the moment this button
+  // first mounts (see initState), and every screen underneath keeps working exactly as if the
+  // assistant weren't there at all. Only the button's own decoration reacts to it.
+  AiModelStatus _modelStatus = AiModelStatus.unavailable;
+  int _downloadPercent = 0;
+  StreamSubscription<AiModelStatus>? _modelStatusSubscription;
+  StreamSubscription<int>? _downloadProgressSubscription;
   StreamSubscription<AiEvent>? _answerSubscription;
   // GUARDS AGAINST A DOUBLE-TAP RACE: _startOrFallBack awaits isAvailable() before _state
   // leaves idle, so a second tap landing inside that window would otherwise start listening
@@ -80,12 +88,29 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
     _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
       ..repeat(reverse: true);
     unawaited(_maybeStartWakeWord());
+
+    // STARTS THE MODEL DOWNLOAD THE MOMENT THIS BUTTON MOUNTS, NEVER WAITING FOR A FIRST TAP —
+    // the owner's own call (2026-09-28): the app stays fully usable the whole time; this button
+    // is the only thing that shows anything is happening, via the small ring below. A no-op if
+    // the model is already downloaded/ready (AiModel.ensureReady's own contract).
+    _modelStatus = _assistant.status;
+    _modelStatusSubscription = _assistant.statusStream.listen((s) {
+      if (mounted) setState(() => _modelStatus = s);
+    });
+    _downloadProgressSubscription = _assistant.downloadProgress.listen((p) {
+      if (mounted) setState(() => _downloadPercent = p);
+    });
+    if (_modelStatus != AiModelStatus.ready) {
+      unawaited(_assistant.ensureReady(context.read<NavProvider>().catalog));
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _wakeWord.dispose();
+    _modelStatusSubscription?.cancel();
+    _downloadProgressSubscription?.cancel();
     _answerSubscription?.cancel();
     _pulseController.dispose();
     super.dispose();
@@ -123,6 +148,15 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
     // "no implicit fallthrough" rule to keep these four branches independent.
     switch (_state) {
       case _VoiceState.idle:
+        if (_modelStatus == AiModelStatus.error) {
+          // RETRY, NOT A DEAD BUTTON — a lost connection mid-download previously left the
+          // assistant stuck in AiModelStatus.error forever (found live, 2026-09-28: nothing
+          // anywhere retried it). A tap here re-fires the exact same ensureReady() the button's
+          // own initState already tried once.
+          setState(() => _modelStatus = AiModelStatus.downloading);
+          unawaited(_assistant.ensureReady(context.read<NavProvider>().catalog));
+          return;
+        }
         await _startOrFallBack();
         return;
       case _VoiceState.listening:
@@ -282,6 +316,11 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
     if (mounted && _state == _VoiceState.speaking) _goIdle();
   }
 
+  IconData _mainIcon() {
+    if (_state != _VoiceState.idle) return Icons.stop_rounded;
+    return Icons.mic_rounded;
+  }
+
   @override
   Widget build(BuildContext context) {
     // MediaQuery.sizeOf, NEVER a LayoutBuilder HERE. A LayoutBuilder is itself a
@@ -334,25 +373,57 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
               ],
             );
           },
-          child: Container(
-            width: _size,
-            height: _size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: appPrimaryGradient,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.accent.withValues(alpha: 0.35),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
+          child: Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: _size,
+                height: _size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: appPrimaryGradient,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.accent.withValues(alpha: 0.35),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Icon(
-              _state == _VoiceState.idle ? Icons.mic_rounded : Icons.stop_rounded,
-              color: AppColors.accentContrast,
-              size: 26,
-            ),
+                child: Icon(
+                  _mainIcon(),
+                  color: AppColors.accentContrast,
+                  size: 26,
+                ),
+              ),
+              // THE ONLY VISIBLE TRACE OF THE BACKGROUND MODEL DOWNLOAD — a thin ring, never a
+              // blocking dialog: the button (and every screen under it) stays fully usable while
+              // this shows. Hidden entirely once ready/idle-with-no-model-story, so a device that
+              // never runs the assistant (AiModelStatus.unavailable) sees no ring, ever.
+              if (_state == _VoiceState.idle && _modelStatus == AiModelStatus.downloading)
+                SizedBox(
+                  width: _size + 6,
+                  height: _size + 6,
+                  child: CircularProgressIndicator(
+                    value: _downloadPercent > 0 ? _downloadPercent / 100 : null,
+                    strokeWidth: 2.5,
+                    color: AppColors.accentContrast,
+                    backgroundColor: AppColors.accentContrast.withValues(alpha: 0.25),
+                  ),
+                ),
+              if (_state == _VoiceState.idle && _modelStatus == AiModelStatus.error)
+                Positioned(
+                  bottom: -2,
+                  right: -2,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.redAccent),
+                    child: const Icon(Icons.refresh_rounded, size: 11, color: Colors.white),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
