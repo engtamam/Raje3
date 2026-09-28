@@ -33,7 +33,7 @@ drivers:
 
 resources:
   requests:
-    cpu: 14m  # smart-cpu-sizing.py: cold tier — new service, no real traffic yet to measure against
+    cpu: 12m  # smart-cpu-sizing.py: cold tier, node budget-derived
     memory: 128Mi
   limits:
     memory: 256Mi

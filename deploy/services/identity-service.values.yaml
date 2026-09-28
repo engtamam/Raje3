@@ -46,7 +46,7 @@ resources:
     # these files, so on a quiet node this service still takes a whole core if it needs one.
     # The number below decides two things only: that it is always guaranteed this much, and
     # what share it gets when the node is genuinely contended.
-    cpu: 53m  # smart-cpu-sizing.py: medium tier, node budget-derived
+    cpu: 51m  # smart-cpu-sizing.py: medium tier, node budget-derived
     memory: 192Mi     # argon2 hashing is memory-hard by design
   limits:
     memory: 384Mi

@@ -54,7 +54,7 @@ resources:
     # moment of failure — the process wasn't overloaded, it simply wasn't winning the CPU
     # scheduling race against the fleet's own CronJob churn on a contended 2-vCPU node. At rest,
     # 20m is still plenty; under burst, it is not — this sizes for the burst, not the rest state.
-    cpu: 105m  # smart-cpu-sizing.py: hot tier, node budget-derived
+    cpu: 102m  # smart-cpu-sizing.py: hot tier, node budget-derived
     memory: 192Mi
   limits:
     memory: 384Mi

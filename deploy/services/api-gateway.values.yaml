@@ -48,7 +48,7 @@ resources:
     # carries EVERY other service's traffic on top of its own: it is structurally the single
     # busiest process in the fleet, and deserves a proportionally higher weight than a peer that
     # only serves its own domain.
-    cpu: 208m  # smart-cpu-sizing.py: hottest tier, node budget-derived
+    cpu: 202m  # smart-cpu-sizing.py: hottest tier, node budget-derived
     memory: 192Mi
   limits:
     memory: 384Mi

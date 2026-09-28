@@ -17,7 +17,7 @@ image:
   # create_service.py's own convention: "CI rewrites this at publish; never a :latest tag").
   # ship.sh / publish-images.sh must run and overwrite this before any rollout is attempted;
   # a rollout against this digest fails at image pull, which is the correct, loud failure.
-  digest: "sha256:b4953eedf968332a8d8e5cd2f47ecc9af81cb98e374afe6668412936585bdc84"   # 70fdbe08, published by publish-images.sh
+  digest: "sha256:dc3e4f929b61ed65cdaeb8508bb2f2850db18e88a52bacab83245f92dacc85c1"   # a7927650, published by publish-images.sh
 
 replicas: 1
 
@@ -33,7 +33,7 @@ resources:
     # MEASURED-NOT-GUESSED CONVENTION (see loyalty.values.yaml's own note): every live service on
     # this fleet sits at 2-4m at rest. 20m matches the fleet's floor rather than the chart's
     # unmeasured 50m default — revisit once this service actually carries traffic.
-    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
+    cpu: 12m  # smart-cpu-sizing.py: cold tier, node budget-derived
     memory: 128Mi
   limits:
     memory: 256Mi

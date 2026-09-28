@@ -26,7 +26,7 @@ image:
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
   repository: ghcr.io/engtamam/raje3/operations
-  digest: "sha256:9f3a60ca349e8926562826d7721a2028500da05d0fda21b6a1bc9a00508d0f44"   # 28fd5409, published by publish-images.sh
+  digest: "sha256:c8f5b29547c1e6e7ba21e63610a74563f0dca8194f6cefc969c51e9b4d2d5135"   # a7927650, published by publish-images.sh
 
 replicas: 1
 
@@ -58,7 +58,7 @@ resources:
     # moment of failure — the process wasn't overloaded, it simply wasn't winning the CPU
     # scheduling race against the fleet's own CronJob churn on a contended 2-vCPU node. At rest,
     # 40m is still plenty; under burst, it is not — this sizes for the burst, not the rest state.
-    cpu: 105m  # smart-cpu-sizing.py: hot tier, node budget-derived
+    cpu: 102m  # smart-cpu-sizing.py: hot tier, node budget-derived
     memory: 256Mi
   limits:
     memory: 512Mi

@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/affiliate-service
-  digest: "sha256:c8f3ac3e13e84b8bfef165bcfbd405c059cdee91d67bfb70d41c58f29ce719cb"   # 70fdbe08, published by publish-images.sh
+  digest: "sha256:a9268bc64d4e84579452fe1f034038495e978d8acd6a50360516bb322ceefec9"   # a7927650, published by publish-images.sh
 
 replicas: 1
 
@@ -23,7 +23,7 @@ drivers:
 
 resources:
   requests:
-    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
+    cpu: 12m  # smart-cpu-sizing.py: cold tier, node budget-derived
     memory: 128Mi
   limits:
     memory: 256Mi

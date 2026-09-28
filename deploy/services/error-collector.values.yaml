@@ -31,7 +31,7 @@ image:
   # create_service.py's own convention: "CI rewrites this at publish; never a :latest tag").
   # ship.sh / publish-images.sh must run and overwrite this before any rollout is attempted;
   # a rollout against this digest fails at image pull, which is the correct, loud failure.
-  digest: "sha256:9d5709c51940eabe29cd4866face8023aea259cc8bdf0e4d4facad98a62bcfbd"   # 70fdbe08, published by publish-images.sh
+  digest: "sha256:4cabe22c656dfe7853c70708a74ac348da37d2ca1af91230a7758232bfae553b"   # a7927650, published by publish-images.sh
 
 replicas: 1
 
@@ -51,7 +51,7 @@ resources:
     # MEASURED-NOT-GUESSED CONVENTION (see loyalty.values.yaml's own note): every live service on
     # this fleet sits at 2-4m at rest. The cold tier's floor, because this one does no work between
     # requests at all — no tick, no peer polling, one nightly sweep.
-    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
+    cpu: 12m  # smart-cpu-sizing.py: cold tier, node budget-derived
     # SMALLER THAN THE FLEET'S 128Mi, and the reason is the shape of the work rather than thrift:
     # every route here is one bounded page in and one bounded page out, with a 16 KB ceiling on the
     # largest field. There is no in-memory aggregate, no cache of anything, and nothing accumulates
