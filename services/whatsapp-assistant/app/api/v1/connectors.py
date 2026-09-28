@@ -159,7 +159,7 @@ async def _invoke(request: Request, *, tool: str, ctx: _ConnectorBase,
         try:
             held = await container.held_apps.held(ctx.tenant)
         except Exception:                                              # noqa: BLE001
-            held = frozenset()
+            held = None
     base_tools = frozenset({tool})
     allowed = T.tools_for_held_apps(base_tools, held)
     if tool not in allowed:
@@ -382,7 +382,7 @@ async def confirm_proposal(body: ConfirmProposalIn, request: Request) -> dict:
             tenant=body.tenant, proposal_id=body.proposal_id, store=container.datastore,
             booking_provider=container.booking_provider, auditor=request.app.state.auditor,
             idempotency_key=body.idempotency_key, branch_id=body.branch_id,
-            from_number=body.from_number,
+            from_number=body.from_number, conversation_id=body.conversation_id,
             booking_management_enabled=settings.BOOKING_MANAGEMENT_ENABLED)
     except T.ToolValidationError as exc:
         return _refuse(str(exc))

@@ -1951,6 +1951,7 @@ class ConversationEngine:
                 booking_provider=self._booking, auditor=auditor,
                 idempotency_key=idem_key, now=now,
                 branch_id=conv.branch_id, from_number=conv.from_number,
+                conversation_id=self._key(tenant, subject_ref),
                 booking_management_enabled=self._booking_management_enabled)
         except T.ToolValidationError as exc:
             conv.pending_proposal_id = ""

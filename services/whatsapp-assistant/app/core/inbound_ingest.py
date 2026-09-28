@@ -190,7 +190,7 @@ async def resolve_subject_ref(container: Any, settings: Any, tenant: str, from_n
     if subject_ref:
         return subject_ref
     from app.core.pii import subject_ref as derive_ref
-    return derive_ref(settings.PII_SALT or "dev-salt", tenant, from_number)
+    return derive_ref(settings.PII_SALT, tenant, from_number)
 
 
 async def ingest_inbound_message(

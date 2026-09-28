@@ -35,6 +35,17 @@ BACKUP: dict[str, Any] = {
         {"name": "wa_pending_proposals", "tenant_scoped": True},
         # Confirmed bookings — the one write in this service with real business consequence.
         {"name": "wa_bookings", "tenant_scoped": True},
+        {"name": "renewal_requests", "tenant_scoped": True},
+        {"name": "wa_upsell_ledger", "tenant_scoped": True},
+        {"name": "wa_pricing_pending", "tenant_scoped": False},
+        {"name": "wa_coexistence_watermarks", "tenant_scoped": False},
+        {"name": "wa_inbound_watermarks", "tenant_scoped": False},
+        {"name": "operator_secrets", "tenant_scoped": False},
+        {"name": "runtime_config", "tenant_scoped": False},
     ],
-    "excluded": [],
+    "excluded": [
+        {"name": "wa_owner_active", "reason": "a 30-minute human-reply cooldown "
+                                              "(COEXISTENCE_HUMAN_COOLDOWN_SECONDS); any archived "
+                                              "row has already expired"},
+    ],
 }

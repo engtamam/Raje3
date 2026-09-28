@@ -237,6 +237,14 @@ def _ai_unit_bounds_violation(key: str, value: Any) -> str | None:
         if raw.strip() and raw.strip() != "{}" and not parsed:
             return ('did not parse into any usable model — expected '
                    '{"model_name": {"input_usd_per_million": x, "output_usd_per_million": y}}')
+        try:
+            import json as _json
+            raw_data = _json.loads(raw or "{}")
+        except ValueError:
+            raw_data = {}
+        if isinstance(raw_data, dict) and len(parsed) < len(raw_data):
+            dropped = sorted(set(raw_data) - set(parsed))
+            return f"these entries did not parse and were dropped: {', '.join(dropped)}"
         for name, cost in parsed.items():
             if cost.input_usd_per_million < 0 or cost.output_usd_per_million < 0:
                 return f"{name!r} has a negative price"

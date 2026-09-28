@@ -113,7 +113,10 @@ async def carousel_shown(request: Request, body: CarouselShownIn) -> dict:
     return {"ok": True}
 
 
-async def _active_tenants(c: Any, *, limit: int) -> list[str]:
+_ACTIVE_TENANTS_BUDGET = 200_000
+
+
+async def _active_tenants(c: Any, *, limit: int = _ACTIVE_TENANTS_BUDGET) -> list[str]:
     """Tenants with a conversation row at all, from OUR OWN datastore — same "derive it from our
     own rows rather than ask a peer" shape as services/reminders' `_active_tenants`. A CronJob
     posts no body and cannot be templated per tenant (one fixed TARGET_URL — see
@@ -121,7 +124,15 @@ async def _active_tenants(c: Any, *, limit: int) -> list[str]:
     worklist rather than be handed one."""
     from app.core.models import CONVERSATIONS
 
-    rows = await c.datastore.scan_all(CONVERSATIONS, limit)
+    rows: list[dict] = []
+    cursor: str | None = None
+    page = 500
+    while True:
+        batch = await c.datastore.scan_all(CONVERSATIONS, page, after=cursor)
+        rows.extend(batch)
+        if len(batch) < page or len(rows) >= limit:
+            break
+        cursor = batch[-1].get("id")
     seen: list[str] = []
     for r in rows:
         t = r.get("tenant") or ""
@@ -282,7 +293,7 @@ async def tick(request: Request, settings: Settings = Depends(get_settings)) -> 
 
     now = int(_time.time())
     batch = settings.CONVERSATION_TICK_BATCH_SIZE
-    tenants = [tenant] if tenant else await _active_tenants(c, limit=2000)
+    tenants = [tenant] if tenant else await _active_tenants(c)
 
     # ── scheduled pricing changes — once per tick, never per-tenant (pricing is platform-wide,
     # same as every other RUNTIME_POLICY knob this service has) ──────────────────────────────────
