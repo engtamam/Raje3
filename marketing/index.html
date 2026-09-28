@@ -143,7 +143,7 @@ footer a{color:var(--ink-2)}
       <h2>راجِع، وأنت متحرك</h2>
       <p>تابع حجوزاتك وعملاءك من جوالك مباشرة.</p>
       <div class="store-badges">
-        <a class="store-badge" href="https://github.com/engtamam/raje3-mobile-releases/releases/latest/download/%D8%B1%D8%A7%D8%AC%D8%B9.apk">
+        <a class="store-badge" id="apk-download" href="https://github.com/engtamam/raje3-mobile-releases/releases/latest">
           <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0 0l-5-5m5 5l5-5M5 20h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <div class="txt">
             <small>تحميل مباشر لأندرويد</small>
@@ -174,5 +174,25 @@ footer a{color:var(--ink-2)}
   </div>
 </footer>
 
+<script>
+  /* ── the mobile download link resolves the REAL latest asset, never a hardcoded filename ──
+     Found live (2026-09-28): a hardcoded /releases/latest/download/<name> link broke the moment
+     the actual release asset's name changed — this asks GitHub's API for whatever the latest
+     release's own first asset really is and points at that, so the link can never go stale
+     again. Falls back to the releases PAGE (still useful, a human can pick the file) if the API
+     call fails for any reason — never a dead link either way. */
+  (function () {
+    var link = document.getElementById('apk-download');
+    if (!link) return;
+    var fallback = link.getAttribute('href');
+    fetch('https://api.github.com/repos/engtamam/raje3-mobile-releases/releases/latest')
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (data) {
+        var asset = (data.assets || [])[0];
+        if (asset && asset.browser_download_url) link.href = asset.browser_download_url;
+      })
+      .catch(function () { link.href = fallback; });
+  })();
+</script>
 </body>
 </html>

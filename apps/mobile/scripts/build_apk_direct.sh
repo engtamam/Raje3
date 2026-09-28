@@ -35,8 +35,14 @@ API_BASE_URL="${API_BASE_URL:-https://kobo-cloud.com}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# ASCII FILENAME, NOT "راجع.apk" — found live (2026-09-28): GitHub Releases' own asset-upload API
+# silently refuses a non-ASCII asset name (both `gh release upload` and a direct multipart POST
+# to uploads.github.com reproduced it — a real platform limitation, not our tooling), storing the
+# file as a meaningless "default.apk" instead. The APK's own display name inside Android (the
+# owner's actual ask) comes from AndroidManifest.xml's android:label ("راجع"), already set — a
+# user only ever sees this on-disk filename transiently in their Downloads folder.
 OUT_DIR="$ROOT/build/app/outputs/flutter-apk"
-APK="$OUT_DIR/راجع.apk"
+APK="$OUT_DIR/raje3.apk"
 
 if [ "$MODE" = "download" ]; then
   echo "build_apk_direct: building the release APK (AI_MODEL_SOURCE=download — model fetched post-install, not bundled; API_BASE_URL=$API_BASE_URL)..."
