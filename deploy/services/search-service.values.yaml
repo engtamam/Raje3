@@ -93,7 +93,7 @@ env:
   # whichever service actually calls this route. No caller found yet (confirmed by grep across
   # services/) — this only satisfies the boot guard, it does not imply a real caller exists today.
   INTERNAL_ROUTE_POLICY_JSON: |
-    {"/internal/search/query": ["*"]}
+    {"/internal/search/query": ["*"], "/internal/search/suggest": ["*"]}
 
   # ── The index ─────────────────────────────────────────────────────────────────────────────
   # builtin, and the alternatives are named in the config as a documented follow-up rather than

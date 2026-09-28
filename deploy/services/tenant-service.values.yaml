@@ -101,7 +101,7 @@ env:
   # whichever service actually calls this route. No caller found yet (confirmed by grep across
   # services/) — this only satisfies the boot guard, it does not imply a real caller exists today.
   INTERNAL_ROUTE_POLICY_JSON: |
-    {"/internal/tenants/close-sweep": ["*"]}
+    {"/internal/tenants/close-sweep": ["*"], "/internal/backup/import": ["*"], "/internal/tenants": ["*"]}
 
   # ── Raje3 locale. The product is Arabic-first (config/product.json). ──────────────────────
   DEFAULT_LOCALE: "ar"
