@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
-# Fetches the Gemma 4 E4B model file to the exact path AiConfig.gemmaModelAssetPath / pubspec.yaml
-# declare as a bundled asset — run this BEFORE `flutter build`/`flutter run`, on every machine
-# that builds this app (a dev's own laptop, CI). The file itself is gitignored (assets/models/,
-# ~2.77GB) — see AiConfig.gemmaModelAssetPath's own doc comment for why it ships bundled at all
-# rather than downloaded per-install, and why the file is never committed regardless.
+# Fetches the Gemma 4 E4B model file into android/ai_model_pack — a Play Asset Delivery
+# install-time pack, not a plain Flutter asset (moved here 2026-09-28: the raw ~2.77GB file inside
+# app/src/main/assets put the whole thing in the app's base module, which Google Play caps at
+# 200MB compressed). Run this BEFORE `flutter build`/`flutter run`, on every machine that builds
+# this app (a dev's own laptop, CI). The file itself is gitignored (~2.77GB) — see
+# AiConfig.gemmaModelAssetPath's own doc comment for why it ships bundled at all rather than
+# downloaded per-install, and why the file is never committed regardless.
 #
 # Idempotent: skips the download if the file already exists at the right size, so re-running this
 # on an already-fetched machine (a second `flutter run`) costs nothing.
 set -euo pipefail
 
 SOURCE_URL="https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-gpu.litertlm"
-DEST="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/assets/models/gemma-4-E4B-it-gpu.litertlm"
+DEST="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/android/ai_model_pack/src/main/assets/gemma-4-E4B-it-gpu.litertlm"
 # ~2.77GiB, confirmed via a real HEAD request when this URL was first chosen (ai_config.dart's own
 # note) — used only as a SANITY FLOOR to catch a truncated/failed download, not an exact match (a
 # future model revision on the same URL may differ by a few bytes).

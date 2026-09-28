@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:raje3_mobile/core/ai/ai_config.dart';
 import 'package:raje3_mobile/core/ai/ai_model.dart';
 
 /// Gemma 4 E4B, entirely on-device via `flutter_gemma` — the model file SHIPS INSIDE THE APP
@@ -10,15 +12,33 @@ import 'package:raje3_mobile/core/ai/ai_model.dart';
 /// ever made to install it, and every prompt/answer after that runs locally; nothing here ever
 /// calls one of our own servers either (see AiModel's own doc comment for why that matters).
 ///
+/// THE FILE ITSELF IS A PLAY ASSET DELIVERY PACK, NOT A FLUTTER ASSET (moved 2026-09-28) — the
+/// raw ~2.77GB file inside a plain `assets:` entry put the whole thing in the app's base module,
+/// which Google Play caps at 200MB compressed. `MainActivity.kt`'s own MethodChannel
+/// (`raje3/ai_model_pack`) resolves the real on-device path at runtime instead of a static asset
+/// key; the "ships with the app, no separate download" product decision is unchanged — an
+/// install-time pack downloads together with the base app, before the user ever opens it.
+///
 /// ONE ADAPTER, THE PLUGIN'S OWN LIFECYCLE UNDERNEATH. [_model]/[_chat] are `flutter_gemma`'s own
 /// [InferenceModel]/[InferenceChat] — this class exists to translate ITS shape into [AiModel]'s
 /// shape (a status enum instead of exceptions bubbling up, [AiEvent] instead of the plugin's own
 /// [TextResponse]/[FunctionCallResponse] union, [AiTool] instead of its own [Tool]), never to add
 /// product logic of its own.
 class GemmaAiModel implements AiModel {
-  GemmaAiModel({required String modelAssetPath}) : _modelAssetPath = modelAssetPath;
-
-  final String _modelAssetPath;
+  static const _methodChannel = MethodChannel('raje3/ai_model_pack');
+  static const _progressChannel = EventChannel('raje3/ai_model_pack/progress');
+  // Only used when AiConfig.modelSource == 'asset' (scripts/build_apk_direct.sh) — that script
+  // copies the same file scripts/fetch_ai_model.sh fetches into this path and adds it to
+  // pubspec.yaml's assets: list just for that one build, since a sideloaded APK has no Play
+  // Store underneath it to serve an install-time asset pack.
+  static const _directAssetPath = 'assets/models/gemma-4-E4B-it-gpu.litertlm';
+  // Only used when AiConfig.modelSource == 'download' (the direct-download APK, GitHub Releases'
+  // own 2GB-per-file cap ruled out shipping the ~2.77GB model inside that APK at all) — the exact
+  // same public URL scripts/fetch_ai_model.sh already fetches at BUILD time, fetched instead at
+  // RUNTIME, on-device, once, on first launch. No token, no auth — the litert-community repo on
+  // Hugging Face is public.
+  static const _networkModelUrl =
+      'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-gpu.litertlm';
 
   @override
   String get driver => 'gemma';
@@ -49,22 +69,59 @@ class GemmaAiModel implements AiModel {
     if (_status == AiModelStatus.ready) return;
     try {
       _setStatus(AiModelStatus.downloading);
+
       // ModelType.gemma4, NOT .gemmaIt — this is item 1 of the models checklist: Gemma 4's
       // native function-calling tokens (see ai_model.dart's own doc comment on why actions
       // never needed a different model file, only this one flag) only activate under this
       // model type. The file itself hasn't changed; ai_config.dart already points at a real
       // Gemma 4 E4B build.
-      await FlutterGemma.installModel(
+      final installer = FlutterGemma.installModel(
         modelType: ModelType.gemma4,
         fileType: ModelFileType.litertlm,
-      )
-          // BUNDLED, NEVER NETWORK — see this class's own doc comment. `.install()` here is a
-          // local copy out of the app bundle into the plugin's own writable storage on first
-          // run (still worth the progress stream: a 2.77GB copy is not instant), never an HTTP
-          // request.
-          .fromAsset(_modelAssetPath)
-          .withProgress((progress) => _progressController.add(progress))
-          .install();
+      );
+
+      if (AiConfig.modelSource == 'download') {
+        // Direct-download APK, model fetched AFTER install (GitHub Releases' 2GB-per-file cap —
+        // see this file's own field-level doc comment). `.fromNetwork` is flutter_gemma's own
+        // downloader: resumable, and it re-uses whatever it already staged on a previous
+        // ensureReady() that got interrupted rather than starting over.
+        await installer
+            .fromNetwork(_networkModelUrl)
+            .withProgress((progress) => _progressController.add(progress))
+            .install();
+      } else if (AiConfig.modelSource == 'asset') {
+        // Direct-download build with the model still bundled in-APK (scripts/build_apk_direct.sh,
+        // kept as the other direct-build option — see AiConfig.modelSource's own doc comment).
+        // No Play Store underneath a sideloaded APK, so no asset pack to fetch(); the file is
+        // just a plain Flutter asset this build's pubspec.yaml declares.
+        await installer
+            .fromAsset(_directAssetPath)
+            .withProgress((progress) => _progressController.add(progress))
+            .install();
+      } else {
+        // RESOLVED AT RUNTIME, NEVER A STATIC ASSET KEY — see this class's own doc comment.
+        // `MainActivity.kt` returns immediately if Play already staged the pack (the ordinary
+        // install-time case); the progress stream only carries real events on the rarer path
+        // where it has to fetch() first (a fresh install caught mid-sync, or a local/debug run).
+        late final StreamSubscription<dynamic> progressSub;
+        progressSub = _progressChannel.receiveBroadcastStream().listen(
+          (event) => _progressController.add((event as num).toInt()),
+        );
+        final String modelFilePath;
+        try {
+          modelFilePath = await _methodChannel.invokeMethod<String>('ensureInstalled') as String;
+        } finally {
+          await progressSub.cancel();
+        }
+        // BUNDLED, NEVER NETWORK — see this class's own doc comment. `.install()` here is a
+        // local copy out of the pack's own on-device storage into the plugin's own writable
+        // storage on first run (still worth the progress stream above: a 2.77GB copy is not
+        // instant), never an HTTP request.
+        await installer
+            .fromFile(modelFilePath)
+            .withProgress((progress) => _progressController.add(progress))
+            .install();
+      }
 
       _setStatus(AiModelStatus.loading);
       final model = await FlutterGemma.getActiveModel(

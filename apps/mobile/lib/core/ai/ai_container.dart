@@ -16,7 +16,7 @@ import 'package:raje3_mobile/core/ai/ai_model.dart';
 AiModel buildAiModel() {
   switch (AiConfig.modelDriver) {
     case 'gemma':
-      return GemmaAiModel(modelAssetPath: AiConfig.gemmaModelAssetPath);
+      return GemmaAiModel();
     default:
       return NullAiModel();
   }
