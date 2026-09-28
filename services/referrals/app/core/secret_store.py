@@ -46,6 +46,13 @@ _PREFIX = "v1:gcm:"
 _HINT_CHARS = 4
 
 
+def _safe_until(v) -> float:
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 class SecretError(ValueError):
     """A credential that cannot be stored or read safely."""
 
@@ -194,11 +201,13 @@ class SecretStore:
         outage for every caller that has not yet been updated.
         """
         row = await self._s.get(_COLL, self._key_of(tenant, name))
+        if not row and tenant:
+            row = await self._s.get(_COLL, self._key_of("", name))
         if not row:
             return ()
         out = [self._open(row["sealed"], row["tenant"], row["name"])]
         prev, until = row.get("previous"), row.get("previous_until")
-        if prev and until and self._now() < float(until):
+        if prev and until and self._now() < _safe_until(until):
             out.append(self._open(prev, row["tenant"], row["name"]))
         return tuple(out)
 
@@ -210,7 +219,7 @@ class SecretStore:
         prev, until = row.get("previous"), row.get("previous_until")
         return SecretInfo(name=row["name"], hint=row.get("hint", ""),
                           set_at=row.get("set_at", ""), set_by=row.get("set_by", ""),
-                          rotating=bool(prev and until and self._now() < float(until)))
+                          rotating=bool(prev and until and self._now() < _safe_until(until)))
 
     async def list_info(self, *, tenant: str) -> list[SecretInfo]:
         """SAME WINDOW CHECK `info()` ALREADY MAKES — fixed 2026-09-12, a real bug a QA audit
@@ -227,4 +236,4 @@ class SecretStore:
         return [SecretInfo(name=r["name"], hint=r.get("hint", ""), set_at=r.get("set_at", ""),
                            set_by=r.get("set_by", ""),
                            rotating=bool(r.get("previous") and r.get("previous_until")
-                                        and now < float(r["previous_until"]))) for r in rows]
+                                        and now < _safe_until(r["previous_until"]))) for r in rows]

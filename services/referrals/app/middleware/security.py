@@ -96,7 +96,8 @@ class BodyLimitMiddleware:
             return await self.app(scope, receive, send)
         # No Content-Length (chunked/streamed): buffer while counting, bail the moment the cap is
         # crossed (so we never hold more than the limit), then replay the buffered body downstream.
-        body = b""
+        chunks = []
+        total = 0
         while True:
             message = await receive()
             if message["type"] != "http.request":
@@ -104,11 +105,14 @@ class BodyLimitMiddleware:
                 async def _forward(_m=message):
                     return _m
                 return await self.app(scope, _forward, send)
-            body += message.get("body", b"")
-            if len(body) > self._max:
+            chunk = message.get("body", b"")
+            total += len(chunk)
+            if total > self._max:
                 return await self._reject(scope, send, 413, "PAYLOAD_TOO_LARGE")
+            chunks.append(chunk)
             if not message.get("more_body", False):
                 break
+        body = b"".join(chunks)
 
         replayed = False
 
