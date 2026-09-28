@@ -152,6 +152,14 @@ EXEMPT_LINES: dict[str, set[str]] = {
         "TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.cancel)),",
         "TextButton(",
     },
+    "apps/mobile/lib/features/campaigns/wa_flow_screens.dart": {
+        # A custom flow-preview component named `_FlowTextField` — the SAME accidental
+        # "TextField(" substring match as `_GlassIconButton`'s own entry above, on its
+        # constructor declaration and its own call site. The real TextField it wraps (inside
+        # its own build()) is anchored separately.
+        "return _FlowTextField(",
+        "const _FlowTextField({required this.label, required this.multiline, required this.maxLength, required this.onChanged});",
+    },
 }
 
 

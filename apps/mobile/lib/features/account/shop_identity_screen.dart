@@ -208,13 +208,19 @@ class _BrandCardState extends State<_BrandCard> with WidgetsBindingObserver {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(MaterialLocalizations.of(dialogContext).cancelButtonLabel),
+          KbAnchor(
+            id: 'account.shop.color_picker.cancel',
+            child: TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(MaterialLocalizations.of(dialogContext).cancelButtonLabel),
+            ),
           ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(MaterialLocalizations.of(dialogContext).okButtonLabel),
+          KbAnchor(
+            id: 'account.shop.color_picker.confirm',
+            child: TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(MaterialLocalizations.of(dialogContext).okButtonLabel),
+            ),
           ),
         ],
       ),

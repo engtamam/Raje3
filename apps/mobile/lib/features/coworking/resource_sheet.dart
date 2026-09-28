@@ -299,18 +299,24 @@ class _ResourceSheetState extends State<ResourceSheet> {
           ),
           if (open) ...[
             Expanded(
-              child: OutlinedButton(
-                onPressed: () => _pickTime(day, isStart: true),
-                child: Text(_fmtMinute(window.startMinute)),
+              child: KbAnchor(
+                id: 'coworking.resource_sheet.availability_time',
+                child: OutlinedButton(
+                  onPressed: () => _pickTime(day, isStart: true),
+                  child: Text(_fmtMinute(window.startMinute)),
+                ),
               ),
             ),
             const SizedBox(width: 6),
             const Text('—'),
             const SizedBox(width: 6),
             Expanded(
-              child: OutlinedButton(
-                onPressed: () => _pickTime(day, isStart: false),
-                child: Text(_fmtMinute(window.endMinute)),
+              child: KbAnchor(
+                id: 'coworking.resource_sheet.availability_time',
+                child: OutlinedButton(
+                  onPressed: () => _pickTime(day, isStart: false),
+                  child: Text(_fmtMinute(window.endMinute)),
+                ),
               ),
             ),
           ] else

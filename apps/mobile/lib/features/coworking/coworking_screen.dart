@@ -679,12 +679,15 @@ class _ShareLinkCardState extends State<_ShareLinkCard> {
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          IconButton(
-            onPressed: () => _copy(url),
-            icon: Icon(_copied ? Icons.check_rounded : Icons.copy_rounded,
-                color: _copied ? AppColors.success : const Color(0xFFB5791C),
-                size: 18),
-            tooltip: 'نسخ الرابط',
+          KbAnchor(
+            id: 'coworking.share_link_copy',
+            child: IconButton(
+              onPressed: () => _copy(url),
+              icon: Icon(_copied ? Icons.check_rounded : Icons.copy_rounded,
+                  color: _copied ? AppColors.success : const Color(0xFFB5791C),
+                  size: 18),
+              tooltip: 'نسخ الرابط',
+            ),
           ),
         ],
       ),

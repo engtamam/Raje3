@@ -4,6 +4,7 @@ import 'package:raje3_mobile/models/messages_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
 import 'package:raje3_mobile/features/campaigns/campaigns_i18n.dart';
+import 'package:raje3_mobile/widgets/kb_anchor.dart';
 
 /// The WhatsApp Flow preview ENGINE — ported from the console's own `WaFlowScreens`
 /// (`rj-ui/WhatsAppPreview.tsx`). Renders THE REAL FLOW JSON — the exact document `flow_json.py`
@@ -103,10 +104,13 @@ class _FlowScreenCardState extends State<_FlowScreenCard> {
           if (footer != null)
             SizedBox(
               width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
-                onPressed: () => widget.screen.terminal ? widget.onComplete() : widget.onAdvance(),
-                child: Text(footer.label ?? ''),
+              child: KbAnchor(
+                id: 'campaigns.wa_flow_preview.footer_button',
+                child: FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+                  onPressed: () => widget.screen.terminal ? widget.onComplete() : widget.onAdvance(),
+                  child: Text(footer.label ?? ''),
+                ),
               ),
             ),
         ],
@@ -287,17 +291,20 @@ class _FlowTextField extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 4),
           child: Text(label!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF3B4A54))),
         ),
-        TextField(
-          maxLines: multiline ? 3 : 1,
-          maxLength: maxLength,
-          onChanged: onChanged,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF111B21)),
-          decoration: InputDecoration(
-            isDense: true,
-            filled: true,
-            fillColor: Colors.white,
-            counterText: '',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.1))),
+        KbAnchor(
+          id: 'campaigns.wa_flow_preview.text_field',
+          child: TextField(
+            maxLines: multiline ? 3 : 1,
+            maxLength: maxLength,
+            onChanged: onChanged,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF111B21)),
+            decoration: InputDecoration(
+              isDense: true,
+              filled: true,
+              fillColor: Colors.white,
+              counterText: '',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.1))),
+            ),
           ),
         ),
       ],

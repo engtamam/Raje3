@@ -444,13 +444,16 @@ class _GrantForm extends StatelessWidget {
           Text(s.partnerLoyaltyGrantTitle,
               style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: AppSpacing.sm),
-          AppTextField(
-            controller: phoneController,
-            labelText: s.partnerLoyaltyPhoneLabel,
-            hintText: '05xxxxxxxx',
-            keyboardType: TextInputType.phone,
-            textDirection: TextDirection.ltr,
-            onChanged: onPhoneChanged,
+          KbAnchor(
+            id: 'partner_loyalty.grant_phone_field',
+            child: AppTextField(
+              controller: phoneController,
+              labelText: s.partnerLoyaltyPhoneLabel,
+              hintText: '05xxxxxxxx',
+              keyboardType: TextInputType.phone,
+              textDirection: TextDirection.ltr,
+              onChanged: onPhoneChanged,
+            ),
           ),
           if (hint != null) ...[
             const SizedBox(height: 4),
@@ -629,12 +632,15 @@ class _LogTab extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: AppTextField(
-                controller: searchController,
-                hintText: s.partnerLoyaltyLogSearchHint,
-                keyboardType: TextInputType.phone,
-                textDirection: TextDirection.ltr,
-                onChanged: onSearchChanged,
+              child: KbAnchor(
+                id: 'partner_loyalty.log_search_field',
+                child: AppTextField(
+                  controller: searchController,
+                  hintText: s.partnerLoyaltyLogSearchHint,
+                  keyboardType: TextInputType.phone,
+                  textDirection: TextDirection.ltr,
+                  onChanged: onSearchChanged,
+                ),
               ),
             ),
           ],

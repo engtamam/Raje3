@@ -17,6 +17,7 @@ import 'package:raje3_mobile/features/campaigns/campaigns_style.dart';
 import 'package:raje3_mobile/features/campaigns/launch_wizard_screen.dart';
 import 'package:raje3_mobile/features/campaigns/message_preview_sheet.dart';
 import 'package:raje3_mobile/features/campaigns/whatsapp_bubble.dart';
+import 'package:raje3_mobile/widgets/kb_anchor.dart';
 
 /// «الحملات» — every message the shop sends in its own name: what fires automatically, what is
 /// about to go, what the owner launches by hand, and what already happened. See
@@ -938,12 +939,15 @@ class _CampaignCard extends StatelessWidget {
             const SizedBox(width: 4),
             CapabilityGate(
               requires: const ['campaigns.pause'],
-              child: IconButton(
-                icon: const Icon(Icons.pause_circle_outline, size: 20),
-                onPressed: () async {
-                  await service.pauseCampaign(c.id);
-                  onChanged();
-                },
+              child: KbAnchor(
+                id: 'campaigns.pause_button',
+                child: IconButton(
+                  icon: const Icon(Icons.pause_circle_outline, size: 20),
+                  onPressed: () async {
+                    await service.pauseCampaign(c.id);
+                    onChanged();
+                  },
+                ),
               ),
             ),
           ],

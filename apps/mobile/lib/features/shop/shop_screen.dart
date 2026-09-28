@@ -379,13 +379,16 @@ class _RetentionHero extends StatelessWidget {
             Text(s.shopRetentionBrandNew,
                 style: AppTextStyles.bodyMedium.copyWith(color: Colors.white, height: 1.5)),
             const SizedBox(height: AppSpacing.md),
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white54),
+            KbAnchor(
+              id: 'shop.register_first_visit_cta',
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white54),
+                ),
+                onPressed: () => context.goNamed('visit'),
+                child: Text(s.shopRegisterFirstVisit),
               ),
-              onPressed: () => context.goNamed('visit'),
-              child: Text(s.shopRegisterFirstVisit),
             ),
           ],
         ),
@@ -977,16 +980,22 @@ class _NextStepCard extends StatelessWidget {
           Row(
             children: [
               if (card.ctaLabel != null && card.ctaLink != null)
-                TextButton(
-                  onPressed: () => context.push(card.ctaLink!),
-                  style: TextButton.styleFrom(foregroundColor: luxury ? Colors.white : tone),
-                  child: Text(card.ctaLabel!),
+                KbAnchor(
+                  id: 'shop.next_step_card.cta',
+                  child: TextButton(
+                    onPressed: () => context.push(card.ctaLink!),
+                    style: TextButton.styleFrom(foregroundColor: luxury ? Colors.white : tone),
+                    child: Text(card.ctaLabel!),
+                  ),
                 ),
               const Spacer(),
-              TextButton(
-                onPressed: busy ? null : () => onDismiss(card.id),
-                style: TextButton.styleFrom(foregroundColor: luxury ? Colors.white70 : null),
-                child: Text(s.shopNotNow),
+              KbAnchor(
+                id: 'shop.next_step_card.dismiss',
+                child: TextButton(
+                  onPressed: busy ? null : () => onDismiss(card.id),
+                  style: TextButton.styleFrom(foregroundColor: luxury ? Colors.white70 : null),
+                  child: Text(s.shopNotNow),
+                ),
               ),
             ],
           ),
@@ -1116,9 +1125,12 @@ class _ComputingView extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             Text(message ?? s.shopComputingTitle, textAlign: TextAlign.center),
             const SizedBox(height: AppSpacing.md),
-            OutlinedButton(
-              onPressed: refreshing ? null : onRefresh,
-              child: Text(refreshing ? s.shopComputeLoading : s.shopComputeAction),
+            KbAnchor(
+              id: 'shop.computing_view.refresh',
+              child: OutlinedButton(
+                onPressed: refreshing ? null : onRefresh,
+                child: Text(refreshing ? s.shopComputeLoading : s.shopComputeAction),
+              ),
             ),
           ],
         ),
@@ -1234,9 +1246,12 @@ class _AtRiskCard extends StatelessWidget {
               ),
             ),
           const SizedBox(height: AppSpacing.xs),
-          TextButton(
-            onPressed: () => context.push('/messages?tab=campaigns&launch=win_back'),
-            child: Text(s.shopAtRiskCta),
+          KbAnchor(
+            id: 'shop.at_risk_card.win_back_cta',
+            child: TextButton(
+              onPressed: () => context.push('/messages?tab=campaigns&launch=win_back'),
+              child: Text(s.shopAtRiskCta),
+            ),
           ),
         ],
       ),

@@ -17,6 +17,7 @@ import 'package:raje3_mobile/features/campaigns/campaigns_style.dart';
 import 'package:raje3_mobile/features/campaigns/message_preview_sheet.dart';
 import 'package:raje3_mobile/features/campaigns/wa_flow_screens.dart';
 import 'package:raje3_mobile/features/campaigns/whatsapp_bubble.dart';
+import 'package:raje3_mobile/widgets/kb_anchor.dart';
 
 /// THE OTHER DIRECTION FROM `kReasonGoal` (messages_model.dart) — goal → its shared reason id,
 /// so the wizard can open the SAME preview/retext screen «القوالب» itself uses for the three
@@ -361,17 +362,20 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
           _Step.fields => _picked?.title ?? '',
           _Step.preview => ct(context, 'stepPreviewTitle'),
         }),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (_step == _Step.fields) {
-              setState(() => _step = _Step.goal);
-            } else if (_step == _Step.preview) {
-              setState(() => _step = _Step.fields);
-            } else {
-              Navigator.of(context).pop();
-            }
-          },
+        leading: KbAnchor(
+          id: 'campaigns.launch_wizard.back_button',
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              if (_step == _Step.fields) {
+                setState(() => _step = _Step.goal);
+              } else if (_step == _Step.preview) {
+                setState(() => _step = _Step.fields);
+              } else {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
         ),
       ),
       body: SafeArea(
@@ -501,10 +505,13 @@ class _GoalStepState extends State<_GoalStep> {
         if (showSearch)
           Padding(
             padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
-            child: AppTextField(
-              hintText: ct(context, 'goalSearchHint'),
-              prefixIcon: Icons.search,
-              onChanged: (v) => setState(() => _search = v),
+            child: KbAnchor(
+              id: 'campaigns.launch_wizard.goal_search_field',
+              child: AppTextField(
+                hintText: ct(context, 'goalSearchHint'),
+                prefixIcon: Icons.search,
+                onChanged: (v) => setState(() => _search = v),
+              ),
             ),
           ),
         if (showCategories)
@@ -749,10 +756,13 @@ class _FieldsStep extends StatelessWidget {
                   // can never type something the server refuses at the very last step.
                   Row(children: [
                     Expanded(
-                      child: AppTextField(
-                        controller: offerAmountController,
-                        hintText: discountKind == 'pct' ? '20' : '50',
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      child: KbAnchor(
+                        id: 'campaigns.launch_wizard.offer_amount_field',
+                        child: AppTextField(
+                          controller: offerAmountController,
+                          hintText: discountKind == 'pct' ? '20' : '50',
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
@@ -766,10 +776,13 @@ class _FieldsStep extends StatelessWidget {
                     ),
                   ])
                 else if (rewardType == 'points')
-                  AppTextField(
-                    controller: rewardPointsController,
-                    hintText: ct(context, 'rewardPointsHint'),
-                    keyboardType: TextInputType.number,
+                  KbAnchor(
+                    id: 'campaigns.launch_wizard.reward_points_field',
+                    child: AppTextField(
+                      controller: rewardPointsController,
+                      hintText: ct(context, 'rewardPointsHint'),
+                      keyboardType: TextInputType.number,
+                    ),
                   )
                 else
                   Text(ct(context, 'rewardGiftHint'), style: AppTextStyles.caption),
@@ -780,10 +793,13 @@ class _FieldsStep extends StatelessWidget {
                   const SizedBox(height: AppSpacing.sm),
                   Row(children: [
                     Expanded(
-                      child: AppTextField(
-                        controller: offerAmountController,
-                        hintText: discountKind == 'pct' ? '20' : '50',
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      child: KbAnchor(
+                        id: 'campaigns.launch_wizard.offer_amount_field',
+                        child: AppTextField(
+                          controller: offerAmountController,
+                          hintText: discountKind == 'pct' ? '20' : '50',
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
@@ -832,7 +848,9 @@ class _FieldsStep extends StatelessWidget {
                       const SizedBox(height: AppSpacing.sm),
                       Text(ct(context, 'milestoneThresholdLabel'), style: AppTextStyles.caption),
                       const SizedBox(height: 4),
-                      AppTextField(
+                      KbAnchor(
+                        id: 'campaigns.launch_wizard.milestone_threshold_field',
+                        child: AppTextField(
                         controller: milestoneThresholdController,
                         hintText: '10',
                         keyboardType: TextInputType.number,
@@ -948,7 +966,10 @@ class _FieldsStep extends StatelessWidget {
               if (goal.hasBlank('owner')) ...[
                 Text(ct(context, 'whatsNew'), style: AppTextStyles.labelMedium),
                 const SizedBox(height: AppSpacing.sm),
-                AppTextField(controller: ownerTextController, maxLines: 2, hintText: ct(context, 'ownerTextHint')),
+                KbAnchor(
+                  id: 'campaigns.launch_wizard.owner_text_field',
+                  child: AppTextField(controller: ownerTextController, maxLines: 2, hintText: ct(context, 'ownerTextHint')),
+                ),
                 const SizedBox(height: AppSpacing.md),
               ],
               // THE RECURRING WINDOW — collapsed by default (this pass's own posture, same as
@@ -1142,7 +1163,10 @@ class _PreviewStepState extends State<_PreviewStep> {
                                   decoration: BoxDecoration(color: Colors.white, borderRadius: AppRadius.cardRadius),
                                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                                     Text(_flowError, style: const TextStyle(color: Color(0xFFB7412F), fontSize: 13)),
-                                    TextButton(onPressed: () => setState(() { _openFlow = null; _flowError = ''; }), child: Text(ct(context, 'backToMessage'))),
+                                    KbAnchor(
+                                      id: 'campaigns.launch_wizard.flow_error_back',
+                                      child: TextButton(onPressed: () => setState(() { _openFlow = null; _flowError = ''; }), child: Text(ct(context, 'backToMessage'))),
+                                    ),
                                   ]),
                                 ),
                               )

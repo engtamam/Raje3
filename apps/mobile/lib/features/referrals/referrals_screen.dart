@@ -1140,10 +1140,13 @@ class _CampaignWizardSheetState extends State<_CampaignWizardSheet> {
       ),
       if (_eligibility == kEligibilityMaxVisits) ...[
         const SizedBox(height: AppSpacing.sm),
-        TextField(
-          controller: _eligibilityMaxVisitsController,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(isDense: true, hintText: 'أقصى عدد زيارات مسموح'),
+        KbAnchor(
+          id: 'referrals.wizard_max_visits_field',
+          child: TextField(
+            controller: _eligibilityMaxVisitsController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(isDense: true, hintText: 'أقصى عدد زيارات مسموح'),
+          ),
         ),
       ],
     ];
@@ -1230,22 +1233,31 @@ class _AffiliateWizardSheetState extends State<_AffiliateWizardSheet> {
             children: [
               const Text('مسوّق جديد', style: AppTextStyles.headlineSmall),
               const SizedBox(height: AppSpacing.lg),
-              TextField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(isDense: true, hintText: 'جوال المسوّق'),
+              KbAnchor(
+                id: 'referrals.add_affiliate_sheet.phone_field',
+                child: TextField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(isDense: true, hintText: 'جوال المسوّق'),
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: _codeController,
-                textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(isDense: true, hintText: 'كوده الخاص'),
+              KbAnchor(
+                id: 'referrals.add_affiliate_sheet.code_field',
+                child: TextField(
+                  controller: _codeController,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(isDense: true, hintText: 'كوده الخاص'),
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: _discountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(isDense: true, hintText: 'خصم العميل الجديد %'),
+              KbAnchor(
+                id: 'referrals.add_affiliate_sheet.discount_field',
+                child: TextField(
+                  controller: _discountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(isDense: true, hintText: 'خصم العميل الجديد %'),
+                ),
               ),
               const SizedBox(height: AppSpacing.lg),
               Text('نوع مكافأة المسوّق', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
@@ -1258,17 +1270,20 @@ class _AffiliateWizardSheetState extends State<_AffiliateWizardSheet> {
                 onSelectionChanged: (v) => setState(() => _rewardType = v.first),
               ),
               const SizedBox(height: AppSpacing.sm),
-              (_rewardType == kAffiliateRewardInvoicePercentage)
-                  ? TextField(
-                      controller: _rewardPercentController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(isDense: true, hintText: 'النسبة %'),
-                    )
-                  : TextField(
-                      controller: _rewardPointsController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(isDense: true, hintText: 'عدد النقاط'),
-                    ),
+              KbAnchor(
+                id: 'referrals.add_affiliate_sheet.reward_amount_field',
+                child: (_rewardType == kAffiliateRewardInvoicePercentage)
+                    ? TextField(
+                        controller: _rewardPercentController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(isDense: true, hintText: 'النسبة %'),
+                      )
+                    : TextField(
+                        controller: _rewardPointsController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(isDense: true, hintText: 'عدد النقاط'),
+                      ),
+              ),
               const SizedBox(height: AppSpacing.lg),
               const Divider(),
               const SizedBox(height: AppSpacing.sm),
@@ -1285,10 +1300,13 @@ class _AffiliateWizardSheetState extends State<_AffiliateWizardSheet> {
               ),
               if (_eligibility == kEligibilityMaxVisits) ...[
                 const SizedBox(height: AppSpacing.sm),
-                TextField(
-                  controller: _eligibilityMaxVisitsController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(isDense: true, hintText: 'أقصى عدد زيارات مسموح'),
+                KbAnchor(
+                  id: 'referrals.add_affiliate_sheet.max_visits_field',
+                  child: TextField(
+                    controller: _eligibilityMaxVisitsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(isDense: true, hintText: 'أقصى عدد زيارات مسموح'),
+                  ),
                 ),
               ],
               if (_error != null) ...[

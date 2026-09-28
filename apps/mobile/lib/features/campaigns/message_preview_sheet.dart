@@ -10,6 +10,7 @@ import 'package:raje3_mobile/features/campaigns/campaigns_i18n.dart';
 import 'package:raje3_mobile/features/campaigns/text_editor_sheet.dart';
 import 'package:raje3_mobile/features/campaigns/wa_flow_screens.dart';
 import 'package:raje3_mobile/features/campaigns/whatsapp_bubble.dart';
+import 'package:raje3_mobile/widgets/kb_anchor.dart';
 
 /// The message-preview bottom sheet — mirrors `MessagePreview.tsx`'s job (tap a card, read every
 /// wording it can send, in a real bubble) but as a sheet that rises over the list instead of a
@@ -189,7 +190,10 @@ class _MessagePreviewSheetState extends State<_MessagePreviewSheet> {
                       ],
                     ),
                   ),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+                  KbAnchor(
+                    id: 'campaigns.message_preview_sheet.close',
+                    child: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+                  ),
                 ],
               ),
             ),
@@ -523,7 +527,10 @@ class _FlowSlot extends StatelessWidget {
           decoration: BoxDecoration(color: Colors.white, borderRadius: AppRadius.cardRadius),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Text(error, style: const TextStyle(color: Color(0xFFB7412F), fontSize: 13)),
-            TextButton(onPressed: onDone, child: Text(ct(context, 'backToMessage'))),
+            KbAnchor(
+              id: 'campaigns.message_preview_sheet.flow_error_back',
+              child: TextButton(onPressed: onDone, child: Text(ct(context, 'backToMessage'))),
+            ),
           ]),
         ),
       );

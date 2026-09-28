@@ -1,4 +1,295 @@
 {
+  "coworking": {
+    "title": { "ar": "التواصل الجماعي", "en": "Coworking" },
+    "body": {
+      "ar": "موارد قابلة للتأجير بالساعة (مكاتب، غرف) وطلبات انضمام العاملين المستقلين.",
+      "en": "Hourly-rentable resources (desks, rooms) and freelancer join requests."
+    },
+    "kind": "screen",
+    "anchor": "coworking"
+  },
+  "coworking.add_button": {
+    "title": { "ar": "مورد جديد", "en": "New resource" },
+    "body": { "ar": "يفتح نموذج إضافة مورد جديد للتأجير.", "en": "Opens the form to add a new rentable resource." },
+    "kind": "action",
+    "anchor": "coworking.add_button"
+  },
+  "coworking.bookings_sheet.cancel": {
+    "title": { "ar": "إلغاء الحجز", "en": "Cancel booking" },
+    "body": { "ar": "يلغي حجز هذا المورد لهذا الوقت.", "en": "Cancels this resource's booking for this slot." },
+    "kind": "action",
+    "anchor": "coworking.bookings_sheet.cancel"
+  },
+  "coworking.join_row": {
+    "title": { "ar": "طلب انضمام", "en": "Join request" },
+    "body": { "ar": "اسحب يمين للقبول، يسار للرفض.", "en": "Swipe right to approve, left to reject." },
+    "kind": "action",
+    "anchor": "coworking.join_row"
+  },
+  "coworking.main_tabs": {
+    "title": { "ar": "الموارد / طلبات الانضمام", "en": "Resources / Join requests" },
+    "body": { "ar": "يبدّل بين قائمة الموارد وطلبات انضمام العاملين المستقلين.", "en": "Switches between the resource list and freelancer join requests." },
+    "kind": "action",
+    "anchor": "coworking.main_tabs"
+  },
+  "coworking.pause_switch": {
+    "title": { "ar": "إيقاف الاستقبال", "en": "Pause intake" },
+    "body": { "ar": "يوقف الحجوزات الجديدة لكل الموارد مؤقتاً.", "en": "Pauses new bookings for every resource temporarily." },
+    "kind": "action",
+    "anchor": "coworking.pause_switch"
+  },
+  "coworking.resource_card": {
+    "title": { "ar": "بطاقة المورد", "en": "Resource card" },
+    "body": { "ar": "اضغط للتعديل.", "en": "Tap to edit." },
+    "kind": "action",
+    "anchor": "coworking.resource_card"
+  },
+  "coworking.resource_sheet.active_toggle": {
+    "title": { "ar": "نشط", "en": "Active" },
+    "body": { "ar": "لو أوقفته، هذا المورد يختفي من قائمة الحجز لعملائك.", "en": "Turning this off hides the resource from your customers' booking list." },
+    "kind": "action",
+    "anchor": "coworking.resource_sheet.active_toggle"
+  },
+  "coworking.resource_sheet.branch_field": {
+    "title": { "ar": "الفرع", "en": "Branch" },
+    "body": { "ar": "أي فرع يملك هذا المورد.", "en": "Which branch owns this resource." },
+    "kind": "field",
+    "anchor": "coworking.resource_sheet.branch_field"
+  },
+  "coworking.resource_sheet.description_field": {
+    "title": { "ar": "الوصف", "en": "Description" },
+    "body": { "ar": "وصف مختصر اختياري يظهر لعميلك عند الحجز.", "en": "An optional short description your customer sees when booking." },
+    "kind": "field",
+    "anchor": "coworking.resource_sheet.description_field"
+  },
+  "coworking.resource_sheet.name_field": {
+    "title": { "ar": "اسم المورد", "en": "Resource name" },
+    "body": { "ar": "اسم المورد كما يظهر لعميلك، مثل «كرسي 1».", "en": "The resource's name as your customer sees it, e.g. \"Desk 1\"." },
+    "kind": "field",
+    "anchor": "coworking.resource_sheet.name_field"
+  },
+  "coworking.resource_sheet.photo": {
+    "title": { "ar": "صورة المورد", "en": "Resource photo" },
+    "body": { "ar": "اضغط لإضافة أو استبدال صورة هذا المورد.", "en": "Tap to add or replace this resource's photo." },
+    "kind": "action",
+    "anchor": "coworking.resource_sheet.photo"
+  },
+  "coworking.resource_sheet.price_field": {
+    "title": { "ar": "السعر بالساعة", "en": "Hourly price" },
+    "body": { "ar": "سعر تأجير هذا المورد لكل ساعة بالريال.", "en": "This resource's rental price per hour, in SAR." },
+    "kind": "field",
+    "anchor": "coworking.resource_sheet.price_field"
+  },
+  "coworking.resource_sheet.submit": {
+    "title": { "ar": "حفظ", "en": "Save" },
+    "body": { "ar": "يحفظ بيانات المورد الجديد أو المُعدَّل.", "en": "Saves the new or edited resource's details." },
+    "kind": "action",
+    "anchor": "coworking.resource_sheet.submit"
+  },
+  "referrals.add_affiliate_button": {
+    "title": { "ar": "إضافة مسوّق", "en": "Add affiliate" },
+    "body": { "ar": "يفتح نموذج إضافة مسوّق بالعمولة جديد.", "en": "Opens the form to add a new commission-based affiliate." },
+    "kind": "action",
+    "anchor": "referrals.add_affiliate_button"
+  },
+  "referrals.wizard_eligibility": {
+    "title": { "ar": "من يقدر يستخدم الكود", "en": "Who can use the code" },
+    "body": { "ar": "يحدد هل الكود لعميل جديد فقط أو لأي عميل.", "en": "Sets whether the code is for new customers only or any customer." },
+    "kind": "field",
+    "anchor": "referrals.wizard_eligibility"
+  },
+  "bookings.new_sheet.referral_code_field": {
+    "title": { "ar": "كود إحالة", "en": "Referral code" },
+    "body": { "ar": "كود إحالة اختياري يربط هذا الحجز بمن أحاله.", "en": "An optional referral code linking this booking to whoever referred it." },
+    "kind": "field",
+    "anchor": "bookings.new_sheet.referral_code_field"
+  },
+  "account.shop.color_picker.cancel": {
+    "title": { "ar": "إلغاء", "en": "Cancel" },
+    "body": { "ar": "يغلق لوحة الألوان بدون تغيير.", "en": "Closes the color palette without changing anything." },
+    "kind": "action",
+    "anchor": "account.shop.color_picker.cancel"
+  },
+  "account.shop.color_picker.confirm": {
+    "title": { "ar": "تم", "en": "Done" },
+    "body": { "ar": "يعتمد اللون المختار من اللوحة.", "en": "Applies the color chosen from the palette." },
+    "kind": "action",
+    "anchor": "account.shop.color_picker.confirm"
+  },
+  "campaigns.launch_wizard.back_button": {
+    "title": { "ar": "رجوع", "en": "Back" },
+    "body": { "ar": "يرجعك للخطوة السابقة.", "en": "Takes you back to the previous step." },
+    "kind": "action",
+    "anchor": "campaigns.launch_wizard.back_button"
+  },
+  "campaigns.launch_wizard.goal_search_field": {
+    "title": { "ar": "بحث", "en": "Search" },
+    "body": { "ar": "يبحث بين أهداف الحملات المتاحة.", "en": "Searches the available campaign goals." },
+    "kind": "field",
+    "anchor": "campaigns.launch_wizard.goal_search_field"
+  },
+  "campaigns.launch_wizard.offer_amount_field": {
+    "title": { "ar": "قيمة العرض", "en": "Offer amount" },
+    "body": { "ar": "نسبة أو مبلغ الخصم المرسل للعميل.", "en": "The discount percent or amount sent to the customer." },
+    "kind": "field",
+    "anchor": "campaigns.launch_wizard.offer_amount_field"
+  },
+  "campaigns.launch_wizard.reward_points_field": {
+    "title": { "ar": "عدد النقاط", "en": "Points" },
+    "body": { "ar": "عدد نقاط الولاء الممنوحة بهذه الحملة.", "en": "The loyalty points granted by this campaign." },
+    "kind": "field",
+    "anchor": "campaigns.launch_wizard.reward_points_field"
+  },
+  "campaigns.launch_wizard.milestone_threshold_field": {
+    "title": { "ar": "حد الإنجاز", "en": "Milestone threshold" },
+    "body": { "ar": "الرقم اللي يُطلق الرسالة عند الوصول له.", "en": "The number that triggers the message once reached." },
+    "kind": "field",
+    "anchor": "campaigns.launch_wizard.milestone_threshold_field"
+  },
+  "campaigns.launch_wizard.owner_text_field": {
+    "title": { "ar": "نص جديد", "en": "New text" },
+    "body": { "ar": "نصك الخاص لهذا الجزء من الرسالة.", "en": "Your own wording for this part of the message." },
+    "kind": "field",
+    "anchor": "campaigns.launch_wizard.owner_text_field"
+  },
+  "campaigns.launch_wizard.flow_error_back": {
+    "title": { "ar": "رجوع للرسالة", "en": "Back to message" },
+    "body": { "ar": "يرجعك من معاينة الفلو لمعاينة الرسالة.", "en": "Returns from the flow preview to the message preview." },
+    "kind": "action",
+    "anchor": "campaigns.launch_wizard.flow_error_back"
+  },
+  "campaigns.message_preview_sheet.close": {
+    "title": { "ar": "إغلاق", "en": "Close" },
+    "body": { "ar": "يغلق معاينة الرسالة.", "en": "Closes the message preview." },
+    "kind": "action",
+    "anchor": "campaigns.message_preview_sheet.close"
+  },
+  "campaigns.message_preview_sheet.flow_error_back": {
+    "title": { "ar": "رجوع للرسالة", "en": "Back to message" },
+    "body": { "ar": "يرجعك من معاينة الفلو لمعاينة الرسالة.", "en": "Returns from the flow preview to the message preview." },
+    "kind": "action",
+    "anchor": "campaigns.message_preview_sheet.flow_error_back"
+  },
+  "campaigns.pause_button": {
+    "title": { "ar": "إيقاف الحملة", "en": "Pause campaign" },
+    "body": { "ar": "يوقف هذه الحملة مؤقتاً.", "en": "Pauses this campaign temporarily." },
+    "kind": "action",
+    "anchor": "campaigns.pause_button"
+  },
+  "campaigns.text_editor_sheet.close": {
+    "title": { "ar": "إغلاق", "en": "Close" },
+    "body": { "ar": "يغلق محرر النص.", "en": "Closes the text editor." },
+    "kind": "action",
+    "anchor": "campaigns.text_editor_sheet.close"
+  },
+  "campaigns.text_editor_sheet.body_field": {
+    "title": { "ar": "نص الرسالة", "en": "Message text" },
+    "body": { "ar": "اكتب نصك الخاص، وأضف بلاغات جاهزة من القائمة أعلاه.", "en": "Write your own wording, and insert ready-made blanks from the list above." },
+    "kind": "field",
+    "anchor": "campaigns.text_editor_sheet.body_field"
+  },
+  "campaigns.wa_flow_preview.footer_button": {
+    "title": { "ar": "زر المتابعة", "en": "Continue button" },
+    "body": { "ar": "زر متابعة الفلو كما يظهر لعميلك بالواتساب.", "en": "The flow's own continue button, as your customer sees it on WhatsApp." },
+    "kind": "action",
+    "anchor": "campaigns.wa_flow_preview.footer_button"
+  },
+  "campaigns.wa_flow_preview.text_field": {
+    "title": { "ar": "حقل إدخال", "en": "Input field" },
+    "body": { "ar": "حقل إدخال داخل الفلو كما يظهر لعميلك.", "en": "A flow input field, as your customer sees it." },
+    "kind": "field",
+    "anchor": "campaigns.wa_flow_preview.text_field"
+  },
+  "coworking.resource_sheet.availability_time": {
+    "title": { "ar": "وقت التوفر", "en": "Availability time" },
+    "body": { "ar": "بداية أو نهاية توفر هذا المورد باليوم.", "en": "This resource's start or end availability time that day." },
+    "kind": "field",
+    "anchor": "coworking.resource_sheet.availability_time"
+  },
+  "coworking.share_link_copy": {
+    "title": { "ar": "نسخ الرابط", "en": "Copy link" },
+    "body": { "ar": "ينسخ رابط الانضمام لتشاركه.", "en": "Copies the join link to share it." },
+    "kind": "action",
+    "anchor": "coworking.share_link_copy"
+  },
+  "partner_loyalty.grant_phone_field": {
+    "title": { "ar": "جوال الشريك", "en": "Partner phone" },
+    "body": { "ar": "رقم جوال الشريك اللي راح تمنحه نقاط.", "en": "The partner's phone number you're granting points to." },
+    "kind": "field",
+    "anchor": "partner_loyalty.grant_phone_field"
+  },
+  "partner_loyalty.log_search_field": {
+    "title": { "ar": "بحث", "en": "Search" },
+    "body": { "ar": "يبحث بسجل نقاط الشركاء برقم الجوال.", "en": "Searches the partner points log by phone number." },
+    "kind": "field",
+    "anchor": "partner_loyalty.log_search_field"
+  },
+  "referrals.add_affiliate_sheet.phone_field": {
+    "title": { "ar": "جوال المسوّق", "en": "Affiliate phone" },
+    "body": { "ar": "رقم جوال المسوّق الجديد.", "en": "The new affiliate's phone number." },
+    "kind": "field",
+    "anchor": "referrals.add_affiliate_sheet.phone_field"
+  },
+  "referrals.add_affiliate_sheet.code_field": {
+    "title": { "ar": "كوده الخاص", "en": "His own code" },
+    "body": { "ar": "كود الإحالة الخاص بهذا المسوّق.", "en": "This affiliate's own referral code." },
+    "kind": "field",
+    "anchor": "referrals.add_affiliate_sheet.code_field"
+  },
+  "referrals.add_affiliate_sheet.discount_field": {
+    "title": { "ar": "خصم العميل الجديد", "en": "New customer discount" },
+    "body": { "ar": "نسبة الخصم للعميل اللي يستخدم كوده.", "en": "The discount percent for a customer using his code." },
+    "kind": "field",
+    "anchor": "referrals.add_affiliate_sheet.discount_field"
+  },
+  "referrals.add_affiliate_sheet.reward_amount_field": {
+    "title": { "ar": "مكافأة المسوّق", "en": "Affiliate reward" },
+    "body": { "ar": "نسبة أو نقاط مكافأة المسوّق نفسه.", "en": "The affiliate's own reward percent or points." },
+    "kind": "field",
+    "anchor": "referrals.add_affiliate_sheet.reward_amount_field"
+  },
+  "referrals.add_affiliate_sheet.max_visits_field": {
+    "title": { "ar": "أقصى عدد زيارات", "en": "Max visits" },
+    "body": { "ar": "أقصى عدد زيارات يقدر يستخدم فيها الكود.", "en": "The most visits the code can be used for." },
+    "kind": "field",
+    "anchor": "referrals.add_affiliate_sheet.max_visits_field"
+  },
+  "referrals.wizard_max_visits_field": {
+    "title": { "ar": "أقصى عدد زيارات", "en": "Max visits" },
+    "body": { "ar": "أقصى عدد زيارات يقدر يستخدم فيها الكود.", "en": "The most visits the code can be used for." },
+    "kind": "field",
+    "anchor": "referrals.wizard_max_visits_field"
+  },
+  "shop.register_first_visit_cta": {
+    "title": { "ar": "سجّل أول زيارة", "en": "Register first visit" },
+    "body": { "ar": "ينقلك لتسجيل أول زيارة لعميلك.", "en": "Takes you to register your customer's first visit." },
+    "kind": "action",
+    "anchor": "shop.register_first_visit_cta"
+  },
+  "shop.next_step_card.cta": {
+    "title": { "ar": "زر الخطوة التالية", "en": "Next-step button" },
+    "body": { "ar": "ينفّذ الخطوة المقترحة لك الآن.", "en": "Carries out the step suggested to you now." },
+    "kind": "action",
+    "anchor": "shop.next_step_card.cta"
+  },
+  "shop.next_step_card.dismiss": {
+    "title": { "ar": "ليس الآن", "en": "Not now" },
+    "body": { "ar": "يخفي هذا الاقتراح.", "en": "Dismisses this suggestion." },
+    "kind": "action",
+    "anchor": "shop.next_step_card.dismiss"
+  },
+  "shop.computing_view.refresh": {
+    "title": { "ar": "تحديث", "en": "Refresh" },
+    "body": { "ar": "يعيد حساب أرقام لوحتك.", "en": "Recomputes your dashboard's numbers." },
+    "kind": "action",
+    "anchor": "shop.computing_view.refresh"
+  },
+  "shop.at_risk_card.win_back_cta": {
+    "title": { "ar": "استرجاع العملاء", "en": "Win them back" },
+    "body": { "ar": "ينقلك لحملة استرجاع لهؤلاء العملاء.", "en": "Takes you to a win-back campaign for these customers." },
+    "kind": "action",
+    "anchor": "shop.at_risk_card.win_back_cta"
+  },
   "auth.login": {
     "title": {
       "ar": "تسجيل الدخول",

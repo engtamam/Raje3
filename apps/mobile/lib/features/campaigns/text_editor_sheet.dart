@@ -8,6 +8,7 @@ import 'package:raje3_mobile/models/messages_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_widgets.dart';
 import 'package:raje3_mobile/features/campaigns/campaigns_i18n.dart';
+import 'package:raje3_mobile/widgets/kb_anchor.dart';
 
 /// Writing his own wording for one message — with blanks he cannot get wrong.
 ///
@@ -217,7 +218,10 @@ class _TextEditorSheetState extends State<_TextEditorSheet> {
             children: [
               Row(children: [
                 Expanded(child: Text(ct(context, 'textEditorTitle', {'label': widget.label}), style: AppTextStyles.headlineSmall)),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+                KbAnchor(
+                  id: 'campaigns.text_editor_sheet.close',
+                  child: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+                ),
               ]),
               Text(ct(context, 'textEditorSubtitle'), style: AppTextStyles.bodySmall.copyWith(color: colors.textSecondary)),
               const SizedBox(height: AppSpacing.md),
@@ -235,7 +239,9 @@ class _TextEditorSheetState extends State<_TextEditorSheet> {
               const SizedBox(height: AppSpacing.sm),
               // ONE REAL TEXT FIELD — chips are the exact same characters he can see and the
               // caret walks, only restyled where a marker pair wraps them (`_ChipEditingController`).
-              TextField(
+              KbAnchor(
+                id: 'campaigns.text_editor_sheet.body_field',
+                child: TextField(
                 controller: _controller,
                 maxLines: 4,
                 minLines: 3,
@@ -250,6 +256,7 @@ class _TextEditorSheetState extends State<_TextEditorSheet> {
                   fillColor: colors.inputFill,
                   hintText: ct(context, 'textEditorContinueHint'),
                   border: OutlineInputBorder(borderRadius: AppRadius.standardRadius, borderSide: BorderSide(color: colors.borderSubtle)),
+                ),
                 ),
               ),
               // THE ONE BLANK HE DOES NOT CHOOSE, shown rather than hidden — an owner who does
