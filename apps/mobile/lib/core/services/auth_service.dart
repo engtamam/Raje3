@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:raje3_mobile/core/network/api_client.dart';
 import 'package:raje3_mobile/core/storage/secure_storage.dart';
-import 'package:raje3_mobile/features/apps/payment_webview_screen.dart' show paymentReturnMarker;
-import 'package:raje3_mobile/models/app_store_model.dart' show Owned, CartPreview;
+import 'package:raje3_mobile/features/apps/payment_webview_screen.dart'
+    show paymentReturnMarker;
+import 'package:raje3_mobile/models/app_store_model.dart'
+    show Owned, CartPreview;
 
 /// Service layer for authentication against Raje3's REAL identity door.
 ///
@@ -91,7 +93,14 @@ class BranchesResult {
 /// The outcome of a branch create/update call — `BranchErrorCode.none` on success, otherwise the
 /// exact real refusal (`LOCATION_REQUIRED`/`BRANCH_LIMIT`/`MAIN_BRANCH`/`BRANCH_BUSY`) so the
 /// screen can show the real sentence the server already wrote rather than a generic failure.
-enum BranchErrorCode { none, locationRequired, limitReached, mainBranch, busy, unknown }
+enum BranchErrorCode {
+  none,
+  locationRequired,
+  limitReached,
+  mainBranch,
+  busy,
+  unknown
+}
 
 class BranchWriteResult {
   final Branch? branch;
@@ -133,7 +142,8 @@ class BranchTeamMember {
     this.hasPin = false,
   });
 
-  factory BranchTeamMember.fromJson(Map<String, dynamic> json) => BranchTeamMember(
+  factory BranchTeamMember.fromJson(Map<String, dynamic> json) =>
+      BranchTeamMember(
         id: json['id'] as String? ?? '',
         name: json['name'] as String? ?? '',
         role: json['role'] as String? ?? '',
@@ -145,7 +155,8 @@ class BranchTeamMember {
             .map((e) => e.toString())
             .toList(),
         workingHours: json['working_hours'] is Map
-            ? WorkingHours.fromJson(Map<String, dynamic>.from(json['working_hours'] as Map))
+            ? WorkingHours.fromJson(
+                Map<String, dynamic>.from(json['working_hours'] as Map))
             : null,
         hasLogin: json['has_login'] as bool? ?? false,
         hasPin: json['has_pin'] as bool? ?? false,
@@ -160,7 +171,10 @@ class DayHours {
   final int startMinute;
   final int endMinute;
 
-  const DayHours({required this.closed, required this.startMinute, required this.endMinute});
+  const DayHours(
+      {required this.closed,
+      required this.startMinute,
+      required this.endMinute});
 
   factory DayHours.fromJson(Map<String, dynamic> json) => DayHours(
         closed: json['closed'] as bool? ?? false,
@@ -171,7 +185,8 @@ class DayHours {
   Map<String, dynamic> toJson() =>
       {'closed': closed, 'start_minute': startMinute, 'end_minute': endMinute};
 
-  DayHours copyWith({bool? closed, int? startMinute, int? endMinute}) => DayHours(
+  DayHours copyWith({bool? closed, int? startMinute, int? endMinute}) =>
+      DayHours(
         closed: closed ?? this.closed,
         startMinute: startMinute ?? this.startMinute,
         endMinute: endMinute ?? this.endMinute,
@@ -188,13 +203,17 @@ class WorkingHours {
       weekly: {
         if (weekly is Map)
           for (final entry in weekly.entries)
-            entry.key.toString(): DayHours.fromJson(Map<String, dynamic>.from(entry.value as Map)),
+            entry.key.toString(): DayHours.fromJson(
+                Map<String, dynamic>.from(entry.value as Map)),
       },
     );
   }
 
-  Map<String, dynamic> toJson() =>
-      {'weekly': {for (final entry in weekly.entries) entry.key: entry.value.toJson()}};
+  Map<String, dynamic> toJson() => {
+        'weekly': {
+          for (final entry in weekly.entries) entry.key: entry.value.toJson()
+        }
+      };
 }
 
 /// The real, fixed role set — `apps/console/src/screens/Team.tsx`'s own radio options, matched
@@ -227,14 +246,18 @@ enum HireErrorCode { none, branchRequired, seatLimit, busy, notHired, unknown }
 class HireResult {
   final HireErrorCode error;
   final String message;
-  const HireResult.ok() : error = HireErrorCode.none, message = '';
+  const HireResult.ok()
+      : error = HireErrorCode.none,
+        message = '';
   const HireResult.failed(this.error, {this.message = ''});
 }
 
 class ChangePasswordResult {
   final bool ok;
   final String message;
-  const ChangePasswordResult.ok() : ok = true, message = '';
+  const ChangePasswordResult.ok()
+      : ok = true,
+        message = '';
   const ChangePasswordResult.failed(this.message) : ok = false;
 }
 
@@ -258,6 +281,7 @@ class BillingPlan {
   final bool active;
   final bool listed;
   final int trialDays;
+
   /// billingShared's own `includedAiCreditOf` — the SAME price row's `included_credit_minor`,
   /// `null` for every plan without such an allowance (never a zero-guess: a plan that never
   /// opted into this reads as "carries no such allowance", not "carries zero of it").
@@ -281,7 +305,8 @@ class BillingPlan {
   bool get needsPayment => monthlyAmountMinor > 0 && trialDays <= 0;
 
   factory BillingPlan.fromJson(Map<String, dynamic> json) {
-    final prices = (json['prices'] as List?)?.whereType<Map>().toList() ?? const [];
+    final prices =
+        (json['prices'] as List?)?.whereType<Map>().toList() ?? const [];
     final monthly = prices.firstWhere(
       (p) => p['interval'] == 'month',
       orElse: () => prices.isNotEmpty ? prices.first : const {},
@@ -327,7 +352,10 @@ class BillingPlan {
     final raw = limits['plan.requires_any'];
     final list = raw is Map ? raw['list'] : null;
     if (list is! List) return const [];
-    return list.whereType<String>().where((k) => k.isNotEmpty).toList(growable: false);
+    return list
+        .whereType<String>()
+        .where((k) => k.isNotEmpty)
+        .toList(growable: false);
   }
 }
 
@@ -350,7 +378,8 @@ class BillingSubscription {
     required this.cancelAtPeriodEnd,
   });
 
-  factory BillingSubscription.fromJson(Map<String, dynamic> json) => BillingSubscription(
+  factory BillingSubscription.fromJson(Map<String, dynamic> json) =>
+      BillingSubscription(
         id: json['id'] as String? ?? '',
         planId: json['plan_id'] as String? ?? '',
         status: json['status'] as String? ?? '',
@@ -386,7 +415,8 @@ class RenewalPreviewLine {
     required this.totalMinor,
   });
 
-  factory RenewalPreviewLine.fromJson(Map<String, dynamic> json) => RenewalPreviewLine(
+  factory RenewalPreviewLine.fromJson(Map<String, dynamic> json) =>
+      RenewalPreviewLine(
         subscriptionId: json['subscription_id'] as String? ?? '',
         planName: json['plan_name'] as String? ?? '',
         totalMinor: (json['total_minor'] as num?)?.toInt() ?? 0,
@@ -414,12 +444,14 @@ class RenewalPreviewGroup {
     required this.totalMinor,
   });
 
-  factory RenewalPreviewGroup.fromJson(Map<String, dynamic> json) => RenewalPreviewGroup(
+  factory RenewalPreviewGroup.fromJson(Map<String, dynamic> json) =>
+      RenewalPreviewGroup(
         currency: json['currency'] as String? ?? 'SAR',
         nextChargeAt: (json['next_charge_at'] as num?)?.toDouble(),
         lines: ((json['lines'] as List?) ?? const [])
             .whereType<Map>()
-            .map((m) => RenewalPreviewLine.fromJson(Map<String, dynamic>.from(m)))
+            .map((m) =>
+                RenewalPreviewLine.fromJson(Map<String, dynamic>.from(m)))
             .toList(),
         subtotalMinor: (json['subtotal_minor'] as num?)?.toInt() ?? 0,
         discountMinor: (json['discount_minor'] as num?)?.toInt() ?? 0,
@@ -466,11 +498,13 @@ class BillingUsageGauge {
   final int current;
   final int? limit;
 
-  const BillingUsageGauge({required this.key, required this.current, required this.limit});
+  const BillingUsageGauge(
+      {required this.key, required this.current, required this.limit});
 
   factory BillingUsageGauge.fromJson(String key, Map<String, dynamic> json) {
     final rawLimit = json['limit'];
-    final unlimited = rawLimit == null || rawLimit == 'unlimited' ||
+    final unlimited = rawLimit == null ||
+        rawLimit == 'unlimited' ||
         (rawLimit is num && rawLimit < 0);
     return BillingUsageGauge(
       key: key,
@@ -507,14 +541,16 @@ class BranchConnectStatus {
   final String message;
   final bool canSend;
 
-  const BranchConnectStatus({required this.state, required this.message, required this.canSend});
+  const BranchConnectStatus(
+      {required this.state, required this.message, required this.canSend});
 
   /// Three real states only — never a fourth invented one. `notStarted` (empty `state`),
   /// `connected` (`canSend`), `connectedCannotSend` (a real, distinct state, not lumped with
   /// `connected` — connect.py's own PIN-step note is exactly why this stays a third value).
   bool get notStarted => state.isEmpty;
 
-  factory BranchConnectStatus.fromJson(Map<String, dynamic> json) => BranchConnectStatus(
+  factory BranchConnectStatus.fromJson(Map<String, dynamic> json) =>
+      BranchConnectStatus(
         state: json['state'] as String? ?? '',
         message: json['message'] as String? ?? '',
         canSend: json['can_send'] as bool? ?? false,
@@ -626,7 +662,8 @@ class AuthService {
   /// resolves to null so a caller degrades to the phone-number fallback rather than crashing.
   Future<String?> fetchOwnerName() async {
     try {
-      final response = await apiClient.dio.get<dynamic>('/api/v1/account/me/name');
+      final response =
+          await apiClient.dio.get<dynamic>('/api/v1/account/me/name');
       final data = response.data;
       if (data is Map) return (data['name'] as String?) ?? '';
       return null;
@@ -660,7 +697,8 @@ class AuthService {
   /// offline read — the caller degrades by hiding the control, never by guessing an answer.
   Future<bool?> fetchTracksVehicle() async {
     try {
-      final response = await apiClient.dio.get<dynamic>('/api/v1/staff/vehicles');
+      final response =
+          await apiClient.dio.get<dynamic>('/api/v1/staff/vehicles');
       final data = response.data;
       if (data is Map) return data['tracks_vehicle'] as bool? ?? false;
       return null;
@@ -698,7 +736,9 @@ class AuthService {
       final data = response.data;
       if (data is! Map) return null;
       final branding = data['branding'];
-      final rawBranding = branding is Map ? Map<String, dynamic>.from(branding) : <String, dynamic>{};
+      final rawBranding = branding is Map
+          ? Map<String, dynamic>.from(branding)
+          : <String, dynamic>{};
       return TenantIdentity(
         name: data['name'] as String? ?? '',
         logoUrl: rawBranding['logo_url'] as String? ?? '',
@@ -715,7 +755,8 @@ class AuthService {
   /// tenant-service call is not offered for the name specifically). Returns whether it saved.
   Future<bool> setShopName(String name) async {
     try {
-      await apiClient.dio.put<dynamic>('/api/v1/staff/shop-name', data: {'name': name});
+      await apiClient.dio
+          .put<dynamic>('/api/v1/staff/shop-name', data: {'name': name});
       return true;
     } on DioException {
       return false;
@@ -756,8 +797,8 @@ class AuthService {
   /// distinction is actually used — a caller here just gets the honest three-way answer.
   Future<bool?> fetchMobileAiAssistantSubscribed() async {
     try {
-      final response =
-          await apiClient.dio.get<dynamic>('/api/v1/account/me/mobile-ai-assistant');
+      final response = await apiClient.dio
+          .get<dynamic>('/api/v1/account/me/mobile-ai-assistant');
       final data = response.data;
       if (data is! Map) return null;
       final checked = data['checked'] as bool? ?? false;
@@ -772,7 +813,8 @@ class AuthService {
   /// `null` on any failure, same three-way honesty as every other read in this file.
   Future<BranchesResult?> fetchBranches() async {
     try {
-      final response = await apiClient.dio.get<dynamic>('/api/v1/staff/branches');
+      final response =
+          await apiClient.dio.get<dynamic>('/api/v1/staff/branches');
       final data = response.data;
       if (data is! Map) return null;
       final rows = (data['branches'] as List?) ?? const [];
@@ -797,7 +839,8 @@ class AuthService {
     double? lng,
   }) async {
     try {
-      final response = await apiClient.dio.post<dynamic>('/api/v1/staff/branches', data: {
+      final response =
+          await apiClient.dio.post<dynamic>('/api/v1/staff/branches', data: {
         'name': name,
         'city': city,
         if (lat != null) 'lat': lat,
@@ -810,7 +853,8 @@ class AuthService {
       // still a Map, so the old `if (data is Map)` check here read a refusal as success).
       final data = response.data;
       if (response.statusCode == 201 && data is Map) {
-        return BranchWriteResult.ok(Branch.fromJson(Map<String, dynamic>.from(data)));
+        return BranchWriteResult.ok(
+            Branch.fromJson(Map<String, dynamic>.from(data)));
       }
       return BranchWriteResult.failed(_branchErrorFromData(data));
     } on DioException catch (e) {
@@ -829,7 +873,8 @@ class AuthService {
     double? lng,
   }) async {
     try {
-      final response = await apiClient.dio.patch<dynamic>('/api/v1/staff/branches/$branchId', data: {
+      final response = await apiClient.dio
+          .patch<dynamic>('/api/v1/staff/branches/$branchId', data: {
         if (name != null) 'name': name,
         if (active != null) 'active': active,
         if (city != null) 'city': city,
@@ -839,7 +884,8 @@ class AuthService {
       // Same non-throwing-4xx trap as addBranch's own note above.
       final data = response.data;
       if (response.statusCode == 200 && data is Map) {
-        return BranchWriteResult.ok(Branch.fromJson(Map<String, dynamic>.from(data)));
+        return BranchWriteResult.ok(
+            Branch.fromJson(Map<String, dynamic>.from(data)));
       }
       return BranchWriteResult.failed(_branchErrorFromData(data));
     } on DioException catch (e) {
@@ -869,7 +915,8 @@ class AuthService {
   /// by `branchId` client-side. `null` on failure.
   Future<List<BranchTeamMember>?> fetchOperators() async {
     try {
-      final response = await apiClient.dio.get<dynamic>('/api/v1/staff/operators');
+      final response =
+          await apiClient.dio.get<dynamic>('/api/v1/staff/operators');
       final data = response.data;
       if (data is! Map) return null;
       final rows = (data['operators'] as List?) ?? const [];
@@ -894,7 +941,8 @@ class AuthService {
     required String branchId,
   }) async {
     try {
-      final response = await apiClient.dio.post<dynamic>('/api/v1/staff/members', data: {
+      final response =
+          await apiClient.dio.post<dynamic>('/api/v1/staff/members', data: {
         'name': name,
         'phone': phone,
         'password': password,
@@ -927,15 +975,15 @@ class AuthService {
     bool? active,
   }) async {
     try {
-      final response = await apiClient.dio.patch<dynamic>('/api/v1/staff/operators/$operatorId',
-          data: {
-            if (name != null) 'name': name,
-            if (role != null) 'role': role.value,
-            if (branchId != null) 'branch_id': branchId,
-            if (visibleBranchIds != null) 'visible_branch_ids': visibleBranchIds,
-            if (visibleAll != null) 'visible_all': visibleAll,
-            if (active != null) 'active': active,
-          });
+      final response = await apiClient.dio
+          .patch<dynamic>('/api/v1/staff/operators/$operatorId', data: {
+        if (name != null) 'name': name,
+        if (role != null) 'role': role.value,
+        if (branchId != null) 'branch_id': branchId,
+        if (visibleBranchIds != null) 'visible_branch_ids': visibleBranchIds,
+        if (visibleAll != null) 'visible_all': visibleAll,
+        if (active != null) 'active': active,
+      });
       final status = response.statusCode ?? 0;
       if (status >= 200 && status < 300) return null;
       return _refusalMessage(response.data);
@@ -955,8 +1003,9 @@ class AuthService {
   /// merged); `staff.py`'s own refusal when a day exceeds the shop's own hours.
   Future<String?> setWorkingHours(String operatorId, WorkingHours hours) async {
     try {
-      final response = await apiClient.dio
-          .put<dynamic>('/api/v1/staff/operators/$operatorId/working-hours', data: hours.toJson());
+      final response = await apiClient.dio.put<dynamic>(
+          '/api/v1/staff/operators/$operatorId/working-hours',
+          data: hours.toJson());
       final status = response.statusCode ?? 0;
       if (status >= 200 && status < 300) return null;
       return _refusalMessage(response.data);
@@ -969,8 +1018,8 @@ class AuthService {
   /// hours. Idempotent.
   Future<bool> clearWorkingHours(String operatorId) async {
     try {
-      final response =
-          await apiClient.dio.delete<dynamic>('/api/v1/staff/operators/$operatorId/working-hours');
+      final response = await apiClient.dio
+          .delete<dynamic>('/api/v1/staff/operators/$operatorId/working-hours');
       final status = response.statusCode ?? 0;
       return status >= 200 && status < 300;
     } on DioException {
@@ -1004,7 +1053,8 @@ class AuthService {
   Future<ChangePasswordResult> changePassword(
       {required String oldPassword, required String newPassword}) async {
     try {
-      final response = await apiClient.dio.post<dynamic>('/api/v1/auth/change-password', data: {
+      final response = await apiClient.dio
+          .post<dynamic>('/api/v1/auth/change-password', data: {
         'old_password': oldPassword,
         'new_password': newPassword,
       });
@@ -1072,7 +1122,8 @@ class AuthService {
         // (`error`, no `kind`) has nothing to draw a progress bar from — found live: without
         // this check every `feature.*`/`plan.*` flag rendered as a bogus "1 / 0" bar.
         if (v is Map && v['kind'] == 'gauge') {
-          usage.add(BillingUsageGauge.fromJson(entry.key as String, Map<String, dynamic>.from(v)));
+          usage.add(BillingUsageGauge.fromJson(
+              entry.key as String, Map<String, dynamic>.from(v)));
         }
       }
     }
@@ -1091,8 +1142,8 @@ class AuthService {
   /// an immediate cutoff.
   Future<bool> cancelSubscription(String subscriptionId) async {
     try {
-      final response = await apiClient.dio
-          .post<dynamic>('/api/v1/billing/subscriptions/$subscriptionId/cancel');
+      final response = await apiClient.dio.post<dynamic>(
+          '/api/v1/billing/subscriptions/$subscriptionId/cancel');
       final status = response.statusCode ?? 0;
       return status >= 200 && status < 300;
     } on DioException {
@@ -1103,8 +1154,8 @@ class AuthService {
   /// «تراجع عن إيقاف التجديد» — `POST /api/v1/billing/subscriptions/{id}/undo-cancel`.
   Future<bool> undoCancelSubscription(String subscriptionId) async {
     try {
-      final response = await apiClient.dio
-          .post<dynamic>('/api/v1/billing/subscriptions/$subscriptionId/undo-cancel');
+      final response = await apiClient.dio.post<dynamic>(
+          '/api/v1/billing/subscriptions/$subscriptionId/undo-cancel');
       final status = response.statusCode ?? 0;
       return status >= 200 && status < 300;
     } on DioException {
@@ -1120,7 +1171,8 @@ class AuthService {
   /// BillingStatusPane.tsx passes `window.location.href` for the identical reason.
   Future<String?> invoicePayLink(String invoiceId) async {
     try {
-      final response = await apiClient.dio.post<dynamic>('/api/v1/billing/invoices/$invoiceId/pay-link',
+      final response = await apiClient.dio.post<dynamic>(
+          '/api/v1/billing/invoices/$invoiceId/pay-link',
           data: {'return_url': paymentReturnMarker});
       final data = response.data;
       if (response.statusCode != 201 || data is! Map) return null;
@@ -1140,7 +1192,8 @@ class AuthService {
   /// lock/unlock badge on the store screen reads.
   Future<Owned?> fetchOwnership() async {
     try {
-      final response = await apiClient.dio.get<dynamic>('/api/v1/subscription/apps');
+      final response =
+          await apiClient.dio.get<dynamic>('/api/v1/subscription/apps');
       if ((response.statusCode ?? 0) >= 400) return null;
       final body = response.data;
       if (body is! Map) return null;
@@ -1152,9 +1205,18 @@ class AuthService {
 
   /// `GET /api/v1/billing/plans` — every plan a shop MAY buy, not only what it already holds
   /// (`fetchBillingOverview`'s own narrower read). Same filter useAppBilling.ts::load applies.
-  Future<List<BillingPlan>?> fetchPurchasablePlans() async {
+  ///
+  /// `visibleOverrideKeys` — feature keys ONE platform operator made visible for THIS shop
+  /// specifically, on top of whatever is globally `listed` (`fetchAppVisibilityOverrides` below,
+  /// `services/operations/app/core/app_visibility.py`'s own module docstring for the full design;
+  /// same param `useAppBilling.ts` carries on the console side). A plan whose OWN feature key
+  /// (its own `limits` map's non-`plan.*` entry) is in this list is kept even when `listed` is
+  /// false — still excluded when `active` is false regardless, exactly like the console.
+  Future<List<BillingPlan>?> fetchPurchasablePlans(
+      {List<String> visibleOverrideKeys = const []}) async {
     try {
-      final response = await apiClient.dio.get<dynamic>('/api/v1/billing/plans');
+      final response =
+          await apiClient.dio.get<dynamic>('/api/v1/billing/plans');
       if ((response.statusCode ?? 0) >= 400) return null;
       final body = response.data;
       if (body is! Map) return null;
@@ -1162,10 +1224,30 @@ class AuthService {
       return rows
           .whereType<Map>()
           .map((m) => BillingPlan.fromJson(Map<String, dynamic>.from(m)))
-          .where((p) => p.active && p.listed)
+          .where((p) =>
+              p.active && (p.listed || visibleOverrideKeys.contains(p.appKey)))
           .toList();
     } on DioException {
       return null;
+    }
+  }
+
+  /// `GET /api/v1/subscription/apps/visibility-overrides` — which otherwise-hidden apps THIS shop
+  /// specifically was shown. Tenant resolved server-side from this shop's own token; there is no
+  /// tenant parameter on this route at all (the route's own docstring: what makes it IDOR-safe by
+  /// construction). `[]` (never `null`) on any failure — a store screen must still render with
+  /// nothing extra shown rather than break.
+  Future<List<String>> fetchAppVisibilityOverrides() async {
+    try {
+      final response = await apiClient.dio
+          .get<dynamic>('/api/v1/subscription/apps/visibility-overrides');
+      if ((response.statusCode ?? 0) >= 400) return const [];
+      final body = response.data;
+      if (body is! Map) return const [];
+      final keys = (body['visible_keys'] as List?) ?? const [];
+      return keys.whereType<String>().toList();
+    } on DioException {
+      return const [];
     }
   }
 
@@ -1176,7 +1258,8 @@ class AuthService {
   /// `includedCreditMinor` regardless, so a wrong `aiEnabled` guess here costs nothing.
   Future<(double?, bool)> fetchAiUnitsPerHalala() async {
     try {
-      final response = await apiClient.dio.get<dynamic>('/api/v1/assistant/pricing/current');
+      final response =
+          await apiClient.dio.get<dynamic>('/api/v1/assistant/pricing/current');
       final body = response.data;
       if (body is! Map) return (null, true);
       return (
@@ -1191,16 +1274,21 @@ class AuthService {
   /// `GET /api/v1/billing/discount-preview` — `(applied, potential)`, keyed by plan id. `applied`
   /// means the shop already qualifies (owns the `owning_key` app) and the discount is real today;
   /// `potential` is a marketing teaser for a plan not yet owned ("X% off if you also get Y").
-  Future<(Map<String, DiscountInfo>, Map<String, DiscountInfo>)> fetchDiscountPreview() async {
+  Future<(Map<String, DiscountInfo>, Map<String, DiscountInfo>)>
+      fetchDiscountPreview() async {
     try {
-      final response = await apiClient.dio.get<dynamic>('/api/v1/billing/discount-preview');
+      final response =
+          await apiClient.dio.get<dynamic>('/api/v1/billing/discount-preview');
       final body = response.data;
-      if (body is! Map) return (const <String, DiscountInfo>{}, const <String, DiscountInfo>{});
+      if (body is! Map)
+        return (const <String, DiscountInfo>{}, const <String, DiscountInfo>{});
       Map<String, DiscountInfo> parse(String key) {
         final m = body[key];
         if (m is! Map) return const {};
-        return m.map((k, v) => MapEntry(k.toString(), DiscountInfo.fromJson(Map<String, dynamic>.from(v as Map))));
+        return m.map((k, v) => MapEntry(k.toString(),
+            DiscountInfo.fromJson(Map<String, dynamic>.from(v as Map))));
       }
+
       return (parse('applied'), parse('potential'));
     } on DioException {
       return (const <String, DiscountInfo>{}, const <String, DiscountInfo>{});
@@ -1210,8 +1298,10 @@ class AuthService {
   /// `POST /api/v1/subscription/checkout/preview` — read-only, creates and charges nothing.
   Future<CartPreview?> checkoutPreview(List<String> planIds) async {
     try {
-      final response = await apiClient.dio.post<dynamic>('/api/v1/subscription/checkout/preview', data: {
-        'items': planIds.map((id) => {'plan_id': id, 'interval': 'month'}).toList(),
+      final response = await apiClient.dio
+          .post<dynamic>('/api/v1/subscription/checkout/preview', data: {
+        'items':
+            planIds.map((id) => {'plan_id': id, 'interval': 'month'}).toList(),
       });
       if ((response.statusCode ?? 0) >= 400) return null;
       final body = response.data;
@@ -1225,10 +1315,13 @@ class AuthService {
   /// `POST /api/v1/subscription` — one app, our own route (enforces WhatsApp-before-paid
   /// ordering). Returns `(ok, statusCode)` — the real HTTP status names the real refusal even
   /// though its text is stripped in transit (same posture `propose`/`subscribe` elsewhere take).
-  Future<(bool, int?)> subscribeToApp({required String planId, int quantity = 1}) async {
+  Future<(bool, int?)> subscribeToApp(
+      {required String planId, int quantity = 1}) async {
     try {
-      final response = await apiClient.dio.post<dynamic>('/api/v1/subscription', data: {
-        'plan_id': planId, 'quantity': quantity,
+      final response =
+          await apiClient.dio.post<dynamic>('/api/v1/subscription', data: {
+        'plan_id': planId,
+        'quantity': quantity,
       });
       final status = response.statusCode ?? 0;
       return (status < 400, status >= 400 ? status : null);
@@ -1245,13 +1338,18 @@ class AuthService {
   /// pay-link to open, or null on ANY refusal (`status` names the family — 409 WhatsApp-required,
   /// 503 gateway down, ...) — `null` with a status is a real refusal, `null` with none is a
   /// network failure, same distinction `subscribeToApp` already draws.
-  Future<(String?, int?)> checkoutLink({required String planId, int quantity = 1}) async {
+  Future<(String?, int?)> checkoutLink(
+      {required String planId, int quantity = 1}) async {
     try {
-      final response = await apiClient.dio.post<dynamic>('/api/v1/subscription/checkout-link', data: {
-        'plan_id': planId, 'quantity': quantity,
+      final response = await apiClient.dio
+          .post<dynamic>('/api/v1/subscription/checkout-link', data: {
+        'plan_id': planId,
+        'quantity': quantity,
       });
       final data = response.data;
-      final url = data is Map ? (data['checkout_url'] ?? data['pay_url']) as String? : null;
+      final url = data is Map
+          ? (data['checkout_url'] ?? data['pay_url']) as String?
+          : null;
       return (url, null);
     } on DioException catch (e) {
       return (null, e.response?.statusCode);
@@ -1265,8 +1363,10 @@ class AuthService {
   /// same response shape.
   Future<(String?, bool, int?)> checkoutCart(List<String> planIds) async {
     try {
-      final response = await apiClient.dio.post<dynamic>('/api/v1/subscription/checkout/link', data: {
-        'items': planIds.map((id) => {'plan_id': id, 'interval': 'month'}).toList(),
+      final response = await apiClient.dio
+          .post<dynamic>('/api/v1/subscription/checkout/link', data: {
+        'items':
+            planIds.map((id) => {'plan_id': id, 'interval': 'month'}).toList(),
       });
       final data = response.data;
       if (data is! Map) return (null, true, null);
@@ -1278,14 +1378,21 @@ class AuthService {
     }
   }
 
-  Future<bool> cancelCapacityUnit(String subscriptionId) => cancelSubscription(subscriptionId);
+  Future<bool> cancelCapacityUnit(String subscriptionId) =>
+      cancelSubscription(subscriptionId);
 
   /// `POST /api/v1/billing/subscriptions/{id}/change` — the capacity stepper's +/-.
-  Future<bool> changeCapacityQuantity({required String subscriptionId, required String planId, required int quantity}) async {
+  Future<bool> changeCapacityQuantity(
+      {required String subscriptionId,
+      required String planId,
+      required int quantity}) async {
     try {
-      final response = await apiClient.dio.post<dynamic>('/api/v1/billing/subscriptions/$subscriptionId/change', data: {
-        'plan_id': planId, 'quantity': quantity,
-      });
+      final response = await apiClient.dio.post<dynamic>(
+          '/api/v1/billing/subscriptions/$subscriptionId/change',
+          data: {
+            'plan_id': planId,
+            'quantity': quantity,
+          });
       return (response.statusCode ?? 0) < 400;
     } on DioException {
       return false;
@@ -1303,9 +1410,11 @@ class AuthService {
   /// another — empty on any failure, never guessed.
   Future<List<String>> renewSubscriptionsNow() async {
     try {
-      final response = await apiClient.dio.post<dynamic>('/api/v1/subscription/renew-now');
+      final response =
+          await apiClient.dio.post<dynamic>('/api/v1/subscription/renew-now');
       final data = response.data;
-      if (response.statusCode != 200 && response.statusCode != 201) return const [];
+      if (response.statusCode != 200 && response.statusCode != 201)
+        return const [];
       if (data is! Map) return const [];
       final urls = data['pay_urls'];
       if (urls is! List) return const [];
@@ -1315,9 +1424,11 @@ class AuthService {
     }
   }
 
-  Future<dynamic> _getList(String path, String key, {Map<String, dynamic>? query}) async {
+  Future<dynamic> _getList(String path, String key,
+      {Map<String, dynamic>? query}) async {
     try {
-      final response = await apiClient.dio.get<dynamic>(path, queryParameters: query);
+      final response =
+          await apiClient.dio.get<dynamic>(path, queryParameters: query);
       final data = response.data;
       if (data is Map) return (data[key] as List?) ?? const [];
       return const [];
@@ -1341,8 +1452,9 @@ class AuthService {
   /// honest "لم تبدأ الربط بعد" (empty `state`) the server itself returns.
   Future<BranchConnectStatus?> fetchBranchConnectStatus(String branchId) async {
     try {
-      final response = await apiClient.dio
-          .get<dynamic>('/api/v1/whatsapp/connect', queryParameters: {'branch_id': branchId});
+      final response = await apiClient.dio.get<dynamic>(
+          '/api/v1/whatsapp/connect',
+          queryParameters: {'branch_id': branchId});
       final data = response.data;
       if (data is! Map) return null;
       return BranchConnectStatus.fromJson(Map<String, dynamic>.from(data));
@@ -1402,7 +1514,9 @@ class AuthService {
         final detail = map['detail'];
         final detailText = detail is String
             ? detail
-            : (detail is List && detail.isNotEmpty ? detail.first.toString() : null);
+            : (detail is List && detail.isNotEmpty
+                ? detail.first.toString()
+                : null);
         return AuthResult.refused(
           (map['message'] as String?) ?? detailText ?? 'تعذّر إتمام العملية',
           reason: (map['reason'] as String?) ?? '',
@@ -1427,7 +1541,8 @@ class AuthService {
         final map = Map<String, dynamic>.from(data);
         final said = (map['message'] as String?) ?? (map['detail'] as String?);
         if (said != null) {
-          return AuthResult.refused(said, reason: (map['reason'] as String?) ?? '');
+          return AuthResult.refused(said,
+              reason: (map['reason'] as String?) ?? '');
         }
       }
       if (e.type == DioExceptionType.connectionError ||

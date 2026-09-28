@@ -6,7 +6,8 @@ import 'package:raje3_mobile/core/network/api_client.dart';
 import 'package:raje3_mobile/core/services/auth_service.dart';
 import 'package:raje3_mobile/core/storage/local_storage.dart';
 import 'package:raje3_mobile/core/storage/secure_storage.dart';
-import 'package:raje3_mobile/models/app_store_model.dart' show Owned, CartPreview;
+import 'package:raje3_mobile/models/app_store_model.dart'
+    show Owned, CartPreview;
 import 'package:raje3_mobile/models/user_model.dart';
 
 /// Authentication states for the app lifecycle.
@@ -46,6 +47,7 @@ class AuthProvider extends ChangeNotifier {
   AuthState _state = AuthState.initial;
   UserModel? _user;
   String? _error;
+
   /// Stable code alongside [_error] for the ONE refusal that is a step and
   /// not a wall — `unverified`/`otp_required`/`unverified_hold`, all of
   /// which mean "go prove this phone number", not "this attempt failed for
@@ -53,10 +55,12 @@ class AuthProvider extends ChangeNotifier {
   /// docstring for why the code exists at all: a screen cannot route on
   /// Arabic sentence text that somebody will improve one day.
   String? _errorReason;
+
   /// The phone number an OTP screen should verify, when [_errorReason]
   /// points at one. Carried here rather than re-typed by the caller so the
   /// login/signup screen and the OTP screen agree on which number is live.
   String? _pendingPhone;
+
   /// Guard flag to prevent notifyListeners after widget disposal.
   bool _disposed = false;
 
@@ -94,7 +98,8 @@ class AuthProvider extends ChangeNotifier {
   UserModel? get user => _user;
 
   /// Whether the user is fully authenticated.
-  bool get isAuthenticated => _state == AuthState.authenticated && _user != null;
+  bool get isAuthenticated =>
+      _state == AuthState.authenticated && _user != null;
 
   /// Whether an auth operation is in progress.
   bool get isLoading => _state == AuthState.loading;
@@ -206,17 +211,25 @@ class AuthProvider extends ChangeNotifier {
     String? logoUrl,
     String? accent,
   }) =>
-      _authService.setBranding(current: current, logoUrl: logoUrl, accent: accent);
+      _authService.setBranding(
+          current: current, logoUrl: logoUrl, accent: accent);
 
   /// «الفروع» — thin passthroughs, same live-per-request shape as the shop identity controls
   /// above.
   Future<BranchesResult?> fetchBranches() => _authService.fetchBranches();
-  Future<BranchWriteResult> addBranch({required String name, String city = '', double? lat, double? lng}) =>
+  Future<BranchWriteResult> addBranch(
+          {required String name, String city = '', double? lat, double? lng}) =>
       _authService.addBranch(name: name, city: city, lat: lat, lng: lng);
   Future<BranchWriteResult> patchBranch(String branchId,
-          {String? name, bool? active, String? city, double? lat, double? lng}) =>
-      _authService.patchBranch(branchId, name: name, active: active, city: city, lat: lat, lng: lng);
-  Future<List<BranchTeamMember>?> fetchOperators() => _authService.fetchOperators();
+          {String? name,
+          bool? active,
+          String? city,
+          double? lat,
+          double? lng}) =>
+      _authService.patchBranch(branchId,
+          name: name, active: active, city: city, lat: lat, lng: lng);
+  Future<List<BranchTeamMember>?> fetchOperators() =>
+      _authService.fetchOperators();
   Future<BranchConnectStatus?> fetchBranchConnectStatus(String branchId) =>
       _authService.fetchBranchConnectStatus(branchId);
   Future<bool> fetchIsPerBranchMode() => _authService.fetchIsPerBranchMode();
@@ -228,7 +241,11 @@ class AuthProvider extends ChangeNotifier {
     required String branchId,
   }) =>
       _authService.hireMember(
-          name: name, phone: phone, password: password, role: role, branchId: branchId);
+          name: name,
+          phone: phone,
+          password: password,
+          role: role,
+          branchId: branchId);
   Future<String?> editOperator(
     String operatorId, {
     String? name,
@@ -247,31 +264,51 @@ class AuthProvider extends ChangeNotifier {
           active: active);
   Future<String?> setWorkingHours(String operatorId, WorkingHours hours) =>
       _authService.setWorkingHours(operatorId, hours);
-  Future<bool> clearWorkingHours(String operatorId) => _authService.clearWorkingHours(operatorId);
-  Future<ChangePasswordResult> changePassword({required String oldPassword, required String newPassword}) =>
-      _authService.changePassword(oldPassword: oldPassword, newPassword: newPassword);
-  Future<BillingOverview> fetchBillingOverview() => _authService.fetchBillingOverview();
+  Future<bool> clearWorkingHours(String operatorId) =>
+      _authService.clearWorkingHours(operatorId);
+  Future<ChangePasswordResult> changePassword(
+          {required String oldPassword, required String newPassword}) =>
+      _authService.changePassword(
+          oldPassword: oldPassword, newPassword: newPassword);
+  Future<BillingOverview> fetchBillingOverview() =>
+      _authService.fetchBillingOverview();
   Future<bool> cancelSubscription(String subscriptionId) =>
       _authService.cancelSubscription(subscriptionId);
   Future<bool> undoCancelSubscription(String subscriptionId) =>
       _authService.undoCancelSubscription(subscriptionId);
-  Future<String?> invoicePayLink(String invoiceId) => _authService.invoicePayLink(invoiceId);
-  Future<List<String>> renewSubscriptionsNow() => _authService.renewSubscriptionsNow();
+  Future<String?> invoicePayLink(String invoiceId) =>
+      _authService.invoicePayLink(invoiceId);
+  Future<List<String>> renewSubscriptionsNow() =>
+      _authService.renewSubscriptionsNow();
 
   // ── متجر التطبيقات — same delegate-wrapper shape as every billing call above. ──────────────
   Future<Owned?> fetchOwnership() => _authService.fetchOwnership();
-  Future<List<BillingPlan>?> fetchPurchasablePlans() => _authService.fetchPurchasablePlans();
-  Future<CartPreview?> checkoutPreview(List<String> planIds) => _authService.checkoutPreview(planIds);
-  Future<(Map<String, DiscountInfo>, Map<String, DiscountInfo>)> fetchDiscountPreview() =>
-      _authService.fetchDiscountPreview();
-  Future<(double?, bool)> fetchAiUnitsPerHalala() => _authService.fetchAiUnitsPerHalala();
-  Future<(bool, int?)> subscribeToApp({required String planId, int quantity = 1}) =>
+  Future<List<BillingPlan>?> fetchPurchasablePlans(
+          {List<String> visibleOverrideKeys = const []}) =>
+      _authService.fetchPurchasablePlans(
+          visibleOverrideKeys: visibleOverrideKeys);
+  Future<List<String>> fetchAppVisibilityOverrides() =>
+      _authService.fetchAppVisibilityOverrides();
+  Future<CartPreview?> checkoutPreview(List<String> planIds) =>
+      _authService.checkoutPreview(planIds);
+  Future<(Map<String, DiscountInfo>, Map<String, DiscountInfo>)>
+      fetchDiscountPreview() => _authService.fetchDiscountPreview();
+  Future<(double?, bool)> fetchAiUnitsPerHalala() =>
+      _authService.fetchAiUnitsPerHalala();
+  Future<(bool, int?)> subscribeToApp(
+          {required String planId, int quantity = 1}) =>
       _authService.subscribeToApp(planId: planId, quantity: quantity);
-  Future<(String?, int?)> checkoutLink({required String planId, int quantity = 1}) =>
+  Future<(String?, int?)> checkoutLink(
+          {required String planId, int quantity = 1}) =>
       _authService.checkoutLink(planId: planId, quantity: quantity);
-  Future<(String?, bool, int?)> checkoutCart(List<String> planIds) => _authService.checkoutCart(planIds);
-  Future<bool> changeCapacityQuantity({required String subscriptionId, required String planId, required int quantity}) =>
-      _authService.changeCapacityQuantity(subscriptionId: subscriptionId, planId: planId, quantity: quantity);
+  Future<(String?, bool, int?)> checkoutCart(List<String> planIds) =>
+      _authService.checkoutCart(planIds);
+  Future<bool> changeCapacityQuantity(
+          {required String subscriptionId,
+          required String planId,
+          required int quantity}) =>
+      _authService.changeCapacityQuantity(
+          subscriptionId: subscriptionId, planId: planId, quantity: quantity);
 
   // ─────────────────────────────────────────────────────────────────────────
   // LOGIN
@@ -339,7 +376,8 @@ class AuthProvider extends ChangeNotifier {
     if (!opened.ok) {
       _error = opened.message.isNotEmpty ? opened.message : 'فشل إنشاء الحساب';
       _errorReason = opened.reason;
-      if (opened.reason == 'otp_required' || opened.reason == 'unverified_hold') {
+      if (opened.reason == 'otp_required' ||
+          opened.reason == 'unverified_hold') {
         _pendingPhone = phone;
       }
       _setState(AuthState.error);
@@ -352,7 +390,9 @@ class AuthProvider extends ChangeNotifier {
     // not read as "signup failed": the account and its trial already exist.
     final signed = await _authService.signIn(phone, password);
     if (!signed.ok) {
-      _error = signed.message.isNotEmpty ? signed.message : 'أُنشئ الحساب، أكّد رقمك للدخول.';
+      _error = signed.message.isNotEmpty
+          ? signed.message
+          : 'أُنشئ الحساب، أكّد رقمك للدخول.';
       _errorReason = signed.reason;
       if (signed.reason == 'unverified') {
         _pendingPhone = phone;
@@ -455,14 +495,17 @@ class AuthProvider extends ChangeNotifier {
   /// Store the tokens and tenant a successful sign-in/signup minted, and
   /// build the local [UserModel] — see user_model.dart's own note on why
   /// this is built here rather than parsed off the response.
-  Future<void> _persistSession(AuthResult result, {required String phone, String? shopName}) async {
+  Future<void> _persistSession(AuthResult result,
+      {required String phone, String? shopName}) async {
     await secureStorage.setAccessToken(result.accessToken);
     if (result.refreshToken.isNotEmpty) {
       await secureStorage.setRefreshToken(result.refreshToken);
     }
     if (result.expiresIn > 0) {
       await secureStorage.setTokenExpiry(
-        DateTime.now().add(Duration(seconds: result.expiresIn)).toIso8601String(),
+        DateTime.now()
+            .add(Duration(seconds: result.expiresIn))
+            .toIso8601String(),
       );
     }
     await secureStorage.setTenantId(result.tenant);
