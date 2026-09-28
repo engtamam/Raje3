@@ -23,7 +23,7 @@ image:
   # and falls back to the legacy no-AAD format on InvalidTag, so every pre-existing sealed secret
   # keeps working with no migration or re-entry, and the next write to each row re-seals it with
   # the AAD. Confirmed safe by the sister session before this repin.
-  digest: "sha256:04002a2f23220def1cb46a983eca3ee987ac6dc1467ae5af08bf907875b1c6c5"   # v0.25.36
+  digest: "sha256:30ef0616847d8e3cdb8796a1768c757c8d2befbf93bd7f6018e8297ac2d91fd9"   # v0.25.38
 
 replicas: 1
 
@@ -99,6 +99,13 @@ env:
   # database. Raised fleet-wide rather than per-incident so the next burst (a mass redeploy, a
   # traffic spike) does not rediscover this one service at a time.
   DATASTORE_POOL_MAX: "10"
+
+  # ── Tenant-status enforcement (v0.25.38) — a suspended/deleted tenant mints NO token ──
+  # Owner-approved policy, 2026-09-28: gates the MINT (login, refresh, tenant select).
+  # Complements api-gateway's own per-request gate above — this stops NEW tokens, the
+  # gateway kills sessions already issued before the tenant was suspended/deleted.
+  IDENTITY_TENANT_STATUS_ENFORCEMENT: "block"
+  TENANT_SERVICE_URL: "http://tenant-service:8000"
 
   # ── Token signing ─────────────────────────────────────────────────────────────────────────
   # rs256, not hs256: identity SIGNS and every other service only VERIFIES. With a shared

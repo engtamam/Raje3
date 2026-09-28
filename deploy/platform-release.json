@@ -1,8 +1,8 @@
 {
-  "release": "v0.25.36",
+  "release": "v0.25.38",
   "images": {
     "analytics-service": "sha256:92f3865f423647a75e28fbad4956bf04370c108ff50c63318c4a3d4ce128de41",
-    "api-gateway": "sha256:19dae1f3bb4d6323575fd569b12b23a19fbb8fe9da00b2105226e43b0b4aa024",
+    "api-gateway": "sha256:730331879f671ff414cd3650d40354dddba483fb834c9e4a74daa4b9f26d1ead",
     "assistant-service": "sha256:36d3c299261668c63f07502a6d078eca52dd8f30e88ae19b13a51ee5f4533bef",
     "audit-service": "sha256:7025740daa0f6a3339d62c8a1a8f4b4af13821a80f132603c23ad2cc4127e8ed",
     "authz-service": "sha256:4a1b34d23e217e9b735ca71cc41b21494876fdf9880de55d6c334cfbf068f45c",
@@ -11,12 +11,12 @@
     "compliance-service": "sha256:6d094f03c8c07c0bc2b0e4bb4be12f8ecf8c7600a60cb56de52dfe0ed5727501",
     "connector-service": "sha256:4d8f3ebc1699a4e6413e786f57d75d25c8b8e78302d3aed5bd69a483eb02e0f9",
     "feature-flag-service": "sha256:c4b8ded9b6c26e23691a19f883c6b36f2654c122a127fbc9e31658dde860e1ca",
-    "identity-service": "sha256:04002a2f23220def1cb46a983eca3ee987ac6dc1467ae5af08bf907875b1c6c5",
+    "identity-service": "sha256:30ef0616847d8e3cdb8796a1768c757c8d2befbf93bd7f6018e8297ac2d91fd9",
     "job-service": "sha256:72a7cd1c745f8182eab6191f91dc6c49aad5f43b7e9100d22d5c0a31e7665915",
     "notification-service": "sha256:456f7b132ff370f468f306dbc50683feff405cd2ebc3e4de8f96d5c3cf40ec27",
     "onboarding-service": "sha256:a4719cca1f84f715bc86c24303da6f88a77bcd56622ced3516b5e1d1075d4c38",
     "search-service": "sha256:18178ff55d71a7ffc03399d606c79b9cc2852f28c080f264e604eb469c9298da",
-    "tenant-service": "sha256:3e926a83205c671bd23af04c91ff23c6c788c2df4f768489585758e8ea43ae65",
+    "tenant-service": "sha256:437ccb8da49646c7b5d291f235faf33048afd6bc0cdc567b81278ceef08cb17e",
     "ticket-service": "sha256:04031ff4def37bbb4fa30239927aa2e6cf77e003857c2480cdcf459de3bc2794",
     "wallet-service": "sha256:96db218c83bd131cfe79ae75679ed642130981044ede77dbed1d8337109782c1",
     "webhook-service": "sha256:05bd5478d10d2f5dc81528461e8b954422abf01d5f3918469b90a77ab7ecbe12"

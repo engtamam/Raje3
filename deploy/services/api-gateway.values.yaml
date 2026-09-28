@@ -12,7 +12,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/api-gateway
-  digest: "sha256:19dae1f3bb4d6323575fd569b12b23a19fbb8fe9da00b2105226e43b0b4aa024"   # v0.25.36
+  digest: "sha256:730331879f671ff414cd3650d40354dddba483fb834c9e4a74daa4b9f26d1ead"   # v0.25.38
 
 replicas: 1
 
@@ -96,6 +96,16 @@ env:
   TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
+
+  # ── Tenant-status enforcement (v0.25.38) — a suspended/deleted tenant loses ALL access ──
+  # Owner-approved policy, 2026-09-28: previously tenant.status was enforced only by
+  # tenant-service's own 3 self-service edit routes; this gates every authenticated request
+  # here at the gateway. Complements identity-service's own mint-time gate (its own
+  # values.yaml) — identity stops NEW tokens, this kills ALREADY-ISSUED ones within
+  # TENANT_STATUS_TTL_SECONDS.
+  TENANT_GATE_DRIVER: "tenant"
+  TENANT_SERVICE_URL: "http://tenant-service:8000"
+  TENANT_STATUS_ENFORCEMENT: "block"
 
   # ── The route table — routes are DATA, not code ───────────────────────────────────────────
   # strip_prefix is FALSE everywhere on purpose. Our upstreams serve these exact paths
