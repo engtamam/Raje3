@@ -357,12 +357,11 @@ class Settings(BaseSettings):
     # that module's docstring for the full rationale. Here it guards `POST /apply`
     # (api/v1/public.py), which is WORSE than operations' equivalent in one way: it needs no
     # capability at all — any caller on the open internet can drive an exact-match phone lookup
-    # against `affiliates`/`affiliate_applications`, and the refusal reasons
-    # ("already_pending"/"already_affiliate") already tell an anonymous caller whether a given
-    # number exists in either collection. The weaker role does not fix THAT (a policy question —
-    # whether the response should keep distinguishing those reasons at all — is separate and not
-    # this constant's job); it shrinks what a compromised app process can read while making the
-    # query, exactly like operations' version.
+    # against `affiliates`/`affiliate_applications`. THE POLICY QUESTION IS CLOSED (fixed
+    # alongside this note): both "already applied" and "already an affiliate" now share one
+    # generic `phone_unavailable` refusal, so the response itself no longer distinguishes them.
+    # This constant is a second, independent layer: it shrinks what a compromised app process can
+    # read while making the query, exactly like operations' version.
     #
     # EMPTY IS THE SAFE DEFAULT: unset, onboarding.py's phone lookups fall back to the exact same
     # single-role path they have always used.

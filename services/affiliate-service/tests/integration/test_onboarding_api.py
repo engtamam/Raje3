@@ -105,7 +105,7 @@ def test_a_second_apply_on_the_same_number_is_refused_with_a_reason(client):
                     json={"phone": "0501234503", "name": "أ", "password": "hunter2hunter2",
                          "agreed": True})
     assert r.status_code == 400
-    assert r.json()["reason"] == "already_pending"
+    assert r.json()["reason"] == "phone_unavailable"
 
 
 def test_admin_queue_refuses_without_the_capability(client):

@@ -89,12 +89,14 @@ class BodyLimitMiddleware(BaseHTTPMiddleware):
         # mechanism Starlette's own `Request.body()` uses, so every downstream reader (`.body()`,
         # `.json()`, a route's own Pydantic parse) sees the identical bytes exactly once rather
         # than an already-exhausted stream.
-        body = b""
+        chunks = []
+        total = 0
         async for chunk in request.stream():
-            body += chunk
-            if len(body) > self._max:
+            total += len(chunk)
+            if total > self._max:
                 return JSONResponse({"error": "PAYLOAD_TOO_LARGE"}, status_code=413)
-        request._body = body
+            chunks.append(chunk)
+        request._body = b"".join(chunks)
         return await call_next(request)
 
 

@@ -25,6 +25,7 @@ import time
 from typing import Any
 
 from app.core.models import (
+    ACTIVE,
     AFFILIATES,
     JOB_COMPLETED,
     JOB_FAILED,
@@ -392,6 +393,9 @@ class LeadSourcingService:
         members = await self._onboarding.team(manager_id)
         if promoter_id not in {m["id"] for m in members}:
             raise LeadError("هذا المسوّق ليس ضمن فريقك.", reason="not_on_your_team")
+        member = next((m for m in members if m["id"] == promoter_id), None)
+        if member is None or member.get("status") != ACTIVE:
+            raise LeadError("هذا المسوّق موقوف حالياً.", reason="promoter_suspended")
 
         previous = lead.assigned_to
         self._note(lead, by=manager_id,

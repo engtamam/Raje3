@@ -38,6 +38,14 @@ BACKUP: dict[str, Any] = {
         {"name": "affiliate_message_templates", "tenant_scoped": False},
         {"name": "affiliate_template_uses", "tenant_scoped": False},
         {"name": "affiliate_stat_citations", "tenant_scoped": False},
+        # THE OPERATOR SURFACE (core/secret_store.py/core/runtime_config.py, pasted verbatim into
+        # every service) — found live (2026-09-28), a 13-service audit: neither was declared here
+        # at all, the silent hole this file's own docstring says must never exist. Both mix a
+        # platform-wide row (tenant "*") and per-tenant overrides in the SAME collection (see
+        # secret_store.py's own `_key_of`/`_aad`) — the same reasoning portal's own `runtime_config`
+        # entry is declared under — so `tenant_scoped: False`, whole-collection restore only.
+        {"name": "operator_secrets", "tenant_scoped": False},
+        {"name": "runtime_config", "tenant_scoped": False},
     ],
     "excluded": [
         {"name": "affiliate_pending_secret",

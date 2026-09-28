@@ -221,12 +221,13 @@ class WafaService:
         # "sitting exactly on a boundary", and in both cases the next tier is a full tier away.
         remainder = active % self._tier_shops
         shops_until_next = self._tier_shops - remainder if remainder else self._tier_shops
+        eligible = (active >= self._tier_shops
+                   and perf["recent_conversions"] >= self._min_recent_conversions)
         return {
             "active_shops": active, "tier_shops": self._tier_shops,
             "shops_until_next_tier": shops_until_next,
-            "eligible": (active >= self._tier_shops
-                        and perf["recent_conversions"] >= self._min_recent_conversions),
-            "current_tier_amount_halalas": self.tier_amount(active),
+            "eligible": eligible,
+            "current_tier_amount_halalas": self.tier_amount(active) if eligible else 0,
             "retention_rate": perf["retention_rate"], "refund_rate": perf["refund_rate"],
             # SAME NAME, SAME MEANING request() ENFORCES — a home screen showing "eligible" on a
             # shop count alone, then refusing the actual request over this, is worse than never
@@ -349,22 +350,33 @@ class WafaService:
                            reason: str = "") -> WafaRequest:
         if decision not in WAFA_DECISIONS:
             raise WafaError("قرار غير معروف.", reason="bad_decision")
-        wafa = await self.get(wafa_id)
-        if wafa is None:
-            raise WafaError("الطلب غير موجود.", reason="not_found")
-        if wafa.status != WAFA_REQUESTED:
-            raise WafaError("هذا الطلب تم البتّ فيه بالفعل.", reason="already_decided")
+        # LOCKED — the binding decision, unlike manager_decide's advisory one; two concurrent
+        # admin_decide calls used to race read-then-write with no guard (found live, 2026-09-28).
+        now0 = int(time.time())
+        lock_key = f"decide:{wafa_id}"
+        took = await self._s.claim(_WAFA_LOCKS, lock_key, {"wafa_id": wafa_id, "at": now0},
+                                   ttl_seconds=_LOCK_TTL_SECONDS, now=now0)
+        if not took:
+            raise WafaError("قرار آخر يعالج هذا الطلب الآن، حاول بعد لحظات.", reason="already_pending")
+        try:
+            wafa = await self.get(wafa_id)
+            if wafa is None:
+                raise WafaError("الطلب غير موجود.", reason="not_found")
+            if wafa.status != WAFA_REQUESTED:
+                raise WafaError("هذا الطلب تم البتّ فيه بالفعل.", reason="already_decided")
 
-        wafa.decided_by = decided_by
-        wafa.decided_at = int(time.time())
-        wafa.reason = reason[:500]
-        if decision == WAFA_APPROVE:
-            wafa.status = WAFA_GRANTED
-            wafa.granted_at = wafa.requested_at   # NEVER `now` — see module docstring
-        else:
-            wafa.status = WAFA_REJECTED
-        await self._s.put(WAFA_REQUESTS, wafa.id, wafa.to_dict())
-        return wafa
+            wafa.decided_by = decided_by
+            wafa.decided_at = int(time.time())
+            wafa.reason = reason[:500]
+            if decision == WAFA_APPROVE:
+                wafa.status = WAFA_GRANTED
+                wafa.granted_at = wafa.requested_at   # NEVER `now` — see module docstring
+            else:
+                wafa.status = WAFA_REJECTED
+            await self._s.put(WAFA_REQUESTS, wafa.id, wafa.to_dict())
+            return wafa
+        finally:
+            await self._s.delete(_WAFA_LOCKS, lock_key)
 
     async def list_pending(self, *, limit: int = 200) -> list[WafaRequest]:
         rows, _ = await self._s.find(WAFA_REQUESTS, {"status": WAFA_REQUESTED}, limit=limit,

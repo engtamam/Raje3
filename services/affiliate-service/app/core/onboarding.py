@@ -31,7 +31,19 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+import urllib.parse
+
 from app.core.phone import canonical_phone
+
+
+def _clean_cv_url(raw: str) -> str:
+    value = raw.strip()[:500]
+    if not value:
+        return ""
+    parsed = urllib.parse.urlsplit(value)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise OnboardingRefused("رابط السيرة الذاتية غير صالح.", reason="bad_cv_url")
+    return value
 from app.core.models import (
     ACTIVE,
     AFFILIATE_SELF,
@@ -232,12 +244,11 @@ class OnboardingService:
                 "طلبك قيد المعالجة الآن، حاول بعد لحظات.", reason="already_pending")
         try:
             existing = await self._find_application_by_phone(canonical)
-            if existing is not None and existing.status == PENDING:
+            already_pending = existing is not None and existing.status == PENDING
+            already_affiliate = await self._affiliate_by_phone(canonical) is not None
+            if already_pending or already_affiliate:
                 raise OnboardingRefused(
-                    "طلبك السابق ما زال قيد المراجعة.", reason="already_pending")
-            if await self._affiliate_by_phone(canonical) is not None:
-                raise OnboardingRefused(
-                    "لهذا الرقم حساب مسوّق بالفعل — سجّل الدخول.", reason="already_affiliate")
+                    "تعذّر إكمال الطلب بهذا الرقم.", reason="phone_unavailable")
 
             parent_id = ""
             if referral_code.strip():
@@ -271,7 +282,7 @@ class OnboardingService:
                 id=new_id(), phone=canonical, name=name.strip(), parent_id=parent_id,
                 status=PENDING, created_at=now, subject_ref=self._ref(canonical),
                 agreed_terms_version=self._terms_version, agreed_at=now,
-                cv_url=cv_url.strip()[:500],
+                cv_url=_clean_cv_url(cv_url),
             )
             # THE PASSWORD IS NOT STORED HERE. Only identity ever holds a credential — this row
             # is a request to be judged, and a plaintext password sitting in a pending-
@@ -360,7 +371,7 @@ class OnboardingService:
                 raise OnboardingRefused("أدخل اسماً صحيحاً.")
             app_row.name = name.strip()
         if cv_url is not None:
-            app_row.cv_url = cv_url.strip()[:500]
+            app_row.cv_url = _clean_cv_url(cv_url)
         await self._store.put(APPLICATIONS, app_row.id, app_row.to_dict())
         return app_row.to_dict()
 
@@ -446,9 +457,11 @@ class OnboardingService:
         # identity membership for the same applicant — see the module docstring on why an
         # account here is not a thing to create twice.
         if app_row.status == APPROVED:
-            existing = await self._affiliate_by_phone(app_row.phone)
-            return {"already_approved": True,
-                   "affiliate_id": existing.id if existing else ""}
+            affiliate_id = app_row.affiliate_id  # stamped, not re-derived by phone (erasure-safe)
+            if not affiliate_id:
+                existing = await self._affiliate_by_phone(app_row.phone)
+                affiliate_id = existing.id if existing else ""
+            return {"already_approved": True, "affiliate_id": affiliate_id}
         if app_row.status == REJECTED:
             raise OnboardingRefused("هذا الطلب مرفوض بالفعل.", reason="already_rejected")
 
@@ -471,6 +484,7 @@ class OnboardingService:
         app_row.status = APPROVED
         app_row.decided_at = int(time.time())
         app_row.decided_by = decided_by
+        app_row.affiliate_id = affiliate.id
         await self._store.put(APPLICATIONS, app_row.id, app_row.to_dict())
         # THE PASSWORD IS GONE THE MOMENT IT HAS DONE ITS ONE JOB — minting the membership above.
         # Keeping it a second longer than approval takes is PII with no purpose left to serve.
@@ -706,20 +720,24 @@ def _seal_pending_password(kek: str, password: str, application_id: str) -> str:
 
 
 def _open_pending_password(kek: str, sealed: str, application_id: str) -> str:
-    from cryptography.exceptions import InvalidTag
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
     key = hashlib.scrypt(kek.encode("utf-8"), salt=_PENDING_PASSWORD_SALT, n=2**14, r=8, p=1, dklen=32)
-    blob = base64.b64decode(sealed)
     aad = f"{_PENDING_SECRET}|{application_id}".encode("utf-8")
     try:
-        return AESGCM(key).decrypt(blob[:12], blob[12:], aad).decode("utf-8")
-    except InvalidTag:
-        # Legacy row sealed before AAD binding (associated_data=None): decrypt in the old no-AAD
-        # format so an upgrade never strands an application already mid-approval. A genuinely
-        # tampered/relocated blob fails this too and propagates as InvalidTag to the caller, same
-        # as before this fix existed.
-        return AESGCM(key).decrypt(blob[:12], blob[12:], None).decode("utf-8")  # aad: ok — legacy pre-AAD blob; primary decrypt above binds the AAD
+        blob = base64.b64decode(sealed)
+        try:
+            return AESGCM(key).decrypt(blob[:12], blob[12:], aad).decode("utf-8")
+        except Exception:
+            # Legacy row sealed before AAD binding (associated_data=None): decrypt in the old
+            # no-AAD format so an upgrade never strands an application already mid-approval.
+            return AESGCM(key).decrypt(blob[:12], blob[12:], None).decode("utf-8")  # aad: ok — legacy pre-AAD blob; primary decrypt above binds the AAD
+    except Exception as exc:
+        # A genuinely tampered/corrupt blob fails BOTH attempts (or the base64 itself is bad) — a
+        # clean refusal, not an unhandled 500 out of approve().
+        raise OnboardingRefused(
+            "تعذّر فتح كلمة المرور المحفوظة لهذا الطلب — أعد تقديم الطلب.",
+            reason="pending_password_unreadable") from exc
 
 
 def _member_error(status: int, body: dict) -> str:

@@ -24,6 +24,7 @@
 # =============================================================================
 from __future__ import annotations
 
+import re
 import time
 from typing import Any
 
@@ -45,6 +46,8 @@ from app.core.models import (
 BANK_IBAN = "bank_iban"
 INTERMEDIARY = "intermediary"
 PAYOUT_CHANNELS = (BANK_IBAN, INTERMEDIARY)
+
+_IBAN_RE = re.compile(r"^SA\d{22}$")
 
 
 class PayoutError(Exception):
@@ -149,6 +152,9 @@ class PayoutService:
             # Free text, but not EMPTY free text — a request an admin cannot read "paid through
             # what?" off of is not a request they can actually settle.
             raise PayoutError("أدخل اسم منصة الوسيط.", reason="missing_channel_name")
+        if channel == BANK_IBAN and not _IBAN_RE.match(account_ref.strip().replace(" ", "").upper()):
+            raise PayoutError("رقم الآيبان غير صحيح — تأكد أنه يبدأ بـ SA ويتكوّن من 24 خانة.",
+                              reason="bad_iban")
 
         row = await self._s.get(AFFILIATES, affiliate_id)
         affiliate = Affiliate.from_dict(row) if row else None
@@ -291,27 +297,53 @@ class PayoutService:
 
     async def complete(self, withdrawal_id: str, *, decided_by: str,
                        receipt_reference: str) -> dict[str, Any]:
-        row = await self._s.get(WITHDRAWALS, withdrawal_id)
-        request = WithdrawalRequest.from_dict(row) if row else None
-        if request is None:
-            raise PayoutError("طلب السحب غير موجود.", reason="not_found")
-        if request.status == COMPLETED:
-            return {"already_completed": True}
-        if request.status == WITHDRAWAL_REJECTED:
-            raise PayoutError("هذا الطلب مرفوض بالفعل.", reason="already_rejected")
-        if not receipt_reference.strip():
-            # Spec §5: the receipt IS the compliance proof — a completion with no receipt is
-            # exactly the "ما استلمت" dispute this whole mechanism exists to prevent.
-            raise PayoutError("أرفق إيصال التحويل.", reason="receipt_required")
+        # SAME LOCK CLASS AS request_withdrawal ABOVE — complete()/reject() race each other on the
+        # same withdrawal_id with no lock (found live, 2026-09-28): a concurrent complete+reject
+        # could both read the pre-decision row, one marking it paid, the other then re-releasing
+        # the same commissions back to "available" as if nothing was ever paid.
+        now0 = int(time.time())
+        lock_key = f"decide:{withdrawal_id}"
+        took = await self._s.claim(_PAYOUT_LOCKS, lock_key, {"withdrawal_id": withdrawal_id, "at": now0},
+                                   ttl_seconds=_LOCK_TTL_SECONDS, now=now0)
+        if not took:
+            raise PayoutError("طلب آخر يعالج هذا السحب الآن، حاول بعد لحظات.", reason="already_pending")
+        try:
+            row = await self._s.get(WITHDRAWALS, withdrawal_id)
+            request = WithdrawalRequest.from_dict(row) if row else None
+            if request is None:
+                raise PayoutError("طلب السحب غير موجود.", reason="not_found")
+            if request.status == COMPLETED:
+                return {"already_completed": True}
+            if request.status == WITHDRAWAL_REJECTED:
+                raise PayoutError("هذا الطلب مرفوض بالفعل.", reason="already_rejected")
+            if not receipt_reference.strip():
+                # Spec §5: the receipt IS the compliance proof — a completion with no receipt is
+                # exactly the "ما استلمت" dispute this whole mechanism exists to prevent.
+                raise PayoutError("أرفق إيصال التحويل.", reason="receipt_required")
 
-        request.status = COMPLETED
-        request.decided_at = int(time.time())
-        request.decided_by = decided_by
-        request.receipt_reference = receipt_reference.strip()
-        await self._s.put(WITHDRAWALS, request.id, request.to_dict())
-        return {"already_completed": False}
+            request.status = COMPLETED
+            request.decided_at = int(time.time())
+            request.decided_by = decided_by
+            request.receipt_reference = receipt_reference.strip()
+            await self._s.put(WITHDRAWALS, request.id, request.to_dict())
+            return {"already_completed": False}
+        finally:
+            await self._s.delete(_PAYOUT_LOCKS, lock_key)
 
     async def reject(self, withdrawal_id: str, *, decided_by: str, reason: str = "") -> dict[str, Any]:
+        now0 = int(time.time())
+        lock_key = f"decide:{withdrawal_id}"
+        took = await self._s.claim(_PAYOUT_LOCKS, lock_key, {"withdrawal_id": withdrawal_id, "at": now0},
+                                   ttl_seconds=_LOCK_TTL_SECONDS, now=now0)
+        if not took:
+            raise PayoutError("طلب آخر يعالج هذا السحب الآن، حاول بعد لحظات.", reason="already_pending")
+        try:
+            return await self._reject_locked(withdrawal_id, decided_by=decided_by, reason=reason)
+        finally:
+            await self._s.delete(_PAYOUT_LOCKS, lock_key)
+
+    async def _reject_locked(self, withdrawal_id: str, *, decided_by: str,
+                             reason: str = "") -> dict[str, Any]:
         row = await self._s.get(WITHDRAWALS, withdrawal_id)
         request = WithdrawalRequest.from_dict(row) if row else None
         if request is None:

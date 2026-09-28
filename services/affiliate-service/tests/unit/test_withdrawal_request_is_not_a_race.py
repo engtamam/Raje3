@@ -39,7 +39,7 @@ async def _seed(store) -> None:
     await store.put(AFFILIATES, AFF, Affiliate(
         id=AFF, person_id="p1", phone="+966501234567", name="م",
         role="affiliate_manager", status=ACTIVE,
-        payout_channel="bank_iban", payout_account_ref="SA00").to_dict())
+        payout_channel="bank_iban", payout_account_ref="SA0000000000000000000000").to_dict())
     await store.put(COMMISSIONS, "c1", Commission(
         id="c1", tenant="t1", affiliate_id=AFF, kind=CONVERSION,
         amount_halalas=100_000, status=CONFIRMED).to_dict())

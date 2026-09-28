@@ -17,4 +17,6 @@ def canonical_phone(raw: str, *, default_cc: str) -> str:
         digits = default_cc + digits[1:]
     elif not digits.startswith(default_cc):
         digits = default_cc + digits
+    elif digits[len(default_cc):].startswith("0"):
+        digits = default_cc + digits[len(default_cc) + 1:]  # cc+leading-zero typo
     return "+" + digits

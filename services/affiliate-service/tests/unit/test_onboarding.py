@@ -173,7 +173,7 @@ async def test_a_second_apply_while_the_first_is_still_pending_is_refused():
     await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
     with pytest.raises(OnboardingRefused) as exc:
         await svc.apply(phone="0501234567", name="سالم مرة أخرى", password="hunter2hunter2x", agreed=True)
-    assert exc.value.reason == "already_pending"
+    assert exc.value.reason == "phone_unavailable"
 
 
 @pytest.mark.anyio
@@ -275,7 +275,7 @@ async def test_an_already_affiliate_phone_cannot_apply_again():
 
     with pytest.raises(OnboardingRefused) as exc:
         await svc.apply(phone="0501234567", name="سالم", password="anotherOne123!", agreed=True)
-    assert exc.value.reason == "already_affiliate"
+    assert exc.value.reason == "phone_unavailable"
 
 
 # ── the weaker Postgres role for the two phone lookups POST /apply makes ────────────────────────
@@ -313,7 +313,7 @@ async def test_a_second_apply_is_still_refused_when_the_weaker_role_is_wired():
         await svc_with_ro.apply(phone="0501234567", name="سالم مرة أخرى",
                                 password="hunter2hunter2x", agreed=True)
 
-    assert exc.value.reason == "already_pending"
+    assert exc.value.reason == "phone_unavailable"
     assert ("application", "+966501234567") in fake.calls
 
 
@@ -331,7 +331,7 @@ async def test_an_already_affiliate_phone_is_still_refused_when_the_weaker_role_
         await svc_with_ro.apply(phone="0501234567", name="سالم", password="anotherOne123!",
                                 agreed=True)
 
-    assert exc.value.reason == "already_affiliate"
+    assert exc.value.reason == "phone_unavailable"
     assert ("affiliate", "+966501234567") in fake.calls
 
 
