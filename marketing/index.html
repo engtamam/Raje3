@@ -180,18 +180,39 @@ footer a{color:var(--ink-2)}
      the actual release asset's name changed — this asks GitHub's API for whatever the latest
      release's own first asset really is and points at that, so the link can never go stale
      again. Falls back to the releases PAGE (still useful, a human can pick the file) if the API
-     call fails for any reason — never a dead link either way. */
+     call fails for any reason — never a dead link either way.
+
+     RESOLVED ON CLICK, NOT JUST ON PAGE LOAD — found live (2026-09-28): a visitor who had this
+     page open in a tab from before a new release published still got the OLD version, because the
+     original version of this script only ever resolved the href once, at load. A new release five
+     minutes into someone's visit was invisible until they refreshed. The click handler re-resolves
+     every time and blocks navigation (preventDefault) until the real URL is known, so the download
+     that actually starts is never more than one fetch stale. */
   (function () {
     var link = document.getElementById('apk-download');
     if (!link) return;
     var fallback = link.getAttribute('href');
-    fetch('https://api.github.com/repos/engtamam/raje3-mobile-releases/releases/latest')
-      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
-      .then(function (data) {
-        var asset = (data.assets || [])[0];
-        if (asset && asset.browser_download_url) link.href = asset.browser_download_url;
-      })
-      .catch(function () { link.href = fallback; });
+
+    function resolveLatest() {
+      return fetch('https://api.github.com/repos/engtamam/raje3-mobile-releases/releases/latest')
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function (data) {
+          var asset = (data.assets || [])[0];
+          return (asset && asset.browser_download_url) || fallback;
+        })
+        .catch(function () { return fallback; });
+    }
+
+    // Resolve once at load so the link already points somewhere real before the first click.
+    resolveLatest().then(function (url) { link.href = url; });
+
+    link.addEventListener('click', function (event) {
+      event.preventDefault();
+      resolveLatest().then(function (url) {
+        link.href = url;
+        window.location.href = url;
+      });
+    });
   })();
 </script>
 </body>
