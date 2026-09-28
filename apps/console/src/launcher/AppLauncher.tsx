@@ -149,11 +149,27 @@ export function AppLauncher() {
     setTab(dx < 0 ? 'all' : 'mine');
   };
 
+  // WHICH OTHERWISE-HIDDEN APPS THIS SHOP SPECIFICALLY WAS SHOWN (core/app_visibility.py) —
+  // fetched once, tenant already resolved server-side from this shop's own token (no tenant param
+  // exists on this route at all, see the route's own docstring for why that is what makes it
+  // IDOR-safe). Kept in state (never an inline array literal) so `useAppBilling`'s own effect
+  // below does not re-fetch on every render over a "new" but equal array.
+  const [visibleOverrideKeys, setVisibleOverrideKeys] = useState<string[]>([]);
+  useEffect(() => {
+    const a = action(catalog, 'subscription.apps_visibility_overrides');
+    if (!a) return;
+    let live = true;
+    call<{ visible_keys: string[] }>(session, a)
+      .then((res) => { if (live) setVisibleOverrideKeys(res.visible_keys ?? []); })
+      .catch(() => { if (live) setVisibleOverrideKeys([]); });
+    return () => { live = false; };
+  }, [catalog, session]);
+
   // REAL SUBSCRIBE/CANCEL — the same logic `screens/Plans.tsx` already has, not a second copy
   // (see useAppBilling.ts's own header on why reuse matters here specifically: real money, a real
   // 3DS card flow). Computed here, ABOVE `everything` below, because `allApps` now needs
   // `planByKey` to know which rows are unlisted.
-  const billing = useAppBilling(session, catalog);
+  const billing = useAppBilling(session, catalog, visibleOverrideKeys);
 
   // THE TENANT-FREE FEATURE LIST FOR EVERY OPERATIONS-OWNED APP (`subscription.
   // apps_static_features`) — fetched ONCE, regardless of ownership, so a shop still deciding
@@ -178,9 +194,11 @@ export function AppLauncher() {
   // invite-only deal, deploy/seed/plans.json's own convention — still rendered a full tile here
   // for every shop, plan-less and unpriced but visible, because `allApps` never checked listing at
   // all; only `useAppBilling`'s own `planByKey` silently dropped the PLAN, not the TILE).
-  // `billing.planByKey` already excludes `listed === false` rows (useAppBilling.ts), so "does this
-  // billingKey resolve to a real, listed plan" is the same read `AppTile`'s own `plan` lookup below
-  // uses — one source of truth, not a second filter that could disagree with it.
+  // `billing.planByKey` already excludes `listed === false` rows UNLESS this specific tenant holds
+  // a visibility override for that row's key (useAppBilling.ts, `visibleOverrideKeys` above) — so
+  // "does this billingKey resolve to a real, listed-or-shown-to-me plan" is the same read
+  // `AppTile`'s own `plan` lookup below uses — one source of truth, not a second filter that could
+  // disagree with it.
   const everything = useMemo(
     () => (canBrowseStore
       ? allApps(owned, staticFeatures).filter((a) => !a.billingKey || a.ownedByShop === true || billing.planByKey[a.billingKey])

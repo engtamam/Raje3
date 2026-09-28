@@ -74,7 +74,15 @@ export interface CartPreview {
   items: CartPreviewItem[];
 }
 
-export function useAppBilling(session: Session, catalog: Catalog) {
+export function useAppBilling(
+  session: Session, catalog: Catalog,
+  /** Feature keys ONE platform operator made visible for THIS tenant specifically, on top of
+   *  whatever is globally `listed` — `AppLauncher.tsx`'s own fetch of `subscription.
+   *  apps_visibility_overrides`, tenant already resolved server-side from the caller's own
+   *  token (see `core/app_visibility.py`'s own module docstring). Defaulted to `[]` so every
+   *  existing caller keeps behaving exactly as before this param existed. */
+  visibleOverrideKeys: string[] = [],
+) {
   const [plans, setPlans] = useState<Plan[] | null | undefined>(undefined);
   const [subs, setSubs] = useState<Subscription[] | null | undefined>(undefined);
   const [discountPreviews, setDiscountPreviews] = useState<Record<string, DiscountInfo>>({});
@@ -103,7 +111,8 @@ export function useAppBilling(session: Session, catalog: Catalog) {
   const load = () => {
     if (canBrowse) {
       call<{ plans: Plan[] }>(session, canBrowse)
-        .then((x) => setPlans((x.plans ?? []).filter((p) => p.active !== false && p.listed !== false)))
+        .then((x) => setPlans((x.plans ?? []).filter((p) => p.active !== false
+          && (p.listed !== false || visibleOverrideKeys.includes(appKey(p) ?? '')))))
         .catch(() => setPlans(null));
     } else {
       setPlans([]);
@@ -124,7 +133,15 @@ export function useAppBilling(session: Session, catalog: Catalog) {
     }
   };
 
-  useEffect(load, [session, catalog]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A JOINED STRING, NEVER THE ARRAY ITSELF — `visibleOverrideKeys` defaults to `[]` when a caller
+  // passes nothing (a NEW array literal on every single render), and a caller that DOES pass one
+  // (`AppLauncher.tsx`) is not guaranteed to memoise it either. Depending on the array reference
+  // would make this effect's own dependency look "different" every render regardless of content,
+  // re-firing `load()` in an infinite loop — found live (2026-09-28) as an outright test hang, not
+  // a slow re-render. A joined string is a real VALUE comparison, exactly what a dependency array
+  // is supposed to give this effect.
+  const visibleOverrideKeysDep = visibleOverrideKeys.join(',');
+  useEffect(load, [session, catalog, visibleOverrideKeysDep]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const a = action(catalog, 'subscription.payment_state');

@@ -87,7 +87,14 @@ export function AdminApps({ session }: { session: AdminSession }) {
                   { value: 'plans', label: 'التطبيقات والأسعار' },
                   { value: 'coupons', label: 'الخصومات والعروض' },
                   { value: 'discount_rules', label: 'قواعد الخصم المتسلسل' },
-                  { value: 'shop_coupons', label: 'تحالف استراتيجي بين المحلات' },
+                  // SAME FEATURE, SAME NAME AS apps.ts's `feature.partner_loyalty` row — this tab
+                  // used to carry its own hardcoded label ("تحالف استراتيجي بين المحلات") even
+                  // though it is the admin side of the exact "ولاء الشركاء" app a shop subscribes
+                  // to (core/coupons.py's own docstring: "a shop grants ANOTHER registered shop a
+                  // discount on that shop's OWN subscription"). Found live (2026-09-28): one
+                  // feature must read the same name everywhere, not a second name invented per
+                  // screen.
+                  { value: 'shop_coupons', label: 'ولاء الشركاء' },
                 ]} />
 
       {sub === 'plans' ? (

@@ -42,6 +42,8 @@ import { req, AdminRefused, type AdminSession } from './api';
 import type { AdminCatalog } from './catalog';
 import { findCustomerAction, SUB_STATUS_META, type Tenant, type Subscription } from './CustomerList';
 import { StatusBadge, type DeliveryRow } from './AdminWhatsAppDiagnostics';
+import { Toggle } from './../rj-ui/Toggle';
+import { appDisplayName, appKey, type Plan } from './../billingShared';
 
 interface Invoice {
   id: string; tenant: string; number: string; status: 'draft' | 'open' | 'partially_paid' | 'paid' | 'uncollectible' | 'void';
@@ -259,11 +261,95 @@ function BillingTab({ session, tenant, catalog, planNames }: {
         )}
       </div>
 
-      <div className="rounded-card border border-dashed border-border-subtle bg-surface-1 p-4 text-center">
-        <p className="text-sm text-text-secondary">
-          "منح تجربة مجانية" — إجراء إداري جديد كلياً، غير موجود بالخادم حالياً. يحتاج تصميماً وبناءً منفصلاً قبل إضافته هنا.
-        </p>
+      <AppVisibilityPanel session={session} tenant={tenant} catalog={catalog} />
+    </div>
+  );
+}
+
+/**
+ * تطبيقات مخفية عن الجميع، أظهرها لهذا المحل تحديداً — core/app_visibility.py's own module
+ * docstring للتصميم الكامل. لا يشترك أحداً: يظهر التطبيق (أو يختفي) في متجر هذا المحل وحده، والمحل
+ * يشترك بنفسه بزر "اشترك" العادي بمجرد ما يشوفه.
+ *
+ * المرشَّحون فقط التطبيقات غير المُدرَجة أصلاً (`listed: false`) — تطبيق مُدرَج للجميع أصلاً لا
+ * معنى لتخصيصه لمحل واحد. `billing.list_plans?include_hidden=true` هو نفس القراءة PlanCards.tsx
+ * تستخدمها بالضبط، فتشمل الصفوف غير المُدرَجة.
+ */
+function AppVisibilityPanel({ session, tenant, catalog }: {
+  session: AdminSession; tenant: Tenant; catalog: AdminCatalog;
+}) {
+  const listAction = findCustomerAction(catalog, 'billing.list_plans');
+  const overridesGetAction = findCustomerAction(catalog, 'operations.app_visibility_list');
+  const overridesSetAction = findCustomerAction(catalog, 'operations.app_visibility_set');
+
+  const [unlistedPlans, setUnlistedPlans] = useState<Plan[] | 'loading' | 'failed'>('loading');
+  const [visibleKeys, setVisibleKeys] = useState<Set<string> | 'loading' | 'failed'>('loading');
+  const [busyKey, setBusyKey] = useState('');
+  const [error, setError] = useState('');
+
+  const reloadOverrides = () => {
+    if (!overridesGetAction) { setVisibleKeys('failed'); return; }
+    req<{ overrides: { feature_key: string; visible: boolean }[] }>(
+      `${overridesGetAction.path}?tenant=${encodeURIComponent(tenant.id)}`,
+      'GET', undefined, session.access_token)
+      .then((r) => setVisibleKeys(new Set(r.overrides.filter((o) => o.visible).map((o) => o.feature_key))))
+      .catch(() => setVisibleKeys('failed'));
+  };
+
+  useEffect(() => {
+    if (!listAction) { setUnlistedPlans('failed'); return; }
+    req<{ plans: Plan[] }>(`${listAction.path}?include_hidden=true`, 'GET', undefined, session.access_token)
+      .then((r) => setUnlistedPlans(r.plans.filter((p) => p.listed === false && !!appKey(p))))
+      .catch(() => setUnlistedPlans('failed'));
+    reloadOverrides();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per opened tenant
+  }, [tenant.id]);
+
+  if (!overridesGetAction || !overridesSetAction) return null; // لا صلاحية — القسم يختفي كلياً
+  if (unlistedPlans === 'failed' || visibleKeys === 'failed') {
+    return <p role="alert" className="text-danger text-sm">تعذّرت قراءة تطبيقات مخفية.</p>;
+  }
+  if (unlistedPlans === 'loading' || visibleKeys === 'loading') {
+    return <p className="text-sm text-text-secondary">جارٍ التحميل…</p>;
+  }
+  if (unlistedPlans.length === 0) return null; // لا تطبيقات مخفية على المنصة حالياً
+
+  const toggle = async (plan: Plan, next: boolean) => {
+    const key = appKey(plan);
+    setBusyKey(key);
+    setError('');
+    try {
+      await req(overridesSetAction.path, 'PUT',
+        { tenant: tenant.id, feature_key: key, visible: next }, session.access_token);
+      reloadOverrides();
+    } catch (e) {
+      setError(errMsg(e));
+    } finally {
+      setBusyKey('');
+    }
+  };
+
+  return (
+    <div>
+      <h3 className="mb-2 font-medium">تطبيقات مخفية عن الجميع — أظهرها لهذا المحل تحديداً</h3>
+      <p className="mb-3 text-label text-text-secondary">
+        لا يشترك المحل تلقائياً — يظهر له التطبيق في متجره فقط، وهو يشترك بنفسه إن أراد.
+      </p>
+      <div className="flex flex-col gap-2">
+        {unlistedPlans.map((plan) => {
+          const key = appKey(plan);
+          const name = appDisplayName(plan);
+          return (
+            <div key={plan.id} className="flex items-center justify-between rounded-card border border-border-subtle p-3">
+              <span className="text-sm">{name}</span>
+              <Toggle checked={visibleKeys.has(key)} disabled={busyKey === key}
+                     onChange={(next) => toggle(plan, next)}
+                     ariaLabel={`أظهر ${name} لهذا المحل`} />
+            </div>
+          );
+        })}
       </div>
+      {error ? <p role="alert" className="mt-2 text-sm text-danger">{error}</p> : null}
     </div>
   );
 }
