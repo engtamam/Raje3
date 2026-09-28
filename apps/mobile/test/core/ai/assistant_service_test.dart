@@ -26,6 +26,8 @@ class _FakeAiModel implements AiModel {
   @override
   Stream<int> get downloadProgress => const Stream.empty();
   @override
+  String? get lastError => null;
+  @override
   Future<void> ensureReady({List<AiTool> tools = const []}) async {
     lastTools = tools;
   }

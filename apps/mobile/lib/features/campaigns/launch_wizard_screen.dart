@@ -851,9 +851,10 @@ class _FieldsStep extends StatelessWidget {
                       KbAnchor(
                         id: 'campaigns.launch_wizard.milestone_threshold_field',
                         child: AppTextField(
-                        controller: milestoneThresholdController,
-                        hintText: '10',
-                        keyboardType: TextInputType.number,
+                          controller: milestoneThresholdController,
+                          hintText: '10',
+                          keyboardType: TextInputType.number,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(ct(context, 'milestoneThresholdHint'), style: AppTextStyles.caption),
