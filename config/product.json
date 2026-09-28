@@ -31,11 +31,11 @@
   },
 
   "urls": {
-    "marketing": "https://raje3.com.sa",
-    "app": "https://app.raje3.com.sa",
-    "admin": "https://admin.raje3.com.sa",
-    "docs": "https://docs.raje3.com.sa",
-    "status": "https://status.raje3.com.sa"
+    "marketing": "https://kobo-cloud.com",
+    "app": "https://kobo-cloud.com/app",
+    "admin": "https://admin.kobo-cloud.com",
+    "docs": "https://kobo-cloud.com/docs",
+    "status": "https://status.kobo-cloud.com"
   },
 
   "support": {
@@ -82,8 +82,8 @@
       "ar": "",
       "en": ""
     },
-    "termsUrl": "https://raje3.com.sa/terms",
-    "privacyUrl": "https://raje3.com.sa/privacy",
+    "termsUrl": "https://kobo-cloud.com/app/legal/terms",
+    "privacyUrl": "https://kobo-cloud.com/app/legal/privacy-policy",
     "dpoEmail": ""
   },
 
