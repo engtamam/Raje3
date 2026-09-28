@@ -4,10 +4,12 @@
 # --------------------------------------------------------------------------------------------------
 #  Upstream mints one secret per service from a schema built by reading each service's config.py —
 #  under THEIR services/ directory. Ours live in this repository, so their generator has never heard
-#  of campaigns, insights, loyalty, operations, portal or reminders, and a fresh cluster gives every
-#  one of them `CreateContainerConfigError: secret "operations-secrets" not found`. On the old box
-#  these six existed because somebody once created them by hand, and they survived every reinstall
-#  by being invisible.
+#  of any service named in $OURS below, and a fresh cluster (or a service added to $OURS late, as
+#  coworking/referrals both were — found live, 2026-09-28, a fleet ship that hit
+#  `CreateContainerConfigError: secret "coworking-secrets" not found` on a service that had been
+#  running for weeks, because this script's own list had simply never been updated for it) gives
+#  every missing one the identical error. On the old box these existed because somebody once
+#  created them by hand, and they survived every reinstall by being invisible.
 #
 #  THE SHARED VALUES ARE COPIED, NEVER GENERATED, and this is the whole design:
 #
@@ -49,7 +51,7 @@ info(){ echo -e "${C_C}  ▸ $*${C_N}"; }
 ok(){   echo -e "${C_G}  ✔ $*${C_N}"; }
 warn(){ echo -e "${C_Y}  ! $*${C_N}"; }
 
-OURS="bookings campaigns error-collector insights loyalty operations reminders whatsapp-assistant"
+OURS="bookings campaigns coworking error-collector insights loyalty operations referrals reminders whatsapp-assistant"
 SHARED_ONLY="affiliate-service portal"
 SHARED="PII_SALT INTERNAL_SERVICE_TOKEN BACKUP_KEK SECRETS_KEK CACHE_URL EVENTBUS_URL QUEUE_URL RATELIMIT_URL TOKEN_PUBLIC_KEY"
 
