@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -34,14 +35,18 @@ class _BulkImportSheetState extends State<BulkImportSheet> {
 
   Future<void> _pickFile() async {
     setState(() => _error = null);
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv'],
-      withData: true,
     );
-    if (result == null || result.files.isEmpty) return;
-    final file = result.files.first;
-    final bytes = file.bytes;
+    if (result.isEmpty) return;
+    final file = result.first;
+    Uint8List? bytes;
+    try {
+      bytes = await file.readAsBytes();
+    } catch (_) {
+      bytes = null;
+    }
     if (!mounted) return;
     if (bytes == null) {
       setState(() => _error = S.of(context)!.servicesImportReadFailed);
