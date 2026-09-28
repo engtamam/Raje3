@@ -94,6 +94,15 @@ env:
   # database. Raised fleet-wide rather than per-incident so the next burst (a mass redeploy, a
   # traffic spike) does not rediscover this one service at a time.
   DATASTORE_POOL_MAX: "10"
+  # v0.25.36's tenant-003 boot guard refuses to start unless this route is explicitly allow-
+  # listed. "*" (not a named service) because INTERNAL_CALLER_DRIVER is still the default
+  # "shared" here — no assertion-based caller identity is deployed for this service, so every
+  # internal caller arrives as the unnamed shared-token peer; a named entry would just lock out
+  # whichever service actually calls this route. No caller found yet (confirmed by grep across
+  # services/) — this only satisfies the boot guard, it does not imply a real caller exists today.
+  INTERNAL_ROUTE_POLICY_JSON: |
+    {"/internal/tenants/close-sweep": ["*"]}
+
   # ── Raje3 locale. The product is Arabic-first (config/product.json). ──────────────────────
   DEFAULT_LOCALE: "ar"
   DEFAULT_TIMEZONE: "Asia/Riyadh"

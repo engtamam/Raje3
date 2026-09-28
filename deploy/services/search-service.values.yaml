@@ -86,6 +86,15 @@ env:
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 
+  # v0.25.36's search-003 boot guard refuses to start unless this route is explicitly allow-
+  # listed. "*" (not a named service) because INTERNAL_CALLER_DRIVER is still the default
+  # "shared" here — no assertion-based caller identity is deployed for this service, so every
+  # internal caller arrives as the unnamed shared-token peer; a named entry would just lock out
+  # whichever service actually calls this route. No caller found yet (confirmed by grep across
+  # services/) — this only satisfies the boot guard, it does not imply a real caller exists today.
+  INTERNAL_ROUTE_POLICY_JSON: |
+    {"/internal/search/query": ["*"]}
+
   # ── The index ─────────────────────────────────────────────────────────────────────────────
   # builtin, and the alternatives are named in the config as a documented follow-up rather than
   # available today. For our data volumes — hundreds of establishments, thousands of customers
