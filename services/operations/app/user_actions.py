@@ -359,6 +359,17 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "قائمة المميزات الحقيقية لكل تطبيق تديره عمليات المحل مباشرة، بصياغة تسويقية قصيرة.",
     },
     {
+        "id": "subscription.apps_visibility_overrides", "label": "تطبيقات مخصَّصة لهذا المحل",
+        "method": "GET", "path": "/api/v1/subscription/apps/visibility-overrides",
+        "capability": "billing.self", "group": "الاشتراك",
+        # TENANT-SCOPED, UNLIKE ITS SIBLING RIGHT ABOVE — this one DOES answer per-caller, from
+        # `_tenant(principal)` alone (core/app_visibility.py's own module docstring on why that is
+        # what makes it IDOR-safe by construction). `Depends(require_user)` only, no capability
+        # actually enforced, same posture as `apps_static_features` — any staff role browsing the
+        # store may ask this, not only the owner.
+        "help": "أي تطبيقات مخفية عن الجميع أظهرها لك المشغّل تحديداً، لتظهر في متجرك أنت وحدك.",
+    },
+    {
         # `subscription.activate`, NOT `billing.subscribe` — which is what billing-service calls
         # ITS OWN subscribe action. Two services declaring one id is a collision the catalogue
         # cannot express: the console keys on the id, so one of them silently wins and the loser

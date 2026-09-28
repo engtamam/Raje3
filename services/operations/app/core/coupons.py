@@ -46,6 +46,9 @@ COUPON_SETTINGS = "cross_tenant_coupon_settings"
 COUPON_TENANT_OVERRIDES = "cross_tenant_coupon_overrides"
 COUPON_GRANTS = "cross_tenant_coupon_grants"
 COUPON_ATTEMPTS = "cross_tenant_coupon_attempts"
+
+_GRANT_LOCKS = "coupon_grant_locks"
+_LOCK_TTL_SECONDS = 20
 # A SHOP'S OWN preference, distinct from `COUPON_TENANT_OVERRIDES` (platform-admin-set, the
 # competitive-cap lever) — this one is self-service, keyed by the shop's own tenant id directly
 # (no `_platform` prefix needed: it is genuinely this tenant's own row, not platform-owned fact).
@@ -135,6 +138,10 @@ def uuid_hex() -> str:
 
 class CouponError(Exception):
     """A refusal the caller (an admin route) can show verbatim."""
+
+
+class CouponBusy(Exception):
+    """Another grant for the same order is already in flight."""
 
 
 @dataclass
@@ -417,14 +424,35 @@ class CouponService:
 
         `order_id` (till.py only): a repeat call with the SAME (granter_tenant, order_id) returns
         the FIRST attempt untouched — no new billing call, no new row — rather than granting a
-        second time. Checked before any validation, so a retried invalid request also replays its
-        original refusal instead of possibly landing on a different answer (settings can change
-        between two calls a network retry is seconds apart)."""
-        if order_id:
+        second time. Locked on (granter_tenant, order_id) so two concurrent retries cannot both
+        pass the dedup check and both grant."""
+        if not order_id:
+            return await self._grant_unlocked(
+                granter_tenant=granter_tenant, granter_operator_id=granter_operator_id,
+                phone=phone, percent=percent, general=general, app_keys=app_keys, order_id="")
+        lock_key = f"{granter_tenant}|{order_id}"
+        now0 = _now()
+        took = await self._s.claim(_GRANT_LOCKS, lock_key, {"at": now0},
+                                   ttl_seconds=_LOCK_TTL_SECONDS, now=now0)
+        if not took:
             existing = await self._attempt_for_order(granter_tenant, order_id)
             if existing is not None:
                 return existing
+            raise CouponBusy("a grant for this order is already being processed")
+        try:
+            existing = await self._attempt_for_order(granter_tenant, order_id)
+            if existing is not None:
+                return existing
+            return await self._grant_unlocked(
+                granter_tenant=granter_tenant, granter_operator_id=granter_operator_id,
+                phone=phone, percent=percent, general=general, app_keys=app_keys,
+                order_id=order_id)
+        finally:
+            await self._s.delete(_GRANT_LOCKS, lock_key)
 
+    async def _grant_unlocked(self, *, granter_tenant: str, granter_operator_id: str, phone: str,
+                              percent: int, general: bool = False,
+                              app_keys: list[str] | None = None, order_id: str = "") -> CouponAttempt:
         app_keys = list(app_keys or [])
         now = _now()
 
@@ -441,7 +469,7 @@ class CouponService:
                               {"tenant": PLATFORM, **asdict(att)})
             return att
 
-        if percent <= 0:
+        if percent <= 0 or percent > 100:
             return await _log(INVALID_PERCENT)
         known = set(APP_KEYS) - {COUPONS_KEY, FREE_APP_KEY}
         if general:

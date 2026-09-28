@@ -437,8 +437,16 @@ async def update_operator(request: Request, operator_id: str, body: OperatorPatc
         try:
             await request.app.state.container.signup.revoke(tenant, op.person_id)
         except SignupRefused as exc:
+            # THE OTHER FIELD CHANGES STILL LAND — only the deactivation itself failed. A caller
+            # who also renamed him or moved his branch in the same PATCH must not have those
+            # silently discarded because the revoke call happened to fail.
+            op.name = body.name.strip() if body.name is not None else op.name
+            op.role = body.role if body.role is not None else op.role
+            op.branch_id = branch_id
+            await store.save(op)
             return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
-                                content={"error": "NOT_STOPPED", "message": str(exc)})
+                                content={"error": "NOT_STOPPED", "message": str(exc),
+                                         "other_fields_saved": True})
 
     # AND HE IS NOT BROUGHT BACK BY A TOGGLE. His membership is gone, and only a password nobody
     # here has can mint another; flipping this flag would return a name to «فريقي» that consumes a
@@ -710,6 +718,10 @@ async def verify_pin(request: Request, body: PinVerifyIn,
     # AND IT ISSUES THE PROOF, which it never used to. Confirming an operator and then handing back
     # only his name left the visit that followed to name whoever it liked in `operator_id` — and
     # that field decides which BRANCH the work is filed under. See core/operator_ticket.py.
+    await request.app.state.auditor.record(
+        "operator.pin_confirmed", actor=principal.subject, tenant=tenant,
+        resource=f"operator:{body.operator_id}",
+        ip=request.client.host if request.client else "")
     return {"operator": op.public(),
             "ticket": OT.issue(settings.PII_SALT, tenant, body.operator_id),
             "ticket_ttl": OT.TTL_SECONDS}

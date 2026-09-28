@@ -97,6 +97,8 @@ async def list_affiliates(request: Request, principal: Principal = Depends(_PAYO
 @router.get("/{affiliate_id}", dependencies=[Depends(rate_limit)])
 async def get_affiliate(request: Request, affiliate_id: str,
                         principal: Principal = Depends(_PAYOUTS_READ)) -> Any:
+    if not principal.tenant:
+        return _refuse("هذا الاعتماد غير مرتبط بمنشأة.", status_code=status.HTTP_403_FORBIDDEN)
     tenant = _tenant(principal)
     affiliate = await request.app.state.container.affiliates.get(tenant, affiliate_id)
     if affiliate is None:
@@ -112,6 +114,8 @@ class ActiveIn(BaseModel):
            dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def set_affiliate_active(request: Request, affiliate_id: str, body: ActiveIn,
                                principal: Principal = Depends(_MANAGE)) -> Any:
+    if not principal.tenant:
+        return _refuse("هذا الاعتماد غير مرتبط بمنشأة.", status_code=status.HTTP_403_FORBIDDEN)
     tenant = _tenant(principal)
     affiliates = request.app.state.container.affiliates
     try:
@@ -138,6 +142,8 @@ async def settle_affiliate(request: Request, affiliate_id: str, body: SettleIn,
     """Record a settlement the owner already carried out OUTSIDE this system (cash, a bank
     transfer — plan doc §5's own "بلا أي تدخل مالي"). This route moves no money and calls no
     payment rail; it only decrements the running balance and appends an immutable audit row."""
+    if not principal.tenant:
+        return _refuse("هذا الاعتماد غير مرتبط بمنشأة.", status_code=status.HTTP_403_FORBIDDEN)
     tenant = _tenant(principal)
     affiliates = request.app.state.container.affiliates
     try:
@@ -163,6 +169,8 @@ async def settle_affiliate(request: Request, affiliate_id: str, body: SettleIn,
 @router.get("/{affiliate_id}/settlements", dependencies=[Depends(rate_limit)])
 async def list_affiliate_settlements(request: Request, affiliate_id: str,
                                     principal: Principal = Depends(_PAYOUTS_READ)) -> dict:
+    if not principal.tenant:
+        return _refuse("هذا الاعتماد غير مرتبط بمنشأة.", status_code=status.HTTP_403_FORBIDDEN)
     tenant = _tenant(principal)
     affiliates = request.app.state.container.affiliates
     affiliate = await affiliates.get(tenant, affiliate_id)

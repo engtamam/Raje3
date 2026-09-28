@@ -134,7 +134,8 @@ def content_key(*, tenant: str, visit: "TillVisitIn") -> str:
     # just because neither till sent a stable key. See `_key_for`'s own note on the identical
     # reasoning for the invoice-number branch.
     parts = [tenant, (visit.branch_id or "").strip(), (visit.phone or "").strip(),
-             str(visit.occurred_at), (visit.plate or "").strip(), str(visit.meter or 0)]
+             str(visit.occurred_at), (visit.plate or "").strip(), str(visit.meter or 0),
+             (visit.operator_id or "").strip(), (visit.note or "").strip()]
     # SORTED, because a till is free to reorder the lines of the same invoice between retries —
     # and an unsorted fingerprint would make the reorder look like a different sale.
     parts += sorted(f"{line.product_id}|{line.name}|{line.qty}|{line.amount_minor}"
@@ -913,12 +914,15 @@ async def grant_coupon_at_the_counter(request: Request, body: TillCouponIn,
         resource=f"till_order:{body.order_id[:64]}",
         ip=request.client.host if request.client else "")
 
-    att = await coupons.grant(
-        granter_tenant=tenant, granter_operator_id=f"till:{principal.subject}",
-        phone=body.phone, percent=body.percent, general=body.general,
-        app_keys=body.app_keys, order_id=body.order_id)
+    from app.core.coupons import CouponBusy, GRANTED
+    try:
+        att = await coupons.grant(
+            granter_tenant=tenant, granter_operator_id=f"till:{principal.subject}",
+            phone=body.phone, percent=body.percent, general=body.general,
+            app_keys=body.app_keys, order_id=body.order_id)
+    except CouponBusy as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
-    from app.core.coupons import GRANTED
     return {"ok": att.outcome == GRANTED, "reason": att.outcome, "attempt": att.public()}
 
 
@@ -939,7 +943,7 @@ class TillReferralRegisterIn(BaseModel):
     # WHAT THIS VISIT'S OWN INVOICE COMES TO, checked against the campaign's own min-spend — an
     # integrated till already computes this for `/visits`' own `total_minor`; this route asks for
     # it separately because registration happens BEFORE the visit itself is necessarily recorded.
-    invoice_minor: int = Field(default=0, ge=0)
+    invoice_minor: int = Field(default=0, ge=0, le=1_000_000_000)
 
 
 @router.post("/referral/register", dependencies=[Depends(subscribed_write), Depends(rate_limit)])

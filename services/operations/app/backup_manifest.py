@@ -88,6 +88,26 @@ BACKUP: dict[str, Any] = {
         # "cache the current fact" reasoning `Branch.closed_at`'s own note gives, except here the
         # aggregate itself is the only copy, not a cache of something rebuildable elsewhere.
         {"name": "operator_step_stats", "tenant_scoped": True},
+        {"name": "app_visibility_overrides", "tenant_scoped": True},
+        {"name": "mobile_service_requests", "tenant_scoped": True},
+        {"name": "referral_affiliates", "tenant_scoped": True},
+        {"name": "referral_affiliate_settlements", "tenant_scoped": True},
+        {"name": "referral_redemption_grants", "tenant_scoped": True},
+        {"name": "salla_connections", "tenant_scoped": True},
+        {"name": "salla_events", "tenant_scoped": True},
+        {"name": "shop_whatsapp_auto_register_contacts", "tenant_scoped": True},
+        {"name": "sweep_marks", "tenant_scoped": True},
+        {"name": "cross_tenant_coupon_overrides", "tenant_scoped": True},
+        {"name": "cross_tenant_coupon_preferences", "tenant_scoped": True},
+        {"name": "runtime_config", "tenant_scoped": False},
+        {"name": "cross_tenant_coupon_settings", "tenant_scoped": False},
+        # DUAL-PARTY ROWS (granter_tenant+beneficiary_tenant / shop_a+shop_b), no single "tenant"
+        # field to slice by — whole-collection restore only.
+        {"name": "cross_tenant_coupon_attempts", "tenant_scoped": False},
+        {"name": "cross_tenant_coupon_grants", "tenant_scoped": False},
+        {"name": "mutual_benefit_agreements", "tenant_scoped": False},
+        {"name": "mutual_benefit_grants", "tenant_scoped": False},
+        {"name": "mutual_benefit_audit_log", "tenant_scoped": False},
     ],
     # Nothing is excluded. The idempotency key lives ON the visit row rather than in a side table,
     # precisely so there is no collection anyone has to argue about — an excluded collection is a

@@ -365,6 +365,11 @@ def build_container(settings: Settings) -> Container:
         store=container.datastore, plans=container.billing_plans,
         default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
 
+    # Per-tenant app-visibility overrides — see core/app_visibility.py's own module docstring.
+    from app.core.app_visibility import AppVisibilityOverrides
+
+    container.app_visibility = AppVisibilityOverrides(store=container.datastore)
+
     # Mutual benefit — NOT the same feature as coupons above (see that module's own module
     # docstring, and core/mutual_benefit.py's own for the full contrast). Needs
     # `billing_plans` (just built) for its own feature-gate/pause-resume check, `authz_desk` and

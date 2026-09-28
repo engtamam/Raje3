@@ -107,7 +107,8 @@ def canonical_phone(raw: str, *, default_cc: str) -> str:
     disagrees with the platform's uniqueness rule is worse than no index: the account would exist
     and the login would say it does not.
     """
-    digits = re.sub(r"\D", "", raw or "")
+    from app.core.digits import western
+    digits = re.sub(r"\D", "", western(raw or ""))
     if not digits:
         return ""
     if digits.startswith("00"):

@@ -140,6 +140,12 @@ async def upsert_template(request: Request, name: str, body: TemplateIn,
             resource=f"template:{name}", ip=request.client.host if request.client else "",
             metadata={"outcome": "refused", "reason": str(exc)})
         return _refuse(str(exc))
+    except Exception as exc:
+        await request.app.state.auditor.record(
+            "platform.template_changed", actor=principal.subject, tenant="",
+            resource=f"template:{name}", ip=request.client.host if request.client else "",
+            metadata={"outcome": "refused", "reason": str(exc)[:200]})
+        raise
 
 
 @router.delete("/templates/{name}", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
@@ -242,6 +248,12 @@ async def rotate_partner(request: Request, partner_id: str, body: RotateIn,
             resource=f"partner:{partner_id}", ip=request.client.host if request.client else "",
             metadata={"outcome": "refused", "reason": str(exc)})
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc))
+    except Exception as exc:
+        await request.app.state.auditor.record(
+            "partner.key_rotated", actor=principal.subject, tenant="",
+            resource=f"partner:{partner_id}", ip=request.client.host if request.client else "",
+            metadata={"outcome": "refused", "reason": str(exc)[:200]})
+        raise
     return {"partner_id": partner_id, "key": key,
             "old_key_valid_until": row["prev_key_expires"],
             "note": "المفتاح القديم يعمل حتى التاريخ أعلاه ثم يتوقف تلقائياً."}
@@ -954,6 +966,10 @@ async def coupon_tenant_lookup(request: Request, phone: str = "",
     registered with (signup.py's own PHONE_INDEX) — nothing new stored for this."""
     if not phone.strip():
         return {"tenant": ""}
+    await request.app.state.auditor.record(
+        "platform.coupon_tenant_searched_by_phone", actor=getattr(principal, "subject", "") or "",
+        tenant="", resource=f"phone-suffix:{phone.strip()[-4:]}",
+        ip=request.client.host if request.client else "")
     tenant = await request.app.state.container.coupons.admin_tenant_by_phone(phone.strip())
     return {"tenant": tenant}
 
@@ -993,3 +1009,41 @@ async def set_coupon_tenant_override(request: Request, tenant_id: str,
         resource=f"coupon_override:{tenant_id}", ip=request.client.host if request.client else "")
     return {"tenant": row.tenant, "percent": row.percent, "note": row.note,
             "updated": row.updated}
+
+
+# ── per-tenant app-visibility overrides (core/app_visibility.py) ───────────────────────────────
+# Reached from the platform's own already-open «العملاء» screen (CustomerDetail.tsx) — tenant is
+# an explicit param here, unlike the tenant-scoped self-read in api/v1/subscription.py, because
+# the CALLER here is a platform operator acting on a specific, already-chosen customer file.
+
+@router.get("/app-visibility", dependencies=[Depends(rate_limit)])
+async def app_visibility_list(request: Request, tenant: str = "",
+                              principal: Principal = Depends(_PLATFORM)):
+    if not tenant.strip():
+        return {"tenant": "", "overrides": []}
+    overrides = await request.app.state.container.app_visibility.list_for_tenant(tenant.strip())
+    return {"tenant": tenant.strip(), "overrides": overrides}
+
+
+class AppVisibilitySetIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    feature_key: str = Field(min_length=1, max_length=128)
+    visible: bool
+
+
+@router.put("/app-visibility", dependencies=[Depends(rate_limit)])
+async def app_visibility_set(request: Request, body: AppVisibilitySetIn,
+                             principal: Principal = Depends(_PLATFORM)):
+    from app.core.app_visibility import AppVisibilityError
+    try:
+        row = await request.app.state.container.app_visibility.set_visible(
+            body.tenant, body.feature_key, body.visible)
+    except AppVisibilityError as exc:
+        return JSONResponse({"ok": False, "reason": str(exc)},
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    await request.app.state.auditor.record(
+        "app_visibility.set", actor=getattr(principal, "subject", "") or "",
+        tenant=body.tenant, resource=f"tenant:{body.tenant}:app:{body.feature_key}",
+        ip=request.client.host if request.client else "",
+        metadata={"visible": body.visible})
+    return {"ok": True, **row}

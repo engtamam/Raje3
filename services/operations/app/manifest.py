@@ -339,6 +339,8 @@ def build_manifest(
             {"path": "/api/v1/platform/coupons/tenant-lookup", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/coupons/tenants/{}", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/coupons/tenants/{}", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/platform/app-visibility", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/platform/app-visibility", "tier": "user", "method": "PUT"},
             # ── the platform console: OURS, not an establishment's ────────────────────────
             # THE EVIDENCE FILE, for whoever is handling a complaint (task 283). Operator
             # surface: a capability a person holds, and an audit row that names them.
@@ -403,6 +405,7 @@ def build_manifest(
             {"path": "/api/v1/subscription/payment", "tier": "user", "method": "GET"},
             {"path": "/api/v1/subscription/apps", "tier": "user", "method": "GET"},
             {"path": "/api/v1/subscription/apps/static-features", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/subscription/apps/visibility-overrides", "tier": "user", "method": "GET"},
             {"path": "/api/v1/whatsapp/connect", "tier": "user", "method": "POST"},
             {"path": "/api/v1/whatsapp/connect", "tier": "user", "method": "GET"},
             # WHAT THE CONSOLE NEEDS TO EVEN OPEN THE POPUP — App ID/Config ID, read live from

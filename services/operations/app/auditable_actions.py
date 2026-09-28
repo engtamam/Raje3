@@ -294,6 +294,13 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "operator",
     },
     {
+        "action": "operator.pin_confirmed",
+        "source": "user",
+        "critical": False,
+        "resource": "operator",
+        "why": "a full history of who confirmed which visit cannot be reconstructed from failures alone",
+    },
+    {
         # Moving somebody to a branch decides where his work is counted — and stopping him ends
         # his access to the shared screen.
         "action": "operator.updated",
@@ -788,6 +795,14 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "only, every call witnessed hit or miss.",
     },
     {
+        "action": "platform.coupon_tenant_searched_by_phone",
+        "source": "admin",
+        "critical": False,
+        "resource": "phone-suffix:{last4}",
+        "why": "resolves a phone to a tenant id for the coupon override screen, the same "
+               "cross-tenant identity lookup platform.customer_searched_by_phone already audits",
+    },
+    {
         "action": "platform.customer_success_scanned",
         "source": "admin",
         "critical": False,
@@ -949,6 +964,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "coupon_preferences",
         "why": "a shop turned the visit-screen coupon checkbox on or off — an owner asking why "
                "staff stopped seeing it (or started) needs to see this was a deliberate switch",
+    },
+    {
+        "action": "app_visibility.set",
+        "source": "internal",
+        "critical": False,
+        "resource": "app_visibility_override",
+        "why": "a platform operator made an otherwise-hidden app visible (or hid it again) for "
+               "one specific tenant — never money-moving on its own, but the reason a shop's "
+               "store shelf shows an app nobody else can see needs to be findable later.",
     },
     {
         "action": "mutual_benefit.propose",

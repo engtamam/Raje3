@@ -181,6 +181,18 @@ async def apps_static_features(principal=Depends(require_user)) -> dict:
     }
 
 
+@router.get("/apps/visibility-overrides", dependencies=[Depends(rate_limit)])
+async def apps_visibility_overrides(request: Request, principal=Depends(require_user)) -> dict:
+    """Which otherwise-hidden (`listed: false`) apps THIS shop specifically has been shown — see
+    `core/app_visibility.py`'s own module docstring for the full design. `require_user` only, same
+    posture as `apps_static_features` above — any staff role browsing the store may ask this, not
+    only the owner. Tenant comes ONLY from `_tenant(principal)`, never a query param — the read
+    side of this mechanism can never be asked about a tenant other than the caller's own."""
+    c = request.app.state.container
+    keys = await c.app_visibility.visible_keys_for_tenant(_tenant(principal))
+    return {"visible_keys": keys}
+
+
 @router.post("/renew-now", dependencies=[Depends(rate_limit)])
 async def renew_now(request: Request, principal=Depends(_OWNER)) -> JSONResponse:
     """Force EARLY renewal for this shop's WHOLE group of together-billed subscriptions, ahead of
@@ -358,6 +370,7 @@ async def subscribe(request: Request, body: SubscribeIn,
     # skips outright — so a free-forever standalone app never re-cycles through a pointless
     # SAR 0 invoice every month. Never for a base row (refused just above, and a base is never
     # free): this only ever touches an app, and only a free one.
+    interval_overridden = free and not is_base(plan_limits) and body.interval != "once"
     interval = "once" if free and not is_base(plan_limits) else body.interval
 
     status_code, out = await c.billing_plans.subscribe(
@@ -378,6 +391,8 @@ async def subscribe(request: Request, body: SubscribeIn,
     # absence of messages a week later. The notice travels with the success, not instead of it.
     if decision.notice:
         out = {**out, "notice": decision.notice}
+    if interval_overridden:
+        out = {**out, "interval": interval}
     return JSONResponse(status_code=status.HTTP_201_CREATED, content=out)
 
 
