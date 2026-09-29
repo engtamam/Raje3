@@ -897,23 +897,36 @@ class _ProposeSheetState extends State<_ProposeSheet> {
                         onChanged: (v) => setState(() => _conditionServiceId = v ?? ''),
                       ),
                     if (_conditionType != 'min_total_minor') const SizedBox(height: AppSpacing.sm),
-                    Row(
-                      children: [
-                        if (_conditionType == 'min_total_minor') ...[
-                          Expanded(child: AppTextField(labelText: s.mutualBenefitProposeConditionValueRiyals, controller: _riyalsController,
-                              keyboardType: TextInputType.number, onChanged: (_) => setState(() {}))),
-                          const SizedBox(width: 8),
-                        ],
-                        Expanded(child: AppTextField(labelText: s.mutualBenefitProposeValidityLabel, controller: _grantValidityController,
-                            keyboardType: TextInputType.number)),
-                        const SizedBox(width: 8),
-                        Expanded(child: AppTextField(labelText: s.mutualBenefitProposeDurationLabel, controller: _durationController,
-                            keyboardType: TextInputType.number)),
-                        const SizedBox(width: 8),
-                        Expanded(child: AppTextField(labelText: s.mutualBenefitProposeCapLabel, controller: _capController,
-                            keyboardType: TextInputType.number)),
-                      ],
-                    ),
+                    // TWO PER ROW, NEVER FOUR — found live (owner's own screenshot, 2026-09-29):
+                    // four (or even three) equal-width fields in one row left no room for a real
+                    // Arabic label ("الحد الأقصى" etc.), truncating every one of them.
+                    Builder(builder: (context) {
+                      final fields = <Widget>[
+                        if (_conditionType == 'min_total_minor')
+                          AppTextField(labelText: s.mutualBenefitProposeConditionValueRiyals, controller: _riyalsController,
+                              keyboardType: TextInputType.number, onChanged: (_) => setState(() {})),
+                        AppTextField(labelText: s.mutualBenefitProposeValidityLabel, controller: _grantValidityController,
+                            keyboardType: TextInputType.number),
+                        AppTextField(labelText: s.mutualBenefitProposeDurationLabel, controller: _durationController,
+                            keyboardType: TextInputType.number),
+                        AppTextField(labelText: s.mutualBenefitProposeCapLabel, controller: _capController,
+                            keyboardType: TextInputType.number),
+                      ];
+                      final rows = <Widget>[];
+                      for (var i = 0; i < fields.length; i += 2) {
+                        final hasPair = i + 1 < fields.length;
+                        rows.add(Row(children: [
+                          Expanded(child: fields[i]),
+                          if (hasPair) ...[
+                            const SizedBox(width: 8),
+                            Expanded(child: fields[i + 1]),
+                          ] else
+                            const Spacer(),
+                        ]));
+                        if (i + 2 < fields.length) rows.add(const SizedBox(height: AppSpacing.sm));
+                      }
+                      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: rows);
+                    }),
                       ],
                       ),
                     ),

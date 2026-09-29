@@ -98,7 +98,17 @@ spec:
           automountServiceAccountToken: true
           containers:
             - name: pod-reaper
-              image: bitnami/kubectl:1.31.4
+              # MIRRORED INTO OUR OWN REGISTRY, PINNED BY DIGEST — never a third-party vendor tag
+              # again. FOUND LIVE (2026-09-29): `bitnami/kubectl:1.31.4` started failing
+              # ErrImagePull/"not found" — Bitnami dropped every versioned tag from its free tier
+              # and now publishes only a moving `latest`, which is exactly the failure mode this
+              # image is meant to prevent for OUR OWN services (see this file's own header doc).
+              # Relying on someone else's tag lifecycle for a self-healing watchdog is the same
+              # unpinned-dependency risk this repo already refuses everywhere else (every service
+              # image here is published by digest, never `:latest`) — this mirror applies that
+              # same discipline to a base image we did not build ourselves. Re-mirror with
+              # scripts/mirror_pod_reaper_image.sh if this digest is ever retired upstream.
+              image: ghcr.io/engtamam/raje3/pod-reaper-kubectl@sha256:a4783925889658f26b33e03f2ab06c5ee45f3fd4ec3c08f8e4f8a4d65b12f405
               resources:
                 requests: { cpu: 10m, memory: 32Mi }
                 limits: { memory: 64Mi }
