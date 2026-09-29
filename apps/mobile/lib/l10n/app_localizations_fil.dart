@@ -389,7 +389,7 @@ class SFil extends S {
   String get visitSaveButtonLabel => 'I-save ang pagbisita';
 
   @override
-  String get navAppsLabel => 'Mga app ko';
+  String get navAppsLabel => 'Tindahan ng app';
 
   @override
   String get navHomeLabel => 'Home';

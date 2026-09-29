@@ -185,9 +185,9 @@ const List<AppRow> kAppRows = [
   // REAL KEY, SAME PATTERN EVERY OTHER ROW HERE USES (`feature.referrals`,
   // services/operations/app/core/apps.py) — a `listed: false` platform-tax feature, same shape
   // `feature.mutual_benefit`/`feature.coworking` already take, never `key: null` (that would skip
-  // the real ownership check this row's own subscription state still has to pass). Layered with
-  // the `referrals.manage` capability on top in the store's own row-filter below, since this is
-  // one that genuinely needs BOTH: owned by the shop AND the caller's own role allows managing it.
+  // the real ownership check this row's own subscription state still has to pass). The caller's
+  // own role gate (needing BOTH ownership and `referrals.list_campaigns`) lives in
+  // `ReferralsScreen`'s own `CapabilityGate` and `NavProvider.ownedSections`, not here.
   AppRow(
     id: 'referrals', key: 'feature.referrals', name: 'نظام الإحالة',
     what: 'يحوّل عملاءك الحاليين إلى فريق مبيعات حقيقي — كل عميل يجلب عميلاً جديداً يكسب الاثنان مكافأة حقيقية.',

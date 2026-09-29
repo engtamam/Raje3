@@ -143,7 +143,7 @@ class AppRouter {
               builder: (context, state) => const CoworkingScreen(),
             ),
             // EXPLICIT, NOT GENERATED — same reasoning as coworking above. Reached from the home
-            // grid, the app store's own row, and gated additionally by `referrals.manage`
+            // grid, the app store's own row, and gated additionally by `referrals.list_campaigns`
             // (ReferralsScreen's own CapabilityGate).
             GoRoute(
               path: RouteNames.referralsPath,

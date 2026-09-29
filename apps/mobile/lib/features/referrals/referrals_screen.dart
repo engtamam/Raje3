@@ -141,25 +141,33 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
   Widget build(BuildContext context) {
     // SCREEN-LEVEL GATE, HIDE NOT DISABLE — same precedent points_screen.dart's own FAB uses,
     // applied here to the WHOLE screen (this task's own explicit instruction): an operator
-    // without `referrals.manage` sees nothing this route would otherwise render, not a disabled
-    // shell of one. Real navigation entry points into this route are ALSO filtered by the same
-    // capability (apps_store_screen.dart's own `kAppRows` row filter) — this is defense in depth
+    // without `referrals.list_campaigns` sees nothing this route would otherwise render, not a
+    // disabled shell of one. Real navigation entry points into this route are ALSO filtered by
+    // the same action id (nav_sections.g.dart's own `referrals` row) — this is defense in depth
     // for anyone who reaches the route directly.
+    //
+    // 'referrals.list_campaigns' EVERYWHERE BELOW, NEVER 'referrals.manage' — FOUND LIVE
+    // (2026-09-29, the owner's own report: نظام الإحالة rendered completely blank for every
+    // account, including the owner's own). 'referrals.manage' is the CAPABILITY those actions
+    // enforce (services/referrals/app/user_actions.py), not an action id `Catalog.hasAll`/
+    // `CapabilityGate` can ever match — no action anywhere is declared with that literal id, so
+    // this whole screen's own gate failed unconditionally for everyone. `nav_sections.g.dart`'s
+    // own `referrals` row already used the correct id.
     return CapabilityGate(
-      requires: const ['referrals.manage'],
+      requires: const ['referrals.list_campaigns'],
       child: KbAnchor(id: 'referrals', child: _buildScaffold(context)),
     );
   }
 
   Widget _buildScaffold(BuildContext context) {
     final catalog = context.watch<NavProvider>().catalog;
-    final canManage = catalog.hasAll(['referrals.manage']);
+    final canManage = catalog.hasAll(['referrals.list_campaigns']);
     final campaign = _activeCampaign;
 
     return Scaffold(
       backgroundColor: AppColors.surface0,
       floatingActionButton: CapabilityGate(
-        requires: const ['referrals.manage'],
+        requires: const ['referrals.list_campaigns'],
         child: KbAnchor(
           id: 'referrals.add_button',
           child: FloatingActionButton.extended(

@@ -384,7 +384,7 @@ class SHa extends S {
   String get visitSaveButtonLabel => 'Ajiye ziyarar';
 
   @override
-  String get navAppsLabel => 'Manhajojina';
+  String get navAppsLabel => 'Kantin app';
 
   @override
   String get navHomeLabel => 'Gida';

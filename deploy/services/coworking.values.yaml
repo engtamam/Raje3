@@ -19,7 +19,7 @@ image:
   # create_service.py's own convention: "CI rewrites this at publish; never a :latest tag").
   # ship.sh / publish-images.sh must run and overwrite this before any rollout is attempted;
   # a rollout against this digest fails at image pull, which is the correct, loud failure.
-  digest: "sha256:375f9b37247eba25f2a2eb469a28a449267be99d8fc36b46e542efc1a60ca6fd"   # b164a489, published by publish-images.sh
+  digest: "sha256:cf00532b1b82d5364c9a01eeccb3062d81e5f9f2dfdb3b7ced636aaa2b8f58ab"   # 33c0daa9, published by publish-images.sh
 
 replicas: 1
 

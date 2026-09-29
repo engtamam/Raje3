@@ -383,7 +383,7 @@ class SUr extends S {
   String get visitSaveButtonLabel => 'وزٹ محفوظ کریں';
 
   @override
-  String get navAppsLabel => 'میری ایپس';
+  String get navAppsLabel => 'ایپ اسٹور';
 
   @override
   String get navHomeLabel => 'ہوم';

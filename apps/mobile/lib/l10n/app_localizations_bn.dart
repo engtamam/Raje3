@@ -384,7 +384,7 @@ class SBn extends S {
   String get visitSaveButtonLabel => 'ভিজিট সংরক্ষণ করুন';
 
   @override
-  String get navAppsLabel => 'আমার অ্যাপ';
+  String get navAppsLabel => 'অ্যাপ স্টোর';
 
   @override
   String get navHomeLabel => 'হোম';

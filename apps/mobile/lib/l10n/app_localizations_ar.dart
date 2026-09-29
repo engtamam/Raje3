@@ -380,7 +380,7 @@ class SAr extends S {
   String get visitSaveButtonLabel => 'حفظ الزيارة';
 
   @override
-  String get navAppsLabel => 'تطبيقاتي';
+  String get navAppsLabel => 'متجر التطبيقات';
 
   @override
   String get navHomeLabel => 'الرئيسية';

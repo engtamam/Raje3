@@ -1249,6 +1249,9 @@ jobs:
       - name: the legal documents are complete
         run: python3 ci/check_legal.py
 
+      - name: every app annex in terms.md names a real, current app
+        run: python3 ci/check_legal_app_names.py
+
       - name: every string the kit renders has Arabic behind it
         run: python3 ci/check_i18n.py
 

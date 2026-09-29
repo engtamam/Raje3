@@ -798,7 +798,7 @@ abstract class S {
   /// No description provided for @navAppsLabel.
   ///
   /// In ar, this message translates to:
-  /// **'تطبيقاتي'**
+  /// **'متجر التطبيقات'**
   String get navAppsLabel;
 
   /// No description provided for @navHomeLabel.

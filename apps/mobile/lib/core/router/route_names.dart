@@ -83,6 +83,7 @@ class RouteNames {
   static const String coworkingPath = '/coworking';
   /// «نظام الإحالة» — pushed FROM «تطبيقاتي» (`apps_store_screen.dart`'s `AppRow.route`), same
   /// drill-down pattern as `coworkingPath` above; this row DOES carry a real `feature.referrals`
-  /// billing key (app_store_model.dart), gated additionally by the `referrals.manage` capability.
+  /// billing key (app_store_model.dart), gated additionally by the `referrals.list_campaigns`
+  /// action id.
   static const String referralsPath = '/referrals';
 }

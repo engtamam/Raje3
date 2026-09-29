@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
-import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/network/api_client.dart';
 import 'package:raje3_mobile/core/services/app_features_service.dart';
 import 'package:raje3_mobile/core/services/auth_service.dart'
@@ -37,11 +36,6 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
   Owned? _owned;
   List<BillingPlan>? _plans;
   List<BillingSubscription>? _subs;
-  // ALWAYS THE STORE SHELF NOW — owner's own explicit call (2026-09-29): the "تطبيقاتي" (owned
-  // apps) shelf is gone entirely now that the home screen shows every owned app directly
-  // (NavProvider.ownedSections). This field stays (rather than deleting every `_tab ? :` branch
-  // below) so the store-only vs. billing-row layout logic those branches encode is untouched.
-  static const bool _tab = true;
   final Set<String> _cart = {};
   CartPreview? _cartPreview;
   bool _cartPreviewBusy = false;
@@ -420,31 +414,19 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
     final dark = context.isDark;
     final colors = context.appColors;
 
-    // «تطبيقاتي» = owned AND has somewhere real to open — launcherCatalog.ts::myApps only ever
-    // lists a row with a real section/openPath; an owned row with neither has nothing to
-    // navigate to and stays exclusive to «متجر التطبيقات» until it gets a mobile screen.
-    // A ROW THAT ALSO NEEDS A CAPABILITY (e.g. 'referrals' — `referrals.manage`) is checked ON
-    // TOP of the normal ownership check below, never instead of it — an owned-but-role-
-    // restricted row must still stay invisible on «تطبيقاتي» to a caller without that
-    // capability, same rule `CapabilityGate` applies everywhere else in this app. See the
-    // STORE shelf's own note just below for why it is deliberately NOT checked there too.
-    final catalog = context.watch<NavProvider>().catalog;
-    bool visibleForCapability(AppRow r) =>
-        r.id != 'referrals' || catalog.hasAll(['referrals.manage']);
-    // STORE SHELF NEVER FILTERED BY visibleForCapability — a real gap found live: a shop owner
-    // whose own role had not yet been granted `referrals.manage` could never even see the app to
-    // buy it, on the one shelf whose entire job is selling every listed app to whoever can pay
-    // for it (`subscription.activate`, its own real gate, already sits on the actual subscribe
-    // button below). Managing an app once bought and discovering it to buy are two different
-    // permissions — only «تطبيقاتي» (owned apps you can actually open) still applies it.
-    final rows = (_tab
-            ? kAppRows
-            : kAppRows
-                .where((r) =>
-                    r.route != null &&
-                    (r.key == null || _owned?.owns(r.key!) == true))
-                .where(visibleForCapability))
-        .toList();
+    // AN UNLISTED PLAN'S APP HAS EXACTLY ONE HOME: «تطبيقاتي» (NavProvider.ownedSections, the
+    // home grid), لمن يملكه فعلاً — never this store shelf too, same rule AppLauncher.tsx's own
+    // `everything` filter already enforces console-side (its own comment: "a plan marked
+    // `listed: false` ... still rendered a full tile here for every shop, plan-less and unpriced
+    // but visible, because `allApps` never checked listing at all"). FOUND LIVE HERE TOO
+    // (2026-09-29, coworking's own card: no price, no subscribe button, because `_planFor`
+    // silently drops an unlisted plan while `kAppRows` never checked whether one still existed) —
+    // the exact same bug class, just never ported to this screen when the console one was fixed.
+    // A row with a billing key shows on this shelf only if the shop already owns it OR a real
+    // (listed) plan for it exists; a row with no billing key at all (free/base) is unaffected.
+    bool hasRealPlanOrOwned(AppRow r) =>
+        r.key == null || _owned?.owns(r.key!) == true || _planFor(r.key!) != null;
+    final rows = kAppRows.where(hasRealPlanOrOwned).toList();
 
     return Scaffold(
       backgroundColor: AppColors.surface0,
@@ -493,10 +475,6 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
                 padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg,
                     AppSpacing.md, AppSpacing.xxl),
                 sliver: SliverGrid(
-                  // «متجر التطبيقات» (_tab true) cards carry an extra price row + «التفاصيل» pill
-                  // the «تطبيقاتي» ones don't (showBilling: _tab below) — a single aspect ratio
-                  // sized for the taller variant left the shorter one mostly empty gradient (the
-                  // owner's own catch, 2026-09-24: "البطاقة كبيرة وفاضية والكلام صغير جدا").
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: AppSpacing.lg,
@@ -509,7 +487,7 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
                     // (taller cards) so a 2-line title never crowds out what sits under it,
                     // measured against the worst real case: icon row + 2-line title + price row +
                     // AI-units chip + a requires-badge row + the details pill, all at once.
-                    childAspectRatio: _tab ? 0.68 : 1.2,
+                    childAspectRatio: 0.68,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, i) {
@@ -521,8 +499,7 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
                       // ONLY WHEN GENUINELY UNMET — same "absence is never invented" rule
                       // billingShared.tsx's own `missingRequirement` already takes (mirrored here
                       // for a real, clickable badge instead of only a details-sheet sentence).
-                      final needsAny = _tab &&
-                              plan != null &&
+                      final needsAny = plan != null &&
                               owned != true &&
                               !plan.requiresAny
                                   .any((k) => _owned?.owns(k) == true)
@@ -555,7 +532,7 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
                               : null,
                           includedCreditMinor: _includedCreditFor(plan),
                           unitsPerHalala: _unitsPerHalala,
-                          showBilling: _tab,
+                          showBilling: true,
                           inCart: plan != null && _cart.contains(plan.id),
                           onToggleCart: plan != null && owned != true
                               ? () => _toggleCart(plan.id)
@@ -596,10 +573,7 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
                   ),
                 ),
               ),
-            // «السعة» — ONLY under «متجر التطبيقات», never «تطبيقاتي» (AppLauncher.tsx's own
-            // rule: a seat/branch add-on is not a section a role opens, so it has no home on the
-            // navigation shelf at all — parity/app_store.md §6).
-            if (_tab && _capacityPlans.isNotEmpty)
+            if (_capacityPlans.isNotEmpty)
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(
                     AppSpacing.md, 0, AppSpacing.md, AppSpacing.xxl),
@@ -632,7 +606,7 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _tab && _cart.isNotEmpty
+      bottomNavigationBar: _cart.isNotEmpty
           ? _CartBar(
               plans: _cart
                   .map((id) => (_plans ?? const <BillingPlan>[])

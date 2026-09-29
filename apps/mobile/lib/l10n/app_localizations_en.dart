@@ -385,7 +385,7 @@ class SEn extends S {
   String get visitSaveButtonLabel => 'Save the visit';
 
   @override
-  String get navAppsLabel => 'My apps';
+  String get navAppsLabel => 'App store';
 
   @override
   String get navHomeLabel => 'Home';
