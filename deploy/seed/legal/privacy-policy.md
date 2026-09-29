@@ -27,7 +27,7 @@
 
 ## 2. معلومات التواصل ومسؤول حماية البيانات
 
-الموقع الإلكتروني: raje3.sa. مسؤول حماية البيانات: mang.raje3@gmail.com — ويمكنه تقديم مزيد من التفاصيل حول معالجة البيانات الشخصية.
+الموقع الإلكتروني: ra-je3.com. مسؤول حماية البيانات: mang.raje3@gmail.com — ويمكنه تقديم مزيد من التفاصيل حول معالجة البيانات الشخصية.
 
 
 ## 3. البيانات الشخصية التي نجمعها
@@ -42,8 +42,11 @@
 6. **بيانات الحساب وتسجيل الدخول**.
 7. **سجل تدقيق تقني** لعمليات حساسة (كتعديل صلاحية)، لأغراض الأمان.
 8. **نسخ احتياطية مشفَّرة**.
+9. **بيانات المسوّقين والمُحيلين** — رقم الجوال، عند تفعيل العميل خاصية "الإحالة والمسوّقين" وتسجيله مسوّقًا يتعامل معه. الغرض: تتبّع ما يحقّقه من عملاء أو مبيعات لحساب استحقاقه الداخلي، الذي يبقى العميل (المنشأة) وحده مسؤولاً عن تسويته معه خارج المنصة.
+10. **بيانات المستقلّين (الاستضافة المهنية)** — رقم الجوال، عند تفعيل العميل هذا التطبيق. الغرض: الموافقة على طلبات انضمامهم وجدولة حجوزاتهم لموارد العميل القابلة للتأجير بالساعة.
+11. **تقييمات وتعليقات العملاء النهائيين عن موظفي العميل**، عند تفعيل تطبيق "التقييم". الغرض: تمكين العميل من متابعة أداء فريقه؛ ولا تُنشر هذه التقييمات للعموم، وتظهر للعميل وموظفيه المخوَّلين فقط.
 
-عند استخدام الذكاء الاصطناعي في الرد على استفسار (البندان 3 و4)، يُنقَّح النص آليًا لإزالة ما قد يتضمنه من بيانات حساسة (كأرقام الحسابات البنكية أو الهوية) قبل معالجته، سواء كان النموذج مستضافًا داخل المملكة أو لدى مزوّد خارجي.
+عند استخدام الذكاء الاصطناعي في الرد على استفسار، يختلف الوضع بحسب التطبيق: **المساعد الآلي عبر واتساب (البند 3)** يعمل بنموذج ذكاء اصطناعي مملوك ومُشغَّل بالكامل من Meta على بنيتها التحتية الخاصة؛ نصّ محادثتك معه يصل إليها ويُعالَج هناك كجزء من خدمة واتساب نفسها، ويخضع لسياسة خصوصية Meta بشأن ما تحتفظ به أو تعالجه من هذا النص — وهو أمر خارج عن سيطرة راجِع تمامًا، لا تملك تعديله ولا الاطلاع الكامل عليه. أما **مساعد المنصة لأصحاب المحلات (البند 4)** فيعمل بذكاء اصطناعي مُشغَّل بالكامل على جهاز المستخدم نفسه (on-device)، ولا يُرسَل نصّ سؤالك ولا ردّه إلى أي خادم — لا خاص بنا ولا بطرف ثالث — تحت أي ظرف.
 
 
 ## 4. طرق الجمع والأغراض والأساس النظامي
@@ -77,7 +80,9 @@
 
 ## 6. المشاركة والإفصاح
 
-لا نبيع بياناتك الشخصية، ولا نشاركها مع طرف ثالث لأغراضه التسويقية الخاصة. نُفصح عنها فقط إلى: مزوّد توصيل الرسائل عبر واتساب (بالقدر اللازم للتسليم)، مزوّد البنية السحابية المستضاف عليها الأنظمة، محاسبنا القانوني، مزوّد بوابة الدفع المرخَّص، مزوّد نموذج الذكاء الاصطناعي (بعد تنقيح النص كما في البند 3)، والجهات المختصة عند طلب نظامي.
+لا نبيع بياناتك الشخصية، ولا نشاركها مع طرف ثالث لأغراضه التسويقية الخاصة. نُفصح عنها فقط إلى: **Meta** (مالكة ومشغِّلة واتساب، بالقدر اللازم لتوصيل الرسائل وتشغيل المساعد الآلي عبرها كما في البند 3 — واستلامها لهذا النص يخضع لسياسة خصوصية Meta الخاصة بها، لا لهذه السياسة، من لحظة وصوله إليها)، مزوّد البنية السحابية المستضاف عليها الأنظمة، محاسبنا القانوني، مزوّد بوابة الدفع المرخَّص، والجهات المختصة عند طلب نظامي.
+
+**المشاركة بين المنشآت، بموافقة صريحة من العميل نفسه**: بعض تطبيقات المنصة (كـ"تبادل منافع" و"ولاء الشركاء") تُمكِّن العميل من الاتفاق مع منشأة أخرى مسجَّلة لدى راجِع على منح عميله النهائي ميزة عند تلك المنشأة الأخرى، أو منح تلك المنشأة امتيازًا على اشتراكها. في هذه الحالة تحديدًا، يُفصَح عن الحد الأدنى اللازم من بيانات العميل النهائي (كرقم جواله) للمنشأة الأخرى الطرف في ذلك الاتفاق، ولا يتم ذلك إلا بعد أن يفعّل العميل (المنشأة) هذا التطبيق ويوافق على شروط الاتفاق تحديدًا.
 
 ولا نُفصح عن البيانات الشخصية إلا متى كان الإفصاح محققاً للغرض الذي أُبلغتَ به، ومستنداً إلى مسوغ نظامي، ومقتصراً على الحد الأدنى من البيانات التي تحتاجها الجهة المستقبِلة. ولا نُفصح عنها متى كان في ذلك إضرار بك، أو مساس بالأمن الوطني أو بالمصالح الحيوية للمملكة، أو تعارض مع دعوى قضائية. (النظام م.6، 15، 16)
 
@@ -85,7 +90,7 @@
 
 ## 7. التخزين والاحتفاظ والإتلاف والأمن
 
-التخزين — تُخزَّن البيانات الشخصية باستخدام داخل المملكة العربية السعودية. ويُستثنى من ذلك ما يستلزمه تسليم رسالة واتساب بطبيعته: يصل رقم المستقبِل ونص الرسالة إلى Meta خارج المملكة، وهو نقلٌ يجري وفق المادة (29) ولا يمكن تجنّبه مع الإبقاء على القناة نفسها. (مثل خوادم جهة التحكم أو مزوّد سحابي، داخل المملكة أو خارجها).
+التخزين — تُخزَّن البيانات الشخصية وتُعالَج لدى راجِع داخل المملكة العربية السعودية (خوادم جهة التحكم ومزوّدها السحابي). ويُستثنى من ذلك ما يستلزمه تسليم رسالة واتساب وتشغيل مساعده الآلي بطبيعتهما: يصل رقم المستقبِل ونص الرسالة (وردّ المساعد الآلي عليه) إلى Meta خارج المملكة، وهو نقلٌ يجري وفق المادة (29) ولا يمكن تجنّبه مع الإبقاء على القناة نفسها. ومن لحظة وصول البيانات إلى Meta، تحكم معالجتَها لديها سياسةُ خصوصية Meta الخاصة، لا سياستنا هذه — فهي جهة مستقلة عن راجِع، وراجِع لا تتحكم بممارساتها في حفظ البيانات أو معالجتها.
 
 الاحتفاظ — نحتفظ ببياناتك طوال بقاء حسابك فعّالًا، ولمدة محدودة بعد ذلك بحسب الغرض من كل نوع بيانات، لا أكثر. يُستثنى من ذلك سجلّ الأمان والتدقيق، الذي يُحتفظ به لمدة أطول لأنه إثبات قانوني وتشغيلي، وتُموَّه هويتك فيه بحيث لا يُنسَب إليك بعد تنفيذ طلب حذف. الفواتير والسجلات المحاسبية تخضع للمدة التي توجبها الأنظمة المالية والضريبية.
 
@@ -157,7 +162,7 @@ Official name: Raje3. Activity, services and target group: A cloud platform that
 
 ## 2. Contact Information and DPO
 
-Website: raje3.sa. Data Protection Officer: mang.raje3@gmail.com — can provide further details about the processing of Personal Data.
+Website: ra-je3.com. Data Protection Officer: mang.raje3@gmail.com — can provide further details about the processing of Personal Data.
 
 
 ## 3. Personal Data We Collect
@@ -172,8 +177,11 @@ We collect no data without a stated purpose, and we keep no category below longe
 6. **Account and login data.**
 7. **A technical audit log** of sensitive operations (such as a permission change), for security purposes.
 8. **Encrypted backups.**
+9. **Affiliate/referrer data** — phone number, where the Customer enables "Referrals & Affiliates" and registers an affiliate it deals with. Purpose: tracking the customers or sales that affiliate generates, for an internal balance the Customer (the establishment) alone is responsible for settling with them outside the platform.
+10. **Freelancer data (Coworking)** — phone number, where the Customer enables this app. Purpose: approving their join requests and scheduling their bookings of the Customer's own hourly-rentable resources.
+11. **End customers' ratings and comments about the Customer's own staff**, where the "Ratings" app is enabled. Purpose: letting the Customer follow its team's performance; these ratings are not published publicly and are shown only to the Customer and its authorised staff.
 
-When AI is used to respond to an inquiry (items 3 and 4), the text is automatically redacted to remove any sensitive data it may contain (such as bank account or ID numbers) before processing, whether the model is hosted inside the Kingdom or with an external provider.
+Where AI is used to respond to an inquiry, this differs by app: **the WhatsApp AI assistant (item 3)** runs on an AI model owned and operated entirely by Meta, on its own infrastructure; your conversation's text reaches Meta and is processed there as part of the WhatsApp service itself, governed by Meta's own privacy policy for whatever it retains or processes of that text — a matter entirely outside Raje3's control, which we can neither alter nor fully inspect. **The platform assistant for shop owners (item 4)**, by contrast, runs an AI model entirely on the user's own device; neither your question's text nor its answer is ever sent to any server — ours or any third party's — under any circumstance.
 
 
 ## 4. Collection Methods, Purposes and Legal Basis
@@ -207,7 +215,9 @@ Processing is defined precisely at each stage of the data life cycle and limited
 
 ## 6. Sharing and Disclosure
 
-We do not sell your Personal Data, and we do not share it with a third party for that party's own marketing purposes. We disclose it only to: the WhatsApp message delivery provider (to the extent needed for delivery), the cloud infrastructure provider hosting our systems, our accountant, the licensed payment gateway, the AI model provider (after the text is redacted as described in Section 3), and the competent authorities on lawful request.
+We do not sell your Personal Data, and we do not share it with a third party for that party's own marketing purposes. We disclose it only to: **Meta** (WhatsApp's owner and operator, to the extent needed to deliver messages and run its AI assistant as described in item 3 — its receipt of this text is governed by Meta's own privacy policy, not this one, from the moment it reaches Meta), the cloud infrastructure provider hosting our systems, our accountant, the licensed payment gateway, and the competent authorities on lawful request.
+
+**Sharing between establishments, with the Customer's own express consent**: some of the platform's apps (such as "Mutual Benefit" and "Partner Loyalty") let a Customer agree with another establishment registered with Raje3 to grant its own end customer a benefit at that other establishment, or to grant that establishment a privilege on its own subscription. In this specific case, the minimum necessary data about the end customer (such as their phone number) is disclosed to the other establishment party to that agreement, and only once the Customer (the establishment) has enabled this app and agreed to that specific arrangement's terms.
 
 We disclose Personal Data only where the disclosure serves the purpose you were told about, rests on a lawful basis, and is limited to the minimum data the recipient needs. We do not disclose it where doing so would harm you, prejudice national security or the Kingdom's vital interests, or conflict with a judicial proceeding. (Law Arts. 6, 15, 16)
 
@@ -215,7 +225,7 @@ Where a recipient is outside the Kingdom, we transfer only for a purpose Article
 
 ## 7. Storage, Retention, Destruction and Security
 
-Storage — Personal Data is stored inside the Kingdom of Saudi Arabia. The exception is what delivering a WhatsApp message inherently requires: the recipient's number and the message content reach Meta outside the Kingdom — a transfer made under Article 29 and unavoidable while the channel itself is kept.
+Storage — Personal Data is stored and processed by Raje3 inside the Kingdom of Saudi Arabia (the Controller's own servers and cloud provider). The exception is what delivering a WhatsApp message and running its AI assistant inherently require: the recipient's number, the message content, and the assistant's own reply reach Meta outside the Kingdom — a transfer made under Article 29 and unavoidable while the channel itself is kept. From the moment data reaches Meta, its own privacy policy — not this one — governs its processing there; Meta is an entity independent of Raje3, and Raje3 does not control its data retention or processing practices.
 
 Retention — we keep your data for as long as your account remains active, and for a limited period after that depending on the purpose of each type of data, no more. The exception is the security and audit log, which is kept longer because it is legal and operational evidence, and your identity within it is pseudonymised once a deletion request is carried out. Invoices and accounting records are subject to the period financial and tax regulations require.
 

@@ -233,10 +233,10 @@ class AccountScreen extends StatelessWidget {
 /// locale (the accepted convention every real language picker follows: a Bengali speaker
 /// looking for their language should see "বাংলা", not whatever "Bengali" happens to be in
 /// Arabic). Covers exactly S.supportedLocales, in the same order main.dart declares it.
-String _languageDisplayName(String code) => switch (code) {
-      'ar' => 'العربية',
+String _languageDisplayName(String code) => switch (code) { // nativeLanguageName, never translated
+      'ar' => 'العربية', // nativeLanguageName, never translated
       'en' => 'English',
-      'ur' => 'اردو',
+      'ur' => 'اردو', // nativeLanguageName, never translated
       'ha' => 'Hausa',
       'fil' => 'Filipino',
       'bn' => 'বাংলা',

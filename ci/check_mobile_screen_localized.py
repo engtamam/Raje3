@@ -188,6 +188,12 @@ def _is_exempt(line: str) -> bool:
     # in every locale the same way a brand name does in any product translated around it.
     if "appInfoNameAr" in stripped:
         return True
+    # A LANGUAGE'S OWN NAME, IN ITS OWN SCRIPT — same category as appInfoNameAr above.
+    # account_screen.dart's own `_languageDisplayName` picker must show "العربية"/"اردو" regardless
+    # of the app's currently-active locale (the accepted convention every real language picker
+    # follows), so those two literals carry this exact marker comment rather than a dictionary key.
+    if "nativeLanguageName, never translated" in stripped:
+        return True
     return False
 
 
