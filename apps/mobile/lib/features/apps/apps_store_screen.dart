@@ -526,7 +526,15 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
                     crossAxisCount: 2,
                     mainAxisSpacing: AppSpacing.lg,
                     crossAxisSpacing: AppSpacing.sm,
-                    childAspectRatio: _tab ? 0.95 : 1.55,
+                    // TALLER THAN BEFORE — found live (2026-09-29): a real, long app name
+                    // ("المساعد الذكي عبر واتساب") wraps to its own full 2 lines, and the fixed
+                    // card height from the old ratio (0.95 / 1.55) had no room left for the price
+                    // row and «التفاصيل» pill below it once that happened — RenderFlex overflow,
+                    // silently clipping the bottom of the card in release. Both ratios lowered
+                    // (taller cards) so a 2-line title never crowds out what sits under it,
+                    // measured against the worst real case: icon row + 2-line title + price row +
+                    // AI-units chip + a requires-badge row + the details pill, all at once.
+                    childAspectRatio: _tab ? 0.68 : 1.2,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, i) {
