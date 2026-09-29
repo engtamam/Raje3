@@ -1539,6 +1539,24 @@ abstract class S {
   /// **'مغلق'**
   String get branchesDayClosed;
 
+  /// No description provided for @accountLanguageSectionTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'اللغة'**
+  String get accountLanguageSectionTitle;
+
+  /// No description provided for @accountLanguageRow.
+  ///
+  /// In ar, this message translates to:
+  /// **'لغة التطبيق'**
+  String get accountLanguageRow;
+
+  /// No description provided for @accountLanguageSheetTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر لغة التطبيق'**
+  String get accountLanguageSheetTitle;
+
   /// No description provided for @accountSecuritySectionTitle.
   ///
   /// In ar, this message translates to:

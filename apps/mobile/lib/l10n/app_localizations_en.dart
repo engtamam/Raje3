@@ -790,6 +790,15 @@ class SEn extends S {
   String get branchesDayClosed => 'Closed';
 
   @override
+  String get accountLanguageSectionTitle => 'Language';
+
+  @override
+  String get accountLanguageRow => 'App language';
+
+  @override
+  String get accountLanguageSheetTitle => 'Choose app language';
+
+  @override
   String get accountSecuritySectionTitle => 'Security';
 
   @override

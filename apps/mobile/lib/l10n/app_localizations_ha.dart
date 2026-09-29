@@ -788,6 +788,15 @@ class SHa extends S {
   String get branchesDayClosed => 'A rufe';
 
   @override
+  String get accountLanguageSectionTitle => 'Harshe';
+
+  @override
+  String get accountLanguageRow => 'Harshen aikace-aikace';
+
+  @override
+  String get accountLanguageSheetTitle => 'Zaɓi harshen aikace-aikace';
+
+  @override
   String get accountSecuritySectionTitle => 'Tsaro';
 
   @override

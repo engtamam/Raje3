@@ -74,7 +74,10 @@ class GemmaAiModel implements AiModel {
   final _progressController = StreamController<int>.broadcast();
 
   InferenceModel? _model;
-  InferenceChat? _chat;
+  // NEVER A PERSISTENT CHAT — see `generate()`'s own comment on why one is created fresh per
+  // question instead. `_activeModelType`/`_tools` are what a fresh chat needs re-created with.
+  ModelType _activeModelType = ModelType.gemma4;
+  List<AiTool> _tools = const [];
 
   @override
   AiModelStatus get status => _status;
@@ -145,14 +148,14 @@ class GemmaAiModel implements AiModel {
             maxTokens: 2048,
             preferredBackend: PreferredBackend.gpu,
           );
-          // TOOLS ARE DECLARED HERE, ONCE — see AiModel.ensureReady's own doc comment on why the
-          // plugin has no per-message tool list. [_convertTools] is the only place this file ever
-          // touches flutter_gemma's own Tool type — [AiTool] stays the port's own shape everywhere
-          // else, per ai_model.dart's own doc comment on why. modelType matches whichever
-          // candidate just loaded — Qwen3's own chat template is not Gemma's.
-          final chat = await model.createChat(modelType: candidate.modelType, tools: _convertTools(tools));
+          // A PROBE CHAT ONLY, NEVER KEPT — see `generate()`'s own comment on why a fresh chat is
+          // created per question instead of reused across the session. This call still exists to
+          // catch a real init failure (bad tool schema, unsupported chat template) before marking
+          // the model ready, exactly as before; its result is simply discarded rather than stored.
+          await model.createChat(modelType: candidate.modelType, tools: _convertTools(tools));
           _model = model;
-          _chat = chat;
+          _activeModelType = candidate.modelType;
+          _tools = tools;
           _setStatus(AiModelStatus.ready);
           return;
         } catch (e) {
@@ -216,9 +219,11 @@ class GemmaAiModel implements AiModel {
         maxTokens: 2048,
         preferredBackend: PreferredBackend.gpu,
       );
-      final chat = await model.createChat(modelType: ModelType.gemma4, tools: _convertTools(tools));
+      // PROBE ONLY — see the download branch's own identical comment above.
+      await model.createChat(modelType: ModelType.gemma4, tools: _convertTools(tools));
       _model = model;
-      _chat = chat;
+      _activeModelType = ModelType.gemma4;
+      _tools = tools;
       _setStatus(AiModelStatus.ready);
     } catch (e) {
       _lastError = e.toString();
@@ -231,8 +236,8 @@ class GemmaAiModel implements AiModel {
 
   @override
   Stream<AiEvent> generate(String prompt, {String systemInstruction = ''}) {
-    final chat = _chat;
-    if (_status != AiModelStatus.ready || chat == null) {
+    final model = _model;
+    if (_status != AiModelStatus.ready || model == null) {
       throw StateError('GemmaAiModel cannot generate — check AiModel.status before calling generate().');
     }
     final controller = StreamController<AiEvent>();
@@ -243,6 +248,17 @@ class GemmaAiModel implements AiModel {
     final query = systemInstruction.isEmpty ? prompt : '$systemInstruction\n\n$prompt';
     () async {
       try {
+        // A FRESH CHAT EVERY QUESTION, NEVER ONE REUSED ACROSS THE SESSION — matches
+        // AssistantService's own contract exactly: it rebuilds the FULL system prompt + app
+        // knowledge from scratch per question (see its own `ask()` doc comment), never relying on
+        // conversation history to carry context forward. A single long-lived chat kept every prior
+        // turn's full system+knowledge text AND answer in its own context — with maxTokens fixed
+        // at 2048, that overflowed starting on the SECOND question, and `generateChatResponseAsync`
+        // then yielded zero tokens (caught below, by design, so no error ever surfaced): the mic
+        // button would listen, transition to "thinking", and silently return to idle with nothing
+        // said. FOUND LIVE (owner's own report, 2026-09-29): "يشتغل صحيح أول مرة، بعدها يسمع ويقفل
+        // بلا رد" — exactly this signature.
+        final chat = await model.createChat(modelType: _activeModelType, tools: _convertTools(_tools));
         await chat.addQueryChunk(Message.text(text: query, isUser: true));
         await for (final response in chat.generateChatResponseAsync()) {
           switch (response) {
@@ -277,7 +293,6 @@ class GemmaAiModel implements AiModel {
   Future<void> dispose() async {
     await _model?.close();
     _model = null;
-    _chat = null;
     await _statusController.close();
     await _progressController.close();
   }

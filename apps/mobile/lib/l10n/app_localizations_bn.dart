@@ -790,6 +790,15 @@ class SBn extends S {
   String get branchesDayClosed => 'বন্ধ';
 
   @override
+  String get accountLanguageSectionTitle => 'ভাষা';
+
+  @override
+  String get accountLanguageRow => 'অ্যাপের ভাষা';
+
+  @override
+  String get accountLanguageSheetTitle => 'অ্যাপের ভাষা নির্বাচন করুন';
+
+  @override
   String get accountSecuritySectionTitle => 'নিরাপত্তা';
 
   @override

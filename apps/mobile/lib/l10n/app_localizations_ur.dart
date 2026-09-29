@@ -789,6 +789,15 @@ class SUr extends S {
   String get branchesDayClosed => 'بند';
 
   @override
+  String get accountLanguageSectionTitle => 'زبان';
+
+  @override
+  String get accountLanguageRow => 'ایپ کی زبان';
+
+  @override
+  String get accountLanguageSheetTitle => 'ایپ کی زبان منتخب کریں';
+
+  @override
   String get accountSecuritySectionTitle => 'سیکیورٹی';
 
   @override

@@ -11,6 +11,7 @@ import 'package:raje3_mobile/core/ai/assistant_turn.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/storage/local_storage.dart';
 import 'package:raje3_mobile/core/tts/tts_model.dart';
+import 'package:raje3_mobile/core/utils/speech_locale.dart';
 import 'package:raje3_mobile/core/voice/speech_input_model.dart';
 import 'package:raje3_mobile/core/wakeword/wake_word_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
@@ -224,7 +225,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
       final lang = Localizations.localeOf(context).languageCode;
       setState(() => _state = _VoiceState.listening);
       await _speech.startListening(
-        languageCode: lang,
+        languageCode: speechLocaleTag(lang),
         onResult: (text, {required isFinal}) {
           if (isFinal) _handleRecognized(text, lang);
         },
@@ -320,7 +321,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
       return;
     }
     setState(() => _state = _VoiceState.speaking);
-    await _tts.speak(answer, languageCode: lang);
+    await _tts.speak(answer, languageCode: speechLocaleTag(lang));
     if (mounted && _state == _VoiceState.speaking) _goIdle();
   }
 

@@ -722,6 +722,30 @@
     "kind": "action",
     "anchor": "account.shop_row"
   },
+  "account.language_row": {
+    "title": {
+      "ar": "لغة التطبيق",
+      "en": "App language"
+    },
+    "body": {
+      "ar": "يفتح قائمة لاختيار لغة عرض التطبيق من بين ست لغات مدعومة.",
+      "en": "Opens a list to choose the app's display language, from six supported languages."
+    },
+    "kind": "action",
+    "anchor": "account.language_row"
+  },
+  "account.language_option": {
+    "title": {
+      "ar": "خيار لغة",
+      "en": "A language option"
+    },
+    "body": {
+      "ar": "يختار هذه اللغة للتطبيق فورًا ويحفظها.",
+      "en": "Selects this language for the app immediately and remembers it."
+    },
+    "kind": "action",
+    "anchor": "account.language_option"
+  },
   "account.billing_row": {
     "title": {
       "ar": "الاشتراك والفواتير",

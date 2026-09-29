@@ -13,6 +13,7 @@ import 'package:raje3_mobile/core/storage/local_storage.dart';
 import 'package:raje3_mobile/features/home/app_tone.dart';
 import 'package:raje3_mobile/models/catalog_model.dart';
 import 'package:raje3_mobile/core/tts/tts_model.dart';
+import 'package:raje3_mobile/core/utils/speech_locale.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/assistant_reply_mode_sheet.dart';
@@ -105,7 +106,7 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
     await _tts.stop();
     if (!mounted) return;
     setState(() => _speaking = turn);
-    await _tts.speak(turn.answer, languageCode: lang);
+    await _tts.speak(turn.answer, languageCode: speechLocaleTag(lang));
     if (mounted && _speaking == turn) setState(() => _speaking = null);
   }
 

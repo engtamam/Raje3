@@ -780,6 +780,15 @@ class SAr extends S {
   String get branchesDayClosed => 'مغلق';
 
   @override
+  String get accountLanguageSectionTitle => 'اللغة';
+
+  @override
+  String get accountLanguageRow => 'لغة التطبيق';
+
+  @override
+  String get accountLanguageSheetTitle => 'اختر لغة التطبيق';
+
+  @override
   String get accountSecuritySectionTitle => 'الأمان';
 
   @override

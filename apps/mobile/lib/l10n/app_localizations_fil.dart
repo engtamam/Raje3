@@ -800,6 +800,15 @@ class SFil extends S {
   String get branchesDayClosed => 'Sarado';
 
   @override
+  String get accountLanguageSectionTitle => 'Wika';
+
+  @override
+  String get accountLanguageRow => 'Wika ng app';
+
+  @override
+  String get accountLanguageSheetTitle => 'Pumili ng wika ng app';
+
+  @override
   String get accountSecuritySectionTitle => 'Seguridad';
 
   @override
