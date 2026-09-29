@@ -50,12 +50,12 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = S.of(context)!;
     final nav = context.watch<NavProvider>();
-    // EVERY BOUGHT APP, NOT JUST THE CURATED NAV LIST — found live (2026-09-29): this grid used to
-    // read [visibleSections] alone (the console sidebar's own fixed subset), so an app "تطبيقاتي"
-    // showed as owned (e.g. «المساعد الذكي عبر واتساب») never appeared here at all. See
-    // NavProvider.extraOwnedSections's own doc comment for why this is a second list, not a merge
-    // into kNavSections itself.
-    final sections = [...nav.visibleSections, ...nav.extraOwnedSections];
+    // EVERY BOUGHT APP, EXACTLY WHAT "تطبيقاتي" SHOWS AS OWNED — the owner's own explicit call
+    // (2026-09-29): the fixed curated list (kNavSections, the console sidebar's own mirror) is
+    // GONE from this grid entirely, not merely supplemented. See
+    // NavProvider.ownedSections's own doc comment for the still-real role/capability gate this
+    // keeps underneath ownership.
+    final sections = nav.ownedSections;
     final featured = nav.customSlotSection;
     final rest = featured == null
         ? sections

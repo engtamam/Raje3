@@ -73,9 +73,12 @@ class NavProvider extends ChangeNotifier {
   /// session does not actually hold.
   Catalog get catalog => _catalog;
 
-  /// Every section this session's catalogue makes visible, in nav.ts's own priority order —
-  /// mirrors `visibleSections(catalog)` EXACTLY:
-  ///   visible = section.service is unreachable OR section.requires is empty OR hasAll(requires)
+  /// nav.ts's own capability-gated SECTIONS list, in its own priority order — NO LONGER the home
+  /// grid's source (see [ownedSections] for that, and its own doc comment on why); kept only for
+  /// [customSlotSection], the bottom bar's one customizable-slot picker, which still offers a
+  /// pinnable CORE nav destination rather than every owned app. Mirrors `visibleSections(catalog)`
+  /// EXACTLY: visible = section.service is unreachable OR section.requires is empty OR
+  /// hasAll(requires).
   List<NavSectionDef> get visibleSections {
     return kNavSections.where((s) {
       if (s.service != null && _catalog.unreachable.contains(s.service)) return true;
@@ -84,32 +87,45 @@ class NavProvider extends ChangeNotifier {
     }).toList(growable: false);
   }
 
-  /// Every app store row ([kAppRows], the SAME catalogue "تطبيقاتي" reads) this shop actually
-  /// bought, that HAS a real mobile screen ([AppRow.route] is not null), and that [kNavSections]
-  /// does not already cover — found live (2026-09-29), the owner's own report: the home grid
-  /// showed a fixed, curated subset (mirroring the console's own sidebar) while "تطبيقاتي" showed
-  /// every app actually sold, and a shop that bought «المساعد الذكي عبر واتساب» never saw it on
-  /// the home screen at all, only inside the store. Kept as a SEPARATE list from
-  /// [visibleSections] rather than merged into `kNavSections` itself — that list is still the
-  /// generated, capability-gated mirror of nav.ts and must stay exactly that; this is home's own
-  /// addition on top, ownership-gated instead of capability-gated (an app store row has no
-  /// `requires` of its own — [Owned.owns] is the one real ownership check "تطبيقاتي" itself
-  /// already uses).
-  List<NavSectionDef> get extraOwnedSections {
-    final coveredRoutes = kNavSections.map((s) => s.id).toSet();
-    return kAppRows
-        .where((row) =>
-            row.route != null &&
-            !coveredRoutes.contains(row.route) &&
-            _owned.owns(row.key ?? '') == true)
-        .map((row) => NavSectionDef(
-              id: row.route!,
-              path: '/${row.route}',
-              label: row.name,
-              icon: kAppTileIcons[row.icon] ?? Icons.apps_rounded,
-              requires: const [],
-            ))
-        .toList(growable: false);
+  /// EVERY app the shop actually bought, and NOTHING it didn't — the home grid's own source,
+  /// distinct from [visibleSections] (kept below only for the bottom bar's customizable-slot
+  /// picker, see [customSlotSection]'s own doc comment on why that one stays capability-only).
+  ///
+  /// Owner's own explicit call (2026-09-29), after finding the home grid showed a fixed curated
+  /// subset (mirroring the console's own sidebar SECTIONS) while "تطبيقاتي" showed every app
+  /// actually sold — a shop that bought «المساعد الذكي عبر واتساب» never saw it on the home
+  /// screen. First fix ADDED owned-but-uncovered apps on top of the fixed list; the owner then
+  /// asked for the fixed list to be DROPPED entirely — home shows exactly what "تطبيقاتي" shows as
+  /// owned, nothing more.
+  ///
+  /// STILL ROLE-GATED, NOT OWNERSHIP-ALONE — "مع مراعاة الصلاحيات والأدوار" was the owner's own
+  /// explicit condition: a shop can own an app while today's signed-in STAFF MEMBER still lacks
+  /// the specific capability that app's own kNavSections entry names (e.g. a cashier account
+  /// without `bookings.list`). [kAppRows] itself carries no such per-action capability (it is a
+  /// billing/ownership catalogue only) — a route that already has a [kNavSections] entry reuses
+  /// that entry's own `requires` as the real role gate; a route with none (today, only
+  /// `whatsapp-assistant`) has never had one defined anywhere in this app, so ownership is the
+  /// only check that has ever gated it — same posture its own GoRoute already takes.
+  List<NavSectionDef> get ownedSections {
+    final requiresByRoute = {for (final s in kNavSections) s.id: s.requires};
+    return kAppRows.where((row) {
+      if (row.route == null) return false;
+      if (_owned.owns(row.key ?? '') != true) return false;
+      final requires = requiresByRoute[row.route];
+      return requires == null || requires.isEmpty || _catalog.hasAll(requires);
+    }).map((row) {
+      final existing = kNavSections.where((s) => s.id == row.route).firstOrNull;
+      // PREFER THE REAL NavSectionDef WHEN ONE EXISTS — same id/path/icon "تطبيقاتي"'s own row
+      // resolves to today, not a second, possibly-drifted copy of the same facts.
+      return existing ??
+          NavSectionDef(
+            id: row.route!,
+            path: '/${row.route}',
+            label: row.name,
+            icon: kAppTileIcons[row.icon] ?? Icons.apps_rounded,
+            requires: const [],
+          );
+    }).toList(growable: false);
   }
 
   /// The section id currently pinned to the bar's customizable slot.
