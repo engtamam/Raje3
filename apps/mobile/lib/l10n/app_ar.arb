@@ -382,7 +382,7 @@
   "@visitSaveButtonLabel": {
     "description": "Bottom-bar save button on the visit screen"
   },
-  "navAppsLabel": "تطبيقاتي",
+  "navAppsLabel": "متجر التطبيقات",
   "navHomeLabel": "الرئيسية",
   "navAccountLabel": "حسابي",
   "homeGreetingMorning": "صباح الخير",

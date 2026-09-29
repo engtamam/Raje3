@@ -124,7 +124,7 @@ class _BranchesScreenState extends State<BranchesScreen> {
       action: SnackBarAction(
         label: s.branchesIncreaseCapacity,
         onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (_) => const AppsStoreScreen(initialStoreTab: true),
+          builder: (_) => const AppsStoreScreen(),
         )),
       ),
     ));

@@ -27,11 +27,7 @@ import 'package:raje3_mobile/widgets/rj_sheen.dart';
 /// paying an already-owed invoice is billing_screen.dart's own job alone; this screen only
 /// sells what is not yet owned.
 class AppsStoreScreen extends StatefulWidget {
-  const AppsStoreScreen({super.key, this.initialStoreTab = false});
-
-  /// Land directly on «متجر التطبيقات» — used when a real refusal (seat/branch limit reached)
-  /// sends the owner here to actually buy capacity, never the plain "تطبيقاتي" navigation shelf.
-  final bool initialStoreTab;
+  const AppsStoreScreen({super.key});
 
   @override
   State<AppsStoreScreen> createState() => _AppsStoreScreenState();
@@ -41,8 +37,11 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
   Owned? _owned;
   List<BillingPlan>? _plans;
   List<BillingSubscription>? _subs;
-  late bool _tab =
-      widget.initialStoreTab; // false = "my apps" shelf, true = "store" shelf
+  // ALWAYS THE STORE SHELF NOW — owner's own explicit call (2026-09-29): the "تطبيقاتي" (owned
+  // apps) shelf is gone entirely now that the home screen shows every owned app directly
+  // (NavProvider.ownedSections). This field stays (rather than deleting every `_tab ? :` branch
+  // below) so the store-only vs. billing-row layout logic those branches encode is untouched.
+  static const bool _tab = true;
   final Set<String> _cart = {};
   CartPreview? _cartPreview;
   bool _cartPreviewBusy = false;
@@ -477,30 +476,6 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
                             style: AppTextStyles.bodySmall.copyWith(
                                 color: AppColors.accentContrast
                                     .withValues(alpha: 0.85))),
-                        const SizedBox(height: AppSpacing.md),
-                        Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.14),
-                              borderRadius:
-                                  BorderRadius.circular(AppRadius.pill)),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                  child: _TabPill(
-                                      label: s.appStoreTabMine,
-                                      selected: !_tab,
-                                      onTap: () =>
-                                          setState(() => _tab = false))),
-                              Expanded(
-                                  child: _TabPill(
-                                      label: s.appStoreTabAll,
-                                      selected: _tab,
-                                      onTap: () =>
-                                          setState(() => _tab = true))),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -522,7 +497,7 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
                   // the «تطبيقاتي» ones don't (showBilling: _tab below) — a single aspect ratio
                   // sized for the taller variant left the shorter one mostly empty gradient (the
                   // owner's own catch, 2026-09-24: "البطاقة كبيرة وفاضية والكلام صغير جدا").
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: AppSpacing.lg,
                     crossAxisSpacing: AppSpacing.sm,
@@ -750,35 +725,6 @@ class _AppsStoreScreenState extends State<AppsStoreScreen> {
                 return ok;
               }
             : null,
-      ),
-    );
-  }
-}
-
-class _TabPill extends StatelessWidget {
-  const _TabPill(
-      {required this.label, required this.selected, required this.onTap});
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color:
-          selected ? Colors.white.withValues(alpha: 0.22) : Colors.transparent,
-      borderRadius: BorderRadius.circular(AppRadius.pill),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 9),
-          child: Text(label,
-              textAlign: TextAlign.center,
-              style: AppTextStyles.bodySmall.copyWith(
-                  color: Colors.white,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500)),
-        ),
       ),
     );
   }

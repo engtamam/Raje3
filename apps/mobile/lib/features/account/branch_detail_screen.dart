@@ -694,7 +694,7 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
                 const SizedBox(height: AppSpacing.sm),
                 TextButton.icon(
                   onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => const AppsStoreScreen(initialStoreTab: true),
+                    builder: (_) => const AppsStoreScreen(),
                   )),
                   icon: const Icon(Icons.storefront_rounded, size: 18),
                   label: Text(s.branchesIncreaseCapacity),
