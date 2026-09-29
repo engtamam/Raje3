@@ -1,8 +1,11 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:raje3_mobile/core/nav/nav_sections.g.dart';
 import 'package:raje3_mobile/core/network/api_client.dart';
+import 'package:raje3_mobile/core/services/auth_service.dart';
 import 'package:raje3_mobile/core/services/catalog_service.dart';
 import 'package:raje3_mobile/core/storage/local_storage.dart';
+import 'package:raje3_mobile/core/storage/secure_storage.dart';
+import 'package:raje3_mobile/models/app_store_model.dart';
 import 'package:raje3_mobile/models/catalog_model.dart';
 
 enum NavLoadState { initial, loading, ready, error }
@@ -32,9 +35,15 @@ class NavProvider extends ChangeNotifier {
   final ApiClient apiClient;
   final LocalStorage localStorage;
   late final CatalogService _catalogService;
+  late final AuthService _authService;
 
   NavProvider({required this.apiClient, required this.localStorage}) {
     _catalogService = CatalogService(apiClient: apiClient);
+    // OWN INSTANCE, NOT INJECTED — same "build the one small service this provider needs"
+    // pattern _catalogService already uses. SecureStorage's no-arg constructor is safe here:
+    // fetchOwnership() never reads/writes tokens, it just needs an ApiClient with the request
+    // interceptor already attached (see AuthProvider's own real instance for that wiring).
+    _authService = AuthService(apiClient: apiClient, secureStorage: SecureStorage());
     _customSlotId = localStorage.getCustomNavSlot();
   }
 
@@ -53,6 +62,7 @@ class NavProvider extends ChangeNotifier {
 
   NavLoadState _state = NavLoadState.initial;
   Catalog _catalog = Catalog.empty;
+  Owned _owned = Owned.empty;
   late String _customSlotId;
 
   NavLoadState get state => _state;
@@ -72,6 +82,34 @@ class NavProvider extends ChangeNotifier {
       if (s.requires.isEmpty) return true;
       return _catalog.hasAll(s.requires);
     }).toList(growable: false);
+  }
+
+  /// Every app store row ([kAppRows], the SAME catalogue "تطبيقاتي" reads) this shop actually
+  /// bought, that HAS a real mobile screen ([AppRow.route] is not null), and that [kNavSections]
+  /// does not already cover — found live (2026-09-29), the owner's own report: the home grid
+  /// showed a fixed, curated subset (mirroring the console's own sidebar) while "تطبيقاتي" showed
+  /// every app actually sold, and a shop that bought «المساعد الذكي عبر واتساب» never saw it on
+  /// the home screen at all, only inside the store. Kept as a SEPARATE list from
+  /// [visibleSections] rather than merged into `kNavSections` itself — that list is still the
+  /// generated, capability-gated mirror of nav.ts and must stay exactly that; this is home's own
+  /// addition on top, ownership-gated instead of capability-gated (an app store row has no
+  /// `requires` of its own — [Owned.owns] is the one real ownership check "تطبيقاتي" itself
+  /// already uses).
+  List<NavSectionDef> get extraOwnedSections {
+    final coveredRoutes = kNavSections.map((s) => s.id).toSet();
+    return kAppRows
+        .where((row) =>
+            row.route != null &&
+            !coveredRoutes.contains(row.route) &&
+            _owned.owns(row.key ?? '') == true)
+        .map((row) => NavSectionDef(
+              id: row.route!,
+              path: '/${row.route}',
+              label: row.name,
+              icon: kAppTileIcons[row.icon] ?? Icons.apps_rounded,
+              requires: const [],
+            ))
+        .toList(growable: false);
   }
 
   /// The section id currently pinned to the bar's customizable slot.
@@ -96,9 +134,22 @@ class NavProvider extends ChangeNotifier {
     _state = NavLoadState.loading;
     notifyListeners();
 
-    final catalog = await _catalogService.fetchCatalog();
+    // PARALLEL, NOT SEQUENTIAL — same reasoning shop_identity_screen.dart's own "one initial
+    // load, not two" fix gives: two independent reads, no reason to make one wait on the other.
+    final results = await Future.wait([
+      _catalogService.fetchCatalog(),
+      _authService.fetchOwnership(),
+    ]);
+    final catalog = results[0] as Catalog?;
+    final owned = results[1] as Owned?;
     if (catalog != null) {
       _catalog = catalog;
+    }
+    // A FAILED OWNERSHIP READ NEVER HIDES A SECTION [visibleSections] ALREADY SHOWS — it only
+    // means extraOwnedSections finds nothing extra this time, same "fail into nothing added, not
+    // into a crash or a false negative" rule the catalogue itself follows below.
+    if (owned != null) {
+      _owned = owned;
     }
     // AN UNREACHABLE CATALOGUE STILL RENDERS SOMETHING — an empty one shows no sections rather
     // than crashing the shell; the login/redirect layer is what actually gates entry.

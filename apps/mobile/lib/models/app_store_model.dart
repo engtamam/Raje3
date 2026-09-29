@@ -6,6 +6,8 @@
 /// التطبيقات» both read, never duplicated here.
 library;
 
+import 'package:flutter/material.dart';
+
 /// One row in the sold-apps catalog. `route` is this app's real mobile route name when it has
 /// one built (see AppRouter._screenFor) — absent for an app with no mobile screen yet, which
 /// still shows here (locked or owned) but opens nothing when tapped, same honest
@@ -74,6 +76,27 @@ class AppFeature {
         ownedBy: (j['owned_by'] as String?) ?? '',
       );
 }
+
+/// Every icon key `kAppRows` uses, resolved to a real widget — shared by the store screen's own
+/// cards AND (2026-09-29) the home screen's synthetic tiles for an owned app that has no
+/// `NavSectionDef` of its own (see NavProvider.extraOwnedSections's own doc comment). Was a
+/// private `_appIcons` inside apps_store_screen.dart; hoisted here so a second file can read it
+/// without either duplicating the map or importing a screen file for a constant.
+const Map<String, IconData> kAppTileIcons = {
+  'megaphone': Icons.campaign_rounded,
+  'gift': Icons.card_giftcard_rounded,
+  'calendar': Icons.calendar_month_rounded,
+  'sparkles': Icons.auto_awesome_rounded,
+  'star': Icons.star_rounded,
+  'user-plus': Icons.person_add_rounded,
+  'check-circle': Icons.check_circle_rounded,
+  'message-circle': Icons.chat_bubble_rounded,
+  'users': Icons.handshake_rounded,
+  'hand-heart': Icons.volunteer_activism_rounded,
+  'bot': Icons.smart_toy_rounded,
+  'truck': Icons.local_shipping_rounded,
+  'briefcase': Icons.work_rounded,
+};
 
 /// `GET /api/v1/subscription/apps/static-features`'s own real, tenant-free subkeys — mirrors the
 /// console's own `launcher/launcherCatalog.ts::STATIC_FEATURES_SUBKEY` exactly. A row operations

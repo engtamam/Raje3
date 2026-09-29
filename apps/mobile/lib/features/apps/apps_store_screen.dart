@@ -784,21 +784,10 @@ class _TabPill extends StatelessWidget {
   }
 }
 
-const Map<String, IconData> _appIcons = {
-  'megaphone': Icons.campaign_rounded,
-  'gift': Icons.card_giftcard_rounded,
-  'calendar': Icons.calendar_month_rounded,
-  'sparkles': Icons.auto_awesome_rounded,
-  'star': Icons.star_rounded,
-  'user-plus': Icons.person_add_rounded,
-  'check-circle': Icons.check_circle_rounded,
-  'message-circle': Icons.chat_bubble_rounded,
-  'users': Icons.handshake_rounded,
-  'hand-heart': Icons.volunteer_activism_rounded,
-  'bot': Icons.smart_toy_rounded,
-  'truck': Icons.local_shipping_rounded,
-  'briefcase': Icons.work_rounded,
-};
+// kAppTileIcons (app_store_model.dart) is the real map now — shared with the home screen's own
+// synthetic tiles for an app with no NavSectionDef. Kept as a local alias so every existing call
+// site below (`_appIcons[...]`) needs no rewrite.
+const Map<String, IconData> _appIcons = kAppTileIcons;
 
 /// Every icon key any backend `core/features.py` currently emits — mirrors the console's own
 /// `rj-ui/AppFeatureList.tsx::APP_ICONS` exactly, key for key. `help_outline_rounded` is the
