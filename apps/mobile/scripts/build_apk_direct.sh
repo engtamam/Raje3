@@ -30,7 +30,7 @@ if [ "$MODE" != "download" ] && [ "$MODE" != "asset" ]; then
   exit 1
 fi
 
-API_BASE_URL="${API_BASE_URL:-https://kobo-cloud.com}"
+API_BASE_URL="${API_BASE_URL:-https://ra-je3.com}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_ROOT="$(cd "$ROOT/../.." && pwd)"

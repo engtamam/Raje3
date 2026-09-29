@@ -7,20 +7,25 @@ revision since edited, and the values files went on saying «no browser may call
 
 THAT IS NOT A COSMETIC DRIFT. `ship.sh` uploads a service's values file verbatim and `install.sh`
 applies it. So the next install of any of those seventeen would have set CORS back to empty, every
-call from `app.raje3.com.sa` would have failed its preflight, and the console would have gone dark for
+call from `ra-je3.com` would have failed its preflight, and the console would have gone dark for
 every shop at once — with nothing in the repository looking wrong, because a blank field looks like
 a field nobody has needed yet.
 
 THE RULE, WITH NO EXCEPTIONS TABLE. Every origin named in any values file is one of the product's
 own front doors, listed below. A service may trust a subset — the operator surface trusts only the
 admin console, and that is a real distinction — and it may trust none, which is right for anything
-no browser calls. What it may not do is name a HOST NOBODY DECLARED: a typo (`app.raje3.co`),
+no browser calls. What it may not do is name a HOST NOBODY DECLARED: a typo (`ra-je3.co`),
 a stale staging domain, or a partner's origin added in a hurry and never removed. Each of those is
 a browser we did not mean to trust, in a file nobody re-reads.
 
-WHY A LIST HERE RATHER THAN A LOOKUP. These four strings are the product's public identity. They
+WHY A LIST HERE RATHER THAN A LOOKUP. These strings are the product's public identity. They
 change when a domain is bought, which is a decision, not a deployment — and a check that read them
 from the same files it is checking would agree with any value it found, including a typo.
+
+ONE DOMAIN, NOT THREE — owner's own explicit call (2026-09-29): `app.raje3.com.sa`,
+`admin.raje3.com.sa` and `my.raje3.com.sa` were a planned future production split that never
+shipped and is now abandoned outright, not renamed. `ra-je3.com` (plus its own `admin.` subdomain)
+is the product's one and only domain going forward.
 
 WHAT THIS CANNOT SEE, said plainly:
   · whether a service that SHOULD trust a browser has been left empty. Only the cluster and the
@@ -43,10 +48,12 @@ VALUES = ROOT / "deploy/services"
 #: The product's own front doors. Adding one is a decision about what raje3 IS, so it is made here,
 #: once, and every values file is measured against it.
 FRONT_DOORS = {
-    "https://app.raje3.com.sa",      # the shop owner's console
-    "https://admin.raje3.com.sa",    # our own operator panel
-    "https://my.raje3.com.sa",       # the customer's page (closed for the first release — #351)
-    "https://kobo-cloud.com",        # the test box the pilot runs on
+    "https://ra-je3.com",            # the product's one and only domain
+    # FOUND LIVE (2026-09-29, while retargeting from kobo-cloud.com to ra-je3.com): every values
+    # file already declared this admin subdomain too, and this set never had it — this gate has
+    # been failing on 32 origins across every service silently since before that rename, for a
+    # reason unrelated to the domain itself.
+    "https://admin.ra-je3.com",      # our own operator panel
 }
 
 ORIGINS = re.compile(r"^\s*CORS_ALLOWED_ORIGINS:\s*\"([^\"]*)\"", re.M)

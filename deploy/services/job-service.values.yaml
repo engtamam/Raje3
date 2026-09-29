@@ -136,7 +136,7 @@ env:
   AUDIT_SERVICE_URL: "http://audit-service:8000"
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: "https://kobo-cloud.com,https://admin.kobo-cloud.com"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  CORS_ALLOWED_ORIGINS: "https://ra-je3.com,https://admin.ra-je3.com"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
   # PUSH DISPATCH (v0.24.0) — an opt-in layer over the durable pull queue: a queue with a
   # registered target (deploy/hooks/job-dispatch-target.sh) is delivered by POSTing each due job

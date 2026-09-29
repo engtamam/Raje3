@@ -11,7 +11,7 @@
  * VERIFIED LIVE against the deployed console, not just the local dev server — all
  * seven cases here, including the two silent-corruption risks a bulk import invites (duplicate
  * names blocking the whole file, a partial re-upload never retiring anything unless asked): a
- * throwaway config (baseURL: https://kobo-cloud.com, no local webServer) plus
+ * throwaway config (baseURL: https://ra-je3.com, no local webServer) plus
  * `E2E_APP_BASE=/app` (fixtures.ts's own note explains why — the edge serves the marketing
  * landing page at bare `/`, the app lives under `/app/`), all seven green against a real shop.
  */

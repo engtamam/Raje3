@@ -175,7 +175,7 @@ env:
   # THE TOP-UP LINK in the low-AI-wallet-balance owner notice — same domain reminders/operations
   # already point customers at (deploy/edge/console.yaml serves the whole platform from here); a
   # plain link, never an auto-login token or a dedicated top-up page (owner decision, 2026-09-10).
-  PUBLIC_BASE_URL: "https://kobo-cloud.com"
+  PUBLIC_BASE_URL: "https://ra-je3.com"
   # ACTIVATED — phase 4 (build_system_prompt's `growth` section) shipped in the same commit as
   # this flip: the persona now knows when/how to reach for list_due_services/list_lapsed_services,
   # and the structural guardrails (personalization-by-effect, soft-decline suppression) were both

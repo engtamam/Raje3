@@ -78,7 +78,7 @@ _asks(){ # hidden
 }
 
 phase "0 · what only you know"
-[ -z "${DOMAIN:-}" ]      && DOMAIN="$(_ask 'النطاق (مثال kobo-cloud.com) — اتركه فارغاً لتثبيت محلي' "${DOMAIN_SAVED:-}")"
+[ -z "${DOMAIN:-}" ]      && DOMAIN="$(_ask 'النطاق (مثال ra-je3.com) — اتركه فارغاً لتثبيت محلي' "${DOMAIN_SAVED:-}")"
 [ -z "${ACME_EMAIL:-}" ]  && ACME_EMAIL="$(_ask 'بريد شهادات TLS' "${ACME_EMAIL_SAVED:-admin@${DOMAIN:-localhost}}")"
 # A PHONE, NOT AN EMAIL — deploy/services/identity-service.values.yaml pins
 # IDENTITY_LOGIN_FIELD=phone for this product, so an email here would be accepted as a string and

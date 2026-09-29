@@ -26,7 +26,7 @@ class ApiConstants {
   /// while, so [baseUrl] silently fell back to the emulator-only default below on a real,
   /// signed, installable release build. It built, signed, and shipped with no error anywhere —
   /// the failure only shows up as "the app can't reach the server" on an actual phone. Both
-  /// build commands now pass `--dart-define=API_BASE_URL=https://kobo-cloud.com`
+  /// build commands now pass `--dart-define=API_BASE_URL=https://ra-je3.com`
   /// (scripts/build_apk_direct.sh, ops-mcp's own mobile.build_bundle_command) — if a THIRD one is
   /// ever added, it needs this too.
   static const String _envUrl = String.fromEnvironment('API_BASE_URL');

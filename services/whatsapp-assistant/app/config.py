@@ -459,7 +459,7 @@ class Settings(BaseSettings):
     # (core/wallet_low_balance_trigger.py). The owner logs in there and tops up normally; no
     # dedicated top-up page or auto-login token, by owner decision (2026-09-10) — simpler, cheaper,
     # and console already serves the whole platform from this one domain (deploy/edge/console.yaml).
-    PUBLIC_BASE_URL: str = "https://kobo-cloud.com"
+    PUBLIC_BASE_URL: str = "https://ra-je3.com"
 
     @field_validator("WALLET_ESTIMATED_MAX_TOKENS_PER_TURN", "WALLET_SAFETY_MARGIN_HALALAS")
     @classmethod

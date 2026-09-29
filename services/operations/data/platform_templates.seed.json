@@ -21,7 +21,7 @@
       "category": "UTILITY",
       "body": "رصيد الذكاء الاصطناعي بمنصة راجِع أوشك ينتهي، وبدونه يتوقف الرد الآلي على عملائك. اشحن الآن من هنا: {{1}}",
       "variables": [1],
-      "examples": ["https://kobo-cloud.com"]
+      "examples": ["https://ra-je3.com"]
     },
     {
       "name": "subscription_renewal_flow",

@@ -338,7 +338,7 @@ env:
   # be removed.
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: "https://kobo-cloud.com,https://admin.kobo-cloud.com"
+  CORS_ALLOWED_ORIGINS: "https://ra-je3.com,https://admin.ra-je3.com"
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 
@@ -361,7 +361,7 @@ env:
   # built from this. Same install-time overwrite mechanism as reminders' own PUBLIC_BASE_URL
   # (bring-up.sh's "public address" step patches any values file declaring this key with the
   # real DOMAIN) — the value here is only what a fresh install starts from before that runs.
-  PUBLIC_BASE_URL: "https://kobo-cloud.com"
+  PUBLIC_BASE_URL: "https://ra-je3.com"
   # job-service — the platform's own durable scheduler (adapters/job_service.py), Salla's token
   # refresh being this service's first use of it. Empty means NullJobService, like every other
   # optional peer here: the refresh scan simply finds nothing to enqueue.

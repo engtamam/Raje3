@@ -150,7 +150,7 @@ env:
 
   BRAND_NAME: "راجِع"
 
-  CORS_ALLOWED_ORIGINS: "https://kobo-cloud.com,https://admin.kobo-cloud.com"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  CORS_ALLOWED_ORIGINS: "https://ra-je3.com,https://admin.ra-je3.com"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 

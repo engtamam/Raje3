@@ -364,10 +364,7 @@ env:
 
   # ── CORS ──────────────────────────────────────────────────────────────────────────────────
   # This is the origin the browser actually talks to, so this is where CORS truly matters.
-  # http://localhost:8767 is the mobile app's own flutter-run-on-chrome dev origin, needed to
-  # test the app end-to-end against this server from a browser rather than a device. Exact-match
-  # only (cors_origins has no wildcard support), so it has to be the literal port flutter runs on.
-  CORS_ALLOWED_ORIGINS: "https://kobo-cloud.com,https://admin.kobo-cloud.com,http://localhost:8767,http://localhost:8769,http://localhost:8770"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  CORS_ALLOWED_ORIGINS: "https://ra-je3.com,https://admin.ra-je3.com"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
   # NOT a dev-only addition — x-client-type is a REAL header the mobile app sends on every
   # request (apps/mobile/lib/core/network/api_client.dart, AppConfig.apiClientTypeHeader), so it
