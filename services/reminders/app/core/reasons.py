@@ -416,9 +416,26 @@ def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
     # table, resolved for an address slot by the fill it carries rather than its position).
     by_number = {1: customer_sample, 2: establishment, 3: SAMPLE[SERVICE],
                  4: SAMPLE[POINTS], 5: SAMPLE[BALANCE]}
+    # THE TEMPLATE'S OWN AUTHORED EXAMPLE, FIRST — `examples[i]` is written FOR this exact slot in
+    # THIS exact template (templates.seed.json's own per-row list, same order as `variables`), not
+    # a generic stand-in guessed from the fill's source kind alone. FOUND LIVE (owner's own report,
+    # 2026-09-30): every "owner"-sourced slot — regardless of which template it belonged to — was
+    # rendered with the SAME hardcoded `SAMPLE[FREE_TEXT]` ("افتتحنا فرعاً جديداً"), because this
+    # function never read `examples` at all. A points-expiry notice previewed with an unrelated
+    # "we opened a new branch" sentence in the one slot meant to say how many points and when —
+    # every template sharing that fill kind showed the same wrong sentence as every other one.
+    examples = list(template.get("examples") or [])
     out: dict[str, str] = {}
     for i, number in enumerate(variables):
         source = fills[i] if i < len(fills) else "system"
+        # NEVER FOR "system" (the customer's/establishment's own name, already correct above — a
+        # static seed-file example would regress the tone-correct name and the real establishment
+        # name) OR "invite"/"stop_link" (COMPOSED links, never hand-typed — the seed file's own
+        # example is a hand-typed literal, exactly what check_a_link_a_customer_taps_is_absolute
+        # bans everywhere else; SAMPLE[INVITE]/SAMPLE[STOP_LINK] stay the real, composed ones).
+        if source not in ("system", "invite", "stop_link") and i < len(examples) and examples[i]:
+            out[str(number)] = examples[i]
+            continue
         value = by_source.get(source) or ""
         if not value:
             value = by_number.get(number, SAMPLE[FREE_TEXT])
