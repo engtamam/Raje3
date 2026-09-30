@@ -1406,6 +1406,30 @@
     "kind": "action",
     "anchor": "customer_detail.rename_button"
   },
+  "customer_detail.show_all_button": {
+    "title": {
+      "ar": "عرض الكل",
+      "en": "Show all"
+    },
+    "body": {
+      "ar": "يفتح القائمة الكاملة لهذا السجل بدل آخر أربع عمليات فقط.",
+      "en": "Opens this record's full list instead of just the last four entries."
+    },
+    "kind": "action",
+    "anchor": "customer_detail.show_all_button"
+  },
+  "customer_detail.expanded_list_close_button": {
+    "title": {
+      "ar": "إغلاق",
+      "en": "Close"
+    },
+    "body": {
+      "ar": "يغلق قائمة السجل الكاملة ويرجعك للشاشة.",
+      "en": "Closes the full list and returns to the screen."
+    },
+    "kind": "action",
+    "anchor": "customer_detail.expanded_list_close_button"
+  },
   "customer_detail.adjust_loyalty_button": {
     "title": {
       "ar": "تعديل نقاط الولاء",

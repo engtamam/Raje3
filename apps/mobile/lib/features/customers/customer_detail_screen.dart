@@ -725,9 +725,12 @@ class _ExpandableRows extends StatelessWidget {
         if (itemCount > _previewCount)
           Padding(
             padding: const EdgeInsets.only(top: AppSpacing.xs),
-            child: TextButton(
-              onPressed: () => _openAll(context),
-              child: Text(s.customersShowAll(itemCount)),
+            child: KbAnchor(
+              id: 'customer_detail.show_all_button',
+              child: TextButton(
+                onPressed: () => _openAll(context),
+                child: Text(s.customersShowAll(itemCount)),
+              ),
             ),
           ),
       ],
@@ -770,9 +773,12 @@ class _ExpandableRowsSheet extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(child: Text(title, style: AppTextStyles.headlineSmall)),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
+                  KbAnchor(
+                    id: 'customer_detail.expanded_list_close_button',
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
                   ),
                 ],
               ),
