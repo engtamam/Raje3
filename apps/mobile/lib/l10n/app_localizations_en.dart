@@ -1429,10 +1429,56 @@ class SEn extends S {
   String get customersCyclesSave => 'Save';
 
   @override
-  String get customersLogTitle => 'What we told them';
+  String get customersLogTitle => 'Messages log';
 
   @override
   String get customersLogEmpty => 'We haven\'t sent them anything yet';
+
+  @override
+  String get customersLogOutcomeSent => 'Sent';
+
+  @override
+  String get customersLogOutcomeSuppressed => 'Not sent';
+
+  @override
+  String get customersTemplateVisitConfirmation => 'Visit confirmation';
+
+  @override
+  String get customersTemplateVisitConfirmationRating =>
+      'Post-visit rating request';
+
+  @override
+  String get customersTemplateBookingConfirmation => 'Booking confirmation';
+
+  @override
+  String get customersTemplateVisitRedeemed => 'Reward redemption notice';
+
+  @override
+  String get customersTemplateServiceReminder => 'Service reminder';
+
+  @override
+  String get customersTemplateFollowUp => 'Post-visit follow-up';
+
+  @override
+  String get customersTemplateAccountNotice => 'Account notice';
+
+  @override
+  String get customersTemplatePointsExpiring => 'Points-expiring alert';
+
+  @override
+  String get customersTemplateLoyaltyActivation =>
+      'Loyalty programme activation';
+
+  @override
+  String get customersTemplateWinback => 'Lapsed-customer win-back';
+
+  @override
+  String get customersTemplatePersonalOccasion => 'Occasion greeting';
+
+  @override
+  String customersShowAll(int count) {
+    return 'Show all ($count)';
+  }
 
   @override
   String get customersCyclesUnknownService => 'Unknown service';

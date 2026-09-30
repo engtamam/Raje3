@@ -688,6 +688,111 @@ class _LoyaltyCard extends StatelessWidget {
   }
 }
 
+/// Shared "last 4, then open the rest" body for a card whose own list only ever grows — the
+/// owner's own report (2026-09-30, a real customer's loyalty history and message log, screenshot
+/// attached): a card that just lists every row forever reads worse the longer a real relationship
+/// with a customer runs. The full list is always ONE tap away (a sheet with its own visible close
+/// affordance — the drag handle plus a real X, never drag-to-dismiss alone), never lost.
+class _ExpandableRows extends StatelessWidget {
+  const _ExpandableRows({
+    required this.title,
+    required this.itemCount,
+    required this.rowBuilder,
+  });
+
+  final String title;
+  final int itemCount;
+  final Widget Function(BuildContext context, int index) rowBuilder;
+  static const _previewCount = 4;
+
+  void _openAll(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ExpandableRowsSheet(title: title, itemCount: itemCount, rowBuilder: rowBuilder),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context)!;
+    final shown = itemCount < _previewCount ? itemCount : _previewCount;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < shown; i++) rowBuilder(context, i),
+        if (itemCount > _previewCount)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
+            child: TextButton(
+              onPressed: () => _openAll(context),
+              child: Text(s.customersShowAll(itemCount)),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ExpandableRowsSheet extends StatelessWidget {
+  const _ExpandableRowsSheet({required this.title, required this.itemCount, required this.rowBuilder});
+  final String title;
+  final int itemCount;
+  final Widget Function(BuildContext context, int index) rowBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = context.isDark;
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollController) => Container(
+        decoration: BoxDecoration(
+          color: dark ? AppDarkColors.surface0 : AppColors.surface0,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.card)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: dark ? AppDarkColors.borderSubtle : AppColors.borderSubtle,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.sm, 0),
+              child: Row(
+                children: [
+                  Expanded(child: Text(title, style: AppTextStyles.headlineSmall)),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.lg),
+                itemCount: itemCount,
+                itemBuilder: rowBuilder,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _LoyaltyHistoryCard extends StatelessWidget {
   const _LoyaltyHistoryCard({required this.moves});
   final List<LoyaltyMove> moves;
@@ -707,11 +812,49 @@ class _LoyaltyHistoryCard extends StatelessWidget {
     };
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _row(BuildContext context, LoyaltyMove m) {
     final s = S.of(context)!;
     final locale = Localizations.localeOf(context).languageCode;
     final dark = context.isDark;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: m.delta >= 0
+                  ? (dark ? AppDarkColors.successSoft : AppColors.successSoft)
+                  : (dark ? AppDarkColors.dangerSoft : AppColors.dangerSoft),
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+            ),
+            child: Text(
+              '${m.delta >= 0 ? '+' : ''}${m.delta}',
+              style: AppTextStyles.caption.copyWith(
+                fontWeight: FontWeight.w800,
+                color: m.delta >= 0
+                    ? (dark ? AppDarkColors.successOnSoft : AppColors.successOnSoft)
+                    : (dark ? AppDarkColors.dangerOnSoft : AppColors.dangerOnSoft),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(_describe(s, m),
+                style: AppTextStyles.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+          Text(
+            Formatters.formatTimeAgo(DateTime.fromMillisecondsSinceEpoch(m.at * 1000), locale: locale),
+            style: AppTextStyles.caption.copyWith(color: context.appColors.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context)!;
     final sorted = [...moves]..sort((a, b) => b.at.compareTo(a.at));
     return AppCard(
       child: Column(
@@ -719,42 +862,11 @@ class _LoyaltyHistoryCard extends StatelessWidget {
         children: [
           Text(s.customersLoyaltyHistoryTitle, style: AppTextStyles.labelMedium),
           const SizedBox(height: AppSpacing.sm),
-          for (final m in sorted.take(10))
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: m.delta >= 0
-                          ? (dark ? AppDarkColors.successSoft : AppColors.successSoft)
-                          : (dark ? AppDarkColors.dangerSoft : AppColors.dangerSoft),
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
-                    ),
-                    child: Text(
-                      '${m.delta >= 0 ? '+' : ''}${m.delta}',
-                      style: AppTextStyles.caption.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: m.delta >= 0
-                            ? (dark ? AppDarkColors.successOnSoft : AppColors.successOnSoft)
-                            : (dark ? AppDarkColors.dangerOnSoft : AppColors.dangerOnSoft),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(_describe(s, m),
-                        style: AppTextStyles.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  Text(
-                    Formatters.formatTimeAgo(
-                        DateTime.fromMillisecondsSinceEpoch(m.at * 1000), locale: locale),
-                    style: AppTextStyles.caption.copyWith(color: context.appColors.textMuted),
-                  ),
-                ],
-              ),
-            ),
+          _ExpandableRows(
+            title: s.customersLoyaltyHistoryTitle,
+            itemCount: sorted.length,
+            rowBuilder: (context, i) => _row(context, sorted[i]),
+          ),
         ],
       ),
     );
@@ -1100,15 +1212,76 @@ class _RulesCard extends StatelessWidget {
   }
 }
 
+/// A fixed, closed set of system template-type keys (services/reminders/app/core/reasons.py's
+/// own `template_type=` values — svc_/per_/mkt_-prefixed, never a shop-authored campaign name,
+/// which carries no such prefix and is left as-is below). FOUND LIVE (owner's own screenshot,
+/// 2026-09-30): these raw backend keys ("per_account_notice") were rendered straight to the
+/// screen — an internal identifier leaking onto a surface a shop owner actually reads. Mirrors
+/// console's own gap on Customer.tsx (`x.template_type || t('customer.messages.fallback')`,
+/// same raw display) — real, but out of scope for this pass, which is mobile-only.
+String _templateLabel(S s, String type) => switch (type) {
+      'svc_visit_confirmation' => s.customersTemplateVisitConfirmation,
+      'svc_visit_confirmation_rating' => s.customersTemplateVisitConfirmationRating,
+      'svc_booking_confirmation' => s.customersTemplateBookingConfirmation,
+      'svc_visit_redeemed' => s.customersTemplateVisitRedeemed,
+      'svc_service_reminder' => s.customersTemplateServiceReminder,
+      'svc_follow_up' => s.customersTemplateFollowUp,
+      'per_account_notice' => s.customersTemplateAccountNotice,
+      'per_points_expiring' => s.customersTemplatePointsExpiring,
+      'mkt_loyalty_activation' => s.customersTemplateLoyaltyActivation,
+      'mkt_winback' => s.customersTemplateWinback,
+      'mkt_personal_occasion' => s.customersTemplatePersonalOccasion,
+      _ => type, // a shop's own campaign template name — real UI copy already, not a key
+    };
+
 class _LogCard extends StatelessWidget {
   const _LogCard({required this.entries, required this.unavailable});
   final List<ReminderLogEntry> entries;
   final String? unavailable;
 
+  Widget _row(BuildContext context, ReminderLogEntry e) {
+    final s = S.of(context)!;
+    final locale = Localizations.localeOf(context).languageCode;
+    final sent = e.outcome == 'sent';
+    final label = e.templateType.isNotEmpty ? _templateLabel(s, e.templateType) : null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            sent ? Icons.send_rounded : Icons.error_outline_rounded,
+            size: 13,
+            color: sent ? context.appColors.textMuted : AppColors.danger,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label ?? (sent ? s.customersLogOutcomeSent : s.customersLogOutcomeSuppressed),
+                    style: AppTextStyles.bodySmall),
+                // WHY IT DID NOT GO OUT — quiet hours, the daily cap, no consent, an
+                // unapproved template — the server's own real sentence, never a guess.
+                // Every correct refusal reads as a fault until it is named.
+                if (!sent && e.reason.isNotEmpty)
+                  Text(e.reason,
+                      style: AppTextStyles.caption.copyWith(color: context.appColors.textMuted)),
+              ],
+            ),
+          ),
+          Text(
+            Formatters.formatTimeAgo(DateTime.fromMillisecondsSinceEpoch(e.at * 1000), locale: locale),
+            style: AppTextStyles.caption.copyWith(color: context.appColors.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = S.of(context)!;
-    final locale = Localizations.localeOf(context).languageCode;
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1121,44 +1294,11 @@ class _LogCard extends StatelessWidget {
             Text(s.customersLogEmpty,
                 style: AppTextStyles.bodySmall.copyWith(color: context.appColors.textMuted))
           else
-            for (final e in entries)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      e.outcome == 'sent' ? Icons.send_rounded : Icons.error_outline_rounded,
-                      size: 13,
-                      color: e.outcome == 'sent'
-                          ? context.appColors.textMuted
-                          : AppColors.danger,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(e.templateType.isNotEmpty ? e.templateType : e.outcome,
-                              style: AppTextStyles.bodySmall),
-                          // WHY IT DID NOT GO OUT — quiet hours, the daily cap, no consent, an
-                          // unapproved template — the server's own real sentence, never a guess.
-                          // Every correct refusal reads as a fault until it is named.
-                          if (e.outcome != 'sent' && e.reason.isNotEmpty)
-                            Text(e.reason,
-                                style: AppTextStyles.caption
-                                    .copyWith(color: context.appColors.textMuted)),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      Formatters.formatTimeAgo(
-                          DateTime.fromMillisecondsSinceEpoch(e.at * 1000), locale: locale),
-                      style: AppTextStyles.caption.copyWith(color: context.appColors.textMuted),
-                    ),
-                  ],
-                ),
-              ),
+            _ExpandableRows(
+              title: s.customersLogTitle,
+              itemCount: entries.length,
+              rowBuilder: (context, i) => _row(context, entries[i]),
+            ),
         ],
       ),
     );

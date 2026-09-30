@@ -1148,13 +1148,74 @@
   "@customersCyclesSave": {
     "description": "customersCyclesSave"
   },
-  "customersLogTitle": "ماذا قلنا له",
+  "customersLogTitle": "سجل الرسائل",
   "@customersLogTitle": {
     "description": "customersLogTitle"
   },
   "customersLogEmpty": "لم نرسل له شيئاً بعد",
   "@customersLogEmpty": {
     "description": "customersLogEmpty"
+  },
+  "customersLogOutcomeSent": "أُرسلت",
+  "@customersLogOutcomeSent": {
+    "description": "customersLogOutcomeSent"
+  },
+  "customersLogOutcomeSuppressed": "لم تُرسل",
+  "@customersLogOutcomeSuppressed": {
+    "description": "customersLogOutcomeSuppressed"
+  },
+  "customersTemplateVisitConfirmation": "تأكيد زيارة",
+  "@customersTemplateVisitConfirmation": {
+    "description": "customersTemplateVisitConfirmation"
+  },
+  "customersTemplateVisitConfirmationRating": "طلب تقييم بعد الزيارة",
+  "@customersTemplateVisitConfirmationRating": {
+    "description": "customersTemplateVisitConfirmationRating"
+  },
+  "customersTemplateBookingConfirmation": "تأكيد حجز",
+  "@customersTemplateBookingConfirmation": {
+    "description": "customersTemplateBookingConfirmation"
+  },
+  "customersTemplateVisitRedeemed": "إشعار استبدال مكافأة",
+  "@customersTemplateVisitRedeemed": {
+    "description": "customersTemplateVisitRedeemed"
+  },
+  "customersTemplateServiceReminder": "تذكير بموعد الخدمة",
+  "@customersTemplateServiceReminder": {
+    "description": "customersTemplateServiceReminder"
+  },
+  "customersTemplateFollowUp": "متابعة بعد الزيارة",
+  "@customersTemplateFollowUp": {
+    "description": "customersTemplateFollowUp"
+  },
+  "customersTemplateAccountNotice": "إشعار بخصوص حسابه",
+  "@customersTemplateAccountNotice": {
+    "description": "customersTemplateAccountNotice"
+  },
+  "customersTemplatePointsExpiring": "تنبيه انتهاء نقاط",
+  "@customersTemplatePointsExpiring": {
+    "description": "customersTemplatePointsExpiring"
+  },
+  "customersTemplateLoyaltyActivation": "تفعيل برنامج الولاء",
+  "@customersTemplateLoyaltyActivation": {
+    "description": "customersTemplateLoyaltyActivation"
+  },
+  "customersTemplateWinback": "استرجاع عميل غائب",
+  "@customersTemplateWinback": {
+    "description": "customersTemplateWinback"
+  },
+  "customersTemplatePersonalOccasion": "تهنئة بمناسبة",
+  "@customersTemplatePersonalOccasion": {
+    "description": "customersTemplatePersonalOccasion"
+  },
+  "customersShowAll": "عرض الكل ({count})",
+  "@customersShowAll": {
+    "description": "customersShowAll",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "customersCyclesUnknownService": "خدمة غير معروفة",
   "@customersCyclesUnknownService": {

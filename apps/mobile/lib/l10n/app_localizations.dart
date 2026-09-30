@@ -2652,7 +2652,7 @@ abstract class S {
   /// customersLogTitle
   ///
   /// In ar, this message translates to:
-  /// **'ماذا قلنا له'**
+  /// **'سجل الرسائل'**
   String get customersLogTitle;
 
   /// customersLogEmpty
@@ -2660,6 +2660,90 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'لم نرسل له شيئاً بعد'**
   String get customersLogEmpty;
+
+  /// customersLogOutcomeSent
+  ///
+  /// In ar, this message translates to:
+  /// **'أُرسلت'**
+  String get customersLogOutcomeSent;
+
+  /// customersLogOutcomeSuppressed
+  ///
+  /// In ar, this message translates to:
+  /// **'لم تُرسل'**
+  String get customersLogOutcomeSuppressed;
+
+  /// customersTemplateVisitConfirmation
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد زيارة'**
+  String get customersTemplateVisitConfirmation;
+
+  /// customersTemplateVisitConfirmationRating
+  ///
+  /// In ar, this message translates to:
+  /// **'طلب تقييم بعد الزيارة'**
+  String get customersTemplateVisitConfirmationRating;
+
+  /// customersTemplateBookingConfirmation
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد حجز'**
+  String get customersTemplateBookingConfirmation;
+
+  /// customersTemplateVisitRedeemed
+  ///
+  /// In ar, this message translates to:
+  /// **'إشعار استبدال مكافأة'**
+  String get customersTemplateVisitRedeemed;
+
+  /// customersTemplateServiceReminder
+  ///
+  /// In ar, this message translates to:
+  /// **'تذكير بموعد الخدمة'**
+  String get customersTemplateServiceReminder;
+
+  /// customersTemplateFollowUp
+  ///
+  /// In ar, this message translates to:
+  /// **'متابعة بعد الزيارة'**
+  String get customersTemplateFollowUp;
+
+  /// customersTemplateAccountNotice
+  ///
+  /// In ar, this message translates to:
+  /// **'إشعار بخصوص حسابه'**
+  String get customersTemplateAccountNotice;
+
+  /// customersTemplatePointsExpiring
+  ///
+  /// In ar, this message translates to:
+  /// **'تنبيه انتهاء نقاط'**
+  String get customersTemplatePointsExpiring;
+
+  /// customersTemplateLoyaltyActivation
+  ///
+  /// In ar, this message translates to:
+  /// **'تفعيل برنامج الولاء'**
+  String get customersTemplateLoyaltyActivation;
+
+  /// customersTemplateWinback
+  ///
+  /// In ar, this message translates to:
+  /// **'استرجاع عميل غائب'**
+  String get customersTemplateWinback;
+
+  /// customersTemplatePersonalOccasion
+  ///
+  /// In ar, this message translates to:
+  /// **'تهنئة بمناسبة'**
+  String get customersTemplatePersonalOccasion;
+
+  /// customersShowAll
+  ///
+  /// In ar, this message translates to:
+  /// **'عرض الكل ({count})'**
+  String customersShowAll(int count);
 
   /// customersCyclesUnknownService
   ///

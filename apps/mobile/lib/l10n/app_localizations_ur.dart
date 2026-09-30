@@ -1429,10 +1429,56 @@ class SUr extends S {
   String get customersCyclesSave => 'محفوظ کریں';
 
   @override
-  String get customersLogTitle => 'ہم نے کیا کہا';
+  String get customersLogTitle => 'پیغامات کا ریکارڈ';
 
   @override
   String get customersLogEmpty => 'ہم نے ابھی تک کچھ نہیں بھیجا';
+
+  @override
+  String get customersLogOutcomeSent => 'بھیج دیا گیا';
+
+  @override
+  String get customersLogOutcomeSuppressed => 'نہیں بھیجا گیا';
+
+  @override
+  String get customersTemplateVisitConfirmation => 'وزٹ کی تصدیق';
+
+  @override
+  String get customersTemplateVisitConfirmationRating =>
+      'وزٹ کے بعد تقییم کی درخواست';
+
+  @override
+  String get customersTemplateBookingConfirmation => 'بکنگ کی تصدیق';
+
+  @override
+  String get customersTemplateVisitRedeemed => 'انعام کے استعمال کا اطلاع';
+
+  @override
+  String get customersTemplateServiceReminder => 'سروس کی یاد دہانی';
+
+  @override
+  String get customersTemplateFollowUp => 'وزٹ کے بعد فالو اپ';
+
+  @override
+  String get customersTemplateAccountNotice => 'اکاؤنٹ سے متعلق اطلاع';
+
+  @override
+  String get customersTemplatePointsExpiring => 'پوائنٹس ختم ہونے کی تنبیہ';
+
+  @override
+  String get customersTemplateLoyaltyActivation =>
+      'لائلٹی پروگرام کا فعال ہونا';
+
+  @override
+  String get customersTemplateWinback => 'غیر حاضر گاہک کی واپسی';
+
+  @override
+  String get customersTemplatePersonalOccasion => 'موقع پر مبارکباد';
+
+  @override
+  String customersShowAll(int count) {
+    return 'سب دیکھیں ($count)';
+  }
 
   @override
   String get customersCyclesUnknownService => 'نامعلوم خدمت';

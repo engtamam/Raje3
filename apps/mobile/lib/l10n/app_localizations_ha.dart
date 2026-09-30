@@ -1429,10 +1429,55 @@ class SHa extends S {
   String get customersCyclesSave => 'Ajiye';
 
   @override
-  String get customersLogTitle => 'Abin da muka gaya masa';
+  String get customersLogTitle => 'Tarihin saƙonni';
 
   @override
   String get customersLogEmpty => 'Ba mu aika masa da komai ba tukuna';
+
+  @override
+  String get customersLogOutcomeSent => 'An aika';
+
+  @override
+  String get customersLogOutcomeSuppressed => 'Ba a aika ba';
+
+  @override
+  String get customersTemplateVisitConfirmation => 'Tabbatar ziyara';
+
+  @override
+  String get customersTemplateVisitConfirmationRating =>
+      'Neman kimantawa bayan ziyara';
+
+  @override
+  String get customersTemplateBookingConfirmation => 'Tabbatar tanadi';
+
+  @override
+  String get customersTemplateVisitRedeemed => 'Sanarwar musanya lada';
+
+  @override
+  String get customersTemplateServiceReminder => 'Tunatarwa sabis';
+
+  @override
+  String get customersTemplateFollowUp => 'Bibiya bayan ziyara';
+
+  @override
+  String get customersTemplateAccountNotice => 'Sanarwa game da asusu';
+
+  @override
+  String get customersTemplatePointsExpiring => 'Faɗakarwa ƙarewar maki';
+
+  @override
+  String get customersTemplateLoyaltyActivation => 'Kunna shirin aminci';
+
+  @override
+  String get customersTemplateWinback => 'Dawo da abokin ciniki da ya ɓace';
+
+  @override
+  String get customersTemplatePersonalOccasion => 'Gaisuwa a wani biki';
+
+  @override
+  String customersShowAll(int count) {
+    return 'Nuna duka ($count)';
+  }
 
   @override
   String get customersCyclesUnknownService => 'Sabis wanda ba a sani ba';

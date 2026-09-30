@@ -1451,10 +1451,58 @@ class SFil extends S {
   String get customersCyclesSave => 'I-save';
 
   @override
-  String get customersLogTitle => 'Ano ang sinabi namin sa kanila';
+  String get customersLogTitle => 'Tala ng mga mensahe';
 
   @override
   String get customersLogEmpty => 'Wala pa kaming naipadala sa kanila';
+
+  @override
+  String get customersLogOutcomeSent => 'Naipadala';
+
+  @override
+  String get customersLogOutcomeSuppressed => 'Hindi naipadala';
+
+  @override
+  String get customersTemplateVisitConfirmation => 'Kumpirmasyon ng pagbisita';
+
+  @override
+  String get customersTemplateVisitConfirmationRating =>
+      'Kahilingan ng rating pagkatapos ng pagbisita';
+
+  @override
+  String get customersTemplateBookingConfirmation => 'Kumpirmasyon ng booking';
+
+  @override
+  String get customersTemplateVisitRedeemed =>
+      'Abiso ng pag-claim ng gantimpala';
+
+  @override
+  String get customersTemplateServiceReminder => 'Paalala ng serbisyo';
+
+  @override
+  String get customersTemplateFollowUp => 'Follow-up pagkatapos ng pagbisita';
+
+  @override
+  String get customersTemplateAccountNotice => 'Abiso tungkol sa account';
+
+  @override
+  String get customersTemplatePointsExpiring =>
+      'Babala ng mag-e-expire na puntos';
+
+  @override
+  String get customersTemplateLoyaltyActivation =>
+      'Pag-activate ng loyalty program';
+
+  @override
+  String get customersTemplateWinback => 'Pagbawi sa nawalang customer';
+
+  @override
+  String get customersTemplatePersonalOccasion => 'Pagbati sa okasyon';
+
+  @override
+  String customersShowAll(int count) {
+    return 'Ipakita lahat ($count)';
+  }
 
   @override
   String get customersCyclesUnknownService => 'Hindi kilalang serbisyo';

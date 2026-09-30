@@ -1427,10 +1427,57 @@ class SBn extends S {
   String get customersCyclesSave => 'সংরক্ষণ করুন';
 
   @override
-  String get customersLogTitle => 'আমরা তাকে যা বলেছি';
+  String get customersLogTitle => 'বার্তার লগ';
 
   @override
   String get customersLogEmpty => 'আমরা এখনো তাকে কিছু পাঠাইনি';
+
+  @override
+  String get customersLogOutcomeSent => 'পাঠানো হয়েছে';
+
+  @override
+  String get customersLogOutcomeSuppressed => 'পাঠানো হয়নি';
+
+  @override
+  String get customersTemplateVisitConfirmation => 'ভিজিট নিশ্চিতকরণ';
+
+  @override
+  String get customersTemplateVisitConfirmationRating =>
+      'ভিজিটের পর রেটিং অনুরোধ';
+
+  @override
+  String get customersTemplateBookingConfirmation => 'বুকিং নিশ্চিতকরণ';
+
+  @override
+  String get customersTemplateVisitRedeemed => 'পুরস্কার রিডিম বিজ্ঞপ্তি';
+
+  @override
+  String get customersTemplateServiceReminder => 'সেবার অনুস্মারক';
+
+  @override
+  String get customersTemplateFollowUp => 'ভিজিটের পর ফলো-আপ';
+
+  @override
+  String get customersTemplateAccountNotice => 'অ্যাকাউন্ট সংক্রান্ত বিজ্ঞপ্তি';
+
+  @override
+  String get customersTemplatePointsExpiring =>
+      'পয়েন্ট মেয়াদ শেষ হওয়ার সতর্কতা';
+
+  @override
+  String get customersTemplateLoyaltyActivation =>
+      'লয়্যালটি প্রোগ্রাম সক্রিয়করণ';
+
+  @override
+  String get customersTemplateWinback => 'হারানো গ্রাহক ফিরিয়ে আনা';
+
+  @override
+  String get customersTemplatePersonalOccasion => 'উপলক্ষ্যে শুভেচ্ছা';
+
+  @override
+  String customersShowAll(int count) {
+    return 'সব দেখুন ($count)';
+  }
 
   @override
   String get customersCyclesUnknownService => 'অজানা সেবা';

@@ -1413,10 +1413,55 @@ class SAr extends S {
   String get customersCyclesSave => 'حفظ';
 
   @override
-  String get customersLogTitle => 'ماذا قلنا له';
+  String get customersLogTitle => 'سجل الرسائل';
 
   @override
   String get customersLogEmpty => 'لم نرسل له شيئاً بعد';
+
+  @override
+  String get customersLogOutcomeSent => 'أُرسلت';
+
+  @override
+  String get customersLogOutcomeSuppressed => 'لم تُرسل';
+
+  @override
+  String get customersTemplateVisitConfirmation => 'تأكيد زيارة';
+
+  @override
+  String get customersTemplateVisitConfirmationRating =>
+      'طلب تقييم بعد الزيارة';
+
+  @override
+  String get customersTemplateBookingConfirmation => 'تأكيد حجز';
+
+  @override
+  String get customersTemplateVisitRedeemed => 'إشعار استبدال مكافأة';
+
+  @override
+  String get customersTemplateServiceReminder => 'تذكير بموعد الخدمة';
+
+  @override
+  String get customersTemplateFollowUp => 'متابعة بعد الزيارة';
+
+  @override
+  String get customersTemplateAccountNotice => 'إشعار بخصوص حسابه';
+
+  @override
+  String get customersTemplatePointsExpiring => 'تنبيه انتهاء نقاط';
+
+  @override
+  String get customersTemplateLoyaltyActivation => 'تفعيل برنامج الولاء';
+
+  @override
+  String get customersTemplateWinback => 'استرجاع عميل غائب';
+
+  @override
+  String get customersTemplatePersonalOccasion => 'تهنئة بمناسبة';
+
+  @override
+  String customersShowAll(int count) {
+    return 'عرض الكل ($count)';
+  }
 
   @override
   String get customersCyclesUnknownService => 'خدمة غير معروفة';
