@@ -405,7 +405,12 @@ def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
                  # BY SOURCE, NEVER BY POSITION. The address lands on slot 3 in a visit
                  # confirmation and on slot 6 in an offer, so the numbered fallback below
                  # would have drawn «قص شعر» where the owner expects to see a link.
-                 "invite": SAMPLE[INVITE], "stop_link": SAMPLE[STOP_LINK]}
+                 "invite": SAMPLE[INVITE], "stop_link": SAMPLE[STOP_LINK],
+                 # WAS MISSING HERE TOO — same gap as operations' own FILLS tuple (see its
+                 # comment): `render()` has handled "reward" since the occasion pilot, but this
+                 # dict never learned the name, so a "reward" slot fell through to the generic
+                 # by-number guess below instead of a real reward name.
+                 "reward": SAMPLE[REWARD]}
     # THE NAME AGREES WITH THE ROW'S OWN TONE, NOT A GLOBAL CONSTANT. «feminine» rows conjugate
     # every verb to address a woman («نوّرتِنا», «أخذتِ») — a preview built from SAMPLE[CUSTOMER]
     # regardless of tone put a masculine name in front of feminine verbs on the one screen an
