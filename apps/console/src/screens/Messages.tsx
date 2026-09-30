@@ -294,7 +294,9 @@ interface GoalRow {
 /**
  * THE TEMPLATE TYPE EACH GOAL SENDS — the same table campaigns/app/core/models.py's own
  * `GOAL_TEMPLATE` holds, mirrored here so «القوالب» can open the by-type preview
- * (`reminders.preview_by_type`) WITHOUT a reason id, for the five goals that have none. Kept in
+ * (`reminders.preview_by_type`) WITHOUT a reason id, for the goals that have none (`service_due`
+ * is a goal too, but ships as a REASON card instead — see REASON_TEMPLATE_TYPE — so it is not
+ * one of these). Kept in
  * sync by hand, the same way `GOAL_TITLE` above already is — a table this small drifting is a
  * one-line fix; a network round trip just to learn it is not worth the goals endpoint growing a
  * field for exactly one screen.
@@ -303,6 +305,9 @@ const GOAL_TEMPLATE_TYPE: Record<string, string> = {
   announce: 'mkt_announcement',
   service_offer: 'mkt_offer',
   package_offer: 'mkt_offer',
+  // FOUND LIVE (owner's own report, 2026-09-30): missing here, so this goal's own card asked
+  // the by-type preview for `undefined` — GOAL_TEMPLATE's own real mapping for it.
+  community_milestone: 'mkt_community_milestone',
 };
 
 /** THE THREE SECTIONS, IN THE ORDER AN OWNER SHOULD READ THEM — the `cls` values the reasons

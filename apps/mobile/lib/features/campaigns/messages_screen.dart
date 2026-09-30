@@ -589,7 +589,8 @@ class _TemplateCardTileState extends State<_TemplateCardTile> {
     return AppCard(
       hasShadow: false,
       onTap: () => showMessagePreviewSheet(context,
-          label: c.label, when: c.when, reasonId: c.reason?.id, templateType: c.reason == null ? c.goal : null,
+          label: c.label, when: c.when, reasonId: c.reason?.id,
+          templateType: c.reason == null ? c.templateType : null,
           canRetext: c.reason?.canRetext ?? false),
       child: Row(
         children: [

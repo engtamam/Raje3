@@ -186,6 +186,17 @@ class TemplateCard {
   /// Opens real Flow screens inside WhatsApp (booking a slot, a loyalty activation button…),
   /// not just text to read — Messages.tsx's own `INTERACTIVE_TEMPLATE_TYPES` lookup.
   final bool interactive;
+  /// The REAL backend `template_type` a goal card's own preview must ask for — `null` for a
+  /// reason card, which previews by `reason.id` instead and never needs this. FOUND LIVE
+  /// (owner's own report, 2026-09-30): before this field existed, the preview sheet was opened
+  /// with the raw GOAL id (`c.goal`, e.g. "service_offer") standing in for the template type,
+  /// because [kGoalTemplateType] was computed here only to decide [interactive] and then
+  /// discarded — never carried to the tap handler that actually needed it. A goal id is not a
+  /// template type (`GOAL_TEMPLATE` maps one to the other, and they only coincide for
+  /// "announce" by accident), so the backend either found nothing for one goal and found a
+  /// DIFFERENT goal's real type for another (whichever raw string happened to also be a real
+  /// key), reading as "some templates don't show, some show someone else's wording."
+  final String? templateType;
 
   const TemplateCard({
     required this.key,
@@ -199,6 +210,7 @@ class TemplateCard {
     required this.goal,
     required this.templateStatus,
     this.interactive = false,
+    this.templateType,
   });
 }
 
@@ -226,6 +238,7 @@ const Map<String, String> kGoalTemplateType = {
   'announce': 'mkt_announcement',
   'service_offer': 'mkt_offer',
   'package_offer': 'mkt_offer',
+  'community_milestone': 'mkt_community_milestone',
 };
 
 /// تفاعلي = يفتح شاشات حقيقية داخل واتساب (Flow)، لا مجرد نص — Messages.tsx's own set.
@@ -277,6 +290,7 @@ List<TemplateCard> mergeTemplateCards(List<ReasonRow> reasons, List<GoalRow> goa
       goal: g.goal,
       templateStatus: g.templateStatus,
       interactive: templateType != null && kInteractiveTemplateTypes.contains(templateType),
+      templateType: templateType,
     ));
   }
   return out;
