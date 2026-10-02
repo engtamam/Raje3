@@ -237,6 +237,13 @@ class TemplateLibrary:
             "media_header": dict(t.get("media_header") or {}),
             "flat_button": dict(t.get("flat_button") or {}),
             "variables": variables, "fills": fills,
+            # FOUND LIVE (owner's own report, 2026-09-30) — same "never forwarded" bug as
+            # flow_button/carousel above (2026-09-13's own comment), just never caught before now.
+            # `examples` is authored per-row in the seed file, read by reminders' own
+            # `sample_slots()` for what a preview should show in an owner/reward/etc. slot — but
+            # this dict never carried the key at all, so every stored row's own example was
+            # silently `None` regardless of what the file said, on every seed, forever.
+            "examples": list(t.get("examples") or []),
             # WHAT TO DO WHEN IT CANNOT GO OUT NOW — quiet hours, or the day's ceiling.
             #
             # `reminders` has read this field since task 137 («a late confirmation is not late but
