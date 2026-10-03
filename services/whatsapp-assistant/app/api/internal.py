@@ -688,3 +688,52 @@ async def set_meta_agent_rollout(request: Request, body: SetMetaAgentRolloutIn) 
             actor="system", tenant=body.tenant, resource="meta_agent", ip="",
             metadata={"enabled": result.enabled})
     return {"ok": result.ok, "enabled": result.enabled, "error": result.error}
+
+
+class ProvisionCatalogIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    business_id: str = Field(min_length=1, max_length=128)
+    waba_id: str = Field(min_length=1, max_length=128)
+    phone_number_id: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/whatsapp/catalog/provision", dependencies=[Depends(require_internal_token)])
+async def provision_catalog(request: Request, body: ProvisionCatalogIn) -> dict:
+    """Ensure this tenant has a Meta Commerce Catalog, connected to its WABA, with the cart
+    enabled for the number that just connected — called by operations' own `/whatsapp/connect`
+    background task, the cross-service leg of `core/catalog_provisioning.py::provision_catalog`
+    (that module's own docstring documents the idempotency guarantees — safe to call on every
+    reconnect, never mints a second catalog for the same tenant).
+
+    NEVER 500s ON A PROVISIONING FAILURE — same posture as `provision_meta_agent` above. A caller
+    that wants to know what happened reads the response body's `ok`/`failed_step`/`error`."""
+    from app.core.catalog_provisioning import HttpCatalogProvisioner, provision_catalog as _run
+
+    container = request.app.state.container
+    settings = get_settings()
+
+    if not getattr(settings, "CATALOG_PROVISIONING_ENABLED", False):
+        return {"ok": False, "failed_step": "", "error": "CATALOG_PROVISIONING_ENABLED is off",
+               "catalog_id": "", "catalog_created": False, "connected": False,
+               "cart_enabled": False}
+
+    def _provisioner_factory(token: str) -> HttpCatalogProvisioner:
+        return HttpCatalogProvisioner(
+            token=token,
+            graph_base_url=getattr(settings, "META_GRAPH_BASE_URL", "https://graph.facebook.com"),
+            graph_version=getattr(settings, "META_GRAPH_API_VERSION", "v26.0"),
+            timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8))
+
+    result = await _run(
+        tenant=body.tenant, business_id=body.business_id, waba_id=body.waba_id,
+        phone_number_id=body.phone_number_id, secret_store=container.secret_store,
+        settings=settings, provisioner_factory=_provisioner_factory)
+    await request.app.state.auditor.record(
+        "whatsapp_assistant.catalog_provisioned" if result.ok
+        else "whatsapp_assistant.catalog_provision_failed",
+        actor="system", tenant=body.tenant, resource=f"waba:{body.waba_id}", ip="",
+        metadata={"failed_step": result.failed_step, "catalog_id": result.catalog_id,
+                 "catalog_created": result.catalog_created})
+    return {"ok": result.ok, "failed_step": result.failed_step, "error": result.error,
+           "catalog_id": result.catalog_id, "catalog_created": result.catalog_created,
+           "connected": result.connected, "cart_enabled": result.cart_enabled}

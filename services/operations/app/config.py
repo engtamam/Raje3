@@ -225,6 +225,12 @@ class Settings(BaseSettings):
     # OFF by default (that service's own META_AGENT_PROVISIONING_ENABLED gate decides whether the
     # call does anything real; this side just needs somewhere real to send it).
     WHATSAPP_META_AGENT_PROVISION_PATH: str = "/internal/whatsapp/meta-agent/provision"
+    # Meta Commerce Catalog provisioning (WhatsApp Direct Ordering), fired right alongside the
+    # Meta Business Agent trigger above -- see
+    # services/whatsapp-assistant/app/core/catalog_provisioning.py for the create/connect/
+    # enable-cart sequence and its idempotency guarantees. OFF by default (that service's own
+    # CATALOG_PROVISIONING_ENABLED gate decides whether the call does anything real).
+    WHATSAPP_CATALOG_PROVISION_PATH: str = "/internal/whatsapp/catalog/provision"
     # The on/off switch for a number ALREADY onboarded -- see meta_agent_rollout_trigger.py's own
     # docstring. Fired by the AI kill switch (staff.py::set_ai_toggle), never a re-run of
     # provisioning. A subscription simply lapsing with nobody touching the switch is not covered

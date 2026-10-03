@@ -249,6 +249,13 @@ class Settings(BaseSettings):
     # own docstring). Flipping this alone does nothing until that call site exists.
     META_AGENT_PROVISIONING_ENABLED: bool = False
 
+    # Meta Commerce Catalog provisioning for WhatsApp Direct Ordering -- see
+    # core/catalog_provisioning.py for the three-step sequence (create/connect/enable-cart) and
+    # its idempotency guarantees. OFF by default, same posture as META_AGENT_PROVISIONING_ENABLED
+    # right above: the orchestration is reviewed and tested standalone, wired to connect-time by
+    # operations/app/api/v1/connect.py via its own catalog_provision_trigger.
+    CATALOG_PROVISIONING_ENABLED: bool = False
+
     OPERATIONS_SERVICE_URL: str = ""
     # ESCALATED: no phone->customer lookup existed anywhere in operations before this service. We
     # added the narrowest possible route, /internal/operations/customer-by-phone (reusing the

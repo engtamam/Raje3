@@ -317,6 +317,14 @@ def build_container(settings: Settings) -> Container:
         base_url=settings.WHATSAPP_ASSISTANT_SERVICE_URL,
         path=settings.WHATSAPP_META_AGENT_PROVISION_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN)
+    # Fires whatsapp-assistant's own Meta Commerce Catalog provisioning right after a number
+    # connects — see core/catalog_provision_trigger.py's own docstring.
+    from app.core.catalog_provision_trigger import CatalogProvisionTrigger
+
+    container.catalog_provision_trigger = CatalogProvisionTrigger(
+        base_url=settings.WHATSAPP_ASSISTANT_SERVICE_URL,
+        path=settings.WHATSAPP_CATALOG_PROVISION_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN)
     # The on/off switch for a number already onboarded — see core/meta_agent_rollout_trigger.py.
     from app.core.meta_agent_rollout_trigger import MetaAgentRolloutTrigger
 

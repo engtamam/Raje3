@@ -290,6 +290,15 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         if await c.whatsapp_licence.allowed(tenant):
             background.add_task(c.meta_agent_provision_trigger.trigger,
                                 tenant=tenant, entity_id=body.phone_number_id)
+        # Meta Commerce Catalog provisioning (WhatsApp Direct Ordering) — same after-the-response,
+        # never-fails-the-connection posture, fired unconditionally on every successful connect
+        # (not gated on feature.whatsapp licence like the Business Agent trigger above, since
+        # ordering is not sold as part of that app): `catalog_provisioning.py::provision_catalog`
+        # is idempotent (reuses an existing catalog rather than minting a second one), so a
+        # reconnect or a second branch number is always safe to re-trigger.
+        background.add_task(c.catalog_provision_trigger.trigger,
+                            tenant=tenant, business_id=body.business_id, waba_id=body.waba_id,
+                            phone_number_id=body.phone_number_id)
     # THE SENTENCE AT THE END OF THE JOURNEY, and the one that used to promise sending. See
     # core/connect.py `sentence_for`: the connection is his, the sending is ours, and until the
     # second is open the screen says so rather than sending him off to wait for messages that
