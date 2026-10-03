@@ -316,6 +316,18 @@ env:
   # POST /internal/tenancy/seed-owner — the platform's own chicken-and-egg breaker, which creates
   # a tenant's FIRST owner over the internal token, refuses to overwrite one on a staffed tenant,
   # and returns an undo reference for the saga.
+  #
+  # THIS MUST STAY "true", AND HERE IS THE CONSEQUENCE OF EVER FLIPPING IT — confirmed by a deep
+  # audit, 2026-10-03. With it OFF, identity falls back to its own single-tenant `User`/
+  # `UserRepository` path, whose phone-uniqueness index is scoped PER TENANT
+  # (`_index_key = f"{tenant}::{normalize(phone)}"`) — the SAME phone number could then register
+  # a completely separate account at a second tenant, silently contradicting every product
+  # assumption this file and services/operations's own signup saga are built on (one phone = one
+  # human = one account, platform-wide). With it ON, phone uniqueness runs through the `Person`/
+  # `MembershipStore` path instead, keyed GLOBALLY with no tenant in the index at all — which is
+  # the actual, verified behaviour of this deployment today. Flipping this flag is not a
+  # performance or feature toggle; it is a change to what "one phone number" means on the whole
+  # platform, for every establishment already registered.
   IDENTITY_MULTI_TENANT: "true"
 
   # ── Direct capabilities on a membership: OFF, and that is a decision, not a default ────────

@@ -79,6 +79,15 @@ from app.adapters import internal_http
 from app.core import claim as CL
 
 PHONE_INDEX = "signup_phone_index"
+#: `hire`'s own claim lane, keyed by the PHONE itself — never by tenant, since the race it closes
+#: is exactly two DIFFERENT tenants hiring the same number at once (core/seats.py's own `claiming`
+#: lane is per-tenant on purpose and could never catch this one). See `hire`'s own doc comment.
+HIRE_CLAIMS = "hire_phone_claims"
+#: Long enough to cover the check, the two identity calls (`add-member`, then the invite-claim
+#: redemption) and the final index write; short enough that a pod killed mid-hire costs a retry,
+#: not a shop locked out of hiring for a minute. Same reasoning as seats.py's own CLAIM_TTL_SECONDS,
+#: just sized for two network round trips instead of a local count-then-write.
+HIRE_CLAIM_TTL_SECONDS = 20.0
 #: THE SAME FACT, KEYED THE OTHER WAY (و-7). The phone index answers «which shop owns this
 #: number»; the acts that must not run on an unproven number — binding the shop's WhatsApp above
 #: all — know the TENANT and never the phone. Without this they would have to scan the index, and
@@ -731,6 +740,17 @@ class SignupService:
         AND THE PHONE INDEX IS WRITTEN HERE, or he could never sign in. Our door resolves the
         tenant from the number (see the module note); identity would hold a perfectly good
         membership that our own sign-in refuses for a number it does not know.
+
+        THE CHECK AND THE WRITE ARE ONE CLAIMED SECTION, NOT A READ FOLLOWED BY A HOPE. FOUND LIVE
+        (owner's own audit, 2026-10-03): `existing = await self.tenant_of_phone(canonical)` and the
+        final `self._store.put(PHONE_INDEX, ...)` below used to be two unrelated statements with a
+        full network round trip to identity between them. Two shops hiring the exact same number in
+        the same instant could BOTH read "nobody holds this" and both proceed — one of them winning
+        at identity's own atomic layer (membership.py's own CAS), the other winning the PHONE_INDEX
+        write last and silently overwriting the first shop's claim on it. `HIRE_CLAIMS` makes the
+        whole section indivisible, the same discipline seats.py's own `claiming()` already applies
+        to seat-counting — except keyed by the bare phone number, never by tenant, because this race
+        is BETWEEN tenants, not within one.
         """
         canonical = canonical_phone(phone, default_cc=self._cc)
         if not canonical:
@@ -738,19 +758,34 @@ class SignupService:
         allowed = {r.get("name", "") for r in self._roles} - {self._owner_role, "partner"}
         if role not in allowed:
             raise SignupRefused("هذا الدور غير متاح.")
-        existing = await self.tenant_of_phone(canonical)
-        if existing and existing != tenant:
-            # HE WORKS SOMEWHERE ELSE. identity can hold two memberships for one person; our index
-            # holds one tenant per number, so a second shop would silently take over his sign-in
-            # and lock him out of the first. Refused plainly rather than half-done.
-            raise SignupRefused("هذا الرقم مسجّل في منشأة أخرى.")
 
-        status, body = await asyncio.to_thread(self._http.call,
-            f"{self._identity}/internal/tenancy/members", method="POST", internal=True,
-            body={"tenant": tenant, "identifier": canonical, "roles": [role],
-                  "password": password})
-        if status not in (200, 201):
-            raise SignupRefused(_register_error(status, body))
+        now = time.time()
+        if not await self._store.claim(HIRE_CLAIMS, canonical, {"tenant": tenant},
+                                       ttl_seconds=HIRE_CLAIM_TTL_SECONDS, now=now):
+            raise SignupRefused("يجري التحقق من هذا الرقم الآن. حاول بعد لحظة.")
+        try:
+            existing = await self.tenant_of_phone(canonical)
+            if existing and existing != tenant:
+                # HE WORKS SOMEWHERE ELSE. identity can hold two memberships for one person; our
+                # index holds one tenant per number, so a second shop would silently take over his
+                # sign-in and lock him out of the first. Refused plainly rather than half-done.
+                raise SignupRefused("هذا الرقم مسجّل في منشأة أخرى.")
+
+            status, body = await asyncio.to_thread(self._http.call,
+                f"{self._identity}/internal/tenancy/members", method="POST", internal=True,
+                body={"tenant": tenant, "identifier": canonical, "roles": [role],
+                      "password": password})
+            if status not in (200, 201):
+                raise SignupRefused(_register_error(status, body))
+        except BaseException:
+            await self._store.delete(HIRE_CLAIMS, canonical)
+            raise
+        # RELEASED BEFORE THE INVITE-REDEMPTION CALL BELOW ON PURPOSE, NOT AN OVERSIGHT: by this
+        # point `identity`'s own add-member call already answered 200/201, which means ITS atomic
+        # claim already won — the number is spoken for at the one layer that actually enforces it.
+        # Holding our own lane through the remaining (slower, retriable) steps would only widen the
+        # window a crashed pod leaves this phone number un-hireable for, with no more safety bought.
+        await self._store.delete(HIRE_CLAIMS, canonical)
 
         # ── THE INVITE IS REDEEMED HERE, OR HE CAN NEVER SIGN IN ─────────────────────────────
         #

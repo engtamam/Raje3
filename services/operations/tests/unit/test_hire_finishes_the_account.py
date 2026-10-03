@@ -53,6 +53,18 @@ class FakeStore:
         self.rows[(coll, key)] = row
         return row
 
+    async def claim(self, coll, key, value, *, ttl_seconds, now):
+        held = self.rows.get((coll, key))
+        if held is not None and float(held.get("expires") or 0) > now:
+            return False
+        row = dict(value)
+        row["expires"] = now + float(ttl_seconds)
+        self.rows[(coll, key)] = row
+        return True
+
+    async def delete(self, coll, key) -> bool:
+        return self.rows.pop((coll, key), None) is not None
+
     async def find(self, coll, where, **kw):
         return [], None
 
