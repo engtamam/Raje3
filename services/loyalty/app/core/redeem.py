@@ -59,7 +59,7 @@ class Redeemer:
         prior = await self._existing(tenant, idem_key)
         if prior is not None:
             if prior.subject_ref != subject_ref or prior.reward_id != reward_id:
-                raise LoyaltyError("idempotency key already used for a different customer/reward")
+                raise LoyaltyError("مفتاح التكرار مستخدم من قبل لعملية مختلفة — أعد المحاولة بمفتاح جديد.")
             return prior, False
 
         # HELD FROM THE BALANCE READ TO THE LEDGER WRITE, and released whatever happens.
@@ -81,7 +81,7 @@ class Redeemer:
         prior = await self._existing(tenant, idem_key)
         if prior is not None:
             if prior.subject_ref != subject_ref or prior.reward_id != reward_id:
-                raise LoyaltyError("idempotency key already used for a different customer/reward")
+                raise LoyaltyError("مفتاح التكرار مستخدم من قبل لعملية مختلفة — أعد المحاولة بمفتاح جديد.")
             return prior, False
 
         reward: Reward = await self.rewards.get(tenant, reward_id)

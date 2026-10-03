@@ -21,10 +21,10 @@ from typing import Any
 USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "loyalty.features", "label": "مميزات برنامج النقاط", "method": "GET",
-        "path": "/api/v1/loyalty/features", "capability": "loyalty.read",
+        "path": "/api/v1/loyalty/features", "capability": "",
         "group": "التطبيقات",
-        # الراوت لا يتحقق من loyalty.read فعليًا (require_user فقط، بطاقة المتجر تُقرأ قبل الشراء) —
-        # هذا الحقل توثيقي فقط، لا بوابة حقيقية.
+        # The route enforces no loyalty.* capability at all (require_user only) — a shop deciding
+        # whether to BUY the programme has no loyalty capability yet.
         "help": "قائمة المميزات الحقيقية اللي يوفّرها برنامج النقاط، بصياغة تسويقية قصيرة.",
     },
     {
