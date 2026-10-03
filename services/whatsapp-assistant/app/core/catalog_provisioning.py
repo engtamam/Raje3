@@ -85,6 +85,12 @@ API_VERSION_HEADER_VALUE = "2.0.0"
 #: Catalog included; there is no separate "commerce" credential to provision.
 SECRET_TOKEN_NAME = "META_KNOWLEDGE_TOKEN"
 SECRET_CATALOG_ID_NAME = "META_CATALOG_ID"
+#: THE REAL, HUMAN-DIALABLE NUMBER (e.g. "+966501234567"), NOT `phone_number_id` -- Meta's own
+#: internal id is useless for a `wa.me/<number>` link, the one Step 2 (catalog_item_sync.py) needs
+#: for every synced item's `link` field. Resolved once, here, and reused -- see
+#: `resolve_display_phone`'s own docstring for why this is read-once-reuse-forever, same posture
+#: as the catalog id right above.
+SECRET_DISPLAY_PHONE_NAME = "META_DISPLAY_PHONE_NUMBER"
 
 
 class CatalogProvisioningError(RuntimeError):
@@ -124,6 +130,10 @@ class NullCatalogProvisioner:
 
     async def enable_cart(self, phone_number_id: str) -> bool:
         return False
+
+    async def resolve_display_phone(self, phone_number_id: str) -> str:
+        raise CatalogProvisioningError(
+            "resolve_display_phone", "catalog provisioning is disabled")
 
 
 class HttpCatalogProvisioner:
@@ -193,6 +203,16 @@ class HttpCatalogProvisioner:
             "POST", f"{phone_number_id}/whatsapp_commerce_settings",
             query="is_cart_enabled=true")
         return bool(data.get("success", True))
+
+    async def resolve_display_phone(self, phone_number_id: str) -> str:
+        """The real, human-dialable number behind `phone_number_id` -- confirmed against
+        developers.facebook.com's own phone-number reference: `GET /{phone_number_id}` returns
+        `display_phone_number`, formatted with spaces/a leading "+" (e.g. "+966 50 123 4567"),
+        never the digits-only shape `wa.me` links need -- stripped by the caller
+        (`catalog_item_sync.py`), not here, so this method's own return value stays an honest
+        mirror of what Graph actually said."""
+        data = await self._call("GET", phone_number_id)
+        return str(data.get("display_phone_number") or "")
 
 
 def build(settings: Any) -> Any:
@@ -275,6 +295,20 @@ async def provision_catalog(
     except Exception as exc:  # noqa: BLE001
         result.failed_step, result.error = "enable_cart", str(exc)
         return result
+
+    # RESOLVED ONCE, REUSED FOREVER -- same reuse-before-call discipline as catalog_id above, and
+    # independent of it: a tenant's display number almost never changes, so there is nothing to
+    # re-resolve on every reconnect. NOT in the critical path either -- a failure here never fails
+    # the whole provisioning result, since catalog_item_sync.py (Step 2) degrades to "no link"
+    # cleanly rather than this blocking Step 1's own success.
+    if not await secret_store.get(tenant=tenant, name=SECRET_DISPLAY_PHONE_NAME):
+        try:
+            display_phone = await provisioner.resolve_display_phone(phone_number_id)
+        except Exception:  # noqa: BLE001 -- best-effort, see comment above
+            display_phone = ""
+        if display_phone:
+            await secret_store.set(tenant=tenant, name=SECRET_DISPLAY_PHONE_NAME,
+                                    value=display_phone, actor_ref="catalog_provisioning")
 
     result.ok = True
     return result

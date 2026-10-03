@@ -15,6 +15,7 @@ from app.core.catalog_provisioning import (
     NullCatalogProvisioner,
     ProvisionCatalogResult,
     SECRET_CATALOG_ID_NAME,
+    SECRET_DISPLAY_PHONE_NAME,
     SECRET_TOKEN_NAME,
     build,
     provision_catalog,
@@ -72,10 +73,11 @@ def _http(**kw):
 class _FullFake:
     """A provisioner that succeeds at every step, recording calls in order."""
 
-    def __init__(self, page_id="PAGE1", catalog_id="CAT1"):
+    def __init__(self, page_id="PAGE1", catalog_id="CAT1", display_phone="+966 50 123 4567"):
         self.calls = []
         self._page_id = page_id
         self._catalog_id = catalog_id
+        self._display_phone = display_phone
 
     async def resolve_page_id(self, business_id):
         self.calls.append(("resolve_page_id", business_id))
@@ -92,6 +94,10 @@ class _FullFake:
     async def enable_cart(self, phone_number_id):
         self.calls.append(("enable_cart", phone_number_id))
         return True
+
+    async def resolve_display_phone(self, phone_number_id):
+        self.calls.append(("resolve_display_phone", phone_number_id))
+        return self._display_phone
 
 
 # ── HttpCatalogProvisioner, one call at a time ────────────────────────────────────────────────
@@ -298,9 +304,11 @@ def test_provision_catalog_happy_path_resolves_page_creates_connects_and_enables
         ("create_catalog", "biz1", "PAGE1", "Raje3 - t1"),
         ("connect_catalog", "waba1", "CAT1"),
         ("enable_cart", "phone1"),
+        ("resolve_display_phone", "phone1"),
     ]
     # WRITTEN BEFORE the function even returns -- the write-ahead guarantee.
     assert secrets._v["t1|" + SECRET_CATALOG_ID_NAME] == "CAT1"
+    assert secrets._v["t1|" + SECRET_DISPLAY_PHONE_NAME] == "+966 50 123 4567"
 
 
 def test_provision_catalog_no_facebook_page_fails_named_and_writes_nothing():
@@ -368,7 +376,8 @@ def test_provision_catalog_reuses_existing_catalog_never_resolves_page_or_create
     assert result.catalog_id == "EXISTING_CAT"
     assert result.catalog_created is False
     assert result.page_id == ""  # never resolved -- creation was skipped entirely
-    assert fake.calls == [("connect_catalog", "waba1", "EXISTING_CAT"), ("enable_cart", "phone1")]
+    assert fake.calls == [("connect_catalog", "waba1", "EXISTING_CAT"), ("enable_cart", "phone1"),
+                         ("resolve_display_phone", "phone1")]
 
 
 def test_provision_catalog_retry_on_a_second_phone_number_reuses_same_catalog():
@@ -481,3 +490,60 @@ def test_provision_catalog_enable_cart_failure_reports_named_step():
     assert result.connected is True
     # The catalog is still on file -- not lost because the LAST step failed.
     assert secrets._v["t1|" + SECRET_CATALOG_ID_NAME] == "CAT1"
+
+
+# ── resolve_display_phone ─────────────────────────────────────────────────────────────────────
+
+def test_http_resolve_display_phone_returns_graph_field():
+    with patch("urllib.request.urlopen",
+              return_value=_Resp(b'{"display_phone_number": "+966 50 123 4567"}')):
+        assert run(_http().resolve_display_phone("phone1")) == "+966 50 123 4567"
+
+
+def test_http_resolve_display_phone_empty_when_field_absent():
+    with patch("urllib.request.urlopen", return_value=_Resp(b"{}")):
+        assert run(_http().resolve_display_phone("phone1")) == ""
+
+
+def test_null_resolve_display_phone_raises():
+    with pytest.raises(CatalogProvisioningError):
+        run(NullCatalogProvisioner().resolve_display_phone("phone1"))
+
+
+def test_provision_catalog_writes_display_phone_only_once():
+    """A reconnect (or a second branch number) must not overwrite the first-resolved number --
+    same reuse-before-call discipline as the catalog id."""
+    secrets = _FakeSecrets({"t1|" + SECRET_TOKEN_NAME: "tok"})
+
+    first = run(provision_catalog(
+        tenant="t1", business_id="biz1", waba_id="waba1", phone_number_id="phone1",
+        secret_store=secrets, settings=_settings(),
+        provisioner_factory=lambda tok: _FullFake(display_phone="+966 50 000 0001")))
+    assert first.ok is True
+    assert secrets._v["t1|" + SECRET_DISPLAY_PHONE_NAME] == "+966 50 000 0001"
+
+    second = run(provision_catalog(
+        tenant="t1", business_id="biz1", waba_id="waba2", phone_number_id="phone2",
+        secret_store=secrets, settings=_settings(),
+        provisioner_factory=lambda tok: _FullFake(display_phone="+966 50 999 9999")))
+    assert second.ok is True
+    # STILL THE FIRST NUMBER -- never overwritten by the second branch's own.
+    assert secrets._v["t1|" + SECRET_DISPLAY_PHONE_NAME] == "+966 50 000 0001"
+
+
+def test_provision_catalog_display_phone_failure_does_not_fail_the_whole_result():
+    """Best-effort: Step 2 (catalog_item_sync.py) degrades to 'no link' cleanly on its own if this
+    is missing -- it must never block Step 1's own success."""
+    secrets = _FakeSecrets({"t1|" + SECRET_TOKEN_NAME: "tok"})
+
+    class _FailPhone(_FullFake):
+        async def resolve_display_phone(self, phone_number_id):
+            raise CatalogProvisioningError("resolve_display_phone", "unreachable")
+
+    result = run(provision_catalog(
+        tenant="t1", business_id="biz1", waba_id="waba1", phone_number_id="phone1",
+        secret_store=secrets, settings=_settings(),
+        provisioner_factory=lambda tok: _FailPhone()))
+
+    assert result.ok is True
+    assert ("t1|" + SECRET_DISPLAY_PHONE_NAME) not in secrets._v

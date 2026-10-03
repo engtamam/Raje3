@@ -325,6 +325,14 @@ def build_container(settings: Settings) -> Container:
         base_url=settings.WHATSAPP_ASSISTANT_SERVICE_URL,
         path=settings.WHATSAPP_CATALOG_PROVISION_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN)
+    # Per-service catalog item sync — see core/catalog_item_sync_trigger.py's own docstring.
+    from app.core.catalog_item_sync_trigger import CatalogItemSyncTrigger
+
+    container.catalog_item_sync_trigger = CatalogItemSyncTrigger(
+        base_url=settings.WHATSAPP_ASSISTANT_SERVICE_URL,
+        path=settings.WHATSAPP_CATALOG_ITEM_SYNC_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN,
+        public_base_url=settings.PUBLIC_BASE_URL)
     # The on/off switch for a number already onboarded — see core/meta_agent_rollout_trigger.py.
     from app.core.meta_agent_rollout_trigger import MetaAgentRolloutTrigger
 

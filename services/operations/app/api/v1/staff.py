@@ -1234,7 +1234,7 @@ async def list_services(request: Request, include_retired: bool = False, locale:
 
 @router.post("/services", status_code=status.HTTP_201_CREATED,
              dependencies=[Depends(subscribed_write), Depends(rate_limit)])
-async def create_service(request: Request, body: ServiceIn,
+async def create_service(request: Request, body: ServiceIn, background: BackgroundTasks,
                          principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
     tenant = _tenant(principal)
     await request.app.state.auditor.record(
@@ -1245,6 +1245,11 @@ async def create_service(request: Request, body: ServiceIn,
                 duration_minutes=body.duration_minutes, sort=body.sort,
                 description=body.description.strip(), created=int(time.time()))
     await ServiceStore(request.app.state.container.datastore).save(s)
+    # WhatsApp Direct Ordering's own catalog sync — see core/catalog_item_sync_trigger.py. A
+    # brand-new service has no photo yet, so this is a harmless no-op delete until one is
+    # uploaded; fired anyway for the rare case a bulk-created service already has a price.
+    background.add_task(request.app.state.container.catalog_item_sync_trigger.sync,
+                        tenant=tenant, service=s)
     return s.public()
 
 
@@ -1442,6 +1447,7 @@ class ServicePatch(BaseModel):
 
 @router.patch("/services/{service_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def update_service(request: Request, service_id: str, body: ServicePatch,
+                         background: BackgroundTasks,
                          principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
     """Edit a catalogue entry.
 
@@ -1491,6 +1497,10 @@ async def update_service(request: Request, service_id: str, body: ServicePatch,
         s.procedure_step_ids = [sid for sid in body.procedure_step_ids if sid in real_steps]
 
     await store.save(s)
+    # WhatsApp Direct Ordering's own catalog sync — any of name/price/description/active just
+    # changed, so this service's catalog item (or its absence) may need to match.
+    background.add_task(request.app.state.container.catalog_item_sync_trigger.sync,
+                        tenant=tenant, service=s)
     return s.public()
 
 
@@ -1753,6 +1763,7 @@ class CatalogueImageIn(BaseModel):
 
 @router.post("/services/{service_id}/image", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def upload_service_image(request: Request, service_id: str, body: CatalogueImageIn,
+                               background: BackgroundTasks,
                                principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
     """Replace this service's photo. See `catalogue_image.py`'s module docstring for why this is a
     real object, never a URL the console types in."""
@@ -1794,6 +1805,10 @@ async def upload_service_image(request: Request, service_id: str, body: Catalogu
     await request.app.state.auditor.record(
         "service.image_set", actor=principal.subject, tenant=tenant,
         resource=f"service:{service_id}", ip=request.client.host if request.client else "")
+    # WhatsApp Direct Ordering's own catalog sync — a new photo may flip this service's own
+    # readiness gate (price + a real photo) from not-ready to ready, or just refresh the URL.
+    background.add_task(request.app.state.container.catalog_item_sync_trigger.sync,
+                        tenant=tenant, service=s)
     return s.public()
 
 

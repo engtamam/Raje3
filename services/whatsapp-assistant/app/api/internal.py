@@ -738,3 +738,61 @@ async def provision_catalog(request: Request, body: ProvisionCatalogIn) -> dict:
            "page_id": result.page_id, "catalog_id": result.catalog_id,
            "catalog_created": result.catalog_created, "connected": result.connected,
            "cart_enabled": result.cart_enabled}
+
+
+class SyncCatalogItemIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    service_id: str = Field(min_length=1, max_length=128)
+    name: str = Field(default="", max_length=200)
+    description: str = Field(default="", max_length=5000)
+    price_minor: int = Field(default=0, ge=0)
+    active: bool = True
+    image_url: str = Field(default="", max_length=2000)
+
+
+@router.post("/whatsapp/catalog/sync-item", dependencies=[Depends(require_internal_token)])
+async def sync_catalog_item(request: Request, body: SyncCatalogItemIn) -> dict:
+    """Upsert or remove one service's Meta Commerce Catalog item — called by operations' own
+    service create/update/image-upload routes, the cross-service leg of
+    `core/catalog_item_sync.py::sync_service_item` (that module's own docstring documents the
+    readiness gate and why it is always `method: UPDATE` with `allow_upsert`).
+
+    NEVER 500s ON A SYNC FAILURE — same posture as `provision_catalog`/`provision_meta_agent`
+    above. A caller that wants to know what happened reads the response body's
+    `ok`/`failed_step`/`error`."""
+    from app.core.catalog_item_sync import HttpCatalogItemSyncer, sync_service_item
+
+    container = request.app.state.container
+    settings = get_settings()
+
+    if not getattr(settings, "CATALOG_PROVISIONING_ENABLED", False):
+        return {"ok": False, "failed_step": "", "error": "CATALOG_PROVISIONING_ENABLED is off",
+               "synced": False, "removed": False}
+
+    def _syncer_factory(token: str) -> HttpCatalogItemSyncer:
+        return HttpCatalogItemSyncer(
+            token=token,
+            graph_base_url=getattr(settings, "META_GRAPH_BASE_URL", "https://graph.facebook.com"),
+            graph_version=getattr(settings, "META_GRAPH_API_VERSION", "v26.0"),
+            timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8))
+
+    shop_name = ""
+    try:
+        ctx = await container.shop_identity.resolve(body.tenant)
+        shop_name = ctx.name
+    except Exception:                                                        # noqa: BLE001
+        pass  # best-effort -- sync_service_item's own default ("Raje3") covers this
+
+    result = await sync_service_item(
+        tenant=body.tenant, service_id=body.service_id, name=body.name,
+        description=body.description, price_minor=body.price_minor, active=body.active,
+        image_url=body.image_url, secret_store=container.secret_store, settings=settings,
+        shop_name=shop_name, syncer_factory=_syncer_factory)
+    await request.app.state.auditor.record(
+        "whatsapp_assistant.catalog_item_synced" if result.ok
+        else "whatsapp_assistant.catalog_item_sync_failed",
+        actor="system", tenant=body.tenant, resource=f"service:{body.service_id}", ip="",
+        metadata={"failed_step": result.failed_step, "synced": result.synced,
+                 "removed": result.removed})
+    return {"ok": result.ok, "failed_step": result.failed_step, "error": result.error,
+           "synced": result.synced, "removed": result.removed}

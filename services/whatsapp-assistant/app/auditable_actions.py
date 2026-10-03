@@ -281,6 +281,24 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "can later see which step failed and why, to retry it",
     },
     {
+        "action": "whatsapp_assistant.catalog_item_synced",
+        "source": "internal",
+        "critical": False,
+        "resource": "catalog_item",
+        "why": "one service's catalog item was upserted or removed to match the owner's own "
+               "current edit — not critical: the catalog itself is the durable fact, and the "
+               "next edit to this same service re-attempts a failed sync on its own",
+    },
+    {
+        "action": "whatsapp_assistant.catalog_item_sync_failed",
+        "source": "internal",
+        "critical": False,
+        "resource": "catalog_item",
+        "why": "catalog item sync stopped at a named step (no catalog yet, no display phone, a "
+               "Graph call failing) — fire-and-forget by design, so this is the ONLY place an "
+               "operator can later see which step failed and why",
+    },
+    {
         "action": "whatsapp_assistant.meta_agent_rollout_enabled",
         "source": "internal",
         "critical": True,

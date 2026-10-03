@@ -231,6 +231,10 @@ class Settings(BaseSettings):
     # enable-cart sequence and its idempotency guarantees. OFF by default (that service's own
     # CATALOG_PROVISIONING_ENABLED gate decides whether the call does anything real).
     WHATSAPP_CATALOG_PROVISION_PATH: str = "/internal/whatsapp/catalog/provision"
+    # Per-service catalog item sync, fired on every service create/update/image-upload — see
+    # services/whatsapp-assistant/app/core/catalog_item_sync.py and
+    # core/catalog_item_sync_trigger.py.
+    WHATSAPP_CATALOG_ITEM_SYNC_PATH: str = "/internal/whatsapp/catalog/sync-item"
     # The on/off switch for a number ALREADY onboarded -- see meta_agent_rollout_trigger.py's own
     # docstring. Fired by the AI kill switch (staff.py::set_ai_toggle), never a re-run of
     # provisioning. A subscription simply lapsing with nobody touching the switch is not covered
