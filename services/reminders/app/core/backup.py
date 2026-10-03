@@ -269,6 +269,16 @@ async def import_archive(datastore, archive: dict[str, Any], *,
         if into_tenant:
             raise BackupError("prune is not allowed with into_tenant: a clone must not delete the "
                               "destination tenant's rows")
+        # AUTHORITATIVE ONLY AGAINST A WHOLE-SERVICE SNAPSHOT. The sweeper below scans each
+        # collection ACROSS EVERY TENANT and deletes whatever key the archive does not mention —
+        # an archive sealed FROM a single tenant (`src_tenant` non-empty, the same signal the
+        # `into_tenant` check above already trusts) only ever mentions that tenant's own keys, so
+        # every OTHER tenant's rows would read as "absent from the archive" and be deleted.
+        if src_tenant:
+            raise BackupError(
+                "prune refused: this archive was sealed from a single tenant "
+                f"({src_tenant!r}), so pruning against it would read every OTHER tenant's rows as "
+                "absent and delete them. prune is only valid against a whole-service snapshot.")
         cap = int(scan_cap)
         if cap <= 0:
             raise BackupError("prune requires a positive scan_cap to bound the current-key read")
