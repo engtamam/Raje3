@@ -24,7 +24,7 @@ class _FakeService:
 
 def test_unconfigured_returns_false_never_raises():
     trigger = CatalogItemSyncTrigger(
-        base_url="", path="/x", token="t", public_base_url="https://raje3.sa")
+        base_url="", path="/x", token="t", public_base_url="https://ra-je3.com")
     assert trigger.configured is False
     out = run(trigger.sync(tenant="t1", service=_FakeService()))
     assert out is False
@@ -44,7 +44,7 @@ def test_configured_posts_all_fields_and_reads_ok(monkeypatch):
     trigger = CatalogItemSyncTrigger(
         base_url="http://whatsapp-assistant:8000",
         path="/internal/whatsapp/catalog/sync-item", token="tok",
-        public_base_url="https://raje3.sa")
+        public_base_url="https://ra-je3.com")
     out = run(trigger.sync(tenant="t1", service=_FakeService(public_image_token="tok123")))
 
     assert out is True
@@ -53,7 +53,7 @@ def test_configured_posts_all_fields_and_reads_ok(monkeypatch):
     assert calls[0]["body"] == {
         "tenant": "t1", "service_id": "srv1", "name": "Haircut", "description": "A trim",
         "price_minor": 5000, "active": True,
-        "image_url": "https://raje3.sa/api/v1/public_catalog/tok123",
+        "image_url": "https://ra-je3.com/api/v1/public_catalog/tok123",
     }
     assert calls[0]["token"] == "tok"
 
@@ -71,7 +71,7 @@ def test_no_public_image_token_sends_empty_image_url(monkeypatch):
 
     trigger = CatalogItemSyncTrigger(
         base_url="http://whatsapp-assistant:8000", path="/x", token="t",
-        public_base_url="https://raje3.sa")
+        public_base_url="https://ra-je3.com")
     run(trigger.sync(tenant="t1", service=_FakeService(public_image_token="")))
 
     assert calls[0]["image_url"] == ""
@@ -104,7 +104,7 @@ def test_a_falsy_ok_in_the_response_reports_false():
 
     trigger = CatalogItemSyncTrigger(
         base_url="http://whatsapp-assistant:8000", path="/x", token="t",
-        public_base_url="https://raje3.sa")
+        public_base_url="https://ra-je3.com")
     mod.internal_http.post_json = _fake_post_json
     out = run(trigger.sync(tenant="t1", service=_FakeService()))
     assert out is False
@@ -120,6 +120,32 @@ def test_a_transport_failure_reports_false_never_raises(monkeypatch):
 
     trigger = CatalogItemSyncTrigger(
         base_url="http://whatsapp-assistant:8000", path="/x", token="t",
-        public_base_url="https://raje3.sa")
+        public_base_url="https://ra-je3.com")
     out = run(trigger.sync(tenant="t1", service=_FakeService()))
     assert out is False
+
+
+def test_backfill_syncs_every_service_sequentially_and_counts_oks():
+    trigger = CatalogItemSyncTrigger(
+        base_url="http://whatsapp-assistant:8000", path="/x", token="t",
+        public_base_url="https://ra-je3.com")
+    order = []
+
+    async def _fake_sync(*, tenant, service):
+        order.append(service.id)
+        return service.id != "srv2"  # one deliberate failure in the middle
+
+    trigger.sync = _fake_sync
+    services = [_FakeService(id="srv1"), _FakeService(id="srv2"), _FakeService(id="srv3")]
+
+    ok_count = run(trigger.backfill(tenant="t1", services=services))
+
+    assert order == ["srv1", "srv2", "srv3"]  # sequential, not reordered
+    assert ok_count == 2
+
+
+def test_backfill_empty_list_is_a_harmless_no_op():
+    trigger = CatalogItemSyncTrigger(
+        base_url="http://whatsapp-assistant:8000", path="/x", token="t",
+        public_base_url="https://ra-je3.com")
+    assert run(trigger.backfill(tenant="t1", services=[])) == 0

@@ -498,7 +498,7 @@ class Settings(BaseSettings):
     # as reminders' own PUBLIC_BASE_URL — empty here means booking-Flow provisioning simply omits
     # endpoint_uri (Meta then refuses/ignores actual traffic, but the clone itself still succeeds,
     # so a shop connecting before DOMAIN is set is not blocked, only inert until it is).
-    PUBLIC_BASE_URL: str = ""                # e.g. https://raje3.sa
+    PUBLIC_BASE_URL: str = ""                # e.g. https://ra-je3.com
     # How many establishments one sweep pass reconciles. A repair pass that runs again in an hour:
     # progress beats completeness, and a fleet-wide scan on one request is a request that times out.
     TEMPLATE_SYNC_MAX_TENANTS: int = 200

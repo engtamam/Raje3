@@ -66,3 +66,18 @@ class CatalogItemSyncTrigger:
             # own, same posture as every other fire-and-forget trigger in this fleet.
             return False
         return bool(data.get("ok"))
+
+    async def backfill(self, *, tenant: str, services: list[Any]) -> int:
+        """Sync EVERY one of this tenant's existing services, once, right after Step 1's own
+        catalog provisioning succeeds -- the real case this closes: a shop that already built a
+        full priced-and-photographed catalogue BEFORE ever connecting WhatsApp must not sit with
+        an empty Meta catalog until someone happens to touch each service again. Sequential, not
+        parallel -- a shop's catalogue is dozens of rows at most, never thousands, and items_batch
+        itself has no concurrency benefit to chase for a one-time pass. Returns how many reported
+        `ok=True`, purely for the caller's own audit metadata -- a partial backfill is not an
+        error (each service also re-syncs on its own next edit, same as any other sync failure)."""
+        ok_count = 0
+        for service in services:
+            if await self.sync(tenant=tenant, service=service):
+                ok_count += 1
+        return ok_count
