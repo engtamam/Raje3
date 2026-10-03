@@ -265,12 +265,6 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "قائمة اقتراحاتٍ من أول الأرقام أو اللوحة، مضيَّقةً على فرع القارئ من رمزه. "
                 "«تعذّر البحث» غير «لا يوجد عميل»، والردّ يفرّق بينهما.",
     },
-    {
-        "id": "operations.verify_pin", "label": "تأكيد رمز العامل", "method": "POST",
-        "path": "/api/v1/staff/operators/verify-pin", "capability": "operations.read",
-        "group": "الشاشة",
-        "help": "نسبة لا تسجيل دخول: يُسأل عند الحفظ فقط، والشاشة تبقى مفتوحة طوال الوردية.",
-    },
     # ── the partner's own console — neither a tenant nor us (see api/v1/partner.py) ───────
     # DECLARED AS USER ACTIONS, not admin: a partner acts on its OWN data, exactly like a customer
     # does. Putting them in admin_actions would render them in OUR panel, which is the one place
@@ -580,14 +574,9 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "نفس قائمة الفريق، تُستخدم هنا لنسبة الحجز لعامل ورسم قائمة الفنيين بشاشة الحجوزات.",
     },
     {
-        "id": "operations.create_operator", "label": "إضافة عامل", "method": "POST",
-        "path": "/api/v1/staff/operators", "capability": "operations.manage", "group": "الفريق",
-        "help": "الرمز نسبة لا تسجيل دخول: يُسأل عند الحفظ لينسب العمل لصاحبه.",
-    },
-    {
         "id": "operations.hire_member", "label": "توظيف بحساب", "method": "POST",
         "path": "/api/v1/staff/members", "capability": "operations.manage", "group": "الفريق",
-        "help": "حسابٌ يدخل به بنفسه ودورٌ له — غير الرمز الرباعي الذي يُنسب به العمل على جهازٍ مشترك.",
+        "help": "حسابٌ يدخل به الموظف بنفسه ودورٌ له.",
     },
     {
         "id": "operations.update_operator", "label": "تعديل عامل", "method": "PATCH",
@@ -1030,9 +1019,6 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
     {"method": "POST", "path": "/api/v1/till/bookings/{}/attend",
      "why": "the till marking a booking attended at the counter — same service-account door as "
             "the rest of this file"},
-    {"method": "POST", "path": "/api/v1/till/operators/verify-pin",
-     "why": "the till confirming an operator's PIN at the counter, on a service account "
-            "credential — see staff.py's own module docstring on what a PIN is for"},
     {"method": "POST", "path": "/api/v1/till/rating-request",
      "why": "the till expediting a rating request at the counter, same machine credential as "
             "every other till.py route"},

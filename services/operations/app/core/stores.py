@@ -430,16 +430,27 @@ class VisitStore(_Base):
         return visits, cursor
 
 
+#: Keys a row may still carry from a dropped field — the datastore has no schema to migrate, so a
+#: row written before a field was removed from the dataclass keeps it forever unless the read side
+#: drops it. `Operator(**row)` would otherwise raise on any operator created while `pin_hash`
+#: existed.
+_STALE_OPERATOR_KEYS = ("pin_hash",)
+
+
+def _drop_stale(row: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in row.items() if k not in _STALE_OPERATOR_KEYS}
+
+
 class OperatorStore(_Base):
     collection = OPERATORS
 
     async def get(self, tenant: str, ident: str) -> Operator | None:
         row = await self._get(tenant, ident)
-        return Operator(**row) if row else None
+        return Operator(**_drop_stale(row)) if row else None
 
     async def list(self, tenant: str) -> list[Operator]:
         rows, _ = await self._find(tenant, limit=200)
-        return [Operator(**r) for r in rows]
+        return [Operator(**_drop_stale(r)) for r in rows]
 
     async def get_by_person(self, tenant: str, person_id: str) -> Operator | None:
         """The row for the operator asking — not by his ROLE (many share `operator`), by WHO he

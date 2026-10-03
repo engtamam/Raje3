@@ -26,8 +26,6 @@ import { Steps } from '../Steps';
 import { newIdempotencyKey, queue, type Queued } from '../queue';
 import type { MutualBenefitGrantAck } from '../api';
 import { MutualBenefitGrantCelebration } from './MutualBenefitGrantCelebration';
-import { proof } from '../operator';
-import { WhoIsSaving } from '../WhoIsSaving';
 import { isSignedIn, useSession } from '../session';
 import { digitsOnly, western } from '../digits';
 import { TodayBookingsStrip } from '../TodayBookingsStrip';
@@ -134,8 +132,6 @@ export function Visit() {
   // it as "waiting to be sent" counted visits that will never be sent among them, and the number
   // an operator watched go down would have stalled at one for ever with no explanation.
   const [queued, setQueued] = useState<Queued[]>([]);
-  /** The «من يحفظ؟» sheet is open. The press is held until it answers, either way. */
-  const [asking, setAsking] = useState(false);
   const pending = queued.filter((r) => !r.stuck);
   const stuck = queued.filter((r) => r.stuck);
   const [matches, setMatches] = useState<CustomerHit[] | null>([]);
@@ -452,18 +448,10 @@ export function Visit() {
   const plateOk = !showPlate || (/[0-9٠-٩]/.test(plate) && /\p{L}/u.test(plate));
   const ready = chosen.length > 0 && phoneUsable && plateOk;
 
-  /**
-   * EVERYTHING THE SAVE DOES ONCE THE «WHO» IS SETTLED — proved or deliberately skipped.
-   *
-   * Split out of `save` because the answer to «من يحفظ؟» arrives from a sheet, one render later:
-   * the press cannot both ask and commit, and holding the entry in state until the answer comes
-   * back is what lets «تخطّي» and «تأكيد» end in the same place.
-   */
   const commit = useCallback(() => {
     // MINTED HERE, ONCE PER SAVE. Not inside the queue and not inside the request — a key created
     // where the request is sent would be a new key on every retry, which is exactly no key.
     const key = newIdempotencyKey();
-    const who = proof();
     // THE OFFER TRAVELS WITH THE VISIT, NOT BESIDE IT (ط-1). Calling `applyOffer` here, alongside
     // `queue.add`, raced the very request the queue was about to send: the server has no visit to
     // attach an offer to until `recordVisit` has landed, and the two calls reached it in whatever
@@ -480,11 +468,6 @@ export function Visit() {
       meter: showMeter && meter ? Number(meter) : undefined,
       package_id: selectedPackageId || undefined,
       idempotency_key: key,
-      // EMPTY IS AN ANSWER. He skipped, or nobody in this shop has a PIN — and a visit filed under
-      // nobody is the truth, while a visit filed under whoever the device last remembered is the
-      // defect this whole path exists to close.
-      operator_id: who?.id,
-      operator_ticket: who?.ticket,
       // EMPTY WHEN THE CHECKBOX WAS NEVER TICKED — the ordinary visit, unaffected. The outcome
       // (granted, or the real reason it was not) is never awaited here; it lands in «كوبونات»'s
       // own السجل once the queue actually sends this visit, same as everything else this screen
@@ -534,10 +517,6 @@ export function Visit() {
       return;
     }
     if (!ready) return;
-    // WHO IS SAVING, ASKED ONCE PER PROOF AND NOT ONCE PER VISIT. A live ticket goes straight
-    // through, so the busy hour is uninterrupted; an expired one opens the sheet, which remembers
-    // his name so re-proving is four digits.
-    if (!proof()) { setAsking(true); return; }
     commit();
   }, [chosen, commit, phoneUsable, plateOk, ready, showPlate]);
 
@@ -1216,15 +1195,6 @@ export function Visit() {
           sidebar — the shell's own column, which it has no business covering. Sticky keeps it
           pinned to the bottom of the scrolling area it belongs to, and it can never reach past
           the column it lives in, at any width and with the sidebar collapsed or open. */}
-
-      {/* BOTH ANSWERS END IN THE SAME SAVE. «تأكيد» attaches the ticket, «تخطّي» files the visit
-          under nobody — and neither leaves the operator holding a screen that will not commit. */}
-      <WhoIsSaving
-        session={session}
-        open={asking}
-        onProved={() => { setAsking(false); commit(); }}
-        onSkip={() => { setAsking(false); commit(); }}
-      />
     </main>
   );
 }

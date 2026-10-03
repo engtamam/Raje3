@@ -7,9 +7,8 @@
  *
  * PLATFORM-WIDE NOW, ANY LOGGED-IN ACCOUNT, THE OWNER INCLUDED (2026-09-11). This used to be a
  * PER-Operator-ROW preference (`Operator.locale`, `GET/PATCH /api/v1/staff/operators/me/locale`)
- * — real for a hired operator (he has his own login, `PIN_OPERATORS_ENABLED=false` is this
- * deployment's live default: "every employee gets an account on his own phone"), but structurally
- * unreachable for the owner, who holds no `Operator` row at all. `GET/PATCH
+ * — real for a hired operator (he has his own login), but structurally unreachable for the owner,
+ * who holds no `Operator` row at all. `GET/PATCH
  * /api/v1/account/me/locale` replaces it, keyed by the account itself rather than by an Operator
  * row — see `getMyLocale`/`setMyLocale` in api.ts. Never `localStorage` either way: a device-local
  * setting would reset the moment he signs in on a different phone or the shop hands him a new

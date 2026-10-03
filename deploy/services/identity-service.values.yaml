@@ -4,11 +4,8 @@
 #
 # SCOPE — read this before adding anything here. identity-service authenticates the owner, the
 # manager, custom roles, our own super-admin team — AND, since a hired employee gets his own
-# phone+password account (services/operations/app/core/signup.py's own `hire()`,
-# PIN_OPERATORS_ENABLED=false is this deployment's live default), most field operators too. The
-# shared-tablet 4-digit PIN (spec §3.5) is the OTHER, currently-dormant path — attribution only,
-# never authentication, and it stays a `operations` domain concern when it is used. Do not assume
-# "field operator" means "no identity-service account here": check PIN_OPERATORS_ENABLED first.
+# phone+password account (services/operations/app/core/signup.py's own `hire()`), every field
+# operator too. Every operator row in `operations` is backed by an identity-service account.
 service:
   name: identity-service
   port: 8000

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * «فريقي» — two real defects found from a screenshot: a single-branch shop's staff list showed a
  * name and a role and nothing else (no rename, no role change, no way to stop somebody who left —
  * the backend has always accepted all three), and a worker hired while there was only one branch
@@ -57,9 +57,8 @@ afterEach(() => { cleanup(); calls.length = 0; });
 describe('OperatorRow — management always available', () => {
   it('offers تعديل and إيقاف for a single-branch shop, not just the branch picker', () => {
     render(
-      <People session={SESSION} operators={[OPERATOR]} branches={ONE_BRANCH}
-              add={actionOf('operations.create_operator')} edit={actionOf('operations.update_operator')}
-              hire={actionOf('operations.hire')} pinKind onChanged={() => {}} />,
+      <People session={SESSION} operators={[OPERATOR]} branches={ONE_BRANCH} edit={actionOf('operations.update_operator')}
+              hire={actionOf('operations.hire')} onChanged={() => {}} />,
     );
     expect(screen.getByText('تعديل')).toBeTruthy();
     expect(screen.getByText('إيقاف')).toBeTruthy();
@@ -67,9 +66,8 @@ describe('OperatorRow — management always available', () => {
 
   it('stopping somebody calls edit with active:false', async () => {
     render(
-      <People session={SESSION} operators={[OPERATOR]} branches={ONE_BRANCH}
-              add={actionOf('operations.create_operator')} edit={actionOf('operations.update_operator')}
-              hire={actionOf('operations.hire')} pinKind onChanged={() => {}} />,
+      <People session={SESSION} operators={[OPERATOR]} branches={ONE_BRANCH} edit={actionOf('operations.update_operator')}
+              hire={actionOf('operations.hire')} onChanged={() => {}} />,
     );
     fireEvent.click(screen.getByText('إيقاف'));
     await waitFor(() => expect(calls.some((c) => c.id === 'operations.update_operator')).toBe(true));
@@ -79,9 +77,8 @@ describe('OperatorRow — management always available', () => {
 
   it('renaming and changing the role saves both in one call', async () => {
     render(
-      <People session={SESSION} operators={[OPERATOR]} branches={ONE_BRANCH}
-              add={actionOf('operations.create_operator')} edit={actionOf('operations.update_operator')}
-              hire={actionOf('operations.hire')} pinKind onChanged={() => {}} />,
+      <People session={SESSION} operators={[OPERATOR]} branches={ONE_BRANCH} edit={actionOf('operations.update_operator')}
+              hire={actionOf('operations.hire')} onChanged={() => {}} />,
     );
     fireEvent.click(screen.getByText('تعديل'));
     const nameInput = screen.getByDisplayValue('محمد');
@@ -97,9 +94,8 @@ describe('OperatorRow — management always available', () => {
 describe('adding a worker — branch is explicit, even for one branch', () => {
   it('the picker is always shown, opens on no selection, and blocks submit until he picks one', () => {
     render(
-      <People session={SESSION} operators={[]} branches={ONE_BRANCH}
-              add={actionOf('operations.create_operator')} edit={actionOf('operations.update_operator')}
-              hire={actionOf('operations.hire')} pinKind={false} onChanged={() => {}} />,
+      <People session={SESSION} operators={[]} branches={ONE_BRANCH} edit={actionOf('operations.update_operator')}
+              hire={actionOf('operations.hire')} onChanged={() => {}} />,
     );
     fireEvent.click(screen.getByText('إضافة موظف'));
     expect(screen.getByLabelText('فرع الموظف')).toBeTruthy();
@@ -115,9 +111,8 @@ describe('adding a worker — branch is explicit, even for one branch', () => {
 
   it('sends the branch he actually picked, never a silent default', async () => {
     render(
-      <People session={SESSION} operators={[]} branches={ONE_BRANCH}
-              add={actionOf('operations.create_operator')} edit={actionOf('operations.update_operator')}
-              hire={actionOf('operations.hire')} pinKind={false} onChanged={() => {}} />,
+      <People session={SESSION} operators={[]} branches={ONE_BRANCH} edit={actionOf('operations.update_operator')}
+              hire={actionOf('operations.hire')} onChanged={() => {}} />,
     );
     fireEvent.click(screen.getByText('إضافة موظف'));
     fireEvent.change(document.getElementById('op-name') as HTMLInputElement,
@@ -195,3 +190,5 @@ describe('adding a branch — location required only from the second one on', ()
     expect(calls.some((c) => c.id === 'operations.create_branch')).toBe(false);
   });
 });
+
+

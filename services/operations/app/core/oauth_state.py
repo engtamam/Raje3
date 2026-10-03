@@ -7,10 +7,10 @@ anti-CSRF nonce checked against a server-side session (there is no session here 
 against); it is a SELF-CONTAINED signed claim — "this tenant started this install, this many
 seconds ago" — the callback route decodes and verifies with nothing else to go on.
 
-SAME SHAPE AS `operator_ticket.py`, DELIBERATELY — an HMAC over (purpose, tenant, nonce, expiry)
-under the same `PII_SALT` every short-lived signed token in this service already uses, not a new
-secret to provision. `purpose` (e.g. "salla") keeps one provider's state from being replayed as
-another's if this pattern is ever reused for a second marketplace.
+AN HMAC OVER (purpose, tenant, nonce, expiry) under the same `PII_SALT` every short-lived signed
+token in this service already uses, not a new secret to provision. `purpose` (e.g. "salla") keeps
+one provider's state from being replayed as another's if this pattern is ever reused for a second
+marketplace.
 """
 from __future__ import annotations
 
