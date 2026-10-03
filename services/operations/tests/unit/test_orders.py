@@ -671,3 +671,251 @@ def test_a_missing_event_bus_never_breaks_a_real_status_change(svc):
     confirmed = run(s.confirm_payment(TENANT, order.id, paid_amount_minor=1000,
                                       payment_ref="pay_no_bus"))
     assert confirmed.status == CONFIRMED
+
+
+# ── working hours + the cashier's own manual pause ──────────────────────────────────────────────
+class FakeWorkingHours:
+    def __init__(self, weekly) -> None:
+        self._weekly = weekly
+
+    async def working_hours(self, tenant):
+        return self._weekly
+
+
+OPEN_ALL_WEEK = {str(d): {"closed": False, "start_minute": 0, "end_minute": 24 * 60 - 1}
+                for d in range(7)}
+CLOSED_ALL_WEEK = {str(d): {"closed": True, "start_minute": 0, "end_minute": 0} for d in range(7)}
+
+
+def _svc_with_hours(store, weekly):
+    ops = Operations(store=store, pii_salt="s" * 32)
+    return OrderService(store=store, services=ServiceStore(store), branches=BranchStore(store),
+                        operations=ops, working_hours=FakeWorkingHours(weekly))
+
+
+def test_an_order_outside_working_hours_is_refused():
+    store = MemoryDataStore()
+    s = _svc_with_hours(store, CLOSED_ALL_WEEK)
+    sid, bid = run(_seed(store))
+    with pytest.raises(OrderError):
+        run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                     items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_hours_closed"))
+
+
+def test_an_order_inside_working_hours_is_accepted():
+    store = MemoryDataStore()
+    s = _svc_with_hours(store, OPEN_ALL_WEEK)
+    sid, bid = run(_seed(store))
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                         items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_hours_open"))
+    assert order.status == RECEIVED
+
+
+def test_an_unreachable_working_hours_peer_fails_open():
+    store = MemoryDataStore()
+    ops = Operations(store=store, pii_salt="s" * 32)
+    s = OrderService(store=store, services=ServiceStore(store), branches=BranchStore(store),
+                     operations=ops, working_hours=None)
+    sid, bid = run(_seed(store))
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                         items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_hours_none"))
+    assert order.status == RECEIVED
+
+
+def test_a_paused_branch_refuses_new_orders_with_its_own_reason():
+    from app.core.order_pause import OrderPauseStore
+    store = MemoryDataStore()
+    ops = Operations(store=store, pii_salt="s" * 32)
+    pauses = OrderPauseStore(store)
+    s = OrderService(store=store, services=ServiceStore(store), branches=BranchStore(store),
+                     operations=ops, pauses=pauses)
+    sid, bid = run(_seed(store))
+    run(pauses.set(TENANT, bid, paused=True, reason="نفدت الكمية", actor="cashier_1"))
+    with pytest.raises(OrderError, match="نفدت الكمية"):
+        run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                     items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_paused"))
+
+
+def test_resuming_a_branch_lets_orders_through_again():
+    from app.core.order_pause import OrderPauseStore
+    store = MemoryDataStore()
+    ops = Operations(store=store, pii_salt="s" * 32)
+    pauses = OrderPauseStore(store)
+    s = OrderService(store=store, services=ServiceStore(store), branches=BranchStore(store),
+                     operations=ops, pauses=pauses)
+    sid, bid = run(_seed(store))
+    run(pauses.set(TENANT, bid, paused=True, reason="استراحة"))
+    run(pauses.set(TENANT, bid, paused=False))
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                         items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_resumed"))
+    assert order.status == RECEIVED
+
+
+def test_pausing_one_branch_never_affects_a_sister_branch():
+    from app.core.order_pause import OrderPauseStore
+    store = MemoryDataStore()
+    ops = Operations(store=store, pii_salt="s" * 32)
+    pauses = OrderPauseStore(store)
+    s = OrderService(store=store, services=ServiceStore(store), branches=BranchStore(store),
+                     operations=ops, pauses=pauses)
+    sid, bid_a = run(_seed(store, branch_active=True))
+    bid_b = "br_sister"
+    run(BranchStore(store).save(Branch(id=bid_b, tenant=TENANT, name="الفرع الثاني", active=True)))
+    run(pauses.set(TENANT, bid_a, paused=True, reason="مغلق مؤقتاً"))
+    order = run(s.create(tenant=TENANT, branch_id=bid_b, phone=PHONE, customer_name="سارة",
+                         items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_sister"))
+    assert order.status == RECEIVED
+
+
+def test_a_branch_pause_never_blocks_an_already_placed_orders_own_progress():
+    """Pausing stops NEW orders, never freezes one already in flight — a shop that pauses mid-rush
+    must still be able to confirm payment and fulfil what it already accepted."""
+    from app.core.order_pause import OrderPauseStore
+    store = MemoryDataStore()
+    ops = Operations(store=store, pii_salt="s" * 32)
+    pauses = OrderPauseStore(store)
+    s = OrderService(store=store, services=ServiceStore(store), branches=BranchStore(store),
+                     operations=ops, pauses=pauses)
+    sid, bid = run(_seed(store, price_minor=1000))
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                         items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_inflight"))
+    run(pauses.set(TENANT, bid, paused=True, reason="توقف مفاجئ"))
+    confirmed = run(s.confirm_payment(TENANT, order.id, paid_amount_minor=1000,
+                                      payment_ref="pay_inflight"))
+    assert confirmed.status == CONFIRMED
+    prepared = run(s.start_preparing(TENANT, order.id))
+    assert prepared.status == PREPARING
+
+
+def test_resuming_always_clears_a_stale_reason_even_if_one_is_passed():
+    from app.core.order_pause import OrderPauseStore
+    store = MemoryDataStore()
+    pauses = OrderPauseStore(store)
+    run(pauses.set(TENANT, "br_x", paused=True, reason="سبب قديم"))
+    run(pauses.set(TENANT, "br_x", paused=False, reason="هذا يجب أن يُتجاهل"))
+    paused, reason = run(pauses.get(TENANT, "br_x"))
+    assert paused is False and reason == ""
+
+
+def test_an_oversized_pause_reason_is_capped_never_rejected():
+    from app.core.order_pause import OrderPauseStore
+    store = MemoryDataStore()
+    pauses = OrderPauseStore(store)
+    run(pauses.set(TENANT, "br_x", paused=True, reason="س" * 1000))
+    _paused, reason = run(pauses.get(TENANT, "br_x"))
+    assert len(reason) == 300
+
+
+def test_a_reason_with_newlines_and_quotes_is_stored_verbatim_up_to_the_cap():
+    """Defends against the obvious injection-shaped input: a reason is free text a cashier typed,
+    never parsed as markup or a template, so control characters must not break anything — only the
+    length cap applies."""
+    from app.core.order_pause import OrderPauseStore
+    store = MemoryDataStore()
+    pauses = OrderPauseStore(store)
+    tricky = 'سطر واحد\nسطر ثاني "مقتبس" و\'اقتباس آخر\'\t<script>'
+    run(pauses.set(TENANT, "br_x", paused=True, reason=tricky))
+    _paused, reason = run(pauses.get(TENANT, "br_x"))
+    assert reason == tricky
+
+
+def test_pausing_the_same_branch_id_under_two_tenants_never_cross_contaminates():
+    """`branch_id` strings are not guaranteed globally unique across tenants — only the
+    (tenant, branch_id) PAIR is. A collision here would let one shop's pause silently stop
+    another shop's orders."""
+    from app.core.order_pause import OrderPauseStore
+    store = MemoryDataStore()
+    pauses = OrderPauseStore(store)
+    run(pauses.set("tenant_a", "br_shared", paused=True, reason="فرع أ متوقف"))
+    paused_a, _ = run(pauses.get("tenant_a", "br_shared"))
+    paused_b, _ = run(pauses.get("tenant_b", "br_shared"))
+    assert paused_a is True
+    assert paused_b is False
+
+
+def test_concurrent_pause_and_resume_never_crashes_last_write_wins():
+    """Not a money-correctness primitive (unlike payment confirmation) — a last-write-wins race
+    between two cashier devices toggling the same branch is an acceptable outcome; the only real
+    requirement is that it never raises and never corrupts the row."""
+    from app.core.order_pause import OrderPauseStore
+    store = MemoryDataStore()
+    pauses = OrderPauseStore(store)
+
+    async def scenario():
+        await asyncio.gather(
+            pauses.set(TENANT, "br_x", paused=True, reason="إيقاف"),
+            pauses.set(TENANT, "br_x", paused=False),
+        )
+        return await pauses.get(TENANT, "br_x")
+
+    paused, reason = run(scenario())
+    assert paused in (True, False)
+    if paused:
+        assert reason == "إيقاف"
+    else:
+        assert reason == ""
+
+
+# ── working hours: the real boundary conditions, not just open/closed ─────────────────────────
+import datetime as _dt
+from app.core.riyadh import RIYADH as _RIYADH
+
+
+def _riyadh_epoch(year, month, day, hour, minute) -> int:
+    return int(_dt.datetime(year, month, day, hour, minute, tzinfo=_RIYADH).timestamp())
+
+
+def test_the_closing_minute_itself_is_already_closed(monkeypatch):
+    """`start <= minute < end` — the end minute is EXCLUDED, i.e. a shop open 9:00-17:00 refuses a
+    request landing at exactly 17:00, not just after it. Order's own working-hours check always
+    asks about `time.time()` (unlike `mobile_requests`'s own explicit `requested_time`), so the
+    clock itself must be monkeypatched to control the boundary."""
+    import app.core.orders as orders_mod
+    store = MemoryDataStore()
+    # Thursday 2026-01-01 is a Thursday — weekday() Monday=0..Sunday=6, Thursday=3.
+    weekly = {"3": {"closed": False, "start_minute": 9 * 60, "end_minute": 17 * 60}}
+    s = _svc_with_hours(store, weekly)
+    sid, bid = run(_seed(store))
+    closing_instant = _riyadh_epoch(2026, 1, 1, 17, 0)
+    monkeypatch.setattr(orders_mod.time, "time", lambda: float(closing_instant))
+    with pytest.raises(OrderError):
+        run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                     items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_exact_close"))
+
+
+def test_one_minute_before_closing_is_still_accepted(monkeypatch):
+    import app.core.orders as orders_mod
+    store = MemoryDataStore()
+    weekly = {"3": {"closed": False, "start_minute": 9 * 60, "end_minute": 17 * 60}}
+    s = _svc_with_hours(store, weekly)
+    sid, bid = run(_seed(store))
+    just_before_close = _riyadh_epoch(2026, 1, 1, 16, 59)
+    monkeypatch.setattr(orders_mod.time, "time", lambda: float(just_before_close))
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                         items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_before_close"))
+    assert order.status == RECEIVED
+
+
+def test_a_day_with_no_entry_at_all_defaults_to_closed_not_open():
+    """A weekly dict missing today's key entirely (never configured, not explicitly marked
+    closed) must default to CLOSED — the safe direction for a gap in configuration no shop meant
+    to leave a 24-hour-open day by omission."""
+    store = MemoryDataStore()
+    s = _svc_with_hours(store, {})  # no days configured at all
+    sid, bid = run(_seed(store))
+    with pytest.raises(OrderError):
+        run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                     items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_no_day_entry"))
+
+
+def test_order_pause_store_itself_fails_open_on_an_unreadable_row():
+    """`OrderPauseStore.get` must never raise, and must never read a store hiccup as «paused» —
+    same asymmetry `AiToggleStore.get` already documents for the identical shape."""
+    from app.core.order_pause import ORDER_PAUSE, OrderPauseStore
+
+    class BrokenStore:
+        async def get(self, *a, **kw):
+            raise RuntimeError("down")
+
+    pauses = OrderPauseStore(BrokenStore())
+    assert run(pauses.get(TENANT, "br_x")) == (False, "")

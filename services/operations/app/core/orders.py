@@ -45,7 +45,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from app.core.mobile_requests import maps_link
+from app.core.mobile_requests import MobileRequestError, maps_link, validate_requested_time
 from app.core.signup import canonical_phone
 
 ORDERS = "whatsapp_orders"
@@ -180,6 +180,7 @@ class OrderService:
 
     def __init__(self, *, store: Any, services: Any, branches: Any, operations: Any = None,
                 seams: Any = None, payments: Any = None, events: Any = None,
+                working_hours: Any = None, pauses: Any = None,
                 default_cc: str = "966") -> None:
         self._s = store
         self._services = services      # ServiceStore — the one source of truth for price/active
@@ -188,6 +189,11 @@ class OrderService:
         self._seams = seams
         self._payments = payments      # PaymentsDesk — mints/reconciles the merchant's own pay-link
         self._events = events          # EventBus — publishes "operations.order.changed", see _emit
+        # `BookingsDesk` (or any peer with the same `async working_hours(tenant) -> dict | None`
+        # shape) — same fail-open posture `mobile_requests.py`'s own docstring documents: an
+        # unreachable peer SKIPS the check rather than refusing every order no one can verify.
+        self._working_hours = working_hours
+        self._pauses = pauses          # OrderPauseStore — the cashier's own manual stop button
         self._cc = default_cc
 
     async def _emit(self, row: "Order") -> None:
@@ -238,6 +244,24 @@ class OrderService:
         branch = await self._branches.get(tenant, branch_id)
         if branch is None or not branch.active:
             raise OrderError("الفرع المحدَّد غير موجود أو غير نشِط.")
+
+        # CLOSED FOR THE DAY — same real, validated instant check `mobile_requests.py`'s own
+        # `validate_requested_time` already enforces for a REQUESTED time; here it is asked about
+        # RIGHT NOW. Fail-open on an unreachable peer, same reasoning that module's docstring gives.
+        if self._working_hours is not None:
+            weekly = await self._working_hours.working_hours(tenant)
+            try:
+                validate_requested_time(int(time.time()), weekly)
+            except MobileRequestError as exc:
+                raise OrderError(str(exc)) from exc
+
+        # THE CASHIER'S OWN MANUAL STOP, SEPARATE FROM WORKING HOURS — a branch well within its
+        # posted hours can still need to pause (core/order_pause.py's own module docstring).
+        if self._pauses is not None:
+            paused, reason = await self._pauses.get(tenant, branch_id)
+            if paused:
+                raise OrderError(f"هذا الفرع متوقف عن استقبال الطلبات مؤقتاً"
+                                 f"{f' — {reason}' if reason else ''}.")
 
         # MERGE DUPLICATE LINES BEFORE PRICING, NEVER AFTER — a customer (or a buggy conversation
         # flow) sending the same service twice must total the same as sending it once with double
