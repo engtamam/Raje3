@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.phone import canonical_phone
 from app.core.pii import subject_ref
 from app.core.referral_code import BY_CODE, BY_PHONE
 
@@ -35,7 +36,7 @@ class TemplateErasure:
         self._max = max_scan          # unused here (no paged scan needed — a direct key lookup)
 
     async def erase(self, tenant: str, subject: str) -> dict[str, Any]:
-        phone = subject
+        phone = canonical_phone(subject)
         ref = subject_ref(self._salt, tenant, phone) if self._salt else ""
 
         # NO `tenant` SCOPING ON THE ROW ITSELF, DELIBERATELY — the code is global BY DESIGN (one

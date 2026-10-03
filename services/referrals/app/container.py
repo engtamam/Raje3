@@ -240,5 +240,5 @@ def build_container(settings: Settings) -> Container:
 
     from app.core.campaigns import CampaignService
 
-    container.campaigns = CampaignService(container.datastore)
+    container.campaigns = CampaignService(container.datastore, licence=container.licence)
     return container

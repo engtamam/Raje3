@@ -24,13 +24,14 @@ from app.core.models import (
 
 _MAX_PERCENT = 99
 _MAX_MULTIPLIER = 10.0
+_MAX_POINTS = 1_000_000
 
 
 class RewardError(Exception):
     """A refusal a caller should show verbatim — never a stack trace."""
 
 
-def _positive_int(value: Any, *, field: str, minimum: int = 1) -> int:
+def _positive_int(value: Any, *, field: str, minimum: int = 1, maximum: int | None = None) -> int:
     # bool is a subclass of int in Python — int(True) == 1 would otherwise silently accept a
     # caller's stray `"points": true` as "1 point" instead of refusing the obviously wrong type.
     if isinstance(value, bool):
@@ -48,6 +49,8 @@ def _positive_int(value: Any, *, field: str, minimum: int = 1) -> int:
         raise RewardError(f"{field}: قيمة غير صالحة")
     if n < minimum:
         raise RewardError(f"{field}: يجب أن يكون {minimum} على الأقل")
+    if maximum is not None and n > maximum:
+        raise RewardError(f"{field}: لا يمكن أن يتجاوز {maximum}")
     return n
 
 
@@ -83,7 +86,7 @@ def _non_empty_text(value: Any, *, field: str) -> str:
 
 
 def _validate_fixed_points(params: dict[str, Any]) -> dict[str, Any]:
-    return {"points": _positive_int(params.get("points"), field="عدد النقاط")}
+    return {"points": _positive_int(params.get("points"), field="عدد النقاط", maximum=_MAX_POINTS)}
 
 
 def _validate_invoice_percentage(params: dict[str, Any]) -> dict[str, Any]:
@@ -107,7 +110,8 @@ def _validate_cashback_points(params: dict[str, Any]) -> dict[str, Any]:
     # SAME SHAPE AS fixed_points, DELIBERATELY — the only difference is the TAG this reward is
     # recorded under at redemption time (Phase 3), which is a fact about WHERE the points are
     # spent from, never about how many are granted here.
-    return {"points": _positive_int(params.get("points"), field="عدد نقاط الكاش باك")}
+    return {"points": _positive_int(params.get("points"), field="عدد نقاط الكاش باك",
+                                    maximum=_MAX_POINTS)}
 
 
 def _validate_status_multiplier(params: dict[str, Any]) -> dict[str, Any]:
@@ -148,7 +152,8 @@ def _validate_mystery_box(params: dict[str, Any]) -> dict[str, Any]:
     for o in outcomes:
         if not isinstance(o, dict):
             raise RewardError("صندوق الحظ: احتمال غير صالح")
-        points = _positive_int(o.get("points"), field="نقاط احتمال بصندوق الحظ")
+        points = _positive_int(o.get("points"), field="نقاط احتمال بصندوق الحظ",
+                               maximum=_MAX_POINTS)
         weight = _positive_int(o.get("weight"), field="وزن احتمال بصندوق الحظ")
         normalized.append({"points": points, "weight": weight})
     return {"outcomes": normalized}
@@ -180,7 +185,8 @@ def _validate_new_customer_discount(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _validate_new_customer_welcome_points(params: dict[str, Any]) -> dict[str, Any]:
-    return {"points": _positive_int(params.get("points"), field="نقاط ترحيب العميل الجديد")}
+    return {"points": _positive_int(params.get("points"), field="نقاط ترحيب العميل الجديد",
+                                    maximum=_MAX_POINTS)}
 
 
 _NEW_CUSTOMER_VALIDATORS = {

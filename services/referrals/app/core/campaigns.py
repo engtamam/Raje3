@@ -13,6 +13,7 @@ from app.core.models import (
     BENEFICIARY_ELIGIBILITIES, CAMPAIGNS, CAP_SCOPE_CAMPAIGN, CAP_SCOPES, ELIGIBILITY_MAX_VISITS,
     ELIGIBILITY_NEW, MODE_X_TIMES, MODES, USAGE_CAP_PERIODS, Campaign,
 )
+from app.core.licence import NullLicence
 from app.core.rewards import RewardError, validate_new_customer_reward, validate_reward
 
 
@@ -42,8 +43,9 @@ def _next_created_ns() -> int:
 
 
 class CampaignService:
-    def __init__(self, store: Any) -> None:
+    def __init__(self, store: Any, licence: Any = None) -> None:
         self._store = store
+        self._licence = licence if licence is not None else NullLicence()
 
     async def create(
         self, tenant: str, *, mode: str, reward_type: str, reward_params: dict[str, Any],
@@ -53,6 +55,7 @@ class CampaignService:
         cap_scope: str = CAP_SCOPE_CAMPAIGN,
         beneficiary_eligibility: str = ELIGIBILITY_NEW, beneficiary_max_visits: int = 0,
     ) -> Campaign:
+        await self._licence.require(tenant)
         if mode not in MODES:
             raise CampaignError(f"نمط إحالة غير معروف: {mode}")
         if mode == MODE_X_TIMES and int(x_times_limit) < 1:
@@ -160,6 +163,8 @@ class CampaignService:
         campaign = await self.get(tenant, campaign_id)
         if campaign is None:
             raise CampaignError("الحملة غير موجودة")
+        if active:
+            await self._licence.require(tenant)
         updated = Campaign(
             id=campaign.id, tenant=campaign.tenant, created_at=campaign.created_at,
             mode=campaign.mode, x_times_limit=campaign.x_times_limit,

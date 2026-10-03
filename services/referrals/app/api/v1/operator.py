@@ -16,7 +16,7 @@ is already gone by the time anybody looks.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from starlette.responses import JSONResponse
 
 from app.api.auth import Principal, require_user
@@ -83,6 +83,12 @@ def _runtime_config(request: Request) -> RuntimeConfig:
     return RuntimeConfig(request.app.state.container.datastore, Settings, policy=RUNTIME_POLICY)
 
 
+def _reject_wildcard_tenant(value: str) -> str:
+    if value.strip() == "*":
+        raise ValueError("tenant may not be a wildcard — leave it empty for platform-wide")
+    return value
+
+
 class SecretIn(BaseModel):
     name: str = Field(..., min_length=1, max_length=128)
     value: str = Field(..., min_length=1, max_length=8192)
@@ -90,11 +96,15 @@ class SecretIn(BaseModel):
     # per-customer; most are not.
     tenant: str = Field(default="", max_length=128)
 
+    _reject_wildcard = field_validator("tenant")(_reject_wildcard_tenant)
+
 
 class ConfigIn(BaseModel):
     key: str = Field(..., min_length=1, max_length=128)
     value: str | int | float | bool
     tenant: str = Field(default="", max_length=128)
+
+    _reject_wildcard = field_validator("tenant")(_reject_wildcard_tenant)
 
 
 # ── credentials ───────────────────────────────────────────────────────────────

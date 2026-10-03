@@ -13,7 +13,10 @@ from starlette.responses import JSONResponse
 from app.api.auth import Principal, require_user
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
+from app.config import get_settings
 from app.core.campaigns import CampaignError
+from app.core.licence import LicenceError
+from app.core.pii import subject_ref
 
 router = APIRouter(prefix="/api/v1/referrals", tags=["referrals-admin"])
 
@@ -22,6 +25,13 @@ _MANAGE = require_capability("referrals.manage")
 
 def _tenant(principal: Principal) -> str:
     return principal.tenant or ""
+
+
+def _actor(principal: Principal) -> str:
+    s = get_settings()
+    if not s.PII_SALT:
+        return ""
+    return subject_ref(s.PII_SALT, principal.tenant or "", principal.subject)
 
 
 def _refuse(reason: str, *, status_code: int = status.HTTP_400_BAD_REQUEST) -> JSONResponse:
@@ -65,8 +75,13 @@ async def create_campaign(request: Request, body: CampaignIn,
             beneficiary_eligibility=body.beneficiary_eligibility,
             beneficiary_max_visits=body.beneficiary_max_visits,
         )
+    except LicenceError as exc:
+        return _refuse(str(exc), status_code=status.HTTP_402_PAYMENT_REQUIRED)
     except CampaignError as exc:
         return _refuse(str(exc))
+    await request.app.state.auditor.record(
+        "referrals.campaign_created", actor=_actor(principal), tenant=_tenant(principal),
+        resource=f"campaign:{campaign.id}")
     return campaign.to_dict()
 
 
@@ -104,6 +119,11 @@ async def set_campaign_active(request: Request, campaign_id: str, body: ActiveIn
     c = request.app.state.container
     try:
         campaign = await c.campaigns.set_active(_tenant(principal), campaign_id, active=body.active)
+    except LicenceError as exc:
+        return _refuse(str(exc), status_code=status.HTTP_402_PAYMENT_REQUIRED)
     except CampaignError as exc:
         return _refuse(str(exc), status_code=status.HTTP_404_NOT_FOUND)
+    await request.app.state.auditor.record(
+        "referrals.campaign_active_changed", actor=_actor(principal), tenant=_tenant(principal),
+        resource=f"campaign:{campaign.id}")
     return campaign.to_dict()

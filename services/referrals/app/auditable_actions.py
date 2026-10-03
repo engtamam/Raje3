@@ -142,6 +142,23 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "started refusing — and that history is unavailable anywhere else. Not critical: "
                "refusing to change a retention period because the log is down protects nothing",
     },
+    {
+        "action": "referrals.campaign_created",
+        "source": "admin",
+        "critical": False,
+        "resource": "campaign",
+        "why": "a referral campaign's terms shape every reward it will ever pay out; the owner "
+               "who set them must be attributable, and refusing creation during an audit outage "
+               "protects nothing",
+    },
+    {
+        "action": "referrals.campaign_active_changed",
+        "source": "admin",
+        "critical": False,
+        "resource": "campaign",
+        "why": "turning a campaign on or off changes what customers see immediately; the history "
+               "of who flipped it explains later behaviour",
+    },
     # ── Delete these examples and declare your own ────────────────────────────
     {
         "action": "example.thing_created",
