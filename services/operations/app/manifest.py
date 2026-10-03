@@ -252,13 +252,11 @@ def build_manifest(
             # Same report, as a branded document (docx/pdf) instead of JSON (phase 8).
             {"path": "/api/v1/field/staff/performance/export", "tier": "user", "method": "POST"},
             # ── the back office ───────────────────────────────────────────────────────────
-            {"path": "/api/v1/staff/operators", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/members", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/operators", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/operators/{}", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/staff/operators/{}/working-hours", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/staff/operators/{}/working-hours", "tier": "user", "method": "DELETE"},
-            {"path": "/api/v1/staff/operators/verify-pin", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/operators/me", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/operators/me/locale", "tier": "user", "method": "PATCH"},
             # The mobile app's own bottom-bar personalisation — see staff.py's own docstring.

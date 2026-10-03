@@ -42,7 +42,7 @@ def _op(**over) -> dict:
         setattr(row, k, v)
     return {"id": row.id, "tenant": row.tenant, "name": row.name, "person_id": row.person_id,
             "branch_id": row.branch_id, "active": row.active, "role": row.role,
-            "pin_hash": row.pin_hash, "created": row.created,
+            "created": row.created,
             "visible_branch_ids": row.visible_branch_ids, "visible_all": row.visible_all}
 
 

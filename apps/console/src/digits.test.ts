@@ -18,9 +18,9 @@ describe('a digit typed on an arabic keyboard reaches the box', () => {
     expect(digitsOnly('٥ ٤٣')).toBe('543');
   });
 
-  it('keeps a four-digit PIN he can actually type', () => {
-    // WhoIsSaving and Team both do `digitsOnly(...).slice(0, 4)`. Before this, `/\D/g` deleted
-    // every one of these and the field stayed empty while he typed.
+  it('keeps a four-digit code he can actually type', () => {
+    // A screen that slices a digit field with `digitsOnly(...).slice(0, 4)` — before this,
+    // `/\D/g` deleted every one of these and the field stayed empty while he typed.
     expect(digitsOnly('١٢٣٤').slice(0, 4)).toBe('1234');
   });
 

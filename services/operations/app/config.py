@@ -558,22 +558,6 @@ class Settings(BaseSettings):
     # not after a chain nobody has walked.
     BRANCH_MODE_PER_BRANCH_READY: bool = False
 
-    # ── the shared-tablet employee ────────────────────────────────────────────────────────────
-    # OFF, AND KEPT WHOLE. «رمز على الجهاز» adds a person with four digits instead of a login: he
-    # proves himself at «من يحفظ؟» and the visit carries his name. It is built end to end — the
-    # form, `create_operator`, `verify-pin`, the five-minute proof — and it is not what this
-    # product is being sold on today: every employee gets an account on his own phone.
-    #
-    # SWITCHED OFF RATHER THAN DELETED, on purpose. Deleting a working path costs a rewrite the day
-    # a shop with one counter tablet asks for it; leaving it visible costs every owner a choice he
-    # does not need and a second credential to manage. So it stays complete and unreachable, and
-    # this line is the whole of the decision.
-    #
-    # AND IT IS ENFORCED AT THE DOOR, not only in the screen: `create_operator` refuses while this
-    # is false. A capability hidden by the console alone is a capability, and this file would then
-    # be describing a wish.
-    PIN_OPERATORS_ENABLED: bool = False
-
     # THE KILL SWITCH for selling any plan marked `plan.standalone` (core/subscribe.py::may_add,
     # is_standalone) WITHOUT الأساس underneath it — e.g. "واتساب الذكي (مستقل)". False makes
     # may_add demand a base for those plans too, same as every other app; existing standalone

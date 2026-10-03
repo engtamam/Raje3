@@ -3,26 +3,9 @@
 A DIFFERENT PRIVILEGE FROM THE FIELD SCREEN, and separated on purpose. Recording a visit is what
 everyone does all day; adding an operator, changing a price or deactivating a service is the
 owner's. A shop that hires seasonal help must be able to grant the first without the second.
-
-THE PIN IS ATTRIBUTION, NOT AUTHENTICATION — and the distinction decides the whole design.
-
-A four-digit PIN is guessable by construction: ten thousand possibilities, and a colleague standing
-beside you can watch it being typed. It is not, and cannot be, what protects an establishment's
-data. That is the establishment's session, which is a real token behind a real login.
-
-What the PIN answers is a narrower and genuinely useful question: WHICH of the three people sharing
-this tablet recorded that visit. It is asked at SAVE, not at the start of a shift, because the
-screen stays open all day and a login per visit would destroy the five-second rule — and the
-predictable result of that is one device signed in as one person recording everybody's work, which
-is worse than no attribution because it is attribution that lies.
-
-So it is hashed (never stored readable), it is rate-limited (guessing four digits is otherwise
-trivial), a wrong one is audited (a pattern of failures is the signal worth having), and it is
-never returned by any read.
 """
 from __future__ import annotations
 
-import hmac
 import time
 import urllib.error
 import urllib.parse
@@ -44,7 +27,6 @@ from app.api import scope as SCOPE
 from app.core.models import (ASSIGNMENT_MODES, PROCEDURE_STEP_SEVERITIES, Branch, Operator,
                              OperatorStepStat, Package, ProcedureStep, Service)
 from app.core import branches as B
-from app.core import operator_ticket as OT
 from app.core import ai_notes as AN
 from app.core import ai_toggle as AT
 from app.core import msg_limits as ML
@@ -122,103 +104,9 @@ def _tenant(p: Principal) -> str:
     return p.tenant
 
 
-# MOVED to core/operator_ticket.py (2026-09-14) as `pin_hash` — the till's own
-# `POST /till/operators/verify-pin` needed the identical formula, and a second copy here is a
-# second place for the two to drift apart. `OT.pin_hash` is this exact function, unchanged.
-_pin_hash = OT.pin_hash
-
-
 # ── operators ─────────────────────────────────────────────────────────────────────────────────
-class OperatorIn(BaseModel):
-    name: str = Field(min_length=1, max_length=128)
-    # Four digits, and no longer. A longer PIN is not meaningfully safer for what this protects,
-    # and it IS meaningfully slower to type a hundred times a day — which is the cost that decides
-    # whether the product gets used.
-    pin: str = Field(min_length=4, max_length=4, pattern=r"^\d{4}$")
-    role: str = Field(default="operator", max_length=32)
-    # REQUIRED, NOT DESCRIPTIVE — every operator now names a real branch at
-    # the moment he is added, the same way `till.py`'s own door already requires one on a sale.
-    # No silent «كل الفروع» default: an owner with one branch still picks «الفرع الرئيسي»
-    # explicitly, so the choice is a fact he made rather than one we guessed for him.
-    branch_id: str = Field(min_length=1, max_length=64)
-
-
-@router.post("/operators", status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(subscribed_write), Depends(rate_limit)])
-async def create_operator(request: Request, body: OperatorIn,
-                          principal: Principal = Depends(_MANAGE)) -> dict:
-    tenant = _tenant(principal)
-    store = OperatorStore(request.app.state.container.datastore)
-    gauges = request.app.state.container.gauges
-
-    # THE SHARED-TABLET EMPLOYEE IS SWITCHED OFF ON THIS DEPLOYMENT (config `PIN_OPERATORS_ENABLED`).
-    #
-    # The whole path is built and kept — the form, this route, `verify-pin`, the five-minute proof —
-    # and it is simply not what the product is sold on today: every employee gets an account on his
-    # own phone. Hiding the control in the console alone would leave the capability live to anybody
-    # who kept a tab open or replayed a request, and a switch that only changes a screen is the
-    # exact defect this codebase keeps finding. So the door answers too.
-    if not getattr(request.app.state.container_settings, "PIN_OPERATORS_ENABLED", False):
-        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={
-            "error": "PIN_OPERATORS_OFF",
-            "message": "إضافة موظف برمز على الجهاز غير مفعّلة. أضِفه بحسابٍ يدخل به من جوّاله."})
-
-    # AT THE DOOR, NOT IN A SWEEP. The sixteenth employee on a plan of fifteen is refused here, in
-    # the screen where he is being added, with the limit named. A nightly job that finds sixteen
-    # and does nothing is a limit that does not exist; one that deactivates somebody fires days
-    # later at a person who did not make the mistake (core/seats.py).
-    # LIVE ONES ONLY, and the same rule the update route reports by. Counting people who were
-    # stopped months ago would make a shop buy seats for employees who no longer work there — and
-    # the two counts disagreeing is worse still: whichever the owner is looking at is the wrong one.
-    # THE COUNT AND THE INSERT ARE ONE ACT OR THE CAP IS DECORATION. Everything from the count to
-    # the write happens inside the establishment's lane; two managers hiring in the same
-    # millisecond are serialised rather than both told there is room (core/seats.py).
-    # CHECKED BEFORE THE SEAT CLAIM AND THE AUDIT RECORD, not inside them — both are write-ahead
-    # acts (a seat consumed, «operator.created» logged) that must never fire for an operator who
-    # is then refused for lacking a real branch.
-    try:
-        branch_id = await B.resolve_required(
-            BranchStore(request.app.state.container.datastore), tenant, body.branch_id)
-    except B.BranchRequired:
-        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={
-            "error": "BRANCH_REQUIRED", "message": "اختر فرعاً حقيقياً لهذا الموظف."})
-
-    try:
-        async with S.claiming(request.app.state.container.datastore,
-                              tenant=tenant, key=S.SEATS, now=time.time()):
-            current = len([o for o in await store.list(tenant) if o.active])
-            await S.guard_and_report(gauges, tenant=tenant, key=S.SEATS, current=current)
-
-            await request.app.state.auditor.record(
-                "operator.created", actor=principal.subject, tenant=tenant, resource="operator",
-                ip=request.client.host if request.client else "")
-
-            settings = request.app.state.container_settings
-            op = Operator(id=new_id("opr"), tenant=tenant, name=body.name.strip(), role=body.role,
-                          branch_id=branch_id, created=int(time.time()))
-            op.pin_hash = _pin_hash(settings.PII_SALT, tenant, op.id, body.pin)
-            await store.save(op)
-            # REPORTED AFTER THE WRITE, and as the whole count rather than a delta. Before the
-            # write it would be a lie for as long as the write takes, and a failed write would
-            # leave billing believing in an employee who does not exist. Reporting the total means
-            # a failed report heals itself on the next change.
-            await gauges.report(tenant, S.SEATS, current + 1)
-    except S.SeatClaimBusy as exc:
-        return JSONResponse(status_code=status.HTTP_409_CONFLICT,
-                            content={"error": "SEAT_BUSY", "message": str(exc)})
-    except S.SeatLimitReached as exc:
-        # RETURNED, NOT RAISED. The platform's error handler strips an HTTPException's detail, so
-        # a raised refusal reaches the owner as a bare 403 and the sentence naming his limit —
-        # the only part that tells him what to do — is thrown away.
-        return JSONResponse(status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                            content={"error": "SEAT_LIMIT", "message": str(exc)})
-    # public() omits pin_hash — a hash that is never returned cannot be attacked offline by
-    # somebody who reached a read endpoint.
-    return op.public()
-
-
 class MemberIn(BaseModel):
-    """An employee who gets his own login — not a PIN on a shared tablet."""
+    """An employee who gets his own login."""
 
     name: str = Field(min_length=1, max_length=128)
     phone: str = Field(min_length=6, max_length=32)
@@ -226,7 +114,10 @@ class MemberIn(BaseModel):
     # short one anyway, and refusing here means he is told before the round trip.
     password: str = Field(min_length=8, max_length=256)
     role: str = Field(min_length=1, max_length=32)
-    # REQUIRED — see OperatorIn's own note.
+    # REQUIRED, NOT DESCRIPTIVE — every operator now names a real branch at the moment he is
+    # added, the same way `till.py`'s own door already requires one on a sale. No silent
+    # «كل الفروع» default: an owner with one branch still picks «الفرع الرئيسي» explicitly, so
+    # the choice is a fact he made rather than one we guessed for him.
     branch_id: str = Field(min_length=1, max_length=64)
 
 
@@ -321,8 +212,8 @@ async def _finish_hire(request: Request, *, body: MemberIn, tenant: str, store: 
     # — new on every call — while the membership behind it is keyed by phone at identity and is
     # idempotent. So a double press, or a retry on a slow reply, created a SECOND operator row for
     # the same human: two seats consumed by one employee on a plan the owner is paying per seat
-    # for, a name listed twice on his team screen, and `verify-pin` picking whichever row it found
-    # first — so the same person's work is attributed to one row today and the other tomorrow.
+    # for, and a name listed twice on his team screen — so the same person's work could be
+    # attributed to one row today and the other tomorrow.
     #
     # `person_id` is the key identity already deduped for us. Reusing it means the second press
     # overwrites the first row rather than adding one, and the count stays what the owner sees.
@@ -337,9 +228,6 @@ async def _finish_hire(request: Request, *, body: MemberIn, tenant: str, store: 
                   tenant=tenant, name=body.name.strip(), role=body.role,
                   branch_id=branch_id,
                   created=existing.created if existing else int(time.time()))
-    # HIS OWN LOGIN IS HIS IDENTITY, so there is no PIN on this row. `verify-pin` compares against
-    # an empty hash and refuses — which is correct: a man with an account does not also need four
-    # digits, and giving him one would be a second credential to leak.
     op.person_id = person_id
     await store.save(op)
     # THE COUNT DOES NOT MOVE WHEN NOBODY WAS ADDED. Reporting `current + 1` after re-saving a row
@@ -349,7 +237,7 @@ async def _finish_hire(request: Request, *, body: MemberIn, tenant: str, store: 
 
 
 class OperatorPatch(BaseModel):
-    """What an owner changes about somebody after adding them. NOT the PIN — see below."""
+    """What an owner changes about somebody after adding them."""
 
     name: str | None = Field(default=None, min_length=1, max_length=128)
     role: str | None = Field(default=None, max_length=32)
@@ -377,12 +265,8 @@ async def update_operator(request: Request, operator_id: str, body: OperatorPatc
     happened (core/operations.py). A field that decides something and cannot be corrected is worse
     than one that decides nothing.
 
-    DEACTIVATE, NEVER DELETE: `verify-pin` refuses an inactive operator, and old visits still name
-    him. An employee who left is history, not a gap.
-
-    AND THE PIN IS NOT HERE. Changing somebody's four digits from the same form that renames him
-    invites it to be done casually and read aloud; it is a separate act, and this route not having
-    it is the design rather than an omission.
+    DEACTIVATE, NEVER DELETE: an inactive operator is refused everywhere he would otherwise act,
+    and old visits still name him. An employee who left is history, not a gap.
     """
     tenant = _tenant(principal)
     store = OperatorStore(request.app.state.container.datastore)
@@ -583,17 +467,7 @@ async def list_operators(request: Request, principal: Principal = Depends(_READ_
     tenant = _tenant(principal)
     rows = await OperatorStore(request.app.state.container.datastore).list(tenant)
     scope = await branch_scope(request.app.state.container.datastore, principal)
-    return {
-        "operators": SCOPE.visible([o.public() for o in rows], scope),
-        # WHETHER THE SHARED-TABLET EMPLOYEE EXISTS ON THIS DEPLOYMENT (config
-        # `PIN_OPERATORS_ENABLED`). Carried on the read the screen already makes, so the form
-        # offers one way of adding somebody rather than two, one of which the door refuses.
-        #
-        # ANSWERED HERE RATHER THAN ASSUMED THERE: a console that hard-coded «off» would have to be
-        # rebuilt to turn it on, which is the opposite of a switch.
-        "pin_operators_enabled": bool(
-            getattr(request.app.state.container_settings, "PIN_OPERATORS_ENABLED", False)),
-    }
+    return {"operators": SCOPE.visible([o.public() for o in rows], scope)}
 
 
 # SUPERSEDED (2026-09-11) BY THE PLATFORM-WIDE `/api/v1/account/me/locale` (api/v1/__init__.py) —
@@ -663,47 +537,6 @@ async def set_my_pinned_nav(request: Request, body: PinnedNavIn,
     op.pinned_nav_ids = list(dict.fromkeys(body.pinned_nav_ids))  # de-duplicate, keep order
     await store.save(op)
     return op.public()
-
-
-class PinVerifyIn(BaseModel):
-    operator_id: str = Field(min_length=1, max_length=64)
-    pin: str = Field(min_length=4, max_length=4, pattern=r"^\d{4}$")
-
-
-@router.post("/operators/verify-pin", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
-async def verify_pin(request: Request, body: PinVerifyIn,
-                     principal: Principal = Depends(_READ)) -> dict:
-    """Confirm which operator is saving. Called by the field screen at the moment of saving.
-
-    Rate-limited like every route here, and that is what makes a four-digit secret defensible at
-    all: ten thousand possibilities fall in minutes to an unthrottled endpoint.
-    """
-    tenant = _tenant(principal)
-    settings = request.app.state.container_settings
-    op = await OperatorStore(request.app.state.container.datastore).get(tenant, body.operator_id)
-
-    expected = op.pin_hash if op else ""
-    candidate = _pin_hash(settings.PII_SALT, tenant, body.operator_id, body.pin)
-    # compare_digest on both paths, and an unknown operator takes the same path as a wrong PIN:
-    # one answer for "no such operator", "wrong PIN" and "deactivated" (CWE-203/208). Anything
-    # else lets a caller enumerate who works here.
-    ok = bool(op) and op.active and hmac.compare_digest(expected, candidate)
-
-    if not ok:
-        # Audited. One failure is a fat finger; a pattern of them is the signal worth having, and
-        # it cannot be seen if failures are not recorded.
-        await request.app.state.auditor.record(
-            "operator.pin_rejected", actor=principal.subject, tenant=tenant,
-            resource=f"operator:{body.operator_id}",
-            ip=request.client.host if request.client else "")
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "PIN_REJECTED")
-
-    # AND IT ISSUES THE PROOF, which it never used to. Confirming an operator and then handing back
-    # only his name left the visit that followed to name whoever it liked in `operator_id` — and
-    # that field decides which BRANCH the work is filed under. See core/operator_ticket.py.
-    return {"operator": op.public(),
-            "ticket": OT.issue(settings.PII_SALT, tenant, body.operator_id),
-            "ticket_ttl": OT.TTL_SECONDS}
 
 
 # ── how this establishment runs its branches ──────────────────────────────────────────────────

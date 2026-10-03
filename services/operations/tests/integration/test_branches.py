@@ -1034,14 +1034,14 @@ def test_operators_full_refuses_without_the_internal_token(client):
     assert r.status_code == 401
 
 
-def test_operators_full_returns_the_full_record_never_the_pin_hash(client):
+def test_operators_full_returns_the_full_record(client):
     from app.core.models import OPERATORS, Operator
     import asyncio
 
     store = client.app.state.container.datastore
 
     async def seed():
-        op = Operator(id="op_full_1", tenant="tnt_op_full", name="أحمد", pin_hash="secrethash",
+        op = Operator(id="op_full_1", tenant="tnt_op_full", name="أحمد",
                      role="manager", branch_id="brn-main", active=True, created=100,
                      visible_all=True)
         await store.put(OPERATORS, f"tnt_op_full|op_full_1", op.__dict__.copy())
@@ -1055,8 +1055,6 @@ def test_operators_full_returns_the_full_record_never_the_pin_hash(client):
     assert row["branch_id"] == "brn-main"
     assert row["visible_all"] is True
     assert row["created"] == 100
-    assert "pin_hash" not in row
-    assert row["has_pin"] is True
 
 
 # ── ci/check_branch_scope.py: GET /whatsapp/connect must ask who is asking ─────────────────────

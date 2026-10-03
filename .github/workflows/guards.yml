@@ -370,20 +370,6 @@ jobs:
       - name: every nav row has a face when collapsed
         run: python3 ci/check_every_nav_row_has_a_face_when_collapsed.py
 
-      # AND A NEW EMPLOYEE CARRIES HIS BRANCH, WHICHEVER WAY HE IS ADDED. The picker lived inside
-      # the «حساب يدخل به» block, so the man on the shared tablet — most of a workshop's staff —
-      # could not be given one from any screen. A visit takes its branch from whoever recorded it,
-      # so all his work landed in «غير محدَّد» and the owner's branch table quietly stopped adding up.
-      - name: a new employee is offered his branch
-        run: python3 ci/check_a_new_employee_is_offered_his_branch.py
-
-      # AND A CAPABILITY WE SWITCH OFF IS REFUSED AT THE DOOR. Hiding the control is not switching
-      # anything off: a stale tab, a queued request or anyone reading our own API still reaches the
-      # route. The screen half matters too — if it hard-codes «off», turning the flag on would need
-      # a console release, which is not a switch either.
-      - name: a switched-off capability is refused at the door
-        run: python3 ci/check_a_switched_off_capability_is_refused_at_the_door.py
-
       # AND A LAZY READ ASKS «NOT YET», NOT «DID IT FAIL». `undefined` and `null` are different
       # answers, and a guard that confuses them either never fetches — «من تأخّر» was a grey
       # rectangle for ever — or fetches on every render after the first failure.

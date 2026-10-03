@@ -4,7 +4,7 @@ WHAT HAPPENED. `hire_member` asks identity to create a membership — keyed by p
 asking twice is one membership — and then wrote its own operator row with `new_id("opr")`. New on
 every call. A double press, or a retry on a slow reply, produced ONE person and TWO rows: two seats
 billed on a per-seat plan, the same name twice on the team screen with nothing to tell them apart,
-and `verify-pin` answering with whichever row it reached first.
+and whichever row a lookup reached first winning.
 
 Nothing failed. 201, a valid row, a screen that refreshed — the second press looked exactly like
 the first one working.

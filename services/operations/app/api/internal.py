@@ -2189,8 +2189,8 @@ async def read_operators_full(request: Request, body: CatalogueIn) -> dict:
     unlike `read_operators`/`read_branch_operators` above (both deliberately id+name(+active),
     shaped for a single caller's own narrow need). For the ops-mcp case-timeline/shop-report
     tool: "who had what access, and since when" is exactly what `Operator.public()` already
-    answers safely (no `pin_hash`, never — see that method's own docstring), so this route is
-    a thin reuse of it, not a new field selection to keep in sync with a second one.
+    answers, so this route is a thin reuse of it, not a new field selection to keep in sync
+    with a second one.
     """
     c = request.app.state.container
     rows = await OperatorStore(c.datastore).list(body.tenant)

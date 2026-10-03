@@ -491,24 +491,15 @@ class Visit:
 
 @dataclass
 class Operator:
-    """Who recorded the visit.
-
-    `pin_hash` — never the PIN. A four-digit PIN is guessable by construction, so it is not a
-    credential that protects data; it is an attribution check at the moment of saving, and the
-    screen behind it is already inside an authenticated establishment session.
-    """
+    """Who recorded the visit."""
     id: str
     tenant: str
     name: str
-    pin_hash: str = ""
     role: str = "operator"
     branch_id: str = ""
-    # WHO HE IS AT IDENTITY, when he has an account of his own. Empty for the PIN-only operators a
-    # shared tablet attributes work to — they are a name and a rhythm, not a login.
-    #
-    # THIS FIELD IS WHAT MAKES A BRANCH SCOPE POSSIBLE. A token carries `sub`; a branch lives on
-    # this row; nothing else in the product joins the two. Without it, "show this manager only his
-    # branch" has no way to know which manager is asking.
+    # WHO HE IS AT IDENTITY, and THE FIELD THAT MAKES A BRANCH SCOPE POSSIBLE. A token carries
+    # `sub`; a branch lives on this row; nothing else in the product joins the two. Without it,
+    # "show this manager only his branch" has no way to know which manager is asking.
     person_id: str = ""
     # WHAT HE MAY SEE, which is not where he WORKS. `branch_id` above is his station: it decides
     # where his visits are counted, and it is one place. This decides which branches' numbers,
@@ -551,8 +542,6 @@ class Operator:
     pinned_nav_ids: list[str] = field(default_factory=list)
 
     def public(self) -> dict[str, Any]:
-        """No pin_hash. Not because it is readable, but because a hash that is never returned
-        cannot be attacked offline by someone who reached a read endpoint."""
         return {"id": self.id, "tenant": self.tenant, "name": self.name, "role": self.role,
                 "branch_id": self.branch_id, "active": self.active, "created": self.created,
                 # WHAT HE MAY SEE, BESIDE WHERE HE WORKS. «فريقي» has to show both or the owner
@@ -568,11 +557,6 @@ class Operator:
                 # A BOOLEAN, NEVER THE ID. The screen needs to know he can sign in; the identifier
                 # itself is identity's and belongs in no response of ours.
                 "has_login": bool(self.person_id),
-                # ALSO A BOOLEAN, and for the field screen rather than for «فريقي»: the sheet that
-                # asks «من يحفظ؟» must not offer a name that cannot answer. An operator with no PIN
-                # listed there is a tap that ends in a refusal he has no way to satisfy, with a
-                # customer waiting.
-                "has_pin": bool(self.pin_hash),
                 "locale": self.locale,
                 "pinned_nav_ids": list(self.pinned_nav_ids)}
 
