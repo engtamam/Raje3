@@ -357,6 +357,20 @@ def build_container(settings: Settings) -> Container:
         seams=container.seams, working_hours=container.bookings_desk,
         plans=container.billing_plans, default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
 
+    # WhatsApp Direct Ordering — see core/orders.py's own module docstring. `payments` is the
+    # merchant's-own-gateway pay-link minter (adapters/payments_desk.py); `services`/`branches` are
+    # what prices a line server-side and confirms the branch is real, never trusted off the wire.
+    from app.adapters.payments_desk import build_payments_desk
+    from app.core.orders import OrderService
+    from app.core.stores import BranchStore, ServiceStore
+
+    container.payments_desk = build_payments_desk(settings)
+    container.orders = OrderService(
+        store=container.datastore, services=ServiceStore(container.datastore),
+        branches=BranchStore(container.datastore), operations=container.operations,
+        seams=container.seams, payments=container.payments_desk,
+        default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
+
     # Shop-to-shop coupons (base-services v0.23.0) — needs `billing_plans` above, so it is built
     # right after it. See core/coupons.py's own module docstring for the full design.
     from app.core.coupons import CouponService

@@ -353,6 +353,11 @@ class Settings(BaseSettings):
     # a peer that may not be configured in every environment.
     BOOKINGS_SERVICE_URL: str = ""           # e.g. http://bookings:8000
     BOOKINGS_WORKING_HOURS_PATH: str = "/internal/working-hours"
+    # WhatsApp Direct Ordering's own pay-link minter — see adapters/payments_desk.py. Empty means
+    # `OrderService.request_payment()` simply cannot mint a link (the caller sees `None` and must
+    # tell the customer to try again shortly), the same "blank = not wired yet" trade every other
+    # optional peer URL in this file already takes.
+    PAYMENTS_SERVICE_URL: str = ""           # e.g. http://payments-service:8000
     # WHERE A SHOP'S DATA LIVES, as "service:category" pairs, registered at signup so a DSAR has
     # somewhere to go. Config and not code: a service deployed next month must not need a release
     # of the signup saga, and a deployment that omits one can be seen in one place.

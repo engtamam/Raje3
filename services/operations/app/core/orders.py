@@ -34,7 +34,9 @@ EXACTLY. A mismatch does not raise and does not silently accept — it parks the
 rule this codebase gets to invent on an order's behalf. And a second, DIFFERENT payment reference
 arriving for an already-confirmed order raises (`OrderError`) rather than being accepted or
 ignored — a shop must not be shown one order while two payments against it are DOUBLE-CHARGING a
-customer and keep this silently.
+customer and keep this silently. The same reference is also refused outright on a SECOND, different
+order — a reused or leaked `payment_ref` confirming two separate charges for the price of one is
+the mirror-image fraud this module closes just as hard.
 """
 from __future__ import annotations
 
@@ -52,6 +54,9 @@ ORDER_CLAIM_TTL_SECONDS = 20.0
 
 MAX_LINE_QUANTITY = 50
 MAX_DISTINCT_LINES = 40
+MAX_IDEMPOTENCY_KEY_LEN = 300  # a webhook event id, never a blob — an unbounded key is a storage-
+                               # abuse vector, the same reasoning every other free-text field in
+                               # this service is capped at the door rather than left open.
 
 # ── the order's own lifecycle — forward only, same discipline mobile_requests' STATUS set uses ──
 RECEIVED = "received"                 # created, awaiting payment confirmation
@@ -126,6 +131,12 @@ class Order:
     paid_amount_minor: int = 0
     payment_ref: str = ""
     confirmed_at: int = 0
+    # SET THE MOMENT A PAY-LINK IS MINTED — `payments-service`'s own id for this request, needed to
+    # ask it later "is this paid yet" (see `OrderService.sync_payment`). `pay_url` is what the
+    # WhatsApp message actually sends the customer; both stay on the order even after payment
+    # completes, so a receipt can always show where the money went.
+    payment_request_id: str = ""
+    pay_url: str = ""
     preparing_at: int = 0
     ready_at: int = 0
     out_for_delivery_at: int = 0
@@ -162,12 +173,13 @@ class OrderService:
     PLACE an order rather than trust either off the wire."""
 
     def __init__(self, *, store: Any, services: Any, branches: Any, operations: Any = None,
-                seams: Any = None, default_cc: str = "966") -> None:
+                seams: Any = None, payments: Any = None, default_cc: str = "966") -> None:
         self._s = store
         self._services = services      # ServiceStore — the one source of truth for price/active
         self._branches = branches      # BranchStore — confirms the branch is real and this tenant's
         self._ops = operations         # Operations — record_visit() on delivery, same as mobile_requests
         self._seams = seams
+        self._payments = payments      # PaymentsDesk — mints/reconciles the merchant's own pay-link
         self._cc = default_cc
 
     # ── creation — the WhatsApp catalogue door ─────────────────────────────────────────────────
@@ -180,6 +192,8 @@ class OrderService:
         to catch for "try again shortly"."""
         if not idempotency_key:
             raise OrderError("لا يوجد معرّف لمنع تكرار الطلب — لن يُسجَّل الطلب.")
+        if len(idempotency_key) > MAX_IDEMPOTENCY_KEY_LEN:
+            raise OrderError("معرّف منع التكرار طويل بشكل غير معتاد.")
         if not branch_id:
             raise OrderError("لم يُحدَّد الفرع المسؤول عن هذا الطلب.")
         phone = canonical_phone(phone, default_cc=self._cc)
@@ -283,7 +297,48 @@ class OrderService:
         await self._s.put(ORDERS, f"{row.tenant}|{row.id}",
                           {"tenant_key": row.tenant, **{**asdict(row)}})
 
-    # ── payment — amount-checked, idempotent, never trust-the-webhook ─────────────────────────
+    # ── payment — minting the link, then the real source of truth, never an event alone ────────
+    async def request_payment(self, tenant: str, order_id: str) -> Order:
+        """Mint (or re-use — payments-service's own `reference` idempotency is `Order.id`) the
+        hosted pay-link the WhatsApp message actually sends the customer. Safe to call again on
+        the SAME order (e.g. the conversation retries after a timeout): payments-service returns
+        the same link for the same reference rather than minting a second one."""
+        row = await self.get(tenant, order_id)
+        if row is None:
+            raise OrderError("الطلب غير موجود.")
+        if row.status not in PAYABLE_FROM:
+            raise OrderError("هذا الطلب لم يعد بانتظار الدفع.")
+        if self._payments is None:
+            raise OrderError("تعذّر إنشاء رابط الدفع الآن — حاول بعد لحظات.")
+        out = await self._payments.create_request(
+            tenant=tenant, reference=row.id, amount_minor=row.total_minor,
+            metadata={"branch_id": row.branch_id})
+        if out is None or not out.get("ok"):
+            raise OrderError("تعذّر إنشاء رابط الدفع الآن — حاول بعد لحظات.")
+        row.payment_request_id = str(out.get("request_id") or "")
+        row.pay_url = str(out.get("pay_url") or "")
+        await self._save(row)
+        return row
+
+    async def sync_payment(self, tenant: str, order_id: str) -> Order:
+        """Ask `payments-service` for this order's CURRENT status and apply it — the pollable
+        fallback every consumer of its event bus must have (see `adapters/payments_desk.py`'s own
+        module docstring): called by a periodic sweep, or on demand right after a customer tells
+        the WhatsApp conversation "I paid". A no-op, safely re-callable, if there is nothing new."""
+        row = await self.get(tenant, order_id)
+        if row is None:
+            raise OrderError("الطلب غير موجود.")
+        if not row.payment_request_id or self._payments is None:
+            return row
+        out = await self._payments.reconcile(tenant=tenant, request_id=row.payment_request_id)
+        if out is None or not out.get("ok"):
+            return row  # peer unreachable, or nothing resolvable yet — try again later
+        if out.get("status") != "completed":
+            return row
+        return await self.confirm_payment(
+            tenant, order_id, paid_amount_minor=int(out.get("amount_minor") or 0),
+            payment_ref=str(out.get("provider_ref") or out.get("request_id") or ""))
+
     async def confirm_payment(self, tenant: str, order_id: str, *, paid_amount_minor: int,
                               payment_ref: str) -> Order:
         if not payment_ref:
@@ -291,6 +346,16 @@ class OrderService:
         row = await self.get(tenant, order_id)
         if row is None:
             raise OrderError("الطلب غير موجود.")
+        # A PAYMENT REFERENCE IS ONE ORDER'S, NEVER TWO'S. Without this check, a leaked, replayed,
+        # or simply reused `payment_ref` (a bug upstream, or a malicious caller who learned a real
+        # one) could confirm a SECOND, unrelated order as paid for free — the exact same money
+        # marked as covering two different charges. Checked BEFORE this order's own `payment_ref`
+        # state, since a collision with a DIFFERENT order is a worse, more suspicious case than
+        # this order's own retry and must never be shadowed by it.
+        clash, _ = await self._s.find(ORDERS, {"tenant": tenant, "payment_ref": payment_ref},
+                                      limit=2)
+        if any(r.get("id") != order_id for r in clash):
+            raise OrderError("مرجع هذه الدفعة مستخدَم بالفعل لطلب آخر — لن يُعتمَد هنا.")
         if row.payment_ref:
             # ALREADY HAS A PAYMENT ON FILE. The SAME reference arriving again is the gateway's own
             # at-least-once retry — a no-op, return as-is. A DIFFERENT reference is a second,
