@@ -148,6 +148,15 @@ env:
   # nothing in any log said so, because a 404 at the gateway never reaches a service.
   #
   # Everything else is auth=required, because deny-by-default applies to routing too.
+  # /api/v1/public_catalog CARRIES NO TOKEN, BY DESIGN (2026-10-03) — the one route Meta's
+  # own WhatsApp Catalog crawler must be able to fetch an image from with no bearer token, since it
+  # has none to give. Gated by a random, unguessable, 256-bit capability TOKEN in the path instead
+  # of an identity check (operations/app/core/public_catalog_image.py's own module docstring) — a
+  # token rotates every time the photo is replaced, so a leaked/scraped URL goes dead on its own.
+  # Scoped to this one narrow prefix (operations/app/api/v1/public_catalog.py — the gateway
+  # prefix must match that module's own filename exactly, ci/check_a_route_with_no_token_is_
+  # open_at_the_door.py enforces it), so no other route can inherit this exemption by accident.
+  #
   # /api/v1/prefs CARRIES NO TOKEN, BY DESIGN, AND THE GATEWAY DISAGREED (ط-6).
   # `reminders/api/v1/prefs.py` opens by saying this surface is reached from a link at the end of a
   # message and that the link carries nothing — the reference is an opaque HMAC, the route returns
@@ -243,6 +252,7 @@ env:
       {"prefix":"/api/v1/billing","upstream":"http://billing-service:8000","auth":"required","strip_prefix":false},
 
       {"prefix":"/api/v1/signup","upstream":"http://operations:8000","auth":"none","strip_prefix":false},
+      {"prefix":"/api/v1/public_catalog","upstream":"http://operations:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/oauth/token","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/service-accounts","upstream":"http://identity-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/till","upstream":"http://operations:8000","auth":"required","strip_prefix":false},

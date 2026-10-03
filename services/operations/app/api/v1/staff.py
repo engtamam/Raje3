@@ -1780,6 +1780,16 @@ async def upload_service_image(request: Request, service_id: str, body: Catalogu
         return JSONResponse({"ok": False, "reason": str(exc)},
                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
     s.image_key = stored.key
+    # A FRESH TOKEN ON EVERY UPLOAD, THE OLD ONE REVOKED IN THE SAME BREATH — see
+    # core/public_catalog_image.py's own module docstring: a URL someone saved or scraped from a
+    # stale cache must go dead the moment the photo changes, never keep resolving to old content.
+    from app.core import public_catalog_image as PCI
+    old_token = s.public_image_token
+    s.public_image_token = PCI.new_token()
+    await PCI.register(request.app.state.container.datastore, s.public_image_token,
+                       tenant=tenant, service_id=service_id)
+    if old_token:
+        await PCI.revoke(request.app.state.container.datastore, old_token)
     await store.save(s)
     await request.app.state.auditor.record(
         "service.image_set", actor=principal.subject, tenant=tenant,

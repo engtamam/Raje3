@@ -475,6 +475,10 @@ def build_manifest(
             # redirect and Salla's own server call carry no Bearer token to check.
             {"path": "/api/v1/salla/callback", "tier": "public", "method": "GET"},
             {"path": "/api/v1/salla/webhook", "tier": "public", "method": "POST"},
+            # PUBLIC, deliberately — see api/v1/public_catalog.py's own module docstring: Meta's
+            # WhatsApp Catalog crawler has no bearer token to give, and the capability TOKEN in the
+            # path is the real gate (core/public_catalog_image.py), not a missing auth check.
+            {"path": "/api/v1/public_catalog/{}", "tier": "public", "method": "GET"},
             {"path": "/api/v1/signup/code", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/verify", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/claim", "tier": "public", "method": "POST"},

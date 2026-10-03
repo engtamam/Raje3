@@ -242,6 +242,12 @@ class Service:
     # file-service note argued for keeping OUT of scope for one picture per shop; a catalogue can
     # hold dozens, so this one earns the real object store that logo deliberately went without.
     image_key: str = ""
+    # THE CAPABILITY TOKEN FOR THIS SERVICE'S PUBLIC IMAGE URL (core/public_catalog_image.py) —
+    # WhatsApp Direct Ordering's own catalog sync needs Meta's crawler to fetch the photo with no
+    # login, which `image_key` alone cannot offer (the staff route over it is gated). Empty until
+    # the first image is uploaded; a NEW token is minted on every re-upload and the old one is
+    # revoked in the same breath, so a leaked/cached URL goes dead the moment the photo changes.
+    public_image_token: str = ""
     # THE PROTOCOL — an ORDERED reference into `ProcedureStep`'s own shared catalogue (see below),
     # same "id-list on the owning side, not a junction row" convention `eligible_staff_ids` above
     # already established for this file. ORDER IS LIST POSITION, deliberately not a second field:

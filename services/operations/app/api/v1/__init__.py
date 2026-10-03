@@ -27,6 +27,7 @@ from app.api.v1.till import router as till_router
 from app.api.v1.mobile_requests import router as mobile_requests_router
 from app.api.v1.platform import router as platform_router
 from app.api.v1.salla import router as salla_router
+from app.api.v1.public_catalog import router as public_catalog_router
 from app.api.v1.staff import router as staff_router
 from app.api.v1.affiliates import router as affiliates_router
 from app.api.v1.referral_reports import router as referral_reports_router
@@ -151,6 +152,7 @@ router.include_router(till_router)
 # Salla — two routes need a token (install/status), two cannot (Salla's own callback/webhook);
 # see the module for why they share a file anyway.
 router.include_router(salla_router)
+router.include_router(public_catalog_router)
 # Mobile/on-the-go service requests — the shop's own review queue; the WhatsApp bot's own
 # creation door is internal-tier (api/internal.py), not here.
 router.include_router(mobile_requests_router)
