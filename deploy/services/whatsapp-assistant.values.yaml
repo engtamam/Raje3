@@ -119,6 +119,13 @@ env:
   # step (the final "enable" call) this depends on.
   META_AGENT_PROVISIONING_ENABLED: "true"
 
+  # WhatsApp Direct Ordering — Meta Commerce Catalog provisioning (create/connect/enable-cart),
+  # see app/core/catalog_provisioning.py. Same posture as META_AGENT_PROVISIONING_ENABLED right
+  # above: this is a harmless no-op for every tenant until a real META_KNOWLEDGE_TOKEN secret is
+  # set AND a shop actually connects a WhatsApp number — fire-and-forget, never fails the connect
+  # response, reports the exact failed step to the audit trail on any Graph-side surprise.
+  CATALOG_PROVISIONING_ENABLED: "true"
+
   # Same fix as insights/operations/reminders'own DATASTORE_POOL_MAX — the platform default
   # (pool_max=5) is a real ceiling under fleet-wide concurrent load, not a leak: found live,
   # every affected service returning readyz "pool exhausted (max_connections reached)" while
