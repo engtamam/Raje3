@@ -1290,7 +1290,7 @@ class ServiceImportIn(BaseModel):
 
 
 @router.post("/services/bulk_import", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
-async def bulk_import_services(request: Request, body: ServiceImportIn,
+async def bulk_import_services(request: Request, body: ServiceImportIn, background: BackgroundTasks,
                                principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
     """Create/update many services from an uploaded file, in one call.
 
@@ -1359,6 +1359,7 @@ async def bulk_import_services(request: Request, body: ServiceImportIn,
 
     created = updated = reactivated = 0
     touched_ids: set[str] = set()
+    changed_services: list[Service] = []
     for row in body.rows:
         name = row.name.strip()
         target = by_external_id.get(row.external_id) if row.external_id else None
@@ -1376,14 +1377,26 @@ async def bulk_import_services(request: Request, body: ServiceImportIn,
             if row.external_id:
                 target.external_id = row.external_id
             if row.image_base64:
+                from app.core import public_catalog_image as PCI
                 from app.core.catalogue_image import store_image
                 stored = await store_image(
                     request.app.state.container.object_store, tenant=tenant, kind="service",
                     item_id=target.id, data=base64.b64decode(row.image_base64),
                     content_type=row.image_content_type, old_key=target.image_key)
                 target.image_key = stored.key
+                # SAME TOKEN ROTATION upload_service_image ALREADY DOES — missing here was a real
+                # bug: a bulk-imported photo got a real image_key but no public_image_token,
+                # so WhatsApp Direct Ordering's own catalog sync (and anything else reading the
+                # public URL) would treat it as having no photo at all despite one being right there.
+                old_token = target.public_image_token
+                target.public_image_token = PCI.new_token()
+                await PCI.register(request.app.state.container.datastore,
+                                   target.public_image_token, tenant=tenant, service_id=target.id)
+                if old_token:
+                    await PCI.revoke(request.app.state.container.datastore, old_token)
             await store.save(target)
             touched_ids.add(target.id)
+            changed_services.append(target)
             if was_stopped:
                 reactivated += 1
             else:
@@ -1394,14 +1407,19 @@ async def bulk_import_services(request: Request, body: ServiceImportIn,
                        external_id=row.external_id, description=row.description.strip(),
                        created=int(time.time()))
             if row.image_base64:
+                from app.core import public_catalog_image as PCI
                 from app.core.catalogue_image import store_image
                 stored = await store_image(
                     request.app.state.container.object_store, tenant=tenant, kind="service",
                     item_id=s.id, data=base64.b64decode(row.image_base64),
                     content_type=row.image_content_type, old_key="")
                 s.image_key = stored.key
+                s.public_image_token = PCI.new_token()
+                await PCI.register(request.app.state.container.datastore,
+                                   s.public_image_token, tenant=tenant, service_id=s.id)
             await store.save(s)
             touched_ids.add(s.id)
+            changed_services.append(s)
             created += 1
 
     deactivated = 0
@@ -1410,7 +1428,15 @@ async def bulk_import_services(request: Request, body: ServiceImportIn,
             if s.id not in touched_ids and s.active is not False:
                 s.active = False
                 await store.save(s)
+                changed_services.append(s)
                 deactivated += 1
+
+    # WhatsApp Direct Ordering's own catalog sync — every service this import created, updated,
+    # reactivated or deactivated may need its catalog item (or its absence) to match, same as a
+    # single manual edit. Reused as a batch (`backfill`, sequential) rather than one trigger call
+    # per row — this route can touch hundreds of services in one request.
+    background.add_task(request.app.state.container.catalog_item_sync_trigger.backfill,
+                        tenant=tenant, services=changed_services)
 
     await request.app.state.auditor.record(
         "service.bulk_imported", actor=principal.subject, tenant=tenant, resource="service",
