@@ -343,7 +343,7 @@ class SignupService:
             # Neither undo may raise — we are already on the failure path, and a rollback that
             # throws replaces a clear refusal with a 500.
             try:
-                await self.revoke(tenant, person_id)
+                await self.revoke(tenant, person_id, phone=phone)
             except Exception:                                                 # noqa: BLE001
                 pass
             await asyncio.to_thread(self._http.call, f"{self._tenants}/internal/tenants/{tenant}",
@@ -786,7 +786,7 @@ class SignupService:
                               {"id": canonical, "tenant": tenant, "verified": True})
         return {"person_id": str(body.get("person_id") or ""), "phone": canonical, "role": role}
 
-    async def revoke(self, tenant: str, person_id: str) -> bool:
+    async def revoke(self, tenant: str, person_id: str, *, phone: str = "") -> bool:
         """Undo `hire`: take the membership away, so the token stops being mintable.
 
         THE HALF THAT WAS MISSING, AND IT IS THE HALF THAT MATTERS. `hire` creates two things —
@@ -813,6 +813,28 @@ class SignupService:
             # REFUSED, NOT WARNED. The caller must not tell an owner that somebody was stopped
             # while his login still works — that is the exact sentence this whole defect was.
             raise SignupRefused("تعذّر إيقاف دخول الموظف. حاول بعد قليل.")
+
+        # FREE HIS NUMBER, OR HE IS LOCKED OUT OF THE WHOLE PLATFORM FOREVER — FOUND LIVE (owner's
+        # own report, 2026-10-03). `hire` writes PHONE_INDEX so our own sign-in can resolve his
+        # tenant; nothing ever deleted that row when he was let go, so `tenant_of_phone` kept
+        # answering this (now former) tenant for him indefinitely. The practical effect: a
+        # dismissed employee could never be hired anywhere else on the platform, and could never
+        # open his own shop as an owner either — both paths refuse with «هذا الرقم مسجّل في منشأة
+        # أخرى» against a tenant he no longer has anything to do with, and the only fix on record
+        # was a manual support request. `phone` is optional and best-effort: an operator row hired
+        # before this field existed has none, and a missing number here must not turn a successful
+        # dismissal into a reported failure — the membership is already gone, which is the part
+        # that actually matters.
+        if phone:
+            canonical = canonical_phone(phone, default_cc=self._cc)
+            if canonical:
+                row = await self._store.get(PHONE_INDEX, canonical)
+                # NEVER DELETE SOMEBODY ELSE'S CLAIM. If this number was re-hired at a different
+                # tenant in the meantime (or re-registered as an owner), that row's `tenant` no
+                # longer matches this one — deleting it here would un-register a live, unrelated
+                # account for the sentence "undo what I did", which is not what this call means.
+                if row and row.get("tenant") == tenant:
+                    await self._store.delete(PHONE_INDEX, canonical)
         return status in (200, 204)
 
     async def _seed_main_branch(self, tenant: str, *, shop_name: str) -> None:

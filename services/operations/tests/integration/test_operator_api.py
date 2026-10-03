@@ -967,7 +967,7 @@ class _Signup:
         self.revoked: list[tuple[str, str]] = []
         self._fails = fails
 
-    async def revoke(self, tenant: str, person_id: str) -> bool:
+    async def revoke(self, tenant: str, person_id: str, *, phone: str = "") -> bool:
         from app.core.signup import SignupRefused
 
         if self._fails:

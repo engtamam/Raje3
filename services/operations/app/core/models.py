@@ -510,6 +510,14 @@ class Operator:
     # this row; nothing else in the product joins the two. Without it, "show this manager only his
     # branch" has no way to know which manager is asking.
     person_id: str = ""
+    # HIS OWN LOGIN NUMBER, SET ONCE AT HIRE AND NEVER CHANGED BY A RENAME/MOVE — the one thing
+    # `revoke` (api/v1/staff.py::update_operator) needs that `person_id` alone cannot give it:
+    # `signup.PHONE_INDEX` is keyed by PHONE, not by person_id, and revoking a membership used to
+    # leave that index entry behind forever (FOUND LIVE, owner's own report, 2026-10-03) — a
+    # dismissed employee's number stayed "already registered elsewhere" permanently, blocking him
+    # from ever being hired again anywhere, or signing up as an owner himself, with no self-service
+    # fix. Empty for the PIN-only operators a shared tablet attributes work to, same as `person_id`.
+    phone: str = ""
     # THE PERSON_ID A STOPPED ROW USED TO HOLD, kept AFTER `person_id` above is blanked on stop
     # (api/v1/staff.py's own `update_operator`) — a real, live security gap this closes: blanking
     # `person_id` alone left NOTHING on the row for `api/scope.py::branch_scope` to match a

@@ -341,6 +341,8 @@ async def _finish_hire(request: Request, *, body: MemberIn, tenant: str, store: 
     # an empty hash and refuses — which is correct: a man with an account does not also need four
     # digits, and giving him one would be a second credential to leak.
     op.person_id = person_id
+    if out.get("phone"):
+        op.phone = str(out["phone"])
     await store.save(op)
     # THE COUNT DOES NOT MOVE WHEN NOBODY WAS ADDED. Reporting `current + 1` after re-saving a row
     # that already existed would tell billing the shop grew by an employee it did not hire.
@@ -435,7 +437,7 @@ async def update_operator(request: Request, operator_id: str, body: OperatorPatc
     stopping = body.active is False and op.active
     if stopping and op.person_id:
         try:
-            await request.app.state.container.signup.revoke(tenant, op.person_id)
+            await request.app.state.container.signup.revoke(tenant, op.person_id, phone=op.phone)
         except SignupRefused as exc:
             # THE OTHER FIELD CHANGES STILL LAND — only the deactivation itself failed. A caller
             # who also renamed him or moved his branch in the same PATCH must not have those
