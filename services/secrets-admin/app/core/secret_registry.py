@@ -221,9 +221,24 @@ SECRETS: tuple[SecretEntry, ...] = (
 #: key -> entry. Built once; the routes look up by key and 404 on anything not here.
 BY_KEY: dict[str, SecretEntry] = {e.key: e for e in SECRETS}
 
-_suffixes = [e.annotation_suffix for e in SECRETS]
-if len(_suffixes) != len(set(_suffixes)):
-    raise AssertionError("two SECRETS entries collide on the same annotation_suffix")
+def _assert_no_annotation_suffix_collisions(entries: tuple[SecretEntry, ...]) -> None:
+    """Two entries on the same Secret object must never normalize to the same annotation_suffix —
+    they would silently share one last4/updated-at/updated-by annotation and overwrite each
+    other's write history with no error at boot or at write time. Scoped to (namespace, secret),
+    not global: two DIFFERENT Secret objects are free to reuse a suffix since their annotations
+    never collide."""
+    seen: dict[tuple[str, str, str], str] = {}
+    for entry in entries:
+        addr_suffix = (entry.namespace, entry.secret, entry.annotation_suffix)
+        prior_key = seen.get(addr_suffix)
+        if prior_key is not None:
+            raise AssertionError(
+                f"annotation_suffix collision on {entry.secret!r} in {entry.namespace!r}: "
+                f"{prior_key!r} and {entry.key!r} both normalize to {entry.annotation_suffix!r}")
+        seen[addr_suffix] = entry.key
+
+
+_assert_no_annotation_suffix_collisions(SECRETS)
 
 # ── the annotation names, in ONE place ────────────────────────────────────────────────────────
 #
