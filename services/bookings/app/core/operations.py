@@ -29,6 +29,8 @@ from app.core.stores import BookingStore, day_bucket, new_id
 
 WEEKDAY_NAMES = ("الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد")
 
+_MAX_DURATION_SECONDS = 7 * 24 * 60 * 60
+
 # Short — this whole claim only needs to outlive ONE create() call (a few awaited store/peer
 # reads and one write); see the claim's own comment above for the retry behaviour this bounds.
 _IDEMPOTENCY_CLAIM_TTL_SECONDS = 10
@@ -1003,8 +1005,8 @@ class BookingOperations:
         scan) rather than trusting the "no shop is open at midnight" assumption to hold everywhere
         a booking can be created (nothing in `create()`/`reschedule()` actually enforces it)."""
         end = booking.starts_at + booking.duration_minutes * 60
-        start_bucket = day_bucket(booking.starts_at - 86_400)
-        end_bucket = day_bucket(end + 86_400)
+        start_bucket = day_bucket(booking.starts_at - _MAX_DURATION_SECONDS)
+        end_bucket = day_bucket(end + _MAX_DURATION_SECONDS)
         candidates = await self._bookings.slots_between(
             booking.tenant, booking.branch_id, start_bucket=start_bucket, end_bucket=end_bucket)
         for other in candidates:
