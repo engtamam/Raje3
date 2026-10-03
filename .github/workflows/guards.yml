@@ -137,6 +137,13 @@ jobs:
       - name: no tenant-effecting whatsapp-assistant entrypoint skips the licence gate
         run: python3 ci/check_a_tenant_effecting_entrypoint_skips_the_licence_gate.py
 
+      # A SEND THAT BYPASSES notifier.py'S ONE DOOR ALSO BYPASSES THE CALL THAT HANDS CONTROL OF A
+      # CONVERSATION BACK TO META'S OWN AI AGENT — and WhatsApp gives no error, no log, no visible
+      # symptom when that happens: the customer's AI simply stops answering him, forever, the
+      # moment any message reaches him through an unaudited path (found by a deep audit, 2026-10-03).
+      - name: no new WhatsApp send path bypasses the Meta AI handover release
+        run: python3 ci/check_whatsapp_send_bypasses_meta_ai_handover.py
+
       # `tenant` on an internal route is a plain body field, never a verified claim. A route this
       # gate CAN read (an inline `json={...}` literal) and reads as posted with exactly one tenant,
       # ever, has never had its isolation demonstrated by its own suite — found six real, provable
