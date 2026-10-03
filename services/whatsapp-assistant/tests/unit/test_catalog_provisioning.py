@@ -1,5 +1,5 @@
-"""core/catalog_provisioning.py -- catalog creation, WABA connection, cart enablement, and the
-`provision_catalog` orchestrator's idempotency guarantees. Stubbing follows
+"""core/catalog_provisioning.py -- page resolution, catalog creation, WABA connection, cart
+enablement, and the `provision_catalog` orchestrator's idempotency guarantees. Stubbing follows
 test_meta_agent_provisioning.py's own conventions (fake secret store, fake urlopen response)."""
 from __future__ import annotations
 
@@ -69,14 +69,72 @@ def _http(**kw):
         token="tok", graph_base_url="https://graph.facebook.com", graph_version="v26.0", **kw)
 
 
+class _FullFake:
+    """A provisioner that succeeds at every step, recording calls in order."""
+
+    def __init__(self, page_id="PAGE1", catalog_id="CAT1"):
+        self.calls = []
+        self._page_id = page_id
+        self._catalog_id = catalog_id
+
+    async def resolve_page_id(self, business_id):
+        self.calls.append(("resolve_page_id", business_id))
+        return self._page_id
+
+    async def create_catalog(self, business_id, page_id, name):
+        self.calls.append(("create_catalog", business_id, page_id, name))
+        return self._catalog_id
+
+    async def connect_catalog(self, waba_id, catalog_id):
+        self.calls.append(("connect_catalog", waba_id, catalog_id))
+        return True
+
+    async def enable_cart(self, phone_number_id):
+        self.calls.append(("enable_cart", phone_number_id))
+        return True
+
+
 # ── HttpCatalogProvisioner, one call at a time ────────────────────────────────────────────────
+
+def test_resolve_page_id_returns_first_page():
+    with patch("urllib.request.urlopen",
+              return_value=_Resp(b'{"data": [{"id": "PAGE1"}, {"id": "PAGE2"}]}')):
+        assert run(_http().resolve_page_id("biz1")) == "PAGE1"
+
+
+def test_resolve_page_id_empty_when_no_pages():
+    with patch("urllib.request.urlopen", return_value=_Resp(b'{"data": []}')):
+        assert run(_http().resolve_page_id("biz1")) == ""
+
+
+def test_resolve_page_id_calls_owned_pages_edge():
+    captured = {}
+
+    def _fake_urlopen(req, timeout=8):
+        captured["url"] = req.full_url
+        captured["method"] = req.get_method()
+        return _Resp(b'{"data": [{"id": "PAGE1"}]}')
+
+    with patch("urllib.request.urlopen", side_effect=_fake_urlopen):
+        run(_http().resolve_page_id("biz1"))
+    assert "biz1/owned_pages" in captured["url"]
+    assert captured["method"] == "GET"
+
+
+def test_resolve_page_id_http_error_raises():
+    err = urllib.error.HTTPError("url", 403, "forbidden", {}, None)
+    err.read = lambda: b"no permission"
+    with patch("urllib.request.urlopen", side_effect=err):
+        with pytest.raises(CatalogProvisioningError):
+            run(_http().resolve_page_id("biz1"))
+
 
 def test_create_catalog_returns_id():
     with patch("urllib.request.urlopen", return_value=_Resp(b'{"id": "CAT1"}')):
-        assert run(_http().create_catalog("biz1", "My Shop")) == "CAT1"
+        assert run(_http().create_catalog("biz1", "PAGE1", "My Shop")) == "CAT1"
 
 
-def test_create_catalog_sends_commerce_vertical_and_truncated_name():
+def test_create_catalog_sends_page_id_vertical_and_truncated_name():
     captured = {}
 
     def _fake_urlopen(req, timeout=8):
@@ -85,8 +143,9 @@ def test_create_catalog_sends_commerce_vertical_and_truncated_name():
         return _Resp(b'{"id": "CAT1"}')
 
     with patch("urllib.request.urlopen", side_effect=_fake_urlopen):
-        run(_http().create_catalog("biz1", "x" * 500))
+        run(_http().create_catalog("biz1", "PAGE1", "x" * 500))
     assert b'"vertical": "commerce"' in captured["body"]
+    assert b'"page_id": "PAGE1"' in captured["body"]
     assert b"biz1/owned_product_catalogs" in captured["url"].encode()
     # name truncated to 100 chars -- never sent raw and unbounded
     assert len(captured["body"]) < 500
@@ -95,7 +154,7 @@ def test_create_catalog_sends_commerce_vertical_and_truncated_name():
 def test_create_catalog_missing_id_raises_named_step():
     with patch("urllib.request.urlopen", return_value=_Resp(b"{}")):
         with pytest.raises(CatalogProvisioningError) as exc:
-            run(_http().create_catalog("biz1", "shop"))
+            run(_http().create_catalog("biz1", "PAGE1", "shop"))
     assert exc.value.step == "create_catalog"
 
 
@@ -104,13 +163,13 @@ def test_create_catalog_http_error_raises():
     err.read = lambda: b"duplicate name"
     with patch("urllib.request.urlopen", side_effect=err):
         with pytest.raises(CatalogProvisioningError):
-            run(_http().create_catalog("biz1", "shop"))
+            run(_http().create_catalog("biz1", "PAGE1", "shop"))
 
 
 def test_create_catalog_transport_error_raises():
     with patch("urllib.request.urlopen", side_effect=TimeoutError("timed out")):
         with pytest.raises(CatalogProvisioningError):
-            run(_http().create_catalog("biz1", "shop"))
+            run(_http().create_catalog("biz1", "PAGE1", "shop"))
 
 
 def test_connect_catalog_true_on_success():
@@ -174,9 +233,14 @@ def test_enable_cart_error_raises():
 
 # ── NullCatalogProvisioner ────────────────────────────────────────────────────────────────────
 
+def test_null_resolve_page_id_raises():
+    with pytest.raises(CatalogProvisioningError):
+        run(NullCatalogProvisioner().resolve_page_id("biz1"))
+
+
 def test_null_create_catalog_raises():
     with pytest.raises(CatalogProvisioningError):
-        run(NullCatalogProvisioner().create_catalog("biz1", "shop"))
+        run(NullCatalogProvisioner().create_catalog("biz1", "page1", "shop"))
 
 
 def test_null_connect_and_enable_return_false():
@@ -215,102 +279,125 @@ def test_provision_catalog_no_token_fails_cleanly():
     assert "credential" in result.error
 
 
-def test_provision_catalog_happy_path_creates_connects_and_enables():
+def test_provision_catalog_happy_path_resolves_page_creates_connects_and_enables():
     secrets = _FakeSecrets({"t1|" + SECRET_TOKEN_NAME: "tok"})
-    calls = []
-
-    class _Fake:
-        async def create_catalog(self, business_id, name):
-            calls.append(("create", business_id, name))
-            return "CAT1"
-
-        async def connect_catalog(self, waba_id, catalog_id):
-            calls.append(("connect", waba_id, catalog_id))
-            return True
-
-        async def enable_cart(self, phone_number_id):
-            calls.append(("enable", phone_number_id))
-            return True
+    fake = _FullFake(page_id="PAGE1", catalog_id="CAT1")
 
     result = run(provision_catalog(
         tenant="t1", business_id="biz1", waba_id="waba1", phone_number_id="phone1",
-        secret_store=secrets, settings=_settings(), provisioner_factory=lambda tok: _Fake()))
+        secret_store=secrets, settings=_settings(), provisioner_factory=lambda tok: fake))
 
     assert result.ok is True
+    assert result.page_id == "PAGE1"
     assert result.catalog_id == "CAT1"
     assert result.catalog_created is True
     assert result.connected is True
     assert result.cart_enabled is True
-    assert calls == [("create", "biz1", "Raje3 - t1"), ("connect", "waba1", "CAT1"),
-                     ("enable", "phone1")]
+    assert fake.calls == [
+        ("resolve_page_id", "biz1"),
+        ("create_catalog", "biz1", "PAGE1", "Raje3 - t1"),
+        ("connect_catalog", "waba1", "CAT1"),
+        ("enable_cart", "phone1"),
+    ]
     # WRITTEN BEFORE the function even returns -- the write-ahead guarantee.
     assert secrets._v["t1|" + SECRET_CATALOG_ID_NAME] == "CAT1"
 
 
-def test_provision_catalog_reuses_existing_catalog_never_calls_create():
-    secrets = _FakeSecrets({"t1|" + SECRET_TOKEN_NAME: "tok",
-                           "t1|" + SECRET_CATALOG_ID_NAME: "EXISTING_CAT"})
-    calls = []
+def test_provision_catalog_no_facebook_page_fails_named_and_writes_nothing():
+    """THE REAL PRECONDITION THIS MODULE CANNOT MANUFACTURE AROUND: a business with no Facebook
+    Page cannot get a Commerce Catalog. Must fail loudly and specifically, never silently skip."""
+    secrets = _FakeSecrets({"t1|" + SECRET_TOKEN_NAME: "tok"})
 
-    class _Fake:
-        async def create_catalog(self, business_id, name):
-            calls.append("create")  # must never be reached
-            return "SHOULD_NOT_HAPPEN"
+    class _NoPage:
+        async def resolve_page_id(self, business_id):
+            return ""
+
+        async def create_catalog(self, business_id, page_id, name):
+            raise AssertionError("must not be reached")
 
         async def connect_catalog(self, waba_id, catalog_id):
-            calls.append(("connect", catalog_id))
-            return True
+            raise AssertionError("must not be reached")
 
         async def enable_cart(self, phone_number_id):
-            calls.append("enable")
-            return True
+            raise AssertionError("must not be reached")
 
     result = run(provision_catalog(
         tenant="t1", business_id="biz1", waba_id="waba1", phone_number_id="phone1",
-        secret_store=secrets, settings=_settings(), provisioner_factory=lambda tok: _Fake()))
+        secret_store=secrets, settings=_settings(), provisioner_factory=lambda tok: _NoPage()))
+
+    assert result.ok is False
+    assert result.failed_step == "resolve_page_id"
+    assert "Facebook Page" in result.error
+    assert secrets.writes == []
+
+
+def test_provision_catalog_resolve_page_id_error_fails_named():
+    secrets = _FakeSecrets({"t1|" + SECRET_TOKEN_NAME: "tok"})
+
+    class _Fail:
+        async def resolve_page_id(self, business_id):
+            raise CatalogProvisioningError("resolve_page_id", "permission denied")
+
+        async def create_catalog(self, business_id, page_id, name):
+            raise AssertionError("must not be reached")
+
+        async def connect_catalog(self, waba_id, catalog_id):
+            raise AssertionError("must not be reached")
+
+        async def enable_cart(self, phone_number_id):
+            raise AssertionError("must not be reached")
+
+    result = run(provision_catalog(
+        tenant="t1", business_id="biz1", waba_id="waba1", phone_number_id="phone1",
+        secret_store=secrets, settings=_settings(), provisioner_factory=lambda tok: _Fail()))
+
+    assert result.ok is False
+    assert result.failed_step == "resolve_page_id"
+
+
+def test_provision_catalog_reuses_existing_catalog_never_resolves_page_or_creates():
+    secrets = _FakeSecrets({"t1|" + SECRET_TOKEN_NAME: "tok",
+                           "t1|" + SECRET_CATALOG_ID_NAME: "EXISTING_CAT"})
+    fake = _FullFake()
+
+    result = run(provision_catalog(
+        tenant="t1", business_id="biz1", waba_id="waba1", phone_number_id="phone1",
+        secret_store=secrets, settings=_settings(), provisioner_factory=lambda tok: fake))
 
     assert result.ok is True
     assert result.catalog_id == "EXISTING_CAT"
     assert result.catalog_created is False
-    assert "create" not in calls
-    assert calls == [("connect", "EXISTING_CAT"), "enable"]
+    assert result.page_id == ""  # never resolved -- creation was skipped entirely
+    assert fake.calls == [("connect_catalog", "waba1", "EXISTING_CAT"), ("enable_cart", "phone1")]
 
 
 def test_provision_catalog_retry_on_a_second_phone_number_reuses_same_catalog():
     """A shop with two branches connects a second number under the same tenant -- the SECOND
     connect must reuse the first catalog, never mint a branch-scoped duplicate."""
     secrets = _FakeSecrets({"t1|" + SECRET_TOKEN_NAME: "tok"})
-    create_calls = []
-
-    class _Fake:
-        async def create_catalog(self, business_id, name):
-            create_calls.append(name)
-            return "CAT1"
-
-        async def connect_catalog(self, waba_id, catalog_id):
-            return True
-
-        async def enable_cart(self, phone_number_id):
-            return True
 
     first = run(provision_catalog(
         tenant="t1", business_id="biz1", waba_id="waba1", phone_number_id="phone1",
-        secret_store=secrets, settings=_settings(), provisioner_factory=lambda tok: _Fake()))
+        secret_store=secrets, settings=_settings(),
+        provisioner_factory=lambda tok: _FullFake()))
     second = run(provision_catalog(
         tenant="t1", business_id="biz1", waba_id="waba2", phone_number_id="phone2",
-        secret_store=secrets, settings=_settings(), provisioner_factory=lambda tok: _Fake()))
+        secret_store=secrets, settings=_settings(),
+        provisioner_factory=lambda tok: _FullFake()))
 
     assert first.catalog_created is True
     assert second.catalog_created is False
     assert second.catalog_id == "CAT1"
-    assert len(create_calls) == 1
 
 
 def test_provision_catalog_create_failure_writes_nothing():
     secrets = _FakeSecrets({"t1|" + SECRET_TOKEN_NAME: "tok"})
 
-    class _Fake:
-        async def create_catalog(self, business_id, name):
+    class _FailCreate:
+        async def resolve_page_id(self, business_id):
+            return "PAGE1"
+
+        async def create_catalog(self, business_id, page_id, name):
             raise CatalogProvisioningError("create_catalog", "boom")
 
         async def connect_catalog(self, waba_id, catalog_id):
@@ -321,7 +408,8 @@ def test_provision_catalog_create_failure_writes_nothing():
 
     result = run(provision_catalog(
         tenant="t1", business_id="biz1", waba_id="waba1", phone_number_id="phone1",
-        secret_store=secrets, settings=_settings(), provisioner_factory=lambda tok: _Fake()))
+        secret_store=secrets, settings=_settings(),
+        provisioner_factory=lambda tok: _FailCreate()))
 
     assert result.ok is False
     assert result.failed_step == "create_catalog"
@@ -330,11 +418,15 @@ def test_provision_catalog_create_failure_writes_nothing():
 
 def test_provision_catalog_connect_failure_after_create_keeps_catalog_id_written():
     """THE HARD CASE: catalog creation succeeds, connecting to the WABA fails. A retry must NOT
-    recreate the catalog -- it must find the one just written and only retry the failed step."""
+    recreate the catalog (or re-resolve the page) -- it must find the one just written and only
+    retry the failed step."""
     secrets = _FakeSecrets({"t1|" + SECRET_TOKEN_NAME: "tok"})
 
     class _FailConnect:
-        async def create_catalog(self, business_id, name):
+        async def resolve_page_id(self, business_id):
+            return "PAGE1"
+
+        async def create_catalog(self, business_id, page_id, name):
             return "CAT1"
 
         async def connect_catalog(self, waba_id, catalog_id):
@@ -352,38 +444,25 @@ def test_provision_catalog_connect_failure_after_create_keeps_catalog_id_written
     # THE WRITE-AHEAD ALREADY HAPPENED, despite the overall call failing.
     assert secrets._v["t1|" + SECRET_CATALOG_ID_NAME] == "CAT1"
 
-    retry_calls = []
-
-    class _NowSucceeds:
-        async def create_catalog(self, business_id, name):
-            retry_calls.append("create")  # must never run on the retry
-            return "SHOULD_NOT_HAPPEN"
-
-        async def connect_catalog(self, waba_id, catalog_id):
-            retry_calls.append(("connect", catalog_id))
-            return True
-
-        async def enable_cart(self, phone_number_id):
-            retry_calls.append("enable")
-            return True
-
     retry = run(provision_catalog(
         tenant="t1", business_id="biz1", waba_id="waba1", phone_number_id="phone1",
         secret_store=secrets, settings=_settings(),
-        provisioner_factory=lambda tok: _NowSucceeds()))
+        provisioner_factory=lambda tok: _FullFake(catalog_id="SHOULD_NOT_BE_USED")))
 
     assert retry.ok is True
     assert retry.catalog_id == "CAT1"
     assert retry.catalog_created is False
-    assert "create" not in retry_calls
-    assert retry_calls == [("connect", "CAT1"), "enable"]
+    assert retry.page_id == ""  # resolve/create skipped entirely on the retry
 
 
 def test_provision_catalog_enable_cart_failure_reports_named_step():
     secrets = _FakeSecrets({"t1|" + SECRET_TOKEN_NAME: "tok"})
 
-    class _Fake:
-        async def create_catalog(self, business_id, name):
+    class _FailEnable:
+        async def resolve_page_id(self, business_id):
+            return "PAGE1"
+
+        async def create_catalog(self, business_id, page_id, name):
             return "CAT1"
 
         async def connect_catalog(self, waba_id, catalog_id):
@@ -394,7 +473,8 @@ def test_provision_catalog_enable_cart_failure_reports_named_step():
 
     result = run(provision_catalog(
         tenant="t1", business_id="biz1", waba_id="waba1", phone_number_id="phone1",
-        secret_store=secrets, settings=_settings(), provisioner_factory=lambda tok: _Fake()))
+        secret_store=secrets, settings=_settings(),
+        provisioner_factory=lambda tok: _FailEnable()))
 
     assert result.ok is False
     assert result.failed_step == "enable_cart"

@@ -714,7 +714,7 @@ async def provision_catalog(request: Request, body: ProvisionCatalogIn) -> dict:
 
     if not getattr(settings, "CATALOG_PROVISIONING_ENABLED", False):
         return {"ok": False, "failed_step": "", "error": "CATALOG_PROVISIONING_ENABLED is off",
-               "catalog_id": "", "catalog_created": False, "connected": False,
+               "page_id": "", "catalog_id": "", "catalog_created": False, "connected": False,
                "cart_enabled": False}
 
     def _provisioner_factory(token: str) -> HttpCatalogProvisioner:
@@ -735,5 +735,6 @@ async def provision_catalog(request: Request, body: ProvisionCatalogIn) -> dict:
         metadata={"failed_step": result.failed_step, "catalog_id": result.catalog_id,
                  "catalog_created": result.catalog_created})
     return {"ok": result.ok, "failed_step": result.failed_step, "error": result.error,
-           "catalog_id": result.catalog_id, "catalog_created": result.catalog_created,
-           "connected": result.connected, "cart_enabled": result.cart_enabled}
+           "page_id": result.page_id, "catalog_id": result.catalog_id,
+           "catalog_created": result.catalog_created, "connected": result.connected,
+           "cart_enabled": result.cart_enabled}

@@ -6,17 +6,35 @@ Meta Business Agent onboarding -- this module is that same pattern applied to a 
 product (Commerce, not Business Agent), so it is built and tested the same way rather than
 introducing a second idiom.
 
-REAL PUBLIC GRAPH API SHAPES, confirmed against developers.facebook.com and Meta's own commerce
-documentation at build time (2026-10-04):
+REAL PUBLIC GRAPH API SHAPES, confirmed against the PRIMARY developers.facebook.com reference
+pages directly (not secondary summaries) on 2026-10-04:
 
-    1. POST /{business_id}/owned_product_catalogs {name, vertical: "commerce"} -> {"id": str}
+    0. GET  /{business_id}/owned_pages                                        -> {"data": [Page]}
+    1. POST /{business_id}/owned_product_catalogs {name, vertical: "commerce",
+             page_id}                                                        -> {"id": str}
     2. POST /{waba_id}/product_catalogs           {catalog_id}                -> {"success": bool}
     3. POST /{phone_number_id}/whatsapp_commerce_settings?is_cart_enabled=true -> {"success": bool}
+
+STEP 0 EXISTS BECAUSE OF A REAL MISTAKE CAUGHT BEFORE SHIPPING. The first version of this module
+called step 1 with only `name`/`vertical`, on the assumption (several SECONDARY sources agreed)
+that `business_id` alone was enough. Reading the PRIMARY reference page directly
+(developers.facebook.com/docs/marketing-api/reference/business/owned_product_catalogs) showed
+`page_id` listed as a REQUIRED parameter on that same POST -- a catalog cannot be created without
+a Facebook Page backing it. `business_id` is NEVER on hand as a Page id (it identifies the Business
+Manager account, a different object), so step 0 resolves it: Embedded Signup's own response CAN
+include `page_ids` directly (only when the owner picked a Page during that flow -- not guaranteed),
+but `GET /{business_id}/owned_pages` is unconditional and needs nothing operations.py does not
+already have, so this module resolves its own page_id rather than depending on a frontend/connect.py
+change that might arrive late or never. A BUSINESS WITH NO FACEBOOK PAGE AT ALL fails this step by
+design (see `resolve_page_id` below) -- that is a real, nameable precondition this module cannot
+manufacture around, not a bug to swallow.
 
 `business_id`/`waba_id`/`phone_number_id` ARE ALL ALREADY ON HAND the moment a number connects --
 `services/operations/app/core/connect.py::Attempt` already carries all three for every tenant
 (captured straight from Embedded Signup), the same three identifiers
 `meta_agent_provisioning.py::provision_number` only needed one of (entity_id/phone_number_id).
+`page_id` is the one identifier this module resolves itself (step 0), rather than requiring a
+fourth field from connect.py.
 
 IDEMPOTENT BY CONSTRUCTION -- THE HARD CASE THIS MODULE EXISTS TO GET RIGHT. A shop can trigger
 this more than once: a genuine reconnect (the owner re-runs Embedded Signup), a retry after a
@@ -83,6 +101,7 @@ class ProvisionCatalogResult:
     ok: bool
     failed_step: str = ""
     error: str = ""
+    page_id: str = ""
     catalog_id: str = ""
     catalog_created: bool = False  # False when an existing catalog_id was reused, not minted
     connected: bool = False
@@ -94,7 +113,10 @@ class NullCatalogProvisioner:
     every other Null adapter in this service."""
     driver = "null"
 
-    async def create_catalog(self, business_id: str, name: str) -> str:
+    async def resolve_page_id(self, business_id: str) -> str:
+        raise CatalogProvisioningError("resolve_page_id", "catalog provisioning is disabled")
+
+    async def create_catalog(self, business_id: str, page_id: str, name: str) -> str:
         raise CatalogProvisioningError("create_catalog", "catalog provisioning is disabled")
 
     async def connect_catalog(self, waba_id: str, catalog_id: str) -> bool:
@@ -140,10 +162,21 @@ class HttpCatalogProvisioner:
         # OFF THE EVENT LOOP -- see core/customer_lookup.py::HttpCustomerLookup.resolve.
         return await asyncio.to_thread(self._call_sync, method, path, body, query)
 
-    async def create_catalog(self, business_id: str, name: str) -> str:
+    async def resolve_page_id(self, business_id: str) -> str:
+        """The first Facebook Page this business owns -- `owned_product_catalogs` requires one
+        and `business_id` is never itself a Page id (it names the Business Manager account, a
+        different object). Returns "" when the business owns no Page at all, a real precondition
+        `provision_catalog` reports as a named, actionable failure rather than guessing one."""
+        data = await self._call("GET", f"{business_id}/owned_pages")
+        pages = data.get("data") or []
+        if not pages:
+            return ""
+        return str(pages[0].get("id") or "")
+
+    async def create_catalog(self, business_id: str, page_id: str, name: str) -> str:
         data = await self._call(
             "POST", f"{business_id}/owned_product_catalogs",
-            {"name": name[:100], "vertical": "commerce"})
+            {"name": name[:100], "vertical": "commerce", "page_id": page_id})
         catalog_id = data.get("id") or ""
         if not catalog_id:
             raise CatalogProvisioningError(
@@ -207,8 +240,20 @@ async def provision_catalog(
         result.catalog_created = False
     else:
         try:
+            page_id = await provisioner.resolve_page_id(business_id)
+        except Exception as exc:  # noqa: BLE001
+            result.failed_step, result.error = "resolve_page_id", str(exc)
+            return result
+        if not page_id:
+            result.failed_step = "resolve_page_id"
+            result.error = ("this business owns no Facebook Page — one must exist before a "
+                            "Commerce Catalog can be created for it")
+            return result
+        result.page_id = page_id
+
+        try:
             catalog_id = await provisioner.create_catalog(
-                business_id, catalog_name or f"Raje3 - {tenant}")
+                business_id, page_id, catalog_name or f"Raje3 - {tenant}")
         except Exception as exc:  # noqa: BLE001 -- reported, not swallowed
             result.failed_step, result.error = "create_catalog", str(exc)
             return result
