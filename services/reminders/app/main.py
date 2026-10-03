@@ -137,6 +137,20 @@ def create_app() -> FastAPI:
         except Exception as exc:                                            # noqa: BLE001
             logger.warning("subscribe_failed", extra={"error": str(exc)[:200]})
 
+        # ── WhatsApp Direct Ordering status changes (core/orders.py, services/operations) —
+        # event-only, same "no catch-up path, each status is its own one-shot message" trade-off
+        # `on_booking`'s own comment documents for the identical shape. See Scheduler.on_order's
+        # own docstring for why no retraction window is needed here either.
+        async def _on_order(event) -> None:
+            payload = event.payload if hasattr(event, "payload") else (event or {})
+            await container.scheduler.on_order(dict(payload), now=int(time.time()))
+
+        try:
+            await container.event_bus.subscribe("operations.order.changed", _on_order)
+            logger.info("subscribed", extra={"topic": "operations.order.changed"})
+        except Exception as exc:                                            # noqa: BLE001
+            logger.warning("subscribe_failed", extra={"error": str(exc)[:200]})
+
         # ── the rating app's own reply — every inbound WhatsApp message, unfiltered, the same
         # fan-out every other consumer of this topic reads. `handle` is a no-op for anything that
         # is not a recognised rating Flow reply — most messages, still, since only a shop that

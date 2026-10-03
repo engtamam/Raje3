@@ -56,6 +56,10 @@ OFFER_VALUE = "offer_value"  # «20%» or «50 ريال» — typed, never a sen
 ENDS_AT = "ends_at"          # the last day, phrased by us
 FREE_TEXT = "free_text"      # his own line — at most one per message (§8.4.2)
 APPT_TIME = "appt_time"      # a booking's day and hour, phrased by us — never the raw epoch
+ORDER_NUMBER = "order_number"  # the WhatsApp-ordering app's own order id, phrased short for a
+                               # customer to quote back ("طلبي رقم ...") — never the raw `ord_...`
+                               # internal id (core/orders.py's own id shape), see scheduling.py's
+                               # own `on_order` for how it is shortened
 # THE TWO THAT ARE ADDRESSES, NOT WORDS. Every slot above is text we hold or a number we computed;
 # these two are places a thumb has to reach, so core/links.py composes them from the fleet's public
 # base and refuses when it is unset. They are on ALWAYS because both are true of every message: a
@@ -124,6 +128,7 @@ SLOT_LABEL = {
     ENDS_AT: "ينتهي في",
     FREE_TEXT: "نصّك",
     APPT_TIME: "موعد الحجز",
+    ORDER_NUMBER: "رقم الطلب",
     LINK: "رابط صفحته",
     STOP_LINK: "رابط الإيقاف",
     INVITE: "دعوة تفعيل المزايا",
@@ -202,6 +207,55 @@ REASONS: tuple[Reason, ...] = (
         when="بعد إنشاء الحجز بمهلة قصيرة تحتمل التراجع (نظام الحجوزات، `BOOKING_CONFIRM_DELAY_SECONDS`)",
         cls="service", template_type="svc_booking_confirmation",
         slots=(APPT_TIME,), source="bookings",
+    ),
+    # ── WhatsApp Direct Ordering (core/orders.py, services/operations) — SIX REASONS, ONE PER
+    # STATUS, never a single "order updated" reason: an owner's own switch is per-message
+    # (core/licence equivalent for reminders — see this module's own default_on/owner_can_switch
+    # fields), and a shop that wants "تأكيد الطلب" without "جاري التجهيز" could not express that
+    # with one shared reason. All SIX fire IMMEDIATELY (no retraction window — unlike
+    # `booking_confirmed`, a customer who just paid or whose order is physically ready has nothing
+    # to reconsider in the next few minutes the way a fresh booking does).
+    Reason(
+        id="order_confirmed",
+        label="تأكيد طلب واتساب",
+        when="فور تأكيد دفع الطلب",
+        cls="service", template_type="svc_order_confirmed",
+        slots=(ORDER_NUMBER,), source="operations",
+    ),
+    Reason(
+        id="order_preparing",
+        label="جاري تجهيز الطلب",
+        when="حين يبدأ المحل بتجهيز الطلب",
+        cls="service", template_type="svc_order_preparing",
+        slots=(ORDER_NUMBER,), source="operations",
+    ),
+    Reason(
+        id="order_ready",
+        label="الطلب جاهز",
+        when="حين يصبح الطلب جاهزاً للاستلام أو التوصيل",
+        cls="service", template_type="svc_order_ready",
+        slots=(ORDER_NUMBER,), source="operations",
+    ),
+    Reason(
+        id="order_out_for_delivery",
+        label="الطلب في الطريق",
+        when="حين ينطلق الطلب للتوصيل",
+        cls="service", template_type="svc_order_out_for_delivery",
+        slots=(ORDER_NUMBER,), source="operations",
+    ),
+    Reason(
+        id="order_delivered",
+        label="تم تسليم الطلب",
+        when="فور تأكيد تسليم الطلب",
+        cls="service", template_type="svc_order_delivered",
+        slots=(ORDER_NUMBER,), source="operations",
+    ),
+    Reason(
+        id="order_cancelled",
+        label="إلغاء الطلب",
+        when="إذا ألغى المحل الطلب (مثلاً: نفدت الكمية)",
+        cls="service", template_type="svc_order_cancelled",
+        slots=(ORDER_NUMBER,), source="operations",
     ),
     Reason(
         id="visit_redeemed",
@@ -367,6 +421,7 @@ SAMPLE = {
     ENDS_AT: "21 أغسطس",
     FREE_TEXT: "افتتحنا فرعاً جديداً",
     APPT_TIME: "الأحد 9:00 مساءً",
+    ORDER_NUMBER: "1042",
     # THE TWO ADDRESSES, AND THEY NEEDED SAMPLES AS MUCH AS ANY WORD.
     #
     # `public()` builds the owner's chips from `SAMPLE.get(k, "")`, and neither of these was

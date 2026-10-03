@@ -1706,6 +1706,426 @@
       ],
       "footer": "للأوقات والتفاصيل، راسلنا",
       "shape_category": "INVITE"
+    },
+    {
+      "name": "svc_order_confirmed_masculine",
+      "type": "svc_order_confirmed",
+      "tone": "masculine",
+      "label": "تأكيد طلب واتساب",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "يا هلا {{1}}، تأكد طلبك رقم {{3}} من {{2}} وجاري تجهيزه. {{4}} 👍",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات التي فعّلت تطبيق طلبات التوصيل عبر الواتساب.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "1042",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ],
+      "shape_category": "NOTICE"
+    },
+    {
+      "name": "svc_order_confirmed_feminine",
+      "type": "svc_order_confirmed",
+      "tone": "feminine",
+      "label": "تأكيد طلب واتساب",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "يا هلا {{1}}، تأكد طلبك رقم {{3}} من {{2}} وجاري تجهيزه. {{4}} 👍",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات التي فعّلت تطبيق طلبات التوصيل عبر الواتساب.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "1042",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
+      ],
+      "shape_category": "NOTICE"
+    },
+    {
+      "name": "svc_order_preparing_masculine",
+      "type": "svc_order_preparing",
+      "tone": "masculine",
+      "label": "جاري تجهيز الطلب",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "{{1}}، طلبك رقم {{3}} من {{2}} قيد التجهيز الآن. {{4}}",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات التي فعّلت تطبيق طلبات التوصيل عبر الواتساب.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "1042",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ],
+      "shape_category": "NOTICE"
+    },
+    {
+      "name": "svc_order_preparing_feminine",
+      "type": "svc_order_preparing",
+      "tone": "feminine",
+      "label": "جاري تجهيز الطلب",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "{{1}}، طلبك رقم {{3}} من {{2}} قيد التجهيز الآن. {{4}}",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات التي فعّلت تطبيق طلبات التوصيل عبر الواتساب.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "1042",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
+      ],
+      "shape_category": "NOTICE"
+    },
+    {
+      "name": "svc_order_ready_masculine",
+      "type": "svc_order_ready",
+      "tone": "masculine",
+      "label": "الطلب جاهز",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "{{1}}، طلبك رقم {{3}} من {{2}} جاهز. {{4}}",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات التي فعّلت تطبيق طلبات التوصيل عبر الواتساب.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "1042",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ],
+      "shape_category": "NOTICE"
+    },
+    {
+      "name": "svc_order_ready_feminine",
+      "type": "svc_order_ready",
+      "tone": "feminine",
+      "label": "الطلب جاهز",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "{{1}}، طلبك رقم {{3}} من {{2}} جاهز. {{4}}",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات التي فعّلت تطبيق طلبات التوصيل عبر الواتساب.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "1042",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
+      ],
+      "shape_category": "NOTICE"
+    },
+    {
+      "name": "svc_order_out_for_delivery_masculine",
+      "type": "svc_order_out_for_delivery",
+      "tone": "masculine",
+      "label": "الطلب في الطريق",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "{{1}}، طلبك رقم {{3}} من {{2}} في الطريق إليك الآن. {{4}}",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات التي فعّلت تطبيق طلبات التوصيل عبر الواتساب.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "1042",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ],
+      "shape_category": "NOTICE"
+    },
+    {
+      "name": "svc_order_out_for_delivery_feminine",
+      "type": "svc_order_out_for_delivery",
+      "tone": "feminine",
+      "label": "الطلب في الطريق",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "{{1}}، طلبك رقم {{3}} من {{2}} في الطريق إليك الآن. {{4}}",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات التي فعّلت تطبيق طلبات التوصيل عبر الواتساب.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "1042",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
+      ],
+      "shape_category": "NOTICE"
+    },
+    {
+      "name": "svc_order_delivered_masculine",
+      "type": "svc_order_delivered",
+      "tone": "masculine",
+      "label": "تم تسليم الطلب",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "{{1}}، تم تسليم طلبك رقم {{3}} من {{2}}. نتمنى لك تجربة ممتعة! {{4}}",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات التي فعّلت تطبيق طلبات التوصيل عبر الواتساب.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "1042",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ],
+      "shape_category": "NOTICE"
+    },
+    {
+      "name": "svc_order_delivered_feminine",
+      "type": "svc_order_delivered",
+      "tone": "feminine",
+      "label": "تم تسليم الطلب",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "{{1}}، تم تسليم طلبك رقم {{3}} من {{2}}. نتمنى لك تجربة ممتعة! {{4}}",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات التي فعّلت تطبيق طلبات التوصيل عبر الواتساب.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "1042",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
+      ],
+      "shape_category": "NOTICE"
+    },
+    {
+      "name": "svc_order_cancelled_masculine",
+      "type": "svc_order_cancelled",
+      "tone": "masculine",
+      "label": "إلغاء الطلب",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "{{1}}، نعتذر، تم إلغاء طلبك رقم {{3}} من {{2}}. {{4}}",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات التي فعّلت تطبيق طلبات التوصيل عبر الواتساب.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "1042",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ],
+      "shape_category": "NOTICE"
+    },
+    {
+      "name": "svc_order_cancelled_feminine",
+      "type": "svc_order_cancelled",
+      "tone": "feminine",
+      "label": "إلغاء الطلب",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "{{1}}، نعتذر، تم إلغاء طلبك رقم {{3}} من {{2}}. {{4}}",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات التي فعّلت تطبيق طلبات التوصيل عبر الواتساب.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "1042",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
+      ],
+      "shape_category": "NOTICE"
     }
   ]
 }
