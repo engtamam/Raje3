@@ -138,6 +138,13 @@ env:
   # reporting fake success. Add ",console" back only if a temporary safety net is wanted while
   # credentials are still being provisioned — never as the permanent shape.
   WHATSAPP_CHAIN: "meta"
+  # TURNED ON 2026-10-03, after a deep audit confirmed the mechanism itself (core/release_control.py
+  # + notifier.py's four send methods) is sound and well-tested (21 passing tests: success, failure
+  # + retry, retry-exhaustion -> dead-letter logged never silently dropped, per-number "us" override
+  # correctly skipped, disabled-flag total no-op). Without this, every message we send to a customer
+  # with Meta AI enabled (the "meta" default above) silently and permanently mutes that customer's
+  # AI agent — WhatsApp gives no error when that happens, so this was a live, invisible defect.
+  WHATSAPP_RELEASE_THREAD_CONTROL_ENABLED: "true"
   # DELETED, NOT LEFT: notification-service's Settings (checked directly, current pinned version)
   # declares no such field — pydantic silently drops an unknown key, so this line applied nothing,
   # ever, on any deploy. ci/check_deploy_wiring.py's own gate caught it. If notification-service
