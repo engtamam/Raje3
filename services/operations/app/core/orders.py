@@ -114,6 +114,12 @@ class Order:
     # (or disputing) an order needs to be able to call the customer back.
     phone: str
     customer_name: str
+    # RESOLVED AT CREATION, NEVER CARRIED AS A BARE PHONE TO ANOTHER SERVICE — same "a peer that
+    # never receives the raw number cannot leak it" posture `seams.py::_emit_visit` documents for
+    # visits. `subject_ref` is what `reminders` actually schedules against (see
+    # `OrderService._emit`); `customer_id` is ours to look the row back up by.
+    customer_id: str
+    subject_ref: str
     lines: list[OrderLine]
     total_minor: int
     lat: float
@@ -173,14 +179,37 @@ class OrderService:
     PLACE an order rather than trust either off the wire."""
 
     def __init__(self, *, store: Any, services: Any, branches: Any, operations: Any = None,
-                seams: Any = None, payments: Any = None, default_cc: str = "966") -> None:
+                seams: Any = None, payments: Any = None, events: Any = None,
+                default_cc: str = "966") -> None:
         self._s = store
         self._services = services      # ServiceStore — the one source of truth for price/active
         self._branches = branches      # BranchStore — confirms the branch is real and this tenant's
         self._ops = operations         # Operations — record_visit() on delivery, same as mobile_requests
         self._seams = seams
         self._payments = payments      # PaymentsDesk — mints/reconciles the merchant's own pay-link
+        self._events = events          # EventBus — publishes "operations.order.changed", see _emit
         self._cc = default_cc
+
+    async def _emit(self, row: "Order") -> None:
+        """Publish the fact, for `reminders` to turn into a WhatsApp message — same "publish
+        rather than call" discipline `seams.py::_emit_visit` documents: this service stays
+        ignorant of who consumes an order status change. The payload carries `subject_ref`, NEVER
+        the phone — see `Order.subject_ref`'s own docstring.
+
+        BEST-EFFORT, NEVER RAISES AND NEVER BLOCKS THE STATUS CHANGE ITSELF — an event-bus outage
+        must not stop a shop from marking an order ready; `reminders`' own doc on this exact port
+        is explicit that an event is a hint, never the only way a fact may be learned, so losing
+        one here is not data loss, only a slower notification than usual."""
+        if self._events is None or not row.subject_ref:
+            return
+        try:
+            from app.ports.event_bus import Event
+            await self._events.publish("operations.order.changed", Event(
+                type="operations.order.changed",
+                payload={"tenant": row.tenant, "order_id": row.id, "subject_ref": row.subject_ref,
+                        "status": row.status, "branch_id": row.branch_id}))
+        except Exception:                                                   # noqa: BLE001
+            pass
 
     # ── creation — the WhatsApp catalogue door ─────────────────────────────────────────────────
     async def create(self, *, tenant: str, branch_id: str, phone: str, customer_name: str,
@@ -263,8 +292,19 @@ class OrderService:
             existing = await self.by_idempotency_key(tenant, idempotency_key)
             if existing is not None:
                 return existing
+            customer_id, subject_ref = "", ""
+            if self._ops is not None:
+                # RESOLVED, NEVER A VISIT — `ensure_customer` is the same "find or create by
+                # phone, no visit attached" call `bookings`' own console dialog already uses
+                # (operations.py::ensure_customer's own docstring). This is NOT a visit: the order
+                # has not been fulfilled yet, and `complete()` below records the real one later.
+                customer, _created = await self._ops.ensure_customer(
+                    tenant=tenant, phone=phone, name=(customer_name or "").strip(),
+                    source="whatsapp")
+                customer_id, subject_ref = customer.id, customer.subject_ref
             row = Order(id=f"ord_{uuid.uuid4().hex}", tenant=tenant, branch_id=branch_id,
-                       phone=phone, customer_name=(customer_name or "")[:128], lines=lines,
+                       phone=phone, customer_name=(customer_name or "")[:128],
+                       customer_id=customer_id, subject_ref=subject_ref, lines=lines,
                        total_minor=total_minor, lat=float(lat), lng=float(lng),
                        idempotency_key=idempotency_key, status=RECEIVED, created=int(now),
                        note=(note or "")[:1000])
@@ -378,6 +418,8 @@ class OrderService:
             # "close enough" amount means the order is paid.
             row.status = PAYMENT_MISMATCH
         await self._save(row)
+        if row.status == CONFIRMED:
+            await self._emit(row)
         return row
 
     async def resolve_mismatch(self, tenant: str, order_id: str, *, actor: str) -> Order:
@@ -394,6 +436,7 @@ class OrderService:
         row.confirmed_at = _now()
         row.note = (row.note + f"\n[{actor}] تم اعتماد الطلب رغم فرق المبلغ.").strip()[:1000]
         await self._save(row)
+        await self._emit(row)
         return row
 
     # ── the shop's own fulfilment — forward only ───────────────────────────────────────────────
@@ -402,6 +445,7 @@ class OrderService:
         row.status = PREPARING
         row.preparing_at = _now()
         await self._save(row)
+        await self._emit(row)
         return row
 
     async def mark_ready(self, tenant: str, order_id: str) -> Order:
@@ -409,6 +453,7 @@ class OrderService:
         row.status = READY
         row.ready_at = _now()
         await self._save(row)
+        await self._emit(row)
         return row
 
     async def start_delivery(self, tenant: str, order_id: str) -> Order:
@@ -416,6 +461,7 @@ class OrderService:
         row.status = OUT_FOR_DELIVERY
         row.out_for_delivery_at = _now()
         await self._save(row)
+        await self._emit(row)
         return row
 
     async def complete(self, tenant: str, order_id: str) -> Order:
@@ -436,6 +482,7 @@ class OrderService:
         row.status = DELIVERED
         row.delivered_at = _now()
         await self._save(row)
+        await self._emit(row)
         return row
 
     async def cancel(self, tenant: str, order_id: str, *, reason: str, actor: str = "") -> Order:
@@ -448,6 +495,7 @@ class OrderService:
         row.cancelled_at = _now()
         row.cancel_reason = (reason or "")[:300]
         await self._save(row)
+        await self._emit(row)
         return row
 
     async def _require_status(self, tenant: str, order_id: str, expected: str) -> Order:

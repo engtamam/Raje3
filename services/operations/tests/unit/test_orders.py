@@ -26,6 +26,14 @@ def run(c):
     return asyncio.run(c)
 
 
+class FakeEventBus:
+    def __init__(self) -> None:
+        self.published: list[tuple[str, dict]] = []
+
+    async def publish(self, topic, event) -> None:
+        self.published.append((topic, dict(event.payload)))
+
+
 class FakePaymentsDesk:
     """Mirrors `adapters/payments_desk.py`'s own real return shapes (`ok`/`request_id`/`pay_url`
     on create, `ok`/`status`/`amount_minor`/`provider_ref` on reconcile) without any network call."""
@@ -60,6 +68,20 @@ def svc():
     payments = FakePaymentsDesk()
     return (OrderService(store=store, services=services, branches=branches, operations=ops,
                         payments=payments), store, payments)
+
+
+@pytest.fixture()
+def svc_events():
+    """Same shape as `svc`, plus a real `FakeEventBus` — a separate fixture rather than widening
+    `svc` itself, so the 40+ tests already unpacking `s, store, _payments = svc` stay untouched."""
+    store = MemoryDataStore()
+    ops = Operations(store=store, pii_salt="s" * 32)
+    branches = BranchStore(store)
+    services = ServiceStore(store)
+    payments = FakePaymentsDesk()
+    events = FakeEventBus()
+    return (OrderService(store=store, services=services, branches=branches, operations=ops,
+                        payments=payments, events=events), store, events)
 
 
 async def _seed(store, *, price_minor: int = 2500, active: bool = True,
@@ -556,3 +578,96 @@ def test_a_delivered_order_cannot_be_cancelled_retroactively(svc):
     run(s.complete(TENANT, order.id))
     with pytest.raises(OrderError):
         run(s.cancel(TENANT, order.id, reason="بعد التسليم"))
+
+
+# ── reminders integration: a real customer row, and events published on real transitions ──────
+def test_create_resolves_a_real_customer_never_a_bare_phone(svc_events):
+    s, store, _events = svc_events
+    sid, bid = run(_seed(store))
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                         items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_cust_1"))
+    assert order.customer_id
+    assert order.subject_ref
+    from app.core.stores import CustomerStore
+    customer = run(CustomerStore(store).get(TENANT, order.customer_id))
+    # `canonical_phone` (orders.py) and `_normalise_phone` (operations.py's own ensure_customer)
+    # are two pre-existing, independently evolved normalisers that agree on digits but not on a
+    # leading "+" — comparing digits only, since fixing that divergence is out of this change's
+    # scope.
+    assert customer is not None
+    assert customer.phone.lstrip("+") == order.phone.lstrip("+")
+
+
+def test_two_orders_from_the_same_phone_share_one_customer_row(svc_events):
+    s, store, _events = svc_events
+    sid, bid = run(_seed(store))
+    first = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                         items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_cust_2a"))
+    second = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                          items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_cust_2b"))
+    assert first.customer_id == second.customer_id
+
+
+def test_no_event_published_on_order_creation_itself(svc_events):
+    """Creation is not yet a confirmed, paid order — the first customer-facing message fires on
+    CONFIRMED, not on a RECEIVED order nobody has paid for yet."""
+    s, store, events = svc_events
+    sid, bid = run(_seed(store))
+    run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_noevt"))
+    assert events.published == []
+
+
+def test_an_event_fires_on_each_real_transition_with_the_subject_ref_never_the_phone(svc_events):
+    s, store, events = svc_events
+    sid, bid = run(_seed(store, price_minor=1000))
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                         items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_fire_1"))
+    run(s.confirm_payment(TENANT, order.id, paid_amount_minor=1000, payment_ref="pay_fire_1"))
+    run(s.start_preparing(TENANT, order.id))
+    run(s.mark_ready(TENANT, order.id))
+    run(s.start_delivery(TENANT, order.id))
+    run(s.complete(TENANT, order.id))
+
+    statuses = [payload["status"] for _topic, payload in events.published]
+    assert statuses == [CONFIRMED, PREPARING, READY, OUT_FOR_DELIVERY, "delivered"]
+    for topic, payload in events.published:
+        assert topic == "operations.order.changed"
+        assert payload["subject_ref"] == order.subject_ref
+        assert "phone" not in payload
+        assert payload["order_id"] == order.id
+
+
+def test_a_payment_mismatch_never_fires_a_customer_facing_event(svc_events):
+    s, store, events = svc_events
+    sid, bid = run(_seed(store, price_minor=1000))
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                         items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_mismatch_1"))
+    run(s.confirm_payment(TENANT, order.id, paid_amount_minor=500, payment_ref="pay_mismatch_1"))
+    assert events.published == []
+    run(s.resolve_mismatch(TENANT, order.id, actor="owner"))
+    assert len(events.published) == 1
+    assert events.published[0][1]["status"] == CONFIRMED
+
+
+def test_cancellation_fires_its_own_event(svc_events):
+    s, store, events = svc_events
+    sid, bid = run(_seed(store))
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                         items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_cancel_fire"))
+    run(s.cancel(TENANT, order.id, reason="نفدت الكمية"))
+    assert len(events.published) == 1
+    assert events.published[0][1]["status"] == "cancelled"
+
+
+def test_a_missing_event_bus_never_breaks_a_real_status_change(svc):
+    """`events=None` (the default) must be a true no-op, same `if self._events is None: return`
+    posture every other optional peer in this file already takes — a status change is a real fact
+    that must land regardless of whether anything is listening for it."""
+    s, store, _payments = svc
+    sid, bid = run(_seed(store, price_minor=1000))
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سارة",
+                         items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_no_bus"))
+    confirmed = run(s.confirm_payment(TENANT, order.id, paid_amount_minor=1000,
+                                      payment_ref="pay_no_bus"))
+    assert confirmed.status == CONFIRMED

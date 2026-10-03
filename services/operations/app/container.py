@@ -368,7 +368,7 @@ def build_container(settings: Settings) -> Container:
     container.orders = OrderService(
         store=container.datastore, services=ServiceStore(container.datastore),
         branches=BranchStore(container.datastore), operations=container.operations,
-        seams=container.seams, payments=container.payments_desk,
+        seams=container.seams, payments=container.payments_desk, events=container.event_bus,
         default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
 
     # Shop-to-shop coupons (base-services v0.23.0) — needs `billing_plans` above, so it is built
