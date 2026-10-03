@@ -521,26 +521,30 @@ async def dispute_report(request: Request, body: DisputeReportIn,
     now = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=3)))
     tmp_dir = Path(tempfile.mkdtemp(prefix="dispute_report_"))
     docx_path = tmp_dir / f"dispute_{body.scenario}_{result.tenant}.docx"
-    build_docx(scenario_title=result.title, tenant=result.tenant, items=render_items,
-              out_path=docx_path, generated_at_label=now.strftime("%Y-%m-%d %H:%M"),
-              warnings=result.errors or None)
-
     import shutil
     from starlette.background import BackgroundTask
-    cleanup = BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True)
-
-    if body.file_format == "docx":
-        return FileResponse(docx_path, media_type=
-                           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                           filename=docx_path.name, background=cleanup)
-
     try:
-        pdf_path = convert_to_pdf(docx_path)
-    except PdfConversionUnavailable as exc:
+        build_docx(scenario_title=result.title, tenant=result.tenant, items=render_items,
+                  out_path=docx_path, generated_at_label=now.strftime("%Y-%m-%d %H:%M"),
+                  warnings=result.errors or None)
+
+        if body.file_format == "docx":
+            return FileResponse(docx_path, media_type=
+                               "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                               filename=docx_path.name,
+                               background=BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True))
+
+        try:
+            pdf_path = convert_to_pdf(docx_path)
+        except PdfConversionUnavailable as exc:
+            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+        return FileResponse(pdf_path, media_type="application/pdf", filename=pdf_path.name,
+                           background=BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True))
+    except Exception:
+        # Streamed response (if any) owns cleanup via BackgroundTask once returned; any failure
+        # before that point (build_docx, conversion) must clean up here instead.
         shutil.rmtree(tmp_dir, ignore_errors=True)
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
-    return FileResponse(pdf_path, media_type="application/pdf", filename=pdf_path.name,
-                        background=cleanup)
+        raise
 
 
 def _fmt_report_ts(ts: int | None) -> str:
