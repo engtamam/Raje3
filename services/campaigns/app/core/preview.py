@@ -33,7 +33,7 @@ from typing import Any
 # The same rules reminders applies (spec Appendix A): a free variable inside an approved template
 # is an injection channel that goes out under the ESTABLISHMENT'S name and counts against OUR
 # quality rating at Meta.
-_URL = re.compile(r"(https?://|www\.|\b[a-z0-9-]+\.(com|net|org|sa|io|co)\b)", re.I)
+_URL = re.compile(r"(https?://|www\.|\b[a-z0-9-]+\.[a-z]{2,24}\b)", re.I)
 _PHONE = re.compile(r"(?:\+?\d[\s-]?){7,}")
 _CONTROL = re.compile(r"[\x00-\x1f\x7f​-‏‪-‮]")
 

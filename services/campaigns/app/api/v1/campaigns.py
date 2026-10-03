@@ -41,6 +41,8 @@ from app.core.spread import plan as plan_spread
 from app.core.spread import sentence as spread_sentence
 from app.core.report import build as build_report, history, totals
 from app.core.riyadh import local
+from app.core.pii import subject_ref
+from app.config import get_settings
 
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
 
@@ -611,7 +613,9 @@ async def create(request: Request, body: CampaignIn,
         package_id=body.package_id or "", window_start_hour=body.window_start_hour,
         window_end_hour=body.window_end_hour, window_weekdays=body.window_weekdays,
         milestone_threshold=body.milestone_threshold or 0,
-        milestone_recurring=bool(body.milestone_recurring))
+        milestone_recurring=bool(body.milestone_recurring),
+        reward_type=body.reward_type if body.goal in REWARD_ENABLED_GOALS else "discount",
+        reward_points=body.reward_points if body.goal in REWARD_ENABLED_GOALS else 0)
     taken = await press.claim(c.datastore, _tenant(principal), press_key, now=now)
     if not taken.first:
         if taken.in_flight:
@@ -925,6 +929,13 @@ def _now() -> int:
 _PLATFORM = require_capability("platform.campaigns")
 
 
+def _platform_actor(principal: Principal) -> str:
+    s = get_settings()
+    if not s.PII_SALT:
+        return ""
+    return subject_ref(s.PII_SALT, principal.tenant or "", principal.subject)
+
+
 class AudienceCapIn(BaseModel):
     # The ceiling on one campaign's audience. A product limit, not a technical one: an
     # establishment sending to more than this in one go is a case we want to see before it goes
@@ -948,14 +959,15 @@ async def set_audience_cap(request: Request, body: AudienceCapIn, tenant: str = 
     shop that legitimately needed it.
     """
     scope = tenant or "_global"
+    actor = _platform_actor(principal)
     await request.app.state.auditor.record(
-        "campaign.audience_cap_changed", actor=principal.subject, tenant=tenant,
+        "campaign.audience_cap_changed", actor=actor, tenant=tenant,
         resource=f"audience_cap:{scope}", ip=request.client.host if request.client else "")
     row = body.model_dump()
     row["id"] = scope
     row["tenant"] = "_platform"
     row["scope"] = scope
-    row["actor"] = principal.subject
+    row["actor"] = actor
     await request.app.state.container.datastore.put(
         "audience_caps", f"_platform|{scope}", row)
     return {"scope": scope, "max_audience": body.max_audience}

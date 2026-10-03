@@ -56,7 +56,8 @@ def key_for(tenant: str, *, goal: str, owner_text: str, service_id: str, branch_
             offer_value: str, expires_at: int, fire_at: int, package_id: str = "",
             window_start_hour: int = 0, window_end_hour: int = 24,
             window_weekdays: list[int] | None = None, milestone_threshold: int = 0,
-            milestone_recurring: bool = False) -> str:
+            milestone_recurring: bool = False, reward_type: str = "discount",
+            reward_points: int = 0) -> str:
     """A stable name for one intention. Every part of it is something the owner typed or chose.
 
     `package_id` DEFAULTS EMPTY, NOT OMITTED — two DIFFERENT `package_offer` presses (different
@@ -78,7 +79,8 @@ def key_for(tenant: str, *, goal: str, owner_text: str, service_id: str, branch_
                     package_id.strip(), str(int(window_start_hour or 0)),
                     str(int(window_end_hour if window_end_hour is not None else 24)),
                     ",".join(str(w) for w in sorted(window_weekdays or [])),
-                    str(int(milestone_threshold or 0)), "1" if milestone_recurring else "0"])
+                    str(int(milestone_threshold or 0)), "1" if milestone_recurring else "0",
+                    reward_type.strip(), str(int(reward_points or 0))])
     return "prs_" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
 
