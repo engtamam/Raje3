@@ -1,5 +1,5 @@
 {
-  "release": "v0.25.38",
+  "release": "v0.25.39",
   "images": {
     "analytics-service": "sha256:92f3865f423647a75e28fbad4956bf04370c108ff50c63318c4a3d4ce128de41",
     "api-gateway": "sha256:730331879f671ff414cd3650d40354dddba483fb834c9e4a74daa4b9f26d1ead",
@@ -11,7 +11,7 @@
     "compliance-service": "sha256:6d094f03c8c07c0bc2b0e4bb4be12f8ecf8c7600a60cb56de52dfe0ed5727501",
     "connector-service": "sha256:4d8f3ebc1699a4e6413e786f57d75d25c8b8e78302d3aed5bd69a483eb02e0f9",
     "feature-flag-service": "sha256:c4b8ded9b6c26e23691a19f883c6b36f2654c122a127fbc9e31658dde860e1ca",
-    "identity-service": "sha256:30ef0616847d8e3cdb8796a1768c757c8d2befbf93bd7f6018e8297ac2d91fd9",
+    "identity-service": "sha256:4393e3b7bf38da2182b2122a618fcb2e3b6255490d2c46bdfc87879b524aaeb4",
     "job-service": "sha256:72a7cd1c745f8182eab6191f91dc6c49aad5f43b7e9100d22d5c0a31e7665915",
     "notification-service": "sha256:456f7b132ff370f468f306dbc50683feff405cd2ebc3e4de8f96d5c3cf40ec27",
     "onboarding-service": "sha256:a4719cca1f84f715bc86c24303da6f88a77bcd56622ced3516b5e1d1075d4c38",
