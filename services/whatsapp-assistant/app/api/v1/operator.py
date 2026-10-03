@@ -142,6 +142,23 @@ async def set_config(request: Request, body: ConfigIn,
         return _refuse(
             f"{body.key} is a pricing key — it can only be changed via POST /pricing/schedule, "
             f"which applies after a delay so shops are never billed a new rate with no notice.")
+    # A SWITCH TO A MODEL THIS DEPLOYMENT HAS NEVER PRICED must be refused here, not accepted and
+    # left to ai_unit_pricing.py's own runtime fallback (the "most expensive known model" rule) —
+    # that rule can only ever protect against a model costing MORE than what is already
+    # registered; an operator who has only ever priced cheap models and then switches to a
+    # genuinely pricier one would have every turn silently under-charged indefinitely. Requiring
+    # the model to be priced FIRST (via POST /pricing/schedule, same door every other pricing
+    # change already goes through) closes the gap at its root instead of only logging it.
+    if body.key == "ASSISTANT_MODEL_NAME":
+        rc = _runtime_config(request)
+        raw_costs = await rc.get(tenant=body.tenant, key="PRICING_AI_UNIT_MODEL_COSTS_JSON",
+                                 default=get_settings().PRICING_AI_UNIT_MODEL_COSTS_JSON)
+        known = parse_model_costs(str(raw_costs))
+        if str(body.value) not in known:
+            return _refuse(
+                f"{body.value!r} has no entry in PRICING_AI_UNIT_MODEL_COSTS_JSON for this "
+                f"tenant — price it via POST /pricing/schedule before switching the live model "
+                f"to it, so it is never silently billed at a substitute rate.")
     # AUDITED AFTER THE WRITE SUCCEEDS, NOT BEFORE — fixed 2026-09-07. This used to record BEFORE
     # calling `.set()`, so a value `RuntimeConfigError` refused (a bad key/value — the ordinary
     # case, not a crash) was still permanently logged as "operator.config_changed", a change that
