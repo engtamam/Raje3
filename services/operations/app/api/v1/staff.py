@@ -7,9 +7,6 @@ owner's. A shop that hires seasonal help must be able to grant the first without
 from __future__ import annotations
 
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
@@ -29,6 +26,7 @@ from app.core.models import (ASSIGNMENT_MODES, PROCEDURE_STEP_SEVERITIES, Branch
 from app.core import branches as B
 from app.core import ai_notes as AN
 from app.core import ai_toggle as AT
+from app.core import geo as GEO
 from app.core import msg_limits as ML
 from app.core import scheduling as SCHED
 from app.core import seats as S
@@ -914,6 +912,10 @@ class BranchIn(BaseModel):
     lat: float | None = Field(default=None, ge=-90, le=90)
     lng: float | None = Field(default=None, ge=-180, le=180)
     city: str = Field(default="", max_length=80)
+    #: WhatsApp Direct Ordering's own delivery radius — see Branch.delivery_radius_km's own
+    #: docstring. `None` means "not set on this call", folded to 0 (pickup-only) on creation;
+    #: a real value is folded into GEO's own 0-100km bound rather than re-validated here.
+    delivery_radius_km: int | None = Field(default=None)
 
 
 class BranchPatch(BaseModel):
@@ -924,6 +926,7 @@ class BranchPatch(BaseModel):
     lat: float | None = Field(default=None, ge=-90, le=90)
     lng: float | None = Field(default=None, ge=-180, le=180)
     city: str | None = Field(default=None, max_length=80)
+    delivery_radius_km: int | None = Field(default=None)
 
 
 def _live(rows: list[Branch]) -> int:
@@ -969,7 +972,9 @@ async def create_branch(request: Request, body: BranchIn,
                 ip=request.client.host if request.client else "")
             b = Branch(id=new_id("brn"), tenant=tenant, name=body.name.strip(),
                        created=int(time.time()),
-                       lat=body.lat or 0.0, lng=body.lng or 0.0, city=body.city.strip())
+                       lat=body.lat or 0.0, lng=body.lng or 0.0, city=body.city.strip(),
+                       delivery_radius_km=(GEO.clamp_radius_km(body.delivery_radius_km)
+                                           if body.delivery_radius_km is not None else 0))
             await store.save(b)
             await gauges.report(tenant, S.BRANCHES, current + 1)
     except S.SeatClaimBusy as exc:
@@ -1047,6 +1052,10 @@ async def update_branch(request: Request, branch_id: str, body: BranchPatch,
                 changes["lng"] = {"from": b.lng, "to": body.lng}
             if body.city is not None and body.city.strip() != b.city:
                 changes["city"] = {"from": b.city, "to": body.city.strip()}
+            if (body.delivery_radius_km is not None
+                    and GEO.clamp_radius_km(body.delivery_radius_km) != b.delivery_radius_km):
+                changes["delivery_radius_km"] = {"from": b.delivery_radius_km,
+                                                 "to": GEO.clamp_radius_km(body.delivery_radius_km)}
 
             await request.app.state.auditor.record(
                 "branch.updated", actor=principal.subject, tenant=tenant,
@@ -1066,6 +1075,8 @@ async def update_branch(request: Request, branch_id: str, body: BranchPatch,
                 b.lng = body.lng
             if body.city is not None:
                 b.city = body.city.strip()
+            if body.delivery_radius_km is not None:
+                b.delivery_radius_km = GEO.clamp_radius_km(body.delivery_radius_km)
             await store.save(b)
             # THE WHOLE COUNT, RECOMPUTED — a gauge is reported, never incremented
             # (core/seats.py). The saved row is the one in `rows` by identity only if the store
@@ -1145,57 +1156,17 @@ async def list_branches(request: Request, principal: Principal = Depends(_READ_B
     return {"branches": kept, "branch_limit": int(limit), "may_add_branch": bool(may_add)}
 
 
-_MAPS_SHORT_LINK_HOSTS = {"goo.gl", "maps.app.goo.gl"}
-
-
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    """Declines to follow — `urlopen` then raises `HTTPError` on the redirect status, which is
-    the only way urllib hands back the `Location` header without actually fetching the page it
-    points to. We want the coordinate hiding in that URL, never the page itself."""
-
-    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D102
-        return None
-
-
-def _resolve_maps_short_link(url: str) -> str:
-    """Follows ONE redirect hop of a Google Maps short link and returns where it landed.
-
-    A BROWSER CANNOT DO THIS ITSELF — reading a cross-origin redirect's destination is exactly
-    what CORS exists to block, so apps/console's own googleMapsLink.ts deliberately never
-    attempts it (see that file's own docstring). This route exists purely to do that one hop on
-    the console's behalf, same-origin from its own point of view.
-
-    RESTRICTED TO GOOGLE'S OWN SHORT-LINK HOSTS, NEVER AN ARBITRARY URL — an open "fetch whatever
-    URL the caller names" route is a textbook SSRF door (a caller could point it at an internal
-    service address). `goo.gl`/`maps.app.goo.gl` are the only two hosts Google actually issues
-    these short links from.
-    """
-    parsed = urllib.parse.urlparse(url)
-    host = (parsed.hostname or "").removeprefix("www.")
-    if parsed.scheme != "https" or host not in _MAPS_SHORT_LINK_HOSTS:
-        return ""
-    opener = urllib.request.build_opener(_NoRedirect)
-    try:
-        opener.open(url, timeout=5)
-        # No redirect at all — nothing further to resolve.
-        return ""
-    except urllib.error.HTTPError as exc:
-        if exc.code in (301, 302, 303, 307, 308):
-            return exc.headers.get("Location") or ""
-        return ""
-    except OSError:
-        return ""
-
-
 @router.get("/resolve-maps-link", dependencies=[Depends(rate_limit)])
 async def resolve_maps_link(request: Request, url: str,
                             principal: Principal = Depends(_READ)) -> dict:
     """`{"resolved_url": "..."}`, or `""` when the link was not one of ours to resolve or carried
-    no redirect. Blocking I/O (urllib, matching signup.py's own `Http` — a second HTTP idiom in
-    this codebase is a second set of timeout/error behaviour to keep in step), so it runs off the
-    event loop via `run_in_threadpool` rather than stalling every other request on this worker.
+    no redirect. The actual SSRF-safe one-redirect-hop logic lives in `core/geo.py` (also the
+    module the new WhatsApp-ordering delivery-radius work reads coordinates through) — kept in ONE
+    place rather than reimplemented here a second time. Blocking I/O under the hood, so it runs
+    off the event loop via `run_in_threadpool` rather than stalling every other request on this
+    worker.
     """
-    resolved = await run_in_threadpool(_resolve_maps_short_link, url)
+    resolved = await run_in_threadpool(GEO.resolve_short_link, url)
     return {"resolved_url": resolved}
 
 

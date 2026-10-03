@@ -599,11 +599,18 @@ class Branch:
     lat: float = 0.0
     lng: float = 0.0
     city: str = ""
+    #: HOW FAR THIS BRANCH WILL DELIVER, in kilometres — for the WhatsApp Direct Ordering app
+    #: (core/orders.py). 0 is a real, valid choice (pickup-only, no delivery radius at all), never
+    #: a missing value; the actual 0-100km bound is enforced where it is SET (core/geo.py's own
+    #: `clamp_radius_km`), not re-validated here, the same "validate once, at the edge" posture
+    #: `Service.duration_minutes`'s own docstring argues for its own "0 = not configured" default.
+    delivery_radius_km: int = 0
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "name": self.name,
                 "active": self.active, "created": self.created, "closed_at": self.closed_at,
-                "lat": self.lat, "lng": self.lng, "city": self.city}
+                "lat": self.lat, "lng": self.lng, "city": self.city,
+                "delivery_radius_km": self.delivery_radius_km}
 
 
 @dataclass
