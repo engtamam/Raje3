@@ -55,6 +55,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "re-uploading, same reasoning as coworking.pause_changed above",
     },
     {
+        "action": "coworking.subject_erase_requested",
+        "source": "internal",
+        "critical": False,
+        "resource": "subject",
+        "why": "the fan-out's own request is useful context around the erasure result that "
+               "follows; not critical on its own since the completion record below is what "
+               "actually proves the erasure happened",
+    },
+    {
         "action": "coworking.subject_erased",
         "source": "internal",
         "critical": True,

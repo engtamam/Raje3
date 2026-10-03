@@ -143,6 +143,24 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "refusing to change a retention period because the log is down protects nothing",
     },
     {
+        "action": "referrals.subject_erase_requested",
+        "source": "internal",
+        "critical": False,
+        "resource": "subject",
+        "why": "the fan-out's own request is useful context around the erasure result that "
+               "follows; not critical on its own since the completion record below is what "
+               "actually proves the erasure happened",
+    },
+    {
+        "action": "referrals.subject_erased",
+        "source": "internal",
+        "critical": True,
+        "resource": "subject",
+        "why": "erasing a phone number platform-wide (the DSAR fan-out compliance-service "
+               "triggers) is irreversible; an unwitnessed erasure is indistinguishable from one "
+               "nobody actually authorised",
+    },
+    {
         "action": "referrals.campaign_created",
         "source": "admin",
         "critical": False,
@@ -158,27 +176,5 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "campaign",
         "why": "turning a campaign on or off changes what customers see immediately; the history "
                "of who flipped it explains later behaviour",
-    },
-    # ── Delete these examples and declare your own ────────────────────────────
-    {
-        "action": "example.thing_created",
-        "source": "user",
-        "critical": False,
-        "resource": "thing",
-    },
-    {
-        "action": "example.permission_granted",
-        "source": "admin",
-        "critical": True,
-        "resource": "grant",
-        "why": "an unattributable permission grant is indistinguishable from an attacker's",
-    },
-    {
-        "action": "example.subject_erased",
-        "source": "internal",
-        "critical": True,
-        "resource": "subject",
-        "why": "erasure is irreversible; without a record we cannot prove we honoured the DSAR, "
-               "and the data itself is gone so nothing else can show it",
     },
 ]

@@ -146,11 +146,23 @@ async def erase_subject(request: Request, body: EraseIn) -> dict:
     fan-out by adding it to PRIVACY_TARGETS in compliance-service's values file; the
     safety:privacy-wiring gate fails if you implement this and forget.
     """
+    from app.core.pii import subject_ref
     c = request.app.state.container
     s = get_settings()
+    ref = subject_ref(s.PII_SALT, body.tenant, body.subject) if s.PII_SALT else ""
+    await request.app.state.auditor.record(
+        "referrals.subject_erase_requested", actor="", tenant=body.tenant,
+        resource=f"subject:{ref}", ip=request.client.host if request.client else "")
     eraser = TemplateErasure(store=c.datastore, pii_salt=s.PII_SALT,
                              max_scan=s.ERASURE_MAX_SCAN)
-    return await eraser.erase(body.tenant, body.subject)
+    result = await eraser.erase(body.tenant, body.subject)
+    await request.app.state.auditor.record(
+        "referrals.subject_erased", actor="", tenant=body.tenant,
+        resource=f"subject:{result.get('subject_ref', '')}",
+        ip=request.client.host if request.client else "",
+        metadata={"erased": result.get("erased") or [],
+                 "already_absent": bool(result.get("already_absent"))})
+    return result
 
 
 class BackupExportIn(BaseModel):

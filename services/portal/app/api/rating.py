@@ -78,15 +78,17 @@ async def rating_submit(request: Request, ref: str) -> Response:
     theme = build_theme(accent or None)
 
     form = await request.form()
+    raw_stars = str(form.get("stars") or "")[:4]
     try:
-        stars = int(str(form.get("stars") or ""))
+        stars = int(raw_stars)
     except ValueError:
         stars = 0
-    issue_ids = [str(v) for v in form.getlist("issue")]
     comment = str(form.get("comment") or "").strip()[:2000]
 
     ctx = await c.operations.rating_context(tenant, str(anchor.get("visit_id") or ""))
     steps = list(ctx.get("steps") or []) if ctx.get("found") else []
+    known_step_ids = {str(s.get("id") or "") for s in steps}
+    issue_ids = [str(v) for v in form.getlist("issue") if str(v) in known_step_ids]
 
     error = ""
     if not 1 <= stars <= 5:
