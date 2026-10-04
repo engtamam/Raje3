@@ -304,21 +304,17 @@ WHATSAPP_DELIVERY_ORDERS_FEATURES: tuple[dict[str, Any], ...] = (
     # GROWTH-ENGINE FRAMING, NOT A FEATURE DESCRIPTION — the owner's own instruction, 2026-10-05:
     # "تكون احترافية توضح القيمة القصوى... اللي تخليه محرك نمو... وتضمن حقه اول باول". Each row
     # below names a REAL, ALREADY-BUILT mechanism (core/orders.py's own module docstring) and
-    # states what it is actually worth to the shop — a missed sale, a disputed charge, a
-    # misrouted order — never a generic "it has X" line.
+    # states what it is actually worth to the shop — a missed sale, a misrouted order, money that
+    # reaches him with no middleman — never a generic "it has X" line.
+    #
+    # TRIMMED (2026-10-05), the owner's own correction: two earlier rows here described HOW WE
+    # handle his money internally (amount-matching, duplicate-webhook protection) — accurate, but
+    # that is our own engineering diligence, not a value HE gains. He reads this list and decides
+    # whether to buy; only what grows his business or protects something visibly his belongs here.
     {"id": "whatsapp_delivery_orders.sells_while_youre_busy", "title": "يبيع وأنت مشغول، يستقبل وأنت نايم",
      "detail": "الطلب يُستقبل ويُسعَّر ويوصله رابط الدفع تلقائياً من كتالوجك الرسمي على واتساب، بثانية —"
               " بلا موظف يرد، وبلا دقيقة تأخير تخسّر فيها العميل لمنافسك",
      "icon": "sparkles", "tone": "violet", "shared_with": [], "owned_by": ""},
-    {"id": "whatsapp_delivery_orders.money_matched_to_the_halala", "title": "حقك المالي محسوب بالهللة، لا بالتقريب",
-     "detail": "ما يتأكد أي طلب إلا بعد ما نطابق المبلغ اللي استلمته بوابتك فعلياً مع المبلغ المطلوب"
-              " بالضبط — أي فرق، ولو هللة، يوقف الطلب تلقائياً بدل ما يمرّ بصمت على حسابك",
-     "icon": "check-circle", "tone": "teal", "shared_with": [], "owned_by": ""},
-    {"id": "whatsapp_delivery_orders.never_charged_or_claimed_twice",
-     "title": "ولا طلب مكرر، ولا فلوسك تُحسب مرتين",
-     "detail": "لو واتساب كرّر إرسال نفس الطلب (وارد تقنياً من جهتهم)، نظامنا يمنع تلقائياً إنشاء طلب"
-              " ثانٍ أو قبول دفعة ثانية لنفس الطلب — حقك محمي من أول لحظة، لا بعد ما يصير خلل",
-     "icon": "shield-check", "tone": "blue", "shared_with": [], "owned_by": ""},
     {"id": "whatsapp_delivery_orders.exact_branch_every_time", "title": "كل طلب يوصل الفرع الصحيح، أوتوماتيك",
      "detail": "موقع العميل يتحقق ويُربط بأقرب فرع يغطي عنوانه فعلاً قبل ما يصله أي رابط دفع — صفر"
               " طلبات ضايعة بين فروعك أو واصلة لفرع ما يقدر يخدمها",
