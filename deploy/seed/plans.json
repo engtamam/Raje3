@@ -98,7 +98,8 @@
     "feature.mutual_benefit": "تبادل منافع (إحالة عملاء) — cross-tenant customer-referral eligibility detection between two consenting shops (services/operations/app/core/mutual_benefit.py). Standalone (plan.standalone). NEVER a billing/money feature — the discount itself is applied by the beneficiary shop however it normally does; this app only organises the relationship and detects eligibility",
     "feature.mobile_ai_assistant": "المساعد الذكي (تطبيق الجوال) — on-device Gemma 4 assistant, apps/mobile only, no console screen. Standalone (plan.standalone). Priced at 0 on purpose (zero server inference cost to us) but a REAL subscribe/cancel-able plan, not an auto-grant — the owner's own explicit call, so a shop can turn it off like any other app and we can price it for real later with no code change",
     "feature.coworking": "الاستضافة المهنية — hourly co-working resource rental, its own standalone microservice (services/coworking). Standalone (plan.standalone). Hourly-ONLY pricing, no money moves through this platform (a stored price fact only), and no cross-shop marketplace — one shareable link per shop",
-    "feature.referrals": "الإحالة والمسوقين — referral & affiliate marketing (services/referrals). Real campaigns, till-side redemption, and the affiliate/marketer tier all shipped and tested — sold at 9900 halalas, `listed: true` since 2026-09-27"
+    "feature.referrals": "الإحالة والمسوقين — referral & affiliate marketing (services/referrals). Real campaigns, till-side redemption, and the affiliate/marketer tier all shipped and tested — sold at 9900 halalas, `listed: true` since 2026-09-27",
+    "feature.whatsapp_delivery_orders": "طلبات التوصيل عبر الواتساب — ordering from the shop's official Meta WhatsApp Commerce Catalog, geo-gated to the nearest branch, paid through the shop's own gateway (services/whatsapp-assistant's catalog_provisioning.py/catalog_item_sync.py + services/operations' orders.py). A SEPARATE app from `feature.whatsapp` even though both live in the same microservice. `listed: false` for now -- not yet priced, backend isolation work only this pass (see whatsapp-catalog-ordering-execution-plan.md)"
   },
   "_removed": [
     "feature.roles.custom IS GONE, and its absence is the honest state. It was sold on every tier",
@@ -615,6 +616,29 @@
       "limits": {
         "branches": {
           "kind": "gauge",
+          "limit": 1
+        }
+      }
+    },
+    {
+      "_": [
+        "طلبات التوصيل عبر الواتساب — see FEATURE_DOCS['feature.whatsapp_delivery_orders'] above.",
+        "`listed: false` ON PURPOSE: not yet priced, this pass is backend isolation work only (its",
+        "own feature key, state, consent purpose) — see whatsapp-catalog-ordering-execution-plan.md.",
+        "A real price/amount is a separate, explicit owner decision before this row ever flips to",
+        "`listed: true`."
+      ],
+      "name": "طلبات التوصيل عبر الواتساب",
+      "amount": 0,
+      "trial_days": 0,
+      "listed": false,
+      "limits": {
+        "feature.whatsapp_delivery_orders": {
+          "kind": "boolean",
+          "limit": 1
+        },
+        "plan.standalone": {
+          "kind": "boolean",
           "limit": 1
         }
       }

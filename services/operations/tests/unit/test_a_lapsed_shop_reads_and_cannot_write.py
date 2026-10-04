@@ -76,6 +76,7 @@ def test_the_refusal_reaches_the_caller_as_402_with_a_sentence():
         mobile_ai_assistant_licence = NullFeatureLicence("feature.mobile_ai_assistant", False)
         coworking_licence = NullFeatureLicence("feature.coworking", False)
         referrals_licence = NullFeatureLicence("feature.referrals", False)
+        whatsapp_delivery_orders_licence = NullFeatureLicence("feature.whatsapp_delivery_orders", False)
 
     app.state.container = _Container()
 
@@ -204,6 +205,7 @@ def test_a_shop_holding_only_referrals_is_not_wrongly_refused_the_generic_gate()
         mobile_requests_licence = NullFeatureLicence("feature.mobile_requests", False)
         partner_loyalty_licence = NullFeatureLicence("feature.partner_loyalty", False)
         referrals_licence = NullFeatureLicence("feature.referrals", True)   # the one that's live
+        whatsapp_delivery_orders_licence = NullFeatureLicence("feature.whatsapp_delivery_orders", False)
 
     app.state.container = _Container()
 

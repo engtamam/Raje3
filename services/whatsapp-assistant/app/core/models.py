@@ -174,6 +174,12 @@ class ConversationState:
     pending_order_items: list[dict[str, Any]] = field(default_factory=list)
     pending_order_catalog_id: str = ""
     pending_order_at: int = 0
+    # THE ORDER MESSAGE'S OWN wamid -- Step 4's idempotency_key for `orders.py::OrderService.
+    # create()`. Deliberately NOT the location message's own wamid (a different event, arriving
+    # later): the fact that must never double-create is "this cart", and a webhook retry of the
+    # SAME order message (or the customer re-sharing their location after a timeout) must settle
+    # on the one real Order either way.
+    pending_order_wamid: str = ""
     # Set once the location arrives (handle_order_followup) and `awaiting_order_location` clears
     # to False -- held here for Step 4 (branch resolution + orders.py) to pick up; 0.0 is a real,
     # valid coordinate on the equator/meridian, so readiness is read from `awaiting_order_location`

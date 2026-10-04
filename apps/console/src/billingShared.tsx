@@ -105,6 +105,9 @@ export const LIMIT_KEYS: Record<string, { label: string; unit?: string }> = {
   // Phase 0 only (services/referrals) — no screen calls this yet; `listed: false` on its plan
   // row keeps the card itself from ever reaching a real customer (see deploy/seed/plans.json).
   'feature.referrals': { label: 'plans.limit.referrals.label' },
+  // Phase 0 only, same posture as `feature.referrals` above -- `listed: false` on its plan row
+  // (deploy/seed/plans.json) keeps the card from ever reaching a real customer.
+  'feature.whatsapp_delivery_orders': { label: 'plans.limit.whatsappDeliveryOrders.label' },
   'plan.standalone': { label: 'plans.limit.standalone.label' },
   // `plan.requires_any` NEVER ACTUALLY PRINTS via `planLines` (its value is a list, never a
   // positive `limit`) — the entry exists only so `ci/check_entitlements.py` finds the wording it

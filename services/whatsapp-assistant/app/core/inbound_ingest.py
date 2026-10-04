@@ -81,11 +81,14 @@ async def _gate_consent(ctx: GateContext) -> GateOutcome:
        tenant past this gate. UNKNOWN keeps its OWN, separate, pre-existing meaning (compliance-
        service is genuinely unreachable) and its own CONSENT_POLICY_ON_UNKNOWN posture, untouched.
     """
+    purpose = (ctx.settings.CONSENT_PURPOSE_ORDERING if ctx.kind == "order"
+              else ctx.settings.CONSENT_PURPOSE)
+
     if ctx.reply_id in (_CONSENT_CONTINUE_ID, _CONSENT_END_ID):
         granted = ctx.reply_id == _CONSENT_CONTINUE_ID
         try:
             await ctx.container.consent_gate.record(
-                tenant=ctx.tenant, subject=ctx.from_number, purpose=ctx.settings.CONSENT_PURPOSE,
+                tenant=ctx.tenant, subject=ctx.from_number, purpose=purpose,
                 granted=granted)
         except Exception as exc:                                      # noqa: BLE001
             ctx.logger.warning("whatsapp_consent_record_failed", extra={
@@ -98,13 +101,13 @@ async def _gate_consent(ctx: GateContext) -> GateOutcome:
                 "whatsapp_assistant.consent_refused", actor="whatsapp-assistant",
                 resource=f"wamid:{ctx.wamid}", tenant=ctx.tenant,
                 metadata={"status": "denied", "reason": "customer_declined",
-                         "purpose": ctx.settings.CONSENT_PURPOSE})
+                         "purpose": purpose})
         except Exception:                                            # noqa: BLE001
             pass
         return {"processed": False, "reason": "consent_denied"}
 
     verdict = await ctx.container.consent_gate.check(
-        tenant=ctx.tenant, subject=ctx.from_number, purpose=ctx.settings.CONSENT_PURPOSE)
+        tenant=ctx.tenant, subject=ctx.from_number, purpose=purpose)
 
     if verdict.status == UNKNOWN:
         if ctx.settings.CONSENT_POLICY_ON_UNKNOWN == "fail_open":
@@ -118,7 +121,7 @@ async def _gate_consent(ctx: GateContext) -> GateOutcome:
                 "whatsapp_assistant.consent_refused", actor="whatsapp-assistant",
                 resource=f"wamid:{ctx.wamid}", tenant=ctx.tenant,
                 metadata={"status": verdict.status, "reason": verdict.reason,
-                         "purpose": ctx.settings.CONSENT_PURPOSE})
+                         "purpose": purpose})
         except Exception:                                            # noqa: BLE001
             pass
         return {"processed": False, "reason": f"consent_{verdict.status}"}
@@ -134,7 +137,7 @@ async def _gate_consent(ctx: GateContext) -> GateOutcome:
             await ctx.auditor.record(
                 "whatsapp_assistant.consent_requested", actor="whatsapp-assistant",
                 resource=f"wamid:{ctx.wamid}", tenant=ctx.tenant,
-                metadata={"reason": verdict.reason, "purpose": ctx.settings.CONSENT_PURPOSE})
+                metadata={"reason": verdict.reason, "purpose": purpose})
         except Exception:                                            # noqa: BLE001
             pass
         return {"processed": True, "reason": "consent_requested"}
@@ -281,14 +284,17 @@ async def ingest_inbound_message(
         # `None` means this conversation holds no pending order at all — the normal chain below
         # runs completely unchanged.
         plan = await container.engine.handle_order_followup(
-            tenant=tenant, subject_ref=subject_ref, kind=kind, text=text)
+            tenant=tenant, subject_ref=subject_ref, kind=kind, text=text,
+            from_number=from_number, wamid=wamid)
+        from_order_flow = plan is not None
         if plan is not None:
             pass
         elif kind == "order":
             # A catalog order arriving with no pending one already open -- see
             # core/conversation.py::handle_order for why this never touches the LLM at all.
             plan = await container.engine.handle_order(
-                tenant=tenant, subject_ref=subject_ref, text=text)
+                tenant=tenant, subject_ref=subject_ref, text=text, wamid=wamid)
+            from_order_flow = True
         elif kind in ("button_reply", "list_reply"):
             if reply_id.startswith("triage:"):
                 # The mandatory first-message triage gate's own list-reply ids — resolved
@@ -325,15 +331,15 @@ async def ingest_inbound_message(
         # advances the conversation above — only the SEND is held back, for the bounded cooldown,
         # so the customer does not get a human answer immediately followed by a bot one.
         from app.core.owner_presence import is_owner_active
-        owner_active = plan is not None and plan.kind in (
+        owner_active = not from_order_flow and plan is not None and plan.kind in (
             "text", "list", "request_location") and await is_owner_active(
             container, tenant=tenant, contact=from_number, now=int(time.time()))
         if owner_active:
             logger.info("whatsapp_owner_active_suppressed",
                        extra={"tenant": tenant, "wamid": wamid})
-        elif plan is not None and plan.kind in (
+        elif (not from_order_flow and plan is not None and plan.kind in (
                 "text", "list", "request_location") and not await outbound_allowed(
-                container, settings, tenant, subject_ref=subject_ref, branch_id=branch_id):
+                container, settings, tenant, subject_ref=subject_ref, branch_id=branch_id)):
             logger.warning("whatsapp_outbound_capped", extra={"tenant": tenant, "wamid": wamid})
             # A CAP TRIPPING IS AN EXPECTED, WORKING SAFETY MECHANISM, NOT A FAILURE — it is logged
             # at `warning`, which Fluent Bit's own shape.lua deliberately never ships to

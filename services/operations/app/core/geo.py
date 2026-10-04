@@ -32,6 +32,10 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.core.models import Branch
 
 EARTH_RADIUS_KM = 6371.0088  # IUGG mean Earth radius — the standard constant for Haversine
 
@@ -58,6 +62,43 @@ def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
 def within_radius_km(center_lat: float, center_lng: float, point_lat: float, point_lng: float,
                      radius_km: float) -> bool:
     return haversine_km(center_lat, center_lng, point_lat, point_lng) <= radius_km
+
+
+def nearest_branch_for_point(branches: list["Branch"], *, lat: float, lng: float
+                             ) -> "Branch | None":
+    """WhatsApp Direct Ordering's own branch resolution (Step 4): among this tenant's active
+    branches that can actually deliver to this exact point, the nearest one -- `None` when nobody
+    can, which the caller reads as "outside every branch's delivery range" and refuses the order
+    on, never guesses a branch for.
+
+    THREE REASONS A BRANCH IS SKIPPED, NONE OF THEM "FARTHER THAN SOME OTHER ONE":
+      * `not active` -- a closed branch is not a real delivery option today, same posture every
+        other active-only read in this service already takes.
+      * `lat == lng == 0.0` -- `Branch.lat`/`lng`'s own docstring: this is the UNSET sentinel
+        (an owner who has never pinned a real address on the map), not a real point off the coast
+        of west Africa. Haversine against it would return a real-looking, meaningless distance.
+      * `delivery_radius_km <= 0` -- a deliberate "pickup only" choice (the same field's own
+        docstring), never a branch this flow may silently assign a delivery to.
+
+    TIE-BROKEN BY `id`, DETERMINISTICALLY -- two branches at the exact same distance (adjacent
+    branches sharing a building, say) must not resolve to a different one on every call; sorting
+    the id as the second key makes repeat calls for the identical point always agree.
+    """
+    candidates: list[tuple[float, str, "Branch"]] = []
+    for b in branches:
+        if not b.active:
+            continue
+        if b.lat == 0.0 and b.lng == 0.0:
+            continue
+        if b.delivery_radius_km <= 0:
+            continue
+        distance = haversine_km(b.lat, b.lng, lat, lng)
+        if distance <= b.delivery_radius_km:
+            candidates.append((distance, b.id, b))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda t: (t[0], t[1]))
+    return candidates[0][2]
 
 
 def clamp_radius_km(value: float) -> int:

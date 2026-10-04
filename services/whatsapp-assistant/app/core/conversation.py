@@ -667,7 +667,8 @@ class ConversationEngine:
                 rhythm_provider: Any = None,
                 max_carousel_cards: int = 5, runtime_config: Any = None,
                 max_reply_tokens: int = 500, mobile_requests: Any = None,
-                active_offers: Any = None, held_apps: Any = None) -> None:
+                active_offers: Any = None, held_apps: Any = None, orders: Any = None,
+                order_licence: Any = None) -> None:
         self._store = store
         self._llm = llm
         self._booking = booking_provider
@@ -800,6 +801,8 @@ class ConversationEngine:
         # without one — every pre-existing test constructor — simply never gets offered this tool
         # in the first place, via `settings.llm_tool_allowlist`'s own OPERATIONS_SERVICE_URL gate).
         self._mobile_requests = mobile_requests
+        self._orders = orders
+        self._order_licence = order_licence
         self._frustration_unconfirmed_threshold = max(1, int(frustration_unconfirmed_proposals_threshold))
         self._frustration_duplicate_threshold = max(1, int(frustration_duplicate_messages_threshold))
         self._soft_decline_threshold = max(1, int(soft_decline_threshold))
@@ -1918,19 +1921,17 @@ class ConversationEngine:
             return None
         return items, str(payload.get("catalog_id") or "")
 
-    async def handle_order(self, *, tenant: str, subject_ref: str, text: str,
+    async def handle_order(self, *, tenant: str, subject_ref: str, text: str, wamid: str = "",
                            now: int | None = None) -> ReplyPlan:
         """WhatsApp Direct Ordering's own entry point, fired the moment `kind="order"` arrives --
         NEVER routed through handle_inbound_text/the LLM, same deterministic, never-the-model's-
         decision posture `handle_location`/`handle_button_reply` already hold (see
         app/core/inbound_ingest.py's own dispatch for where this is actually wired).
 
-        STEP 3'S OWN BOUNDARY: this receives the cart and asks for a location — resolving the
-        nearest branch and creating the real `Order` (services/operations/app/core/orders.py)
-        needs a `branch_id` neither this message nor this service has yet, and is Step 4/5's own
-        job (see whatsapp-catalog-ordering-execution-plan.md). Nothing here pretends to finish an
-        order; it only remembers one accurately until the location that completes it arrives.
-        """
+        `wamid` IS THE ORDER MESSAGE'S OWN ID -- stored now, used as Step 4's `idempotency_key`
+        once the location arrives (`handle_order_followup`). It must be captured here, at the
+        cart's own arrival, never re-derived from the later location message, which is a
+        DIFFERENT event that can itself be retried independently."""
         held = await self._acquire_conv_lock(tenant, subject_ref)
         try:
             now = now if now is not None else int(time.time())
@@ -1939,19 +1940,22 @@ class ConversationEngine:
                 return ReplyPlan(kind="text", text=_ORDER_UNREADABLE_TEXT)
             items, catalog_id = parsed
 
+            if self._order_licence is not None and not await self._order_licence.allowed(tenant):
+                return ReplyPlan(kind="none")
+
             conv = await self._get(tenant, subject_ref)
             conv.awaiting_order_location = True
             conv.pending_order_items = items
             conv.pending_order_catalog_id = catalog_id
             conv.pending_order_at = now
-            conv.state = "idle"
-            conv.session_closed_at = now
+            conv.pending_order_wamid = wamid
             await self._save(conv)
             return ReplyPlan(kind="request_location", text=_ORDER_LOCATION_REQUEST_TEXT)
         finally:
             await self._release_conv_lock(tenant, subject_ref, held)
 
     async def handle_order_followup(self, *, tenant: str, subject_ref: str, kind: str, text: str,
+                                    from_number: str = "", wamid: str = "",
                                     now: int | None = None) -> ReplyPlan | None:
         """Every message a conversation gets WHILE `awaiting_order_location` is set — the location
         itself, an explicit cancel, a fresh order replacing this one, or anything else (reminded,
@@ -1970,13 +1974,20 @@ class ConversationEngine:
             if not conv.awaiting_order_location:
                 return None
 
+            if self._order_licence is not None and not await self._order_licence.allowed(tenant):
+                conv.awaiting_order_location = False
+                conv.pending_order_items = []
+                conv.pending_order_catalog_id = ""
+                conv.pending_order_at = 0
+                conv.pending_order_wamid = ""
+                await self._save(conv)
+                return ReplyPlan(kind="none")
+
             if now - conv.pending_order_at > ORDER_LOCATION_TTL_SECONDS:
                 conv.awaiting_order_location = False
                 conv.pending_order_items = []
                 conv.pending_order_catalog_id = ""
                 conv.pending_order_at = 0
-                conv.state = "idle"
-                conv.session_closed_at = now
                 await self._save(conv)
                 if kind == "location":
                     return ReplyPlan(kind="text", text=_ORDER_EXPIRED_TEXT)
@@ -1996,6 +2007,7 @@ class ConversationEngine:
                 conv.pending_order_items = items
                 conv.pending_order_catalog_id = catalog_id
                 conv.pending_order_at = now
+                conv.pending_order_wamid = wamid
                 await self._save(conv)
                 return ReplyPlan(kind="request_location", text=_ORDER_LOCATION_REQUEST_TEXT)
 
@@ -2007,21 +2019,47 @@ class ConversationEngine:
                     return ReplyPlan(kind="text", text="تعذّر قراءة الموقع، حاول مشاركته مرة أخرى.")
                 if not (-90 <= lat <= 90 and -180 <= lng <= 180):
                     return ReplyPlan(kind="text", text="تعذّر قراءة الموقع، حاول مشاركته مرة أخرى.")
+
+                # CLEARED BEFORE THE PEER CALL, NOT AFTER — same one-shot discipline
+                # `handle_location` itself already documents: a customer re-sharing their pin a
+                # second time while the first is already mid-flight must never be read as a
+                # second, duplicate order attempt.
+                items = list(conv.pending_order_items)
+                order_wamid = conv.pending_order_wamid
                 conv.pending_order_lat = lat
                 conv.pending_order_lng = lng
                 conv.awaiting_order_location = False
-                conv.state = "idle"
-                conv.session_closed_at = now
+                conv.pending_order_items = []
+                conv.pending_order_catalog_id = ""
+                conv.pending_order_at = 0
+                conv.pending_order_wamid = ""
                 await self._save(conv)
-                return ReplyPlan(kind="text", text=_ORDER_LOCATION_RECEIVED_TEXT)
+
+                if self._orders is None:
+                    return ReplyPlan(kind="text", text=(
+                        "نعتذر، خدمة الطلبات عبر واتساب غير متاحة حاليًا. "
+                        "يسعد أحد موظفي المحل مساعدتك مباشرة."))
+                from app.ports.orders import OrderFailed
+                try:
+                    created = await self._orders.create(
+                        tenant=tenant, phone=from_number, customer_name="",
+                        items=[(i["retailer_id"], i["quantity"]) for i in items],
+                        lat=lat, lng=lng, idempotency_key=order_wamid)
+                except OrderFailed as exc:
+                    # operations' own real refusal (no branch covers this point, an unpriced/
+                    # unknown service) is worth relaying verbatim — same "return the real
+                    # sentence" discipline `handle_location`'s own MobileRequestFailed handling
+                    # already follows.
+                    return ReplyPlan(kind="text", text=str(exc)[:200])
+                return ReplyPlan(kind="text", text=(
+                    f"تم استلام طلبك رقم {created.order_id[-6:].upper()}، "
+                    "وسنرسل لك رابط الدفع قريبًا."))
 
             if text.strip() in _ORDER_CANCEL_KEYWORDS:
                 conv.awaiting_order_location = False
                 conv.pending_order_items = []
                 conv.pending_order_catalog_id = ""
                 conv.pending_order_at = 0
-                conv.state = "idle"
-                conv.session_closed_at = now
                 await self._save(conv)
                 return ReplyPlan(kind="text", text=_ORDER_CANCELLED_TEXT)
 

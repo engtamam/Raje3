@@ -182,6 +182,9 @@ def build_manifest(
             # Read by whatsapp-assistant before it ever proposes request_mobile_visit — the shop's
             # own real working hours, so the customer is asked for a time that will be accepted.
             {"path": "/internal/operations/mobile-visit-hours", "tier": "internal", "method": "GET"},
+            # WhatsApp Direct Ordering's own order-creation door (Step 4) — resolves the nearest
+            # branch from the customer's real coordinates and creates the real orders.py Order.
+            {"path": "/internal/operations/whatsapp-orders", "tier": "internal", "method": "POST"},
             # Read by whatsapp-assistant before every auto-registration attempt — see
             # core/whatsapp_auto_register.py's own docstring.
             {"path": "/internal/operations/whatsapp-auto-register", "tier": "internal",

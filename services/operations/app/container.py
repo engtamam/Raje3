@@ -566,6 +566,11 @@ def build_container(settings: Settings) -> Container:
     # registration), so it must join here in the same change or `subscribed_write`'s generic
     # OR-gate reads it as unwired and opens for every shop.
     container.referrals_licence = build_feature_licence(settings, "feature.referrals")
+    # Same rule again: `feature.whatsapp_delivery_orders` joined `core/apps.py::APPS` too — its own
+    # entitlement enforcement lives in services/whatsapp-assistant (core/order_licence.py), never
+    # here; this attribute exists only so `subscribed_write`'s OR-gate can see it.
+    container.whatsapp_delivery_orders_licence = build_feature_licence(
+        settings, "feature.whatsapp_delivery_orders")
     container.templates = TemplateLibrary(container.datastore)
     # The door. Built early, because a signup that cannot
     # seed a catalogue is a signup that lands the new owner on an empty «خدماتي».

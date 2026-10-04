@@ -33,11 +33,12 @@ class _RecordingEngine:
         self.calls: list[tuple] = []
         self.followup_returns = None  # None means "not pending" unless overridden per-call
 
-    async def handle_order_followup(self, *, tenant, subject_ref, kind, text):
+    async def handle_order_followup(self, *, tenant, subject_ref, kind, text, from_number="",
+                                    wamid=""):
         self.calls.append(("followup", kind, text))
         return self.followup_returns
 
-    async def handle_order(self, *, tenant, subject_ref, text):
+    async def handle_order(self, *, tenant, subject_ref, text, wamid=""):
         self.calls.append(("handle_order", text))
         return _ReplyPlan(kind="request_location", text="شارك موقعك")
 
@@ -103,6 +104,7 @@ class _NullLogger:
 class _Settings:
     PII_SALT = "salt"
     CONSENT_PURPOSE = "whatsapp_ai_assistant"
+    CONSENT_PURPOSE_ORDERING = "whatsapp_catalog_ordering"
     CONSENT_POLICY_ON_UNKNOWN = "fail_open"
     CONVERSATION_OUTBOUND_MAX_PER_10MIN = 1000
     OUTBOUND_MAX_PER_NUMBER_PER_HOUR = 1000
@@ -162,3 +164,39 @@ def test_no_pending_order_lets_ordinary_text_reach_the_ai_as_before():
     run(_ingest(c, kind="text", text="أبي أحجز"))
     kinds = [call[0] for call in c.engine.calls]
     assert kinds == ["followup", "handle_inbound_text"]
+
+
+def test_order_replies_bypass_the_ai_conversations_outbound_cap():
+    """The cap is sized for chat turns, not order events -- a paid order's own confirmation must
+    never be silently dropped by a budget an earlier AI chat already spent."""
+    c = _container()
+    c.rate_limiter = MemoryRateLimiter(1000, 3600)
+    settings = _Settings()
+    settings.CONVERSATION_OUTBOUND_MAX_PER_10MIN = 1
+    # spend the whole conversation budget on an ordinary chat reply first
+    run(ingest_inbound_message(
+        container=c, logger=_NullLogger(), settings=settings, auditor=None,
+        tenant=TENANT, wamid="w1", from_number="+966500000000", kind="text", text="hi",
+        reply_id="", raw_payload={"wamid": "w1"}))
+    assert len(c.sender.sent) == 1
+
+    c.engine.followup_returns = _ReplyPlan(kind="text", text="تم استلام طلبك رقم ABC123")
+    run(ingest_inbound_message(
+        container=c, logger=_NullLogger(), settings=settings, auditor=None,
+        tenant=TENANT, wamid="w2", from_number="+966500000000", kind="location", text="24.7,46.6",
+        reply_id="", raw_payload={"wamid": "w2"}))
+    assert len(c.sender.sent) == 2, "the order confirmation must still go out, cap or no cap"
+
+
+def test_order_replies_bypass_owner_presence_suppression():
+    """A shop owner answering a customer by hand must never also silence that same customer's
+    order-system receipt -- a transactional confirmation, not a conversational turn."""
+    import time as _time
+    from app.core.owner_presence import note_owner_reply
+
+    c = _container()
+    run(note_owner_reply(c, tenant=TENANT, contact="+966500000000", now=int(_time.time()),
+                         cooldown_seconds=1800))
+    c.engine.followup_returns = _ReplyPlan(kind="text", text="تم استلام طلبك رقم ABC123")
+    run(_ingest(c, kind="location", text="24.7,46.6"))
+    assert len(c.sender.sent) == 1, "the order confirmation must still go out despite owner takeover"

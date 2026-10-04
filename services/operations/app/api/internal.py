@@ -1316,6 +1316,58 @@ async def internal_mobile_visit_hours(request: Request, tenant: str) -> dict:
     return {"weekly": weekly}
 
 
+class WhatsAppOrderItemIn(BaseModel):
+    service_id: str = Field(min_length=1, max_length=128)
+    quantity: int = Field(gt=0)
+
+
+class WhatsAppOrderIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    phone: str = Field(min_length=3, max_length=32)
+    customer_name: str = Field(default="", max_length=128)
+    items: list[WhatsAppOrderItemIn] = Field(min_length=1, max_length=40)
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    idempotency_key: str = Field(min_length=1, max_length=300)
+    note: str = Field(default="", max_length=1000)
+
+
+@router.post("/operations/whatsapp-orders", dependencies=[Depends(require_internal_token)])
+async def internal_create_whatsapp_order(request: Request, body: WhatsAppOrderIn) -> dict:
+    """WhatsApp Direct Ordering's own door (Step 4, whatsapp-catalog-ordering-execution-plan.md) —
+    the ONLY step that decides WHICH branch an order belongs to, since this service is the one
+    that already holds `BranchStore` and `core/geo.py`'s own distance math; whatsapp-assistant
+    sends the customer's real coordinates and nothing else, never a branch guess of its own.
+
+    `idempotency_key` IS THE CUSTOMER'S OWN ORDER MESSAGE'S wamid, NEVER THE LOCATION MESSAGE'S —
+    see `core/orders.py::OrderService.create()`'s own docstring on why this must identify the
+    CART, not the particular delivery attempt that happened to complete it. The same cart re-sent
+    (a webhook retry, or the customer re-sharing their pin) must settle on the SAME order.
+
+    NO BRANCH COVERS THIS POINT is reported exactly like every other real refusal here — returned,
+    never raised, so whatsapp-assistant has a real sentence to relay rather than a stripped
+    HTTPException detail."""
+    from app.core.geo import nearest_branch_for_point
+    from app.core.orders import OrderError
+
+    c = request.app.state.container
+    branches = await BranchStore(c.datastore).list(body.tenant)
+    branch = nearest_branch_for_point(branches, lat=body.lat, lng=body.lng)
+    if branch is None:
+        return {"created": False,
+               "reason": "عذرًا، موقعك خارج نطاق التوصيل لكل فروعنا حاليًا."}
+    try:
+        order = await c.orders.create(
+            tenant=body.tenant, branch_id=branch.id, phone=body.phone,
+            customer_name=body.customer_name,
+            items=[(i.service_id, i.quantity) for i in body.items],
+            lat=body.lat, lng=body.lng, idempotency_key=body.idempotency_key, note=body.note)
+    except OrderError as exc:
+        return {"created": False, "reason": str(exc)}
+    return {"created": True, "order_id": order.id, "branch_id": order.branch_id,
+           "total_minor": order.total_minor}
+
+
 class BookingRewardRedeemIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     subject_ref: str = Field(min_length=1, max_length=200)

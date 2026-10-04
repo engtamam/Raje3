@@ -708,15 +708,15 @@ async def provision_catalog(request: Request, body: ProvisionCatalogIn) -> dict:
     NEVER 500s ON A PROVISIONING FAILURE — same posture as `provision_meta_agent` above. A caller
     that wants to know what happened reads the response body's `ok`/`failed_step`/`error`.
 
-    LICENCE CHECKED BEFORE ANY GRAPH CALL — a toggled-off/never-subscribed tenant must not end up
-    with a live, order-taking Meta catalog any more than they may send a message (core/licence.py
-    ::ToggleGatedLicence). Same pattern as `whatsapp_flow_booking` above."""
+    LICENCE CHECKED BEFORE ANY GRAPH CALL — `feature.whatsapp_delivery_orders`, its OWN entitlement
+    (core/order_licence.py), never `container.licence` (`feature.whatsapp`, the AI assistant, a
+    separate paid app)."""
     from app.core.catalog_provisioning import HttpCatalogProvisioner, provision_catalog as _run
 
     container = request.app.state.container
     settings = get_settings()
 
-    if container.licence is not None and not await container.licence.allowed(body.tenant):
+    if container.order_licence is not None and not await container.order_licence.allowed(body.tenant):
         return {"ok": False, "failed_step": "", "error": "tenant is not subscribed",
                "page_id": "", "catalog_id": "", "catalog_created": False, "connected": False,
                "cart_enabled": False}
@@ -770,14 +770,14 @@ async def sync_catalog_item(request: Request, body: SyncCatalogItemIn) -> dict:
     above. A caller that wants to know what happened reads the response body's
     `ok`/`failed_step`/`error`.
 
-    LICENCE CHECKED BEFORE ANY GRAPH CALL — same reasoning as `provision_catalog` above: a
-    toggled-off/never-subscribed tenant must not get a real catalog item written or removed."""
+    LICENCE CHECKED BEFORE ANY GRAPH CALL — same reasoning as `provision_catalog` above:
+    `feature.whatsapp_delivery_orders`, its own entitlement, never the AI assistant's."""
     from app.core.catalog_item_sync import HttpCatalogItemSyncer, sync_service_item
 
     container = request.app.state.container
     settings = get_settings()
 
-    if container.licence is not None and not await container.licence.allowed(body.tenant):
+    if container.order_licence is not None and not await container.order_licence.allowed(body.tenant):
         return {"ok": False, "failed_step": "", "error": "tenant is not subscribed",
                "synced": False, "removed": False}
 

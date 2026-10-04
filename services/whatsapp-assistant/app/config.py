@@ -157,6 +157,10 @@ class Settings(BaseSettings):
     # third-party model (Gemini/Google), used to read your loyalty balance and propose actions on
     # your behalf. A materially different processing purpose from ordinary transactional messages.
     CONSENT_PURPOSE: str = "whatsapp_ai_assistant"
+    # `feature.whatsapp_delivery_orders`'s OWN purpose — a customer who only ever orders from the
+    # catalog never touches the LLM, so asking under `CONSENT_PURPOSE` above would misdescribe what
+    # actually happens to their message.
+    CONSENT_PURPOSE_ORDERING: str = "whatsapp_catalog_ordering"
     # FAIL_OPEN, NOT FAIL_CLOSED — and this is a real product decision, not a default nobody
     # thought about: the customer TEXTED THE SHOP FIRST. Refusing to answer him because
     # compliance-service could not be reached (UNKNOWN) reads as "the shop's WhatsApp appears
@@ -297,6 +301,8 @@ class Settings(BaseSettings):
     # peer call here; withheld from the model entirely (see llm_tool_allowlist below) whenever that
     # URL is empty, same "withheld, not offered-and-refused" posture as the carousel/rhythm tools.
     OPERATIONS_MOBILE_REQUESTS_PATH: str = "/internal/operations/mobile-requests"
+    # WhatsApp Direct Ordering's own order-creation door (Step 4) — see app/ports/orders.py.
+    OPERATIONS_WHATSAPP_ORDERS_PATH: str = "/internal/operations/whatsapp-orders"
     # The read `check_mobile_visit_hours` makes before `request_mobile_visit` is ever proposed —
     # the shop's own real weekly working hours (services/operations/app/api/internal.py::
     # internal_mobile_visit_hours, itself a thin proxy over bookings' own working-hours read).

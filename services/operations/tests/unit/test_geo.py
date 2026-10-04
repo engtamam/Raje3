@@ -132,3 +132,70 @@ def test_resolve_google_maps_link_prefers_the_direct_parse_over_resolving():
 def test_resolve_google_maps_link_returns_none_for_an_unresolvable_short_link(monkeypatch):
     monkeypatch.setattr(geo, "resolve_short_link", lambda url: "")
     assert geo.resolve_google_maps_link("https://maps.app.goo.gl/doesnotmatter") is None
+
+
+# ── nearest_branch_for_point (WhatsApp Direct Ordering, Step 4) ─────────────────────────────────
+
+from dataclasses import dataclass
+
+
+@dataclass
+class _B:
+    id: str
+    lat: float = 0.0
+    lng: float = 0.0
+    delivery_radius_km: int = 10
+    active: bool = True
+
+
+# Riyadh-ish coordinates, a few km apart.
+_RIYADH = (24.7136, 46.6753)
+_NEAR_RIYADH = (24.72, 46.68)  # ~1-2km from _RIYADH
+_JEDDAH = (21.4858, 39.1925)   # ~850km from _RIYADH
+
+
+def test_the_only_covering_branch_is_picked():
+    branches = [_B("b1", *_RIYADH, delivery_radius_km=5)]
+    picked = geo.nearest_branch_for_point(branches, lat=_NEAR_RIYADH[0], lng=_NEAR_RIYADH[1])
+    assert picked is not None
+    assert picked.id == "b1"
+
+
+def test_nobody_covering_returns_none():
+    branches = [_B("b1", *_JEDDAH, delivery_radius_km=5)]
+    assert geo.nearest_branch_for_point(branches, lat=_RIYADH[0], lng=_RIYADH[1]) is None
+
+
+def test_the_nearer_of_two_covering_branches_wins():
+    far = _B("far", *_RIYADH, delivery_radius_km=100)
+    near = _B("near", *_NEAR_RIYADH, delivery_radius_km=100)
+    picked = geo.nearest_branch_for_point(
+        [far, near], lat=_NEAR_RIYADH[0], lng=_NEAR_RIYADH[1])
+    assert picked.id == "near"
+
+
+def test_an_inactive_branch_is_never_picked_even_if_it_is_the_only_one_covering():
+    branches = [_B("b1", *_RIYADH, delivery_radius_km=100, active=False)]
+    assert geo.nearest_branch_for_point(branches, lat=_RIYADH[0], lng=_RIYADH[1]) is None
+
+
+def test_an_unset_location_zero_zero_is_never_picked():
+    # Branch.lat/lng's own sentinel for "never pinned" -- must not be read as a real point.
+    branches = [_B("b1", lat=0.0, lng=0.0, delivery_radius_km=100)]
+    assert geo.nearest_branch_for_point(branches, lat=0.1, lng=0.1) is None
+
+
+def test_a_zero_radius_branch_pickup_only_is_never_picked():
+    branches = [_B("b1", *_RIYADH, delivery_radius_km=0)]
+    assert geo.nearest_branch_for_point(branches, lat=_RIYADH[0], lng=_RIYADH[1]) is None
+
+
+def test_an_exact_tie_is_broken_by_id_deterministically():
+    b1 = _B("z_branch", *_RIYADH, delivery_radius_km=100)
+    b2 = _B("a_branch", *_RIYADH, delivery_radius_km=100)  # identical point -> identical distance
+    picked = geo.nearest_branch_for_point([b1, b2], lat=_RIYADH[0], lng=_RIYADH[1])
+    assert picked.id == "a_branch"  # lexicographically first, same call always agrees
+
+
+def test_an_empty_branch_list_returns_none():
+    assert geo.nearest_branch_for_point([], lat=_RIYADH[0], lng=_RIYADH[1]) is None

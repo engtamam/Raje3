@@ -300,6 +300,18 @@ COUPONS_FEATURES: tuple[dict[str, Any], ...] = (
      },
 )
 
+WHATSAPP_DELIVERY_ORDERS_FEATURES: tuple[dict[str, Any], ...] = (
+    {"id": "whatsapp_delivery_orders.official_catalog", "title": "كتالوج واتساب الرسمي، لا فلو مخصّص",
+     "detail": "عميلك يطلب من كتالوج ميتا نفسه اللي يعرفه، بلا تدريب أو تعلّم واجهة جديدة",
+     "icon": "check-circle", "tone": "teal", "shared_with": [], "owned_by": ""},
+    {"id": "whatsapp_delivery_orders.geo_gated_checkout", "title": "موقعه يتحقق قبل أي رابط دفع",
+     "detail": "نحدد أقرب فرع يغطي عنوانه فعلاً قبل ما يوصله أي رابط دفع — لا طلب يضيع في الطريق",
+     "icon": "map-pin", "tone": "violet", "shared_with": [], "owned_by": ""},
+    {"id": "whatsapp_delivery_orders.your_own_gateway", "title": "الدفع يروح لحسابك مباشرة",
+     "detail": "رابط دفع ببوابتك الخاصة — المبلغ يصلك أنت، نحن لا نلمسه ولا نتدخل فيه",
+     "icon": "shield", "tone": "blue", "shared_with": [], "owned_by": ""},
+)
+
 # `feature.referrals` — services/referrals + core/referral_redemption.py's own module docstring.
 # NOT `feature.mutual_benefit`: an ORDINARY customer refers a friend for a reward (both real
 # customers of THIS shop), never a cross-tenant eligibility detection between two shops.
@@ -445,6 +457,15 @@ APPS: tuple[dict[str, Any], ...] = (
     {"key": "feature.referrals", "name": "الإحالة والمسوقين", "screen": "referrals",
      "what": "برنامج إحالة ومسوّقين يكافئ من يرشّح محلّك لعملاء جدد.",
      "features": list(REFERRALS_FEATURES)},
+    # WHATSAPP DIRECT ORDERING — services/whatsapp-assistant's own catalog_provisioning.py/
+    # catalog_item_sync.py/conversation.py::handle_order. A SEPARATE app from `feature.whatsapp`
+    # (بوت خدمة العملاء الذكي) even though both live in the same microservice — a shop can buy
+    # catalog ordering without ever buying the AI assistant, and vice versa.
+    {"key": "feature.whatsapp_delivery_orders", "name": "طلبات التوصيل عبر الواتساب",
+     "screen": "whatsapp-delivery-orders",
+     "what": "عميلك يطلب مباشرة من كتالوج واتساب الرسمي، ويدفع ببوابتك الخاصة — يصلك الطلب جاهزاً "
+             "لتسجّله بنظامك الحالي.",
+     "features": list(WHATSAPP_DELIVERY_ORDERS_FEATURES)},
 )
 
 # BOTH ROWS ABOVE WERE MISSING FOR THE SAME REASON, FOUND THE SAME DAY: a plan's
@@ -477,6 +498,7 @@ KEYS: tuple[str, ...] = tuple(a["key"] for a in APPS)
 # or screen, so the set stays exactly what someone actually decided rather than what looked right.
 REQUIRES_WHATSAPP_KEYS: frozenset[str] = frozenset({
     "feature.whatsapp", "feature.rating", "feature.campaigns",
+    "feature.whatsapp_delivery_orders",
 })
 
 
