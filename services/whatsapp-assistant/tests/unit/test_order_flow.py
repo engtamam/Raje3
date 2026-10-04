@@ -97,6 +97,29 @@ async def test_an_unreadable_order_payload_never_sets_any_pending_state():
     assert conv.pending_order_items == []
 
 
+async def test_a_cart_over_the_item_ceiling_gets_its_own_sentence_never_the_unreadable_one():
+    """2026-10-05 UX audit — a real, parseable cart that is simply too big must never read as
+    "couldn't understand your order" the same way a corrupted payload does; the two are
+    different problems and need different sentences."""
+    import json as _json
+
+    store = MemoryDataStore()
+    engine = _engine(store)
+    huge_cart = _json.dumps({
+        "catalog_id": "cat1",
+        "items": [{"retailer_id": f"srv{i}", "quantity": 1} for i in range(501)],
+    })
+
+    plan = await engine.handle_order(tenant=TENANT, subject_ref=SUBJECT, text=huge_cart, now=1000)
+
+    assert plan.kind == "text"
+    assert "قسّمه" in plan.text
+    assert "تعذّر قراءة" not in plan.text
+    conv = await engine._get(TENANT, SUBJECT)
+    assert conv.awaiting_order_location is False
+    assert conv.pending_order_items == []
+
+
 # ── handle_order_followup: pass-through when nothing is pending ────────────────────────────────
 
 async def test_followup_returns_none_when_nothing_is_pending():

@@ -346,7 +346,14 @@ class OrderService:
             if svc.price_minor <= 0:
                 # A catalogue entry with no real price (e.g. a catch-all, or one the owner never
                 # priced) cannot become a charged line — the whole point of pricing server-side.
-                raise OrderError(f"الصنف «{svc.name}» ليس له سعر محدَّد، لا يمكن طلبه عبر واتساب.")
+                # THE CUSTOMER-FACING SENTENCE NEVER NAMES THE REAL CAUSE (found in a 2026-10-05
+                # UX audit) — "has no price set" is a SHOP-CONFIGURATION fact a customer cannot
+                # act on at all; this is `str(OrderError)` relayed to WhatsApp verbatim
+                # (conversation.py's own handle_order_followup), so the sentence here IS what he
+                # reads. The real reason (which service, why) survives in this exception's own
+                # args for whoever reviews logs, never lost — just not shown to him.
+                raise OrderError(f"هذا الصنف غير متاح للطلب حاليًا («{svc.name}») — "
+                                f"تواصل مع المحل مباشرة.")
             if quantity * svc.price_minor > total_minor + 10_000_000_00:
                 # A sanity ceiling, not a real limit — catches a quantity/price combination that
                 # overflows into nonsense (a corrupt catalogue row, a unit mismatch) before it

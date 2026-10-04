@@ -161,6 +161,10 @@ _ORDER_EXPIRED_TEXT = "انتهت صلاحية طلبك السابق. أعد إ�
 _ORDER_LOCATION_REQUEST_TEXT = "تمام، استلمنا طلبك. شارك موقعك من فضلك عشان نحدد أقرب فرع لك."
 _ORDER_LOCATION_RECEIVED_TEXT = "استلمنا موقعك، شكراً! سنكمل تجهيز طلبك."
 _ORDER_UNREADABLE_TEXT = "تعذّر قراءة طلبك، حاول إرساله من الكتالوج مرة أخرى."
+# A REAL, PARSEABLE CART THAT IS JUST TOO BIG — never the same sentence as a corrupted payload
+# above; a customer with hundreds of real items in his basket needs a sentence he can act on
+# (split the order), not one that reads as if nothing was received at all.
+_ORDER_TOO_MANY_ITEMS_TEXT = "طلبك يحتوي عدد كبير من الأصناف، فضلاً قسّمه إلى طلبين منفصلين."
 _HUMAN_HANDOVER_TEXT = "تم تحويلك إلى أحد موظفينا وسيتواصل معك قريبًا لمتابعة طلبك."
 # A REAL operational stop, not an escalation — the customer is told plainly rather than met with
 # sudden silence, and pointed at a human being (the same shop staff who already see this thread
@@ -1925,10 +1929,15 @@ class ConversationEngine:
             await self._release_conv_lock(tenant, subject_ref, held)
 
     @staticmethod
-    def _parse_order_payload(text: str) -> tuple[list[dict[str, Any]], str] | None:
+    def _parse_order_payload(text: str) -> tuple[list[dict[str, Any]], str] | str | None:
         """`text` is inbound_parse.py's own JSON encoding of a catalog order -- `None` for
         anything unreadable, never raised, same "never crash on an upstream shape this service
-        does not understand" posture that module's own docstring already holds.
+        does not understand" posture that module's own docstring already holds. Returns the
+        literal string `"too_many"` for the ONE case that is not actually unreadable — a real,
+        parseable cart that simply has more lines than `_MAX_ORDER_ITEMS` — so the caller can
+        answer with a sentence the customer can actually act on, rather than the same "couldn't
+        read your order" text a corrupted payload gets (found during a 2026-10-05 UX audit: a
+        customer with a big real cart had no way to tell the two apart).
 
         EVERY ITEM IS VALIDATED HERE, NOT DOWNSTREAM — this is the one boundary where Meta's
         webhook shape (never trusted, however it got here: a real cart, a replayed/tampered
@@ -1946,8 +1955,10 @@ class ConversationEngine:
         if not isinstance(payload, dict):
             return None
         items = payload.get("items")
-        if not isinstance(items, list) or not items or len(items) > _MAX_ORDER_ITEMS:
+        if not isinstance(items, list) or not items:
             return None
+        if len(items) > _MAX_ORDER_ITEMS:
+            return "too_many"
         clean: list[dict[str, Any]] = []
         for item in items:
             if not isinstance(item, dict):
@@ -1981,6 +1992,8 @@ class ConversationEngine:
             parsed = self._parse_order_payload(text)
             if parsed is None:
                 return ReplyPlan(kind="text", text=_ORDER_UNREADABLE_TEXT)
+            if parsed == "too_many":
+                return ReplyPlan(kind="text", text=_ORDER_TOO_MANY_ITEMS_TEXT)
             items, catalog_id = parsed
 
             if self._order_licence is not None and not await self._order_licence.allowed(tenant):
@@ -2062,6 +2075,8 @@ class ConversationEngine:
                 parsed = self._parse_order_payload(text)
                 if parsed is None:
                     return ReplyPlan(kind="text", text=_ORDER_UNREADABLE_TEXT)
+                if parsed == "too_many":
+                    return ReplyPlan(kind="text", text=_ORDER_TOO_MANY_ITEMS_TEXT)
                 items, catalog_id = parsed
                 conv.pending_order_items = items
                 conv.pending_order_catalog_id = catalog_id
