@@ -178,7 +178,7 @@ async def salla_callback(request: Request, code: str = "", state: str = "",
     webhook_url = f"{s.PUBLIC_BASE_URL.rstrip('/')}/api/v1/salla/webhook"
     registration = await run_in_threadpool(
         client.register_webhook, access_token, event=WEBHOOK_EVENT, url=webhook_url,
-        name="Raje3 — تحالف استراتيجي")
+        name="Raje3 — ولاء الشركاء")
     webhook_id = str(((registration or {}).get("data") or {}).get("id") or "")
 
     await svc.save_connection(

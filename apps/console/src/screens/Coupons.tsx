@@ -1,6 +1,7 @@
 /**
- * «تحالف استراتيجي» (renamed from «كوبونات» — file/route/key names below are unchanged on
- * purpose, only what a shop owner reads is different) — a shop grants ANOTHER registered shop a
+ * «ولاء الشركاء» (renamed 2026-09-22 from «تحالف استراتيجي», itself renamed from «كوبونات» — file/
+ * route/key names below are unchanged on purpose, only what a shop owner reads is different) — a
+ * shop grants ANOTHER registered shop a
  * discount on that shop's own subscription with us, applied automatically at its next renewal.
  * The real build of the approved mockup (docs/mockups/coupons-tab.html): a grant form up top,
  * «السجل»/«الإحصائيات» as real tabs below, and the tier ladder inside stats — no shortcut taken

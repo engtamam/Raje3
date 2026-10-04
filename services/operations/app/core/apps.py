@@ -286,7 +286,7 @@ COUPONS_FEATURES: tuple[dict[str, Any], ...] = (
     {"id": "coupons.measures_the_partnership", "title": "يعطيك سجلاً كاملاً لكل محل منحته",
      "detail": "تعرف بالضبط كم خصم منحت، ولمين، ومتى — تقيس أثر تعاونك بأرقام حقيقية",
      "icon": "clock", "tone": "amber", "shared_with": [], "owned_by": "",
-     # `CouponService.history`/`stats` — شاشة «تحالف استراتيجي» الخاصة بالتطبيق.
+     # `CouponService.history`/`stats` — شاشة «ولاء الشركاء» الخاصة بالتطبيق.
      },
     # ADDED (owner's own idea, 2026-09-15): the loop that makes this app pay for ITSELF, not just
     # the beneficiary. A shop that grants the discount is very often a SUPPLIER of the beneficiary

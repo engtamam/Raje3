@@ -685,7 +685,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
     },
     {
         # Two-tier access: `grant_coupon_direct` (owner/manager) reaches this from the standalone
-        # «تحالف استراتيجي» page; `grant_coupon` alone (supervisor/operator/marketer) reaches it
+        # «ولاء الشركاء» page; `grant_coupon` alone (supervisor/operator/marketer) reaches it
         # only from the visit-recording screen's own shortcut checkbox. Both must be able to
         # actually submit — the weaker capability is accepted here on purpose. What keeps a
         # weak holder off the standalone page is `operations.coupons_page` below, which gates
@@ -700,11 +700,11 @@ USER_ACTIONS: list[dict[str, Any]] = [
         # nav.ts's `coupons` section has a strong-only action id to require, distinct from
         # `operations.grant_coupon` which weak-tier roles must now also hold for the visit-screen
         # shortcut). Do not loosen this capability — it is the ONLY thing keeping supervisor,
-        # operator and marketer off the standalone «تحالف استراتيجي» page.
-        "id": "operations.coupons_page", "label": "صفحة تحالف استراتيجي", "method": "POST",
+        # operator and marketer off the standalone «ولاء الشركاء» page.
+        "id": "operations.coupons_page", "label": "صفحة ولاء الشركاء", "method": "POST",
         "path": "/api/v1/staff/coupons/grant", "capability": "operations.grant_coupon_direct",
         "group": "كوبونات",
-        "help": "بوابة ظهور صفحة تحالف استراتيجي القائمة بذاتها، لا فعل خاص بها.",
+        "help": "بوابة ظهور صفحة ولاء الشركاء القائمة بذاتها، لا فعل خاص بها.",
     },
     {
         "id": "operations.coupon_history", "label": "سجل منح الكوبونات", "method": "GET",
