@@ -1216,8 +1216,25 @@ async def internal_visit_from_customer(request: Request, body: VisitFromCustomer
     # cycle actually restarted before it reports success.
     if not recorded.visit.seamed_at:
         await c.seams.after_visit(recorded)
+
+    # THE BEST LIVE ENTITLEMENT, APPLIED AUTOMATICALLY — bookings has no separate "cashier taps a
+    # button" moment of its own (unlike the till/field screen): `attend()` IS the one human action,
+    # the same moment it already spends an `intended_reward_id` (bookings' own points mechanism,
+    # untouched by this). This is campaign/referral/mutual-benefit, compared by real value via the
+    # SAME `EntitlementGateway` the till/field screen uses — see core/entitlements.py's own module
+    # docstring. BEST-EFFORT, same posture as the seams call above and bookings' own reward-spend:
+    # a failure here must never undo an attendance that already succeeded.
+    offer = None
+    if recorded.customer.subject_ref:
+        try:
+            offer = await c.operations.apply_offer(
+                tenant=body.tenant, visit_id=recorded.visit.id,
+                subject_ref=recorded.customer.subject_ref)
+        except Exception:                                                  # noqa: BLE001
+            offer = None
+
     return {"visit_id": recorded.visit.id, "customer_id": recorded.customer.id,
-           "duplicate": recorded.duplicate}
+           "duplicate": recorded.duplicate, "offer": offer}
 
 
 @router.get("/operations/whatsapp-auto-register",

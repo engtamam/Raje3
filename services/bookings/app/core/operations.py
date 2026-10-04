@@ -651,6 +651,17 @@ class BookingOperations:
             # happened, so it fails closed like every other peer-response check in this codebase.
             if spent is not None and spent.get("ok", False):
                 booking.intended_reward_id = None
+
+        # THE BEST LIVE CAMPAIGN/REFERRAL/MUTUAL-BENEFIT DISCOUNT — `operations` already applied
+        # it automatically inside the SAME peer call above (`/internal/operations/visits/from-
+        # customer`'s own `offer` field, 2026-10-04); this is only recording what it answered, not
+        # a second decision. See `Booking.applied_offer_ref`'s own field comment for why this has
+        # no separate "intent" phase the way `intended_reward_id` does.
+        offer = result.get("offer") if isinstance(result, dict) else None
+        if isinstance(offer, dict) and offer.get("ref"):
+            booking.applied_offer_ref = str(offer.get("ref") or "")
+            booking.applied_offer_text = str(offer.get("text") or "")
+
         booking.updated = int(time.time())
         saved = await self._bookings.save_if_unchanged(booking, expected_rev=expected)
         await self._events.emit(kind="attended", booking=saved)

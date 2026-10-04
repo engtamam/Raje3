@@ -92,3 +92,79 @@ def test_an_out_of_range_quantity_is_refused_not_silently_clamped(client):
                                 "quantities": {svc_id: -1}},
                     headers=INTERNAL)
     assert r.status_code == 422
+
+
+# ── the best live offer, applied automatically (2026-10-04) — bookings' own attend() has no
+# separate "cashier taps a button" moment, so this is the one place it can ever happen. ───────────
+#
+# `client` IS SESSION-SCOPED (tests/conftest.py), so its own `container.operations` is shared by
+# EVERY test in the whole run — `with_offer_chooser` here must be undone, never left mutated for
+# whatever test happens to run next.
+
+@pytest.fixture()
+def _restore_offer_chooser(client):
+    ops = client.app.state.container.operations
+    original_chooser = ops._choose_offer
+    original_gateway = ops._entitlement_gateway
+    yield ops
+    ops._choose_offer = original_chooser
+    ops._entitlement_gateway = original_gateway
+
+
+def test_a_live_campaign_offer_is_applied_automatically_and_named_in_the_response(
+        client, _restore_offer_chooser):
+    cust_id, svc_id = _seed(client)
+
+    async def campaign_chooser(*, tenant, subject_ref, service_ids):
+        return {"ref": "camp_bkg_1", "text": "خصم حجز", "campaign_id": "camp"}
+
+    _restore_offer_chooser.with_offer_chooser(campaign_chooser)
+
+    r = client.post(PATH, json={"tenant": TENANT, "customer_id": cust_id,
+                                "service_ids": [svc_id], "idempotency_key": "bkg_offer_1"},
+                    headers=INTERNAL)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["offer"] is not None
+    assert body["offer"]["ref"] == "camp_bkg_1"
+
+    from app.core.stores import VisitStore
+
+    visit = asyncio.run(VisitStore(client.app.state.container.datastore).get(
+        TENANT, body["visit_id"]))
+    assert visit.offer_ref == "camp_bkg_1"
+
+
+def test_nothing_live_answers_a_null_offer_not_an_error(client, _restore_offer_chooser):
+    cust_id, svc_id = _seed(client)
+
+    async def campaign_chooser(*, tenant, subject_ref, service_ids):
+        return None
+
+    _restore_offer_chooser.with_offer_chooser(campaign_chooser)
+
+    r = client.post(PATH, json={"tenant": TENANT, "customer_id": cust_id,
+                                "service_ids": [svc_id], "idempotency_key": "bkg_offer_2"},
+                    headers=INTERNAL)
+    assert r.status_code == 200, r.text
+    assert r.json()["offer"] is None
+
+
+def test_a_failure_applying_the_offer_never_fails_the_whole_visit_creation(
+        client, _restore_offer_chooser):
+    """BEST-EFFORT, same posture bookings' own reward-spend already takes — a customer must still
+    get a real visit out of this call even if the offer side crashes."""
+    cust_id, svc_id = _seed(client)
+
+    async def broken_chooser(*, tenant, subject_ref, service_ids):
+        raise RuntimeError("peer down")
+
+    _restore_offer_chooser.with_offer_chooser(broken_chooser)
+
+    r = client.post(PATH, json={"tenant": TENANT, "customer_id": cust_id,
+                                "service_ids": [svc_id], "idempotency_key": "bkg_offer_3"},
+                    headers=INTERNAL)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["offer"] is None
+    assert body["visit_id"]

@@ -93,6 +93,15 @@ class Booking:
     # automated attend() can give) — its continued presence on an ATTENDED booking is itself the
     # signal "still owed, redeem him by hand from the visit screen"; cleared only on success.
     intended_reward_id: str | None = None
+    # THE BEST LIVE CAMPAIGN/REFERRAL/MUTUAL-BENEFIT DISCOUNT, APPLIED AUTOMATICALLY AT attend()
+    # (2026-10-04) — unlike `intended_reward_id` above, there is no separate "intent" phase for
+    # this: a customer cannot choose it in advance the way he picks a points reward, since which
+    # one is worth the most is only decided by comparing real value at the moment the visit
+    # becomes real (`core/entitlements.py::EntitlementGateway`, the same engine the till/field
+    # screen use). `""`/`None` means nothing was live, never a failure to check — see
+    # `BookingOperations.attend`'s own note on this being best-effort, same as the points spend.
+    applied_offer_ref: str | None = None
+    applied_offer_text: str | None = None
     note: str = ""
     reason_no_show: str | None = None
     idempotency_key: str = ""

@@ -701,6 +701,78 @@ def test_no_intended_reward_never_calls_the_gateway_at_attend_either():
     assert rewards.calls == []
 
 
+# ── the best live campaign/referral/mutual-benefit discount, applied automatically at attend()
+# (2026-10-04) — `operations` already decided and applied it inside the SAME peer call that
+# creates the visit; `attend()` here only records what it answered. ─────────────────────────────
+
+def test_attending_records_the_offer_operations_already_applied():
+    visits = _FixedVisits(answer={"visit_id": "vis_1",
+                                  "offer": {"ref": "camp_1", "text": "خصم 20%"}})
+    ops = _ops(visits=visits)
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+        return await ops.attend(TENANT, booking.id)
+
+    attended = _run(run())
+    assert attended.applied_offer_ref == "camp_1"
+    assert attended.applied_offer_text == "خصم 20%"
+
+
+def test_nothing_live_leaves_the_offer_fields_unset():
+    visits = _FixedVisits(answer={"visit_id": "vis_1", "offer": None})
+    ops = _ops(visits=visits)
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+        return await ops.attend(TENANT, booking.id)
+
+    attended = _run(run())
+    assert attended.applied_offer_ref is None
+    assert attended.applied_offer_text is None
+
+
+def test_a_peer_response_with_no_offer_key_at_all_leaves_the_fields_unset_too():
+    """An older/unrelated peer answer shaped without the new key must never crash — same
+    defensive `.get()` discipline every other optional field here already takes."""
+    visits = _FixedVisits(answer={"visit_id": "vis_1"})
+    ops = _ops(visits=visits)
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+        return await ops.attend(TENANT, booking.id)
+
+    attended = _run(run())
+    assert attended.applied_offer_ref is None
+    assert attended.applied_offer_text is None
+
+
+def test_a_booking_with_both_an_intended_reward_and_a_live_offer_records_both():
+    """The two mechanisms are independent — a points intent (chosen by the customer at booking
+    time) and an automatically-applied campaign/referral/mutual-benefit discount are not mutually
+    exclusive the way points-vs-apply_offer are for a WALK-IN visit (see
+    `Operations.redeem_points_reward`'s own docstring in operations-service for why that one IS
+    exclusive): a booking's own visit is created and offered in the SAME peer call, with the
+    reward spend a wholly separate step right after."""
+    rewards = _FixedRewards(answer={"ok": True})
+    visits = _FixedVisits(answer={"visit_id": "vis_1",
+                                  "offer": {"ref": "ref_mb", "text": "خصم شراكة إحالة"}})
+    ops = _ops(visits=visits, rewards=rewards)
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
+                                   intended_reward_id="rwd_1")
+        return await ops.attend(TENANT, booking.id)
+
+    attended = _run(run())
+    assert attended.intended_reward_id is None             # spent
+    assert attended.applied_offer_ref == "ref_mb"           # and recorded
+
+
 def test_set_intended_reward_is_editable_before_attendance():
     ops = _ops()
 
