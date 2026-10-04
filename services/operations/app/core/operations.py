@@ -262,6 +262,28 @@ class Operations:
         self._referral_redemption = engine
         return self
 
+    async def referral_discount_for(self, tenant: str, phone: str) -> dict[str, Any] | None:
+        """A thin, READ-ONLY passthrough to `ReferralRedemptionEngine.eligibility()` for a caller
+        that only holds this `Operations` instance (e.g. `core/orders.py::OrderService`) rather
+        than the referral engine itself — see `core/discount_consultation.py::best_offer_for`,
+        the one real consumer. Never writes, never redeems; `redeem_referral_discount` below is
+        the ONLY spend path."""
+        if self._referral_redemption is None:
+            return None
+        return await self._referral_redemption.eligibility(tenant, phone)
+
+    async def redeem_referral_discount(self, tenant: str, phone: str, *, redeemed_by: str) -> bool:
+        """Spend the referral welcome discount `best_offer_for` surfaced — same passthrough
+        reasoning as `referral_discount_for` above. `redeemed_by` stands in for
+        `ReferralRedemptionEngine.redeem`'s own `visit_id` parameter: that engine only ever uses
+        the value as an idempotent reference to stamp and to match against on a retry (see its own
+        docstring) — it is never resolved back to a real Visit row — so a caller with no visit at
+        all yet (an unpaid order has none until delivery) may pass any stable per-transaction
+        string, e.g. `f"order:{order_id}"`."""
+        if self._referral_redemption is None:
+            return False
+        return await self._referral_redemption.redeem(tenant, phone, visit_id=redeemed_by)
+
     async def _register_referral_if_new(self, tenant: str, *, created_customer: bool, phone: str,
                                         referral_code: str, invoice_minor: int,
                                         actor: str) -> dict | None:

@@ -69,11 +69,31 @@ async def _seed(store, *, price_minor: int = 10_000) -> tuple[str, str]:
     return sid, bid
 
 
-def _service(store, discount_desk) -> OrderService:
+class FakeReferralEngine:
+    """Mirrors `ReferralRedemptionEngine`'s own `{eligibility, redeem}` shape — see
+    `core/operations.py::Operations.referral_discount_for`/`redeem_referral_discount`'s own
+    passthrough docstrings for why `redeem`'s `visit_id` is really just an opaque, idempotent
+    reference string for this engine, never resolved back to a real Visit row."""
+
+    def __init__(self, grant: dict | None = None) -> None:
+        self.grant = grant
+        self.redeemed: list[dict] = []
+
+    async def eligibility(self, tenant, phone):
+        return self.grant
+
+    async def redeem(self, tenant, phone, *, visit_id):
+        self.redeemed.append({"tenant": tenant, "phone": phone, "visit_id": visit_id})
+        return True
+
+
+def _service(store, discount_desk=None, *, referral_engine=None) -> OrderService:
     ops = Operations(store=store, pii_salt="s" * 32)
+    if referral_engine is not None:
+        ops.with_referral_redemption_engine(referral_engine)
     return OrderService(store=store, services=ServiceStore(store), branches=BranchStore(store),
                         operations=ops, payments=FakePaymentsDesk(),
-                        discounts=discount_desk.as_dict())
+                        discounts=discount_desk.as_dict() if discount_desk else None)
 
 
 # ── applying the discount at creation ──────────────────────────────────────────────────────────
@@ -244,3 +264,78 @@ def test_a_second_order_cannot_claim_the_same_single_use_discount_while_the_firs
     assert first.discount_minor == 2_000 and first.discount_source == "campaign:snd_7"
     assert second.discount_minor == 0 and second.discount_source == "", (
         "the first unpaid order already holds the reservation on this single-use discount")
+
+
+# ── the unified consultation: referral discounts, and picking the better of two ────────────────
+
+def test_a_referral_welcome_discount_is_applied_when_no_campaign_discount_is_held():
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    referral = FakeReferralEngine({"eligible": True, "new_customer_reward_type": "discount_percent",
+                                   "new_customer_reward_params": {"percent": 10}})
+    s = _service(store, referral_engine=referral)
+
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_ref1"))
+    assert order.discount_minor == 1_000
+    assert order.discount_source == f"referral:+966501234567"
+
+
+def test_the_higher_value_offer_wins_campaign_over_referral():
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    desk = FakeDiscountDesk({"ref": "snd_hi", "reward_kind": "percent", "reward_amount": 30,
+                             "scope_service_ids": [], "expires_at": 9_999_999_999})
+    referral = FakeReferralEngine({"eligible": True, "new_customer_reward_type": "discount_percent",
+                                   "new_customer_reward_params": {"percent": 10}})
+    s = _service(store, desk, referral_engine=referral)
+
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_both1"))
+    # 30% (3,000) beats 10% (1,000) -- the campaign wins, never both at once.
+    assert order.discount_minor == 3_000
+    assert order.discount_source == "campaign:snd_hi"
+
+
+def test_the_higher_value_offer_wins_referral_over_campaign():
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    desk = FakeDiscountDesk({"ref": "snd_lo", "reward_kind": "percent", "reward_amount": 5,
+                             "scope_service_ids": [], "expires_at": 9_999_999_999})
+    referral = FakeReferralEngine({"eligible": True, "new_customer_reward_type": "discount_percent",
+                                   "new_customer_reward_params": {"percent": 25}})
+    s = _service(store, desk, referral_engine=referral)
+
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_both2"))
+    assert order.discount_minor == 2_500
+    assert order.discount_source == f"referral:+966501234567"
+
+
+def test_confirming_payment_redeems_a_referral_discount_through_operations():
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    referral = FakeReferralEngine({"eligible": True, "new_customer_reward_type": "discount_percent",
+                                   "new_customer_reward_params": {"percent": 10}})
+    s = _service(store, referral_engine=referral)
+
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_ref2"))
+    assert referral.redeemed == [], "a referral discount must not be spent before payment lands"
+    run(s.confirm_payment(TENANT, order.id, paid_amount_minor=order.amount_due_minor,
+                          payment_ref="pay_ref_ref2"))
+    assert len(referral.redeemed) == 1
+    assert referral.redeemed[0]["phone"] == "+966501234567"
+    assert referral.redeemed[0]["visit_id"] == f"order:{order.id}"
+
+
+def test_a_customer_not_eligible_for_a_referral_discount_gets_an_ordinary_order():
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    referral = FakeReferralEngine(None)
+    s = _service(store, referral_engine=referral)
+
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_ref3"))
+    assert order.discount_minor == 0
+    assert order.discount_source == ""
