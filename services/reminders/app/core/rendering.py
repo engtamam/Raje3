@@ -51,10 +51,17 @@ MAX_OWNER_FIELD = 60
 # ── the shapes the typed slots accept ────────────────────────────────────────────────────────
 # WESTERN DIGITS ONLY, here as everywhere: Arabic-Indic digits render inconsistently across the
 # phones our customers actually hold, and a discount nobody can read is worse than no discount.
-# Kept character-for-character equal to campaigns' `_OFFER` by a gate, not by a promise: see
-# `ci/check_the_offer_a_shop_types_is_judged_the_same_everywhere.py`. 1-99% and no 100, because an
-# offer that gives the whole thing away is a mistake far more often than it is an intention.
-_AMOUNT = re.compile(r"^(?:[1-9][0-9]?%|[0-9]{1,6}(?:\.[0-9]{1,2})? ريال)$")
+#
+# NO LONGER KEPT EQUAL TO A CAMPAIGNS-SIDE TWIN BY A CI GATE (2026-10-04) — campaigns stopped
+# accepting a free-text discount at all (`Campaign.reward_kind`/`reward_amount`, two integers
+# `models.validate_reward` bounds 1-100 for a percent); the owner never types a string shaped like
+# this any more, so there is no second, independently-typed copy left to drift from. This regex is
+# now the one remaining check — on the DISPLAY TEXT `format_discount_text`/`campaign_slots` compose
+# from those integers, at render time, as a last-line sanity check rather than an owner-facing
+# validator. 1-100%, matching `validate_reward`'s own bound (widened from the old 1-99 the day the
+# free-text twin this comment used to reference was retired — see
+# ci/check_the_offer_a_shop_types_is_judged_the_same_everywhere.py's own removal commit).
+_AMOUNT = re.compile(r"^(?:(?:100|[1-9][0-9]?)%|[0-9]{1,6}(?:\.[0-9]{1,2})? ريال)$")
 
 # What may not appear in an owner-written value. Deliberately blunt and refusing rather than clever
 # and escaping: this list guards a channel that carries somebody else's brand.
