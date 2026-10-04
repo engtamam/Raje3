@@ -286,7 +286,10 @@ describe('the discount-kind toggle switches even with an empty amount box', () =
 
     fireEvent.click(screen.getByRole('button', { name: 'عرض ما سيصل' }));
     await waitFor(() => expect(previewCalls.length).toBe(1));
-    expect((previewCalls[0] as { offer_value: string }).offer_value).toBe('50 ريال');
+    expect((previewCalls[0] as { reward_kind: string; reward_amount: number })
+      .reward_kind).toBe('fixed_halalas');
+    expect((previewCalls[0] as { reward_kind: string; reward_amount: number })
+      .reward_amount).toBe(5000);
   });
 });
 

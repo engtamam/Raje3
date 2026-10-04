@@ -14,7 +14,7 @@ import { OperatorI18nProvider } from '../operator-i18n';
 const CAMPAIGNS = [
   {
     id: 'c1', goal: 'win_back', state: 'active', sent: 40,
-    owner_text: '', offer_value: '20%', scope_service_ids: ['svc_1'],
+    owner_text: '', reward_kind: 'percent', reward_amount: 20, scope_service_ids: ['svc_1'],
     scope_service_names: ['قص شعر'],
   },
   {
@@ -92,10 +92,12 @@ describe('opening a campaign asks for its own real message', () => {
     await screen.findByText(/وحشتنا! لك خصم/);
     expect(previewCalls.length).toBe(1);
     const body = previewCalls[0] as {
-      goal: string; offer_value: string; service_ids: string[]; service_names: string[];
+      goal: string; reward_kind: string; reward_amount: number; service_ids: string[];
+      service_names: string[];
     };
     expect(body.goal).toBe('win_back');
-    expect(body.offer_value).toBe('20%');
+    expect(body.reward_kind).toBe('percent');
+    expect(body.reward_amount).toBe(20);
   });
 
   it('shows a loading skeleton before the preview answers, never a blank gap', async () => {

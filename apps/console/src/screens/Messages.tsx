@@ -86,7 +86,10 @@ interface Campaign {
   // them. Needed to re-preview an ALREADY-LAUNCHED campaign's real message on this same screen,
   // the same way the create screen already can before it launches — see `openPreview` below.
   owner_text?: string;
-  offer_value?: string;
+  // STRUCTURED (2026-10-04, replacing the free-text `offer_value` wire field) — see
+  // services/campaigns/app/core/models.py::Campaign.reward_kind's own docstring.
+  reward_kind?: string;
+  reward_amount?: number;
   expires_at?: number;
   scope_service_ids?: string[];
   scope_service_names?: string[];
@@ -1099,7 +1102,8 @@ export function MessagesScreen(
     await call<{ message?: string }>(session, previewAction, {
       goal: campaign.goal ?? '',
       owner_text: campaign.owner_text ?? '',
-      offer_value: campaign.offer_value ?? '',
+      reward_kind: campaign.reward_kind ?? '',
+      reward_amount: campaign.reward_amount ?? 0,
       fire_at: campaign.fire_at ?? 0,
       expires_at: campaign.expires_at ?? 0,
       service_id: isPackage ? '' : (campaign.service_id ?? ''),
