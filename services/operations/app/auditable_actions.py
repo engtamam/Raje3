@@ -1137,4 +1137,13 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "money-adjacent enough that losing the record of who did it and when is not "
                "acceptable; refuse the action rather than lose the trail",
     },
+    {
+        "action": "whatsapp_order.pause_set",
+        "source": "user",
+        "critical": False,
+        "resource": "branch",
+        "why": "a shop that stopped taking WhatsApp orders for a stretch needs to be able to show "
+               "exactly when and why — a customer who could not place an order during that window "
+               "deserves a real answer, not a shrug",
+    },
 ]

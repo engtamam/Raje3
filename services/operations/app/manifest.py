@@ -482,6 +482,9 @@ def build_manifest(
             {"path": "/api/v1/staff/mobile-requests/{}/complete", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/mobile-requests/{}/no-show", "tier": "user", "method": "POST"},
             # ── WhatsApp Direct Ordering, Step 7 -- see api/v1/whatsapp_orders.py's own note.
+            {"path": "/api/v1/staff/whatsapp-orders", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/whatsapp-orders/pause", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/whatsapp-orders/pause", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/whatsapp-orders/{}", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/whatsapp-orders/{}/preparing", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/whatsapp-orders/{}/ready", "tier": "user", "method": "POST"},

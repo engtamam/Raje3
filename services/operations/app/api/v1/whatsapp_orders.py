@@ -27,6 +27,8 @@ from pydantic import BaseModel, Field
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
+from app.api import scope as SCOPE
+from app.api.scope import branch_scope
 from app.core.orders import OrderError
 
 router = APIRouter(prefix="/staff/whatsapp-orders", tags=["whatsapp-orders"])
@@ -44,6 +46,64 @@ def _refuse(exc: OrderError) -> None:
     """Every action below shares the same shape: the engine's own refusal, verbatim, never a bare
     500 — same posture `MobileRequestError`/`CouponError` get from their own staff routes."""
     raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+
+
+@router.get("", dependencies=[Depends(rate_limit)])
+async def list_whatsapp_orders(request: Request, status_filter: str = "", branch_id: str = "",
+                               principal: Principal = Depends(_RECORD)) -> dict:
+    """The console's own order queue (Step 8) — a real gap found in a 2026-10-05 backend audit:
+    `OrderService.list()` already existed, filterable by status/branch, with nothing exposing it
+    to a staff member at all.
+
+    `status_filter`: one of `Order`'s own status constants ("" = every status, newest first).
+
+    BRANCH-SCOPED ON READ, NEVER ON WRITE — same rule this module's own docstring already states
+    for the status-change actions below, and the exact `branch_scope()`/`SCOPE.visible()` pair
+    `field.py`'s own reads already use: an order with no branch (should not happen in practice,
+    but never assumed) stays visible to everyone, same posture every other unbranched row in this
+    service takes.
+    """
+    tenant = _tenant(principal)
+    svc = request.app.state.container.orders
+    rows = await svc.list(tenant, status=status_filter)
+    scope = await branch_scope(request.app.state.container.datastore, principal)
+    kept = SCOPE.visible([r.public() for r in rows], SCOPE.narrow(scope, branch_id),
+                         field="branch_id")
+    return {"orders": kept}
+
+
+class SetOrderPauseIn(BaseModel):
+    branch_id: str = Field(min_length=1, max_length=64)
+    paused: bool
+    reason: str = Field(default="", max_length=300)
+
+
+@router.get("/pause", dependencies=[Depends(rate_limit)])
+async def get_order_pause(request: Request, branch_id: str,
+                          principal: Principal = Depends(_RECORD)) -> dict:
+    """Whether this branch is currently refusing new WhatsApp orders — `core/order_pause.py`'s
+    own «الكاشير الموقف مؤقت»، found with no door of its own in the same 2026-10-05 audit: the
+    mechanism was built and already enforced inside `OrderService.create()`, with no route
+    anywhere letting a cashier actually press the button."""
+    tenant = _tenant(principal)
+    paused, reason = await request.app.state.container.order_pauses.get(tenant, branch_id)
+    return {"branch_id": branch_id, "paused": paused, "reason": reason}
+
+
+@router.post("/pause", dependencies=[Depends(rate_limit)])
+async def set_order_pause(request: Request, body: SetOrderPauseIn,
+                          principal: Principal = Depends(_RECORD)) -> dict:
+    """Flip the switch — same `operations.record` capability as every other action in this file
+    (module docstring's own reasoning: the order screen is every role that can record a visit,
+    never a manager-only action), since this is exactly the kind of floor decision ("we're
+    swamped, stop new orders for twenty minutes") a cashier makes in the moment, not a policy a
+    manager sets in advance."""
+    tenant = _tenant(principal)
+    row = await request.app.state.container.order_pauses.set(
+        tenant, body.branch_id, paused=body.paused, reason=body.reason,
+        actor=principal.subject)
+    await _audit(request, "whatsapp_order.pause_set", tenant, body.branch_id, principal)
+    return row
 
 
 @router.get("/{order_id}", dependencies=[Depends(rate_limit)])

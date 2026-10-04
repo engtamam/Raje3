@@ -167,3 +167,130 @@ def test_getting_an_unknown_order_id_is_a_clean_404(client):
     r = client.get("/api/v1/staff/whatsapp-orders/ord_does_not_exist",
                    headers=_auth("operations.record"))
     assert r.status_code == 404
+
+
+# ── the list door, Step 8's own backend gap (found 2026-10-05) ───────────────────────────────────
+
+def test_list_requires_operations_record_capability(client):
+    r = client.get("/api/v1/staff/whatsapp-orders", headers=_auth("some.other.capability"))
+    assert r.status_code == 403
+
+
+def test_list_returns_every_real_order(client):
+    """Sorting itself (newest-first) is `OrderService.list()`'s own, already-tested contract
+    (test_orders.py) — two orders created in the same test, same wall-clock second, cannot
+    prove an ordering claim here without a flaky sleep; this proves the route's own job: nothing
+    created is silently missing from the response."""
+    id1 = _seed_order(client, status="received")
+    id2 = _seed_order(client, status="confirmed")
+    r = client.get("/api/v1/staff/whatsapp-orders", headers=_auth("operations.record"))
+    assert r.status_code == 200, r.text
+    ids = {o["id"] for o in r.json()["orders"]}
+    assert {id1, id2} <= ids
+
+
+def test_list_filters_by_status(client):
+    _seed_order(client, status="received")
+    confirmed_id = _seed_order(client, status="confirmed")
+    r = client.get("/api/v1/staff/whatsapp-orders", params={"status_filter": "confirmed"},
+                   headers=_auth("operations.record"))
+    assert r.status_code == 200, r.text
+    orders = r.json()["orders"]
+    assert len(orders) == 1 and orders[0]["id"] == confirmed_id
+
+
+def test_list_narrows_to_the_callers_own_branch_scope(client):
+    """Same rule this module's own docstring states for the status-change actions: branch scope
+    narrows READS, never writes — this is that narrowing, applied for the first time to the
+    order list itself."""
+    from app.core.models import Branch
+    from app.core.stores import BranchStore
+
+    asyncio.run(BranchStore(client.app.state.container.datastore).save(
+        Branch(id="br2", tenant=TENANT, name="فرع ثاني", lat=NEAR_RIYADH[0],
+              lng=NEAR_RIYADH[1], delivery_radius_km=10, active=True)))
+    br1_order = _seed_order(client, status="received")
+    from app.core.models import Service
+    from app.core.stores import ServiceStore
+    import uuid
+
+    asyncio.run(ServiceStore(client.app.state.container.datastore).save(
+        Service(id="svc2", tenant=TENANT, name="تلميع", price_minor=3000, active=True)))
+    br2_order = asyncio.run(client.app.state.container.orders.create(
+        tenant=TENANT, branch_id="br2", phone="0509998888", customer_name="سالم",
+        items=[("svc2", 1)], lat=NEAR_RIYADH[0], lng=NEAR_RIYADH[1],
+        idempotency_key=f"wamid_{uuid.uuid4().hex}")).id
+
+    r = client.get("/api/v1/staff/whatsapp-orders", params={"branch_id": "br1"},
+                   headers=_auth("operations.record"))
+    assert r.status_code == 200, r.text
+    ids = {o["id"] for o in r.json()["orders"]}
+    assert br1_order in ids
+    assert br2_order not in ids
+
+
+# ── the pause door, the same backend gap ─────────────────────────────────────────────────────────
+
+def test_pause_requires_operations_record_capability(client):
+    r = client.get("/api/v1/staff/whatsapp-orders/pause", params={"branch_id": "br1"},
+                   headers=_auth("some.other.capability"))
+    assert r.status_code == 403
+
+
+def test_a_branch_never_paused_reads_as_open(client):
+    r = client.get("/api/v1/staff/whatsapp-orders/pause", params={"branch_id": "br1"},
+                   headers=_auth("operations.record"))
+    assert r.status_code == 200, r.text
+    assert r.json() == {"branch_id": "br1", "paused": False, "reason": ""}
+
+
+def test_pausing_a_branch_is_read_back_with_its_reason(client):
+    r = client.post("/api/v1/staff/whatsapp-orders/pause",
+                    json={"branch_id": "br1", "paused": True, "reason": "ازدحام مؤقت"},
+                    headers=_auth("operations.record"))
+    assert r.status_code == 200, r.text
+    assert r.json()["paused"] is True
+    assert r.json()["reason"] == "ازدحام مؤقت"
+
+    read_back = client.get("/api/v1/staff/whatsapp-orders/pause", params={"branch_id": "br1"},
+                           headers=_auth("operations.record"))
+    assert read_back.json() == {"branch_id": "br1", "paused": True, "reason": "ازدحام مؤقت"}
+
+
+def test_a_paused_branch_actually_refuses_a_new_order():
+    """THE WHOLE POINT — proves the button this door exists for actually reaches the real,
+    already-enforced check inside OrderService.create()."""
+    from app.core.orders import OrderError
+
+    client = _make_app()
+    from app.core.models import Branch, Service
+    from app.core.stores import BranchStore, ServiceStore
+
+    asyncio.run(BranchStore(client.app.state.container.datastore).save(
+        Branch(id="br1", tenant=TENANT, name="الفرع الرئيسي", lat=NEAR_RIYADH[0],
+              lng=NEAR_RIYADH[1], delivery_radius_km=10, active=True)))
+    asyncio.run(ServiceStore(client.app.state.container.datastore).save(
+        Service(id="svc1", tenant=TENANT, name="غسيل خارجي", price_minor=5000, active=True)))
+
+    client.post("/api/v1/staff/whatsapp-orders/pause",
+               json={"branch_id": "br1", "paused": True, "reason": "إغلاق مبكر"},
+               headers=_auth("operations.record"))
+
+    import uuid
+    with pytest.raises(OrderError, match="متوقف"):
+        asyncio.run(client.app.state.container.orders.create(
+            tenant=TENANT, branch_id="br1", phone="0501234567", customer_name="أحمد",
+            items=[("svc1", 1)], lat=NEAR_RIYADH[0], lng=NEAR_RIYADH[1],
+            idempotency_key=f"wamid_{uuid.uuid4().hex}"))
+
+
+def test_resuming_clears_the_reason(client):
+    client.post("/api/v1/staff/whatsapp-orders/pause",
+               json={"branch_id": "br1", "paused": True, "reason": "صيانة"},
+               headers=_auth("operations.record"))
+    r = client.post("/api/v1/staff/whatsapp-orders/pause",
+                   json={"branch_id": "br1", "paused": False},
+                   headers=_auth("operations.record"))
+    assert r.status_code == 200, r.text
+    assert r.json()["paused"] is False
+    assert r.json()["reason"] == ""
