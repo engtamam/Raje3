@@ -109,6 +109,11 @@ class Operations:
         # ever going to be typed in. `None` until `with_referral_redemption_engine` installs it,
         # same posture as every other optional peer on this class.
         self._referral_redemption: Any = None
+        # THE COUNTER'S OWN LOYALTY DESK (adapters/loyalty_desk.py) — the SAME peer `OrderService`
+        # already holds, wired here so a visit's own "استبدال نقاط" door
+        # (`available_points_reward`/`redeem_points_reward` below) needs no new peer shape at all.
+        # `None` until `with_loyalty_desk` installs it, same posture every optional peer here takes.
+        self._loyalty: Any = None
         # KEPT RAW, NOT JUST WRAPPED IN A STORE CLASS ABOVE — `EntitlementGateway` needs the same
         # underlying datastore to look up a gift grant's own catalogue price (`core/entitlements.
         # py::EntitlementGateway._gift_value`), and building a second `ServiceStore` there would
@@ -252,6 +257,13 @@ class Operations:
             self._entitlement_gateway = EntitlementGateway(
                 mutual_benefit_engine=engine, campaign_chooser=self._choose_offer,
                 referral_code_engine=self._referral_redemption, store=self._store)
+        return self
+
+    def with_loyalty_desk(self, desk) -> "Operations":
+        """Install `adapters/loyalty_desk.py::LoyaltyDesk` — the peer `available_points_reward`/
+        `redeem_points_reward` below need. Set at wiring, same posture as every other optional
+        peer on this class."""
+        self._loyalty = desk
         return self
 
     def with_milestone_peer(self, peer) -> "Operations":
@@ -464,6 +476,107 @@ class Operations:
             v.offer_text = fields["text"]
             v.offer_used_at = int(time.time())
             v.offer_campaign_id = fields["campaign_id"]
+            await self._visits.save(v)
+            return {"ref": v.offer_ref, "text": v.offer_text, "used_at": v.offer_used_at,
+                   "campaign_id": v.offer_campaign_id}
+
+    async def available_points_reward(self, tenant: str, visit_id: str) -> dict[str, Any] | None:
+        """The single cheapest `type == "discount"` loyalty reward this visit's own customer can
+        currently afford, or `None` — read-only, never redeemed here. Same shape and same
+        `service`/`item`-reward exclusion `core/orders.py::OrderService.available_points_reward`
+        already uses, and for the identical reason: redeeming either of those makes
+        `services/loyalty` itself record a visit, and this visit already IS one — offering either
+        here would double it.
+
+        A FAILURE HERE MEANS "NOTHING TO OFFER", NEVER A REFUSED LOOKUP — same posture
+        `core/entitlements.py`'s own module docstring takes for a discount source: a cashier
+        reading nothing back must never be told to stop and try again over a peer hiccup."""
+        v = await self._visits.get(tenant, visit_id)
+        if v is None:
+            return None
+        customer = await self._customers.get(tenant, v.customer_id)
+        if customer is None or not customer.subject_ref or self._loyalty is None:
+            return None
+        try:
+            bal = await self._loyalty.balance(tenant=tenant, subject_ref=customer.subject_ref)
+        except Exception:                                                  # noqa: BLE001
+            bal = None
+        if not bal:
+            return None
+        candidates = [r for r in (bal.get("rewards") or [])
+                     if r.get("type") == "discount" and int(r.get("discount_halalas") or 0) > 0]
+        if not candidates:
+            return None
+        chosen = min(candidates, key=lambda r: int(r.get("cost") or 0))
+        minor = int(chosen.get("discount_halalas") or 0)
+        # CAPPED BY THE REAL INVOICE, WHEN ONE IS KNOWN — same "0 means not known" reading
+        # `Visit.total_minor`'s own field comment gives; an integrated till's real total is
+        # trusted, a field visit with no catalogue price at all is left uncapped rather than
+        # clamped to a number that was never real.
+        if v.total_minor > 0:
+            minor = max(0, min(minor, v.total_minor))
+        return {"id": str(chosen.get("id") or ""), "name": str(chosen.get("name") or ""),
+               "cost": int(chosen.get("cost") or 0), "minor": minor}
+
+    async def redeem_points_reward(self, tenant: str, visit_id: str, *,
+                                   reward_id: str) -> dict[str, Any]:
+        """Spend the customer's own points on `reward_id`, instead of any auto-chosen discount —
+        the SAME one-slot `offer_ref` `apply_offer` above stamps, so «ONE BENEFIT PER VISIT»
+        holds for free: whichever of the two is tapped FIRST wins the slot, and the other simply
+        finds it already taken (`apply_offer`'s own idempotent "already stamped" read handles a
+        money offer arriving after points the same way this method handles the reverse — see the
+        check right below).
+
+        UNLIKE `core/orders.py`'s own `redeem_points_reward`, THERE IS NO "RESERVED, NOT YET
+        SPENT" PHASE TO SUPPRESS — an order defers every source's real spend to payment
+        confirmation; a visit has no later confirmation step at all, so `apply_offer` already
+        spends its own chosen source the INSTANT it is tapped. That is exactly why points and
+        `apply_offer` must be mutually exclusive by occupying the same slot rather than one
+        suppressing the other after the fact: there is nothing left to suppress once a source has
+        already been finalised."""
+        v = await self._visits.get(tenant, visit_id)
+        if v is None:
+            raise OperationError("لا توجد زيارة بهذا المعرّف")
+
+        from app.core.offer_lock import OfferApplyLock
+
+        async with OfferApplyLock(self._cache, tenant, v.id):
+            v = await self._visits.get(tenant, v.id) or v
+            if v.offer_ref:
+                return {"ref": v.offer_ref, "text": v.offer_text, "used_at": v.offer_used_at,
+                       "campaign_id": v.offer_campaign_id}
+
+            customer = await self._customers.get(tenant, v.customer_id)
+            if customer is None or not customer.subject_ref or self._loyalty is None:
+                raise OperationError("تعذّر استخدام النقاط الآن. أعد المحاولة بعد قليل.")
+
+            out = await self._loyalty.redeem(
+                tenant=tenant, subject_ref=customer.subject_ref, reward_id=reward_id,
+                idempotency_key=f"visit:{v.id}")
+            if out is None:
+                raise OperationError("تعذّر استخدام النقاط الآن. أعد المحاولة بعد قليل.")
+            if "_status" in out:
+                # A REAL REFUSAL (insufficient points, an unknown/retired reward_id) IS WORTH
+                # RELAYING VERBATIM — same discipline `core/orders.py`'s own
+                # `redeem_points_reward` already follows, for the identical reason.
+                raise OperationError(str(out.get("_reason") or
+                                        "تعذّر استخدام النقاط الآن. أعد المحاولة بعد قليل."))
+            redemption = out.get("redemption") or {}
+            if str(redemption.get("reward_type") or "") != "discount":
+                raise OperationError("هذه المكافأة غير متاحة لهذه الزيارة.")
+
+            minor = int(redemption.get("discount_halalas") or 0)
+            if v.total_minor > 0:
+                minor = max(0, min(minor, v.total_minor))
+            reward_name = redemption.get("reward_name", "")
+            # THE REAL SAR VALUE, IN THE TEXT ITSELF — same reason money-discount entitlements
+            # already state a real percent/riyal figure rather than a bare name: the cashier reads
+            # this sentence and applies it by hand, so a name alone ("استبدال نقاط: قهوة مجانية")
+            # answers "what" but not "how much off the bill".
+            v.offer_ref = f"points:{reward_id}:{v.id}"
+            v.offer_text = f"استبدال نقاط: {reward_name} (خصم {minor / 100:.2f} ريال)"
+            v.offer_used_at = int(time.time())
+            v.offer_campaign_id = ""
             await self._visits.save(v)
             return {"ref": v.offer_ref, "text": v.offer_text, "used_at": v.offer_used_at,
                    "campaign_id": v.offer_campaign_id}

@@ -1025,3 +1025,37 @@ async def apply_offer(request: Request, visit_id: str, body: ApplyOfferIn,
     if applied is None:
         return {"applied": False, "reason": "لا يوجد عرضٌ ساري يشمل هذه الزيارة"}
     return {"applied": True, "offer": applied}
+
+
+@router.get("/visits/{visit_id}/points", dependencies=[Depends(subscribed_write_or_visit),
+                                                        Depends(rate_limit)])
+async def points_available(request: Request, visit_id: str,
+                           principal: Principal = Depends(_RECORD)) -> dict:
+    """What this visit's own customer could redeem instead of an automatic offer — the read half
+    of the same «استبدال نقاط» door `/visits/{visit_id}/offer` already opened for discounts. See
+    `Operations.available_points_reward`'s own docstring."""
+    ops: Operations = request.app.state.container.operations
+    reward = await ops.available_points_reward(_tenant(principal), visit_id)
+    if reward is None:
+        return {"available": False}
+    return {"available": True, "reward": reward}
+
+
+class RedeemPointsIn(BaseModel):
+    reward_id: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/visits/{visit_id}/points", dependencies=[Depends(subscribed_write_or_visit),
+                                                         Depends(rate_limit)])
+async def redeem_points(request: Request, visit_id: str, body: RedeemPointsIn,
+                        principal: Principal = Depends(_RECORD)) -> dict:
+    """Spend this visit's own customer's points instead of an automatic offer — see
+    `Operations.redeem_points_reward`'s own docstring for why this occupies the SAME one-slot
+    entitlement `/visits/{visit_id}/offer` does rather than a separate, stackable discount."""
+    ops: Operations = request.app.state.container.operations
+    try:
+        applied = await ops.redeem_points_reward(_tenant(principal), visit_id,
+                                                 reward_id=body.reward_id)
+    except OperationError as e:
+        return {"applied": False, "reason": str(e)}
+    return {"applied": True, "offer": applied}

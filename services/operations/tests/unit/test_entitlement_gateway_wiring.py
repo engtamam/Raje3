@@ -21,3 +21,10 @@ def test_the_production_entitlement_gateway_is_wired_with_a_store():
         "EntitlementGateway built with no store — a mutual-benefit gift grant or group-scope "
         "discount can never be priced in production, and silently loses every real-value "
         "comparison instead")
+
+
+def test_the_production_operations_is_wired_with_a_loyalty_desk():
+    c = build_container(_settings())
+    assert c.operations._loyalty is not None, (
+        "Operations built with no loyalty desk — the till/field screen's own استبدال نقاط "
+        "door (available_points_reward/redeem_points_reward) can never find a reward to offer")

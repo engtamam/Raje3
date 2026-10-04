@@ -625,6 +625,72 @@ async def apply_offer_at_the_counter(request: Request, body: TillOfferIn,
     return {"applied": True, "offer": applied}
 
 
+class TillPointsLookupIn(BaseModel):
+    visit_id: str = Field(min_length=1, max_length=128)
+    phone: str = Field(default="", max_length=32)
+    plate: str = Field(default="", max_length=32)
+
+
+@router.get("/points/available", dependencies=[Depends(rate_limit)])
+async def points_available_at_the_counter(request: Request, visit_id: str, phone: str = "",
+                                          plate: str = "",
+                                          principal: Principal = Depends(_TILL)) -> Any:
+    """What a customer could redeem instead of an automatic offer — the read half of the same
+    «استبدال نقاط» door `/offer/apply` already opened for discounts (see
+    `Operations.available_points_reward`'s own docstring). A customer with nothing to redeem is
+    the ordinary case, never a fault — same "found: false" posture `/offer/apply` takes for "no
+    live offer"."""
+    if not principal.tenant:
+        return {"available": False, "reason": "هذا الاعتماد غير مرتبط بمنشأة."}
+    tenant = principal.tenant
+    svc = request.app.state.container.operations
+
+    c = None
+    if phone.strip():
+        c = await svc.customer_by_phone(tenant, phone.strip())
+    if c is None and plate.strip():
+        c = await svc.customer_by_plate(tenant, plate.strip())
+    if c is None:
+        return {"available": False, "reason": "لا يوجد عميل بهذا الرقم."}
+
+    reward = await svc.available_points_reward(tenant, visit_id)
+    if reward is None:
+        return {"available": False}
+    return {"available": True, "reward": reward}
+
+
+class TillPointsRedeemIn(BaseModel):
+    visit_id: str = Field(min_length=1, max_length=128)
+    reward_id: str = Field(min_length=1, max_length=128)
+    actor: str = Field(default="", max_length=64)
+
+
+@router.post("/points/redeem", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def points_redeem_at_the_counter(request: Request, body: TillPointsRedeemIn,
+                                       principal: Principal = Depends(_TILL)) -> Any:
+    """Spend the customer's own points at the till, instead of an automatic offer — see
+    `Operations.redeem_points_reward`'s own docstring for why this occupies the SAME one-slot
+    entitlement `/offer/apply` does rather than a separate, stackable discount."""
+    if not principal.tenant:
+        return {"applied": False, "reason": "هذا الاعتماد غير مرتبط بمنشأة."}
+    tenant = principal.tenant
+    svc = request.app.state.container.operations
+
+    await request.app.state.auditor.record(
+        "points.redeemed", actor=f"till:{body.actor or 'unknown'}", tenant=tenant,
+        resource=f"visit:{body.visit_id}", ip=request.client.host if request.client else "")
+
+    try:
+        applied = await svc.redeem_points_reward(tenant, body.visit_id, reward_id=body.reward_id)
+    except OperationError as e:
+        await request.app.state.auditor.record(
+            "points.redeemed", actor=f"till:{body.actor or 'unknown'}", tenant=tenant,
+            resource=f"visit:{body.visit_id}", ip=request.client.host if request.client else "",
+            metadata={"outcome": "refused", "reason": str(e)})
+        return {"applied": False, "reason": str(e)}
+    return {"applied": True, "offer": applied}
+
+
 # ══════════════════════════════════════════════════════════════════════════════════════════════
 #  BOOKINGS — the single largest gap both till-integration audits named (2026-09-13, 2026-09-14).
 #

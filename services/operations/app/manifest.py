@@ -230,6 +230,8 @@ def build_manifest(
             # ── the field screen — the product, as far as the shop floor is concerned ──────
             {"path": "/api/v1/field/visits", "tier": "user", "method": "POST"},
             {"path": "/api/v1/field/visits/{}/offer", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/field/visits/{}/points", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/field/visits/{}/points", "tier": "user", "method": "POST"},
             {"path": "/api/v1/field/customers/{}", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/field/customers/{}/erase", "tier": "user", "method": "POST"},
             {"path": "/api/v1/field/customers/recent", "tier": "user", "method": "GET"},
@@ -441,6 +443,8 @@ def build_manifest(
             {"path": "/api/v1/till/customer", "tier": "user", "method": "GET"},
             {"path": "/api/v1/till/redeem", "tier": "user", "method": "POST"},
             {"path": "/api/v1/till/offer/apply", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/till/points/available", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/till/points/redeem", "tier": "user", "method": "POST"},
             # FOUND UNDECLARED BY test_manifest_covers_routes.py — six real, served till.py routes
             # with no manifest row at all, so no gate that reads this list (capability review,
             # action coverage, the route table) ever looked at them.

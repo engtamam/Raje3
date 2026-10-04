@@ -424,6 +424,11 @@ def build_container(settings: Settings) -> Container:
         default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
     container.operations.with_mutual_benefit_engine(container.mutual_benefit)
 
+    # THE VISIT'S OWN "استبدال نقاط" DOOR — same `loyalty_desk` peer `OrderService` already holds
+    # (built earlier, at the top of this function), wired onto `operations` too now that
+    # `available_points_reward`/`redeem_points_reward` exist. See those methods' own docstrings.
+    container.operations.with_loyalty_desk(container.loyalty_desk)
+
     # THE GLOBAL ANONYMOUS REFERRAL CODE'S OWN TILL-SIDE REDEMPTION (services/referrals, Phase 3)
     # — the SECOND real EntitlementGateway source, alongside mutual_benefit above. Reaches
     # `referrals` (code/campaign reads) and `loyalty` (crediting the referrer's own reward) over

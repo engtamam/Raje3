@@ -884,6 +884,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "the customer is looking at our screen",
     },
     {
+        "action": "points.redeemed",
+        "source": "internal",
+        "critical": False,
+        "resource": "visit",
+        "why": "a customer's own loyalty points were spent at the counter — the same money-off-an-"
+               "invoice reasoning offer.applied already gives, for the sibling door onto the same "
+               "one-slot entitlement (core/operations.py::Operations.redeem_points_reward).",
+    },
+    {
         # FOUND UNDECLARED 2026-09-07 by ci/check_audit_actions.py, itself found unwired into any
         # workflow the same day (see .github/workflows/guards.yml's own commit) — every call to
         # this, scheduled sweep or the "فحص الآن" button in AdminFinance's GatewayPanel alike, had
