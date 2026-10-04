@@ -35,6 +35,9 @@ class _RecordingEngine:
     def __init__(self):
         self.calls: list[tuple] = []
 
+    async def handle_order_followup(self, *, tenant, subject_ref, kind, text):
+        return None
+
     async def handle_inbound_text(self, *, tenant, subject_ref, from_number, text, branch_id=""):
         self.calls.append(("text", tenant, subject_ref, text, branch_id))
         return _ReplyPlan(kind="none")

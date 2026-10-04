@@ -10,6 +10,7 @@ so the bus fast-path and the catch-up poll parse an identical message identicall
 """
 from __future__ import annotations
 
+import json
 from typing import Any
 
 
@@ -44,4 +45,34 @@ def parse_message(message: dict[str, Any]) -> tuple[str, str, str]:
         if not (-90 <= lat <= 90 and -180 <= lng <= 180):
             return "text", "", ""
         return "location", f"{lat},{lng}", ""
+    if msg_type == "order":
+        # Meta's shape (confirmed against developers.facebook.com's own order-messages webhook
+        # reference): {order: {catalog_id, text?, product_items: [{product_retailer_id,
+        # quantity, item_price, currency}]}} — a customer's real cart, submitted from a catalog
+        # or multi-product message. ENCODED AS JSON IN `text`, same "structured fact flattened
+        # into the one string field every handler already keys on" convention `location` above
+        # already established for "<lat>,<lng>" — never widens this function's own return shape.
+        # `item_price`/`currency` are DROPPED here, not carried forward at all: WhatsApp Direct
+        # Ordering's own rule (orders.py's module docstring) is that the catalogue is the only
+        # source of truth for what something costs, and even holding the customer-visible price
+        # in a variable this deep invites a future caller to reach for it instead of re-pricing
+        # for real.
+        order = message.get("order") or {}
+        items = order.get("product_items") or []
+        normalized: list[dict[str, Any]] = []
+        for item in items:
+            retailer_id = str(item.get("product_retailer_id") or "").strip()
+            if not retailer_id:
+                continue
+            try:
+                quantity = int(item.get("quantity"))
+            except (TypeError, ValueError):
+                continue
+            if quantity <= 0:
+                continue
+            normalized.append({"retailer_id": retailer_id, "quantity": quantity})
+        if not normalized:
+            return "text", "", ""
+        payload = {"catalog_id": str(order.get("catalog_id") or ""), "items": normalized}
+        return "order", json.dumps(payload, ensure_ascii=False), ""
     return "text", "", ""

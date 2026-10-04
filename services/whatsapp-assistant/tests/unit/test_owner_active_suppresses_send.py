@@ -34,6 +34,9 @@ class _ReplyPlan:
 
 
 class _TextReplyEngine:
+    async def handle_order_followup(self, *, tenant, subject_ref, kind, text):
+        return None
+
     async def handle_inbound_text(self, *, tenant, subject_ref, from_number, text, branch_id=""):
         return _ReplyPlan()
 

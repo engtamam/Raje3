@@ -273,7 +273,23 @@ async def ingest_inbound_message(
         except Exception:                                            # noqa: BLE001
             pass
 
-        if kind in ("button_reply", "list_reply"):
+        # WHATSAPP DIRECT ORDERING — checked BEFORE every other kind, deliberately: a pending
+        # order (core/conversation.py::handle_order) must intercept the very next message no
+        # matter what kind it arrives as (the location itself, a cancel, a fresh cart, or
+        # anything else that needs the "still waiting on your location" reminder) rather than
+        # fall through to the AI/button/location dispatch below and silently lose track of it.
+        # `None` means this conversation holds no pending order at all — the normal chain below
+        # runs completely unchanged.
+        plan = await container.engine.handle_order_followup(
+            tenant=tenant, subject_ref=subject_ref, kind=kind, text=text)
+        if plan is not None:
+            pass
+        elif kind == "order":
+            # A catalog order arriving with no pending one already open -- see
+            # core/conversation.py::handle_order for why this never touches the LLM at all.
+            plan = await container.engine.handle_order(
+                tenant=tenant, subject_ref=subject_ref, text=text)
+        elif kind in ("button_reply", "list_reply"):
             if reply_id.startswith("triage:"):
                 # The mandatory first-message triage gate's own list-reply ids — resolved
                 # separately from proposal button_reply/list_reply ids below, since a
