@@ -3736,4 +3736,164 @@ class SHa extends S {
   String shopLeadConversionDetail(int converted, int total) {
     return '$converted daga cikin $total sun zama ziyara ta gaske';
   }
+
+  @override
+  String get whatsappOrdersTitle => 'Oda kai tsaye ta WhatsApp';
+
+  @override
+  String get whatsappOrdersSubtitle =>
+      'Odar da abokan cinikinka suke yi daga kayanka ta WhatsApp, daga isowa zuwa kai wa.';
+
+  @override
+  String get whatsappOrdersKpiWaiting => 'Ana jiran dubawa';
+
+  @override
+  String get whatsappOrdersKpiStuck => 'Sun jima';
+
+  @override
+  String get whatsappOrdersKpiDeliveredToday => 'An kai yau';
+
+  @override
+  String get whatsappOrdersFilterAll => 'Duka';
+
+  @override
+  String get whatsappOrdersFilterIncoming => 'Sabbi';
+
+  @override
+  String get whatsappOrdersFilterConfirmed => 'An tabbatar';
+
+  @override
+  String get whatsappOrdersFilterPreparing => 'Ana shiryawa';
+
+  @override
+  String get whatsappOrdersFilterReady => 'A shirye';
+
+  @override
+  String get whatsappOrdersFilterDelivery => 'Ana kai wa';
+
+  @override
+  String get whatsappOrdersFilterClosed => 'An kammala';
+
+  @override
+  String get whatsappOrdersLoadFailedTitle => 'An kasa loda oda';
+
+  @override
+  String get whatsappOrdersLoadFailedBody =>
+      'Duba hanyar sadarwarka kuma sake gwadawa.';
+
+  @override
+  String get whatsappOrdersRetry => 'Sake gwadawa';
+
+  @override
+  String get whatsappOrdersEmptyTitle => 'Babu oda tukuna';
+
+  @override
+  String get whatsappOrdersEmptyBody =>
+      'Duk wata oda da ta zo ta WhatsApp za ta bayyana nan take.';
+
+  @override
+  String get whatsappOrdersUnnamed => 'Abokin ciniki';
+
+  @override
+  String get whatsappOrdersStatusReceived => 'Sabo';
+
+  @override
+  String get whatsappOrdersStatusPaymentMismatch => 'Rashin daidaiton biya';
+
+  @override
+  String get whatsappOrdersStatusConfirmed => 'An tabbatar';
+
+  @override
+  String get whatsappOrdersStatusPreparing => 'Ana shiryawa';
+
+  @override
+  String get whatsappOrdersStatusReady => 'A shirye';
+
+  @override
+  String get whatsappOrdersStatusOutForDelivery => 'Ana kai wa';
+
+  @override
+  String get whatsappOrdersStatusDelivered => 'An kai';
+
+  @override
+  String get whatsappOrdersStatusCancelled => 'An soke';
+
+  @override
+  String get whatsappOrdersStuckBadge => 'Ya jima';
+
+  @override
+  String get whatsappOrdersOpenMap => 'Bude wurin a taswira';
+
+  @override
+  String get whatsappOrdersPhoneCopied => 'An kwafi lambar waya';
+
+  @override
+  String get whatsappOrdersActionStartPreparing => 'Fara shiryawa';
+
+  @override
+  String get whatsappOrdersActionMarkReady => 'Alamta a shirye';
+
+  @override
+  String get whatsappOrdersActionStartDelivery => 'Aika don kaiwa';
+
+  @override
+  String get whatsappOrdersActionMarkDelivered => 'Alamta an kai';
+
+  @override
+  String get whatsappOrdersActionResolveMismatch => 'Tabbatar da biya da hannu';
+
+  @override
+  String get whatsappOrdersActionCancel => 'Soke oda';
+
+  @override
+  String get whatsappOrdersActionFailed =>
+      'An kasa kammala aikin, sake gwadawa.';
+
+  @override
+  String get whatsappOrdersCancelReasonPrompt => 'Dalilin sokewa (ba tilas ba)';
+
+  @override
+  String get whatsappOrdersCancelReasonCancel => 'Koma baya';
+
+  @override
+  String get whatsappOrdersCancelReasonConfirm => 'Tabbatar da sokewa';
+
+  @override
+  String get whatsappOrdersPauseLabel => 'Dakatar da karɓar oda';
+
+  @override
+  String whatsappOrdersPauseBannerText(String reason) {
+    return 'Wannan reshe ba ya karɓar sabbin odar WhatsApp — $reason';
+  }
+
+  @override
+  String get whatsappOrdersPauseDefaultReason =>
+      'Kashiya ta dakatar na ɗan lokaci';
+
+  @override
+  String get whatsappOrdersDrawerSubtotal => 'Jimla kafin ragi';
+
+  @override
+  String get whatsappOrdersDrawerDiscount => 'Ragi';
+
+  @override
+  String get whatsappOrdersDrawerPointsReward => 'Lada na makin aminci';
+
+  @override
+  String get whatsappOrdersDrawerTotal => 'Jimlar da ake bukata';
+
+  @override
+  String whatsappOrdersDrawerMismatchHint(String paid) {
+    return 'Adadin da gidan biya ya bayar ($paid) bai dace da abin da ake bukata ba — duba da kanka kafin tabbatarwa.';
+  }
+
+  @override
+  String whatsappOrdersDrawerCancelReason(String reason) {
+    return 'Dalilin sokewa: $reason';
+  }
+
+  @override
+  String whatsappOrdersDrawerNote(String note) {
+    return 'Bayani: $note';
+  }
 }

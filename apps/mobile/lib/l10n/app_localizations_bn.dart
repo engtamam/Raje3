@@ -3726,4 +3726,165 @@ class SBn extends S {
   String shopLeadConversionDetail(int converted, int total) {
     return '$total-এর মধ্যে $converted বাস্তব ভিজিটে রূপান্তরিত হয়েছে';
   }
+
+  @override
+  String get whatsappOrdersTitle => 'হোয়াটসঅ্যাপে সরাসরি অর্ডার';
+
+  @override
+  String get whatsappOrdersSubtitle =>
+      'আপনার গ্রাহকরা হোয়াটসঅ্যাপে আপনার ক্যাটালগ থেকে যে অর্ডার দেন, আগমন থেকে ডেলিভারি পর্যন্ত।';
+
+  @override
+  String get whatsappOrdersKpiWaiting => 'পর্যালোচনার অপেক্ষায়';
+
+  @override
+  String get whatsappOrdersKpiStuck => 'বিলম্বিত';
+
+  @override
+  String get whatsappOrdersKpiDeliveredToday => 'আজ ডেলিভার হয়েছে';
+
+  @override
+  String get whatsappOrdersFilterAll => 'সব';
+
+  @override
+  String get whatsappOrdersFilterIncoming => 'নতুন';
+
+  @override
+  String get whatsappOrdersFilterConfirmed => 'নিশ্চিত';
+
+  @override
+  String get whatsappOrdersFilterPreparing => 'প্রস্তুত হচ্ছে';
+
+  @override
+  String get whatsappOrdersFilterReady => 'প্রস্তুত';
+
+  @override
+  String get whatsappOrdersFilterDelivery => 'পথে আছে';
+
+  @override
+  String get whatsappOrdersFilterClosed => 'সম্পন্ন';
+
+  @override
+  String get whatsappOrdersLoadFailedTitle => 'অর্ডার লোড করা যায়নি';
+
+  @override
+  String get whatsappOrdersLoadFailedBody =>
+      'আপনার সংযোগ পরীক্ষা করুন এবং আবার চেষ্টা করুন।';
+
+  @override
+  String get whatsappOrdersRetry => 'আবার চেষ্টা করুন';
+
+  @override
+  String get whatsappOrdersEmptyTitle => 'এখনো কোনো অর্ডার নেই';
+
+  @override
+  String get whatsappOrdersEmptyBody =>
+      'হোয়াটসঅ্যাপে আসা যেকোনো অর্ডার এখানে সাথে সাথে দেখাবে।';
+
+  @override
+  String get whatsappOrdersUnnamed => 'গ্রাহক';
+
+  @override
+  String get whatsappOrdersStatusReceived => 'নতুন';
+
+  @override
+  String get whatsappOrdersStatusPaymentMismatch => 'পেমেন্ট অমিল';
+
+  @override
+  String get whatsappOrdersStatusConfirmed => 'নিশ্চিত';
+
+  @override
+  String get whatsappOrdersStatusPreparing => 'প্রস্তুত হচ্ছে';
+
+  @override
+  String get whatsappOrdersStatusReady => 'প্রস্তুত';
+
+  @override
+  String get whatsappOrdersStatusOutForDelivery => 'পথে আছে';
+
+  @override
+  String get whatsappOrdersStatusDelivered => 'ডেলিভার হয়েছে';
+
+  @override
+  String get whatsappOrdersStatusCancelled => 'বাতিল';
+
+  @override
+  String get whatsappOrdersStuckBadge => 'বিলম্বিত';
+
+  @override
+  String get whatsappOrdersOpenMap => 'মানচিত্রে অবস্থান দেখুন';
+
+  @override
+  String get whatsappOrdersPhoneCopied => 'ফোন নম্বর কপি হয়েছে';
+
+  @override
+  String get whatsappOrdersActionStartPreparing => 'প্রস্তুতি শুরু করুন';
+
+  @override
+  String get whatsappOrdersActionMarkReady => 'প্রস্তুত হিসেবে চিহ্নিত করুন';
+
+  @override
+  String get whatsappOrdersActionStartDelivery => 'ডেলিভারির জন্য পাঠান';
+
+  @override
+  String get whatsappOrdersActionMarkDelivered => 'ডেলিভার হয়েছে চিহ্নিত করুন';
+
+  @override
+  String get whatsappOrdersActionResolveMismatch =>
+      'ম্যানুয়ালি পেমেন্ট নিশ্চিত করুন';
+
+  @override
+  String get whatsappOrdersActionCancel => 'অর্ডার বাতিল করুন';
+
+  @override
+  String get whatsappOrdersActionFailed =>
+      'কাজটি সম্পন্ন করা যায়নি, আবার চেষ্টা করুন।';
+
+  @override
+  String get whatsappOrdersCancelReasonPrompt => 'বাতিলের কারণ (ঐচ্ছিক)';
+
+  @override
+  String get whatsappOrdersCancelReasonCancel => 'ফিরে যান';
+
+  @override
+  String get whatsappOrdersCancelReasonConfirm => 'বাতিল নিশ্চিত করুন';
+
+  @override
+  String get whatsappOrdersPauseLabel => 'নতুন অর্ডার বন্ধ করুন';
+
+  @override
+  String whatsappOrdersPauseBannerText(String reason) {
+    return 'এই শাখা নতুন হোয়াটসঅ্যাপ অর্ডার গ্রহণ করছে না — $reason';
+  }
+
+  @override
+  String get whatsappOrdersPauseDefaultReason =>
+      'ক্যাশিয়ার সাময়িকভাবে বন্ধ করেছেন';
+
+  @override
+  String get whatsappOrdersDrawerSubtotal => 'ছাড়ের আগের মোট';
+
+  @override
+  String get whatsappOrdersDrawerDiscount => 'ছাড়';
+
+  @override
+  String get whatsappOrdersDrawerPointsReward => 'লয়্যালটি পয়েন্ট পুরস্কার';
+
+  @override
+  String get whatsappOrdersDrawerTotal => 'পরিশোধযোগ্য পরিমাণ';
+
+  @override
+  String whatsappOrdersDrawerMismatchHint(String paid) {
+    return 'গেটওয়ে থেকে জানানো পরিমাণ ($paid) প্রত্যাশিত পরিমাণের সাথে মিলছে না — নিশ্চিত করার আগে নিজে যাচাই করুন।';
+  }
+
+  @override
+  String whatsappOrdersDrawerCancelReason(String reason) {
+    return 'বাতিলের কারণ: $reason';
+  }
+
+  @override
+  String whatsappOrdersDrawerNote(String note) {
+    return 'নোট: $note';
+  }
 }

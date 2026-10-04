@@ -3725,4 +3725,164 @@ class SUr extends S {
   String shopLeadConversionDetail(int converted, int total) {
     return '$total میں سے $converted حقیقی وزٹ میں تبدیل ہوئے';
   }
+
+  @override
+  String get whatsappOrdersTitle => 'واٹس ایپ براہ راست آرڈرنگ';
+
+  @override
+  String get whatsappOrdersSubtitle =>
+      'آپ کے گاہک واٹس ایپ پر جو آرڈر دیتے ہیں، وصولی سے ڈیلیوری تک۔';
+
+  @override
+  String get whatsappOrdersKpiWaiting => 'جائزے کے منتظر';
+
+  @override
+  String get whatsappOrdersKpiStuck => 'تاخیر کا شکار';
+
+  @override
+  String get whatsappOrdersKpiDeliveredToday => 'آج ڈیلیور ہوئے';
+
+  @override
+  String get whatsappOrdersFilterAll => 'تمام';
+
+  @override
+  String get whatsappOrdersFilterIncoming => 'نئے';
+
+  @override
+  String get whatsappOrdersFilterConfirmed => 'تصدیق شدہ';
+
+  @override
+  String get whatsappOrdersFilterPreparing => 'تیاری جاری';
+
+  @override
+  String get whatsappOrdersFilterReady => 'تیار';
+
+  @override
+  String get whatsappOrdersFilterDelivery => 'روانہ';
+
+  @override
+  String get whatsappOrdersFilterClosed => 'مکمل';
+
+  @override
+  String get whatsappOrdersLoadFailedTitle => 'آرڈرز لوڈ نہیں ہو سکے';
+
+  @override
+  String get whatsappOrdersLoadFailedBody =>
+      'اپنا کنکشن چیک کریں اور دوبارہ کوشش کریں۔';
+
+  @override
+  String get whatsappOrdersRetry => 'دوبارہ کوشش';
+
+  @override
+  String get whatsappOrdersEmptyTitle => 'ابھی کوئی آرڈر نہیں';
+
+  @override
+  String get whatsappOrdersEmptyBody =>
+      'واٹس ایپ سے آنے والا کوئی بھی آرڈر یہاں فوراً نظر آئے گا۔';
+
+  @override
+  String get whatsappOrdersUnnamed => 'گاہک';
+
+  @override
+  String get whatsappOrdersStatusReceived => 'نیا';
+
+  @override
+  String get whatsappOrdersStatusPaymentMismatch => 'ادائیگی میں فرق';
+
+  @override
+  String get whatsappOrdersStatusConfirmed => 'تصدیق شدہ';
+
+  @override
+  String get whatsappOrdersStatusPreparing => 'تیاری جاری';
+
+  @override
+  String get whatsappOrdersStatusReady => 'تیار';
+
+  @override
+  String get whatsappOrdersStatusOutForDelivery => 'روانہ';
+
+  @override
+  String get whatsappOrdersStatusDelivered => 'ڈیلیور ہوگیا';
+
+  @override
+  String get whatsappOrdersStatusCancelled => 'منسوخ';
+
+  @override
+  String get whatsappOrdersStuckBadge => 'تاخیر';
+
+  @override
+  String get whatsappOrdersOpenMap => 'نقشے پر مقام دیکھیں';
+
+  @override
+  String get whatsappOrdersPhoneCopied => 'فون نمبر کاپی ہوگیا';
+
+  @override
+  String get whatsappOrdersActionStartPreparing => 'تیاری شروع کریں';
+
+  @override
+  String get whatsappOrdersActionMarkReady => 'تیار نشان زد کریں';
+
+  @override
+  String get whatsappOrdersActionStartDelivery => 'ڈیلیوری کے لیے روانہ کریں';
+
+  @override
+  String get whatsappOrdersActionMarkDelivered => 'ڈیلیور ہوا نشان زد کریں';
+
+  @override
+  String get whatsappOrdersActionResolveMismatch =>
+      'ادائیگی دستی طور پر تصدیق کریں';
+
+  @override
+  String get whatsappOrdersActionCancel => 'آرڈر منسوخ کریں';
+
+  @override
+  String get whatsappOrdersActionFailed =>
+      'عمل مکمل نہیں ہو سکا، دوبارہ کوشش کریں۔';
+
+  @override
+  String get whatsappOrdersCancelReasonPrompt => 'منسوخی کی وجہ (اختیاری)';
+
+  @override
+  String get whatsappOrdersCancelReasonCancel => 'واپس';
+
+  @override
+  String get whatsappOrdersCancelReasonConfirm => 'منسوخی کی تصدیق';
+
+  @override
+  String get whatsappOrdersPauseLabel => 'نئے آرڈرز روکیں';
+
+  @override
+  String whatsappOrdersPauseBannerText(String reason) {
+    return 'یہ برانچ نئے واٹس ایپ آرڈرز قبول نہیں کر رہی — $reason';
+  }
+
+  @override
+  String get whatsappOrdersPauseDefaultReason => 'کیشیئر نے عارضی طور پر روکا';
+
+  @override
+  String get whatsappOrdersDrawerSubtotal => 'رعایت سے پہلے کا مجموعہ';
+
+  @override
+  String get whatsappOrdersDrawerDiscount => 'رعایت';
+
+  @override
+  String get whatsappOrdersDrawerPointsReward => 'لائلٹی پوائنٹس انعام';
+
+  @override
+  String get whatsappOrdersDrawerTotal => 'واجب الادا رقم';
+
+  @override
+  String whatsappOrdersDrawerMismatchHint(String paid) {
+    return 'گیٹ وے کی بتائی گئی رقم ($paid) واجب رقم سے میل نہیں کھاتی — تصدیق سے پہلے خود چیک کریں۔';
+  }
+
+  @override
+  String whatsappOrdersDrawerCancelReason(String reason) {
+    return 'منسوخی کی وجہ: $reason';
+  }
+
+  @override
+  String whatsappOrdersDrawerNote(String note) {
+    return 'نوٹ: $note';
+  }
 }

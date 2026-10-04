@@ -96,6 +96,7 @@ const Map<String, IconData> kAppTileIcons = {
   'bot': Icons.smart_toy_rounded,
   'truck': Icons.local_shipping_rounded,
   'briefcase': Icons.work_rounded,
+  'receipt': Icons.receipt_long_rounded,
 };
 
 /// `GET /api/v1/subscription/apps/static-features`'s own real, tenant-free subkeys — mirrors the
@@ -173,6 +174,13 @@ const List<AppRow> kAppRows = [
     id: 'mobile-requests', key: 'feature.mobile_requests', name: 'خدمات متنقلة',
     what: 'خدمتك تروح لعنده هو — يطلب موعداً، تراجعه وتقرر، ثم تسجّله زيارة حقيقية بعد ما تتم فعلاً.',
     route: 'mobile-requests', icon: 'truck',
+  ),
+  // «طلبات التوصيل عبر الواتساب» — mirrors apps/console/src/apps.ts's own row exactly (same
+  // standalone-delivery-product posture, never confused with «خدمات متنقلة» above).
+  AppRow(
+    id: 'whatsapp-orders', key: 'feature.whatsapp_delivery_orders', name: 'طلبات التوصيل عبر الواتساب',
+    what: 'عميلك يطلب من كتالوجك عبر واتساب ويدفع لحسابك مباشرة — تتابع كل طلب من لحظة الطلب إلى التسليم.',
+    route: 'whatsapp-orders', icon: 'receipt',
   ),
   // «الاستضافة المهنية» — mirrors operations' own `core/apps.py::APPS`'s `feature.coworking` row
   // exactly (same `what` sentence). Backend-only until this pass; `route: 'coworking'` is this

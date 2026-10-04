@@ -3730,4 +3730,162 @@ class SAr extends S {
   String shopLeadConversionDetail(int converted, int total) {
     return '$converted من $total تحوّل لزيارة حقيقية';
   }
+
+  @override
+  String get whatsappOrdersTitle => 'طلبات التوصيل عبر الواتساب';
+
+  @override
+  String get whatsappOrdersSubtitle =>
+      'طلبات يطلبها عملاؤك من كتالوجك عبر واتساب، من الاستلام للتسليم.';
+
+  @override
+  String get whatsappOrdersKpiWaiting => 'بانتظار المراجعة';
+
+  @override
+  String get whatsappOrdersKpiStuck => 'متأخرة';
+
+  @override
+  String get whatsappOrdersKpiDeliveredToday => 'سُلِّمت اليوم';
+
+  @override
+  String get whatsappOrdersFilterAll => 'الكل';
+
+  @override
+  String get whatsappOrdersFilterIncoming => 'جديدة';
+
+  @override
+  String get whatsappOrdersFilterConfirmed => 'مؤكَّدة';
+
+  @override
+  String get whatsappOrdersFilterPreparing => 'قيد التجهيز';
+
+  @override
+  String get whatsappOrdersFilterReady => 'جاهزة';
+
+  @override
+  String get whatsappOrdersFilterDelivery => 'في الطريق';
+
+  @override
+  String get whatsappOrdersFilterClosed => 'مكتملة';
+
+  @override
+  String get whatsappOrdersLoadFailedTitle => 'تعذّر تحميل الطلبات';
+
+  @override
+  String get whatsappOrdersLoadFailedBody => 'تحقّق من اتصالك وحاول مرة أخرى.';
+
+  @override
+  String get whatsappOrdersRetry => 'إعادة المحاولة';
+
+  @override
+  String get whatsappOrdersEmptyTitle => 'لا طلبات بعد';
+
+  @override
+  String get whatsappOrdersEmptyBody => 'أي طلب يصل عبر واتساب يظهر هنا فوراً.';
+
+  @override
+  String get whatsappOrdersUnnamed => 'عميل';
+
+  @override
+  String get whatsappOrdersStatusReceived => 'جديد';
+
+  @override
+  String get whatsappOrdersStatusPaymentMismatch => 'خلل بمطابقة الدفع';
+
+  @override
+  String get whatsappOrdersStatusConfirmed => 'مؤكَّد';
+
+  @override
+  String get whatsappOrdersStatusPreparing => 'قيد التجهيز';
+
+  @override
+  String get whatsappOrdersStatusReady => 'جاهز';
+
+  @override
+  String get whatsappOrdersStatusOutForDelivery => 'في الطريق';
+
+  @override
+  String get whatsappOrdersStatusDelivered => 'تم التسليم';
+
+  @override
+  String get whatsappOrdersStatusCancelled => 'ملغى';
+
+  @override
+  String get whatsappOrdersStuckBadge => 'متأخر';
+
+  @override
+  String get whatsappOrdersOpenMap => 'فتح الموقع بالخرائط';
+
+  @override
+  String get whatsappOrdersPhoneCopied => 'تم نسخ رقم الجوال';
+
+  @override
+  String get whatsappOrdersActionStartPreparing => 'بدء التجهيز';
+
+  @override
+  String get whatsappOrdersActionMarkReady => 'الطلب جاهز';
+
+  @override
+  String get whatsappOrdersActionStartDelivery => 'خرج للتوصيل';
+
+  @override
+  String get whatsappOrdersActionMarkDelivered => 'تم التسليم';
+
+  @override
+  String get whatsappOrdersActionResolveMismatch => 'تأكيد الدفع يدوياً';
+
+  @override
+  String get whatsappOrdersActionCancel => 'إلغاء الطلب';
+
+  @override
+  String get whatsappOrdersActionFailed =>
+      'تعذّر تنفيذ الإجراء، حاول مرة أخرى.';
+
+  @override
+  String get whatsappOrdersCancelReasonPrompt => 'سبب الإلغاء (اختياري)';
+
+  @override
+  String get whatsappOrdersCancelReasonCancel => 'تراجع';
+
+  @override
+  String get whatsappOrdersCancelReasonConfirm => 'تأكيد الإلغاء';
+
+  @override
+  String get whatsappOrdersPauseLabel => 'إيقاف استقبال الطلبات';
+
+  @override
+  String whatsappOrdersPauseBannerText(String reason) {
+    return 'هذا الفرع متوقف عن استقبال طلبات واتساب الجديدة — $reason';
+  }
+
+  @override
+  String get whatsappOrdersPauseDefaultReason =>
+      'أُوقف الاستقبال مؤقتاً من الكاشير';
+
+  @override
+  String get whatsappOrdersDrawerSubtotal => 'المجموع قبل الخصم';
+
+  @override
+  String get whatsappOrdersDrawerDiscount => 'الخصم';
+
+  @override
+  String get whatsappOrdersDrawerPointsReward => 'مكافأة نقاط الولاء';
+
+  @override
+  String get whatsappOrdersDrawerTotal => 'الإجمالي المطلوب';
+
+  @override
+  String whatsappOrdersDrawerMismatchHint(String paid) {
+    return 'المبلغ المستلم من بوابة الدفع ($paid) لا يطابق المطلوب — تحقق يدوياً قبل التأكيد.';
+  }
+
+  @override
+  String whatsappOrdersDrawerCancelReason(String reason) {
+    return 'سبب الإلغاء: $reason';
+  }
+
+  @override
+  String whatsappOrdersDrawerNote(String note) {
+    return 'ملاحظة: $note';
+  }
 }

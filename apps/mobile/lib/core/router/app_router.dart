@@ -30,6 +30,7 @@ import 'package:raje3_mobile/features/services/services_screen.dart';
 import 'package:raje3_mobile/features/shell/main_shell.dart';
 import 'package:raje3_mobile/features/visit/visit_screen.dart';
 import 'package:raje3_mobile/features/whatsapp_assistant/whatsapp_assistant_screen.dart';
+import 'package:raje3_mobile/features/whatsapp_orders/whatsapp_orders_screen.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
@@ -176,6 +177,8 @@ class AppRouter {
         return const BookingsScreen();
       case 'mobile-requests':
         return const MobileRequestsScreen();
+      case 'whatsapp-orders':
+        return const WhatsAppOrdersScreen();
       case 'customers':
         return const CustomersScreen();
       case 'rating':

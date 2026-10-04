@@ -461,8 +461,12 @@ APPS: tuple[dict[str, Any], ...] = (
     # catalog_item_sync.py/conversation.py::handle_order. A SEPARATE app from `feature.whatsapp`
     # (بوت خدمة العملاء الذكي) even though both live in the same microservice — a shop can buy
     # catalog ordering without ever buying the AI assistant, and vice versa.
+    #
+    # `screen: "whatsapp-orders"` — FIXED (2026-10-05) from a stale "whatsapp-delivery-orders"
+    # placeholder written before either screen existed, to the real route id the built console
+    # (nav.ts) and mobile (nav_sections.g.dart) screens actually use.
     {"key": "feature.whatsapp_delivery_orders", "name": "طلبات التوصيل عبر الواتساب",
-     "screen": "whatsapp-delivery-orders",
+     "screen": "whatsapp-orders",
      "what": "عميلك يطلب مباشرة من كتالوج واتساب الرسمي، ويدفع ببوابتك الخاصة — يصلك الطلب جاهزاً "
              "لتسجّله بنظامك الحالي.",
      "features": list(WHATSAPP_DELIVERY_ORDERS_FEATURES)},

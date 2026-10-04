@@ -3760,4 +3760,165 @@ class SEn extends S {
   String shopLeadConversionDetail(int converted, int total) {
     return '$converted of $total became a real visit';
   }
+
+  @override
+  String get whatsappOrdersTitle => 'WhatsApp Direct Ordering';
+
+  @override
+  String get whatsappOrdersSubtitle =>
+      'Orders your customers place from your catalogue over WhatsApp, from arrival to delivery.';
+
+  @override
+  String get whatsappOrdersKpiWaiting => 'Awaiting review';
+
+  @override
+  String get whatsappOrdersKpiStuck => 'Overdue';
+
+  @override
+  String get whatsappOrdersKpiDeliveredToday => 'Delivered today';
+
+  @override
+  String get whatsappOrdersFilterAll => 'All';
+
+  @override
+  String get whatsappOrdersFilterIncoming => 'New';
+
+  @override
+  String get whatsappOrdersFilterConfirmed => 'Confirmed';
+
+  @override
+  String get whatsappOrdersFilterPreparing => 'Preparing';
+
+  @override
+  String get whatsappOrdersFilterReady => 'Ready';
+
+  @override
+  String get whatsappOrdersFilterDelivery => 'Out for delivery';
+
+  @override
+  String get whatsappOrdersFilterClosed => 'Closed';
+
+  @override
+  String get whatsappOrdersLoadFailedTitle => 'Could not load orders';
+
+  @override
+  String get whatsappOrdersLoadFailedBody =>
+      'Check your connection and try again.';
+
+  @override
+  String get whatsappOrdersRetry => 'Retry';
+
+  @override
+  String get whatsappOrdersEmptyTitle => 'No orders yet';
+
+  @override
+  String get whatsappOrdersEmptyBody =>
+      'Any order that arrives over WhatsApp shows up here right away.';
+
+  @override
+  String get whatsappOrdersUnnamed => 'Customer';
+
+  @override
+  String get whatsappOrdersStatusReceived => 'New';
+
+  @override
+  String get whatsappOrdersStatusPaymentMismatch => 'Payment mismatch';
+
+  @override
+  String get whatsappOrdersStatusConfirmed => 'Confirmed';
+
+  @override
+  String get whatsappOrdersStatusPreparing => 'Preparing';
+
+  @override
+  String get whatsappOrdersStatusReady => 'Ready';
+
+  @override
+  String get whatsappOrdersStatusOutForDelivery => 'Out for delivery';
+
+  @override
+  String get whatsappOrdersStatusDelivered => 'Delivered';
+
+  @override
+  String get whatsappOrdersStatusCancelled => 'Cancelled';
+
+  @override
+  String get whatsappOrdersStuckBadge => 'Overdue';
+
+  @override
+  String get whatsappOrdersOpenMap => 'Open location on map';
+
+  @override
+  String get whatsappOrdersPhoneCopied => 'Phone number copied';
+
+  @override
+  String get whatsappOrdersActionStartPreparing => 'Start preparing';
+
+  @override
+  String get whatsappOrdersActionMarkReady => 'Mark ready';
+
+  @override
+  String get whatsappOrdersActionStartDelivery => 'Send for delivery';
+
+  @override
+  String get whatsappOrdersActionMarkDelivered => 'Mark delivered';
+
+  @override
+  String get whatsappOrdersActionResolveMismatch => 'Confirm payment manually';
+
+  @override
+  String get whatsappOrdersActionCancel => 'Cancel order';
+
+  @override
+  String get whatsappOrdersActionFailed =>
+      'Could not complete the action, try again.';
+
+  @override
+  String get whatsappOrdersCancelReasonPrompt =>
+      'Cancellation reason (optional)';
+
+  @override
+  String get whatsappOrdersCancelReasonCancel => 'Back';
+
+  @override
+  String get whatsappOrdersCancelReasonConfirm => 'Confirm cancellation';
+
+  @override
+  String get whatsappOrdersPauseLabel => 'Stop accepting orders';
+
+  @override
+  String whatsappOrdersPauseBannerText(String reason) {
+    return 'This branch is not accepting new WhatsApp orders — $reason';
+  }
+
+  @override
+  String get whatsappOrdersPauseDefaultReason =>
+      'Paused temporarily by the cashier';
+
+  @override
+  String get whatsappOrdersDrawerSubtotal => 'Subtotal before discount';
+
+  @override
+  String get whatsappOrdersDrawerDiscount => 'Discount';
+
+  @override
+  String get whatsappOrdersDrawerPointsReward => 'Loyalty points reward';
+
+  @override
+  String get whatsappOrdersDrawerTotal => 'Amount due';
+
+  @override
+  String whatsappOrdersDrawerMismatchHint(String paid) {
+    return 'The amount the gateway reported ($paid) does not match what was due — verify manually before confirming.';
+  }
+
+  @override
+  String whatsappOrdersDrawerCancelReason(String reason) {
+    return 'Cancellation reason: $reason';
+  }
+
+  @override
+  String whatsappOrdersDrawerNote(String note) {
+    return 'Note: $note';
+  }
 }

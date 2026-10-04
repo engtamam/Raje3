@@ -6332,6 +6332,300 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'{converted} من {total} تحوّل لزيارة حقيقية'**
   String shopLeadConversionDetail(int converted, int total);
+
+  /// No description provided for @whatsappOrdersTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'طلبات التوصيل عبر الواتساب'**
+  String get whatsappOrdersTitle;
+
+  /// No description provided for @whatsappOrdersSubtitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'طلبات يطلبها عملاؤك من كتالوجك عبر واتساب، من الاستلام للتسليم.'**
+  String get whatsappOrdersSubtitle;
+
+  /// No description provided for @whatsappOrdersKpiWaiting.
+  ///
+  /// In ar, this message translates to:
+  /// **'بانتظار المراجعة'**
+  String get whatsappOrdersKpiWaiting;
+
+  /// No description provided for @whatsappOrdersKpiStuck.
+  ///
+  /// In ar, this message translates to:
+  /// **'متأخرة'**
+  String get whatsappOrdersKpiStuck;
+
+  /// No description provided for @whatsappOrdersKpiDeliveredToday.
+  ///
+  /// In ar, this message translates to:
+  /// **'سُلِّمت اليوم'**
+  String get whatsappOrdersKpiDeliveredToday;
+
+  /// No description provided for @whatsappOrdersFilterAll.
+  ///
+  /// In ar, this message translates to:
+  /// **'الكل'**
+  String get whatsappOrdersFilterAll;
+
+  /// No description provided for @whatsappOrdersFilterIncoming.
+  ///
+  /// In ar, this message translates to:
+  /// **'جديدة'**
+  String get whatsappOrdersFilterIncoming;
+
+  /// No description provided for @whatsappOrdersFilterConfirmed.
+  ///
+  /// In ar, this message translates to:
+  /// **'مؤكَّدة'**
+  String get whatsappOrdersFilterConfirmed;
+
+  /// No description provided for @whatsappOrdersFilterPreparing.
+  ///
+  /// In ar, this message translates to:
+  /// **'قيد التجهيز'**
+  String get whatsappOrdersFilterPreparing;
+
+  /// No description provided for @whatsappOrdersFilterReady.
+  ///
+  /// In ar, this message translates to:
+  /// **'جاهزة'**
+  String get whatsappOrdersFilterReady;
+
+  /// No description provided for @whatsappOrdersFilterDelivery.
+  ///
+  /// In ar, this message translates to:
+  /// **'في الطريق'**
+  String get whatsappOrdersFilterDelivery;
+
+  /// No description provided for @whatsappOrdersFilterClosed.
+  ///
+  /// In ar, this message translates to:
+  /// **'مكتملة'**
+  String get whatsappOrdersFilterClosed;
+
+  /// No description provided for @whatsappOrdersLoadFailedTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تحميل الطلبات'**
+  String get whatsappOrdersLoadFailedTitle;
+
+  /// No description provided for @whatsappOrdersLoadFailedBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحقّق من اتصالك وحاول مرة أخرى.'**
+  String get whatsappOrdersLoadFailedBody;
+
+  /// No description provided for @whatsappOrdersRetry.
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة المحاولة'**
+  String get whatsappOrdersRetry;
+
+  /// No description provided for @whatsappOrdersEmptyTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا طلبات بعد'**
+  String get whatsappOrdersEmptyTitle;
+
+  /// No description provided for @whatsappOrdersEmptyBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'أي طلب يصل عبر واتساب يظهر هنا فوراً.'**
+  String get whatsappOrdersEmptyBody;
+
+  /// No description provided for @whatsappOrdersUnnamed.
+  ///
+  /// In ar, this message translates to:
+  /// **'عميل'**
+  String get whatsappOrdersUnnamed;
+
+  /// No description provided for @whatsappOrdersStatusReceived.
+  ///
+  /// In ar, this message translates to:
+  /// **'جديد'**
+  String get whatsappOrdersStatusReceived;
+
+  /// No description provided for @whatsappOrdersStatusPaymentMismatch.
+  ///
+  /// In ar, this message translates to:
+  /// **'خلل بمطابقة الدفع'**
+  String get whatsappOrdersStatusPaymentMismatch;
+
+  /// No description provided for @whatsappOrdersStatusConfirmed.
+  ///
+  /// In ar, this message translates to:
+  /// **'مؤكَّد'**
+  String get whatsappOrdersStatusConfirmed;
+
+  /// No description provided for @whatsappOrdersStatusPreparing.
+  ///
+  /// In ar, this message translates to:
+  /// **'قيد التجهيز'**
+  String get whatsappOrdersStatusPreparing;
+
+  /// No description provided for @whatsappOrdersStatusReady.
+  ///
+  /// In ar, this message translates to:
+  /// **'جاهز'**
+  String get whatsappOrdersStatusReady;
+
+  /// No description provided for @whatsappOrdersStatusOutForDelivery.
+  ///
+  /// In ar, this message translates to:
+  /// **'في الطريق'**
+  String get whatsappOrdersStatusOutForDelivery;
+
+  /// No description provided for @whatsappOrdersStatusDelivered.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم التسليم'**
+  String get whatsappOrdersStatusDelivered;
+
+  /// No description provided for @whatsappOrdersStatusCancelled.
+  ///
+  /// In ar, this message translates to:
+  /// **'ملغى'**
+  String get whatsappOrdersStatusCancelled;
+
+  /// No description provided for @whatsappOrdersStuckBadge.
+  ///
+  /// In ar, this message translates to:
+  /// **'متأخر'**
+  String get whatsappOrdersStuckBadge;
+
+  /// No description provided for @whatsappOrdersOpenMap.
+  ///
+  /// In ar, this message translates to:
+  /// **'فتح الموقع بالخرائط'**
+  String get whatsappOrdersOpenMap;
+
+  /// No description provided for @whatsappOrdersPhoneCopied.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم نسخ رقم الجوال'**
+  String get whatsappOrdersPhoneCopied;
+
+  /// No description provided for @whatsappOrdersActionStartPreparing.
+  ///
+  /// In ar, this message translates to:
+  /// **'بدء التجهيز'**
+  String get whatsappOrdersActionStartPreparing;
+
+  /// No description provided for @whatsappOrdersActionMarkReady.
+  ///
+  /// In ar, this message translates to:
+  /// **'الطلب جاهز'**
+  String get whatsappOrdersActionMarkReady;
+
+  /// No description provided for @whatsappOrdersActionStartDelivery.
+  ///
+  /// In ar, this message translates to:
+  /// **'خرج للتوصيل'**
+  String get whatsappOrdersActionStartDelivery;
+
+  /// No description provided for @whatsappOrdersActionMarkDelivered.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم التسليم'**
+  String get whatsappOrdersActionMarkDelivered;
+
+  /// No description provided for @whatsappOrdersActionResolveMismatch.
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد الدفع يدوياً'**
+  String get whatsappOrdersActionResolveMismatch;
+
+  /// No description provided for @whatsappOrdersActionCancel.
+  ///
+  /// In ar, this message translates to:
+  /// **'إلغاء الطلب'**
+  String get whatsappOrdersActionCancel;
+
+  /// No description provided for @whatsappOrdersActionFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تنفيذ الإجراء، حاول مرة أخرى.'**
+  String get whatsappOrdersActionFailed;
+
+  /// No description provided for @whatsappOrdersCancelReasonPrompt.
+  ///
+  /// In ar, this message translates to:
+  /// **'سبب الإلغاء (اختياري)'**
+  String get whatsappOrdersCancelReasonPrompt;
+
+  /// No description provided for @whatsappOrdersCancelReasonCancel.
+  ///
+  /// In ar, this message translates to:
+  /// **'تراجع'**
+  String get whatsappOrdersCancelReasonCancel;
+
+  /// No description provided for @whatsappOrdersCancelReasonConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد الإلغاء'**
+  String get whatsappOrdersCancelReasonConfirm;
+
+  /// No description provided for @whatsappOrdersPauseLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف استقبال الطلبات'**
+  String get whatsappOrdersPauseLabel;
+
+  /// No description provided for @whatsappOrdersPauseBannerText.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا الفرع متوقف عن استقبال طلبات واتساب الجديدة — {reason}'**
+  String whatsappOrdersPauseBannerText(String reason);
+
+  /// No description provided for @whatsappOrdersPauseDefaultReason.
+  ///
+  /// In ar, this message translates to:
+  /// **'أُوقف الاستقبال مؤقتاً من الكاشير'**
+  String get whatsappOrdersPauseDefaultReason;
+
+  /// No description provided for @whatsappOrdersDrawerSubtotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'المجموع قبل الخصم'**
+  String get whatsappOrdersDrawerSubtotal;
+
+  /// No description provided for @whatsappOrdersDrawerDiscount.
+  ///
+  /// In ar, this message translates to:
+  /// **'الخصم'**
+  String get whatsappOrdersDrawerDiscount;
+
+  /// No description provided for @whatsappOrdersDrawerPointsReward.
+  ///
+  /// In ar, this message translates to:
+  /// **'مكافأة نقاط الولاء'**
+  String get whatsappOrdersDrawerPointsReward;
+
+  /// No description provided for @whatsappOrdersDrawerTotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإجمالي المطلوب'**
+  String get whatsappOrdersDrawerTotal;
+
+  /// No description provided for @whatsappOrdersDrawerMismatchHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'المبلغ المستلم من بوابة الدفع ({paid}) لا يطابق المطلوب — تحقق يدوياً قبل التأكيد.'**
+  String whatsappOrdersDrawerMismatchHint(String paid);
+
+  /// No description provided for @whatsappOrdersDrawerCancelReason.
+  ///
+  /// In ar, this message translates to:
+  /// **'سبب الإلغاء: {reason}'**
+  String whatsappOrdersDrawerCancelReason(String reason);
+
+  /// No description provided for @whatsappOrdersDrawerNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'ملاحظة: {note}'**
+  String whatsappOrdersDrawerNote(String note);
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

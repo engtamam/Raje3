@@ -3813,4 +3813,166 @@ class SFil extends S {
   String shopLeadConversionDetail(int converted, int total) {
     return '$converted sa $total ang naging tunay na bisita';
   }
+
+  @override
+  String get whatsappOrdersTitle => 'Direktang Order sa WhatsApp';
+
+  @override
+  String get whatsappOrdersSubtitle =>
+      'Mga order na inilalagay ng iyong customer mula sa iyong katalogo sa WhatsApp, mula pagdating hanggang paghahatid.';
+
+  @override
+  String get whatsappOrdersKpiWaiting => 'Naghihintay ng review';
+
+  @override
+  String get whatsappOrdersKpiStuck => 'Overdue';
+
+  @override
+  String get whatsappOrdersKpiDeliveredToday => 'Naihatid ngayon';
+
+  @override
+  String get whatsappOrdersFilterAll => 'Lahat';
+
+  @override
+  String get whatsappOrdersFilterIncoming => 'Bago';
+
+  @override
+  String get whatsappOrdersFilterConfirmed => 'Nakumpirma';
+
+  @override
+  String get whatsappOrdersFilterPreparing => 'Inihahanda';
+
+  @override
+  String get whatsappOrdersFilterReady => 'Handa na';
+
+  @override
+  String get whatsappOrdersFilterDelivery => 'Padala na';
+
+  @override
+  String get whatsappOrdersFilterClosed => 'Tapos na';
+
+  @override
+  String get whatsappOrdersLoadFailedTitle => 'Hindi ma-load ang mga order';
+
+  @override
+  String get whatsappOrdersLoadFailedBody =>
+      'Suriin ang iyong koneksyon at subukan muli.';
+
+  @override
+  String get whatsappOrdersRetry => 'Subukan muli';
+
+  @override
+  String get whatsappOrdersEmptyTitle => 'Wala pang order';
+
+  @override
+  String get whatsappOrdersEmptyBody =>
+      'Anumang order na dumating sa WhatsApp ay lalabas dito agad.';
+
+  @override
+  String get whatsappOrdersUnnamed => 'Customer';
+
+  @override
+  String get whatsappOrdersStatusReceived => 'Bago';
+
+  @override
+  String get whatsappOrdersStatusPaymentMismatch => 'Hindi tugma ang bayad';
+
+  @override
+  String get whatsappOrdersStatusConfirmed => 'Nakumpirma';
+
+  @override
+  String get whatsappOrdersStatusPreparing => 'Inihahanda';
+
+  @override
+  String get whatsappOrdersStatusReady => 'Handa na';
+
+  @override
+  String get whatsappOrdersStatusOutForDelivery => 'Padala na';
+
+  @override
+  String get whatsappOrdersStatusDelivered => 'Naihatid';
+
+  @override
+  String get whatsappOrdersStatusCancelled => 'Kinansela';
+
+  @override
+  String get whatsappOrdersStuckBadge => 'Overdue';
+
+  @override
+  String get whatsappOrdersOpenMap => 'Buksan ang lokasyon sa mapa';
+
+  @override
+  String get whatsappOrdersPhoneCopied => 'Nakopya ang numero ng telepono';
+
+  @override
+  String get whatsappOrdersActionStartPreparing => 'Simulan ang paghahanda';
+
+  @override
+  String get whatsappOrdersActionMarkReady => 'Markahan bilang handa';
+
+  @override
+  String get whatsappOrdersActionStartDelivery => 'Ipadala';
+
+  @override
+  String get whatsappOrdersActionMarkDelivered => 'Markahan bilang naihatid';
+
+  @override
+  String get whatsappOrdersActionResolveMismatch =>
+      'Kumpirmahin ang bayad nang manu-mano';
+
+  @override
+  String get whatsappOrdersActionCancel => 'Kanselahin ang order';
+
+  @override
+  String get whatsappOrdersActionFailed =>
+      'Hindi natapos ang aksyon, subukan muli.';
+
+  @override
+  String get whatsappOrdersCancelReasonPrompt =>
+      'Dahilan ng pagkansela (opsyonal)';
+
+  @override
+  String get whatsappOrdersCancelReasonCancel => 'Bumalik';
+
+  @override
+  String get whatsappOrdersCancelReasonConfirm => 'Kumpirmahin ang pagkansela';
+
+  @override
+  String get whatsappOrdersPauseLabel => 'Itigil ang pagtanggap ng order';
+
+  @override
+  String whatsappOrdersPauseBannerText(String reason) {
+    return 'Ang branch na ito ay hindi tumatanggap ng bagong order sa WhatsApp — $reason';
+  }
+
+  @override
+  String get whatsappOrdersPauseDefaultReason =>
+      'Pansamantalang itinigil ng cashier';
+
+  @override
+  String get whatsappOrdersDrawerSubtotal => 'Subtotal bago ang diskwento';
+
+  @override
+  String get whatsappOrdersDrawerDiscount => 'Diskwento';
+
+  @override
+  String get whatsappOrdersDrawerPointsReward => 'Gantimpala ng loyalty points';
+
+  @override
+  String get whatsappOrdersDrawerTotal => 'Dapat bayaran';
+
+  @override
+  String whatsappOrdersDrawerMismatchHint(String paid) {
+    return 'Ang halagang iniulat ng gateway ($paid) ay hindi tugma sa dapat bayaran — i-verify muna bago kumpirmahin.';
+  }
+
+  @override
+  String whatsappOrdersDrawerCancelReason(String reason) {
+    return 'Dahilan ng pagkansela: $reason';
+  }
+
+  @override
+  String whatsappOrdersDrawerNote(String note) {
+    return 'Tala: $note';
+  }
 }

@@ -121,6 +121,14 @@ const List<NavSectionDef> kNavSections = [
     service: 'referrals',
   ),
   NavSectionDef(
+    id: 'whatsapp-orders',
+    path: '/whatsapp-orders',
+    label: 'طلبات التوصيل عبر الواتساب',
+    icon: Icons.receipt_long_outlined,
+    requires: ['whatsapp_order.list'],
+    service: 'operations',
+  ),
+  NavSectionDef(
     id: 'services',
     path: '/services',
     label: 'خدماتي ومنتجاتي',
