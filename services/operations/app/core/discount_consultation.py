@@ -18,12 +18,23 @@ has no expiry the way a discount does, so it must only ever be the CUSTOMER's ow
 auto-applied, which needs a real "do you want to use your points?" conversational step a caller
 does not yet have. Flagged here rather than silently half-built: adding it is a caller-side UX
 project, not a change to this function's own contract.
+
+MUTUAL-BENEFIT IS DELIBERATELY NOT A CANDIDATE HERE, EVER -- not an oversight, a structural
+boundary. See `core/best_offer.py`'s own module docstring: a mutual-benefit discount is, by design,
+NEVER applied by us, only by the granting shop's own till, by hand. An order's payment link is
+charged with no human in the loop, so letting it win here would promise a discount nothing would
+ever actually apply. `core/entitlements.py::EntitlementGateway` (the manual visit/till flow, where a
+human IS in the loop) is the only caller allowed to offer it.
+
+THE DECISION ITSELF (which priced candidate wins) IS SHARED with that same gateway, via
+`core/best_offer.py::rank` -- only the fetching below is specific to this flow.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
 
+from app.core.best_offer import OfferCandidate, rank
 from app.core.referral_redemption import NEW_CUSTOMER_DISCOUNT_PERCENT
 from app.core.reward_value import scoped_value as _scoped_value
 
@@ -54,7 +65,7 @@ async def best_offer_for(*, tenant: str, phone: str, subject_ref: str, invoice_m
     takes, mirrored here for the referral side too).
     """
     line_minor = line_minor or {}
-    candidates: list[OfferDecision] = []
+    candidates: list[OfferCandidate] = []
 
     if discounts is not None and subject_ref:
         try:
@@ -68,8 +79,8 @@ async def best_offer_for(*, tenant: str, phone: str, subject_ref: str, invoice_m
                 amount=int(discount.get("reward_amount") or 0),
                 scope_service_ids=discount.get("scope_service_ids"),
                 invoice_minor=invoice_minor, line_minor=line_minor)
-            if minor > 0:
-                candidates.append(OfferDecision(minor, f"campaign:{ref}", ref))
+            candidates.append(OfferCandidate(source="campaign", value_minor=minor,
+                                            ref=ref, text="", finalize_key=ref))
 
     if operations is not None and phone:
         try:
@@ -82,10 +93,14 @@ async def best_offer_for(*, tenant: str, phone: str, subject_ref: str, invoice_m
             # need that field added there first, not guessed at here.
             if grant.get("new_customer_reward_type") == NEW_CUSTOMER_DISCOUNT_PERCENT:
                 percent = int((grant.get("new_customer_reward_params") or {}).get("percent") or 0)
-                minor = max(0, min(invoice_minor * max(0, percent) // 100, invoice_minor))
-                if minor > 0:
-                    candidates.append(OfferDecision(minor, f"referral:{phone}", phone))
+                minor = _scoped_value(kind="percent", amount=percent, scope_service_ids=None,
+                                     invoice_minor=invoice_minor, line_minor=line_minor)
+                candidates.append(OfferCandidate(source="referral", value_minor=minor,
+                                                ref=phone, text="", finalize_key=phone))
 
-    if not candidates:
+    winner = rank(candidates)
+    if winner is None or (winner.value_minor or 0) <= 0:
         return OfferDecision()
-    return max(candidates, key=lambda o: o.discount_minor)
+    if winner.source == "campaign":
+        return OfferDecision(winner.value_minor, f"campaign:{winner.ref}", winner.ref)
+    return OfferDecision(winner.value_minor, f"referral:{winner.ref}", winner.ref)

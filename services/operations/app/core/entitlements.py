@@ -46,6 +46,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 
+from app.core.best_offer import OfferCandidate, rank
 from app.core.reward_value import scoped_value
 
 SOURCE_REFERRAL = "mutual_benefit"
@@ -211,23 +212,16 @@ class EntitlementGateway:
         values = {SOURCE_REFERRAL: referral_value, SOURCE_REFERRAL_CODE: referral_code_value,
                  SOURCE_CAMPAIGN: campaign_value}
 
-        # THE REAL COMPARISON — highest priced value wins outright, regardless of source. A
-        # source whose value is `None` (never priced at all) or `0` (priced at nothing — a gift
-        # whose service could not be resolved, or a discount computed against an empty scope)
-        # never wins a comparison against a real positive value.
-        priced = [(source, values[source]) for source in by_source
-                 if by_source[source] is not None and (values[source] or 0) > 0]
-        if priced:
-            best_source = max(priced, key=lambda sv: sv[1])[0]
-            return by_source[best_source]
-
-        # NOTHING WAS PRICED ABOVE ZERO — fall back to the old fixed order so a genuinely
-        # unpriceable candidate (an unresolvable gift, welcome points) is still offered rather
-        # than silently dropped (module docstring's own "cannot be computed" rule).
-        for source in _PRIORITY:
-            if by_source.get(source) is not None:
-                return by_source[source]
-        return None
+        # THE REAL COMPARISON, SHARED WITH `discount_consultation.py::best_offer_for` — see
+        # `core/best_offer.py`'s own module docstring for why the DECISION is shared while each
+        # caller still fetches its own candidates its own way.
+        candidates = [OfferCandidate(source=source, value_minor=values[source],
+                                    ref=entitlement.ref, text=entitlement.text,
+                                    finalize_key=entitlement.finalize_key,
+                                    campaign_id=entitlement.campaign_id)
+                     for source, entitlement in by_source.items() if entitlement is not None]
+        winner = rank(candidates, fallback_order=_PRIORITY)
+        return by_source[winner.source] if winner is not None else None
 
     async def _gift_value(self, tenant: str, service_id: str) -> int | None:
         if self._store is None or not service_id:
