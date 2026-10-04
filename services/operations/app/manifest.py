@@ -474,6 +474,16 @@ def build_manifest(
             {"path": "/api/v1/staff/mobile-requests/{}/reject", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/mobile-requests/{}/complete", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/mobile-requests/{}/no-show", "tier": "user", "method": "POST"},
+            # ── WhatsApp Direct Ordering, Step 7 -- see api/v1/whatsapp_orders.py's own note.
+            {"path": "/api/v1/staff/whatsapp-orders/{}", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/whatsapp-orders/{}/preparing", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/whatsapp-orders/{}/ready", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/whatsapp-orders/{}/out-for-delivery", "tier": "user",
+             "method": "POST"},
+            {"path": "/api/v1/staff/whatsapp-orders/{}/delivered", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/whatsapp-orders/{}/cancel", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/whatsapp-orders/{}/resolve-mismatch", "tier": "user",
+             "method": "POST"},
             # PUBLIC, deliberately, same posture as signup's own pair right below: Salla's browser
             # redirect and Salla's own server call carry no Bearer token to check.
             {"path": "/api/v1/salla/callback", "tier": "public", "method": "GET"},

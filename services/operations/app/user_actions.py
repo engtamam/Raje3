@@ -870,6 +870,50 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "capability": "operations.mobile_requests_manage", "group": "خدمات متنقلة",
         "help": "اختياري بالكامل — تسمية من سينفّذ الطلب، ليعرف تحميل كل موظف ويقدر يوزّع بنفسه.",
     },
+    # ── طلبات التوصيل عبر الواتساب — Step 7، نفس صلاحية تسجيل الزيارة (owner's own decision,
+    # whatsapp-ordering-app-gap-analysis.md) لا صلاحية مدير حصرية — كل من يسجّل زيارة يقدر يحدّث حالة
+    # الطلب.
+    {
+        "id": "whatsapp_order.get", "label": "عرض طلب توصيل واتساب", "method": "GET",
+        "path": "/api/v1/staff/whatsapp-orders/{order_id}", "capability": "operations.record",
+        "group": "طلبات التوصيل عبر الواتساب", "help": "تفاصيل طلب واحد، بما فيها رابط الدفع وحالته.",
+    },
+    {
+        "id": "whatsapp_order.preparing", "label": "بدء تجهيز الطلب", "method": "POST",
+        "path": "/api/v1/staff/whatsapp-orders/{order_id}/preparing",
+        "capability": "operations.record", "group": "طلبات التوصيل عبر الواتساب",
+        "help": "يرسل للعميل تلقائيًا رسالة «جاري تجهيز طلبك». يعمل فقط لو الطلب مؤكَّد الدفع.",
+    },
+    {
+        "id": "whatsapp_order.ready", "label": "الطلب جاهز", "method": "POST",
+        "path": "/api/v1/staff/whatsapp-orders/{order_id}/ready",
+        "capability": "operations.record", "group": "طلبات التوصيل عبر الواتساب",
+        "help": "يرسل للعميل تلقائيًا رسالة «طلبك جاهز».",
+    },
+    {
+        "id": "whatsapp_order.out_for_delivery", "label": "الطلب خرج للتوصيل", "method": "POST",
+        "path": "/api/v1/staff/whatsapp-orders/{order_id}/out-for-delivery",
+        "capability": "operations.record", "group": "طلبات التوصيل عبر الواتساب",
+        "help": "يرسل للعميل تلقائيًا رسالة «طلبك في الطريق».",
+    },
+    {
+        "id": "whatsapp_order.delivered", "label": "تم تسليم الطلب", "method": "POST",
+        "path": "/api/v1/staff/whatsapp-orders/{order_id}/delivered",
+        "capability": "operations.record", "group": "طلبات التوصيل عبر الواتساب",
+        "help": "يسجّل زيارة حقيقية فوراً — نقاط الولاء وكل شيء آخر يُحسب تلقائياً، نفس أي زيارة ثانية.",
+    },
+    {
+        "id": "whatsapp_order.cancel", "label": "إلغاء طلب توصيل", "method": "POST",
+        "path": "/api/v1/staff/whatsapp-orders/{order_id}/cancel",
+        "capability": "operations.record", "group": "طلبات التوصيل عبر الواتساب",
+        "help": "فقط قبل بدء التجهيز — بعدها الإلغاء يحتاج تواصل مباشر مع العميل.",
+    },
+    {
+        "id": "whatsapp_order.resolve_mismatch", "label": "حل خلل مطابقة الدفع يدويًا",
+        "method": "POST", "path": "/api/v1/staff/whatsapp-orders/{order_id}/resolve-mismatch",
+        "capability": "operations.record", "group": "طلبات التوصيل عبر الواتساب",
+        "help": "تأكدت من صحة الدفع بوسيلة أخرى (كشف حساب، اتصال بالعميل) وتبغى تكمل الطلب يدويًا.",
+    },
     # ── المسوّقون والمؤثرون — Phase 4 of services/referrals' own plan doc. NOT the ordinary
     # referral code above (core/referral_redemption.py): a distinct tier the shop assigns
     # directly, by phone, with its own negotiated code/discount/reward — never both roles for one

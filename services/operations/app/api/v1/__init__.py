@@ -25,6 +25,7 @@ from app.api.v1.connect import router as connect_router
 from app.api.v1.signup import router as signup_router
 from app.api.v1.till import router as till_router
 from app.api.v1.mobile_requests import router as mobile_requests_router
+from app.api.v1.whatsapp_orders import router as whatsapp_orders_router
 from app.api.v1.platform import router as platform_router
 from app.api.v1.salla import router as salla_router
 from app.api.v1.public_catalog import router as public_catalog_router
@@ -156,6 +157,7 @@ router.include_router(public_catalog_router)
 # Mobile/on-the-go service requests — the shop's own review queue; the WhatsApp bot's own
 # creation door is internal-tier (api/internal.py), not here.
 router.include_router(mobile_requests_router)
+router.include_router(whatsapp_orders_router)
 # Phase 4 of the referral/affiliate app — the shop's own marketer/influencer admin surface.
 router.include_router(affiliates_router)
 # Phase 5a of the referral/affiliate app — read-only performance reporting.

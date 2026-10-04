@@ -1079,4 +1079,53 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "why": "feeds the next customer's own no-show risk read — an owner disputing that read "
                "needs to see exactly which past requests it is built from",
     },
+    {
+        "action": "whatsapp_order.preparing",
+        "source": "user",
+        "critical": False,
+        "resource": "whatsapp_order",
+        "why": "who at the shop started preparing a WhatsApp catalog order, and when — the moment "
+               "the customer's own automatic status message was sent",
+    },
+    {
+        "action": "whatsapp_order.ready",
+        "source": "user",
+        "critical": False,
+        "resource": "whatsapp_order",
+        "why": "same trail as preparing — traces the customer-facing 'ready' message back to who "
+               "at the shop actually marked it",
+    },
+    {
+        "action": "whatsapp_order.out_for_delivery",
+        "source": "user",
+        "critical": False,
+        "resource": "whatsapp_order",
+        "why": "the moment the shop said the order left for delivery — needed if a customer "
+               "disputes how long delivery actually took",
+    },
+    {
+        "action": "whatsapp_order.delivered",
+        "source": "user",
+        "critical": False,
+        "resource": "whatsapp_order",
+        "why": "the order that turned into a real, loyalty-earning visit — traceable back to the "
+               "WhatsApp cart that started it, same reasoning as mobile_request.completed above",
+    },
+    {
+        "action": "whatsapp_order.cancelled",
+        "source": "user",
+        "critical": False,
+        "resource": "whatsapp_order",
+        "why": "a customer asking why their order never arrived needs a real answer — this is the "
+               "record that the shop cancelled it, by whom, and the stated reason",
+    },
+    {
+        "action": "whatsapp_order.mismatch_resolved",
+        "source": "user",
+        "critical": True,
+        "resource": "whatsapp_order",
+        "why": "a human overrode a PAYMENT MISMATCH by hand, off-platform evidence only — this is "
+               "money-adjacent enough that losing the record of who did it and when is not "
+               "acceptable; refuse the action rather than lose the trail",
+    },
 ]
