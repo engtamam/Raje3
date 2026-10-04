@@ -383,12 +383,17 @@ def build_container(settings: Settings) -> Container:
 
     container.payments_desk = build_payments_desk(settings)
     container.order_pauses = OrderPauseStore(container.datastore)
+    # WHICH CAMPAIGN DISCOUNT A PHONE NUMBER IS HOLDING — asked of reminders, the same peer
+    # `reminders_offer_chooser` above asks about visits, through its OWN single-use mechanism
+    # (see adapters/discount_desk.py's own module docstring on why it is not the same one).
+    from app.adapters.discount_desk import build as build_discount_desk
+    container.discount_desk = build_discount_desk(settings)
     container.orders = OrderService(
         store=container.datastore, services=ServiceStore(container.datastore),
         branches=BranchStore(container.datastore), operations=container.operations,
         seams=container.seams, payments=container.payments_desk, events=container.event_bus,
         working_hours=container.bookings_desk, pauses=container.order_pauses,
-        default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
+        discounts=container.discount_desk, default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
 
     # Shop-to-shop coupons (base-services v0.23.0) — needs `billing_plans` above, so it is built
     # right after it. See core/coupons.py's own module docstring for the full design.

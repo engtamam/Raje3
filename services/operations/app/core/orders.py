@@ -51,6 +51,14 @@ from app.core.signup import canonical_phone
 ORDERS = "whatsapp_orders"
 ORDER_CLAIMS = "whatsapp_order_idempotency_claims"
 ORDER_CLAIM_TTL_SECONDS = 20.0
+# A SECOND CLAIM, KEYED ON THE DISCOUNT'S OWN REFERENCE rather than on this customer's event —
+# so two unpaid orders racing to use the SAME single-use discount cannot both believe they will
+# get it (see `create()`'s own note on why this is a separate lane from `ORDER_CLAIMS` above).
+# Held for the SAME lifetime an unpaid order is realistically given to be paid or abandoned —
+# long enough to cover a slow WhatsApp conversation, short enough that a customer who never pays
+# is not locked out of their own discount for days.
+DISCOUNT_CLAIMS = "whatsapp_order_discount_claims"
+DISCOUNT_CLAIM_TTL_SECONDS = 1800.0
 
 MAX_LINE_QUANTITY = 50
 MAX_DISTINCT_LINES = 40
@@ -84,6 +92,33 @@ class OrderError(Exception):
 
 def _now() -> int:
     return int(time.time())
+
+
+def _discount_minor_for(discount: dict[str, Any], lines: list["OrderLine"],
+                        total_minor: int) -> int:
+    """How much `discount` (reminders' `{ref, reward_kind, reward_amount, scope_service_ids,
+    expires_at}` shape) is actually worth on THIS order.
+
+    SCOPED, THE SAME WAY A CAMPAIGN'S OWN SCOPE ALREADY WORKS EVERYWHERE ELSE (see
+    `services/campaigns/app/core/models.py::Campaign.scope_service_ids`'s own docstring): empty
+    scope is the whole order, a non-empty one is only the matching lines' own subtotal.
+
+    CAPPED AT `total_minor`, NEVER BELOW ZERO — a discount can make an order free, never negative;
+    a percent on a narrow scope or a fixed amount larger than the order itself must never produce
+    a number the gateway would be asked to charge a customer NEGATIVE money for.
+    """
+    scope = set(discount.get("scope_service_ids") or [])
+    base = (sum(line.line_total_minor for line in lines if line.service_id in scope)
+           if scope else total_minor)
+    kind = str(discount.get("reward_kind") or "")
+    amount = int(discount.get("reward_amount") or 0)
+    if kind == "percent":
+        off = base * amount // 100
+    elif kind == "fixed_halalas":
+        off = amount
+    else:
+        off = 0
+    return max(0, min(off, total_minor))
 
 
 @dataclass
@@ -143,6 +178,20 @@ class Order:
     # completes, so a receipt can always show where the money went.
     payment_request_id: str = ""
     pay_url: str = ""
+    # THE DISCOUNT, KEPT SEPARATE FROM `total_minor` — same discipline this dataclass already
+    # applies to `pay_url`/`payment_request_id` being their own fields rather than folded into one
+    # number: `total_minor` stays the pure catalogue-priced sum (what `request_payment` quotes to
+    # the gateway and what `confirm_payment` checks the paid amount against), and the discount is
+    # a separate fact layered on top, never blended in — a receipt that only ever showed one
+    # number could never answer "what was this actually off of".
+    #
+    # ZERO/EMPTY IS THE OVERWHELMING MAJORITY OF ORDERS — most customers order with no live
+    # campaign discount at all, and that is not a gap to explain, it is the normal case.
+    discount_minor: int = 0
+    # "campaign:{sendlog_id}" — the reminders send-log row this discount came from, carried so a
+    # receipt (or a dispute) can trace the number back to an actual campaign send rather than a
+    # bare amount nobody can explain six months later.
+    discount_source: str = ""
     preparing_at: int = 0
     ready_at: int = 0
     out_for_delivery_at: int = 0
@@ -180,7 +229,7 @@ class OrderService:
 
     def __init__(self, *, store: Any, services: Any, branches: Any, operations: Any = None,
                 seams: Any = None, payments: Any = None, events: Any = None,
-                working_hours: Any = None, pauses: Any = None,
+                working_hours: Any = None, pauses: Any = None, discounts: Any = None,
                 default_cc: str = "966") -> None:
         self._s = store
         self._services = services      # ServiceStore — the one source of truth for price/active
@@ -194,6 +243,12 @@ class OrderService:
         # unreachable peer SKIPS the check rather than refusing every order no one can verify.
         self._working_hours = working_hours
         self._pauses = pauses          # OrderPauseStore — the cashier's own manual stop button
+        # `{find, redeem}` — adapters/discount_desk.py's own `http_discount_desk`. `None` is the
+        # real, supported "no campaign discount feature reaches orders at all" state, the same
+        # posture every other optional peer on this class already takes: `create()` simply never
+        # looks one up and every order prices from the catalogue alone, exactly as before this
+        # existed.
+        self._discounts = discounts
         self._cc = default_cc
 
     async def _emit(self, row: "Order") -> None:
@@ -326,12 +381,47 @@ class OrderService:
                     tenant=tenant, phone=phone, name=(customer_name or "").strip(),
                     source="whatsapp")
                 customer_id, subject_ref = customer.id, customer.subject_ref
+
+            # ── a live campaign discount, IF one is held AND not already promised elsewhere ────
+            #
+            # NOT CONSUMED HERE. The discount is only RESERVED at creation — `confirm_payment()`
+            # below is the one place that ever tells reminders it was actually spent. An order
+            # that is cancelled or simply never paid must leave the discount exactly as available
+            # as it was before this order existed; spending it here would charge the customer's
+            # one-time offer against an order that never became real money.
+            #
+            # A FAILURE HERE MEANS "NO DISCOUNT THIS ATTEMPT", NEVER A REFUSED ORDER — same
+            # posture `offer_choice.py`'s own docstring takes for visits: an unreachable reminders
+            # must not stop a customer from ordering, it must simply not promise them a discount
+            # peer we could not verify.
+            discount_minor, discount_source = 0, ""
+            if self._discounts is not None and subject_ref:
+                try:
+                    discount = await self._discounts["find"](tenant=tenant,
+                                                              subject_ref=subject_ref)
+                except Exception:                                          # noqa: BLE001
+                    discount = None
+                ref = str((discount or {}).get("ref") or "")
+                if ref:
+                    # THE SECOND CLAIM — keyed on the discount, not the webhook event, so two
+                    # unpaid orders racing for the SAME single-use discount cannot both believe
+                    # they will get it (module-level `DISCOUNT_CLAIMS`'s own note). Released on
+                    # `cancel()` and on a successful `confirm_payment()`; otherwise it simply
+                    # expires, freeing the discount back up for a customer who never paid.
+                    reserved = await self._s.claim(
+                        DISCOUNT_CLAIMS, f"{tenant}|{ref}", {"tenant": tenant, "order_id": ""},
+                        ttl_seconds=DISCOUNT_CLAIM_TTL_SECONDS, now=now)
+                    if reserved:
+                        discount_minor = _discount_minor_for(discount, lines, total_minor)
+                        discount_source = f"campaign:{ref}"
+
             row = Order(id=f"ord_{uuid.uuid4().hex}", tenant=tenant, branch_id=branch_id,
                        phone=phone, customer_name=(customer_name or "")[:128],
                        customer_id=customer_id, subject_ref=subject_ref, lines=lines,
                        total_minor=total_minor, lat=float(lat), lng=float(lng),
                        idempotency_key=idempotency_key, status=RECEIVED, created=int(now),
-                       note=(note or "")[:1000])
+                       note=(note or "")[:1000], discount_minor=discount_minor,
+                       discount_source=discount_source)
             await self._save(row)
             return row
         finally:
@@ -443,6 +533,25 @@ class OrderService:
             row.status = PAYMENT_MISMATCH
         await self._save(row)
         if row.status == CONFIRMED:
+            # THE ONLY MOMENT A DISCOUNT IS EVER ACTUALLY SPENT — never at `create()`. The amount
+            # was already locked in at `discount_minor` and must not change here; this only tells
+            # reminders the single-use send-log row is now consumed, so it can never be promised
+            # to a second order.
+            #
+            # BEST-EFFORT, NEVER RAISES: the payment is already confirmed by this point — refusing
+            # to confirm it because reminders happens to be unreachable right now would be a
+            # second, worse failure layered on top of a real payment we already verified. The cost
+            # of a redeem call that never lands is a discount that could in principle be spent
+            # twice by an unlucky customer; the cost of refusing a verified payment is a shop that
+            # charged a customer and then told them their order failed.
+            if row.discount_source.startswith("campaign:") and self._discounts is not None:
+                ref = row.discount_source.split(":", 1)[1]
+                try:
+                    await self._discounts["redeem"](tenant=tenant, ref=ref,
+                                                     redeemed_by=f"order:{row.id}")
+                except Exception:                                          # noqa: BLE001
+                    pass
+                await self._s.delete(DISCOUNT_CLAIMS, f"{tenant}|{ref}")
             await self._emit(row)
         return row
 
@@ -518,6 +627,12 @@ class OrderService:
         row.status = CANCELLED
         row.cancelled_at = _now()
         row.cancel_reason = (reason or "")[:300]
+        # FREE THE DISCOUNT BACK UP IMMEDIATELY — a cancelled order never spent it (only
+        # `confirm_payment` ever does), so there is no reason to make the customer wait out
+        # `DISCOUNT_CLAIM_TTL_SECONDS` before it is available to a next attempt.
+        if row.discount_source.startswith("campaign:"):
+            ref = row.discount_source.split(":", 1)[1]
+            await self._s.delete(DISCOUNT_CLAIMS, f"{tenant}|{ref}")
         await self._save(row)
         await self._emit(row)
         return row

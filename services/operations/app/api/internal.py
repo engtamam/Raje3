@@ -1376,9 +1376,11 @@ async def internal_create_whatsapp_order(request: Request, body: WhatsAppOrderIn
         paid = await c.orders.request_payment(body.tenant, order.id)
     except OrderError as exc:
         return {"created": True, "order_id": order.id, "branch_id": order.branch_id,
-               "total_minor": order.total_minor, "pay_url": "", "pay_reason": str(exc)}
+               "total_minor": order.total_minor, "pay_url": "", "pay_reason": str(exc),
+               "discount_minor": order.discount_minor, "discount_source": order.discount_source}
     return {"created": True, "order_id": paid.id, "branch_id": paid.branch_id,
-           "total_minor": paid.total_minor, "pay_url": paid.pay_url, "pay_reason": ""}
+           "total_minor": paid.total_minor, "pay_url": paid.pay_url, "pay_reason": "",
+           "discount_minor": paid.discount_minor, "discount_source": paid.discount_source}
 
 
 class BookingRewardRedeemIn(BaseModel):

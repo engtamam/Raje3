@@ -2092,6 +2092,16 @@ class ConversationEngine:
                     return ReplyPlan(kind="text", text=(
                         f"تعذّر إنشاء رابط الدفع لطلبك رقم {order_ref} الآن. "
                         "جرّب مشاركة موقعك مرة أخرى بعد قليل."))
+                if created.discount_minor > 0:
+                    # NEVER DROPPED SILENTLY — the owner's own rule for every discount this
+                    # product advertises (see campaigns' `Campaign.reward_kind`'s own docstring on
+                    # why a discount must be a real, enforced number, never decoration): if the
+                    # customer is holding one, the message that asks them to pay says so in the
+                    # same breath, never only the pay link.
+                    saved = f"{created.discount_minor / 100:.2f}"
+                    return ReplyPlan(kind="text", text=(
+                        f"طلبك رقم {order_ref} (بعد خصم {saved} ريال) جاهز — أكمل الدفع عشان "
+                        f"نأكده ونبدأ تجهيزه:\n{created.pay_url}"))
                 return ReplyPlan(kind="text", text=(
                     f"طلبك رقم {order_ref} جاهز — أكمل الدفع عشان نأكده ونبدأ تجهيزه:\n"
                     f"{created.pay_url}"))
