@@ -28,6 +28,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Cake, Clock, Gift, Info, Megaphone, RotateCcw, Search, Tag, Target, type LucideIcon,
 } from 'lucide-react';
+import { halalas } from '../money';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { Card } from '../rj-ui/Card';
@@ -284,13 +285,16 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
    * collected a real number and a real kind, they just used to be joined into a sentence before
    * leaving this screen.
    */
-  const discountNumber = Number(western(offerValue).replace(/[^0-9.]/g, '')) || 0;
+  const discountDigits = western(offerValue).replace(/[^0-9.]/g, '');
+  const discountNumber = Number(discountDigits) || 0;
   const rewardKind = discountNumber > 0 ? (discountKind === 'sar' ? 'fixed_halalas' : 'percent') : '';
   // HALALAS, NEVER RIYALS, PAST THIS POINT — same "money is an integer count of the smallest
-  // unit" convention every backend in this fleet holds. `Math.round` because a float riyal entry
-  // (12.50) must become the exact halala integer 1250, never 1249.9999999999998.
+  // unit" convention every backend in this fleet holds. The SAR case goes through `halalas()`
+  // (money.ts) — integer arithmetic on the TEXT itself, never a `* 100` float multiply — the
+  // same reasoning that helper's own docstring gives (ح-10). Percent is already a whole number
+  // with no unit conversion at all, so a plain round is correct there, not a workaround.
   const rewardAmount = discountNumber > 0
-    ? (discountKind === 'sar' ? Math.round(discountNumber * 100) : Math.round(discountNumber))
+    ? (discountKind === 'sar' ? (halalas(discountDigits) ?? 0) : Math.round(discountNumber))
     : 0;
   /**
    * WHICH OF THREE REWARDS THIS CAMPAIGN GIVES — `occasion` ONLY, for now (the pilot;
