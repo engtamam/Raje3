@@ -57,7 +57,8 @@ def _future(seconds=7 * 86400):
 
 def _body(**kw):
     body = {"goal": "community_milestone", "milestone_threshold": 100,
-           "reward_type": "discount", "offer_value": "20%", "expires_at": _future()}
+           "reward_type": "discount", "reward_kind": "percent", "reward_amount": 20,
+           "expires_at": _future()}
     body.update(kw)
     return body
 

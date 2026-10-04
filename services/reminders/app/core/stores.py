@@ -291,6 +291,69 @@ class SendLogStore(_Base):
             return row
         return None
 
+    # ── single-use discount redemption, FOR WHATSAPP DIRECT ORDERING ONLY (2026-10-04) ──────────
+    #
+    # DELIBERATELY SEPARATE FROM `active_offer`/`choose_offer`/`live_offers` ABOVE. Those three
+    # implement §5.6.2's split for VISITS: reminders issues, operations records the spend ON THE
+    # VISIT (never on this log — see `choose_offer`'s own docstring on why an edited ledger breaks
+    # every cap in 5.8). Orders are a different domain this session was scoped to (bookings/visits
+    # untouched), and a single customer-facing `redeemed_at` flag here — the SAME convention
+    # `ReferralGrant.redeemed_at` already uses for referral codes — is the smallest correct answer
+    # for a discount with exactly one legitimate consumer: an order, paid once.
+    #
+    # THIS DOES NOT BREAK THE APPEND-ONLY CAP RULE: every cap in spec 8.4.2/5.8 counts rows by
+    # `outcome`/`cls`/`at`, never by `redeemed_at` — so stamping it here is the same category of
+    # mutation as `delivered_at`/`read_at` above (a fact ABOUT the row, not a rewrite of what the
+    # row says happened), not the `offer_used_at`-on-this-log mistake that was reverted.
+    #
+    # NOTE: a discount spent via an order is invisible to the visit-side `choose_offer`/
+    # `live_offers` reads above, and vice versa — the two domains do not cross-check each other
+    # today. A customer could in principle be offered the same discount twice through two
+    # different domains. Flagged here rather than hidden: closing it needs the visit flow touched,
+    # which this change deliberately does not do.
+    async def find_unredeemed_discount(self, tenant: str, subject_ref: str, *,
+                                       now: int) -> dict[str, Any] | None:
+        """The most recent LIVE, UNREDEEMED discount this phone number is holding, or None.
+
+        SOONEST-TO-EXPIRE-FIRST WOULD BE WRONG HERE, UNLIKE `choose_offer` ABOVE — an order is not
+        a counter visit where the operator reads off the card closest to running out; it is the
+        shop's own messaging history, and the newest discount sent is the one the customer is
+        almost certainly replying to right now. Newest-first, same as `active_offer`.
+        """
+        rows, _ = await self._find(tenant, {"subject_ref": subject_ref, "outcome": "sent"},
+                                   limit=200, sort=("at", "desc"))
+        for row in rows or []:
+            if not row.get("reward_kind"):
+                continue
+            if int(row.get("offer_expires_at") or 0) <= now:
+                continue
+            if int(row.get("redeemed_at") or 0):
+                continue
+            return row
+        return None
+
+    async def mark_redeemed(self, tenant: str, send_id: str, *, redeemed_by: str,
+                            now: int) -> bool:
+        """Stamp one row as spent — IDEMPOTENT, same guarantee `ReferralGrant`'s own redemption
+        carries: a row already redeemed is never double-credited, it is simply confirmed again.
+
+        Returns False when the row does not exist (nothing to stamp) or already belongs to another
+        redemption — the caller (operations' `OrderService.confirm_payment`) treats either as "the
+        discount is not available any more", never as a crash.
+        """
+        row = await self.get(tenant, send_id)
+        if row is None:
+            return False
+        if int(row.get("redeemed_at") or 0):
+            # ALREADY REDEEMED — by this same order (idempotent retry) or another. Either way this
+            # call must not stamp a second time; the caller decides whether `redeemed_by` matching
+            # its own order id means "this already succeeded" or "someone else got there first".
+            return str(row.get("redeemed_by") or "") == redeemed_by
+        row["redeemed_at"] = now
+        row["redeemed_by"] = redeemed_by
+        await self.update(row)
+        return True
+
     async def since(self, tenant: str, subject_ref: str, *, since: int,
                     cls: str = "") -> list[dict[str, Any]]:
         """Sends to one customer since a moment — the query every cap in spec 8.4.2 is built on.

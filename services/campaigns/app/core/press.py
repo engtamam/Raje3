@@ -53,8 +53,8 @@ class Press:
 
 
 def key_for(tenant: str, *, goal: str, owner_text: str, service_id: str, branch_id: str,
-            offer_value: str, expires_at: int, fire_at: int, package_id: str = "",
-            window_start_hour: int = 0, window_end_hour: int = 24,
+            reward_kind: str, reward_amount: int, expires_at: int, fire_at: int,
+            package_id: str = "", window_start_hour: int = 0, window_end_hour: int = 24,
             window_weekdays: list[int] | None = None, milestone_threshold: int = 0,
             milestone_recurring: bool = False, reward_type: str = "discount",
             reward_points: int = 0) -> str:
@@ -62,9 +62,13 @@ def key_for(tenant: str, *, goal: str, owner_text: str, service_id: str, branch_
 
     `package_id` DEFAULTS EMPTY, NOT OMITTED — two DIFFERENT `package_offer` presses (different
     packages) that otherwise share every other field (same blank owner_text, same branch, same
-    offer_value/dates — a real, plausible shape: an owner running the same wording on two
-    packages the same week) would collide onto ONE press key without it, and the second press
-    would be silently returned as "the same campaign, already sent" instead of creating its own.
+    reward_kind/reward_amount/dates — a real, plausible shape: an owner running the same wording
+    on two packages the same week) would collide onto ONE press key without it, and the second
+    press would be silently returned as "the same campaign, already sent" instead of creating its
+    own.
+
+    `reward_kind`/`reward_amount` REPLACE THE OLD `offer_value` STRING (2026-10-04) — same role in
+    this key, now two structured parts instead of one free-text one.
 
     `window_*` JOINED FOR THE SAME REASON (2026-09-12) — an owner who launches the same offer
     twice, once for the whole day and once narrowed to evening hours, is not repeating himself; a
@@ -75,8 +79,8 @@ def key_for(tenant: str, *, goal: str, owner_text: str, service_id: str, branch_
     owner_text, no branch, no window), are two different campaigns, not a retry of one.
     """
     raw = "|".join([tenant, goal, owner_text.strip(), service_id.strip(), branch_id.strip(),
-                    offer_value.strip(), str(int(expires_at or 0)), str(int(fire_at or 0)),
-                    package_id.strip(), str(int(window_start_hour or 0)),
+                    reward_kind.strip(), str(int(reward_amount or 0)), str(int(expires_at or 0)),
+                    str(int(fire_at or 0)), package_id.strip(), str(int(window_start_hour or 0)),
                     str(int(window_end_hour if window_end_hour is not None else 24)),
                     ",".join(str(w) for w in sorted(window_weekdays or [])),
                     str(int(milestone_threshold or 0)), "1" if milestone_recurring else "0",

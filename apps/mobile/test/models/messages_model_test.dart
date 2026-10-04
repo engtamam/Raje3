@@ -99,4 +99,25 @@ void main() {
       expect(c.isScheduled, isFalse);
     });
   });
+
+  group('Campaign.fromJson reward_kind/reward_amount (2026-10-04)', () {
+    test('a structured discount on the stored row is read, not the retired offer_value', () {
+      final c = Campaign.fromJson({
+        'id': 'c4', 'goal': 'win_back', 'state': 'active', 'sent': 1,
+        'fire_at': 0, 'last_evaluated': 0,
+        'reward_kind': 'percent', 'reward_amount': 20,
+      });
+      expect(c.rewardKind, 'percent');
+      expect(c.rewardAmount, 20);
+    });
+
+    test('a campaign with no discount at all reads as empty, not a crash', () {
+      final c = Campaign.fromJson({
+        'id': 'c5', 'goal': 'announce', 'state': 'active', 'sent': 1,
+        'fire_at': 0, 'last_evaluated': 0,
+      });
+      expect(c.rewardKind, '');
+      expect(c.rewardAmount, 0);
+    });
+  });
 }

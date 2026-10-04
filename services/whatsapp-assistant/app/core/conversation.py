@@ -2092,6 +2092,29 @@ class ConversationEngine:
                     return ReplyPlan(kind="text", text=(
                         f"تعذّر إنشاء رابط الدفع لطلبك رقم {order_ref} الآن. "
                         "جرّب مشاركة موقعك مرة أخرى بعد قليل."))
+                if created.discount_minor > 0:
+                    # NEVER DROPPED SILENTLY — the owner's own rule for every discount this
+                    # product advertises (see campaigns' `Campaign.reward_kind`'s own docstring on
+                    # why a discount must be a real, enforced number, never decoration): if the
+                    # customer is holding one, the message that asks them to pay says so in the
+                    # same breath, never only the pay link.
+                    #
+                    # THE OWNER'S OWN DESIGN (2026-10-04): a savings number in SAR (never a bare
+                    # percent — a real figure lands heavier), a personal reason, and the before/
+                    # after price so the customer SEES what they kept, not just reads a sentence
+                    # claiming it. `~text~` is WhatsApp's own real strikethrough syntax (confirmed
+                    # supported, not a guess). This can ONLY ever appear in this message, never
+                    # inside the native catalog/cart screen itself — Meta owns that screen and KSA
+                    # has no access to its own structured order-pricing message type.
+                    saved = f"{created.discount_minor / 100:.2f}"
+                    before = f"{created.total_minor / 100:.2f}"
+                    after = f"{(created.total_minor - created.discount_minor) / 100:.2f}"
+                    return ReplyPlan(kind="text", text=(
+                        f"🎉 مكافأة لك: خصم {saved} ريال\n"
+                        "لأنك عميل مميز عندنا\n\n"
+                        f"طلبك رقم {order_ref}:\n"
+                        f"~{before} ريال~ {after} ريال\n\n"
+                        f"أكمل الدفع عشان نأكده ونبدأ تجهيزه:\n{created.pay_url}"))
                 return ReplyPlan(kind="text", text=(
                     f"طلبك رقم {order_ref} جاهز — أكمل الدفع عشان نأكده ونبدأ تجهيزه:\n"
                     f"{created.pay_url}"))

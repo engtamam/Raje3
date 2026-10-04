@@ -276,6 +276,23 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
   // OWN state now, independent of whether a number exists yet.
   const [discountKind, setDiscountKind] = useState<'pct' | 'sar'>('pct');
   /**
+   * THE SAME DISCOUNT, AS THE TWO INTEGERS THE BACKEND NOW VALIDATES (2026-10-04, replacing the
+   * free-text `offer_value` wire field — `services/campaigns/app/core/models.py::Campaign.
+   * reward_kind`/`reward_amount`). `offerValue` above stays the display string the preview note
+   * shows; this is derived from it at the one moment it matters, when a request is actually sent,
+   * so the number box/segmented control above did not need to change shape at all — they already
+   * collected a real number and a real kind, they just used to be joined into a sentence before
+   * leaving this screen.
+   */
+  const discountNumber = Number(western(offerValue).replace(/[^0-9.]/g, '')) || 0;
+  const rewardKind = discountNumber > 0 ? (discountKind === 'sar' ? 'fixed_halalas' : 'percent') : '';
+  // HALALAS, NEVER RIYALS, PAST THIS POINT — same "money is an integer count of the smallest
+  // unit" convention every backend in this fleet holds. `Math.round` because a float riyal entry
+  // (12.50) must become the exact halala integer 1250, never 1249.9999999999998.
+  const rewardAmount = discountNumber > 0
+    ? (discountKind === 'sar' ? Math.round(discountNumber * 100) : Math.round(discountNumber))
+    : 0;
+  /**
    * WHICH OF THREE REWARDS THIS CAMPAIGN GIVES — `occasion` ONLY, for now (the pilot;
    * `win_back`/`service_offer`/`package_offer` still only ever give the discount they always
    * have). "discount" reproduces exactly today's screen; `gift` and `points` are the two new
@@ -544,7 +561,8 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
         // THE BRANCH IS IN THE PREVIEW TOO, and that is the whole point of previewing: the count
         // he decides on must be the count that goes out.
         branch_id: branchId,
-        offer_value: offerValue,
+        reward_kind: rewardKind,
+        reward_amount: rewardAmount,
         service_names: serviceIds.map((id) => (services ?? []).find((x) => x.id === id)?.name ?? ''),
         package_names: packageIds.map((id) => (packages ?? []).find((x) => x.id === id)?.name ?? ''),
         // CARRIED INTO THE PREVIEW TOO, not only into the launch: the spread refuses a plan that
@@ -819,7 +837,8 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                       loyalty_window_days: loyaltyWindowDays,
                       loyalty_min_visits: loyaltyMinVisits,
                       branch_id: branchId,
-                      offer_value: offerValue,
+                      reward_kind: rewardKind,
+                      reward_amount: rewardAmount,
                       service_names: serviceIds.map((id) => (services ?? []).find((x) => x.id === id)?.name ?? ''),
                       package_names: packageIds.map((id) => (packages ?? []).find((x) => x.id === id)?.name ?? ''),
                       expires_at: expiresAt,
@@ -1183,10 +1202,10 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
               <input
                 type="number"
                 min={1}
-                // 99, WHICH IS WHAT THE SEND ACCEPTS. It said 90 while `_OFFER` in campaigns and
-                // `_AMOUNT` in reminders both accept 1-99 — a third number for one rule, and the
-                // only one a person ever reads.
-                max={99}
+                // 100, WHICH IS WHAT `validate_reward` ACCEPTS for a percent reward
+                // (services/campaigns/app/core/models.py) — widened from 99 the day the discount
+                // stopped being a free-text sentence and became a bounds-checked integer.
+                max={100}
                 dir="ltr"
                 value={western(offerValue).replace(/[^0-9.]/g, '')}
                 onChange={(e) => {

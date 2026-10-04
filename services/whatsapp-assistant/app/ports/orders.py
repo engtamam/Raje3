@@ -26,6 +26,11 @@ class CreatedOrder:
     # `OrderFailed` below.
     pay_url: str = ""
     pay_reason: str = ""
+    # THE CAMPAIGN DISCOUNT (2026-10-04), if operations found one live for this phone — see
+    # `OrderService.create()`'s own docstring on when it is applied vs. when it is actually
+    # redeemed. Zero/empty is the overwhelming majority case: most orders carry no discount.
+    discount_minor: int = 0
+    discount_source: str = ""
 
 
 class NullOrders:

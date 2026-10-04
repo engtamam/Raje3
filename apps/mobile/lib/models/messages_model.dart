@@ -376,7 +376,10 @@ class Campaign {
   // message on the detail sheet, the same way the wizard already can before it launches
   // (Messages.tsx's own `openRuns()` does this exact re-fetch).
   final String ownerText;
-  final String offerValue;
+  // STRUCTURED (2026-10-04, replacing the free-text `offer_value` wire field) — see
+  // services/campaigns/app/core/models.py::Campaign.rewardKind's own docstring.
+  final String rewardKind;
+  final int rewardAmount;
   final int expiresAt;
   final String serviceId;
   final String packageId;
@@ -399,7 +402,8 @@ class Campaign {
     required this.windowEndHour,
     required this.windowWeekdays,
     this.ownerText = '',
-    this.offerValue = '',
+    this.rewardKind = '',
+    this.rewardAmount = 0,
     this.expiresAt = 0,
     this.serviceId = '',
     this.packageId = '',
@@ -441,7 +445,8 @@ class Campaign {
             .map((e) => (e as num).toInt())
             .toList(),
         ownerText: (json['owner_text'] as String?) ?? '',
-        offerValue: (json['offer_value'] as String?) ?? '',
+        rewardKind: (json['reward_kind'] as String?) ?? '',
+        rewardAmount: (json['reward_amount'] as num?)?.toInt() ?? 0,
         expiresAt: (json['expires_at'] as num?)?.toInt() ?? 0,
         serviceId: (json['service_id'] as String?) ?? '',
         packageId: (json['package_id'] as String?) ?? '',

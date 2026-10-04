@@ -26,15 +26,19 @@ def run(c):
 
 
 class _FakeOrders:
-    def __init__(self, *, pay_url: str = "https://pay.example/r/e2e"):
+    def __init__(self, *, pay_url: str = "https://pay.example/r/e2e", discount_minor: int = 0,
+                discount_source: str = ""):
         self.calls: list[dict] = []
         self._pay_url = pay_url
+        self._discount_minor = discount_minor
+        self._discount_source = discount_source
 
     async def create(self, **kwargs):
         from app.ports.orders import CreatedOrder
         self.calls.append(kwargs)
         return CreatedOrder(order_id="ord_e2e000001", branch_id="br1", total_minor=5000,
-                           pay_url=self._pay_url)
+                           pay_url=self._pay_url, discount_minor=self._discount_minor,
+                           discount_source=self._discount_source)
 
 
 class _NullCustomerLookup:
@@ -156,6 +160,34 @@ def test_the_full_customer_journey_cart_to_pay_link_through_the_real_dispatch_pi
     # LOCATION'S -- idempotency must identify the cart, never the delivery attempt.
     assert orders.calls[0]["items"] == [("srv1", 2)]
     assert orders.calls[0]["idempotency_key"] == "wamid_order"
+
+
+def test_a_discount_the_customer_is_holding_is_never_dropped_from_the_pay_message():
+    """A discount reaches operations' response and must reach the customer's own message, never
+    only the pay link -- the owner's own rule against advertising an unenforceable discount
+    applies equally to under-communicating a REAL one."""
+    orders = _FakeOrders(pay_url="https://pay.example/r/disc", discount_minor=2_000,
+                        discount_source="campaign:snd_1")
+    c = _container(orders=orders)
+
+    run(ingest_inbound_message(
+        container=c, logger=_NullLogger(), settings=_Settings(), auditor=None,
+        tenant=TENANT, wamid="wamid_order2", from_number=FROM, kind="order",
+        text=_order_payload([("srv1", 1)]), reply_id="", raw_payload={"wamid": "wamid_order2"}))
+    run(ingest_inbound_message(
+        container=c, logger=_NullLogger(), settings=_Settings(), auditor=None,
+        tenant=TENANT, wamid="wamid_location2", from_number=FROM, kind="location",
+        text="24.7136,46.6753", reply_id="", raw_payload={"wamid": "wamid_location2"}))
+
+    final = c.sender.sent[-1]
+    text = final["variables"][0]
+    assert "https://pay.example/r/disc" in text
+    assert "خصم" in text
+    # THE REAL DESIGN: savings in SAR, and a before/after price with WhatsApp's own real
+    # strikethrough syntax (`~text~`) on the ORIGINAL (pre-discount) amount only.
+    assert "20.00 ريال" in text
+    assert "~50.00 ريال~" in text
+    assert "30.00 ريال" in text
 
 
 def test_a_webhook_redelivery_of_the_order_message_itself_is_deduplicated_before_it_ever_reaches_the_engine():

@@ -42,7 +42,7 @@ class _RacyStore:
 
 def test_two_simultaneous_presses_of_the_same_intention_only_one_gets_to_create():
     key = key_for(TENANT, goal="win_back", owner_text="خصم 20%", service_id="", branch_id="",
-                 offer_value="20%", expires_at=NOW + 604_800, fire_at=0)
+                 reward_kind="percent", reward_amount=20, expires_at=NOW + 604_800, fire_at=0)
 
     async def run():
         store = _RacyStore(MemoryDataStore())

@@ -650,6 +650,12 @@ class Tick:
             # RECORDED WITH THE OFFER: it is a fact about what was granted, and every reader of
             # this row needs it to say what the discount actually is.
             offer_value=str(row.get("offer_value", "")),
+            # THE STRUCTURED DISCOUNT (2026-10-04) — everything else on this row is display text;
+            # these two are the integers a system (WhatsApp Direct Ordering, services/operations)
+            # can actually subtract from a price. Empty `reward_kind` means this send carried no
+            # discount at all (an announcement, a gift, a points reward).
+            reward_kind=str(row.get("reward_kind") or ""),
+            reward_amount=int(row.get("reward_amount") or 0),
             campaign_id=str(row.get("campaign_id") or ""))))
         return {"sent": True, "reason": ""}
 

@@ -186,13 +186,22 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
     super.dispose();
   }
 
-  /// The composed, server-shaped offer value — built ONLY here, at the point it is actually
-  /// read, never stored as its own piece of state (a single source of truth: the digits the
-  /// owner typed, and the toggle he set).
-  String get _offerValue {
+  /// THE STRUCTURED DISCOUNT (2026-10-04, replacing the free-text `offer_value` wire field —
+  /// see services/campaigns/app/core/models.py::Campaign.reward_kind's own docstring). Built
+  /// ONLY here, at the point it is actually read, never stored as its own piece of state: a
+  /// single source of truth, the digits the owner typed and the toggle he set.
+  String get _rewardKind {
     final n = _offerAmountController.text.trim();
     if (n.isEmpty) return '';
-    return _discountKind == 'pct' ? '$n%' : '$n ريال';
+    return _discountKind == 'pct' ? 'percent' : 'fixed_halalas';
+  }
+
+  /// Halalas, never riyals, past this point — the same "money is an integer count of the
+  /// smallest unit" convention every backend in this fleet holds.
+  int get _rewardAmount {
+    final n = double.tryParse(_offerAmountController.text.trim()) ?? 0;
+    if (n <= 0) return 0;
+    return _discountKind == 'pct' ? n.round() : (n * 100).round();
   }
 
   bool get _rewardEnabled => _kRewardEnabledGoals.contains(_picked?.goal);
@@ -290,7 +299,8 @@ class _LaunchWizardScreenState extends State<LaunchWizardScreen> {
       'loyalty_window_days': _loyaltyWindowDays.round(),
       'loyalty_min_visits': _loyaltyMinVisits.round(),
       'branch_id': _branchId,
-      'offer_value': _offerValue,
+      'reward_kind': _rewardKind,
+      'reward_amount': _rewardAmount,
       'service_names': isPackage ? <String>[] : _serviceIds.map((id) => _services.where((s) => s.id == id).firstOrNull?.name ?? '').toList(),
       'package_names': isPackage ? _packageIds.map((id) => _packages.where((p) => p.id == id).firstOrNull?.name ?? '').toList() : <String>[],
       'expires_at': expiresAt,

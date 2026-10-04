@@ -59,7 +59,9 @@ class HttpOrders:
                            branch_id=str(data.get("branch_id") or ""),
                            total_minor=int(data.get("total_minor") or 0),
                            pay_url=str(data.get("pay_url") or ""),
-                           pay_reason=str(data.get("pay_reason") or ""))
+                           pay_reason=str(data.get("pay_reason") or ""),
+                           discount_minor=int(data.get("discount_minor") or 0),
+                           discount_source=str(data.get("discount_source") or ""))
 
 
 def build(settings: Any) -> Any:

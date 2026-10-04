@@ -290,12 +290,28 @@ class SendLog:
     # When the sentence is the owner's own free line it may not restate the amount at all, and the
     # only source left at the counter is the customer's word for it.
     offer_value: str = ""
+    # THE SAME DISCOUNT, STRUCTURED (2026-10-04) — `offer_value` above is display text, composed
+    # by campaigns FROM these two and never parsed back into a number by anything downstream. A
+    # real integer is what WhatsApp Direct Ordering (services/operations) needs to actually deduct
+    # something from a price; the string stays for the counter-operator screen and for history,
+    # these two are for a system to read. Empty `reward_kind` is "not a discount send at all" —
+    # a win-back announcement or a gift/points reward carries no amount here.
+    reward_kind: str = ""
+    reward_amount: int = 0
     # WHICH CAMPAIGN SENT THIS (2026-09-14, this session's till-integration audit follow-up).
     # Empty for an ordinary reminder — only campaigns sends carry one. Never tracked before this:
     # a shop applying an offer at the till (POST /till/offer/apply) had no way to learn "the
     # win-back campaign worked" from till-recorded evidence — the send log carried the offer's
     # words but never which campaign produced them.
     campaign_id: str = ""
+    # ── single-use redemption (2026-10-04) ────────────────────────────────────────────────────
+    # A discount this row carries may be spent exactly once — the same "0 is not yet, a real
+    # timestamp is a fact" convention `ReferralGrant.redeemed_at` already uses
+    # (services/referrals/app/core/models.py). `redeemed_by` names what consumed it (an order id
+    # today, a visit or booking id tomorrow) so the record answers "redeemed against what", not
+    # only "redeemed or not" — the same reason `campaign_id` above exists rather than a bare flag.
+    redeemed_at: int = 0
+    redeemed_by: str = ""
 
 
 @dataclass
