@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.core.referral_redemption import NEW_CUSTOMER_DISCOUNT_PERCENT
+from app.core.reward_value import scoped_value as _scoped_value
 
 
 @dataclass(frozen=True)
@@ -35,26 +36,6 @@ class OfferDecision:
     # What a later redeem call needs -- the send-log id for a campaign offer, the phone itself
     # for a referral grant (`ReferralRedemptionEngine.redeem` is keyed on phone, not a grant id).
     discount_ref: str = ""
-
-
-def _scoped_value(*, kind: str, amount: int, scope_service_ids: list[str] | None,
-                  invoice_minor: int, line_minor: dict[str, int]) -> int:
-    """How much a `{reward_kind, reward_amount, scope_service_ids}` shape is worth against THIS
-    invoice -- same scoping rule everywhere a campaign discount is judged (see
-    `services/campaigns/app/core/models.py::Campaign.scope_service_ids`'s own docstring): empty
-    scope is the whole invoice, a non-empty one is only the matching services' own subtotal.
-    Capped at `invoice_minor`, never negative -- a discount can make an order free, never charge
-    the gateway a negative amount."""
-    scope = set(scope_service_ids or [])
-    base = (sum(v for sid, v in line_minor.items() if sid in scope)
-           if scope else invoice_minor)
-    if kind == "percent":
-        off = base * max(0, amount) // 100
-    elif kind == "fixed_halalas":
-        off = amount
-    else:
-        off = 0
-    return max(0, min(off, invoice_minor))
 
 
 async def best_offer_for(*, tenant: str, phone: str, subject_ref: str, invoice_minor: int,

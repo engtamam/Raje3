@@ -89,8 +89,11 @@ def _mutual_benefit_grant(store) -> MutualBenefitEngine:
     return engine
 
 
-# ── the gateway alone: the documented tie-break, and unreadable-source refusal ──────────────────
-def test_referral_outranks_a_campaign_offer_when_both_are_live():
+# ── the gateway alone: the fallback tie-break (no invoice data to price by), and unreadable-
+# source refusal. Real VALUE-based comparison (2026-10-04) is covered by its own file,
+# test_entitlements_value_comparison.py — these calls pass no invoice_minor/line_minor on purpose,
+# so every candidate prices at 0 and the gateway falls back to the documented fixed order.
+def test_referral_outranks_a_campaign_offer_when_both_are_live_and_neither_can_be_priced():
     store = MemoryDataStore()
     engine = _mutual_benefit_grant(store)
 

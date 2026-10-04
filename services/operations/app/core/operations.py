@@ -109,6 +109,11 @@ class Operations:
         # ever going to be typed in. `None` until `with_referral_redemption_engine` installs it,
         # same posture as every other optional peer on this class.
         self._referral_redemption: Any = None
+        # KEPT RAW, NOT JUST WRAPPED IN A STORE CLASS ABOVE — `EntitlementGateway` needs the same
+        # underlying datastore to look up a gift grant's own catalogue price (`core/entitlements.
+        # py::EntitlementGateway._gift_value`), and building a second `ServiceStore` there would
+        # mean passing this same object anyway, just one layer removed.
+        self._store = store
         self._customers = CustomerStore(store)
         self._assets = AssetStore(store)
         self._services = ServiceStore(store)
@@ -385,7 +390,8 @@ class Operations:
                 # campaign chooser and no referral source behaves exactly as the old direct call
                 # did, referral simply never outranking anything because there is nothing to.
                 gateway = EntitlementGateway(mutual_benefit_engine=self._mutual_benefit_engine,
-                                             campaign_chooser=self._choose_offer)
+                                             campaign_chooser=self._choose_offer,
+                                             store=self._store)
 
             # THE PHONE, FOR THE REFERRAL SOURCE ONLY — reminders' own campaign chooser has never
             # needed it (identity + scope, by `subject_ref`), and it stays that way; only
@@ -393,9 +399,21 @@ class Operations:
             customer = await self._customers.get(tenant, v.customer_id)
             phone = customer.phone if customer is not None else ""
 
+            # THE REAL INVOICE, FOR VALUE COMPARISON — same catalogue-price fallback
+            # `record_visit` already uses when a till never sent its own total (line 559's own
+            # comment): a field visit (`total_minor == 0`) is priced from the catalogue, an
+            # integrated till's own real total is trusted as-is. Per-service prices build
+            # `line_minor`, the same scoping shape `core/reward_value.py::scoped_value` needs.
+            line_minor = {s.id: s.price_minor
+                         for s in await self._services.list(tenant, active_only=False)}
+            invoice_minor = v.total_minor if v.total_minor > 0 else sum(
+                line_minor.get(sid, 0) for sid in v.service_ids)
+
             try:
                 chosen = await gateway.choose(tenant=tenant, subject_ref=subject_ref, phone=phone,
-                                              service_ids=list(v.service_ids))
+                                              service_ids=list(v.service_ids),
+                                              invoice_minor=invoice_minor,
+                                              line_minor=line_minor)
             except EntitlementPeerUnavailable as exc:
                 # AN UNREADABLE SOURCE REFUSES, IT DOES NOT ANSWER «none» — see
                 # `core/entitlements.py`'s own module docstring. Applying nothing costs the

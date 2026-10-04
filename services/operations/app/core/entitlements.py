@@ -13,51 +13,48 @@ thing, anything else shaped the same way) growing a third — the same drift `re
 module docstring warns against for writes. This module is the fix: `apply_offer` asks ONE question
 of ONE thing, and every real source registers into it instead.
 
-THE TIE-BREAK RULE, DECIDED AND DOCUMENTED (never "whichever happened to be checked first" as an
-accident of code order — the caller here has NO room to be arbitrary, because only one entitlement
-can EVER be applied per visit, by `apply_offer`'s own long-standing invariant: "خصمان على فاتورة
-واحدة قرارٌ لم يتخذه المالك"):
+THE TIE-BREAK RULE (owner's own correction, 2026-10-04 — replacing a FIXED priority order this
+module used to hold): "العميل يهمه العرض الأفضل له، ما يهمه مصدره" — whichever source is actually
+worth the most to the customer wins, by REAL SAR value, never by which source happened to be
+checked first. Every money-shaped source (a reminders campaign offer, a referral-code welcome
+discount, a mutual-benefit discount grant) is reduced to "how many halalas off THIS invoice" via
+`core/reward_value.py::scoped_value` and the highest wins outright.
 
-    REFERRAL PARTNERSHIP WINS OVER A REMINDERS CAMPAIGN OFFER, WHEN BOTH ARE LIVE AT ONCE.
+A GIFT GRANT (mutual-benefit `GRANT_GIFT`) IS VALUED AT THE GIFTED SERVICE'S OWN CATALOGUE PRICE —
+a free service is worth exactly what the shop would otherwise have charged for it, looked up from
+shop_b's own `ServiceStore` at comparison time (never scoped against the invoice — it is an ADDED
+free item, not a percentage off what is already there).
 
-    A referral grant is a promise made TO ANOTHER BUSINESS, with its own hard, short expiry per
-    customer (`MutualBenefitEngine`'s own `grant_validity_days`) and real reputational stakes
-    if it silently lapses unused — the partner shop is watching its own KPI screen for exactly this
-    ("redeemed vs expired unused"). A reminders campaign offer is entirely this tenant's OWN
-    marketing tool: it can be resent, re-targeted, or re-scheduled at will, with no third party
-    depending on it. Letting an internal promotion silently eat a cross-tenant commitment this shop
-    entered into by agreement would be the worse failure of the two, so the referral grant is
-    checked first and, if live, wins outright — the campaign offer is never even applied to (or
-    consumed from) THIS visit, and stays available for the customer's next one.
+A SOURCE WHOSE VALUE CANNOT BE COMPUTED (an unresolvable gift service, a referral reward type that
+is not a money discount at all — e.g. `welcome_points`) is never silently dropped: it is still
+offered, at the BOTTOM of the ranking, so a customer never loses an entitlement just because this
+gateway could not price it — it only loses the TIE-BREAK against something it could price.
 
-A FAILURE TO READ EITHER SOURCE REFUSES, IT DOES NOT ANSWER «none» — the exact posture
+A FAILURE TO READ A SOURCE REFUSES, IT DOES NOT ANSWER «none» — the exact posture
 `adapters/offer_choice.py`'s own module docstring already states for the campaign side; applied
-here uniformly to both sources, for the same reason: applying nothing costs a customer an
+here uniformly to every source, for the same reason: applying nothing costs a customer an
 entitlement he still holds, while applying one we could not verify is a discount nobody agreed to.
 
 A FUTURE SOURCE (a coupon system, anything else single-grant/single-redeem) joins by handing its own
 async `(tenant, subject_ref, phone, service_ids) -> dict | None` chooser (or, for something already
 shaped like `MutualBenefitEngine`, a small adapter the same shape as `_referral_entitlement`
-below) into `EntitlementGateway.__init__` and adding one line to `choose()`'s own priority list —
-never a change to `Operations.apply_offer` itself.
+below) into `EntitlementGateway.__init__`, and giving `choose()` a way to price it — never a change
+to `Operations.apply_offer` itself.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 
+from app.core.reward_value import scoped_value
+
 SOURCE_REFERRAL = "mutual_benefit"
 SOURCE_REFERRAL_CODE = "referral_code"
 SOURCE_CAMPAIGN = "reminders_campaign"
 
-# The priority list `choose()` walks, top to bottom — see the module docstring for WHY referral
-# outranks a campaign offer. `referral_code` (services/referrals' own global anonymous code,
-# core/referral_redemption.py) is a SECOND cross-party promise, same reasoning as the mutual-
-# benefit one above it: a referrer trusts this code to pay out, and a shop's own reminders
-# campaign is entirely internal marketing that can be resent at will — so `referral_code` outranks
-# `reminders_campaign` too, but sits BELOW `mutual_benefit` (an existing, already-decided
-# partnership between two specific shops is a narrower, more deliberate commitment than a
-# platform-wide anonymous code either shop could have joined at any time).
+# Used only as the LAST-RESORT tie-break order, for candidates whose real value could not be
+# computed at all (see module docstring's "cannot be computed" section) — every priced candidate
+# is still compared by `scoped_value` first.
 _PRIORITY = (SOURCE_REFERRAL, SOURCE_REFERRAL_CODE, SOURCE_CAMPAIGN)
 
 
@@ -97,14 +94,23 @@ class EntitlementGateway:
 
     def __init__(self, *, mutual_benefit_engine: Any = None,
                 campaign_chooser: CampaignChooser | None = None,
-                referral_code_engine: Any = None) -> None:
+                referral_code_engine: Any = None, store: Any = None) -> None:
         self._referral = mutual_benefit_engine
         self._campaign_chooser = campaign_chooser
         self._referral_code = referral_code_engine
+        # ONLY FOR PRICING A GIFT GRANT (see module docstring) — the one candidate this gateway
+        # cannot value from its own eligibility payload alone, since a gift's worth is whatever
+        # the granting shop's OWN catalogue already charges for that service. `None`-safe like
+        # every other optional peer here: without it, a gift simply falls to the value-less
+        # tie-break tier instead of being priced.
+        self._store = store
 
     async def choose(self, *, tenant: str, subject_ref: str, phone: str,
-                     service_ids: list[str]) -> Entitlement | None:
+                     service_ids: list[str], invoice_minor: int = 0,
+                     line_minor: dict[str, int] | None = None) -> Entitlement | None:
+        line_minor = line_minor or {}
         referral: Entitlement | None = None
+        referral_value: int | None = None
         if self._referral is not None and phone:
             try:
                 elig = await self._referral.eligibility(tenant, phone)
@@ -123,16 +129,36 @@ class EntitlementGateway:
 
                 if elig.get("grant_type") == GRANT_GIFT:
                     text = f"هدية شراكة إحالة نشطة لهذا العميل: {elig.get('gift_service_name', '')}"
+                    referral_value = await self._gift_value(
+                        tenant, str(elig.get("gift_service_id") or ""))
                 elif elig.get("discount_scope") == DISCOUNT_SCOPE_GROUP:
                     text = f"خصم شراكة إحالة نشط على مجموعة: {elig.get('discount_group_name', '')}"
+                    group_scope = await self._group_scope_ids(
+                        tenant, str(elig.get("discount_group_id") or ""))
+                    referral_value = scoped_value(
+                        kind=str(elig.get("discount_kind") or ""),
+                        amount=int(elig.get("discount_amount") or 0),
+                        scope_service_ids=group_scope, invoice_minor=invoice_minor,
+                        line_minor=line_minor)
                 elif elig.get("discount_scope") == DISCOUNT_SCOPE_BLANKET:
                     text = "خصم شراكة إحالة نشط — خصم شامل"
+                    referral_value = scoped_value(
+                        kind=str(elig.get("discount_kind") or ""),
+                        amount=int(elig.get("discount_amount") or 0),
+                        scope_service_ids=None, invoice_minor=invoice_minor,
+                        line_minor=line_minor)
                 else:                                                   # discount, scope "item"
                     text = f"خصم شراكة إحالة نشط على: {elig.get('gift_service_name', '')}"
+                    referral_value = scoped_value(
+                        kind=str(elig.get("discount_kind") or ""),
+                        amount=int(elig.get("discount_amount") or 0),
+                        scope_service_ids=[str(elig.get("gift_service_id") or "")],
+                        invoice_minor=invoice_minor, line_minor=line_minor)
                 referral = Entitlement(source=SOURCE_REFERRAL, ref=f"referral:{phone}",
                                        text=text, finalize_key=phone)
 
         referral_code: Entitlement | None = None
+        referral_code_value: int | None = None
         if self._referral_code is not None and phone:
             try:
                 elig = await self._referral_code.eligibility(tenant, phone)
@@ -145,8 +171,14 @@ class EntitlementGateway:
                 reward_type = elig.get("new_customer_reward_type")
                 params = elig.get("new_customer_reward_params") or {}
                 if reward_type == NEW_CUSTOMER_DISCOUNT_PERCENT:
-                    text = f"خصم عميل جديد بالإحالة: {params.get('percent', 0)}%"
+                    percent = int(params.get("percent") or 0)
+                    text = f"خصم عميل جديد بالإحالة: {percent}%"
+                    referral_code_value = scoped_value(
+                        kind="percent", amount=percent, scope_service_ids=None,
+                        invoice_minor=invoice_minor, line_minor=line_minor)
                 elif reward_type == NEW_CUSTOMER_WELCOME_POINTS:
+                    # POINTS, NOT MONEY — nothing here reduces THIS invoice, so it has no SAR
+                    # value to compare with; see module docstring's "cannot be computed" tier.
                     text = f"نقاط ترحيب بالإحالة: {params.get('points', 0)} نقطة"
                 else:
                     text = "مكافأة إحالة نشطة"
@@ -155,6 +187,7 @@ class EntitlementGateway:
                                             finalize_key=phone)
 
         campaign: Entitlement | None = None
+        campaign_value: int | None = None
         if self._campaign_chooser is not None:
             try:
                 chosen = await self._campaign_chooser(
@@ -166,13 +199,57 @@ class EntitlementGateway:
                     source=SOURCE_CAMPAIGN, ref=str(chosen.get("ref") or ""),
                     text=str(chosen.get("text") or ""),
                     campaign_id=str(chosen.get("campaign_id") or ""))
+                reward_kind = str(chosen.get("reward_kind") or "")
+                if reward_kind:
+                    campaign_value = scoped_value(
+                        kind=reward_kind, amount=int(chosen.get("reward_amount") or 0),
+                        scope_service_ids=chosen.get("scope_service_ids"),
+                        invoice_minor=invoice_minor, line_minor=line_minor)
 
         by_source = {SOURCE_REFERRAL: referral, SOURCE_REFERRAL_CODE: referral_code,
                     SOURCE_CAMPAIGN: campaign}
+        values = {SOURCE_REFERRAL: referral_value, SOURCE_REFERRAL_CODE: referral_code_value,
+                 SOURCE_CAMPAIGN: campaign_value}
+
+        # THE REAL COMPARISON — highest priced value wins outright, regardless of source. A
+        # source whose value is `None` (never priced at all) or `0` (priced at nothing — a gift
+        # whose service could not be resolved, or a discount computed against an empty scope)
+        # never wins a comparison against a real positive value.
+        priced = [(source, values[source]) for source in by_source
+                 if by_source[source] is not None and (values[source] or 0) > 0]
+        if priced:
+            best_source = max(priced, key=lambda sv: sv[1])[0]
+            return by_source[best_source]
+
+        # NOTHING WAS PRICED ABOVE ZERO — fall back to the old fixed order so a genuinely
+        # unpriceable candidate (an unresolvable gift, welcome points) is still offered rather
+        # than silently dropped (module docstring's own "cannot be computed" rule).
         for source in _PRIORITY:
             if by_source.get(source) is not None:
                 return by_source[source]
         return None
+
+    async def _gift_value(self, tenant: str, service_id: str) -> int | None:
+        if self._store is None or not service_id:
+            return None
+        try:
+            from app.core.stores import ServiceStore
+
+            service = await ServiceStore(self._store).get(tenant, service_id)
+        except Exception:                                                  # noqa: BLE001
+            return None
+        return service.price_minor if service is not None else None
+
+    async def _group_scope_ids(self, tenant: str, group_id: str) -> list[str] | None:
+        if self._store is None or not group_id:
+            return None
+        try:
+            from app.core.stores import PackageStore
+
+            package = await PackageStore(self._store).get(tenant, group_id)
+        except Exception:                                                  # noqa: BLE001
+            return None
+        return list(package.service_ids) if package is not None else None
 
     async def finalize(self, entitlement: Entitlement, *, tenant: str, visit_id: str) -> None:
         """Called ONCE, by `apply_offer`, ONLY for a freshly-chosen entitlement (never on a replay

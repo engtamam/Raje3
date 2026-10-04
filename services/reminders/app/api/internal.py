@@ -1003,6 +1003,15 @@ async def choose_offer(request: Request, body: ChooseOfferIn) -> dict:
                       # sentence — or, when the owner wrote his own line, not at all. An operator
                       # who cannot see the value takes the customer's word for it.
                       "value": row.get("offer_value", ""),
+                      # THE SAME DISCOUNT, STRUCTURED (2026-10-04) — see `SendLog.reward_kind`'s own
+                      # docstring. Added so a caller comparing this offer against OTHER entitlement
+                      # sources by real SAR value (`core/entitlements.py::EntitlementGateway`) has a
+                      # real number to compare, not just display text meant for a human to read.
+                      # Empty `reward_kind` means "not a discount send at all" (a reminder with no
+                      # offer attached) and the caller must then skip value comparison for this one.
+                      "reward_kind": str(row.get("reward_kind") or ""),
+                      "reward_amount": int(row.get("reward_amount") or 0),
+                      "scope_service_ids": list(row.get("offer_services") or []),
                       "expires_at": int(row.get("offer_expires_at") or 0),
                       # WHICH CAMPAIGN SENT IT — "" for an ordinary reminder, real for a campaign
                       # send (2026-09-14). Lets the till attribute a redemption back to the

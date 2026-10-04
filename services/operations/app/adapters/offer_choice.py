@@ -62,6 +62,9 @@ def http_chooser(*, reminders_url: str, token: str, timeout: int = 5):
             raise OfferPeerUnavailable(str(exc)) from exc
         # THE PEER ANSWERED. Now — and only now — an absent offer is the truth.
         offer = payload.get("offer")
+        # `reward_kind`/`reward_amount`/`scope_service_ids` (2026-10-04) ride along UNCHANGED —
+        # this function is a thin relay, never the place that computes a SAR value from them;
+        # see `core/entitlements.py::EntitlementGateway` for the caller that actually does.
         return offer if isinstance(offer, dict) and offer.get("ref") else None
 
     return choose
