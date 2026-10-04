@@ -225,8 +225,15 @@ class Operations:
         if self._entitlement_gateway is not None:
             from app.core.entitlements import EntitlementGateway
 
+            # EVERY SOURCE THE OLD GATEWAY HELD, CARRIED OVER — not just the two this method
+            # happens to touch. A real bug lived here until 2026-10-04: this rebuild dropped
+            # `referral_code_engine`/`store` silently, so a caller overriding the campaign chooser
+            # AFTER boot (exactly what `test_till_offer.py`'s own fixtures do, against the real
+            # container-built `Operations`) would silently lose referral-code comparison and gift/
+            # group-scope pricing from that point on, with nothing red anywhere to say so.
             self._entitlement_gateway = EntitlementGateway(
-                mutual_benefit_engine=self._mutual_benefit_engine, campaign_chooser=chooser)
+                mutual_benefit_engine=self._mutual_benefit_engine, campaign_chooser=chooser,
+                referral_code_engine=self._referral_redemption, store=self._store)
         return self
 
     def with_mutual_benefit_engine(self, engine) -> "Operations":
@@ -237,12 +244,14 @@ class Operations:
         self._mutual_benefit_engine = engine
         if self._entitlement_gateway is not None:
             # Same rebuild `with_offer_chooser` does, symmetrically — see that method's own
-            # docstring for why a gateway already installed must see a LATER change to either of
-            # its two sources, not just the one it happened to be built from first.
+            # docstring for why a gateway already installed must see a LATER change to any of its
+            # sources, not just the one this method happens to touch, and carry every OTHER source
+            # over unchanged rather than silently dropping it.
             from app.core.entitlements import EntitlementGateway
 
             self._entitlement_gateway = EntitlementGateway(
-                mutual_benefit_engine=engine, campaign_chooser=self._choose_offer)
+                mutual_benefit_engine=engine, campaign_chooser=self._choose_offer,
+                referral_code_engine=self._referral_redemption, store=self._store)
         return self
 
     def with_milestone_peer(self, peer) -> "Operations":
@@ -265,6 +274,17 @@ class Operations:
         `api/v1/till.py::register_referral_code_at_the_counter` already calls. Set at wiring, same
         posture as every other optional peer here (`None` until installed)."""
         self._referral_redemption = engine
+        if self._entitlement_gateway is not None:
+            # SAME REBUILD-CARRY-EVERYTHING-ELSE-OVER DISCIPLINE as `with_offer_chooser`/
+            # `with_mutual_benefit_engine` above — this is the third source a gateway already
+            # built might need to pick up later, and dropping the other two silently here would be
+            # the identical bug fixed in those two methods.
+            from app.core.entitlements import EntitlementGateway
+
+            self._entitlement_gateway = EntitlementGateway(
+                mutual_benefit_engine=self._mutual_benefit_engine,
+                campaign_chooser=self._choose_offer, referral_code_engine=engine,
+                store=self._store)
         return self
 
     async def referral_discount_for(self, tenant: str, phone: str) -> dict[str, Any] | None:

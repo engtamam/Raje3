@@ -469,7 +469,7 @@ def build_container(settings: Settings) -> Container:
 
     container.entitlement_gateway = EntitlementGateway(
         mutual_benefit_engine=container.mutual_benefit, campaign_chooser=reminders_offer_chooser,
-        referral_code_engine=container.referral_redemption)
+        referral_code_engine=container.referral_redemption, store=container.datastore)
     container.operations.with_entitlement_gateway(container.entitlement_gateway)
 
     # Salla — infrastructure only, see core/marketplaces/salla.py's own module docstring.
