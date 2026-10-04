@@ -106,7 +106,8 @@ def _propose(engine, **overrides):
     kwargs = dict(shop_a=A, shop_b_phone=B_PHONE, operator_id="op1",
                  condition_type=CONDITION_MIN_TOTAL, condition_value="1000",
                  grant_validity_days=3,
-                 agreement_duration_days=90, per_period_cap=0)
+                 agreement_duration_days=90, per_period_cap=0,
+                 discount_kind="percent", discount_amount=10)
     kwargs.update(overrides)
     return run(engine.propose(**kwargs))
 
@@ -222,10 +223,12 @@ def test_concurrent_proposals_between_the_same_two_shops_converge_on_one(env):
         return await asyncio.gather(
             engine.propose(shop_a=A, shop_b_phone=B_PHONE, operator_id="op1",
                           condition_type=CONDITION_MIN_TOTAL, condition_value="1000",
-                          grant_validity_days=3, agreement_duration_days=30),
+                          grant_validity_days=3, agreement_duration_days=30,
+                          discount_kind="percent", discount_amount=10),
             engine.propose(shop_a=A, shop_b_phone=B_PHONE, operator_id="op2",
                           condition_type=CONDITION_MIN_TOTAL, condition_value="2000",
-                          grant_validity_days=3, agreement_duration_days=30),
+                          grant_validity_days=3, agreement_duration_days=30,
+                          discount_kind="percent", discount_amount=10),
             return_exceptions=True)
 
     results = run(go())

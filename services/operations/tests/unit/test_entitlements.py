@@ -82,7 +82,7 @@ def _mutual_benefit_grant(store) -> MutualBenefitEngine:
     agreement = run(engine.propose(
         shop_a=A, shop_b_phone=PHONE, operator_id="op1", condition_type=CONDITION_MIN_TOTAL,
         condition_value="1000", grant_validity_days=3,
-        agreement_duration_days=90))
+        agreement_duration_days=90, discount_kind="percent", discount_amount=10))
     run(engine.accept(tenant=B, agreement_id=agreement.id))
     run(engine.on_visit_recorded(tenant=A, customer_phone=PHONE, service_ids=[],
                                 total_minor=1500, visit_id="vis_trigger"))

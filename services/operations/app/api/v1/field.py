@@ -271,6 +271,8 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
             "gift_service_name": grant.gift_service_name,
             "discount_scope": grant.discount_scope,
             "discount_group_name": grant.discount_group_name,
+            "discount_kind": grant.discount_kind,
+            "discount_amount": grant.discount_amount,
             "expires_at": grant.expires_at,
             "partner_shop_name": partner_name,
         }

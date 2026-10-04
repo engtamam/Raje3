@@ -183,6 +183,7 @@ def _propose(client: TestClient, *, shop_a: str = A, condition_value: str = "100
             grant_validity_days: int = 3, agreement_duration_days: int = 90,
             grant_type: str = "discount", gift_service_id: str = "",
             discount_scope: str = "blanket", discount_group_id: str = "",
+            discount_kind: str = "percent", discount_amount: int = 10,
             b_phone: str = B_PHONE) -> dict:
     resp = client.post(
         "/api/v1/staff/mutual-benefit/agreements",
@@ -191,7 +192,9 @@ def _propose(client: TestClient, *, shop_a: str = A, condition_value: str = "100
              "condition_value": condition_value, "grant_validity_days": grant_validity_days,
              "agreement_duration_days": agreement_duration_days, "grant_type": grant_type,
              "gift_service_id": gift_service_id, "discount_scope": discount_scope,
-             "discount_group_id": discount_group_id})
+             "discount_group_id": discount_group_id,
+             "discount_kind": discount_kind if grant_type == "discount" else "",
+             "discount_amount": discount_amount if grant_type == "discount" else 0})
     return resp.json() if resp.status_code == 200 else {"__status__": resp.status_code,
                                                          "__body__": resp.json()}
 
@@ -464,6 +467,66 @@ def test_an_inactive_service_as_a_gift_is_refused_over_http(wired: TestClient):
     _make_inactive_service(wired, B, "svc_dead")
     resp = _propose(wired, grant_type="gift", gift_service_id="svc_dead")
     assert resp.get("__status__") == 404, resp
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+# EDGE CASE — the discount grant's own value is mandatory, enforced at TWO layers: FastAPI's own
+# `Field(ge=0)` refuses a negative number before any business code runs, and the engine itself
+# refuses an unknown kind or an out-of-range percent. Both must hold over the real wire, not just
+# in a unit test that calls the engine directly.
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+
+def test_a_negative_discount_amount_is_refused_at_the_http_boundary_itself(wired: TestClient):
+    resp = wired.post(
+        "/api/v1/staff/mutual-benefit/agreements", headers=_auth(*REFERRAL_CAPS, tenant=A),
+        json={"shop_b_phone": B_PHONE, "condition_type": "min_total_minor",
+             "condition_value": "1000", "grant_validity_days": 3, "agreement_duration_days": 90,
+             "grant_type": "discount", "discount_scope": "blanket",
+             "discount_kind": "percent", "discount_amount": -1})
+    # Pydantic's own `Field(ge=0)` refuses this before `engine.propose` ever runs — a 422, not
+    # the engine's own 400 BAD_CONDITION.
+    assert resp.status_code == 422, resp.text
+
+
+def test_an_unknown_discount_kind_is_refused_over_http(wired: TestClient):
+    resp = _propose(wired, grant_type="discount", discount_scope="blanket",
+                    discount_kind="buy_one_get_one", discount_amount=10)
+    assert resp.get("__status__") == 400, resp
+
+
+def test_a_percent_over_100_is_refused_over_http_while_exactly_100_is_allowed(wired: TestClient):
+    over = _propose(wired, grant_type="discount", discount_scope="blanket",
+                    discount_kind="percent", discount_amount=101)
+    assert over.get("__status__") == 400, over
+
+    # The invalid 101 call above never created a live agreement (refused before anything was
+    # saved), so B_PHONE is still free for this one.
+    exact = _propose(wired, grant_type="discount", discount_scope="blanket",
+                     discount_kind="percent", discount_amount=100)
+    assert exact.get("discount_amount") == 100, exact
+
+
+def test_the_stored_amount_survives_the_full_http_round_trip_to_the_beneficiarys_own_screen(
+        wired: TestClient):
+    """Not just stored — actually READABLE by shop_b's own redemption check, in real halalas,
+    over the real wire a cashier's screen would use."""
+    agreement = _propose(wired, grant_type="discount", discount_scope="blanket",
+                         discount_kind="fixed_halalas", discount_amount=2500)
+    _accept(wired, agreement["id"])
+    _make_service(wired, A, "svc_roundtrip", "خدمة", price_minor=1500)
+    _record_visit(wired, A, phone=CUSTOMER_PHONE, service_ids=["svc_roundtrip"],
+                 idem="vis_amount_roundtrip")
+
+    # The celebration payload at A's own field endpoint is covered by a sibling test
+    # (`test_points_balance_appears_alongside_the_customer_lookup_at_the_granting_shop`); here we
+    # go straight to the authoritative source, `eligibility()` at B.
+    from app.core.mutual_benefit import MutualBenefitEngine
+
+    engine: MutualBenefitEngine = wired.app.state.container.mutual_benefit
+    elig = asyncio.run(engine.eligibility(B, CUSTOMER_PHONE))
+    assert elig is not None
+    assert elig["discount_kind"] == "fixed_halalas"
+    assert elig["discount_amount"] == 2500
 
 
 # ══════════════════════════════════════════════════════════════════════════════════════════════

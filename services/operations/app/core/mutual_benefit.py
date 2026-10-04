@@ -2,12 +2,20 @@
 eligible for a discount at shop B, detected automatically, no proof the customer must carry.
 
 See docs/خطة-شراكة-استراتيجية-الإحالة.md for the full design this module implements. NOT the same
-feature as `core/coupons.py` («تحالف استراتيجي») — that one discounts a shop's OWN subscription with
-us, through billing-service, unilaterally. This one discounts nothing of ours: it never touches
-money, pricing, or a discount's own value at all. Shop B applies its own discount however it
-normally does (a manual till reduction, a note on the receipt) — our whole job is organising the
-relationship and detecting eligibility, nothing financial. Separate collections entirely; nothing
-here is built on top of `coupons.py`.
+feature as `core/coupons.py` («ولاء الشركاء») — that one discounts a shop's OWN subscription with
+us, through billing-service, unilaterally. This one discounts nothing of ours.
+
+A DISCOUNT GRANT'S VALUE IS MANDATORY AND STORED (owner's own correction, 2026-10-04 — a customer's
+own right must be a real, visible number, never a silent "whatever shop_b feels like that day",
+which read as shop_b being free to hand a customer 0% while still showing "eligible"). For
+`GRANT_DISCOUNT` (every scope), `discount_kind`/`discount_amount` are REQUIRED at `propose()` time —
+same two-field shape `campaigns`' own `reward_kind`/`reward_amount` already uses (`"percent"` or
+`"fixed_halalas"`), so the same money-safety rules apply (never a float, a percent capped at 100).
+We still never APPLY the number ourselves — shop_b's own till still does the real reduction by hand
+— but the number is no longer invisible: it is copied onto the grant, shown verbatim on shop_b's
+own redemption screen (`public_for_beneficiary()`), and on both parties' agreement screens, so a
+customer's entitlement is a concrete, checkable fact rather than a promise with no number attached.
+`GRANT_GIFT` has no value field — a named free service IS the whole value, nothing to misstate.
 
 THE ONE REAL INTEGRATION POINT — `Operations.record_visit()` (core/operations.py), verified by
 reading that method, not assumed. Every real "customer did something that counts" event funnels
@@ -158,6 +166,14 @@ GRANT_DISCOUNT = "discount"
 GRANT_GIFT = "gift"
 GRANT_TYPES = (GRANT_DISCOUNT, GRANT_GIFT)
 
+# THE GRANT'S OWN VALUE — mandatory for GRANT_DISCOUNT, meaningless for GRANT_GIFT (a named free
+# service already fully states its own value). Same two-kind shape `campaigns` already uses for the
+# identical reason (never a float, a percent capped at 100) — see module docstring's "A DISCOUNT
+# GRANT'S VALUE IS MANDATORY AND STORED" section.
+REWARD_PERCENT = "percent"
+REWARD_FIXED_HALALAS = "fixed_halalas"
+DISCOUNT_REWARD_KINDS = (REWARD_PERCENT, REWARD_FIXED_HALALAS)
+
 # THE THREE VALID SCOPES FOR A DISCOUNT GRANT — meaningless for GRANT_GIFT, required for
 # GRANT_DISCOUNT. See module docstring's own "GRANT TYPE" section.
 DISCOUNT_SCOPE_ITEM = "item"
@@ -237,7 +253,7 @@ class MutualBenefitAgreement:
     # THE GRANT'S OWN TERMS — DECIDED ONCE, AT PROPOSE() TIME, IMMUTABLE FOR THE LIFE OF THIS
     # AGREEMENT (owner's own explicit correction — see module docstring's "GRANT TYPE" section in
     # full for the no-free-text rule and every field's exact meaning per kind/scope). No method
-    # anywhere in this module ever assigns to any of these six fields after `propose()` creates
+    # anywhere in this module ever assigns to any of these eight fields after `propose()` creates
     # the row — different terms are a NEW agreement, never an edit to this one.
     grant_type: str = GRANT_DISCOUNT
     # GRANT_GIFT, or GRANT_DISCOUNT scope "item": one real service from shop_b's own catalogue.
@@ -248,6 +264,10 @@ class MutualBenefitAgreement:
     discount_scope: str = ""
     discount_group_id: str = ""
     discount_group_name: str = ""
+    # MANDATORY FOR GRANT_DISCOUNT, "" / 0 ON A GRANT_GIFT ROW (never read there) — see module
+    # docstring's "A DISCOUNT GRANT'S VALUE IS MANDATORY AND STORED" section.
+    discount_kind: str = ""
+    discount_amount: int = 0
 
     def public(self) -> dict[str, Any]:
         return asdict(self)
@@ -268,7 +288,7 @@ class MutualBenefitGrant:
     # COPIED FROM THE AGREEMENT AT GRANT-CREATION TIME, NEVER REFERENCED LATER — same "copy, not
     # reference" discipline this product already uses elsewhere (e.g. `CouponGrant`'s own copied
     # text), so a later catalogue edit (a service renamed/retired, a package changed) can never
-    # rewrite what an already-earned grant actually promised this customer. Same six fields as
+    # rewrite what an already-earned grant actually promised this customer. Same eight fields as
     # `MutualBenefitAgreement`'s own immutable terms — see that dataclass's own docstring.
     grant_type: str = GRANT_DISCOUNT
     gift_service_id: str = ""
@@ -276,6 +296,8 @@ class MutualBenefitGrant:
     discount_scope: str = ""
     discount_group_id: str = ""
     discount_group_name: str = ""
+    discount_kind: str = ""
+    discount_amount: int = 0
 
     def public(self) -> dict[str, Any]:
         return asdict(self)
@@ -292,6 +314,8 @@ class MutualBenefitGrant:
             out["gift_service_name"] = self.gift_service_name
         else:
             out["discount_scope"] = self.discount_scope
+            out["discount_kind"] = self.discount_kind
+            out["discount_amount"] = self.discount_amount
             if self.discount_scope == DISCOUNT_SCOPE_ITEM:
                 out["gift_service_id"] = self.gift_service_id
                 out["gift_service_name"] = self.gift_service_name
@@ -550,7 +574,9 @@ class MutualBenefitEngine:
                       # concrete value, the same way `grant_type` already defaults to a real kind
                       # rather than nothing.
                       discount_scope: str = DISCOUNT_SCOPE_BLANKET,
-                      discount_group_id: str = "") -> MutualBenefitAgreement:
+                      discount_group_id: str = "",
+                      discount_kind: str = "",
+                      discount_amount: int = 0) -> MutualBenefitAgreement:
         if condition_type not in CONDITION_TYPES:
             raise MutualBenefitError(BAD_CONDITION)
         if condition_type == CONDITION_MIN_TOTAL:
@@ -597,7 +623,18 @@ class MutualBenefitEngine:
             gift_service_name = service.name
             discount_scope = ""
             discount_group_id = ""
+            discount_kind = ""
+            discount_amount = 0
         else:
+            # MANDATORY — a discount grant with no stored value is exactly the gap this field
+            # exists to close (module docstring's own 2026-10-04 correction). Same bounds
+            # `campaigns` already enforces for the identical reason.
+            if discount_kind not in DISCOUNT_REWARD_KINDS:
+                raise MutualBenefitError(BAD_CONDITION)
+            if discount_amount <= 0:
+                raise MutualBenefitError(BAD_CONDITION)
+            if discount_kind == REWARD_PERCENT and discount_amount > 100:
+                raise MutualBenefitError(BAD_CONDITION)
             if discount_scope not in DISCOUNT_SCOPES:
                 raise MutualBenefitError(BAD_CONDITION)
             if discount_scope == DISCOUNT_SCOPE_ITEM:
@@ -679,7 +716,8 @@ class MutualBenefitEngine:
                 idempotency_key=idempotency_key, grant_type=grant_type,
                 gift_service_id=gift_service_id, gift_service_name=gift_service_name,
                 discount_scope=discount_scope, discount_group_id=discount_group_id,
-                discount_group_name=discount_group_name)
+                discount_group_name=discount_group_name,
+                discount_kind=discount_kind, discount_amount=discount_amount)
             await self._save_agreement(agreement)
             await self._audit(agreement.id, EV_PROPOSED, actor_tenant=shop_a,
                               detail={"shop_b": shop_b})
@@ -875,12 +913,13 @@ class MutualBenefitEngine:
             shop_b=agreement.shop_b, customer_phone=phone, triggering_visit_id=visit_id,
             created=now, expires_at=now + agreement.grant_validity_days * 24 * 3600,
             # COPIED FROM THE AGREEMENT NOW, NOT REFERENCED LATER — see `MutualBenefitGrant`'s own
-            # docstring on these six fields for why.
+            # docstring on these eight fields for why.
             grant_type=agreement.grant_type, gift_service_id=agreement.gift_service_id,
             gift_service_name=agreement.gift_service_name,
             discount_scope=agreement.discount_scope,
             discount_group_id=agreement.discount_group_id,
-            discount_group_name=agreement.discount_group_name)
+            discount_group_name=agreement.discount_group_name,
+            discount_kind=agreement.discount_kind, discount_amount=agreement.discount_amount)
         await self._s.put(GRANTS, f"{PLATFORM}|{grant.id}", {"tenant": PLATFORM, **asdict(grant)})
         await self._audit(agreement.id, EV_GRANT_CREATED, actor_tenant=PLATFORM,
                           detail={"grant_id": grant.id, "triggering_visit_id": visit_id})

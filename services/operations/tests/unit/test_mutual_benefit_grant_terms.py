@@ -88,7 +88,8 @@ def env():
 def _propose(engine, **overrides):
     kwargs = dict(shop_a=A, shop_b_phone=PHONE, operator_id="op1",
                  condition_type=CONDITION_MIN_TOTAL, condition_value="1000",
-                 grant_validity_days=3, agreement_duration_days=90)
+                 grant_validity_days=3, agreement_duration_days=90,
+                 discount_kind="percent", discount_amount=10)
     kwargs.update(overrides)
     return run(engine.propose(**kwargs))
 
@@ -176,6 +177,133 @@ def test_an_unknown_discount_scope_is_refused(env):
     assert exc.value.args[0] == BAD_CONDITION
 
 
+# ── the grant's own value — mandatory for a discount, meaningless for a gift (2026-10-04) ───────
+def test_a_discount_grant_requires_a_valid_kind_and_a_positive_amount(env):
+    engine, _store, _plans = env
+    with pytest.raises(MutualBenefitError) as exc:
+        _propose(engine, discount_kind="", discount_amount=10)
+    assert exc.value.args[0] == BAD_CONDITION
+    with pytest.raises(MutualBenefitError) as exc2:
+        _propose(engine, discount_kind="percent", discount_amount=0)
+    assert exc2.value.args[0] == BAD_CONDITION
+    with pytest.raises(MutualBenefitError) as exc3:
+        _propose(engine, discount_kind="free_text", discount_amount=10)
+    assert exc3.value.args[0] == BAD_CONDITION
+
+
+def test_a_percent_discount_over_100_is_refused(env):
+    engine, _store, _plans = env
+    with pytest.raises(MutualBenefitError) as exc:
+        _propose(engine, discount_kind="percent", discount_amount=101)
+    assert exc.value.args[0] == BAD_CONDITION
+
+
+def test_a_gift_grant_needs_no_discount_value_at_all(env):
+    engine, store, _plans = env
+    run(ServiceStore(store).save(Service(id="svc_gift", tenant=B, name="هدية")))
+    agreement = _propose(engine, grant_type=GRANT_GIFT, gift_service_id="svc_gift",
+                         discount_kind="", discount_amount=0)
+    assert agreement.discount_kind == ""
+    assert agreement.discount_amount == 0
+
+
+def test_the_stored_value_is_copied_onto_the_grant_and_shown_to_the_beneficiary(env):
+    engine, store, _plans = env
+    agreement = _propose(engine, discount_kind="fixed_halalas", discount_amount=1500)
+    run(engine.accept(tenant=B, agreement_id=agreement.id))
+    run(engine.on_visit_recorded(tenant=A, customer_phone="0511112222", service_ids=[],
+                                 total_minor=1500, visit_id="vis_value"))
+    eligibility = run(engine.eligibility(B, "0511112222"))
+    assert eligibility is not None
+    assert eligibility["discount_kind"] == "fixed_halalas"
+    assert eligibility["discount_amount"] == 1500
+
+
+def test_a_negative_discount_amount_is_refused(env):
+    engine, _store, _plans = env
+    with pytest.raises(MutualBenefitError) as exc:
+        _propose(engine, discount_kind="percent", discount_amount=-5)
+    assert exc.value.args[0] == BAD_CONDITION
+
+
+def test_exactly_100_percent_is_the_allowed_boundary(env):
+    """100 is a real, honourable discount (free); 101 is the refused boundary already covered
+    elsewhere — this is the other edge of that same fence."""
+    engine, _store, _plans = env
+    agreement = _propose(engine, discount_kind="percent", discount_amount=100)
+    assert agreement.discount_amount == 100
+
+
+def test_fixed_halalas_has_no_percent_style_ceiling(env):
+    """A FIXED amount is never capped at 100 — 100 halalas is one riyal, a perfectly ordinary
+    fixed discount, not a percent accidentally read as unbounded."""
+    engine, _store, _plans = env
+    agreement = _propose(engine, discount_kind="fixed_halalas", discount_amount=50000)
+    assert agreement.discount_amount == 50000
+
+
+def test_a_gift_silently_ignores_a_caller_supplied_discount_value_rather_than_storing_it(env):
+    """A buggy or adversarial caller sending a gift request that ALSO carries a discount value
+    (copy-pasted from a discount form, or a probe) must never have that value stored — a gift's
+    value is the named service, never a smuggled number sitting unused beside it."""
+    engine, store, _plans = env
+    run(ServiceStore(store).save(Service(id="svc_gift2", tenant=B, name="هدية ثانية")))
+    agreement = _propose(engine, grant_type=GRANT_GIFT, gift_service_id="svc_gift2",
+                         discount_kind="percent", discount_amount=99)
+    assert agreement.discount_kind == ""
+    assert agreement.discount_amount == 0
+
+
+def test_public_for_beneficiary_never_leaks_a_discount_value_on_a_gift_grant(env):
+    """The beneficiary screen's own contract (module docstring's privacy note): a gift grant's
+    shape must carry gift fields only — no stray discount_kind/discount_amount keys at all, not
+    even empty ones, so a client can never be tempted to render "0% off" beside a free service."""
+    engine, store, _plans = env
+    run(ServiceStore(store).save(Service(id="svc_gift3", tenant=B, name="هدية ثالثة")))
+    agreement = _propose(engine, grant_type=GRANT_GIFT, gift_service_id="svc_gift3")
+    run(engine.accept(tenant=B, agreement_id=agreement.id))
+    run(engine.on_visit_recorded(tenant=A, customer_phone="0511113333", service_ids=[],
+                                 total_minor=1500, visit_id="vis_gift_leak"))
+    eligibility = run(engine.eligibility(B, "0511113333"))
+    assert eligibility is not None
+    assert "discount_kind" not in eligibility
+    assert "discount_amount" not in eligibility
+
+
+def test_an_idempotent_retry_with_a_different_amount_keeps_the_first_ever_committed_value(env):
+    """Same discipline as every other immutable field here: a retried click that happens to carry
+    a DIFFERENT amount (a slow double-tap after editing the box) must return the ORIGINAL
+    agreement untouched, never silently upgrade its value to the second click's number."""
+    engine, _store, _plans = env
+    first = _propose(engine, idempotency_key="dup-1", discount_kind="percent", discount_amount=10)
+    second = _propose(engine, idempotency_key="dup-1", discount_kind="percent", discount_amount=50)
+    assert first.id == second.id
+    assert second.discount_amount == 10
+
+
+def test_every_grant_struck_from_the_same_agreement_carries_the_identical_value(env):
+    """The value is a property of the AGREEMENT, decided once — every customer who ever earns a
+    grant under it must see the exact same number, never a per-grant variance."""
+    engine, _store, _plans = env
+    agreement = _propose(engine, discount_kind="percent", discount_amount=15)
+    run(engine.accept(tenant=B, agreement_id=agreement.id))
+    for i, phone in enumerate(["0511110001", "0511110002", "0511110003"]):
+        run(engine.on_visit_recorded(tenant=A, customer_phone=phone, service_ids=[],
+                                     total_minor=1500, visit_id=f"vis_multi_{i}"))
+        elig = run(engine.eligibility(B, phone))
+        assert elig["discount_amount"] == 15
+        assert elig["discount_kind"] == "percent"
+
+
+def test_zero_amount_is_refused_even_with_an_otherwise_valid_kind(env):
+    """0 is not a meaningful discount and must be refused exactly like a negative one — a grant
+    that charges full price while claiming "eligible" is the same lie a missing value would be."""
+    engine, _store, _plans = env
+    with pytest.raises(MutualBenefitError) as exc:
+        _propose(engine, discount_kind="fixed_halalas", discount_amount=0)
+    assert exc.value.args[0] == BAD_CONDITION
+
+
 # ── the entitlement text, derived from real catalogue data, never authored text ─────────────────
 def test_entitlement_text_is_derived_per_scope_never_stored_free_text():
     from app.core.entitlements import EntitlementGateway
@@ -192,11 +320,14 @@ def test_entitlement_text_is_derived_per_scope_never_stored_free_text():
 
         cases = [
             (dict(grant_type=GRANT_GIFT, gift_service_id="svc_wash"), "غسلة كاملة"),
-            (dict(grant_type=GRANT_DISCOUNT, discount_scope=DISCOUNT_SCOPE_BLANKET), "خصم شامل"),
+            (dict(grant_type=GRANT_DISCOUNT, discount_scope=DISCOUNT_SCOPE_BLANKET,
+                 discount_kind="percent", discount_amount=10), "خصم شامل"),
             (dict(grant_type=GRANT_DISCOUNT, discount_scope=DISCOUNT_SCOPE_ITEM,
-                 gift_service_id="svc_wash"), "غسلة كاملة"),
+                 gift_service_id="svc_wash", discount_kind="percent", discount_amount=10),
+             "غسلة كاملة"),
             (dict(grant_type=GRANT_DISCOUNT, discount_scope=DISCOUNT_SCOPE_GROUP,
-                 discount_group_id="pkg_care"), "باقة العناية"),
+                 discount_group_id="pkg_care", discount_kind="percent", discount_amount=10),
+             "باقة العناية"),
         ]
         for i, (kwargs, expect_substr) in enumerate(cases):
             # A DISTINCT shop_a PER CASE — the engine allows only ONE live agreement per

@@ -2238,6 +2238,10 @@ class ProposeMutualBenefitIn(BaseModel):
     gift_service_id: str = Field(default="", max_length=64)
     discount_scope: str = Field(default="blanket", max_length=16)
     discount_group_id: str = Field(default="", max_length=64)
+    # MANDATORY FOR grant_type="discount" (core/mutual_benefit.py's own propose() refuses a
+    # missing/invalid value) — the customer's actual entitlement, no longer left unstated.
+    discount_kind: str = Field(default="", max_length=16)
+    discount_amount: int = Field(default=0, ge=0)
 
 
 @router.post("/mutual-benefit/agreements", dependencies=[Depends(rate_limit)])
@@ -2253,7 +2257,8 @@ async def propose_mutual_benefit(request: Request, body: ProposeMutualBenefitIn,
             agreement_duration_days=body.agreement_duration_days,
             per_period_cap=body.per_period_cap, idempotency_key=body.idempotency_key,
             grant_type=body.grant_type, gift_service_id=body.gift_service_id,
-            discount_scope=body.discount_scope, discount_group_id=body.discount_group_id)
+            discount_scope=body.discount_scope, discount_group_id=body.discount_group_id,
+            discount_kind=body.discount_kind, discount_amount=body.discount_amount)
     except MutualBenefitError as exc:
         raise _mutual_benefit_error(exc) from exc
     await request.app.state.auditor.record(

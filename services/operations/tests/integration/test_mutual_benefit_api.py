@@ -104,7 +104,8 @@ def _propose(client: TestClient) -> str:
     resp = client.post("/api/v1/staff/mutual-benefit/agreements",
                        headers=_auth("operations.manage", tenant=A),
                        json={"shop_b_phone": B_PHONE, "condition_type": "min_total_minor",
-                            "condition_value": "1000", "grant_validity_days": 3, "agreement_duration_days": 90})
+                            "condition_value": "1000", "grant_validity_days": 3, "agreement_duration_days": 90,
+                            "discount_kind": "percent", "discount_amount": 10})
     assert resp.status_code == 200, resp.text
     return resp.json()["id"]
 

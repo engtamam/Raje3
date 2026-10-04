@@ -46,6 +46,7 @@ import { Field, Input } from '../rj-ui/Field';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { useOperatorI18n, tf } from '../operator-i18n';
+import { halalas } from '../money';
 import './mutual-benefit-i18n';
 
 const GRANT_DISCOUNT = 'discount';
@@ -591,7 +592,14 @@ function ProposeCard({ session, proposeAction, services, packages, onDone, t }: 
   const [discountScope, setDiscountScope] = useState<typeof SCOPE_ITEM | typeof SCOPE_BLANKET | typeof SCOPE_GROUP>(SCOPE_BLANKET);
   const [giftServiceId, setGiftServiceId] = useState('');
   const [discountGroupId, setDiscountGroupId] = useState('');
+  const [discountKind, setDiscountKind] = useState<'percent' | 'fixed_halalas'>('percent');
+  const [discountAmountText, setDiscountAmountText] = useState('10');
   const [submitting, setSubmitting] = useState(false);
+  // MANDATORY, NEVER A FLOAT — same halalas()-on-text discipline `Launch.tsx`'s own campaign
+  // discount uses (money.ts), so a fixed SAR amount never goes through a `* 100` float multiply.
+  const discountAmount = discountKind === 'fixed_halalas'
+    ? (halalas(discountAmountText) ?? 0)
+    : Math.round(Number(discountAmountText) || 0);
   const [result, setResult] = useState<{ ok: boolean } | null>(null);
 
   const activeServices = services.filter((s) => s.active !== false);
@@ -603,7 +611,9 @@ function ProposeCard({ session, proposeAction, services, packages, onDone, t }: 
   const valid = phone.trim().length >= 9
     && (conditionType === 'min_total_minor' ? conditionRiyals > 0 : conditionServiceId !== '')
     && (!needsService || giftServiceId !== '')
-    && (!needsGroup || discountGroupId !== '');
+    && (!needsGroup || discountGroupId !== '')
+    // MANDATORY FOR A DISCOUNT GRANT ONLY — a gift's value is the named service itself.
+    && (grantType !== GRANT_DISCOUNT || (discountAmount > 0 && (discountKind !== 'percent' || discountAmount <= 100)));
 
   async function onSubmit() {
     if (!valid || submitting) return;
@@ -621,6 +631,8 @@ function ProposeCard({ session, proposeAction, services, packages, onDone, t }: 
         gift_service_id: needsService ? giftServiceId : '',
         discount_scope: grantType === GRANT_DISCOUNT ? discountScope : '',
         discount_group_id: needsGroup ? discountGroupId : '',
+        discount_kind: grantType === GRANT_DISCOUNT ? discountKind : '',
+        discount_amount: grantType === GRANT_DISCOUNT ? discountAmount : 0,
       });
       setResult({ ok: true });
       setPhone('');
@@ -704,6 +716,22 @@ function ProposeCard({ session, proposeAction, services, packages, onDone, t }: 
               <option value={SCOPE_ITEM}>{t('mb.propose.discountScope.item')}</option>
               {packages.length ? <option value={SCOPE_GROUP}>{t('mb.propose.discountScope.group')}</option> : null}
             </select>
+          </Field>
+        ) : null}
+
+        {grantType === GRANT_DISCOUNT ? (
+          <Field label={t('mb.propose.discountAmountLabel')}>
+            <div className="flex items-center gap-2">
+              <Input type="number" min={1} value={discountAmountText}
+                    onChange={(e) => setDiscountAmountText(e.target.value)}
+                    className="w-24 tabular-nums" />
+              <select value={discountKind}
+                     onChange={(e) => setDiscountKind(e.target.value as typeof discountKind)}
+                     className="rounded-lg border border-border-subtle bg-surface-1 px-3 py-2 text-sm">
+                <option value="percent">{t('mb.propose.discountKind.percent')}</option>
+                <option value="fixed_halalas">{t('mb.propose.discountKind.sar')}</option>
+              </select>
+            </div>
           </Field>
         ) : null}
 

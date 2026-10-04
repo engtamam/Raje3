@@ -89,6 +89,9 @@ def _propose_and_accept(engine, plans, store, *, shop_a, shop_b, duration_days=9
     kwargs.setdefault("condition_type", CONDITION_MIN_TOTAL)
     kwargs.setdefault("condition_value", "1000")
     kwargs.setdefault("grant_validity_days", 3)
+    if kwargs.get("grant_type", GRANT_DISCOUNT) == GRANT_DISCOUNT:
+        kwargs.setdefault("discount_kind", "percent")
+        kwargs.setdefault("discount_amount", 10)
     agreement = run(engine.propose(shop_a=shop_a, shop_b_phone=phone, operator_id="op1",
                                    agreement_duration_days=duration_days, **kwargs))
     return run(engine.accept(tenant=shop_b, agreement_id=agreement.id))
@@ -218,7 +221,8 @@ def test_propose_itself_refuses_early_as_a_tentative_courtesy(env):
     with pytest.raises(MutualBenefitError) as exc:
         run(engine.propose(shop_a=hub, shop_b_phone="0599999999", operator_id="op1",
                            condition_type=CONDITION_MIN_TOTAL, condition_value="1000",
-                           grant_validity_days=3, agreement_duration_days=90))
+                           grant_validity_days=3, agreement_duration_days=90,
+                           discount_kind="percent", discount_amount=10))
     assert exc.value.args[0] == OVER_CONCURRENCY_CAP
 
 

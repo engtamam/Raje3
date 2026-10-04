@@ -130,7 +130,7 @@ def test_mutual_benefit_still_outranks_referral_code_when_both_are_live():
     agreement = run(mb.propose(
         shop_a="tnt_other_shop", shop_b_phone=BENEFICIARY_PHONE, operator_id="op1",
         condition_type=CONDITION_MIN_TOTAL, condition_value="1000", grant_validity_days=3,
-        agreement_duration_days=90))
+        agreement_duration_days=90, discount_kind="percent", discount_amount=10))
     run(mb.accept(tenant=TENANT, agreement_id=agreement.id))
     run(mb.on_visit_recorded(tenant="tnt_other_shop", customer_phone=BENEFICIARY_PHONE,
                              service_ids=[], total_minor=1500, visit_id="vis_trigger"))
