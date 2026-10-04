@@ -303,6 +303,7 @@ export const NAV_ACCENTS = [
   '#D9480F', // 11 — burnt orange (خدمات متنقلة)
   '#9C36B5', // 12 — grape (تبادل منافع)
   '#F59F00', // 13 — amber (الإحالة والمسوّقين)
+  '#E03131', // 14 — red (طلبات التوصيل عبر الواتساب)
 ] as const;
 
 export const themeConfig = {

@@ -22,7 +22,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Building2, CalendarClock, ClipboardPlus, Gift, HandHeart, Handshake, LifeBuoy, Megaphone,
-  MessageSquare, Share2, Star, TrendingUp, Truck, Users, Wrench,
+  MessageSquare, Receipt, Share2, Star, TrendingUp, Truck, Users, Wrench,
 } from 'lucide-react';
 import { NAV_ACCENTS } from '../../../ui/packages/ui/src/theme';
 import type { Catalog } from './catalog';
@@ -153,6 +153,13 @@ export const SECTIONS: Section[] = [
   // list action, same reasoning as «خدماتي ومنتجاتي».
   { service: 'referrals', id: 'referrals', path: '/referrals', label: 'الإحالة والمسوّقين',
    icon: Share2, requires: ['referrals.list_campaigns'], accent: NAV_ACCENTS[13] },
+  // «طلبات التوصيل عبر الواتساب» — standalone delivery product (apps.ts's own note: never
+  // confused with «خدمات متنقلة»). Gated on the list action, same shape as every other app row;
+  // WhatsAppOrdersRoute's own AppGate draws the locked upgrade card for a shop that has not
+  // bought it yet.
+  { service: 'operations', id: 'whatsapp-orders', path: '/whatsapp-orders',
+   label: 'طلبات التوصيل عبر الواتساب', icon: Receipt,
+   requires: ['whatsapp_order.list'], accent: NAV_ACCENTS[14] },
   // OPEN WHATEVER APPS THE SHOP HAS BOUGHT, and this comment used to say the opposite — it repeated a sentence
   // the spec has since corrected. The indicators are FREE (16.1): they are the demand engine, not
   // a feature to withhold. What `feature.insights.engine` locks is three of the twenty — the

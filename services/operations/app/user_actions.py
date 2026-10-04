@@ -874,6 +874,23 @@ USER_ACTIONS: list[dict[str, Any]] = [
     # whatsapp-ordering-app-gap-analysis.md) لا صلاحية مدير حصرية — كل من يسجّل زيارة يقدر يحدّث حالة
     # الطلب.
     {
+        "id": "whatsapp_order.list", "label": "قائمة طلبات التوصيل عبر الواتساب", "method": "GET",
+        "path": "/api/v1/staff/whatsapp-orders", "capability": "operations.record",
+        "group": "طلبات التوصيل عبر الواتساب",
+        "help": "كل الطلبات، مع فلترة بالحالة والفرع — شاشة الكونسول نفسها.",
+    },
+    {
+        "id": "whatsapp_order.pause_get", "label": "حالة إيقاف استقبال الطلبات", "method": "GET",
+        "path": "/api/v1/staff/whatsapp-orders/pause", "capability": "operations.record",
+        "group": "طلبات التوصيل عبر الواتساب", "help": "هل هذا الفرع متوقف عن استقبال الطلبات الآن.",
+    },
+    {
+        "id": "whatsapp_order.pause_set", "label": "إيقاف/استئناف استقبال الطلبات", "method": "POST",
+        "path": "/api/v1/staff/whatsapp-orders/pause", "capability": "operations.record",
+        "group": "طلبات التوصيل عبر الواتساب",
+        "help": "زر الكاشير اللحظي — يوقف طلبات واتساب الجديدة لهذا الفرع مؤقتًا، بلا تغيير بساعات العمل.",
+    },
+    {
         "id": "whatsapp_order.get", "label": "عرض طلب توصيل واتساب", "method": "GET",
         "path": "/api/v1/staff/whatsapp-orders/{order_id}", "capability": "operations.record",
         "group": "طلبات التوصيل عبر الواتساب", "help": "تفاصيل طلب واحد، بما فيها رابط الدفع وحالته.",

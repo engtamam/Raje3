@@ -314,6 +314,22 @@ export const APP_ROWS: AppRow[] = [
     icon: 'truck', tone: 'warning',
     // NO featuresAction — see «التقييم»'s own note above; operations owns this row too.
   },
+  // «طلبات التوصيل عبر الواتساب» — WhatsApp Direct Ordering, a standalone delivery product
+  // competing with HungerStation/Jahez etc, NEVER to be confused with «خدمات متنقلة» above (the
+  // owner's own correction, 2026-10-05: "كل تطبيق منعزل عن الاخر"). Catalog-based ordering, the
+  // shop's own payment gateway, delivered by the shop's own rep. `feature.whatsapp_delivery_orders`
+  // is already registered in deploy/seed/plans.json with `listed: false` — a deliberate, separate
+  // pricing decision not yet made by the owner, untouched here.
+  {
+    id: 'whatsapp-orders',
+    key: 'feature.whatsapp_delivery_orders',
+    name: 'طلبات التوصيل عبر الواتساب',
+    what: 'عميلك يطلب من كتالوجك عبر واتساب ويدفع لحسابك مباشرة — تتابع كل طلب من لحظة الطلب إلى التسليم.',
+    section: 'whatsapp-orders',
+    onCustomer: '',
+    icon: 'receipt', tone: 'danger',
+    // NO featuresAction — operations owns this row too, same posture as «خدمات متنقلة» above.
+  },
 ];
 
 /** The key that locks a nav section, or null when the section belongs to the base. */

@@ -232,8 +232,8 @@ export function allApps(
 // re-deriving here keeps this module independent rather than reaching into that resolver's
 // internals for a shape it was never built to serve.
 import {
-  CalendarClock, ClipboardPlus, Gift, Handshake, Megaphone, MessageCircle, Star, Truck, Users,
-  LayoutGrid,
+  CalendarClock, ClipboardPlus, Gift, Handshake, Megaphone, MessageCircle, Receipt, Star, Truck,
+  Users, LayoutGrid,
 } from 'lucide-react';
 
 function iconFor(key: string): LucideIcon {
@@ -243,6 +243,7 @@ function iconFor(key: string): LucideIcon {
     case 'gift': return Gift;
     case 'users': return Handshake;
     case 'megaphone': return Megaphone;
+    case 'receipt': return Receipt;
     // «المساعد الذكي عبر واتساب» — a real chat bubble, not the generic grid `default` was
     // silently falling back to (found live: apps.ts's own `icon: 'message-circle'` had no case
     // here at all). The owner's own instruction: it should read as WhatsApp chat, not "an app".
@@ -256,6 +257,7 @@ function iconFor(key: string): LucideIcon {
 const ACCENTS: Record<string, string> = {
   calendar: '#5C7CFA', 'check-circle': '#2F9E44', gift: '#F08C00', users: '#7048E8',
   megaphone: '#E64980', star: '#0C8599', truck: '#D9480F', 'user-plus': '#495057',
+  receipt: '#E03131',
 };
 function accentFor(key: string): string {
   return ACCENTS[key] ?? '#6a4cf5';

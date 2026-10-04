@@ -15,6 +15,7 @@ import { MutualBenefit } from './screens/MutualBenefitRoute';
 import { Referrals } from './screens/ReferralsRoute';
 import { Team } from './screens/TeamRoute';
 import { MobileRequests } from './screens/MobileRequestsRoute';
+import { WhatsAppOrders } from './screens/WhatsAppOrdersRoute';
 import { Bookings } from './screens/BookingsRoute';
 import { Coworking } from './screens/CoworkingRoute';
 import { ShopScreen } from './screens/Shop';
@@ -85,6 +86,7 @@ const shopRouter = createBrowserRouter([
       { path: 'mutual-benefit', element: <MutualBenefit /> },
       { path: 'referrals', element: <Referrals /> },
       { path: 'mobile-requests', element: <MobileRequests /> },
+      { path: 'whatsapp-orders', element: <WhatsAppOrders /> },
       { path: 'team', element: <Team /> },
       // «محلّي»'s OWN route (nav.ts::SHOP_PATH's own note explains why it is no longer also the
       // index route) — the page «اليوم» and «محلّي» became. Bookmarks, links in messages and the
