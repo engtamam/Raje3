@@ -706,11 +706,20 @@ async def provision_catalog(request: Request, body: ProvisionCatalogIn) -> dict:
     reconnect, never mints a second catalog for the same tenant).
 
     NEVER 500s ON A PROVISIONING FAILURE — same posture as `provision_meta_agent` above. A caller
-    that wants to know what happened reads the response body's `ok`/`failed_step`/`error`."""
+    that wants to know what happened reads the response body's `ok`/`failed_step`/`error`.
+
+    LICENCE CHECKED BEFORE ANY GRAPH CALL — a toggled-off/never-subscribed tenant must not end up
+    with a live, order-taking Meta catalog any more than they may send a message (core/licence.py
+    ::ToggleGatedLicence). Same pattern as `whatsapp_flow_booking` above."""
     from app.core.catalog_provisioning import HttpCatalogProvisioner, provision_catalog as _run
 
     container = request.app.state.container
     settings = get_settings()
+
+    if container.licence is not None and not await container.licence.allowed(body.tenant):
+        return {"ok": False, "failed_step": "", "error": "tenant is not subscribed",
+               "page_id": "", "catalog_id": "", "catalog_created": False, "connected": False,
+               "cart_enabled": False}
 
     if not getattr(settings, "CATALOG_PROVISIONING_ENABLED", False):
         return {"ok": False, "failed_step": "", "error": "CATALOG_PROVISIONING_ENABLED is off",
@@ -759,11 +768,18 @@ async def sync_catalog_item(request: Request, body: SyncCatalogItemIn) -> dict:
 
     NEVER 500s ON A SYNC FAILURE — same posture as `provision_catalog`/`provision_meta_agent`
     above. A caller that wants to know what happened reads the response body's
-    `ok`/`failed_step`/`error`."""
+    `ok`/`failed_step`/`error`.
+
+    LICENCE CHECKED BEFORE ANY GRAPH CALL — same reasoning as `provision_catalog` above: a
+    toggled-off/never-subscribed tenant must not get a real catalog item written or removed."""
     from app.core.catalog_item_sync import HttpCatalogItemSyncer, sync_service_item
 
     container = request.app.state.container
     settings = get_settings()
+
+    if container.licence is not None and not await container.licence.allowed(body.tenant):
+        return {"ok": False, "failed_step": "", "error": "tenant is not subscribed",
+               "synced": False, "removed": False}
 
     if not getattr(settings, "CATALOG_PROVISIONING_ENABLED", False):
         return {"ok": False, "failed_step": "", "error": "CATALOG_PROVISIONING_ENABLED is off",
