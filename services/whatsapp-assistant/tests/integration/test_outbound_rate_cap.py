@@ -31,7 +31,7 @@ class _ReplyPlan:
 
 
 class _RecordingEngine:
-    async def handle_order_followup(self, *, tenant, subject_ref, kind, text, from_number="", wamid=""):
+    async def handle_order_followup(self, *, tenant, subject_ref, kind, text, from_number="", wamid="", reply_id=""):
         return None
 
     async def handle_inbound_text(self, *, tenant, subject_ref, from_number, text, branch_id=""):

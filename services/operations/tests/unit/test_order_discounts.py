@@ -339,3 +339,304 @@ def test_a_customer_not_eligible_for_a_referral_discount_gets_an_ordinary_order(
                         items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_ref3"))
     assert order.discount_minor == 0
     assert order.discount_source == ""
+
+
+# ── loyalty points rewards -- discount-type only, customer's own explicit choice ────────────────
+
+class FakeLoyaltyDesk:
+    """Mirrors LoyaltyDesk's own {balance, redeem} shape."""
+
+    def __init__(self, rewards=None):
+        self.rewards = rewards or []
+        self.redeemed = []
+        self._redeemed_keys = {}
+
+    async def balance(self, *, tenant, subject_ref):
+        return {"has_programme": True, "points": 500, "rewards": self.rewards,
+               "to_next_reward": 0, "expires_at": 0}
+
+    async def redeem(self, *, tenant, subject_ref, reward_id, idempotency_key, actor="",
+                     branch_id=""):
+        if idempotency_key in self._redeemed_keys:
+            return self._redeemed_keys[idempotency_key]
+        reward = next((r for r in self.rewards if r["id"] == reward_id), None)
+        if reward is None:
+            return {"_status": 404}
+        out = {"redemption": {"reward_name": reward["name"], "reward_type": reward["type"],
+                              "cost": reward["cost"],
+                              "discount_halalas": reward.get("discount_halalas", 0)},
+              "balance": 500 - reward["cost"], "duplicate": False}
+        self.redeemed.append({"tenant": tenant, "subject_ref": subject_ref,
+                              "reward_id": reward_id, "idempotency_key": idempotency_key})
+        self._redeemed_keys[idempotency_key] = out
+        return out
+
+
+def _service_with_loyalty(store, *, loyalty=None) -> OrderService:
+    ops = Operations(store=store, pii_salt="s" * 32)
+    return OrderService(store=store, services=ServiceStore(store), branches=BranchStore(store),
+                        operations=ops, payments=FakePaymentsDesk(), loyalty=loyalty)
+
+
+def test_a_discount_type_reward_is_offered_when_affordable():
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    loyalty = FakeLoyaltyDesk([
+        {"id": "rwd_1", "name": "خصم 10 ريال", "cost": 50, "type": "discount",
+         "discount_halalas": 1_000, "active": True},
+    ])
+    s = _service_with_loyalty(store, loyalty=loyalty)
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_pts1"))
+
+    offer = run(s.available_points_reward(TENANT, order.id))
+    assert offer == {"id": "rwd_1", "name": "خصم 10 ريال", "cost": 50, "minor": 1_000}
+
+
+def test_service_and_item_type_rewards_are_never_offered_to_an_order():
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    loyalty = FakeLoyaltyDesk([
+        {"id": "rwd_svc", "name": "غسيل مجاني", "cost": 50, "type": "service",
+         "service_id": sid, "active": True},
+        {"id": "rwd_item", "name": "عطر مجاني", "cost": 30, "type": "item", "active": True},
+    ])
+    s = _service_with_loyalty(store, loyalty=loyalty)
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_pts2"))
+    assert run(s.available_points_reward(TENANT, order.id)) is None
+
+
+def test_redeeming_a_points_reward_suppresses_an_already_held_campaign_discount():
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    desk = FakeDiscountDesk({"ref": "snd_pts", "reward_kind": "percent", "reward_amount": 20,
+                            "scope_service_ids": [], "expires_at": 9_999_999_999})
+    loyalty = FakeLoyaltyDesk([
+        {"id": "rwd_2", "name": "خصم 15 ريال", "cost": 80, "type": "discount",
+         "discount_halalas": 1_500, "active": True},
+    ])
+    ops = Operations(store=store, pii_salt="s" * 32)
+    s = OrderService(store=store, services=ServiceStore(store), branches=BranchStore(store),
+                     operations=ops, payments=FakePaymentsDesk(),
+                     discounts=desk.as_dict(), loyalty=loyalty)
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_pts3"))
+    assert order.discount_minor == 2_000
+
+    redeemed = run(s.redeem_points_reward(TENANT, order.id, reward_id="rwd_2"))
+    assert redeemed.points_reward_minor == 1_500
+    assert redeemed.points_reward_name == "خصم 15 ريال"
+    assert redeemed.discount_minor == 0 and redeemed.discount_source == ""
+    assert redeemed.amount_due_minor == 10_000 - 1_500
+
+
+def test_redeeming_points_releases_the_campaign_discount_claim_for_a_future_order():
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    desk = FakeDiscountDesk({"ref": "snd_release", "reward_kind": "percent", "reward_amount": 20,
+                            "scope_service_ids": [], "expires_at": 9_999_999_999})
+    loyalty = FakeLoyaltyDesk([
+        {"id": "rwd_3", "name": "خصم 5 ريال", "cost": 20, "type": "discount",
+         "discount_halalas": 500, "active": True},
+    ])
+    ops = Operations(store=store, pii_salt="s" * 32)
+    s = OrderService(store=store, services=ServiceStore(store), branches=BranchStore(store),
+                     operations=ops, payments=FakePaymentsDesk(),
+                     discounts=desk.as_dict(), loyalty=loyalty)
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_pts4a"))
+    run(s.redeem_points_reward(TENANT, order.id, reward_id="rwd_3"))
+
+    second = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                         items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_pts4b"))
+    assert second.discount_minor == 2_000
+
+
+def test_an_unaffordable_reward_is_never_offered():
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+
+    class _PoorLoyalty(FakeLoyaltyDesk):
+        async def balance(self, *, tenant, subject_ref):
+            return {"has_programme": True, "points": 10, "rewards": [], "to_next_reward": 40,
+                   "expires_at": 0}
+
+    loyalty = _PoorLoyalty()
+    s = _service_with_loyalty(store, loyalty=loyalty)
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_pts5"))
+    assert run(s.available_points_reward(TENANT, order.id)) is None
+
+
+def test_redeeming_a_reward_is_refused_once_the_order_is_already_paid():
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    loyalty = FakeLoyaltyDesk([
+        {"id": "rwd_4", "name": "خصم 5 ريال", "cost": 20, "type": "discount",
+         "discount_halalas": 500, "active": True},
+    ])
+    s = _service_with_loyalty(store, loyalty=loyalty)
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_pts6"))
+    run(s.confirm_payment(TENANT, order.id, paid_amount_minor=order.amount_due_minor,
+                          payment_ref="pay_ref_pts6"))
+
+    from app.core.orders import OrderError
+    try:
+        run(s.redeem_points_reward(TENANT, order.id, reward_id="rwd_4"))
+        assert False, "must refuse once the order is no longer awaiting payment"
+    except OrderError:
+        pass
+    assert loyalty.redeemed == []
+
+
+# ── deeper edge cases: insufficient points, malformed rewards, caps, concurrency ─────────────────
+
+class _OverdraftLoyalty(FakeLoyaltyDesk):
+    """Mirrors the real `loyalty_desk.py::_call()`'s own shape for a genuine 409 refusal
+    (insufficient points) -- `_status`/`_reason` present, never a bare `None` (peer-down)."""
+
+    async def redeem(self, *, tenant, subject_ref, reward_id, idempotency_key, actor="",
+                     branch_id=""):
+        return {"_status": 409, "_reason": "الرصيد 10 نقطة، والمكافأة 50 — لا يكفي"}
+
+
+def test_insufficient_points_relays_the_real_refusal_sentence_not_a_generic_one():
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    loyalty = _OverdraftLoyalty()
+    s = _service_with_loyalty(store, loyalty=loyalty)
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_pts7"))
+
+    from app.core.orders import OrderError
+    try:
+        run(s.redeem_points_reward(TENANT, order.id, reward_id="rwd_x"))
+        assert False, "insufficient points must refuse"
+    except OrderError as exc:
+        assert "لا يكفي" in str(exc), "the real loyalty refusal sentence must reach the customer"
+
+
+def test_redeeming_an_unknown_reward_id_is_refused_cleanly():
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    loyalty = FakeLoyaltyDesk([{"id": "rwd_real", "name": "خصم", "cost": 10, "type": "discount",
+                               "discount_halalas": 500, "active": True}])
+    s = _service_with_loyalty(store, loyalty=loyalty)
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_pts8"))
+
+    from app.core.orders import OrderError
+    try:
+        run(s.redeem_points_reward(TENANT, order.id, reward_id="rwd_does_not_exist"))
+        assert False, "an unknown reward_id must be refused, never silently accepted"
+    except OrderError:
+        pass
+
+
+def test_a_fixed_halalas_reward_worth_more_than_the_order_is_capped_not_overcharged_negative():
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=1_000))  # a cheap order, 10 ريال
+    loyalty = FakeLoyaltyDesk([
+        {"id": "rwd_big", "name": "خصم 50 ريال", "cost": 10, "type": "discount",
+         "discount_halalas": 5_000, "active": True},
+    ])
+    s = _service_with_loyalty(store, loyalty=loyalty)
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_pts9"))
+
+    offer = run(s.available_points_reward(TENANT, order.id))
+    assert offer["minor"] == 1_000, "the offer itself must already be capped at the order total"
+
+    redeemed = run(s.redeem_points_reward(TENANT, order.id, reward_id="rwd_big"))
+    assert redeemed.points_reward_minor == 1_000
+    assert redeemed.amount_due_minor == 0, "never negative"
+
+
+def test_the_cheapest_of_several_affordable_discount_rewards_is_offered():
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    loyalty = FakeLoyaltyDesk([
+        {"id": "rwd_expensive", "name": "خصم كبير", "cost": 200, "type": "discount",
+         "discount_halalas": 3_000, "active": True},
+        {"id": "rwd_cheap", "name": "خصم صغير", "cost": 20, "type": "discount",
+         "discount_halalas": 500, "active": True},
+    ])
+    s = _service_with_loyalty(store, loyalty=loyalty)
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_pts10"))
+
+    offer = run(s.available_points_reward(TENANT, order.id))
+    assert offer["id"] == "rwd_cheap", "cheapest (fewest points spent) is offered, not biggest"
+
+
+def test_a_reward_with_zero_discount_halalas_is_never_offered_even_if_typed_discount():
+    """A malformed/misconfigured reward row (`type == "discount"` but no real amount) must never
+    be surfaced as if it were worth something."""
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    loyalty = FakeLoyaltyDesk([
+        {"id": "rwd_broken", "name": "خصم معطّل", "cost": 5, "type": "discount",
+         "discount_halalas": 0, "active": True},
+    ])
+    s = _service_with_loyalty(store, loyalty=loyalty)
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_pts11"))
+    assert run(s.available_points_reward(TENANT, order.id)) is None
+
+
+def test_redeeming_points_is_a_genuine_no_op_release_when_no_discount_was_ever_held():
+    """`redeem_points_reward`'s own discount-claim release must never raise or behave oddly when
+    the order held no discount at all to begin with -- the common case."""
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    loyalty = FakeLoyaltyDesk([
+        {"id": "rwd_only", "name": "خصم 5 ريال", "cost": 20, "type": "discount",
+         "discount_halalas": 500, "active": True},
+    ])
+    s = _service_with_loyalty(store, loyalty=loyalty)
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_pts12"))
+    assert order.discount_source == ""
+
+    redeemed = run(s.redeem_points_reward(TENANT, order.id, reward_id="rwd_only"))
+    assert redeemed.points_reward_minor == 500
+    assert redeemed.discount_source == ""
+
+
+def test_retrying_the_same_points_redemption_settles_on_the_same_outcome_not_a_second_charge():
+    """loyalty's OWN idempotency key (`order:{id}`) is what actually prevents a double-spend -- a
+    retried call (a webhook redelivery of the button tap, or a flaky connection) must settle on
+    the identical result, never charge the customer's points twice."""
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    loyalty = FakeLoyaltyDesk([
+        {"id": "rwd_retry", "name": "خصم 10 ريال", "cost": 50, "type": "discount",
+         "discount_halalas": 1_000, "active": True},
+    ])
+    s = _service_with_loyalty(store, loyalty=loyalty)
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_pts13"))
+
+    first = run(s.redeem_points_reward(TENANT, order.id, reward_id="rwd_retry"))
+    second = run(s.redeem_points_reward(TENANT, order.id, reward_id="rwd_retry"))
+    assert first.points_reward_minor == second.points_reward_minor == 1_000
+    assert len(loyalty.redeemed) == 1, "loyalty's own idempotency key must stop a second charge"
+
+
+def test_available_points_reward_with_no_subject_ref_is_silently_none():
+    """An order resolved with no `Operations` peer at all (no customer resolution) has no
+    `subject_ref` -- the same `None`, no-gap posture every optional peer here already takes."""
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store))
+    loyalty = FakeLoyaltyDesk([
+        {"id": "rwd_1", "name": "خصم", "cost": 10, "type": "discount",
+         "discount_halalas": 500, "active": True},
+    ])
+    s = OrderService(store=store, services=ServiceStore(store), branches=BranchStore(store),
+                     operations=None, payments=FakePaymentsDesk(), loyalty=loyalty)
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_pts14"))
+    assert order.subject_ref == ""
+    assert run(s.available_points_reward(TENANT, order.id)) is None

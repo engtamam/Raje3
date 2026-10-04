@@ -166,6 +166,18 @@ class Order:
     # receipt (or a dispute) can trace the number back to an actual campaign send rather than a
     # bare amount nobody can explain six months later.
     discount_source: str = ""
+    # THE CUSTOMER'S OWN LOYALTY POINTS REWARD, IF THEY CHOSE ONE — never auto-applied, unlike
+    # `discount_minor` above (see `core/discount_consultation.py`'s own module docstring on why
+    # points redemption must always be the customer's explicit choice, never a silent pick). Only
+    # a `type == "discount"` loyalty reward ever reaches these fields — a `service`/`item` reward
+    # would make `services/loyalty` itself record a visit on redemption, which this order's own
+    # `complete()` already does independently; offering those here would double the visit. Kept
+    # separate from `discount_minor`/`discount_source` (never summed into them) for the same
+    # "a receipt must answer what this was actually off of" reason those two are their own fields.
+    points_reward_id: str = ""
+    points_reward_name: str = ""
+    points_reward_cost: int = 0
+    points_reward_minor: int = 0
     preparing_at: int = 0
     ready_at: int = 0
     out_for_delivery_at: int = 0
@@ -185,10 +197,13 @@ class Order:
     def amount_due_minor(self) -> int:
         """What the customer is ACTUALLY asked to pay — `total_minor` stays the pure catalogue
         sum on purpose (it is the receipt's own "before discount" figure), but the gateway must
-        never be quoted that number once a discount is sitting on the order: `request_payment()`
-        mints the link for THIS amount, and `confirm_payment()` checks the gateway's reported
-        amount against THIS amount, never `total_minor` directly."""
-        return max(0, self.total_minor - self.discount_minor)
+        never be quoted that number once a discount or a points reward is sitting on the order:
+        `request_payment()` mints the link for THIS amount, and `confirm_payment()` checks the
+        gateway's reported amount against THIS amount, never `total_minor` directly. The two
+        reductions are never both non-zero at once in practice (redeeming points suppresses the
+        automatic discount, see `redeem_points_reward`'s own docstring) but summing both here is
+        still the honest answer if that ever changed."""
+        return max(0, self.total_minor - self.discount_minor - self.points_reward_minor)
 
     def public(self) -> dict[str, Any]:
         row = asdict(self)
@@ -214,7 +229,7 @@ class OrderService:
     def __init__(self, *, store: Any, services: Any, branches: Any, operations: Any = None,
                 seams: Any = None, payments: Any = None, events: Any = None,
                 working_hours: Any = None, pauses: Any = None, discounts: Any = None,
-                default_cc: str = "966") -> None:
+                loyalty: Any = None, default_cc: str = "966") -> None:
         self._s = store
         self._services = services      # ServiceStore — the one source of truth for price/active
         self._branches = branches      # BranchStore — confirms the branch is real and this tenant's
@@ -233,6 +248,9 @@ class OrderService:
         # looks one up and every order prices from the catalogue alone, exactly as before this
         # existed.
         self._discounts = discounts
+        # `LoyaltyDesk`-shaped (`balance`/`redeem`) — `None` is the real, supported "no loyalty
+        # programme reaches orders" state, same posture `discounts` above already takes.
+        self._loyalty = loyalty
         self._cc = default_cc
 
     async def _emit(self, row: "Order") -> None:
@@ -459,6 +477,89 @@ class OrderService:
             raise OrderError("تعذّر إنشاء رابط الدفع الآن — حاول بعد لحظات.")
         row.payment_request_id = str(out.get("request_id") or "")
         row.pay_url = str(out.get("pay_url") or "")
+        await self._save(row)
+        return row
+
+    async def available_points_reward(self, tenant: str, order_id: str) -> dict[str, Any] | None:
+        """The single cheapest `type == "discount"` loyalty reward this order's own customer can
+        currently afford, or `None` — read-only, never redeemed here (see `redeem_points_reward`
+        below, the only spend path). See `Order.points_reward_id`'s own field comment for why
+        `service`/`item` reward types are never surfaced to an order at all: redeeming either of
+        those makes `services/loyalty` itself record a visit, which this order's own `complete()`
+        already does independently — offering one here would double it.
+
+        A FAILURE HERE MEANS "NOTHING TO OFFER", NEVER A REFUSED ORDER — same posture
+        `discount_consultation.py`'s own module docstring takes: an unreachable loyalty peer must
+        not stop a customer from paying for an order they already placed."""
+        row = await self.get(tenant, order_id)
+        if row is None or not row.subject_ref or self._loyalty is None:
+            return None
+        try:
+            bal = await self._loyalty.balance(tenant=tenant, subject_ref=row.subject_ref)
+        except Exception:                                                  # noqa: BLE001
+            bal = None
+        if not bal:
+            return None
+        candidates = [r for r in (bal.get("rewards") or [])
+                     if r.get("type") == "discount" and int(r.get("discount_halalas") or 0) > 0]
+        if not candidates:
+            return None
+        # CHEAPEST FIRST — `services/loyalty`'s own `Rewards.list()` already sorts by cost
+        # ascending and `affordable()` preserves that order, so this is simply the first one; the
+        # explicit sort here is defence in depth against a future peer response that is not
+        # pre-sorted, never a behaviour change.
+        chosen = min(candidates, key=lambda r: int(r.get("cost") or 0))
+        minor = max(0, min(int(chosen.get("discount_halalas") or 0), row.amount_due_minor))
+        return {"id": str(chosen.get("id") or ""), "name": str(chosen.get("name") or ""),
+               "cost": int(chosen.get("cost") or 0), "minor": minor}
+
+    async def redeem_points_reward(self, tenant: str, order_id: str, *, reward_id: str) -> Order:
+        """Spend the customer's own points on `reward_id` — the ONLY path that ever touches the
+        loyalty ledger for an order. ONE BENEFIT PER ORDER (the owner's own rule): choosing a
+        points reward SUPPRESSES any automatic campaign/referral discount already reserved on
+        this order and releases its claim back for a future attempt, exactly the same "never
+        stacked" reasoning `discount_consultation.py`'s own module docstring gives for comparing
+        campaign against referral — points are simply a THIRD candidate the customer alone may
+        pick, never auto-compared against the other two.
+
+        `services/loyalty` ITSELF IS THE ATOMICITY — its own `SpendLock` plus this call's
+        idempotency key (`order:{order_id}`) is what actually prevents a double-spend; no second
+        claim lane is needed here the way `DISCOUNT_CLAIMS` guards the money sources, since a
+        retried request for the SAME order simply replays the SAME idempotent redeem."""
+        row = await self.get(tenant, order_id)
+        if row is None:
+            raise OrderError("الطلب غير موجود.")
+        if row.status not in PAYABLE_FROM:
+            raise OrderError("هذا الطلب لم يعد بانتظار الدفع.")
+        if self._loyalty is None or not row.subject_ref:
+            raise OrderError("تعذّر استخدام نقاطك الآن — حاول بعد لحظات.")
+        out = await self._loyalty.redeem(
+            tenant=tenant, subject_ref=row.subject_ref, reward_id=reward_id,
+            idempotency_key=f"order:{row.id}")
+        if out is None:
+            raise OrderError("تعذّر استخدام نقاطك الآن — حاول بعد لحظات.")
+        if "_status" in out:
+            # A REAL REFUSAL (insufficient points, an unknown/retired reward_id) IS WORTH RELAYING
+            # VERBATIM, never flattened into the same "try again" sentence a genuinely unreachable
+            # peer gets — `loyalty_desk.py`'s own `_call()` already tells the two apart
+            # (`_reason` present only for a real HTTP refusal, never for a network/timeout
+            # failure), same "return the real sentence" discipline every other peer refusal in
+            # this file already follows.
+            raise OrderError(str(out.get("_reason") or "تعذّر استخدام نقاطك الآن — حاول بعد لحظات."))
+        redemption = out.get("redemption") or {}
+        if str(redemption.get("reward_type") or "") != "discount":
+            raise OrderError("هذه المكافأة غير متاحة لطلبات التوصيل.")
+
+        # SUPPRESS, NEVER STACK — release the money-discount claim this order may already hold,
+        # same cleanup `cancel()` already does for the identical reason.
+        if row.discount_source:
+            await self._s.delete(DISCOUNT_CLAIMS, f"{tenant}|{row.discount_source}")
+        row.discount_minor, row.discount_source = 0, ""
+        row.points_reward_id = reward_id
+        row.points_reward_name = str(redemption.get("reward_name") or "")
+        row.points_reward_cost = int(redemption.get("cost") or 0)
+        row.points_reward_minor = max(
+            0, min(int(redemption.get("discount_halalas") or 0), row.total_minor))
         await self._save(row)
         return row
 

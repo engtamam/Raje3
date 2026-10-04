@@ -393,7 +393,8 @@ def build_container(settings: Settings) -> Container:
         branches=BranchStore(container.datastore), operations=container.operations,
         seams=container.seams, payments=container.payments_desk, events=container.event_bus,
         working_hours=container.bookings_desk, pauses=container.order_pauses,
-        discounts=container.discount_desk, default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
+        discounts=container.discount_desk, loyalty=container.loyalty_desk,
+        default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
 
     # Shop-to-shop coupons (base-services v0.23.0) — needs `billing_plans` above, so it is built
     # right after it. See core/coupons.py's own module docstring for the full design.

@@ -27,10 +27,13 @@ class _FakeOrders:
     itself; this file only needs it to exist so handle_order_followup's location branch has
     somewhere real (if trivial) to call."""
 
-    def __init__(self, *, fail: bool = False, pay_url: str = "https://pay.example/r/abc123"):
+    def __init__(self, *, fail: bool = False, pay_url: str = "https://pay.example/r/abc123",
+                points_reward: dict | None = None):
         self.calls: list[dict] = []
+        self.points_calls: list[dict] = []
         self._fail = fail
         self._pay_url = pay_url
+        self._points_reward = points_reward
 
     async def create(self, **kwargs):
         from app.ports.orders import CreatedOrder, OrderFailed
@@ -38,6 +41,18 @@ class _FakeOrders:
         if self._fail:
             raise OrderFailed("لا يوجد فرع يغطي هذا الموقع")
         return CreatedOrder(order_id="ord_test123456", branch_id="br1", total_minor=5000,
+                           pay_url="" if self._points_reward else self._pay_url,
+                           points_reward=self._points_reward)
+
+    async def choose_points_reward(self, *, tenant, order_id, action, reward_id=""):
+        from app.ports.orders import CreatedOrder
+        self.points_calls.append({"tenant": tenant, "order_id": order_id, "action": action,
+                                  "reward_id": reward_id})
+        if action == "use":
+            return CreatedOrder(order_id=order_id, branch_id="br1", total_minor=5000,
+                               pay_url=self._pay_url, points_reward_minor=1000,
+                               points_reward_name="خصم 10 ريال")
+        return CreatedOrder(order_id=order_id, branch_id="br1", total_minor=5000,
                            pay_url=self._pay_url)
 
 
@@ -425,3 +440,142 @@ async def test_an_expired_pending_order_on_an_unrelated_message_just_falls_throu
     assert plan is None
     conv = await engine._get(TENANT, SUBJECT)
     assert conv.awaiting_order_location is False  # the stale state was cleared regardless
+
+
+# ── loyalty points reward offered after location, before any payment link ──────────────────────
+
+async def test_a_live_points_reward_asks_a_button_question_instead_of_the_pay_link():
+    store = MemoryDataStore()
+    orders = _FakeOrders(points_reward={"id": "rwd_1", "name": "خصم 10 ريال", "cost": 50,
+                                        "minor": 1000})
+    engine = _engine(store, orders=orders)
+    await engine.handle_order(
+        tenant=TENANT, subject_ref=SUBJECT, text=_order_text([("srv1", 1)]), now=1000)
+
+    plan = await engine.handle_order_followup(
+        tenant=TENANT, subject_ref=SUBJECT, kind="location", text="24.7136,46.6753",
+        from_number="+966500000000", wamid="w1", now=1100)
+
+    assert plan.kind == "interactive"
+    assert "خصم 10 ريال" in plan.text
+    assert len(plan.interactive_buttons) == 2
+    assert plan.interactive_buttons[0]["id"] == "points:use:ord_test123456"
+    assert plan.interactive_buttons[1]["id"] == "points:skip:ord_test123456"
+    conv = await engine._get(TENANT, SUBJECT)
+    assert conv.awaiting_points_choice is True
+    assert conv.pending_points_order_id == "ord_test123456"
+    assert conv.pending_points_reward_id == "rwd_1"
+
+
+async def test_choosing_to_use_points_sends_the_final_pay_link_with_the_reward_applied():
+    store = MemoryDataStore()
+    orders = _FakeOrders(points_reward={"id": "rwd_1", "name": "خصم 10 ريال", "cost": 50,
+                                        "minor": 1000})
+    engine = _engine(store, orders=orders)
+    await engine.handle_order(
+        tenant=TENANT, subject_ref=SUBJECT, text=_order_text([("srv1", 1)]), now=1000)
+    await engine.handle_order_followup(
+        tenant=TENANT, subject_ref=SUBJECT, kind="location", text="24.7136,46.6753",
+        from_number="+966500000000", wamid="w1", now=1100)
+
+    plan = await engine.handle_points_choice(tenant=TENANT, subject_ref=SUBJECT, action="use")
+
+    assert plan.kind == "text"
+    assert "استلام" not in plan.text
+    assert "10.00 ريال" in plan.text
+    assert "خصم 10 ريال" in plan.text
+    assert orders.points_calls == [{"tenant": TENANT, "order_id": "ord_test123456",
+                                   "action": "use", "reward_id": "rwd_1"}]
+    conv = await engine._get(TENANT, SUBJECT)
+    assert conv.awaiting_points_choice is False
+    assert conv.pending_points_order_id == ""
+
+
+async def test_skipping_the_points_reward_sends_the_ordinary_pay_link():
+    store = MemoryDataStore()
+    orders = _FakeOrders(points_reward={"id": "rwd_1", "name": "خصم 10 ريال", "cost": 50,
+                                        "minor": 1000})
+    engine = _engine(store, orders=orders)
+    await engine.handle_order(
+        tenant=TENANT, subject_ref=SUBJECT, text=_order_text([("srv1", 1)]), now=1000)
+    await engine.handle_order_followup(
+        tenant=TENANT, subject_ref=SUBJECT, kind="location", text="24.7136,46.6753",
+        from_number="+966500000000", wamid="w1", now=1100)
+
+    plan = await engine.handle_points_choice(tenant=TENANT, subject_ref=SUBJECT, action="skip")
+
+    assert plan.kind == "text"
+    assert "ريال" not in plan.text, "no reward was redeemed, nothing to show as savings"
+    assert orders.points_calls == [{"tenant": TENANT, "order_id": "ord_test123456",
+                                   "action": "skip", "reward_id": "rwd_1"}]
+
+
+async def test_a_points_choice_with_nothing_pending_returns_none():
+    store = MemoryDataStore()
+    engine = _engine(store)
+    plan = await engine.handle_points_choice(tenant=TENANT, subject_ref=SUBJECT, action="use")
+    assert plan is None
+
+
+async def test_a_stray_text_message_while_awaiting_a_points_choice_is_reminded_not_dropped_to_ai():
+    """The exact bug class this product has already been bitten by once (the order-location
+    flow's own equivalent reminder) -- a pending, money-bearing question must never let an
+    unrelated message quietly reach the AI instead of answering it."""
+    store = MemoryDataStore()
+    orders = _FakeOrders(points_reward={"id": "rwd_1", "name": "خصم 10 ريال", "cost": 50,
+                                        "minor": 1000})
+    engine = _engine(store, orders=orders)
+    await engine.handle_order(
+        tenant=TENANT, subject_ref=SUBJECT, text=_order_text([("srv1", 1)]), now=1000)
+    await engine.handle_order_followup(
+        tenant=TENANT, subject_ref=SUBJECT, kind="location", text="24.7136,46.6753",
+        from_number="+966500000000", wamid="w1", now=1100)
+
+    plan = await engine.handle_order_followup(
+        tenant=TENANT, subject_ref=SUBJECT, kind="text", text="كم السعر؟", now=1200)
+
+    assert plan is not None, "must intercept, never silently fall through to the AI"
+    assert "النقاط" in plan.text
+    conv = await engine._get(TENANT, SUBJECT)
+    assert conv.awaiting_points_choice is True, "the pending question itself must survive"
+
+
+async def test_the_customers_own_points_button_tap_is_let_through_not_intercepted():
+    """The one message `handle_order_followup` must NOT answer itself while awaiting a points
+    choice -- the customer's own real reply_id, which must fall through (`None`) so
+    `inbound_ingest.py`'s dispatch reaches `handle_points_choice` instead."""
+    store = MemoryDataStore()
+    orders = _FakeOrders(points_reward={"id": "rwd_1", "name": "خصم 10 ريال", "cost": 50,
+                                        "minor": 1000})
+    engine = _engine(store, orders=orders)
+    await engine.handle_order(
+        tenant=TENANT, subject_ref=SUBJECT, text=_order_text([("srv1", 1)]), now=1000)
+    await engine.handle_order_followup(
+        tenant=TENANT, subject_ref=SUBJECT, kind="location", text="24.7136,46.6753",
+        from_number="+966500000000", wamid="w1", now=1100)
+
+    plan = await engine.handle_order_followup(
+        tenant=TENANT, subject_ref=SUBJECT, kind="button_reply", text="",
+        reply_id="points:use:ord_test123456", now=1200)
+    assert plan is None
+
+
+async def test_a_button_reply_for_a_different_orders_points_question_is_still_reminded():
+    """Belt and suspenders: a reply_id that merely LOOKS like a points answer but names a
+    DIFFERENT order id (a stale button from an earlier, already-resolved offer) must still be
+    treated as a stray message, never silently let through."""
+    store = MemoryDataStore()
+    orders = _FakeOrders(points_reward={"id": "rwd_1", "name": "خصم 10 ريال", "cost": 50,
+                                        "minor": 1000})
+    engine = _engine(store, orders=orders)
+    await engine.handle_order(
+        tenant=TENANT, subject_ref=SUBJECT, text=_order_text([("srv1", 1)]), now=1000)
+    await engine.handle_order_followup(
+        tenant=TENANT, subject_ref=SUBJECT, kind="location", text="24.7136,46.6753",
+        from_number="+966500000000", wamid="w1", now=1100)
+
+    plan = await engine.handle_order_followup(
+        tenant=TENANT, subject_ref=SUBJECT, kind="button_reply", text="",
+        reply_id="points:use:some_other_order_id", now=1200)
+    assert plan is not None
+    assert "النقاط" in plan.text

@@ -31,6 +31,17 @@ class CreatedOrder:
     # redeemed. Zero/empty is the overwhelming majority case: most orders carry no discount.
     discount_minor: int = 0
     discount_source: str = ""
+    # A LIVE LOYALTY POINTS REWARD, IF ONE WAS OFFERED — never both this and a non-empty `pay_url`
+    # at once: operations holds the pay link back the moment this is present (see
+    # `OrderService.available_points_reward`'s own docstring), so `conversation.py` must ask the
+    # customer before ever calling `choose_points_reward` below. `None` is the overwhelming
+    # majority case.
+    points_reward: dict | None = None
+    # SET ONLY AFTER a points choice has actually been resolved (`choose_points_reward`) — the
+    # amount/name a reward ENDED UP being worth, as opposed to `points_reward` above (what was
+    # merely on offer). Zero/empty means no reward was redeemed for this order.
+    points_reward_minor: int = 0
+    points_reward_name: str = ""
 
 
 class NullOrders:
@@ -39,4 +50,8 @@ class NullOrders:
     async def create(self, *, tenant: str, phone: str, customer_name: str,
                      items: list[tuple[str, int]], lat: float, lng: float,
                      idempotency_key: str, note: str = "") -> CreatedOrder:
+        raise OrderFailed("WhatsApp ordering is not configured on this deployment")
+
+    async def choose_points_reward(self, *, tenant: str, order_id: str, action: str,
+                                   reward_id: str = "") -> CreatedOrder:
         raise OrderFailed("WhatsApp ordering is not configured on this deployment")

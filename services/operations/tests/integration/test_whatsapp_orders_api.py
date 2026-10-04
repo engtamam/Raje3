@@ -297,3 +297,75 @@ def test_end_to_end_full_order_lifecycle_through_the_real_http_door(client):
     assert body2["pay_url"] == body1["pay_url"]
     assert len(client.app.state.container.orders._payments.requests) == 2
     assert len({r["reference"] for r in client.app.state.container.orders._payments.requests}) == 1
+
+
+class _FakeLoyaltyDesk:
+    def __init__(self, rewards):
+        self.rewards = rewards
+        self.redeemed = []
+
+    async def balance(self, *, tenant, subject_ref):
+        return {"has_programme": True, "points": 500, "rewards": self.rewards,
+               "to_next_reward": 0, "expires_at": 0}
+
+    async def redeem(self, *, tenant, subject_ref, reward_id, idempotency_key, actor="",
+                     branch_id=""):
+        reward = next((r for r in self.rewards if r["id"] == reward_id), None)
+        if reward is None:
+            return {"_status": 404}
+        self.redeemed.append({"reward_id": reward_id, "idempotency_key": idempotency_key})
+        return {"redemption": {"reward_name": reward["name"], "reward_type": reward["type"],
+                              "cost": reward["cost"],
+                              "discount_halalas": reward.get("discount_halalas", 0)},
+               "balance": 500 - reward["cost"], "duplicate": False}
+
+
+def test_a_live_points_reward_holds_the_pay_link_back_until_the_customer_answers(client):
+    """The first response must offer the reward, never a pay link -- and the pay link only mints
+    once the customer's own choice (here, "use") comes back through the dedicated route."""
+    _seed_branch(client)
+    sid = _seed_service(client, price_minor=10000)
+    client.app.state.container.orders._payments = _FakePaymentsDesk()
+    client.app.state.container.orders._loyalty = _FakeLoyaltyDesk([
+        {"id": "rwd_1", "name": "خصم 10 ريال", "cost": 50, "type": "discount",
+         "discount_halalas": 1000, "active": True},
+    ])
+
+    r1 = _post(client, lat=NEAR_RIYADH[0], lng=NEAR_RIYADH[1],
+              items=[{"service_id": sid, "quantity": 1}], idempotency_key="wamid_pts")
+    body1 = r1.json()
+    assert body1["created"] is True
+    assert body1["pay_url"] == ""
+    assert body1["points_reward"] == {"id": "rwd_1", "name": "خصم 10 ريال", "cost": 50,
+                                      "minor": 1000}
+
+    r2 = client.post(f"/internal/operations/whatsapp-orders/{body1['order_id']}/points",
+                     headers={"X-Internal-Token": INTERNAL_TOKEN},
+                     json={"tenant": TENANT, "action": "use", "reward_id": "rwd_1"})
+    body2 = r2.json()
+    assert body2["created"] is True
+    assert body2["pay_url"] == f"https://pay.example/r/{body1['order_id']}"
+    assert body2["points_reward_minor"] == 1000
+    assert body2["points_reward_name"] == "خصم 10 ريال"
+
+
+def test_skipping_a_points_reward_mints_the_pay_link_for_the_full_amount(client):
+    _seed_branch(client)
+    sid = _seed_service(client, price_minor=10000)
+    client.app.state.container.orders._payments = _FakePaymentsDesk()
+    client.app.state.container.orders._loyalty = _FakeLoyaltyDesk([
+        {"id": "rwd_2", "name": "خصم 10 ريال", "cost": 50, "type": "discount",
+         "discount_halalas": 1000, "active": True},
+    ])
+
+    r1 = _post(client, lat=NEAR_RIYADH[0], lng=NEAR_RIYADH[1],
+              items=[{"service_id": sid, "quantity": 1}], idempotency_key="wamid_pts_skip")
+    order_id = r1.json()["order_id"]
+
+    r2 = client.post(f"/internal/operations/whatsapp-orders/{order_id}/points",
+                     headers={"X-Internal-Token": INTERNAL_TOKEN},
+                     json={"tenant": TENANT, "action": "skip"})
+    body2 = r2.json()
+    assert body2["pay_url"] == f"https://pay.example/r/{order_id}"
+    assert body2["points_reward_minor"] == 0
+    assert client.app.state.container.orders._loyalty.redeemed == []

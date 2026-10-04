@@ -1332,6 +1332,19 @@ class WhatsAppOrderIn(BaseModel):
     note: str = Field(default="", max_length=1000)
 
 
+def _whatsapp_order_response(order: Any, *, pay_reason: str = "",
+                             points_reward: dict[str, Any] | None = None) -> dict[str, Any]:
+    """The one response shape every `/operations/whatsapp-orders*` route returns — see each
+    route's own docstring for when `pay_url` is deliberately empty (awaiting a points choice, or a
+    real minting failure, told apart by `pay_reason`)."""
+    return {"created": True, "order_id": order.id, "branch_id": order.branch_id,
+           "total_minor": order.total_minor, "pay_url": order.pay_url, "pay_reason": pay_reason,
+           "discount_minor": order.discount_minor, "discount_source": order.discount_source,
+           "points_reward_name": order.points_reward_name,
+           "points_reward_minor": order.points_reward_minor,
+           "points_reward": points_reward}
+
+
 @router.post("/operations/whatsapp-orders", dependencies=[Depends(require_internal_token)])
 async def internal_create_whatsapp_order(request: Request, body: WhatsAppOrderIn) -> dict:
     """WhatsApp Direct Ordering's own door (Step 4, whatsapp-catalog-ordering-execution-plan.md) —
@@ -1346,7 +1359,13 @@ async def internal_create_whatsapp_order(request: Request, body: WhatsAppOrderIn
 
     NO BRANCH COVERS THIS POINT is reported exactly like every other real refusal here — returned,
     never raised, so whatsapp-assistant has a real sentence to relay rather than a stripped
-    HTTPException detail."""
+    HTTPException detail.
+
+    A LIVE POINTS REWARD HOLDS THE PAY LINK BACK (2026-10-04) — `pay_url` stays empty and
+    `points_reward` carries what the customer may choose; whatsapp-assistant asks them, then calls
+    `/operations/whatsapp-orders/{id}/points` with their answer, which is the ONLY place the pay
+    link for THIS order is then minted. No reward available is the overwhelming majority case and
+    behaves exactly as before this existed: the pay link mints in this same round trip."""
     from app.core.geo import nearest_branch_for_point
     from app.core.orders import OrderError
 
@@ -1365,6 +1384,10 @@ async def internal_create_whatsapp_order(request: Request, body: WhatsAppOrderIn
     except OrderError as exc:
         return {"created": False, "reason": str(exc)}
 
+    points_reward = await c.orders.available_points_reward(body.tenant, order.id)
+    if points_reward:
+        return _whatsapp_order_response(order, points_reward=points_reward)
+
     # THE ORDER IS NOT "RECEIVED" UNTIL IT IS PAID (the owner's own call) — this route never tells
     # whatsapp-assistant to treat `created: true` alone as a finished order; the pay link is minted
     # in the SAME round trip so the customer's very first reply is "pay to confirm", never "order
@@ -1375,12 +1398,45 @@ async def internal_create_whatsapp_order(request: Request, body: WhatsAppOrderIn
     try:
         paid = await c.orders.request_payment(body.tenant, order.id)
     except OrderError as exc:
-        return {"created": True, "order_id": order.id, "branch_id": order.branch_id,
-               "total_minor": order.total_minor, "pay_url": "", "pay_reason": str(exc),
-               "discount_minor": order.discount_minor, "discount_source": order.discount_source}
-    return {"created": True, "order_id": paid.id, "branch_id": paid.branch_id,
-           "total_minor": paid.total_minor, "pay_url": paid.pay_url, "pay_reason": "",
-           "discount_minor": paid.discount_minor, "discount_source": paid.discount_source}
+        return _whatsapp_order_response(order, pay_reason=str(exc))
+    return _whatsapp_order_response(paid)
+
+
+class WhatsAppOrderPointsChoiceIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    action: str = Field(pattern="^(use|skip)$")
+    reward_id: str = Field(default="", max_length=128)
+
+
+@router.post("/operations/whatsapp-orders/{order_id}/points",
+            dependencies=[Depends(require_internal_token)])
+async def internal_whatsapp_order_points_choice(
+        request: Request, order_id: str, body: WhatsAppOrderPointsChoiceIn) -> dict:
+    """The customer's own answer to the points-reward offer `internal_create_whatsapp_order`
+    surfaced — the ONLY place the pay link for an order held back for this reason is ever minted.
+    `action == "use"` spends the reward first (suppressing any automatic discount, see
+    `OrderService.redeem_points_reward`'s own docstring); `action == "skip"` leaves whatever
+    automatic discount the order already held untouched. Either way ends the same way the ordinary
+    one-shot route does: mint the pay link, return the same response shape."""
+    from app.core.orders import OrderError
+
+    c = request.app.state.container
+    if body.action == "use":
+        if not body.reward_id:
+            return {"created": False, "reason": "لا يوجد معرّف مكافأة لاستخدامها."}
+        try:
+            await c.orders.redeem_points_reward(body.tenant, order_id, reward_id=body.reward_id)
+        except OrderError as exc:
+            return {"created": False, "reason": str(exc)}
+
+    order = await c.orders.get(body.tenant, order_id)
+    if order is None:
+        return {"created": False, "reason": "الطلب غير موجود."}
+    try:
+        paid = await c.orders.request_payment(body.tenant, order_id)
+    except OrderError as exc:
+        return _whatsapp_order_response(order, pay_reason=str(exc))
+    return _whatsapp_order_response(paid)
 
 
 class BookingRewardRedeemIn(BaseModel):

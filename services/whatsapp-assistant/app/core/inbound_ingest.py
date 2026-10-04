@@ -285,7 +285,7 @@ async def ingest_inbound_message(
         # runs completely unchanged.
         plan = await container.engine.handle_order_followup(
             tenant=tenant, subject_ref=subject_ref, kind=kind, text=text,
-            from_number=from_number, wamid=wamid)
+            from_number=from_number, wamid=wamid, reply_id=reply_id)
         from_order_flow = plan is not None
         if plan is not None:
             pass
@@ -296,7 +296,15 @@ async def ingest_inbound_message(
                 tenant=tenant, subject_ref=subject_ref, text=text, wamid=wamid)
             from_order_flow = True
         elif kind in ("button_reply", "list_reply"):
-            if reply_id.startswith("triage:"):
+            if reply_id.startswith("points:"):
+                # WhatsApp Direct Ordering's own points-reward button — "points:{use|skip}:
+                # {order_id}" (core/conversation.py::handle_order_followup's own points offer).
+                # Deterministic, same posture as every other order-flow id here.
+                action = reply_id.split(":", 2)[1] if reply_id.count(":") >= 2 else ""
+                plan = await container.engine.handle_points_choice(
+                    tenant=tenant, subject_ref=subject_ref, action=action)
+                from_order_flow = plan is not None
+            elif reply_id.startswith("triage:"):
                 # The mandatory first-message triage gate's own list-reply ids — resolved
                 # separately from proposal button_reply/list_reply ids below, since a
                 # "complaint"/"other" pick must skip the tool-allowlist path entirely (see
@@ -332,13 +340,13 @@ async def ingest_inbound_message(
         # so the customer does not get a human answer immediately followed by a bot one.
         from app.core.owner_presence import is_owner_active
         owner_active = not from_order_flow and plan is not None and plan.kind in (
-            "text", "list", "request_location") and await is_owner_active(
+            "text", "list", "request_location", "interactive") and await is_owner_active(
             container, tenant=tenant, contact=from_number, now=int(time.time()))
         if owner_active:
             logger.info("whatsapp_owner_active_suppressed",
                        extra={"tenant": tenant, "wamid": wamid})
         elif (not from_order_flow and plan is not None and plan.kind in (
-                "text", "list", "request_location") and not await outbound_allowed(
+                "text", "list", "request_location", "interactive") and not await outbound_allowed(
                 container, settings, tenant, subject_ref=subject_ref, branch_id=branch_id)):
             logger.warning("whatsapp_outbound_capped", extra={"tenant": tenant, "wamid": wamid})
             # A CAP TRIPPING IS AN EXPECTED, WORKING SAFETY MECHANISM, NOT A FAILURE — it is logged
@@ -368,6 +376,10 @@ async def ingest_inbound_message(
             await container.sender.send_location_request(
                 tenant=tenant, to=from_number, body=plan.text,
                 idempotency_key=f"{wamid}:loc_request")
+        elif plan is not None and plan.kind == "interactive" and plan.interactive_buttons:
+            await container.sender.send_interactive(
+                tenant=tenant, to=from_number, body=plan.text,
+                buttons=plan.interactive_buttons, idempotency_key=f"{wamid}:interactive")
     except Exception as exc:                                        # noqa: BLE001
         logger.warning("whatsapp_message_handling_failed",
                        extra={"error": str(exc)[:200], "tenant": tenant, "wamid": wamid})

@@ -180,6 +180,15 @@ class ConversationState:
     # SAME order message (or the customer re-sharing their location after a timeout) must settle
     # on the one real Order either way.
     pending_order_wamid: str = ""
+    # THE POINTS-REWARD BUTTON QUESTION, IF ONE IS CURRENTLY PENDING (2026-10-04) — set the moment
+    # `handle_order_followup`'s location branch gets a live reward back from operations, instead of
+    # the pay link straight away; cleared the moment the customer answers (`handle_points_choice`).
+    # A one-shot gate, same shape as `awaiting_order_location` above: a message that arrives while
+    # this is set can only ever mean "my answer to this question", never anything else.
+    awaiting_points_choice: bool = False
+    pending_points_order_id: str = ""
+    pending_points_reward_id: str = ""
+    pending_points_reward_name: str = ""
     # Set once the location arrives (handle_order_followup) and `awaiting_order_location` clears
     # to False -- held here for Step 4 (branch resolution + orders.py) to pick up; 0.0 is a real,
     # valid coordinate on the equator/meridian, so readiness is read from `awaiting_order_location`

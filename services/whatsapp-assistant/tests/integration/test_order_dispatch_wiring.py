@@ -34,7 +34,7 @@ class _RecordingEngine:
         self.followup_returns = None  # None means "not pending" unless overridden per-call
 
     async def handle_order_followup(self, *, tenant, subject_ref, kind, text, from_number="",
-                                    wamid=""):
+                                    wamid="", reply_id=""):
         self.calls.append(("followup", kind, text))
         return self.followup_returns
 
@@ -49,6 +49,10 @@ class _RecordingEngine:
     async def handle_location(self, *, tenant, subject_ref, from_number, text):
         self.calls.append(("handle_location", text))
         return _ReplyPlan(kind="text", text="استلمنا")
+
+    async def handle_points_choice(self, *, tenant, subject_ref, action):
+        self.calls.append(("points_choice", action))
+        return _ReplyPlan(kind="text", text="تم")
 
 
 class _NullCustomerLookup:
@@ -200,3 +204,21 @@ def test_order_replies_bypass_owner_presence_suppression():
     c.engine.followup_returns = _ReplyPlan(kind="text", text="تم استلام طلبك رقم ABC123")
     run(_ingest(c, kind="location", text="24.7,46.6"))
     assert len(c.sender.sent) == 1, "the order confirmation must still go out despite owner takeover"
+
+
+def test_a_points_reply_id_is_routed_to_handle_points_choice_with_the_parsed_action():
+    c = _container()
+    run(_ingest(c, kind="button_reply", text="", reply_id="points:use:ord_1"))
+    assert c.engine.calls[-1] == ("points_choice", "use")
+
+
+def test_an_interactive_reply_bypasses_the_outbound_cap_like_every_other_order_flow_reply():
+    c = _container()
+    c.engine.calls.clear()
+    settings = _Settings()
+    settings.CONVERSATION_OUTBOUND_MAX_PER_10MIN = 0
+    run(ingest_inbound_message(
+        container=c, logger=_NullLogger(), settings=settings, auditor=None,
+        tenant=TENANT, wamid="w_pts", from_number="+966500000000", kind="button_reply",
+        text="", reply_id="points:skip:ord_1", raw_payload={"wamid": "w_pts"}))
+    assert len(c.sender.sent) == 1

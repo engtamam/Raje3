@@ -156,6 +156,7 @@ _MAX_ORDER_ITEMS = 500
 _ORDER_CANCEL_KEYWORDS = {"إلغاء", "الغاء", "لغاء"}
 _ORDER_CANCELLED_TEXT = "تم إلغاء طلبك. تقدر تتواصل معنا بأي شي آخر."
 _ORDER_REMINDER_TEXT = "بانتظار مشاركة موقعك لإكمال طلبك — اضغط الزر، أو اكتب «إلغاء» لإلغاء الطلب."
+_POINTS_CHOICE_REMINDER_TEXT = "بانتظار إجابتك على سؤال النقاط أعلاه — اضغط أحد الزرّين لإكمال طلبك."
 _ORDER_EXPIRED_TEXT = "انتهت صلاحية طلبك السابق. أعد إرسال طلبك من الكتالوج من فضلك."
 _ORDER_LOCATION_REQUEST_TEXT = "تمام، استلمنا طلبك. شارك موقعك من فضلك عشان نحدد أقرب فرع لك."
 _ORDER_LOCATION_RECEIVED_TEXT = "استلمنا موقعك، شكراً! سنكمل تجهيز طلبك."
@@ -650,6 +651,11 @@ class ReplyPlan:
     # sender's own `send_single_card` vs `send_carousel`, not an implicit "carousel of one" special
     # case downstream.
     card: T.RenderedSingleCard | None = None
+    # Populated only when kind == "interactive" — a plain button question with NO proposal behind
+    # it (unlike `tools.py`'s own propose/confirm flow): `[{"id": ..., "title": ...}, ...]`, same
+    # shape `inbound_ingest.py::_gate_consent` already builds by hand for its own consent buttons.
+    # See `handle_order_followup`'s own points-reward offer for the one real caller.
+    interactive_buttons: list[dict[str, str]] | None = None
 
 
 class ConversationEngine:
@@ -1987,22 +1993,38 @@ class ConversationEngine:
             await self._release_conv_lock(tenant, subject_ref, held)
 
     async def handle_order_followup(self, *, tenant: str, subject_ref: str, kind: str, text: str,
-                                    from_number: str = "", wamid: str = "",
+                                    from_number: str = "", wamid: str = "", reply_id: str = "",
                                     now: int | None = None) -> ReplyPlan | None:
         """Every message a conversation gets WHILE `awaiting_order_location` is set — the location
         itself, an explicit cancel, a fresh order replacing this one, or anything else (reminded,
         never silently answered as if the pending order did not exist).
 
-        RETURNS `None` ONLY WHEN THIS CONVERSATION IS NOT AWAITING AN ORDER LOCATION AT ALL — the
-        caller (app/core/inbound_ingest.py) reads that as "nothing to intercept" and falls through
-        to its own ordinary kind-dispatch chain unchanged. Every other case returns a real
-        `ReplyPlan`, including an expired pending order on a non-location message, so a stale
-        money-bearing state never lingers unexplained.
+        ALSO INTERCEPTS WHILE `awaiting_points_choice` IS SET (2026-10-04) — the SAME one-shot
+        reminder discipline, for the SAME reason: a customer holding a pending, money-bearing
+        points-reward question must never have a stray message (free text, an unrelated button)
+        silently reach the AI assistant instead, which would read as the shop ignoring them. The
+        one message this must NOT intercept is the customer's own real answer — a `button_reply`
+        whose `reply_id` is the exact `points:*` id this conversation itself sent
+        (`handle_order_followup`'s own earlier points-offer, see the location branch below) — that
+        one is let through (`None`) so `app/core/inbound_ingest.py`'s own dispatch reaches
+        `handle_points_choice` instead of this function answering it.
+
+        RETURNS `None` ONLY WHEN THIS CONVERSATION IS NOT AWAITING AN ORDER LOCATION (OR A POINTS
+        CHOICE) AT ALL — the caller (app/core/inbound_ingest.py) reads that as "nothing to
+        intercept" and falls through to its own ordinary kind-dispatch chain unchanged. Every
+        other case returns a real `ReplyPlan`, including an expired pending order on a
+        non-location message, so a stale money-bearing state never lingers unexplained.
         """
         held = await self._acquire_conv_lock(tenant, subject_ref)
         try:
             now = now if now is not None else int(time.time())
             conv = await self._get(tenant, subject_ref)
+            if conv.awaiting_points_choice:
+                own_reply_ids = (f"points:use:{conv.pending_points_order_id}",
+                                f"points:skip:{conv.pending_points_order_id}")
+                if kind == "button_reply" and reply_id in own_reply_ids:
+                    return None
+                return ReplyPlan(kind="text", text=_POINTS_CHOICE_REMINDER_TEXT)
             if not conv.awaiting_order_location:
                 return None
 
@@ -2083,41 +2105,28 @@ class ConversationEngine:
                     # sentence" discipline `handle_location`'s own MobileRequestFailed handling
                     # already follows.
                     return ReplyPlan(kind="text", text=str(exc)[:200])
-                order_ref = created.order_id[-6:].upper()
-                if not created.pay_url:
-                    # NEVER "تم استلام طلبك" HERE -- the owner's own rule: an order is not received
-                    # until it is paid. The order itself already exists (idempotent on order_wamid,
-                    # a retry of the same cart settles on it), but the customer must be told to
-                    # retry rather than believe anything was confirmed.
-                    return ReplyPlan(kind="text", text=(
-                        f"تعذّر إنشاء رابط الدفع لطلبك رقم {order_ref} الآن. "
-                        "جرّب مشاركة موقعك مرة أخرى بعد قليل."))
-                if created.discount_minor > 0:
-                    # NEVER DROPPED SILENTLY — the owner's own rule for every discount this
-                    # product advertises (see campaigns' `Campaign.reward_kind`'s own docstring on
-                    # why a discount must be a real, enforced number, never decoration): if the
-                    # customer is holding one, the message that asks them to pay says so in the
-                    # same breath, never only the pay link.
-                    #
-                    # THE OWNER'S OWN DESIGN (2026-10-04): a savings number in SAR (never a bare
-                    # percent — a real figure lands heavier), a personal reason, and the before/
-                    # after price so the customer SEES what they kept, not just reads a sentence
-                    # claiming it. `~text~` is WhatsApp's own real strikethrough syntax (confirmed
-                    # supported, not a guess). This can ONLY ever appear in this message, never
-                    # inside the native catalog/cart screen itself — Meta owns that screen and KSA
-                    # has no access to its own structured order-pricing message type.
-                    saved = f"{created.discount_minor / 100:.2f}"
-                    before = f"{created.total_minor / 100:.2f}"
-                    after = f"{(created.total_minor - created.discount_minor) / 100:.2f}"
-                    return ReplyPlan(kind="text", text=(
-                        f"🎉 مكافأة لك: خصم {saved} ريال\n"
-                        "لأنك عميل مميز عندنا\n\n"
-                        f"طلبك رقم {order_ref}:\n"
-                        f"~{before} ريال~ {after} ريال\n\n"
-                        f"أكمل الدفع عشان نأكده ونبدأ تجهيزه:\n{created.pay_url}"))
-                return ReplyPlan(kind="text", text=(
-                    f"طلبك رقم {order_ref} جاهز — أكمل الدفع عشان نأكده ونبدأ تجهيزه:\n"
-                    f"{created.pay_url}"))
+                if created.points_reward:
+                    # THE PAY LINK IS DELIBERATELY EMPTY HERE — operations held it back the moment
+                    # it found an affordable reward (see `OrderService.available_points_reward`'s
+                    # own docstring): the customer's own choice must come BEFORE any money moves,
+                    # never auto-applied the way `discount_minor` is (see
+                    # `core/discount_consultation.py`'s own module docstring on why points are the
+                    # one exception to that rule). A one-shot button question, never free text.
+                    conv.awaiting_points_choice = True
+                    conv.pending_points_order_id = created.order_id
+                    conv.pending_points_reward_id = str(created.points_reward.get("id") or "")
+                    conv.pending_points_reward_name = str(created.points_reward.get("name") or "")
+                    await self._save(conv)
+                    reward_sar = f"{int(created.points_reward.get('minor') or 0) / 100:.2f}"
+                    return ReplyPlan(
+                        kind="interactive",
+                        text=(f"🎁 عندك مكافأة نقاط جاهزة: {created.points_reward.get('name')} "
+                             f"(توفّر لك {reward_sar} ريال)\n"
+                             "تبغى تستخدمها على هذا الطلب؟"),
+                        interactive_buttons=[
+                            {"id": f"points:use:{created.order_id}", "title": "نعم، استخدمها"},
+                            {"id": f"points:skip:{created.order_id}", "title": "لا، أكمل عادي"}])
+                return self._order_ready_reply(created)
 
             if text.strip() in _ORDER_CANCEL_KEYWORDS:
                 conv.awaiting_order_location = False
@@ -2128,6 +2137,87 @@ class ConversationEngine:
                 return ReplyPlan(kind="text", text=_ORDER_CANCELLED_TEXT)
 
             return ReplyPlan(kind="text", text=_ORDER_REMINDER_TEXT)
+        finally:
+            await self._release_conv_lock(tenant, subject_ref, held)
+
+    @staticmethod
+    def _order_ready_reply(created: Any) -> ReplyPlan:
+        """The final "pay to confirm" message — shared by the ordinary location-arrival path and
+        `handle_points_choice` below, since both end at the exact same shape once whatever
+        benefit applies (a discount, a redeemed points reward, or neither) is already settled on
+        `created`."""
+        order_ref = created.order_id[-6:].upper()
+        if not created.pay_url:
+            # NEVER "تم استلام طلبك" HERE -- the owner's own rule: an order is not received
+            # until it is paid. The order itself already exists (idempotent on order_wamid,
+            # a retry of the same cart settles on it), but the customer must be told to
+            # retry rather than believe anything was confirmed.
+            return ReplyPlan(kind="text", text=(
+                f"تعذّر إنشاء رابط الدفع لطلبك رقم {order_ref} الآن. "
+                "جرّب مشاركة موقعك مرة أخرى بعد قليل."))
+        savings_minor = created.discount_minor or created.points_reward_minor
+        if savings_minor > 0:
+            # NEVER DROPPED SILENTLY — the owner's own rule for every benefit this product
+            # advertises (see campaigns' `Campaign.reward_kind`'s own docstring on why a discount
+            # must be a real, enforced number, never decoration): if the customer is holding one
+            # (a campaign/referral discount, OR a points reward they just chose to redeem), the
+            # message that asks them to pay says so in the same breath, never only the pay link.
+            #
+            # THE OWNER'S OWN DESIGN (2026-10-04): a savings number in SAR (never a bare percent —
+            # a real figure lands heavier), a personal reason, and the before/after price so the
+            # customer SEES what they kept, not just reads a sentence claiming it. `~text~` is
+            # WhatsApp's own real strikethrough syntax (confirmed supported, not a guess). This can
+            # ONLY ever appear in this message, never inside the native catalog/cart screen itself
+            # — Meta owns that screen and KSA has no access to its own structured order-pricing
+            # message type.
+            saved = f"{savings_minor / 100:.2f}"
+            before = f"{created.total_minor / 100:.2f}"
+            after = f"{(created.total_minor - savings_minor) / 100:.2f}"
+            reason = (f"مكافأتك: {created.points_reward_name}" if created.points_reward_minor
+                     else "لأنك عميل مميز عندنا")
+            return ReplyPlan(kind="text", text=(
+                f"🎉 خصم {saved} ريال\n"
+                f"{reason}\n\n"
+                f"طلبك رقم {order_ref}:\n"
+                f"~{before} ريال~ {after} ريال\n\n"
+                f"أكمل الدفع عشان نأكده ونبدأ تجهيزه:\n{created.pay_url}"))
+        return ReplyPlan(kind="text", text=(
+            f"طلبك رقم {order_ref} جاهز — أكمل الدفع عشان نأكده ونبدأ تجهيزه:\n"
+            f"{created.pay_url}"))
+
+    async def handle_points_choice(self, *, tenant: str, subject_ref: str, action: str,
+                                   now: int | None = None) -> ReplyPlan | None:
+        """The customer's own tap on the points-reward button `handle_order_followup`'s location
+        branch sent — `action` is `"use"` or `"skip"`, parsed from the reply_id's own
+        `points:{action}:{order_id}` shape by `inbound_ingest.py`'s dispatch, never free text.
+
+        RETURNS `None` ONLY WHEN THIS CONVERSATION ISN'T AWAITING A POINTS CHOICE AT ALL — same
+        "nothing to intercept" contract `handle_order_followup` itself documents, so a stray
+        `points:*` reply_id arriving after the window already closed falls through harmlessly."""
+        held = await self._acquire_conv_lock(tenant, subject_ref)
+        try:
+            conv = await self._get(tenant, subject_ref)
+            if not conv.awaiting_points_choice:
+                return None
+            order_id = conv.pending_points_order_id
+            reward_id = conv.pending_points_reward_id
+            conv.awaiting_points_choice = False
+            conv.pending_points_order_id = ""
+            conv.pending_points_reward_id = ""
+            conv.pending_points_reward_name = ""
+            await self._save(conv)
+
+            if self._orders is None:
+                return ReplyPlan(kind="text", text=(
+                    "نعتذر، خدمة الطلبات عبر واتساب غير متاحة حاليًا. "
+                    "يسعد أحد موظفي المحل مساعدتك مباشرة."))
+            from app.ports.orders import OrderFailed
+            try:
+                created = await self._orders.choose_points_reward(
+                    tenant=tenant, order_id=order_id, action=action, reward_id=reward_id)
+            except OrderFailed as exc:
+                return ReplyPlan(kind="text", text=str(exc)[:200])
+            return self._order_ready_reply(created)
         finally:
             await self._release_conv_lock(tenant, subject_ref, held)
 

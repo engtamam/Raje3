@@ -51,17 +51,46 @@ class HttpOrders:
             raise OrderFailed(f"operations returned {exc.code}") from exc
         except urllib.error.URLError as exc:
             raise OrderFailed(f"operations unreachable: {exc}") from exc
-        # operations' own door returns the refusal rather than raising it — surfaced here the
-        # same way every other real failure is.
-        if not data.get("created"):
-            raise OrderFailed(str(data.get("reason") or "operations refused the order"))
-        return CreatedOrder(order_id=str(data.get("order_id") or ""),
-                           branch_id=str(data.get("branch_id") or ""),
-                           total_minor=int(data.get("total_minor") or 0),
-                           pay_url=str(data.get("pay_url") or ""),
-                           pay_reason=str(data.get("pay_reason") or ""),
-                           discount_minor=int(data.get("discount_minor") or 0),
-                           discount_source=str(data.get("discount_source") or ""))
+        return _order_from(data)
+
+    async def choose_points_reward(self, *, tenant: str, order_id: str, action: str,
+                                   reward_id: str = "") -> CreatedOrder:
+        return await asyncio.to_thread(
+            self._choose_points_reward_sync, tenant, order_id, action, reward_id)
+
+    def _choose_points_reward_sync(self, tenant: str, order_id: str, action: str,
+                                   reward_id: str) -> CreatedOrder:
+        body = json.dumps({"tenant": tenant, "action": action, "reward_id": reward_id}).encode()
+        req = urllib.request.Request(
+            self._url + f"/{order_id}/points", data=body, method="POST",
+            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
+                if not 200 <= resp.status < 300:
+                    raise OrderFailed(f"operations returned {resp.status}")
+                data: dict[str, Any] = json.loads(resp.read() or b"{}")
+        except urllib.error.HTTPError as exc:
+            raise OrderFailed(f"operations returned {exc.code}") from exc
+        except urllib.error.URLError as exc:
+            raise OrderFailed(f"operations unreachable: {exc}") from exc
+        return _order_from(data)
+
+
+def _order_from(data: dict[str, Any]) -> CreatedOrder:
+    # operations' own door returns the refusal rather than raising it — surfaced here the
+    # same way every other real failure is.
+    if not data.get("created"):
+        raise OrderFailed(str(data.get("reason") or "operations refused the order"))
+    return CreatedOrder(order_id=str(data.get("order_id") or ""),
+                        branch_id=str(data.get("branch_id") or ""),
+                        total_minor=int(data.get("total_minor") or 0),
+                        pay_url=str(data.get("pay_url") or ""),
+                        pay_reason=str(data.get("pay_reason") or ""),
+                        discount_minor=int(data.get("discount_minor") or 0),
+                        discount_source=str(data.get("discount_source") or ""),
+                        points_reward=data.get("points_reward") or None,
+                        points_reward_minor=int(data.get("points_reward_minor") or 0),
+                        points_reward_name=str(data.get("points_reward_name") or ""))
 
 
 def build(settings: Any) -> Any:
