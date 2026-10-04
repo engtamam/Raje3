@@ -5,20 +5,17 @@ import 'package:raje3_mobile/widgets/premium/active_offer_banner.dart';
 Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 
 void main() {
-  testWidgets('shows the offer text alone when there is no separate value', (tester) async {
-    await tester.pumpWidget(_wrap(const ActiveOfferBanner(text: 'خصم الصيف')));
-    expect(find.text('خصم الصيف'), findsOneWidget);
+  // `text` IS THE WHOLE SENTENCE NOW (2026-10-05) — each source (campaign/referral/mutual-benefit)
+  // composes its own complete Arabic sentence server-side, already stating its own amount; there
+  // is no separate `value` field left on the widget to combine with it.
+  testWidgets('shows the whole offer sentence as-is', (tester) async {
+    await tester.pumpWidget(_wrap(const ActiveOfferBanner(text: 'خصم الصيف 20%')));
+    expect(find.text('خصم الصيف 20%'), findsOneWidget);
   });
 
-  testWidgets('shows text and value together when both are real', (tester) async {
+  testWidgets('a referral/mutual-benefit sentence renders exactly like a campaign one', (tester) async {
     await tester.pumpWidget(
-        _wrap(const ActiveOfferBanner(text: 'خصم الصيف', value: '20%')));
-    expect(find.text('خصم الصيف — 20%'), findsOneWidget);
-  });
-
-  testWidgets('an empty value never leaves a dangling "— " after the text', (tester) async {
-    await tester.pumpWidget(_wrap(const ActiveOfferBanner(text: 'خصم الصيف', value: '')));
-    expect(find.text('خصم الصيف'), findsOneWidget);
-    expect(find.text('خصم الصيف — '), findsNothing);
+        _wrap(const ActiveOfferBanner(text: 'خصم شراكة إحالة نشط — خصم شامل')));
+    expect(find.text('خصم شراكة إحالة نشط — خصم شامل'), findsOneWidget);
   });
 }

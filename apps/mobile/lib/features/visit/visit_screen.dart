@@ -117,25 +117,36 @@ class _VisitScreenState extends State<VisitScreen>
 
   // ── the customer's own points/offer — a real preview, never a spend (§5.6.2's own "a tap,
   // never an inference"). Fetched once a customer is IDENTIFIED (by phone or by plate) and a real
-  // `subject_ref` is known — GET /api/v1/loyalty/balance/{ref} and GET /api/v1/reminders/offer,
-  // the exact shared, cross-client-type routes apps/console/src/screens/Visit.tsx's own
-  // `balanceFor`/`offerFor` already call. Cleared the moment the identity changes, same rule
-  // `_customerName`/`_vehicleCustomerName` above already follow.
+  // `subject_ref` is known — GET /api/v1/loyalty/balance/{ref} and GET
+  // /api/v1/field/visits/offer/preview, the exact shared, cross-client-type routes
+  // apps/console/src/screens/Visit.tsx's own `balanceFor`/`offerPreview` already call (2026-10-05
+  // — replaces a direct, campaign-only read of reminders' own `/offer` route, which could show
+  // nothing at all for a customer whose only live entitlement was a referral/mutual-benefit
+  // grant). Cleared the moment the identity changes, same rule `_customerName`/
+  // `_vehicleCustomerName` above already follow.
   String? _subjectRef;
   int? _loyaltyPoints;
   int _loyaltyToNextReward = 0;
   List<Map<String, dynamic>> _loyaltyRewards = [];
   String? _offerText;
-  String? _offerValue;
 
   bool _noteOpen = false;
 
   // ── Points redemption + offer application — real spends, never automatic. Mirrors
-  // apps/console/src/screens/Visit.tsx's own `spend`/`applying` exactly (same two real doors:
-  // `POST /api/v1/loyalty/redeem`, `POST /api/v1/field/visits/{id}/offer`), never invented.
+  // apps/console/src/screens/Visit.tsx's own `spend`/`applying`/`pointsChoice` (same real doors:
+  // `POST /api/v1/loyalty/redeem` for a `service`/`item` reward, `POST
+  // /api/v1/field/visits/{id}/offer` for the automatic offer, and `POST
+  // /api/v1/field/visits/{id}/points` for a DISCOUNT-type reward), never invented.
   String _redeemingRewardId = '';
   String? _redeemedRewardName;
   bool _applyingOffer = false;
+  // A DISCOUNT-TYPE REWARD, CHOSEN INSTEAD OF THE OFFER (2026-10-05) — mutually exclusive with
+  // `_applyingOffer`: the visit has one entitlement slot, and a visit (unlike an order) has no
+  // later "payment confirmation" to separate a reserved discount from a points spend, so whichever
+  // of the two is recorded first simply occupies it (`Operations.redeem_points_reward`'s own
+  // docstring). Held until save, same reasoning `_applyingOffer` already carries.
+  String? _pointsChoiceRewardId;
+  String? _pointsChoiceRewardName;
 
   /// service_id -> quantity. Only ids present here are sent.
   final Map<String, int> _selected = {};
@@ -466,7 +477,7 @@ class _VisitScreenState extends State<VisitScreen>
         });
       }
       if (subjectRef != null && subjectRef.isNotEmpty) {
-        unawaited(_loadLoyaltyAndOffer(subjectRef));
+        unawaited(_loadLoyaltyAndOffer(subjectRef, phone));
       }
     } on DioException {
       if (!mounted || silent) return;
@@ -573,6 +584,7 @@ class _VisitScreenState extends State<VisitScreen>
       final customer = body is Map<String, dynamic> ? body['customer'] : null;
       final subjectRef = customer is Map<String, dynamic> ? customer['subject_ref'] as String? : null;
       final foundName = customer is Map<String, dynamic> ? customer['name'] as String? : null;
+      final foundPhone = customer is Map<String, dynamic> ? customer['phone'] as String? : null;
       setState(() {
         _vehicleCustomerName = foundName;
         _plateLookedUp = true;
@@ -580,7 +592,7 @@ class _VisitScreenState extends State<VisitScreen>
         if (foundName != null && foundName.isNotEmpty) _nameController.text = foundName;
       });
       if (subjectRef != null && subjectRef.isNotEmpty) {
-        unawaited(_loadLoyaltyAndOffer(subjectRef));
+        unawaited(_loadLoyaltyAndOffer(subjectRef, foundPhone ?? ''));
       }
     } on DioException {
       // SAME RULE AS THE PHONE LOOKUP ABOVE — a failed lookup never blocks entry.
@@ -604,11 +616,17 @@ class _VisitScreenState extends State<VisitScreen>
       _loyaltyToNextReward = 0;
       _loyaltyRewards = [];
       _offerText = null;
-      _offerValue = null;
+      _applyingOffer = false;
+      _pointsChoiceRewardId = null;
+      _pointsChoiceRewardName = null;
     });
   }
 
-  Future<void> _loadLoyaltyAndOffer(String subjectRef) async {
+  /// `phone` IS REQUIRED NOW, ALONGSIDE `subjectRef` — the unified preview needs it for the
+  /// referral/mutual-benefit sources, which are keyed by phone rather than by pseudonym
+  /// (`core/entitlements.py::EntitlementGateway`), exactly as `apps/console/src/api.ts`'s own
+  /// `offerPreview` now takes both.
+  Future<void> _loadLoyaltyAndOffer(String subjectRef, String phone) async {
     setState(() => _subjectRef = subjectRef);
     final results = await Future.wait([
       _api.apiClient.dio
@@ -616,7 +634,8 @@ class _VisitScreenState extends State<VisitScreen>
           .then<dynamic>((r) => r.data)
           .catchError((_) => null),
       _api.apiClient.dio
-          .get<dynamic>('/api/v1/reminders/offer', queryParameters: {'subject_ref': subjectRef})
+          .get<dynamic>('/api/v1/field/visits/offer/preview',
+              queryParameters: {'phone': phone, 'subject_ref': subjectRef})
           .then<dynamic>((r) => r.data)
           .catchError((_) => null),
     ]);
@@ -642,9 +661,43 @@ class _VisitScreenState extends State<VisitScreen>
     if (offer is Map<String, dynamic>) {
       setState(() {
         _offerText = offer['text'] as String?;
-        _offerValue = offer['value'] as String?;
       });
     }
+  }
+
+  /// A `service`/`item` reward (a free wash, a free item) is independent of this invoice and is
+  /// listed here, spent immediately via `_redeemReward`. A `discount`-type reward reduces THIS
+  /// invoice — the same thing the automatic offer already does — so it is listed separately, as a
+  /// CHOICE (`_toggleDiscountReward`), never a one-tap spend. Mirrors `Visit.tsx`'s own
+  /// `immediateRewards`/`discountRewards` split exactly.
+  List<Map<String, dynamic>> get _immediateRewards =>
+      _loyaltyRewards.where((r) => r['type'] != 'discount').toList();
+  List<Map<String, dynamic>> get _discountRewards =>
+      _loyaltyRewards.where((r) => r['type'] == 'discount').toList();
+
+  void _applyOfferChoice(bool checked) {
+    setState(() {
+      _applyingOffer = checked;
+      if (checked) {
+        _pointsChoiceRewardId = null;
+        _pointsChoiceRewardName = null;
+      }
+    });
+  }
+
+  void _toggleDiscountReward(Map<String, dynamic> reward) {
+    final id = reward['id'] as String? ?? '';
+    if (id.isEmpty) return;
+    setState(() {
+      if (_pointsChoiceRewardId == id) {
+        _pointsChoiceRewardId = null;
+        _pointsChoiceRewardName = null;
+      } else {
+        _pointsChoiceRewardId = id;
+        _pointsChoiceRewardName = reward['name'] as String? ?? '';
+      }
+      _applyingOffer = false;
+    });
   }
 
   /// «استبدال النقاط» — the ONE tap that actually spends a reward, `POST /api/v1/loyalty/redeem`
@@ -690,7 +743,7 @@ class _VisitScreenState extends State<VisitScreen>
         });
         // THE BALANCE JUST CHANGED — re-read it for real rather than guess the new number
         // client-side; also refreshes which rewards are still affordable.
-        unawaited(_loadLoyaltyAndOffer(subjectRef));
+        unawaited(_loadLoyaltyAndOffer(subjectRef, _phoneController.text.trim()));
       } else {
         final body = response.data;
         final message = body is Map ? body['message'] as String? : null;
@@ -721,6 +774,21 @@ class _VisitScreenState extends State<VisitScreen>
       );
     } on DioException {
       // Never surfaced — the visit is already saved; a failed offer-apply is not a failed visit.
+    }
+  }
+
+  /// «استبدال النقاط بدل العرض» — the sibling of `_applyOffer` above, for when the operator chose
+  /// a discount-type reward instead. Same fire-and-forget posture: the visit is already saved
+  /// regardless of whether this follow-up succeeds, and the reward stays live to try again on the
+  /// customer's next visit if it fails.
+  Future<void> _redeemVisitPoints(String visitId, String rewardId) async {
+    try {
+      await _api.apiClient.dio.post<dynamic>(
+        '/api/v1/field/visits/${Uri.encodeComponent(visitId)}/points',
+        data: {'reward_id': rewardId},
+      );
+    } on DioException {
+      // Never surfaced — same reasoning as `_applyOffer` above.
     }
   }
 
@@ -901,6 +969,12 @@ class _VisitScreenState extends State<VisitScreen>
             ? (bodyMap?['visit'] is Map ? (bodyMap!['visit']['id'] as String?) : null)
             : null;
         final subjectRefForOffer = _subjectRef;
+        // SAME CAPTURE, FOR THE OTHER HALF OF THE SAME ONE-SLOT CHOICE — never both set, since
+        // `_toggleDiscountReward`/`_applyOfferChoice` always clear the other.
+        final visitIdForPoints = _pointsChoiceRewardId != null
+            ? (bodyMap?['visit'] is Map ? (bodyMap!['visit']['id'] as String?) : null)
+            : null;
+        final pointsRewardId = _pointsChoiceRewardId;
         setState(() {
           _saving = false;
           _justSaved = true;
@@ -927,11 +1001,15 @@ class _VisitScreenState extends State<VisitScreen>
           _loyaltyToNextReward = 0;
           _loyaltyRewards = [];
           _offerText = null;
-          _offerValue = null;
           _applyingOffer = false;
+          _pointsChoiceRewardId = null;
+          _pointsChoiceRewardName = null;
           _redeemedRewardName = null;
         });
-        if (visitIdForOffer != null && visitIdForOffer.isNotEmpty && subjectRefForOffer != null) {
+        if (visitIdForPoints != null && visitIdForPoints.isNotEmpty && pointsRewardId != null) {
+          unawaited(_redeemVisitPoints(visitIdForPoints, pointsRewardId));
+        } else if (visitIdForOffer != null && visitIdForOffer.isNotEmpty
+            && subjectRefForOffer != null) {
           unawaited(_applyOffer(visitIdForOffer, subjectRefForOffer));
         }
         // READY FOR THE NEXT CUSTOMER — the whole point of the redesign. The keyboard comes
@@ -1344,7 +1422,7 @@ class _VisitScreenState extends State<VisitScreen>
                     children: [
                       ActiveOfferApplyToggle(
                         applying: _applyingOffer,
-                        onChanged: (v) => setState(() => _applyingOffer = v),
+                        onChanged: _applyOfferChoice,
                         label: S.of(context)!.visitOfferApplyLabel,
                       ),
                     ],
@@ -1352,7 +1430,11 @@ class _VisitScreenState extends State<VisitScreen>
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              ActiveOfferBanner(text: _offerText!, value: _offerValue),
+              // ONE SENTENCE, ALREADY STATING ITS OWN AMOUNT — a campaign discount, a referral
+              // percentage, or a partner-shop grant each compose their own complete Arabic
+              // sentence server-side now (core/entitlements.py), so there is no separate `value`
+              // to render beside it any more.
+              ActiveOfferBanner(text: _offerText!),
               if (hasBalance) const SizedBox(height: AppSpacing.md),
             ],
             if (hasBalance) ...[
@@ -1375,6 +1457,8 @@ class _VisitScreenState extends State<VisitScreen>
   Widget _buildRedeemableRewards() {
     if (_loyaltyRewards.isEmpty) return const SizedBox.shrink();
     final s = S.of(context)!;
+    final immediate = _immediateRewards;
+    final discount = _discountRewards;
     return KbAnchor(
       id: 'visit.register.redeem_rewards',
       child: Padding(
@@ -1399,7 +1483,8 @@ class _VisitScreenState extends State<VisitScreen>
                   ],
                 ),
               ),
-            for (final r in _loyaltyRewards)
+            // `service`/`item` REWARDS — independent of this invoice, one tap spends them NOW.
+            for (final r in immediate)
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                 child: Material(
@@ -1429,6 +1514,72 @@ class _VisitScreenState extends State<VisitScreen>
                       ),
                     ),
                   ),
+                ),
+              ),
+            // `discount`-TYPE REWARDS — a HELD CHOICE, mutually exclusive with the offer toggle
+            // above (same one-slot entitlement), resolved only once the visit is saved. Mirrors
+            // `Visit.tsx`'s own selectable (not spend-on-tap) reward row.
+            for (final r in discount)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                child: Material(
+                  color: _pointsChoiceRewardId == (r['id'] as String? ?? '')
+                      ? AppColors.accent
+                      : AppColors.surface2,
+                  borderRadius: AppRadius.standardRadius,
+                  child: InkWell(
+                    borderRadius: AppRadius.standardRadius,
+                    onTap: () => _toggleDiscountReward(r),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                      child: Row(
+                        children: [
+                          Icon(Icons.redeem_rounded, size: 16,
+                              color: _pointsChoiceRewardId == (r['id'] as String? ?? '')
+                                  ? Colors.white : AppColors.accent),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text('${r['name'] ?? ''}',
+                                style: AppTextStyles.bodyMedium.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: _pointsChoiceRewardId == (r['id'] as String? ?? '')
+                                        ? Colors.white : null)),
+                          ),
+                          Text(s.visitPointsRedeemCost((r['cost'] as num?)?.toInt() ?? 0),
+                              style: AppTextStyles.bodySmall.copyWith(
+                                  color: _pointsChoiceRewardId == (r['id'] as String? ?? '')
+                                      ? Colors.white70 : AppColors.textSecondary)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (_pointsChoiceRewardId != null && _pointsChoiceRewardName != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_rounded, size: 16, color: AppColors.accent),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        s.visitPointsChosenMessage(_pointsChoiceRewardName!),
+                        style: AppTextStyles.bodySmall
+                            .copyWith(color: AppColors.accent, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if ((_applyingOffer || _pointsChoiceRewardId != null)
+                && _offerText != null && discount.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.xs),
+                child: Text(
+                  s.visitPointsOneBenefitOnly,
+                  style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
                 ),
               ),
           ],

@@ -110,6 +110,11 @@ class _BookingDetailsSheetState extends State<BookingDetailsSheet> {
                   b.paymentStatus == 'deposit'
                       ? 'عربون ${((b.depositAmountMinor ?? 0) / 100).toStringAsFixed(0)} ر.س'
                       : 'مدفوع'),
+            // THE OFFER operations APPLIED AUTOMATICALLY AT attend() (2026-10-05) — see
+            // `Booking.appliedOfferText`'s own doc comment. A plain fact row, same shape as every
+            // other row here, shown only once there IS one.
+            if (b.appliedOfferText != null && b.appliedOfferText!.isNotEmpty)
+              _row(Icons.card_giftcard_rounded, b.appliedOfferText!),
             if (b.note.isNotEmpty) _row(Icons.note_outlined, b.note),
             const SizedBox(height: AppSpacing.lg),
             if (b.status == 'booked') ...[

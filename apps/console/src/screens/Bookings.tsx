@@ -1949,7 +1949,8 @@ function BookingActions({ booking, canWrite, operatorLabel, services, priceMinor
                 {operatorLabel}
               </span>
             </div>
-            {pay !== 'none' || priceMinor !== null || booking.intended_reward_id ? (
+            {pay !== 'none' || priceMinor !== null || booking.intended_reward_id
+              || booking.applied_offer_text ? (
               <div className="flex flex-wrap items-center gap-1.5">
                 {pay !== 'none' ? (
                   <span className="rounded-full px-2 py-0.5 text-xs font-bold"
@@ -1976,6 +1977,19 @@ function BookingActions({ booking, canWrite, operatorLabel, services, priceMinor
                 ) : null}
                 {booking.intended_reward_id ? (
                   <AssistantHint session={session} anchor="bookings.rewardPending" />
+                ) : null}
+                {/* THE OFFER operations APPLIED AUTOMATICALLY AT attend() (2026-10-04) — a
+                    separate fact from the points star above: independent, and never a reason the
+                    star stays absent or present. Shown only once there IS one, same as every
+                    other pill on this row. */}
+                {booking.applied_offer_text ? (
+                  <span
+                    title={booking.applied_offer_text}
+                    className="truncate rounded-full px-2 py-0.5 text-xs font-semibold"
+                    style={{ background: 'var(--rj-info-soft)', color: 'var(--rj-info-deep)',
+                            maxWidth: '12rem' }}>
+                    {booking.applied_offer_text}
+                  </span>
                 ) : null}
               </div>
             ) : null}

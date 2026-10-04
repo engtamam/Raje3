@@ -951,8 +951,17 @@ class SAr extends S {
   }
 
   @override
+  String get visitPointsOneBenefitOnly =>
+      'فائدة واحدة لكل زيارة — اختيار النقاط يلغي العرض التلقائي.';
+
+  @override
   String visitPointsRedeemedMessage(Object name) {
     return 'تم استبدال $name ✓';
+  }
+
+  @override
+  String visitPointsChosenMessage(Object name) {
+    return 'اخترت: $name — سيُستخدم بدل العرض عند الحفظ';
   }
 
   @override

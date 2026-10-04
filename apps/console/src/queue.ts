@@ -23,8 +23,8 @@
  */
 import type { Session } from './session';
 import {
-  ApiError, applyOffer, recordVisit, type MutualBenefitGrantAck, type ReferralRegistration,
-  type VisitDraft,
+  ApiError, applyOffer, recordVisit, redeemVisitPoints, type MutualBenefitGrantAck,
+  type ReferralRegistration, type VisitDraft,
 } from './api';
 
 const KEY = 'raje3.field.queue.v1';
@@ -51,6 +51,14 @@ export interface Queued {
    * actually succeeded — never before, never in parallel.
    */
   applyOfferSubject?: string;
+  /**
+   * THE DISCOUNT-TYPE LOYALTY REWARD TO SPEND INSTEAD, when the operator chose points over the
+   * automatic offer (2026-10-04) — same "wait for the real visit to exist" reasoning as
+   * `applyOfferSubject` above, and MUTUALLY EXCLUSIVE with it: the screen never sets both on the
+   * same row (see Visit.tsx's own single-choice state), and the server enforces the same rule
+   * even if it somehow did — see `redeemVisitPoints`'s own docstring in api.ts.
+   */
+  pointsRewardId?: string;
 }
 
 function load(): Queued[] {
@@ -107,7 +115,8 @@ export class VisitQueue {
    *
    *  `applyOfferSubject`, WHEN GIVEN, IS NOT SENT HERE (ط-1). It is carried on the row and spent
    *  only once `recordVisit` for this same row has actually succeeded — see `run`. */
-  add(draft: VisitDraft, session: Session, applyOfferSubject?: string): void {
+  add(draft: VisitDraft, session: Session, applyOfferSubject?: string,
+      pointsRewardId?: string): void {
     const at = Date.now();
     // AND THE MOMENT GOES WITH IT (أ-3). `at` was recorded here from the first day, with the note
     // above saying exactly why — and it was never put on the request, so the server read no
@@ -116,7 +125,8 @@ export class VisitQueue {
     // scheduled from it, and the visit confirmation reached a customer seven hours after he left.
     this.rows = [...this.rows,
                  { draft: { ...draft, occurred_at: Math.floor(at / 1000) }, at, attempts: 0,
-                   applyOfferSubject: applyOfferSubject || undefined }];
+                   applyOfferSubject: applyOfferSubject || undefined,
+                   pointsRewardId: pointsRewardId || undefined }];
     save(this.rows);
     this.emit();
     // THE SESSION IS PASSED IN, NEVER HELD. This queue outlives a token — an entry written before
@@ -193,7 +203,14 @@ export class VisitQueue {
           this.rows = this.rows.filter((r) => r !== row);
           if (ack.mutual_benefit_grant) this.emitCelebration(ack.mutual_benefit_grant);
           if (ack.referral_registration) this.emitReferralNotice(ack.referral_registration);
-          if (row.applyOfferSubject) {
+          if (row.pointsRewardId) {
+            // THE CUSTOMER'S OWN CHOICE, NOW THAT THE VISIT IS REAL — same "fire and forget"
+            // posture as the offer below: a failure here (insufficient points by the time this
+            // actually runs, a dropped connection) leaves the reward unspent and the visit
+            // otherwise intact, never a blocked save.
+            void redeemVisitPoints(session, String(ack.visit.id), row.pointsRewardId)
+              .catch(() => undefined);
+          } else if (row.applyOfferSubject) {
             // ONLY NOW DOES THE VISIT EXIST ON THE SERVER (ط-1) — `ack.visit.id` names it, so
             // there is nothing left to race. STILL FIRE-AND-FORGET: the operator moved on the
             // moment `add` returned, and this queue is not the place to surface a spend failure —

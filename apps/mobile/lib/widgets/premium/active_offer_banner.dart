@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 
-/// «شريط العرض النشط» — the moment the operator sees a real offer this customer already holds
-/// (reminders' own campaign, GET /api/v1/reminders/offer — a PREVIEW, never a spend). NOTHING
-/// APPLIES AN OFFER AUTOMATICALLY (mirrors `apps/console/src/screens/Visit.tsx`'s own checkbox,
-/// never copied visually): a customer who came in for something else and was silently charged an
-/// offer he was saving is a customer we took something from — so [applying]/[onApplyingChanged]
-/// is a deliberate checkbox the operator ticks, and the actual `POST /field/visits/{id}/offer`
-/// call only fires AFTER the visit itself is safely recorded (see visit_screen.dart's own `_save`),
-/// never raced against it. Deliberately the ONE gold-gradient surface in this screen — the
-/// console's own VIP-card identity (`AppDetailsModal.tsx`'s own `#d4af37`/`#f0d98c` pair) reused
-/// here so "this customer has something special" reads instantly and consistently across both
-/// platforms.
+/// «شريط العرض النشط» — the moment the operator sees a real offer this customer already holds, the
+/// best of campaign/referral/mutual-benefit, already compared by real value server-side (GET
+/// /api/v1/field/visits/offer/preview — a PREVIEW, never a spend; see `EntitlementGateway.choose`
+/// in operations). NOTHING APPLIES AN OFFER AUTOMATICALLY (mirrors
+/// `apps/console/src/screens/Visit.tsx`'s own checkbox, never copied visually): a customer who came
+/// in for something else and was silently charged an offer he was saving is a customer we took
+/// something from — so [applying]/[onApplyingChanged] is a deliberate checkbox the operator ticks,
+/// and the actual `POST /field/visits/{id}/offer` call only fires AFTER the visit itself is safely
+/// recorded (see visit_screen.dart's own `_save`), never raced against it. Deliberately the ONE
+/// gold-gradient surface in this screen — the console's own VIP-card identity
+/// (`AppDetailsModal.tsx`'s own `#d4af37`/`#f0d98c` pair) reused here so "this customer has
+/// something special" reads instantly and consistently across both platforms.
+///
+/// `text` IS THE WHOLE SENTENCE NOW (2026-10-05) — each source composes its own complete Arabic
+/// sentence, already stating its own amount, server-side (`core/entitlements.py`); there is no
+/// separate `value` field left to append.
 class ActiveOfferBanner extends StatelessWidget {
   final String text;
-  final String? value;
 
-  const ActiveOfferBanner({super.key, required this.text, this.value});
+  const ActiveOfferBanner({super.key, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +64,7 @@ class ActiveOfferBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  value != null && value!.isNotEmpty ? '$text — $value' : text,
+                  text,
                   style: AppTextStyles.bodyMedium.copyWith(
                     color: Colors.white, fontWeight: FontWeight.w700,
                   ),

@@ -29,7 +29,7 @@ import {
   ApiError, balanceFor, type Balance, type Booking, type CatalogueService, createBooking,
   type CustomerHit, customerByPhone, earnSettings, type EarnSettings, editBookingNote,
   editBookingPayment, editBookingReward, editBookingServices, ensureCustomer, type FieldOffer, type FieldOperator,
-  nearestSlot, nearestSlotsAny, type NoShowRisk, noShowRisk, offerFor, pointsByService, rescheduleBooking,
+  nearestSlot, nearestSlotsAny, type NoShowRisk, noShowRisk, offerPreview, pointsByService, rescheduleBooking,
   sentenceFor, setServiceDuration, setServicePrice, suggestByPrefix, type WeeklyHours,
 } from '../api';
 import { action, type Catalog } from '../catalog';
@@ -209,7 +209,8 @@ export function BookingDialog(
       .then(async (r) => {
         const ref = r.customer?.subject_ref ?? '';
         if (stale || !ref) return;
-        const [o, b] = await Promise.allSettled([offerFor(session, ref), balanceFor(session, ref)]);
+        const [o, b] = await Promise.allSettled(
+          [offerPreview(session, customer.phone, ref), balanceFor(session, ref)]);
         if (stale) return;
         setOffer(o.status === 'fulfilled' ? o.value : null);
         setBalance(b.status === 'fulfilled' ? b.value : null);

@@ -461,28 +461,27 @@ export function ensureCustomer(
  * the send log records it, the customer's page counts down to it, the owner reads it on the
  * customer record. This screen, the one where it is redeemed, showed nothing.
  *
- * `subject_ref` IS THE PSEUDONYM, not the phone. reminders holds no names by design, so this is
- * the only handle it answers to — and it arrives on the by-phone lookup for exactly this.
+ * `subject_ref` IS THE PSEUDONYM, not the phone. Both it and the raw phone travel to this call —
+ * the unified comparison needs the phone too, for the referral/mutual-benefit sources, which are
+ * keyed by phone rather than by pseudonym (`core/entitlements.py::EntitlementGateway`).
+ *
+ * REPLACES THE OLD, CAMPAIGN-ONLY PREVIEW (a direct read of reminders' own `/offer` route,
+ * 2026-10-04) — that route could show nothing at all for a customer whose only live entitlement
+ * was a referral/mutual-benefit grant, even though `applyOffer` below would still have correctly
+ * picked and applied it. One sentence now covers every source, already stating its own amount —
+ * there is no separate `value`/`expires_at` to render beside it any more.
  */
 export interface FieldOffer {
   text?: string;
-  expires_at?: number;
   service_ids?: string[];
-  /**
-   * THE DISCOUNT ITSELF — «20%», «50 ريال» (أ-7).
-   *
-   * It was typed when the campaign was built, rendered into the message the customer is holding,
-   * and then existed nowhere a person could read it again. `text` may be the owner's own line,
-   * which does not have to restate the amount — so the operator's only source was the customer
-   * telling him what his discount was.
-   */
-  value?: string;
 }
 
-export async function offerFor(session: Session, subjectRef: string): Promise<FieldOffer | null> {
-  const q = new URLSearchParams({ subject_ref: subjectRef });
+export async function offerPreview(
+  session: Session, phone: string, subjectRef: string,
+): Promise<FieldOffer | null> {
+  const q = new URLSearchParams({ phone, subject_ref: subjectRef });
   const out = await call<{ offer: FieldOffer | null }>(
-    session, `/api/v1/reminders/offer?${q.toString()}`);
+    session, `/api/v1/field/visits/offer/preview?${q.toString()}`);
   return out.offer ?? null;
 }
 
@@ -633,6 +632,27 @@ export function applyOffer(
   return call(session, `/api/v1/field/visits/${encodeURIComponent(visitId)}/offer`, {
     method: 'POST',
     body: JSON.stringify({ subject_ref: subjectRef }),
+  });
+}
+
+/**
+ * Spend a DISCOUNT-type loyalty reward on this visit INSTEAD of an automatic offer (2026-10-04).
+ *
+ * THE TWO ARE MUTUALLY EXCLUSIVE, AND NOT BY CONVENTION — THE SERVER ENFORCES IT. A visit has one
+ * `offer_ref` slot, and `Operations.redeem_points_reward`'s own docstring explains why: unlike an
+ * order, a visit has no later "payment confirmation" to defer a reserved discount to, so whichever
+ * of the two is recorded FIRST simply occupies the one slot there is — calling this after
+ * `applyOffer` already landed replays what already won, never a second spend.
+ *
+ * ONLY `type === 'discount'` REWARDS GO THROUGH THIS DOOR. A `service`/`item` reward (a free wash,
+ * a free item) is independent of the invoice and keeps using `redeem` above, exactly as before.
+ */
+export function redeemVisitPoints(
+  session: Session, visitId: string, rewardId: string,
+): Promise<{ applied: boolean; reason?: string; offer?: { ref: string; text: string } }> {
+  return call(session, `/api/v1/field/visits/${encodeURIComponent(visitId)}/points`, {
+    method: 'POST',
+    body: JSON.stringify({ reward_id: rewardId }),
   });
 }
 
@@ -889,6 +909,12 @@ export interface Booking {
    *  ATTENDED booking means the spend failed or needed an approval nobody automated could give —
    *  redeem him by hand from the visit screen. `null` means either "never asked" or "already spent". */
   intended_reward_id: string | null;
+  /** THE BEST LIVE CAMPAIGN/REFERRAL/MUTUAL-BENEFIT DISCOUNT, APPLIED AUTOMATICALLY AT attend()
+   *  (2026-10-04) — unlike `intended_reward_id` above, there is no separate "intent" step: which
+   *  one is worth the most is only decided by comparing real value at the moment the visit
+   *  becomes real. `null` means nothing was live, never a failure to check. */
+  applied_offer_ref: string | null;
+  applied_offer_text: string | null;
   note: string;
   reason_no_show: string | null;
   created: number;

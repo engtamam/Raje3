@@ -964,8 +964,17 @@ class SUr extends S {
   }
 
   @override
+  String get visitPointsOneBenefitOnly =>
+      'ہر وزٹ پر صرف ایک فائدہ — پوائنٹس چننے سے خودکار پیشکش ختم ہو جائے گی۔';
+
+  @override
   String visitPointsRedeemedMessage(Object name) {
     return '$name کیش ہو گیا ✓';
+  }
+
+  @override
+  String visitPointsChosenMessage(Object name) {
+    return 'منتخب: $name — محفوظ کرتے وقت پیشکش کی بجائے استعمال ہوگا';
   }
 
   @override

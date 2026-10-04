@@ -33,6 +33,7 @@ const BOOKING: Booking = {
   service_ids: ['svc1'], starts_at: 1786860000, duration_minutes: 30,
   status: 'booked', visit_id: null,
   payment_status: 'none', deposit_amount_minor: null, price_override_minor: null, intended_reward_id: null,
+  applied_offer_ref: null, applied_offer_text: null,
   note: '', reason_no_show: null, created: 1, created_by: '',
   updated: 1, cancelled_reason: null, thumb_up: null, rev: 1,
 };

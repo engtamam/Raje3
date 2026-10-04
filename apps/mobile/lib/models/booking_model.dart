@@ -19,6 +19,13 @@ class Booking {
   final int? depositAmountMinor;
   final int? priceOverrideMinor;
   final String? intendedRewardId;
+  /// THE BEST LIVE CAMPAIGN/REFERRAL/MUTUAL-BENEFIT DISCOUNT, APPLIED AUTOMATICALLY AT attend()
+  /// (2026-10-05) — unlike [intendedRewardId] above, there is no separate "intent" step: which
+  /// one is worth the most is only decided by comparing real value once the visit becomes real.
+  /// `null` means nothing was live, never a failure to check. Mirrors
+  /// `apps/console/src/api.ts`'s own `Booking.applied_offer_ref`/`applied_offer_text`.
+  final String? appliedOfferRef;
+  final String? appliedOfferText;
   final String note;
   final String? cancelledReason;
   final Map<String, int> quantities; // service_id -> quantity, absent = 1
@@ -36,6 +43,8 @@ class Booking {
     this.depositAmountMinor,
     this.priceOverrideMinor,
     this.intendedRewardId,
+    this.appliedOfferRef,
+    this.appliedOfferText,
     this.note = '',
     this.cancelledReason,
     this.quantities = const {},
@@ -60,6 +69,8 @@ class Booking {
         priceOverrideMinor:
             json['price_override_minor'] == null ? null : _toInt(json['price_override_minor']),
         intendedRewardId: json['intended_reward_id'] as String?,
+        appliedOfferRef: json['applied_offer_ref'] as String?,
+        appliedOfferText: json['applied_offer_text'] as String?,
         note: json['note'] as String? ?? '',
         cancelledReason: json['cancelled_reason'] as String?,
         quantities: ((json['quantities'] as Map?) ?? const {}).map(

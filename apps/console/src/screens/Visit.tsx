@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Gift, Pencil } from 'lucide-react';
 import {
   balanceFor, customerByPhone, customerByPlate, earnSettings, fetchCatalogue,
-  offerFor, pointsByService, type CataloguePackage, type EarnSettings,
+  offerPreview, pointsByService, type CataloguePackage, type EarnSettings,
   redeem,
   suggestByPrefix,
   type Balance, type CatalogueService, type CustomerHit, type FieldOffer, type VisitField,
@@ -319,6 +319,23 @@ export function Visit() {
    * against something that may never be recorded.
    */
   const [applying, setApplying] = useState(false);
+  /**
+   * A DISCOUNT-TYPE POINTS REWARD, CHOSEN INSTEAD OF THE OFFER (2026-10-04) — same "held until
+   * save" reasoning as `applying` above, and the ONE OTHER thing that can occupy the visit's own
+   * single entitlement slot (`Operations.redeem_points_reward`'s own docstring: a visit has no
+   * later "payment confirmation" phase to separate the two the way an order does, so whichever
+   * is chosen is simply what gets spent). The two are therefore a single choice, never both at
+   * once — see `chooseOffer`/`choosePoints` below, which always clear the other.
+   */
+  const [pointsChoice, setPointsChoice] = useState<{ id: string; name: string } | null>(null);
+  const chooseOffer = useCallback((checked: boolean) => {
+    setApplying(checked);
+    if (checked) setPointsChoice(null);
+  }, []);
+  const choosePoints = useCallback((reward: { id: string; name: string }) => {
+    setPointsChoice((cur) => (cur?.id === reward.id ? null : reward));
+    setApplying(false);
+  }, []);
   const [redeemed, setRedeemed] = useState<string | null | undefined>(undefined);
 
   /**
@@ -356,7 +373,8 @@ export function Visit() {
           if (!ref) { setOffer(null); setBalance(null); setPerks('known'); return; }
           // SETTLED, NOT ALL: one failing must not blank the other. A shop without the loyalty
           // feature has no balance to read, and that is not a reason to hide his offer.
-          const [o, b] = await Promise.allSettled([offerFor(session, ref), balanceFor(session, ref)]);
+          const [o, b] = await Promise.allSettled(
+            [offerPreview(session, phone, ref), balanceFor(session, ref)]);
           if (stale) return;
           setOffer(o.status === 'fulfilled' ? o.value : null);
           setBalance(b.status === 'fulfilled' ? b.value : null);
@@ -476,8 +494,10 @@ export function Visit() {
       coupon_percent: couponOn ? couponPercent : undefined,
       coupon_general: couponOn ? couponScope === '' : undefined,
       coupon_app_keys: couponOn && couponScope ? [couponScope] : undefined,
-    }, session, applying ? subject || undefined : undefined);
+    }, session, applying ? subject || undefined : undefined,
+       pointsChoice ? pointsChoice.id : undefined);
     setApplying(false);
+    setPointsChoice(null);
     setCouponOn(false);
     setCouponPhone('');
     setCouponPercent(10);
@@ -496,8 +516,9 @@ export function Visit() {
     setMeter('');
     setNote(t('visit.saved'));
     window.setTimeout(() => setNote(null), 1500);
-  }, [applying, chosen, quantities, couponOn, couponPercent, couponPhone, couponScope, meter, name,
-     phone, plate, referralCode, selectedPackageId, session, showMeter, showPlate, subject]);
+  }, [applying, pointsChoice, chosen, quantities, couponOn, couponPercent, couponPhone, couponScope,
+     meter, name, phone, plate, referralCode, selectedPackageId, session, showMeter, showPlate,
+     subject]);
 
   const save = useCallback(() => {
     // A WRONG NUMBER IS REFUSED HERE AND NOWHERE ELSE, and the refusal SAYS what is wrong. Silence
@@ -637,6 +658,14 @@ export function Visit() {
 
   );
 
+  // TWO KINDS OF REWARD, TWO TIMINGS (2026-10-04). A `service`/`item` reward (a free wash, a free
+  // item) is independent of this invoice and is spent the instant he presses it, exactly as
+  // before. A `discount`-type reward reduces THIS invoice — the same thing an automatic offer
+  // already does — so it is a held CHOICE, resolved only once the visit is saved, mutually
+  // exclusive with the offer checkbox above. See `choosePoints`'s own note.
+  const immediateRewards = (balance?.rewards ?? []).filter((r) => r.type !== 'discount');
+  const discountRewards = (balance?.rewards ?? []).filter((r) => r.type === 'discount');
+
   const perksPane = (
     <>
             {/* HIS OFFER, WHERE THE WORK HAPPENS. Directly under the number, above the matches:
@@ -649,26 +678,21 @@ export function Visit() {
                   {t('visit.offer.title')}
                   <AssistantHint session={session} anchor="visit.offer" />
                 </div>
+                {/* ONE SENTENCE, ALREADY STATING ITS OWN AMOUNT — a campaign discount, a referral
+                    percentage, or a partner-shop grant each compose their own complete Arabic
+                    sentence server-side now (core/entitlements.py), so there is no separate
+                    value/expiry line left to render beside it. */}
                 <div>{offer.text}</div>
-                {/* THE AMOUNT, STATED. The sentence above is whatever was sent — often the
-                    owner's own line, which need not name the discount at all. An operator who
-                    cannot see it takes the customer's word for what he is owed. */}
-                {offer.value ? (
-                  <div className="mt-1 text-sm font-semibold">{t('visit.offer.discount')}: {offer.value}</div>
-                ) : null}
-                {offer.expires_at ? (
-                  <div className="mt-1 text-sm tabular-nums opacity-80">
-                    {t('visit.offer.expires')} {new Date(offer.expires_at * 1000).toLocaleDateString('ar-SA-u-ca-gregory')}
-                  </div>
-                ) : null}
                 {/* THE TAP, AND IT IS NOT PRESSED FOR HIM. A customer may be holding this for next
                     month; applying it because he happened to walk in would be taking something from
-                    him. So it is a deliberate act, and it says what it will do. */}
+                    him. So it is a deliberate act, and it says what it will do.
+                    CHECKING IT ALSO DROPS ANY POINTS CHOICE BELOW — the two occupy the same one
+                    slot a visit ever has (see `chooseOffer`'s own note), never both at once. */}
                 <label className="mt-2 flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     checked={applying}
-                    onChange={(e) => setApplying(e.target.checked)}
+                    onChange={(e) => chooseOffer(e.target.checked)}
                     className="h-5 w-5"
                   />
                   <span>{t('visit.offer.applyLabel')}</span>
@@ -702,12 +726,12 @@ export function Visit() {
                   </p>
                 ) : null}
 
-                {balance.rewards.length > 0 ? (
+                {immediateRewards.length > 0 ? (
                   <ul className="mt-2 flex flex-col gap-2">
                     {/* ONLY WHAT HE CAN AFFORD — the service filtered before answering. A sheet
                         listing everything and grey­ing out most of it turns a moment of goodwill
                         into a list of things he cannot have. */}
-                    {balance.rewards.map((r) => (
+                    {immediateRewards.map((r) => (
                       <li key={r.id}>
                         <button
                           type="button"
@@ -723,7 +747,50 @@ export function Visit() {
                       </li>
                     ))}
                   </ul>
-                ) : balance.to_next_reward > 0 ? (
+                ) : null}
+
+                {/* DISCOUNT-TYPE REWARDS — A CHOICE, NOT A TAP (2026-10-04). Unlike the rewards
+                    above (a free wash, a free item — independent of this invoice, spent the
+                    instant he presses), a discount-type reward reduces THIS visit's own bill, the
+                    exact thing an automatic offer already does — so it is held, same as `applying`
+                    above, and resolved only once the visit is actually saved. Selecting one here
+                    drops the offer checkbox above; the note says why. */}
+                {discountRewards.length > 0 ? (
+                  <ul className="mt-2 flex flex-col gap-2">
+                    {discountRewards.map((r) => {
+                      const selected = pointsChoice?.id === r.id;
+                      return (
+                        <li key={r.id}>
+                          <button
+                            type="button"
+                            onClick={() => choosePoints({ id: r.id, name: r.name })}
+                            className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-3 text-start ${
+                              selected
+                                ? 'border-accent bg-accent text-white'
+                                : 'border-border-subtle bg-surface-1'
+                            }`}
+                          >
+                            <span>{r.name}</span>
+                            <span className={`shrink-0 tabular-nums text-sm ${
+                              selected ? 'opacity-90' : 'text-text-secondary'
+                            }`}>
+                              {tf(t, 'visit.points.costAndRemaining',
+                                 { cost: r.cost, remaining: balance.points - r.cost })}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : null}
+
+                {(applying || pointsChoice) && offer?.text && discountRewards.length > 0 ? (
+                  <p className="mt-2 text-xs text-info-on-soft opacity-80">
+                    {t('visit.points.oneBenefitOnly')}
+                  </p>
+                ) : null}
+
+                {balance.rewards.length === 0 && balance.to_next_reward > 0 ? (
                   // ENCOURAGEMENT, NOT AN APOLOGY — and only when there is something true to say.
                   // Zero means either he can afford everything or the shop has no rewards, and
                   // «تبقى لك 0 نقطة» is a sentence that means nothing to the person reading it.
@@ -954,7 +1021,10 @@ export function Visit() {
           ignoring it is a legitimate answer: he may be collecting points on purpose. */}
       {(() => {
         const markedOffer = chosen.some((id) => (offer?.service_ids ?? []).includes(id));
-        const spendable = (balance?.rewards ?? []).filter(
+        // DISCOUNT-TYPE EXCLUDED HERE TOO (2026-10-04) — this shortcut is for the immediate,
+        // independent-of-the-invoice rewards only; a discount-type reward is the held CHOICE the
+        // perks step above already offers, never a one-tap spend.
+        const spendable = immediateRewards.filter(
           (r) => r.service_id && chosen.includes(r.service_id),
         );
         if (!markedOffer && spendable.length === 0) return null;
@@ -963,7 +1033,7 @@ export function Visit() {
             <span className="text-sm text-info-on-soft">{t('visit.chosen.appliesTo')}</span>
             {markedOffer ? (
               <Button
-                onClick={() => setApplying(true)}
+                onClick={() => chooseOffer(true)}
                 variant={applying ? 'solid' : 'ghost'}
               >
                 {applying ? t('visit.applyOffer.applied') : t('visit.applyOffer.apply')}
@@ -1003,7 +1073,7 @@ export function Visit() {
         onSelectPackage={selectPackage}
         offered={new Set(offer?.service_ids ?? [])}
         redeemable={new Set(
-          (balance?.rewards ?? []).map((r) => r.service_id ?? '').filter(Boolean),
+          immediateRewards.map((r) => r.service_id ?? '').filter(Boolean),
         )}
         points={pointsByService(earn ?? null, (services ?? []).map((x) => x.id))}
         quantities={quantities}

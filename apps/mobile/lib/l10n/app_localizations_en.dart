@@ -963,8 +963,17 @@ class SEn extends S {
   }
 
   @override
+  String get visitPointsOneBenefitOnly =>
+      'One benefit per visit — choosing points drops the automatic offer.';
+
+  @override
   String visitPointsRedeemedMessage(Object name) {
     return '$name redeemed ✓';
+  }
+
+  @override
+  String visitPointsChosenMessage(Object name) {
+    return 'Chosen: $name — will be used instead of the offer on save';
   }
 
   @override

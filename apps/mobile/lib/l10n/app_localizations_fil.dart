@@ -977,8 +977,17 @@ class SFil extends S {
   }
 
   @override
+  String get visitPointsOneBenefitOnly =>
+      'Isang benepisyo lang bawat bisita — ang pagpili ng points ay nag-aalis sa awtomatikong alok.';
+
+  @override
   String visitPointsRedeemedMessage(Object name) {
     return 'Na-redeem ang $name ✓';
+  }
+
+  @override
+  String visitPointsChosenMessage(Object name) {
+    return 'Napili: $name — gagamitin sa halip na alok kapag na-save';
   }
 
   @override

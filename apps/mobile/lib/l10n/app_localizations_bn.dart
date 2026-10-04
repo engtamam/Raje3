@@ -964,8 +964,17 @@ class SBn extends S {
   }
 
   @override
+  String get visitPointsOneBenefitOnly =>
+      'প্রতি ভিজিটে একটি সুবিধা — পয়েন্ট বাছাই করলে স্বয়ংক্রিয় অফার বাতিল হবে।';
+
+  @override
   String visitPointsRedeemedMessage(Object name) {
     return '$name রিডিম হয়েছে ✓';
+  }
+
+  @override
+  String visitPointsChosenMessage(Object name) {
+    return 'নির্বাচিত: $name — সংরক্ষণের সময় অফারের বদলে ব্যবহৃত হবে';
   }
 
   @override

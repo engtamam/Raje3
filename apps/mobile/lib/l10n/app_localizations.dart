@@ -1857,11 +1857,23 @@ abstract class S {
   /// **'{cost} نقطة'**
   String visitPointsRedeemCost(Object cost);
 
+  /// No description provided for @visitPointsOneBenefitOnly.
+  ///
+  /// In ar, this message translates to:
+  /// **'فائدة واحدة لكل زيارة — اختيار النقاط يلغي العرض التلقائي.'**
+  String get visitPointsOneBenefitOnly;
+
   /// No description provided for @visitPointsRedeemedMessage.
   ///
   /// In ar, this message translates to:
   /// **'تم استبدال {name} ✓'**
   String visitPointsRedeemedMessage(Object name);
+
+  /// No description provided for @visitPointsChosenMessage.
+  ///
+  /// In ar, this message translates to:
+  /// **'اخترت: {name} — سيُستخدم بدل العرض عند الحفظ'**
+  String visitPointsChosenMessage(Object name);
 
   /// No description provided for @visitPointsRedeemFailed.
   ///

@@ -965,8 +965,17 @@ class SHa extends S {
   }
 
   @override
+  String get visitPointsOneBenefitOnly =>
+      'Fa’ida ɗaya kawai a kowace ziyara — zaɓar maki yana soke tayin atomatik.';
+
+  @override
   String visitPointsRedeemedMessage(Object name) {
     return 'An musanya $name ✓';
+  }
+
+  @override
+  String visitPointsChosenMessage(Object name) {
+    return 'An zaɓa: $name — za a yi amfani da shi maimakon tayin yayin ajiyewa';
   }
 
   @override
