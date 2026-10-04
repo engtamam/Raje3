@@ -149,6 +149,7 @@ class Container:
     mobile_requests: Any = None
     related_services: Any = None
     active_offers: Any = None
+    referral_partnership_offers: Any = None
     wallet_balance: Any = None
     licence: Any = None
     order_licence: Any = None
@@ -329,6 +330,10 @@ def build_container(settings: Settings) -> Container:
     container.related_services = RS.build(settings)
     from app.core import active_offers as AO
     container.active_offers = AO.build(settings)
+    # THE OTHER HALF OF "what offers does he hold" — referral-code/mutual-benefit, the two
+    # sources `active_offers` above (campaign-only, reminders' own send-log) never covered.
+    from app.core import referral_partnership_offers as RPO
+    container.referral_partnership_offers = RPO.build(settings)
     container.wallet_balance = WB.build(settings)
     container.licence = ToggleGatedLicence(build_licence(settings),
                                            shop_identity=container.shop_identity,
@@ -407,6 +412,7 @@ def build_container(settings: Settings) -> Container:
         branch_directory=container.branch_directory,
         related_services=container.related_services, wallet_balance=container.wallet_balance,
         active_offers=container.active_offers,
+        referral_partnership_offers=container.referral_partnership_offers,
         licence=container.licence,
         base_entitlement=container.base_entitlement,
         held_apps=container.held_apps,

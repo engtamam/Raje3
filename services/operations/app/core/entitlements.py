@@ -81,6 +81,11 @@ class Entitlement:
     # highlight the relevant tiles on the field screen's own catalogue grid, the one thing the
     # OLD campaign-only preview could already do that a unified preview must not regress.
     scope_service_ids: list[str] = field(default_factory=list)
+    # THE REAL SAR VALUE THIS CANDIDATE PRICED AT, OR `None` IF IT COULD NOT BE (see module
+    # docstring's "cannot be computed" tier) — carried on the entitlement itself so a caller
+    # that only needs TEXT (e.g. a conversational listing, never a value comparison) can build
+    # one candidate per live source without re-deriving this number.
+    value_minor: int | None = None
 
     def as_offer_fields(self) -> dict[str, Any]:
         """The exact shape `Operations.apply_offer` has always stamped onto a `Visit` — unchanged,
@@ -116,124 +121,155 @@ class EntitlementGateway:
                      service_ids: list[str], invoice_minor: int = 0,
                      line_minor: dict[str, int] | None = None) -> Entitlement | None:
         line_minor = line_minor or {}
-        referral: Entitlement | None = None
-        referral_value: int | None = None
-        if self._referral is not None and phone:
-            try:
-                elig = await self._referral.eligibility(tenant, phone)
-            except Exception as exc:                                          # noqa: BLE001
-                raise EntitlementPeerUnavailable(str(exc)) from exc
-            if elig and elig.get("eligible"):
-                # NEVER the referring shop's name — same privacy rule
-                # `MutualBenefitGrant.public_for_beneficiary` already enforces at its own source; this
-                # text is ALWAYS DERIVED from the real catalogue fact backing the grant, never
-                # authored/typed/stored text (owner's own correction — see
-                # `core/mutual_benefit.py`'s own "GRANT TYPE" module-docstring section).
-                # Every kind/scope resolves to one opaque `Entitlement` shape — `apply_offer`
-                # never learns which one it got.
-                from app.core.mutual_benefit import (DISCOUNT_SCOPE_BLANKET,
-                                                            DISCOUNT_SCOPE_GROUP, GRANT_GIFT)
-
-                referral_scope: list[str] = []
-                if elig.get("grant_type") == GRANT_GIFT:
-                    text = f"هدية شراكة إحالة نشطة لهذا العميل: {elig.get('gift_service_name', '')}"
-                    referral_value = await self._gift_value(
-                        tenant, str(elig.get("gift_service_id") or ""))
-                    referral_scope = [str(elig.get("gift_service_id") or "")]
-                elif elig.get("discount_scope") == DISCOUNT_SCOPE_GROUP:
-                    text = f"خصم شراكة إحالة نشط على مجموعة: {elig.get('discount_group_name', '')}"
-                    group_scope = await self._group_scope_ids(
-                        tenant, str(elig.get("discount_group_id") or ""))
-                    referral_value = scoped_value(
-                        kind=str(elig.get("discount_kind") or ""),
-                        amount=int(elig.get("discount_amount") or 0),
-                        scope_service_ids=group_scope, invoice_minor=invoice_minor,
-                        line_minor=line_minor)
-                    referral_scope = group_scope or []
-                elif elig.get("discount_scope") == DISCOUNT_SCOPE_BLANKET:
-                    text = "خصم شراكة إحالة نشط — خصم شامل"
-                    referral_value = scoped_value(
-                        kind=str(elig.get("discount_kind") or ""),
-                        amount=int(elig.get("discount_amount") or 0),
-                        scope_service_ids=None, invoice_minor=invoice_minor,
-                        line_minor=line_minor)
-                else:                                                   # discount, scope "item"
-                    text = f"خصم شراكة إحالة نشط على: {elig.get('gift_service_name', '')}"
-                    referral_value = scoped_value(
-                        kind=str(elig.get("discount_kind") or ""),
-                        amount=int(elig.get("discount_amount") or 0),
-                        scope_service_ids=[str(elig.get("gift_service_id") or "")],
-                        invoice_minor=invoice_minor, line_minor=line_minor)
-                    referral_scope = [str(elig.get("gift_service_id") or "")]
-                referral = Entitlement(source=SOURCE_REFERRAL, ref=f"referral:{phone}",
-                                       text=text, finalize_key=phone,
-                                       scope_service_ids=referral_scope)
-
-        referral_code: Entitlement | None = None
-        referral_code_value: int | None = None
-        if self._referral_code is not None and phone:
-            try:
-                elig = await self._referral_code.eligibility(tenant, phone)
-            except Exception as exc:                                          # noqa: BLE001
-                raise EntitlementPeerUnavailable(str(exc)) from exc
-            if elig and elig.get("eligible"):
-                from app.core.referral_redemption import (
-                    NEW_CUSTOMER_DISCOUNT_PERCENT, NEW_CUSTOMER_WELCOME_POINTS)
-
-                reward_type = elig.get("new_customer_reward_type")
-                params = elig.get("new_customer_reward_params") or {}
-                if reward_type == NEW_CUSTOMER_DISCOUNT_PERCENT:
-                    percent = int(params.get("percent") or 0)
-                    text = f"خصم عميل جديد بالإحالة: {percent}%"
-                    referral_code_value = scoped_value(
-                        kind="percent", amount=percent, scope_service_ids=None,
-                        invoice_minor=invoice_minor, line_minor=line_minor)
-                elif reward_type == NEW_CUSTOMER_WELCOME_POINTS:
-                    # POINTS, NOT MONEY — nothing here reduces THIS invoice, so it has no SAR
-                    # value to compare with; see module docstring's "cannot be computed" tier.
-                    text = f"نقاط ترحيب بالإحالة: {params.get('points', 0)} نقطة"
-                else:
-                    text = "مكافأة إحالة نشطة"
-                referral_code = Entitlement(source=SOURCE_REFERRAL_CODE,
-                                            ref=f"referral_code:{phone}", text=text,
-                                            finalize_key=phone)
-
-        campaign: Entitlement | None = None
-        campaign_value: int | None = None
-        if self._campaign_chooser is not None:
-            try:
-                chosen = await self._campaign_chooser(
-                    tenant=tenant, subject_ref=subject_ref, service_ids=service_ids)
-            except Exception as exc:                                          # noqa: BLE001
-                raise EntitlementPeerUnavailable(str(exc)) from exc
-            if chosen and chosen.get("ref"):
-                campaign = Entitlement(
-                    source=SOURCE_CAMPAIGN, ref=str(chosen.get("ref") or ""),
-                    text=str(chosen.get("text") or ""),
-                    campaign_id=str(chosen.get("campaign_id") or ""),
-                    scope_service_ids=list(chosen.get("scope_service_ids") or []))
-                reward_kind = str(chosen.get("reward_kind") or "")
-                if reward_kind:
-                    campaign_value = scoped_value(
-                        kind=reward_kind, amount=int(chosen.get("reward_amount") or 0),
-                        scope_service_ids=chosen.get("scope_service_ids"),
-                        invoice_minor=invoice_minor, line_minor=line_minor)
+        referral = await self._referral_entitlement(
+            tenant=tenant, phone=phone, invoice_minor=invoice_minor, line_minor=line_minor)
+        referral_code = await self._referral_code_entitlement(
+            tenant=tenant, phone=phone, invoice_minor=invoice_minor, line_minor=line_minor)
+        campaign = await self._campaign_entitlement(
+            tenant=tenant, subject_ref=subject_ref, service_ids=service_ids,
+            invoice_minor=invoice_minor, line_minor=line_minor)
 
         by_source = {SOURCE_REFERRAL: referral, SOURCE_REFERRAL_CODE: referral_code,
                     SOURCE_CAMPAIGN: campaign}
-        values = {SOURCE_REFERRAL: referral_value, SOURCE_REFERRAL_CODE: referral_code_value,
-                 SOURCE_CAMPAIGN: campaign_value}
 
         # THE REAL COMPARISON, SHARED WITH `discount_consultation.py::best_offer_for` — see
         # `core/best_offer.py`'s own module docstring for why the DECISION is shared while each
         # caller still fetches its own candidates its own way.
-        candidates = [OfferCandidate(source=source, value_minor=values[source],
+        candidates = [OfferCandidate(source=source, value_minor=entitlement.value_minor,
                                     ref=entitlement.ref, text=entitlement.text,
                                     finalize_key=entitlement.finalize_key,
                                     campaign_id=entitlement.campaign_id)
                      for source, entitlement in by_source.items() if entitlement is not None]
         winner = rank(candidates, fallback_order=_PRIORITY)
         return by_source[winner.source] if winner is not None else None
+
+    async def live_referral_and_partnership_offers(
+            self, *, tenant: str, phone: str) -> list[Entitlement]:
+        """EVERY live referral-code/mutual-benefit entitlement, as a plain LIST — never a single
+        winner. For a caller that only wants to TELL a customer what he holds (the WhatsApp
+        assistant's own `check_active_offers` tool, which already lists every live CAMPAIGN
+        offer the same way from reminders' send-log) rather than decide which one to actually
+        apply — that decision stays `choose()`'s alone, for the one caller (`apply_offer`) that
+        ever commits to it. No invoice context at all (no `service_ids`/`invoice_minor`) — a
+        conversational listing has no basket to scope a value against; the TEXT is the whole
+        answer here, not a value comparison.
+        """
+        referral = await self._referral_entitlement(
+            tenant=tenant, phone=phone, invoice_minor=0, line_minor={})
+        referral_code = await self._referral_code_entitlement(
+            tenant=tenant, phone=phone, invoice_minor=0, line_minor={})
+        return [e for e in (referral, referral_code) if e is not None]
+
+    async def _referral_entitlement(self, *, tenant: str, phone: str, invoice_minor: int,
+                                    line_minor: dict[str, int]) -> Entitlement | None:
+        if self._referral is None or not phone:
+            return None
+        try:
+            elig = await self._referral.eligibility(tenant, phone)
+        except Exception as exc:                                          # noqa: BLE001
+            raise EntitlementPeerUnavailable(str(exc)) from exc
+        if not (elig and elig.get("eligible")):
+            return None
+        # NEVER the referring shop's name — same privacy rule
+        # `MutualBenefitGrant.public_for_beneficiary` already enforces at its own source; this
+        # text is ALWAYS DERIVED from the real catalogue fact backing the grant, never
+        # authored/typed/stored text (owner's own correction — see
+        # `core/mutual_benefit.py`'s own "GRANT TYPE" module-docstring section).
+        # Every kind/scope resolves to one opaque `Entitlement` shape — `apply_offer`
+        # never learns which one it got.
+        from app.core.mutual_benefit import (DISCOUNT_SCOPE_BLANKET,
+                                                    DISCOUNT_SCOPE_GROUP, GRANT_GIFT)
+
+        referral_scope: list[str] = []
+        value: int | None
+        if elig.get("grant_type") == GRANT_GIFT:
+            text = f"هدية شراكة إحالة نشطة لهذا العميل: {elig.get('gift_service_name', '')}"
+            value = await self._gift_value(tenant, str(elig.get("gift_service_id") or ""))
+            referral_scope = [str(elig.get("gift_service_id") or "")]
+        elif elig.get("discount_scope") == DISCOUNT_SCOPE_GROUP:
+            text = f"خصم شراكة إحالة نشط على مجموعة: {elig.get('discount_group_name', '')}"
+            group_scope = await self._group_scope_ids(
+                tenant, str(elig.get("discount_group_id") or ""))
+            value = scoped_value(
+                kind=str(elig.get("discount_kind") or ""),
+                amount=int(elig.get("discount_amount") or 0),
+                scope_service_ids=group_scope, invoice_minor=invoice_minor,
+                line_minor=line_minor)
+            referral_scope = group_scope or []
+        elif elig.get("discount_scope") == DISCOUNT_SCOPE_BLANKET:
+            text = "خصم شراكة إحالة نشط — خصم شامل"
+            value = scoped_value(
+                kind=str(elig.get("discount_kind") or ""),
+                amount=int(elig.get("discount_amount") or 0),
+                scope_service_ids=None, invoice_minor=invoice_minor,
+                line_minor=line_minor)
+        else:                                                   # discount, scope "item"
+            text = f"خصم شراكة إحالة نشط على: {elig.get('gift_service_name', '')}"
+            value = scoped_value(
+                kind=str(elig.get("discount_kind") or ""),
+                amount=int(elig.get("discount_amount") or 0),
+                scope_service_ids=[str(elig.get("gift_service_id") or "")],
+                invoice_minor=invoice_minor, line_minor=line_minor)
+            referral_scope = [str(elig.get("gift_service_id") or "")]
+        return Entitlement(source=SOURCE_REFERRAL, ref=f"referral:{phone}",
+                           text=text, finalize_key=phone, scope_service_ids=referral_scope,
+                           value_minor=value)
+
+    async def _referral_code_entitlement(self, *, tenant: str, phone: str, invoice_minor: int,
+                                         line_minor: dict[str, int]) -> Entitlement | None:
+        if self._referral_code is None or not phone:
+            return None
+        try:
+            elig = await self._referral_code.eligibility(tenant, phone)
+        except Exception as exc:                                          # noqa: BLE001
+            raise EntitlementPeerUnavailable(str(exc)) from exc
+        if not (elig and elig.get("eligible")):
+            return None
+        from app.core.referral_redemption import (
+            NEW_CUSTOMER_DISCOUNT_PERCENT, NEW_CUSTOMER_WELCOME_POINTS)
+
+        reward_type = elig.get("new_customer_reward_type")
+        params = elig.get("new_customer_reward_params") or {}
+        value: int | None
+        if reward_type == NEW_CUSTOMER_DISCOUNT_PERCENT:
+            percent = int(params.get("percent") or 0)
+            text = f"خصم عميل جديد بالإحالة: {percent}%"
+            value = scoped_value(kind="percent", amount=percent, scope_service_ids=None,
+                                 invoice_minor=invoice_minor, line_minor=line_minor)
+        elif reward_type == NEW_CUSTOMER_WELCOME_POINTS:
+            # POINTS, NOT MONEY — nothing here reduces THIS invoice, so it has no SAR
+            # value to compare with; see module docstring's "cannot be computed" tier.
+            text = f"نقاط ترحيب بالإحالة: {params.get('points', 0)} نقطة"
+            value = None
+        else:
+            text = "مكافأة إحالة نشطة"
+            value = None
+        return Entitlement(source=SOURCE_REFERRAL_CODE, ref=f"referral_code:{phone}",
+                           text=text, finalize_key=phone, value_minor=value)
+
+    async def _campaign_entitlement(self, *, tenant: str, subject_ref: str,
+                                    service_ids: list[str], invoice_minor: int,
+                                    line_minor: dict[str, int]) -> Entitlement | None:
+        if self._campaign_chooser is None:
+            return None
+        try:
+            chosen = await self._campaign_chooser(
+                tenant=tenant, subject_ref=subject_ref, service_ids=service_ids)
+        except Exception as exc:                                          # noqa: BLE001
+            raise EntitlementPeerUnavailable(str(exc)) from exc
+        if not (chosen and chosen.get("ref")):
+            return None
+        value: int | None = None
+        reward_kind = str(chosen.get("reward_kind") or "")
+        if reward_kind:
+            value = scoped_value(
+                kind=reward_kind, amount=int(chosen.get("reward_amount") or 0),
+                scope_service_ids=chosen.get("scope_service_ids"),
+                invoice_minor=invoice_minor, line_minor=line_minor)
+        return Entitlement(
+            source=SOURCE_CAMPAIGN, ref=str(chosen.get("ref") or ""),
+            text=str(chosen.get("text") or ""), campaign_id=str(chosen.get("campaign_id") or ""),
+            scope_service_ids=list(chosen.get("scope_service_ids") or []), value_minor=value)
 
     async def _gift_value(self, tenant: str, service_id: str) -> int | None:
         if self._store is None or not service_id:

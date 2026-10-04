@@ -32,6 +32,7 @@ from app.core.partners import PartnerError, PartnerRegistry
 from app.core.stores import (AssetStore, BranchStore, CustomerStore, OperatorStepStatStore,
                              OperatorStore, PackageStore, PrivacyRequestStore, ProcedureStepStore,
                              ServiceStore, TranslationStore, VisitStore, new_id)
+from app.core.entitlements import EntitlementPeerUnavailable
 from app.core.operations import OperationError, RecordedVisit
 from app.core.quantities import check_quantities
 from app.core.whatsapp_auto_register import WhatsAppAutoRegisterFlagStore
@@ -1235,6 +1236,33 @@ async def internal_visit_from_customer(request: Request, body: VisitFromCustomer
 
     return {"visit_id": recorded.visit.id, "customer_id": recorded.customer.id,
            "duplicate": recorded.duplicate, "offer": offer}
+
+
+@router.get("/operations/referral-and-partnership-offers",
+           dependencies=[Depends(require_internal_token)])
+async def internal_referral_and_partnership_offers(request: Request, tenant: str,
+                                                    phone: str) -> dict:
+    """Every live referral-code/mutual-benefit entitlement for a phone, as a plain LIST — for
+    whatsapp-assistant's own `check_active_offers` conversational tool (core/tools.py), which
+    already lists every live CAMPAIGN offer the same way from reminders' own send-log but had no
+    visibility into these two sources at all until now (the exact same gap the till/field screen
+    and bookings' own pre-save preview already had — see `Operations.preview_offer`'s own
+    docstring). See `EntitlementGateway.live_referral_and_partnership_offers`'s own docstring for
+    why this is a LISTING, never `choose()`'s single-winner decision: a customer asking "what do
+    I have?" must hear about every real thing he holds, not just the one that would win if he
+    booked or visited right now.
+
+    AN UNREACHABLE SOURCE REFUSES WITH A 503, IT DOES NOT ANSWER AN EMPTY LIST — same posture
+    every other entitlement read in this fleet takes: telling the assistant "he holds nothing"
+    over a peer hiccup is the one wrong answer that reads as a confident lie to the customer.
+    """
+    try:
+        offers = await request.app.state.container.operations.live_referral_and_partnership_offers(
+            tenant, phone)
+    except EntitlementPeerUnavailable as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE,
+                            "تعذّر التحقق من عروض الإحالة/الشراكة الآن.") from exc
+    return {"offers": offers}
 
 
 @router.get("/operations/whatsapp-auto-register",

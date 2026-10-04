@@ -682,7 +682,7 @@ class ConversationEngine:
                 max_carousel_cards: int = 5, runtime_config: Any = None,
                 max_reply_tokens: int = 500, mobile_requests: Any = None,
                 active_offers: Any = None, held_apps: Any = None, orders: Any = None,
-                order_licence: Any = None) -> None:
+                order_licence: Any = None, referral_partnership_offers: Any = None) -> None:
         self._store = store
         self._llm = llm
         self._booking = booking_provider
@@ -709,6 +709,10 @@ class ConversationEngine:
         # "nothing configured" default (check_active_offers then always answers "no live offer"
         # rather than failing the turn).
         self._active_offers = active_offers
+        # None-safe the same way — see core/referral_partnership_offers.py's own
+        # NullReferralPartnershipOffers for the "nothing configured" default. The OTHER half of
+        # "what offers does he hold", alongside `_active_offers` above (campaign-only).
+        self._referral_partnership_offers = referral_partnership_offers
         self._max_carousel_cards = max_carousel_cards
         # THE SAME DEPLOY-TIME-DEFAULT-PLUS-LIVE-OVERRIDE SHAPE AS max_carousel_cards ABOVE
         # (app/runtime_policy.py's own MAX_REPLY_TOKENS, read live via `_runtime_int` at the one
@@ -1639,6 +1643,7 @@ class ConversationEngine:
                     rhythm_provider=self._rhythm_provider,
                     mobile_requests=self._mobile_requests,
                     active_offers=self._active_offers,
+                    referral_partnership_offers=self._referral_partnership_offers,
                     max_carousel_cards=max_carousel_cards)
             except T.ToolValidationError as exc:
                 conv.raw_window.append({"role": "assistant",

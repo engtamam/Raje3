@@ -176,6 +176,7 @@ class ToolContext:
     rhythm_provider: Any = None
     mobile_requests: Any = None
     active_offers: Any = None
+    referral_partnership_offers: Any = None
     max_carousel_cards: int = 5
 
 
@@ -414,29 +415,42 @@ async def _tool_list_lapsed_services(ctx: ToolContext, args: dict[str, Any]) -> 
 
 async def _tool_check_active_offers(ctx: ToolContext, args: dict[str, Any]) -> ToolResult:
     # READ-ONLY, same posture as list_due_services/check_growth_opportunities — plain facts
-    # back to the model, never a sentence for the customer. Reuses reminders' own send-log
-    # read (core/active_offers.py's own module docstring) — no guessing which campaign the
-    # customer means: `for_subject` already answers "every offer this customer is still
-    # genuinely holding", expired or already-spent ones silently absent.
-    if ctx.active_offers is None:
+    # back to the model, never a sentence for the customer. TWO SOURCES, MERGED (2026-10-05):
+    # reminders' own send-log (core/active_offers.py's own module docstring — "every offer this
+    # customer is still genuinely holding", expired or already-spent ones silently absent) AND
+    # operations' unified referral-code/mutual-benefit read
+    # (core/referral_partnership_offers.py), a real gap found auditing this tool against the
+    # new entitlement system: a customer whose ONLY live entitlement was a referral or
+    # partner-shop grant used to hear "لا يوجد عرض" from this exact tool, even though
+    # apply_offer would still correctly apply it the moment he actually booked or visited.
+    if ctx.active_offers is None and ctx.referral_partnership_offers is None:
         return "لا توجد عروض حالية لهذا العميل."
-    offers = await ctx.active_offers.for_subject(tenant=ctx.tenant, subject_ref=ctx.subject_ref)
-    if not offers:
-        return "لا يوجد عرض حالي ساري لهذا العميل الآن."
+
     import datetime as _dt
 
     from app.core.riyadh import RIYADH
-    lines = ["عروضه الحالية الحقيقية:"]
-    for o in offers:
-        until = _dt.datetime.fromtimestamp(o.expires_at, RIYADH).strftime("%Y-%m-%d")
-        line = f"- {o.text} — ساري حتى {until}"
-        if o.value:
-            line += f" (القيمة: {o.value})"
-        if o.scoped:
-            names = "، ".join(o.services) if o.services else "خدمات محددة"
-            line += f" — يشمل: {names}"
-        lines.append(line)
-    return "\n".join(lines)
+
+    lines: list[str] = []
+    if ctx.active_offers is not None:
+        offers = await ctx.active_offers.for_subject(tenant=ctx.tenant, subject_ref=ctx.subject_ref)
+        for o in offers:
+            until = _dt.datetime.fromtimestamp(o.expires_at, RIYADH).strftime("%Y-%m-%d")
+            line = f"- {o.text} — ساري حتى {until}"
+            if o.value:
+                line += f" (القيمة: {o.value})"
+            if o.scoped:
+                names = "، ".join(o.services) if o.services else "خدمات محددة"
+                line += f" — يشمل: {names}"
+            lines.append(line)
+
+    if ctx.referral_partnership_offers is not None and ctx.from_number:
+        partner_offers = await ctx.referral_partnership_offers.for_phone(
+            tenant=ctx.tenant, phone=ctx.from_number)
+        lines.extend(f"- {o.text}" for o in partner_offers)
+
+    if not lines:
+        return "لا يوجد عرض حالي ساري لهذا العميل الآن."
+    return "\n".join(["عروضه الحالية الحقيقية:", *lines])
 
 
 async def _tool_check_growth_opportunities(ctx: ToolContext, args: dict[str, Any]) -> ToolResult:
@@ -841,6 +855,7 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
                               rhythm_provider: Any = None,
                               mobile_requests: Any = None,
                               active_offers: Any = None,
+                              referral_partnership_offers: Any = None,
                               max_carousel_cards: int = 5,
                               ) -> ToolResult:
     """Returns a RenderedProposal (interactive message + pending proposal persisted) for a
@@ -869,6 +884,7 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
         from_number=from_number, booking_history_visible=booking_history_visible,
         catalog_provider=catalog_provider, rhythm_provider=rhythm_provider,
         mobile_requests=mobile_requests, active_offers=active_offers,
+        referral_partnership_offers=referral_partnership_offers,
         max_carousel_cards=max_carousel_cards)
     return await handler(ctx, args)
 

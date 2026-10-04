@@ -519,6 +519,26 @@ class Operations:
             return None
         return {"text": chosen.text, "service_ids": list(chosen.scope_service_ids)}
 
+    async def live_referral_and_partnership_offers(
+            self, tenant: str, phone: str) -> list[dict[str, Any]]:
+        """Thin passthrough to `EntitlementGateway.live_referral_and_partnership_offers` — see
+        that method's own docstring. The one real consumer is the internal route
+        whatsapp-assistant's `check_active_offers` tool calls
+        (`/internal/operations/referral-and-partnership-offers`); this exists so that route reads
+        through `Operations` like every other internal read does, rather than reaching into
+        `self._entitlement_gateway` directly — the same indirection `preview_offer` above already
+        gives callers for the identical reason.
+
+        RAISES, NEVER ANSWERS AN EMPTY LIST, ON AN UNREACHABLE SOURCE — unlike `preview_offer`
+        above (a pre-save convenience the operator can proceed without), this is the WHOLE answer
+        a caller asked for; silently saying "nothing" over a peer hiccup reads as a confident lie
+        to whoever the assistant is talking to."""
+        gateway = self._entitlement_gateway
+        if gateway is None:
+            return []
+        offers = await gateway.live_referral_and_partnership_offers(tenant=tenant, phone=phone)
+        return [{"text": o.text} for o in offers]
+
     async def available_points_reward(self, tenant: str, visit_id: str) -> dict[str, Any] | None:
         """The single cheapest `type == "discount"` loyalty reward this visit's own customer can
         currently afford, or `None` — read-only, never redeemed here. Same shape and same
