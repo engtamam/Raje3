@@ -67,6 +67,10 @@ BACKUP: dict[str, Any] = {
         # from — both cheap and both confusing to lose.
         {"name": "reminders_watermarks", "tenant_scoped": True},
         {"name": "reason_choices", "tenant_scoped": True},
+        {"name": "custom_template_quota", "tenant_scoped": True},
+        {"name": "rating_requests", "tenant_scoped": True},
+        {"name": "rating_settings", "tenant_scoped": True},
+        {"name": "runtime_config", "tenant_scoped": False},
     ],
     # Nothing excluded. An exclusion is a judgement call, and the fewer of those a backup manifest
     # carries the better.

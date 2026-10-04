@@ -100,9 +100,11 @@ class Thresholds:
     # `strong`: a pair between the two is genuinely ambiguous, and forcing it into a verdict would
     # manufacture certainty we do not have. Such pairs get `none` and are simply not shown.
     weak: float = 1.2
-    # A rule needs the support of several hundred transactions before it means anything; below this
-    # we say we are still learning rather than publish a number that changes next week.
-    min_baskets: int = 200
+    # A rule needs the support of enough transactions before it means anything; below this we say
+    # we are still learning rather than publish a number that changes next week. Lowered from 200
+    # to 100 by owner decision (2026-09-26) — still enough baskets for a real pattern, not noise,
+    # but a shop should not wait as long to see its first association.
+    min_baskets: int = 100
     # And a pair must appear in at least this many baskets on its own. Without it, two services
     # bought together exactly twice in a year produce a spectacular lift out of pure noise.
     min_pair_support: int = 5

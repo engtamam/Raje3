@@ -16,6 +16,14 @@ its own local store). `RealBookingProvider` requires them in practice and refuse
 see its own docstring — but the PORT stays permissive so a placeholder implementation with no use
 for either need not accept or thread through arguments it would only ever discard.
 
+`referral_code` (owner instruction, 2026-09-27) — a new customer's own referral code, offered
+during the conversation and passed through to whoever resolves `from_number` into a real
+`customer_id`; this is the ONLY moment a WhatsApp customer ever has to give one (by the time a
+booking is attended, the customer already exists — same reasoning the console's own booking
+dialog and the mobile app's new-booking sheet already follow). `ConfigDrivenAvailabilityProvider`
+accepts and ignores it (no customer-resolution concept of its own); `RealBookingProvider` threads
+it to `/internal/operations/customer-id-by-phone`, which already accepts it.
+
 `exclude_booking_id` (booking-management-via-WhatsApp) — the booking being RESCHEDULED is not a
 conflict with itself; without excluding it, a candidate slot inside its own current window reads
 as busy against its own occupancy. `ConfigDrivenAvailabilityProvider` accepts and ignores it (no
@@ -45,4 +53,5 @@ class BookingProvider(Protocol):
 
     async def hold_and_confirm(self, *, tenant: str, subject_ref: str, service_id: str,
                                starts_at: int, idempotency_key: str, branch_id: str = "",
-                               from_number: str = "", intended_reward_id: str = "") -> dict: ...
+                               from_number: str = "", intended_reward_id: str = "",
+                               referral_code: str = "") -> dict: ...

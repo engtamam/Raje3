@@ -325,7 +325,7 @@ class Tick:
         reached = 0
         if due:
             ceiling = await self._ceiling.read(tenant)
-            reached = await self._reach.count(tenant, now=now) if ceiling.known() else 0
+            reached = (await self._reach.count(tenant, now=now))[0] if ceiling.known() else 0
             room = Room(left=ceiling.remaining(reached))
 
         # PRIORITY ORDER (spec 8.4.2 section 4). Two messages competing for one daily slot must
@@ -901,8 +901,14 @@ class Tick:
             # for a booking schedule IS THE BOOKING ID (see Scheduler.on_booking) — into a
             # customer-facing message.
             is_booking = row.get("kind") == "booking_confirmation"
-            slot_3 = row.get("appt_time", "") if is_booking else (
-                str(row.get("redeemed_cost", "")) if redeemed else service_text)
+            # SAME SHAPE AS THE BOOKING CASE ABOVE, FOR THE WHATSAPP-ORDERING APP'S OWN SIX
+            # KINDS (`Scheduler.on_order`) — slot 3 is the order's own short number
+            # (`Schedule.order_number`, phrased once at scheduling time), never `service_id`,
+            # which for an order schedule IS THE ORDER'S OWN INTERNAL ID.
+            is_order = str(row.get("kind") or "").startswith("order_")
+            slot_3 = (row.get("appt_time", "") if is_booking else
+                     row.get("order_number", "") if is_order else
+                     str(row.get("redeemed_cost", "")) if redeemed else service_text)
             rendered = R.render(
                 template=template,
                 system={"1": customer_name, "2": establishment,
@@ -922,6 +928,7 @@ class Tick:
                     "points": str(row.get("redeemed_cost", "")) if redeemed else "",
                     "balance": str(row.get("redeemed_remaining", "")),
                     "free_text": row.get("owner_text", ""),
+                    "order_number": row.get("order_number", ""),
                 },
                 public_base_url=self._public_base_url,
                 # Same reason as the campaign path above: portal reads `{tenant}.{subject}`.

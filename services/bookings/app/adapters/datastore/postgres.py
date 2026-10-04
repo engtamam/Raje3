@@ -6,12 +6,15 @@ services replace this with their own schema/repository behind the same port.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from app.adapters.lazy import load
 from app.adapters.datastore import cursor as _cursor
 from app.ports.datastore import SORT_DIRECTIONS
 from app.ports.errors import ConfigError
+
+_SORT_FIELD_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 _TABLE = "kv_store"
 
@@ -200,6 +203,8 @@ class PostgresDataStore:
         field, direction = sort
         if direction not in SORT_DIRECTIONS:
             raise ConfigError(f"sort direction must be one of {SORT_DIRECTIONS}: {direction!r}")
+        if not _SORT_FIELD_RE.match(field):
+            raise ConfigError(f"sort field is not a plain identifier: {field!r}")
         limit = max(1, int(limit))
         descending = direction == "desc"
 

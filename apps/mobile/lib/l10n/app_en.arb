@@ -66,11 +66,17 @@
   "assistantSend": "Send",
   "assistantUnavailable": "The assistant is not available right now.",
   "assistantPreparing": "Preparing the assistant...",
+  "assistantRetryDownload": "Retry",
   "assistantSpeak": "Listen to the answer",
   "assistantStopSpeaking": "Stop speaking",
   "assistantActionUnavailable": "You can't do this right now.",
   "assistantConfirm": "Confirm",
   "assistantCancel": "Cancel",
+  "assistantReplySettingsTooltip": "Reply settings",
+  "assistantReplyModeTitle": "How the assistant replies",
+  "assistantReplyModeSubtitle": "Applies to every answer, even if you asked by voice",
+  "assistantReplyModeVoice": "Voice",
+  "assistantReplyModeText": "Written text",
   "authLoginSubtitle": "Sign in to continue",
   "authPhoneLabel": "Mobile number",
   "authPasswordLabel": "Password",
@@ -109,7 +115,7 @@
   "visitNoServicesYet": "No services yet.",
   "visitNoteSectionTitle": "Note (optional)",
   "visitSaveButtonLabel": "Save the visit",
-  "navAppsLabel": "My apps",
+  "navAppsLabel": "App store",
   "navHomeLabel": "Home",
   "navAccountLabel": "Account",
   "homeGreetingMorning": "Good morning",
@@ -201,9 +207,41 @@
   "branchesMemberRoleLabel": "Role",
   "branchesRoleOperator": "Field operator",
   "branchesRoleSupervisor": "Shift supervisor",
+  "branchesRoleMarketer": "Marketing lead",
   "branchesRoleManager": "Manager",
   "branchesSeatLimit": "Your current plan does not allow another employee.",
   "branchesHireFailed": "Could not add the employee, try again.",
+  "branchesVisibleAllHint": "Sees every branch",
+  "branchesVisibleSomeHint": "Sees {count} branches",
+  "branchesEditMember": "Edit employee",
+  "branchesMemberStopped": "Stopped",
+  "branchesMemberStationLabel": "Which branch they work at",
+  "branchesMemberVisibilityLabel": "Which branches they may see",
+  "branchesVisibilityOwnOnly": "Their own branch only",
+  "branchesVisibilitySome": "Specific branches",
+  "branchesVisibilityAll": "Every branch",
+  "branchesWorkingHours": "Working hours",
+  "branchesStopMember": "Stop employee",
+  "branchesStopMemberTitle": "Stop this employee?",
+  "branchesStopMemberBody": "{name} loses access to the app immediately. Their visit history and records stay saved.",
+  "branchesStopMemberConfirm": "Stop",
+  "branchesReactivateMember": "Reactivate",
+  "branchesRehireRequired": "This employee is fully stopped — reactivating them needs hiring them again, not just a toggle.",
+  "branchesHoursSaved": "Working hours saved.",
+  "branchesHoursExceedsShop": "These hours are wider than the shop's own hours — adjust them.",
+  "branchesHoursHint": "If you don't change anything, they follow the shop's own hours automatically.",
+  "branchesHoursClear": "Reset to the shop's default hours",
+  "branchesDayMonday": "Monday",
+  "branchesDayTuesday": "Tuesday",
+  "branchesDayWednesday": "Wednesday",
+  "branchesDayThursday": "Thursday",
+  "branchesDayFriday": "Friday",
+  "branchesDaySaturday": "Saturday",
+  "branchesDaySunday": "Sunday",
+  "branchesDayClosed": "Closed",
+  "accountLanguageSectionTitle": "Language",
+  "accountLanguageRow": "App language",
+  "accountLanguageSheetTitle": "Choose app language",
   "accountSecuritySectionTitle": "Security",
   "accountChangePasswordRow": "Change password",
   "accountChangePasswordFailed": "Could not change the password, try again.",
@@ -218,6 +256,7 @@
   "billingLoadFailed": "Couldn't load your billing data. Pull down to retry.",
   "billingAllGood": "Your billing is in good shape — nothing needs your attention right now.",
   "billingPastDue": "You have a past-due invoice — pay it to avoid your services being paused.",
+  "billingPaymentConfirming": "We got your payment attempt and are confirming it now — this can take up to 20 minutes.",
   "billingUsageSectionTitle": "Your usage",
   "billingUsageStaffSeats": "Staff seats",
   "billingUsageBranches": "Branches",
@@ -247,6 +286,7 @@
   "billingInvoiceStatusDraft": "Draft",
   "billingPayNow": "Pay now",
   "billingPayLinkFailed": "Couldn't create a pay link. Try again.",
+  "paymentPageLoadFailed": "Couldn't load the payment page. Check your connection and try again.",
   "billingCancelConfirmTitle": "Stop renewal?",
   "billingCancelConfirmBody": "The service keeps working until the end of the current period, then it won't renew.",
   "billingCancelConfirmAction": "Stop renewal",
@@ -267,5 +307,1156 @@
   "writeVehicleTrackingDisabledConfirm": "Turns off the plate-number field on this shop's visit-registration screen. Confirm?",
   "writeVehicleTrackingEnabledDone": "Vehicle tracking turned on ✓",
   "writeVehicleTrackingDisabledDone": "Vehicle tracking turned off ✓",
-  "writeVehicleTrackingFailed": "Could not change the vehicle-tracking setting, try again."
+  "writeVehicleTrackingFailed": "Could not change the vehicle-tracking setting, try again.",
+  "mobileRequestsTitle": "Mobile requests",
+  "mobileRequestsSubtitle": "Requests for a service that comes to the customer, from intake to completion.",
+  "mobileRequestsKpiPending": "Awaiting decision",
+  "mobileRequestsKpiNeedsDecision": "Needs a decision",
+  "mobileRequestsKpiCompletedMonth": "Completed this month",
+  "mobileRequestsBannerGo": "View",
+  "mobileRequestsFilterAll": "All",
+  "mobileRequestsFilterPending": "Pending",
+  "mobileRequestsFilterAccepted": "Accepted",
+  "mobileRequestsFilterNeedsDecision": "Needs decision",
+  "mobileRequestsFilterCompleted": "Completed",
+  "mobileRequestsFilterClosed": "Closed",
+  "mobileRequestsSearchHint": "Search by name or phone",
+  "mobileRequestsLoadFailedTitle": "Couldn't load requests",
+  "mobileRequestsLoadFailedBody": "Check your connection and try again.",
+  "mobileRequestsRetry": "Retry",
+  "mobileRequestsEmptyTitle": "No requests yet",
+  "mobileRequestsEmptyBody": "Mobile-service requests from your customers show up here.",
+  "mobileRequestsStatusPending": "Pending",
+  "mobileRequestsStatusAccepted": "Accepted",
+  "mobileRequestsStatusNeedsDecision": "Needs decision",
+  "mobileRequestsStatusCompleted": "Completed",
+  "mobileRequestsStatusNoShow": "No-show",
+  "mobileRequestsStatusRejected": "Rejected",
+  "mobileRequestsUnnamed": "Unnamed",
+  "mobileRequestsOpenMap": "Location",
+  "mobileRequestsPhoneCopied": "Phone number copied",
+  "mobileRequestsRiskyCustomer": "High no-show risk customer",
+  "mobileRequestsRejectReasonLine": "Rejection reason: {reason}",
+  "mobileRequestsActionAccept": "Accept",
+  "mobileRequestsActionReject": "Reject",
+  "mobileRequestsActionComplete": "Complete",
+  "mobileRequestsActionNoShow": "No-show",
+  "mobileRequestsAssignUnassigned": "Unassigned",
+  "mobileRequestsActionFailed": "Couldn't complete the action, try again.",
+  "mobileRequestsRejectTitle": "Reason for rejection",
+  "mobileRequestsRejectHint": "Optional",
+  "mobileRequestsRejectCancel": "Cancel",
+  "mobileRequestsRejectConfirm": "Reject request",
+  "mobileRequestsAddOpen": "Add request",
+  "mobileRequestsAddTitle": "Add a mobile-service request",
+  "mobileRequestsAddPhoneLabel": "Customer's phone",
+  "mobileRequestsAddNameLabel": "Customer's name (optional)",
+  "mobileRequestsAddServicesLabel": "Services",
+  "mobileRequestsAddServicesEmpty": "No services available yet.",
+  "mobileRequestsAddDayLabel": "Day",
+  "mobileRequestsAddTimeLabel": "Time",
+  "mobileRequestsAddMapsLinkLabel": "Google Maps location link",
+  "mobileRequestsAddMapsLinkHint": "Accepts a full or shortened Google Maps link.",
+  "mobileRequestsAddMapsLinkShort": "This is a shortened link — paste the full Google Maps link.",
+  "mobileRequestsAddMapsLinkInvalid": "Couldn't read a location from this link.",
+  "mobileRequestsAddAssignLabel": "Assign to (optional)",
+  "mobileRequestsAddCancel": "Cancel",
+  "mobileRequestsAddSubmit": "Add request",
+  "mobileRequestsAddSubmitting": "Adding...",
+  "mobileRequestsAddError": "Couldn't add the request, try again.",
+  "mobileRequestsBannerText": "{count, plural, one{1 request needs your decision now} other{{count} requests need your decision now}}",
+  "mobileRequestsAddMapsLinkResolving": "Reading the location from the link...",
+  "customersTitle": "Contacts",
+  "customersAddOpen": "Add customer",
+  "customersSearchHint": "Search by name or phone",
+  "customersTabAll": "All",
+  "customersTabOverdue": "Overdue",
+  "customersSearchFailedTitle": "Search unavailable right now",
+  "customersSearchFailedBody": "Try again shortly.",
+  "customersSearchEmpty": "No results",
+  "customersLoadFailedTitle": "Couldn't load",
+  "customersEmptyTitle": "No customers yet",
+  "customersOverdueEmpty": "No one is overdue right now",
+  "customersUnnamed": "Unnamed",
+  "customersVisitCount": "{count, plural, one{1 visit} other{{count} visits}}",
+  "customersOverdueBadge": "Overdue",
+  "customersStatEveryDays": "{days, plural, one{every day} other{every {days} days}}",
+  "customersOverdueBanner": "Overdue for their usual visit — usually every {every} days, {since} days since their last visit",
+  "customersVisitMeter": "Odometer: {n}",
+  "customersOfferExpiredBadge": "Expired",
+  "customersDeniedAllTitle": "You don't have permission to view the customer list",
+  "customersDeniedOverdueTitle": "You don't have permission to view who's overdue",
+  "customersDeniedDesc": "Ask the shop owner to grant you this permission.",
+  "customersAddTitle": "Add a new customer",
+  "customersAddPhoneLabel": "Customer's phone",
+  "customersAddNameLabel": "Customer's name",
+  "customersAddPhoneInvalid": "Invalid phone number.",
+  "customersAddFailed": "Couldn't add the customer, try again.",
+  "customersAddSubmitting": "Adding...",
+  "customersAddSubmit": "Add",
+  "customersActionFailed": "Couldn't complete the action, try again.",
+  "customersRepeatedIssuesTitle": "Repeated issues",
+  "customersVehiclesTitle": "Vehicles",
+  "customersLoyaltyTitle": "Loyalty",
+  "customersLoyaltyLoading": "Loading...",
+  "customersLoyaltyPoints": "{count} points",
+  "customersLoyaltyAdjust": "Adjust",
+  "customersOffersTitle": "Live offers",
+  "customersOfferExpires": "Expires {date}",
+  "customersVisitsTitle": "Visit history",
+  "customersVisitsEmpty": "No visits yet",
+  "customersVisitNoServices": "No services recorded",
+  "customersRenameTitle": "Edit customer's name",
+  "customersRenameSubmit": "Save",
+  "customersLoyaltyAdjustTitle": "Adjust loyalty points",
+  "customersLoyaltyAdjustNoteLabel": "Reason for the adjustment",
+  "customersLoyaltyAdjustNoteRequired": "Write a real reason (at least 3 characters), and pick a nonzero amount.",
+  "customersLoyaltyAdjustSubmit": "Save adjustment",
+  "customersEraseButton": "Erase this customer's data",
+  "customersEraseTitle": "Erase customer data",
+  "customersEraseWarning": "This permanently erases all of the customer's data from the platform — it cannot be undone.",
+  "customersEraseTypeNameLabel": "To confirm, type the customer's name: {name}",
+  "customersEraseConfirm": "Erase permanently",
+  "customersBookingsTitle": "Bookings",
+  "customersAttendanceRate": "{rate}% attendance",
+  "customersBookingsNoneUpcoming": "No upcoming bookings",
+  "customersCyclesTitle": "Reminder cycles",
+  "customersCyclesEveryDays": "Every {days} days",
+  "customersCyclesEditHint": "Set the interval, and automatic learning stops for this service with this customer.",
+  "customersCyclesSave": "Save",
+  "customersLogTitle": "Messages log",
+  "customersLogEmpty": "We haven't sent them anything yet",
+  "customersLogOutcomeSent": "Sent",
+  "customersLogOutcomeSuppressed": "Not sent",
+  "customersTemplateVisitConfirmation": "Visit confirmation",
+  "customersTemplateVisitConfirmationRating": "Post-visit rating request",
+  "customersTemplateBookingConfirmation": "Booking confirmation",
+  "customersTemplateVisitRedeemed": "Reward redemption notice",
+  "customersTemplateServiceReminder": "Service reminder",
+  "customersTemplateFollowUp": "Post-visit follow-up",
+  "customersTemplateAccountNotice": "Account notice",
+  "customersTemplatePointsExpiring": "Points-expiring alert",
+  "customersTemplateLoyaltyActivation": "Loyalty programme activation",
+  "customersTemplateWinback": "Lapsed-customer win-back",
+  "customersTemplatePersonalOccasion": "Occasion greeting",
+  "customersShowAll": "Show all ({count})",
+  "customersCyclesUnknownService": "Unknown service",
+  "customersVisitGapDays": "{days, plural, =0{same day} one{after 1 day} other{after {days} days}}",
+  "customersCountLabel": "{count, plural, =0{no customers yet} one{1 customer} other{{count} customers}}",
+  "ratingTitle": "Ratings",
+  "pointsTitle": "Loyalty Points",
+  "pointsAddReward": "New reward",
+  "pointsEditReward": "Edit reward",
+  "pointsTabRewards": "Rewards",
+  "pointsTabLeaderboard": "Most redeemed",
+  "pointsOutstandingHint": "points the shop still owes its customers",
+  "pointsRedemptionsCount": "{count, plural, one{1 redemption} other{{count} redemptions}}",
+  "pointsCustomersCount": "{count, plural, one{1 customer redeemed} other{{count} customers redeemed}}",
+  "pointsExpiredWarning": "{percent}% of granted points expired unredeemed — review your reward pricing",
+  "pointsLoadFailedTitle": "Could not load rewards",
+  "pointsRewardsEmpty": "No rewards yet — add your customers' first reward",
+  "pointsLeaderboardEmpty": "No redemptions yet — they'll show here once a customer redeems one",
+  "pointsLeaderboardTitle": "Most redeemed",
+  "pointsLeaderboardHint": "The top five rewards your customers redeemed",
+  "pointsTimesRedeemed": "{count, plural, one{once} other{{count} times}}",
+  "pointsRewardRetired": "Retired",
+  "pointsRewardServiceHint": "Service: {name}",
+  "pointsRewardDiscountHint": "{amount} SAR off",
+  "pointsRewardItemHint": "A gift, not tied to the catalogue",
+  "pointsRewardNameLabel": "Reward name",
+  "pointsRewardTypeLabel": "Reward type",
+  "pointsTypeService": "A service from your catalogue",
+  "pointsTypeItem": "A gift",
+  "pointsTypeDiscount": "A cash discount",
+  "pointsRewardServiceLabel": "Which service",
+  "pointsRewardDiscountLabel": "Discount amount, SAR",
+  "pointsRewardCostLabel": "Cost in points",
+  "pointsRewardActiveLabel": "Active — customers may redeem it",
+  "pointsRewardInvalid": "Enter a name and a real point cost above zero",
+  "pointsSaveFailed": "Could not save, try again",
+  "pointsModeTitle": "Earning method",
+  "pointsModeHint": "By service: each service has its own points. By invoice value: one point per riyal.",
+  "pointsModeServices": "By service",
+  "pointsModeInvoice": "By invoice value",
+  "pointsModeNeedsPricedServices": "Earning by invoice value needs every service priced first — price them all in Services, then turn it on.",
+  "pointsOpenEarnSettings": "Per-service points settings",
+  "ratingLeaderboardTitle": "Top-rated staff",
+  "ratingCardNoName": "Unnamed",
+  "ratingMetricVisits": "Most visits",
+  "ratingMetricRatings": "Most ratings",
+  "ratingMetricAvg": "Top-rated",
+  "ratingStaffCount": "{count, plural, one{1 staff member} other{{count} staff members}}",
+  "ratingTableTitle": "Every staff member",
+  "ratingTableVisitsValue": "{n} visits",
+  "ratingTableRatingsValue": "{n} ratings",
+  "ratingTableEngagementValue": "{n}% engagement",
+  "ratingTableNoShowValue": "{n}% no-show",
+  "ratingPeriodWeek": "Week",
+  "ratingPeriodMonth": "Month",
+  "ratingPeriodQuarter": "Quarter",
+  "ratingPeriodCustom": "Custom",
+  "ratingCustomSince": "From: {date}",
+  "ratingCustomUntil": "To: {date}",
+  "ratingCustomRangeInvalid": "Invalid range — make sure the start date is before the end date",
+  "ratingExportLocaleLabel": "Report language",
+  "localeNameAr": "العربية",
+  "localeNameEn": "English",
+  "localeNameUr": "اردو",
+  "localeNameHa": "Hausa",
+  "localeNameFil": "Filipino",
+  "localeNameBn": "বাংলা",
+  "ratingTopIssuesTitle": "Most repeated issues",
+  "ratingFilterUnhandled": "Pending",
+  "ratingFilterAll": "All",
+  "ratingFilterHandled": "Handled",
+  "ratingStarsAll": "All stars",
+  "ratingLoadFailedTitle": "Couldn't load ratings",
+  "ratingEmptyTitle": "No ratings yet",
+  "ratingLoadMore": "Show more",
+  "ratingHandledPlain": "Handled",
+  "ratingMarkHandled": "Mark as handled",
+  "ratingMarkHandledHint": "This is recorded permanently — it cannot be undone later.",
+  "ratingHandledNoteLabel": "Note (optional)",
+  "ratingMarkHandledConfirm": "Confirm",
+  "ratingActionFailed": "Couldn't complete the action, try again.",
+  "ratingWeightedAvgHint": "{count, plural, =0{no ratings in the last 30 days} one{from 1 rating over the last 30 days} other{from {count} ratings over the last 30 days}}",
+  "ratingUnhandledCount": "{count, plural, one{1 rating pending} other{{count} ratings pending}}",
+  "ratingVisitsShort": "{count, plural, one{1 visit} other{{count} visits}}",
+  "ratingIssueFilterLabel": "Issue: {label}",
+  "ratingByOperator": "Served by {name}",
+  "ratingHandledWithNote": "Handled: {note}",
+  "ratingQuadrantTitle": "Performance quadrant",
+  "ratingQuadrantHint": "Quality against engagement rate — tap any point for that operator's training record.",
+  "ratingQuadrantStars": "Stars",
+  "ratingQuadrantUnderused": "Underused",
+  "ratingQuadrantNeedsCoaching": "Needs coaching",
+  "ratingQuadrantAtRisk": "At risk",
+  "ratingTrainingTitle": "Training record",
+  "ratingTrainingNoAccess": "You don't have permission to view this.",
+  "ratingTrainingClean": "Clean record — no repeated issues.",
+  "ratingEngagementPercent": "{percent}% engagement",
+  "ratingTabOverview": "Overview",
+  "ratingTabFeed": "All ratings",
+  "ratingOverviewEmpty": "No performance data yet for the last 30 days.",
+  "ratingExportTitle": "Export report",
+  "ratingExportHint": "The team's performance report for the selected period, ready to share.",
+  "ratingExportFailed": "Couldn't export the report, try again.",
+  "customersPrivacyRequestsTitle": "Privacy requests",
+  "customersPrivacyRequestErase": "Data erasure request",
+  "customersPrivacyRequestCopy": "Data copy request",
+  "customersPrivacyRequestGeneric": "Request: {type}",
+  "customersPrivacyRequestClose": "Close",
+  "customersLoyaltyHistoryTitle": "Points history",
+  "customersLoyaltyHistoryNoReason": "No reason given",
+  "customersLoyaltyReasonRedeem": "Reward redeemed",
+  "customersLoyaltyReasonAdjust": "Manual adjustment",
+  "customersLoyaltyReasonEarn": "Points from a visit",
+  "customersLoyaltyReasonExpire": "Expired",
+  "readCustomersFailed": "Could not fetch customer data right now, try again.",
+  "readCustomersTotal": "{count, plural, =0{You have no customers registered yet.} one{You have 1 registered customer.} other{You have {count} registered customers.}}",
+  "readCustomersOverdueCount": "{count, plural, =0{No customer is overdue on their cycle right now.} one{You have 1 customer overdue on their cycle.} other{You have {count} customers overdue on their cycle.}}",
+  "readMobileRequestsFailed": "Could not fetch mobile requests right now, try again.",
+  "readMobileRequestsPendingCount": "{count, plural, =0{No mobile requests are awaiting a decision.} one{You have 1 request awaiting a decision.} other{You have {count} requests awaiting a decision.}}",
+  "readMobileRequestsNeedsDecisionCount": "{count, plural, =0{No mobile requests need your decision right now.} one{1 request needs your decision now.} other{{count} requests need your decision now.}}",
+  "readRatingFailed": "Could not fetch rating data right now, try again.",
+  "readRatingNone": "You have no ratings in the last 30 days yet.",
+  "readRatingAverage": "Your average rating over the last 30 days is {avg} out of 5, from {count} ratings.",
+  "readRatingUnhandledCount": "{count, plural, =0{No ratings are pending.} one{You have 1 rating pending.} other{You have {count} ratings pending.}}",
+  "readRatingTopStaff": "Your top-rated staff over the last 30 days is {name}, averaging {avg} out of 5.",
+  "readMobileRequestsCompletedCount": "{count, plural, =0{You haven't completed any mobile requests this month yet.} one{You've completed 1 this month.} other{You've completed {count} this month.}}",
+  "readMobileRequestsTodayCount": "{count, plural, =0{No mobile requests have come in today yet.} one{1 request has come in today.} other{{count} requests have come in today.}}",
+  "readOperatorsFailed": "Could not fetch the staff count right now, try again.",
+  "readOperatorsCount": "{count, plural, =0{You have no staff registered yet.} one{You have 1 staff member.} other{You have {count} staff members.}}",
+  "readBranchesDisconnectedCount": "{count, plural, =0{All your active branches have WhatsApp connected and working.} one{You have 1 branch with WhatsApp not working.} other{You have {count} branches with WhatsApp not working.}}",
+  "readCustomersRecentNone": "You don't have any customers registered yet.",
+  "readCustomersRecentName": "Your most recent customer is {name}.",
+  "readRatingCriticalIssuesCount": "{count, plural, =0{No pending ratings carry a critical issue.} one{You have 1 pending rating with a critical issue.} other{You have {count} pending ratings with critical issues.}}",
+  "readPerBranchModeOn": "Yes, your shop runs in multi-branch mode.",
+  "readPerBranchModeOff": "No, your shop runs as a single branch.",
+  "readBillingOverdueYes": "Yes, you have an overdue invoice — pay it to avoid your services being paused.",
+  "readBillingOverdueNo": "No, your billing is in good standing, no overdue invoices.",
+  "readServicesFailed": "Could not fetch the services count right now, try again.",
+  "readServicesCount": "{count, plural, =0{You have no services in your list yet.} one{You have 1 service in your list.} other{You have {count} services in your list.}}",
+  "readCustomersTodayCount": "{count, plural, =0{No new customer has come in today yet.} one{1 new customer has come in today.} other{{count} new customers have come in today.}}",
+  "readMobileRequestsRejectedCount": "{count, plural, =0{You haven't rejected any mobile requests this month.} one{You've rejected 1 this month.} other{You've rejected {count} this month.}}",
+  "readMobileRequestsNoShowCount": "{count, plural, =0{No customer has been a no-show this month.} one{1 customer has been a no-show this month.} other{{count} customers have been no-shows this month.}}",
+  "readRatingFiveStarCount": "{count, plural, =0{You have no five-star ratings yet.} one{You have 1 five-star rating.} other{You have {count} five-star ratings.}}",
+  "readBranchesActiveCount": "{count, plural, =0{You have no active branches right now.} one{You have 1 active branch.} other{You have {count} active branches.}}",
+  "servicesTitle": "My services",
+  "servicesUnnamedGlyph": "?",
+  "servicesSearchHint": "Search by service name",
+  "servicesTabActive": "Active",
+  "servicesTabStopped": "Stopped",
+  "servicesLoadFailedTitle": "Couldn't load services",
+  "servicesEmptyActive": "No active services yet",
+  "servicesEmptyStopped": "No stopped services",
+  "servicesAddOpen": "Add service",
+  "servicesNoPrice": "No price set",
+  "servicesNoDuration": "Not set",
+  "servicesNoCycle": "No cycle",
+  "servicesStopTitle": "Stop this service",
+  "servicesStopConfirm": "Stop",
+  "servicesActionFailed": "Couldn't complete the action, try again.",
+  "servicesEditTitle": "Edit service",
+  "servicesAddTitle": "Add a new service",
+  "servicesNameLabel": "Service name",
+  "servicesPriceLabel": "Price (optional)",
+  "servicesDurationLabel": "Duration in minutes (optional)",
+  "servicesCycleLabel": "Reminder cycle in days (optional)",
+  "servicesDescriptionLabel": "Short description (optional)",
+  "servicesSaving": "Saving...",
+  "servicesSave": "Save",
+  "servicesNameRequired": "Service name is required",
+  "servicesActiveCount": "{count, plural, =0{You have no active services yet.} one{You have 1 active service.} other{You have {count} active services.}}",
+  "servicesDurationMinutes": "{count} min",
+  "servicesCycleDays": "Every {count} days",
+  "servicesStopWarning": "This stops \"{name}\" — it won't show for a new visit and its reminders stop. Its data is never deleted.",
+  "servicesPhotoPickFailed": "Couldn't pick the photo",
+  "servicesPhotoUploadFailed": "Saved, but the photo upload failed",
+  "servicesPhotoLabel": "Service photo (optional)",
+  "servicesUploadPhoto": "Upload photo",
+  "@servicesUploadPhoto": {
+    "description": "servicesUploadPhoto"
+  },
+  "servicesChangePhoto": "Change photo",
+  "@servicesChangePhoto": {
+    "description": "servicesChangePhoto"
+  },
+  "servicesRemovePhoto": "Remove",
+  "@servicesRemovePhoto": {
+    "description": "servicesRemovePhoto"
+  },
+  "servicesAssignmentLabel": "Who provides this service?",
+  "servicesAssignmentAuto": "Any available staff",
+  "servicesAssignmentNamed": "Specific staff",
+  "servicesChecklistLabel": "Procedure checklist",
+  "servicesChecklistEmpty": "No steps yet — add the first one",
+  "servicesStepAddTitle": "Add a step",
+  "servicesGeneralSettingsTitle": "General default",
+  "servicesGeneralSettingsHint": "The value every service that hasn't been customised follows",
+  "servicesFollowUpLabel": "Follow-up days after the visit",
+  "servicesPointsLabel": "Points per visit",
+  "servicesGroupThem": "Group them",
+  "servicesGroupNameHint": "Group name",
+  "servicesAllGroups": "All",
+  "servicesStepEditTitle": "Edit the step",
+  "servicesStepCriticalLabel": "Critical step",
+  "servicesStepRetire": "Retire this step",
+  "servicesStepEditHint": "Long-press any step to edit or retire it",
+  "servicesAdvancedTitle": "Advanced settings",
+  "servicesAdvancedHint": "Customise this service away from the general default — cycle, points, and grouping",
+  "servicesGroupLabel": "Group",
+  "servicesNoGroup": "No group",
+  "servicesNewGroup": "New group",
+  "servicesFollowGeneralAction": "Follow general",
+  "servicesCustomizeAction": "Customise",
+  "servicesFollowUpDays": "Follow up after {n} days",
+  "servicesPointsPerVisit": "{n} points",
+  "servicesSuggestionText": "{n} services share the same value — grouping them makes editing them together easier later.",
+  "servicesFollowsGeneral": "Follows general — {hint}",
+  "servicesPageTabServices": "Services",
+  "servicesPageTabPackages": "Packages",
+  "servicesPackageAdd": "Add package",
+  "servicesPackageNeedsTwoServices": "A package needs at least two active services",
+  "servicesPackageEmpty": "No packages yet",
+  "servicesPackageEditTitle": "Edit package",
+  "servicesPackageAddTitle": "Add a new package",
+  "servicesPackageNameLabel": "Package name",
+  "servicesPackagePriceRequired": "Package price is required, above zero",
+  "servicesPackageServicesLabel": "Included services",
+  "servicesImportTitle": "Import services from a file",
+  "servicesImportHint": "A CSV file with columns: name, price, duration_minutes, cycle_days, description",
+  "servicesImportPickFile": "Choose a CSV file",
+  "servicesImportReadFailed": "Couldn't read the file",
+  "servicesImportParseFailed": "The file has no name column, or its format is invalid",
+  "servicesImportDeactivateMissing": "Stop services missing from the file",
+  "servicesImportDeactivateMissingHint": "Any service you currently have that isn't in this file gets stopped automatically",
+  "servicesImportConfirm": "Import",
+  "servicesImportClose": "Done",
+  "servicesImportRowCount": "{n, plural, =0{No rows} one{1 row} other{{n} rows}} ready to import",
+  "servicesImportDone": "Added {created}, updated {updated}, reactivated {reactivated}.",
+  "visitPackagesSectionTitle": "Featured packages",
+  "visitNameFieldHint": "Customer name (optional)",
+  "visitMeterFieldHint": "Odometer reading",
+  "visitQuantityDialogTitle": "Quantity",
+  "visitCouponCheckboxLabel": "Grant a discount coupon to another shop",
+  "visitCouponPhoneHint": "Shop owner's phone",
+  "visitClearAllButton": "Clear all",
+  "visitServicesSelectedCount": "{n, plural, one{1 service selected} other{{n} services selected}}",
+  "visitTodayBookingsTitle": "Today's appointments",
+  "visitBookingAttendFailed": "Couldn't confirm attendance, try again",
+  "branchSwitcherChooseBranch": "Choose branch",
+  "branchSwitcherTitle": "Current branch",
+  "branchSwitcherHint": "Everything you open after this belongs to this branch",
+  "proceduresPrintFailed": "Couldn't generate the document",
+  "@proceduresPrintFailed": {
+    "description": "proceduresPrintFailed"
+  },
+  "proceduresTitle": "Procedures",
+  "@proceduresTitle": {
+    "description": "proceduresTitle"
+  },
+  "proceduresSubtitle": "Set the procedure checklist for each service, or manage the whole shared library. Long-press a service to select it for printing",
+  "@proceduresSubtitle": {
+    "description": "proceduresSubtitle"
+  },
+  "proceduresLibraryLink": "Procedure library",
+  "@proceduresLibraryLink": {
+    "description": "proceduresLibraryLink"
+  },
+  "proceduresPrint": "Print",
+  "@proceduresPrint": {
+    "description": "proceduresPrint"
+  },
+  "proceduresEmptyTitle": "No active services yet",
+  "@proceduresEmptyTitle": {
+    "description": "proceduresEmptyTitle"
+  },
+  "servicesStepSeverityNormal": "Normal",
+  "@servicesStepSeverityNormal": {
+    "description": "servicesStepSeverityNormal"
+  },
+  "servicesStepSeverityCritical": "Critical",
+  "@servicesStepSeverityCritical": {
+    "description": "servicesStepSeverityCritical"
+  },
+  "proceduresSaveFailed": "Couldn't save",
+  "@proceduresSaveFailed": {
+    "description": "proceduresSaveFailed"
+  },
+  "proceduresDrawerSubtitle": "Drag to reorder, or add a step from the library",
+  "@proceduresDrawerSubtitle": {
+    "description": "proceduresDrawerSubtitle"
+  },
+  "proceduresDrawerEmpty": "No steps for this service yet",
+  "@proceduresDrawerEmpty": {
+    "description": "proceduresDrawerEmpty"
+  },
+  "proceduresDrawerAddButton": "Add from library",
+  "@proceduresDrawerAddButton": {
+    "description": "proceduresDrawerAddButton"
+  },
+  "proceduresPickTitle": "Pick a step",
+  "@proceduresPickTitle": {
+    "description": "proceduresPickTitle"
+  },
+  "proceduresPickClose": "Close",
+  "@proceduresPickClose": {
+    "description": "proceduresPickClose"
+  },
+  "proceduresPickApply": "Add",
+  "@proceduresPickApply": {
+    "description": "proceduresPickApply"
+  },
+  "proceduresPickSearch": "Search steps",
+  "@proceduresPickSearch": {
+    "description": "proceduresPickSearch"
+  },
+  "proceduresPickEmpty": "No results",
+  "@proceduresPickEmpty": {
+    "description": "proceduresPickEmpty"
+  },
+  "proceduresPickCreatePlaceholder": "New step...",
+  "@proceduresPickCreatePlaceholder": {
+    "description": "proceduresPickCreatePlaceholder"
+  },
+  "proceduresLibrarySaveFailed": "Couldn't save",
+  "@proceduresLibrarySaveFailed": {
+    "description": "proceduresLibrarySaveFailed"
+  },
+  "proceduresLibraryTitle": "Procedure library",
+  "@proceduresLibraryTitle": {
+    "description": "proceduresLibraryTitle"
+  },
+  "proceduresLibrarySubtitle": "Every step here is shared across every service that uses it - editing it changes it everywhere",
+  "@proceduresLibrarySubtitle": {
+    "description": "proceduresLibrarySubtitle"
+  },
+  "proceduresLibraryNewPlaceholder": "New step text",
+  "@proceduresLibraryNewPlaceholder": {
+    "description": "proceduresLibraryNewPlaceholder"
+  },
+  "proceduresLibraryAdd": "Add",
+  "@proceduresLibraryAdd": {
+    "description": "proceduresLibraryAdd"
+  },
+  "proceduresLibraryShowRetired": "Show retired",
+  "@proceduresLibraryShowRetired": {
+    "description": "proceduresLibraryShowRetired"
+  },
+  "proceduresLibraryEmpty": "No steps yet",
+  "@proceduresLibraryEmpty": {
+    "description": "proceduresLibraryEmpty"
+  },
+  "proceduresLibraryRetired": "Retired",
+  "@proceduresLibraryRetired": {
+    "description": "proceduresLibraryRetired"
+  },
+  "proceduresLibraryRetire": "Retire",
+  "@proceduresLibraryRetire": {
+    "description": "proceduresLibraryRetire"
+  },
+  "proceduresLibraryReactivate": "Reactivate",
+  "@proceduresLibraryReactivate": {
+    "description": "proceduresLibraryReactivate"
+  },
+  "proceduresSeverityHint": "A critical step is highlighted for staff and can't be skipped while performing the service",
+  "@proceduresSeverityHint": {
+    "description": "proceduresSeverityHint"
+  },
+  "proceduresSelectedCount": "{n} selected",
+  "@proceduresSelectedCount": {
+    "description": "proceduresSelectedCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "proceduresStepCount": "{n} steps",
+  "@proceduresStepCount": {
+    "description": "proceduresStepCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "proceduresUsedIn": "Used in {n} services",
+  "@proceduresUsedIn": {
+    "description": "proceduresUsedIn",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "mutualBenefitProposeButton": "Propose partnership",
+  "@mutualBenefitProposeButton": {
+    "description": "mutualBenefitProposeButton"
+  },
+  "mutualBenefitTitle": "Mutual Benefit",
+  "@mutualBenefitTitle": {
+    "description": "mutualBenefitTitle"
+  },
+  "mutualBenefitSubtitle": "Move real customers between you and other shops, by mutual agreement",
+  "@mutualBenefitSubtitle": {
+    "description": "mutualBenefitSubtitle"
+  },
+  "mutualBenefitRoleAll": "All",
+  "@mutualBenefitRoleAll": {
+    "description": "mutualBenefitRoleAll"
+  },
+  "mutualBenefitRoleReferrer": "As referrer",
+  "@mutualBenefitRoleReferrer": {
+    "description": "mutualBenefitRoleReferrer"
+  },
+  "mutualBenefitRoleBeneficiary": "As beneficiary",
+  "@mutualBenefitRoleBeneficiary": {
+    "description": "mutualBenefitRoleBeneficiary"
+  },
+  "mutualBenefitLoadFailed": "Couldn't load partnerships",
+  "@mutualBenefitLoadFailed": {
+    "description": "mutualBenefitLoadFailed"
+  },
+  "mutualBenefitEmptyTitle": "No partnerships yet",
+  "@mutualBenefitEmptyTitle": {
+    "description": "mutualBenefitEmptyTitle"
+  },
+  "mutualBenefitKpiAsReferrer": "As referrer",
+  "@mutualBenefitKpiAsReferrer": {
+    "description": "mutualBenefitKpiAsReferrer"
+  },
+  "mutualBenefitKpiAsBeneficiary": "As beneficiary",
+  "@mutualBenefitKpiAsBeneficiary": {
+    "description": "mutualBenefitKpiAsBeneficiary"
+  },
+  "mutualBenefitKpiSent": "Referred",
+  "@mutualBenefitKpiSent": {
+    "description": "mutualBenefitKpiSent"
+  },
+  "mutualBenefitKpiRedeemed": "Redeemed",
+  "@mutualBenefitKpiRedeemed": {
+    "description": "mutualBenefitKpiRedeemed"
+  },
+  "mutualBenefitKpiRate": "Redemption rate",
+  "@mutualBenefitKpiRate": {
+    "description": "mutualBenefitKpiRate"
+  },
+  "mutualBenefitConfirm": "Confirm",
+  "@mutualBenefitConfirm": {
+    "description": "mutualBenefitConfirm"
+  },
+  "mutualBenefitGrantDiscountBlanket": "Discount on the whole visit",
+  "@mutualBenefitGrantDiscountBlanket": {
+    "description": "mutualBenefitGrantDiscountBlanket"
+  },
+  "mutualBenefitStatusProposed": "Proposed",
+  "@mutualBenefitStatusProposed": {
+    "description": "mutualBenefitStatusProposed"
+  },
+  "mutualBenefitStatusActive": "Active",
+  "@mutualBenefitStatusActive": {
+    "description": "mutualBenefitStatusActive"
+  },
+  "mutualBenefitStatusPaused": "Paused",
+  "@mutualBenefitStatusPaused": {
+    "description": "mutualBenefitStatusPaused"
+  },
+  "mutualBenefitStatusCancelRequested": "Cancellation requested",
+  "@mutualBenefitStatusCancelRequested": {
+    "description": "mutualBenefitStatusCancelRequested"
+  },
+  "mutualBenefitStatusEnded": "Ended",
+  "@mutualBenefitStatusEnded": {
+    "description": "mutualBenefitStatusEnded"
+  },
+  "mutualBenefitStatusRejected": "Rejected",
+  "@mutualBenefitStatusRejected": {
+    "description": "mutualBenefitStatusRejected"
+  },
+  "mutualBenefitStatusExpiredUnanswered": "Expired unanswered",
+  "@mutualBenefitStatusExpiredUnanswered": {
+    "description": "mutualBenefitStatusExpiredUnanswered"
+  },
+  "mutualBenefitEventProposed": "Partnership proposed",
+  "@mutualBenefitEventProposed": {
+    "description": "mutualBenefitEventProposed"
+  },
+  "mutualBenefitEventAccepted": "Partnership accepted",
+  "@mutualBenefitEventAccepted": {
+    "description": "mutualBenefitEventAccepted"
+  },
+  "mutualBenefitEventRejected": "Partnership rejected",
+  "@mutualBenefitEventRejected": {
+    "description": "mutualBenefitEventRejected"
+  },
+  "mutualBenefitEventActivated": "Partnership activated",
+  "@mutualBenefitEventActivated": {
+    "description": "mutualBenefitEventActivated"
+  },
+  "mutualBenefitEventCancelRequested": "Cancellation requested",
+  "@mutualBenefitEventCancelRequested": {
+    "description": "mutualBenefitEventCancelRequested"
+  },
+  "mutualBenefitEventCancelConfirmed": "Cancellation confirmed",
+  "@mutualBenefitEventCancelConfirmed": {
+    "description": "mutualBenefitEventCancelConfirmed"
+  },
+  "mutualBenefitEventExpiredUnanswered": "Expired with no answer",
+  "@mutualBenefitEventExpiredUnanswered": {
+    "description": "mutualBenefitEventExpiredUnanswered"
+  },
+  "mutualBenefitEventPaused": "Paused",
+  "@mutualBenefitEventPaused": {
+    "description": "mutualBenefitEventPaused"
+  },
+  "mutualBenefitEventResumed": "Resumed",
+  "@mutualBenefitEventResumed": {
+    "description": "mutualBenefitEventResumed"
+  },
+  "mutualBenefitEventEndedTerm": "Term ended",
+  "@mutualBenefitEventEndedTerm": {
+    "description": "mutualBenefitEventEndedTerm"
+  },
+  "mutualBenefitEventGrantCreated": "New grant",
+  "@mutualBenefitEventGrantCreated": {
+    "description": "mutualBenefitEventGrantCreated"
+  },
+  "mutualBenefitEventGrantRedeemed": "Grant redeemed",
+  "@mutualBenefitEventGrantRedeemed": {
+    "description": "mutualBenefitEventGrantRedeemed"
+  },
+  "mutualBenefitActivityActive": "Active",
+  "@mutualBenefitActivityActive": {
+    "description": "mutualBenefitActivityActive"
+  },
+  "mutualBenefitActivityPaused": "Paused",
+  "@mutualBenefitActivityPaused": {
+    "description": "mutualBenefitActivityPaused"
+  },
+  "mutualBenefitActivityPending": "Awaiting reply",
+  "@mutualBenefitActivityPending": {
+    "description": "mutualBenefitActivityPending"
+  },
+  "mutualBenefitActivityInactive": "Inactive",
+  "@mutualBenefitActivityInactive": {
+    "description": "mutualBenefitActivityInactive"
+  },
+  "mutualBenefitScorecardTitle": "Performance",
+  "@mutualBenefitScorecardTitle": {
+    "description": "mutualBenefitScorecardTitle"
+  },
+  "mutualBenefitScorecardFailed": "Couldn't load performance",
+  "@mutualBenefitScorecardFailed": {
+    "description": "mutualBenefitScorecardFailed"
+  },
+  "mutualBenefitActivityTitle": "Recent activity",
+  "@mutualBenefitActivityTitle": {
+    "description": "mutualBenefitActivityTitle"
+  },
+  "mutualBenefitActivityEmpty": "No activity yet",
+  "@mutualBenefitActivityEmpty": {
+    "description": "mutualBenefitActivityEmpty"
+  },
+  "mutualBenefitAgreementsTitle": "Agreements",
+  "@mutualBenefitAgreementsTitle": {
+    "description": "mutualBenefitAgreementsTitle"
+  },
+  "mutualBenefitConfirmCancel": "End this partnership for good?",
+  "@mutualBenefitConfirmCancel": {
+    "description": "mutualBenefitConfirmCancel"
+  },
+  "mutualBenefitActionAccept": "Accept",
+  "@mutualBenefitActionAccept": {
+    "description": "mutualBenefitActionAccept"
+  },
+  "mutualBenefitActionReject": "Reject",
+  "@mutualBenefitActionReject": {
+    "description": "mutualBenefitActionReject"
+  },
+  "mutualBenefitActionWaitingThem": "Waiting on the other side",
+  "@mutualBenefitActionWaitingThem": {
+    "description": "mutualBenefitActionWaitingThem"
+  },
+  "mutualBenefitActionCancelRequest": "Request to end",
+  "@mutualBenefitActionCancelRequest": {
+    "description": "mutualBenefitActionCancelRequest"
+  },
+  "mutualBenefitActionCancelConfirm": "Confirm ending",
+  "@mutualBenefitActionCancelConfirm": {
+    "description": "mutualBenefitActionCancelConfirm"
+  },
+  "mutualBenefitProposeTitle": "Propose a new partnership",
+  "@mutualBenefitProposeTitle": {
+    "description": "mutualBenefitProposeTitle"
+  },
+  "mutualBenefitProposePhoneLabel": "Other shop's phone",
+  "@mutualBenefitProposePhoneLabel": {
+    "description": "mutualBenefitProposePhoneLabel"
+  },
+  "mutualBenefitProposeConditionLabel": "Eligibility condition at your shop",
+  "@mutualBenefitProposeConditionLabel": {
+    "description": "mutualBenefitProposeConditionLabel"
+  },
+  "mutualBenefitConditionMinTotal": "Minimum invoice",
+  "@mutualBenefitConditionMinTotal": {
+    "description": "mutualBenefitConditionMinTotal"
+  },
+  "mutualBenefitConditionServiceId": "A specific service",
+  "@mutualBenefitConditionServiceId": {
+    "description": "mutualBenefitConditionServiceId"
+  },
+  "mutualBenefitProposeConditionValueRiyals": "Amount (SAR)",
+  "@mutualBenefitProposeConditionValueRiyals": {
+    "description": "mutualBenefitProposeConditionValueRiyals"
+  },
+  "mutualBenefitProposeConditionValueService": "Service",
+  "@mutualBenefitProposeConditionValueService": {
+    "description": "mutualBenefitProposeConditionValueService"
+  },
+  "mutualBenefitProposeValidityLabel": "Validity (days)",
+  "@mutualBenefitProposeValidityLabel": {
+    "description": "mutualBenefitProposeValidityLabel"
+  },
+  "mutualBenefitProposeDurationLabel": "Duration (days)",
+  "@mutualBenefitProposeDurationLabel": {
+    "description": "mutualBenefitProposeDurationLabel"
+  },
+  "mutualBenefitProposeCapLabel": "Cap / 30 days",
+  "@mutualBenefitProposeCapLabel": {
+    "description": "mutualBenefitProposeCapLabel"
+  },
+  "mutualBenefitProposeGrantTypeLabel": "Grant type",
+  "@mutualBenefitProposeGrantTypeLabel": {
+    "description": "mutualBenefitProposeGrantTypeLabel"
+  },
+  "mutualBenefitGrantTypeDiscount": "Discount",
+  "@mutualBenefitGrantTypeDiscount": {
+    "description": "mutualBenefitGrantTypeDiscount"
+  },
+  "mutualBenefitGrantTypeGift": "Gift",
+  "@mutualBenefitGrantTypeGift": {
+    "description": "mutualBenefitGrantTypeGift"
+  },
+  "mutualBenefitScopeBlanket": "Whole visit",
+  "@mutualBenefitScopeBlanket": {
+    "description": "mutualBenefitScopeBlanket"
+  },
+  "mutualBenefitScopeItem": "A specific service",
+  "@mutualBenefitScopeItem": {
+    "description": "mutualBenefitScopeItem"
+  },
+  "mutualBenefitScopeGroup": "Group/package",
+  "@mutualBenefitScopeGroup": {
+    "description": "mutualBenefitScopeGroup"
+  },
+  "mutualBenefitProposeServiceLabel": "Service",
+  "@mutualBenefitProposeServiceLabel": {
+    "description": "mutualBenefitProposeServiceLabel"
+  },
+  "mutualBenefitProposeGroupLabel": "Group",
+  "@mutualBenefitProposeGroupLabel": {
+    "description": "mutualBenefitProposeGroupLabel"
+  },
+  "mutualBenefitProposeImmutableNote": "Grant terms are fixed once sent — a different offer needs a new agreement",
+  "@mutualBenefitProposeImmutableNote": {
+    "description": "mutualBenefitProposeImmutableNote"
+  },
+  "mutualBenefitProposeSubmitting": "Sending...",
+  "@mutualBenefitProposeSubmitting": {
+    "description": "mutualBenefitProposeSubmitting"
+  },
+  "mutualBenefitProposeSubmit": "Send proposal",
+  "@mutualBenefitProposeSubmit": {
+    "description": "mutualBenefitProposeSubmit"
+  },
+  "mutualBenefitGrantGift": "Gift: {name}",
+  "@mutualBenefitGrantGift": {
+    "description": "mutualBenefitGrantGift",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mutualBenefitGrantDiscountItem": "Discount on: {name}",
+  "@mutualBenefitGrantDiscountItem": {
+    "description": "mutualBenefitGrantDiscountItem",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mutualBenefitGrantDiscountGroup": "Discount on group: {name}",
+  "@mutualBenefitGrantDiscountGroup": {
+    "description": "mutualBenefitGrantDiscountGroup",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mutualBenefitPartnerCount": "{n} agreement(s)",
+  "@mutualBenefitPartnerCount": {
+    "description": "mutualBenefitPartnerCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "mutualBenefitProposeResultFail": "Couldn't send the proposal",
+  "@mutualBenefitProposeResultFail": {
+    "description": "mutualBenefitProposeResultFail"
+  },
+  "mutualBenefitRefusal402": "Your shop isn't subscribed to the Mutual Benefit app — subscribe from the app store first",
+  "@mutualBenefitRefusal402": {
+    "description": "mutualBenefitRefusal402"
+  },
+  "mutualBenefitRefusal403": "You don't have permission for this action",
+  "@mutualBenefitRefusal403": {
+    "description": "mutualBenefitRefusal403"
+  },
+  "mutualBenefitRefusal400": "The proposal's data is invalid — check the condition, or that you're not proposing a partnership with your own shop",
+  "@mutualBenefitRefusal400": {
+    "description": "mutualBenefitRefusal400"
+  },
+  "mutualBenefitRefusal404": "No shop found with that number, or the chosen service/group doesn't exist in the other shop's catalogue",
+  "@mutualBenefitRefusal404": {
+    "description": "mutualBenefitRefusal404"
+  },
+  "mutualBenefitRefusal409": "You've reached the limit of 3 active partnerships, or the partnership's state has changed",
+  "@mutualBenefitRefusal409": {
+    "description": "mutualBenefitRefusal409"
+  },
+  "mutualBenefitRefusal503": "Billing is temporarily unavailable, try again later",
+  "@mutualBenefitRefusal503": {
+    "description": "mutualBenefitRefusal503"
+  },
+  "appStoreTitle": "App Store",
+  "appStoreSubtitle": "Grow your shop with real apps, one at a time",
+  "appStoreTabMine": "My apps",
+  "appStoreTabAll": "App Store",
+  "appStoreDetails": "Details",
+  "appStorePerMonth": "per month",
+  "appStorePerMonthShort": "/mo",
+  "appStoreActive": "Active",
+  "appStoreTrialing": "Trial",
+  "appStoreSubscribe": "Subscribe now",
+  "appStoreCancelRenewal": "Stop renewal",
+  "appStoreUndoCancel": "Undo cancellation",
+  "appStoreConfirmCancel": "Stop renewing this app? It stays active until the paid period ends",
+  "appStoreCartCount": "{n} in cart",
+  "appStoreCheckout": "Checkout",
+  "appStoreCheckingOut": "Checking out...",
+  "appStoreRefusal402": "Payment isn't enabled on your account right now — contact us to enable it",
+  "appStoreRefusal403": "You don't have permission to complete this purchase",
+  "appStoreRefusal404": "The requested plan wasn't found — refresh and try again",
+  "appStoreRefusal409": "This app is already owned, or its state changed mid-purchase",
+  "appStoreRefusalGeneric": "Couldn't complete the purchase, try again",
+  "appStoreCapacityTitle": "Capacity",
+  "appStoreCapacityConfirmRemove": "Remove the last unit of \"{name}\"? This stops its renewal entirely",
+  "appStoreCartSubtotal": "Subtotal",
+  "appStoreCartDiscount": "Discount",
+  "appStoreCartTax": "Tax",
+  "appStoreCartTotal": "Total",
+  "appStoreCartDiscountCaveat": "Shown before discount and tax; the exact amount is computed and shown at checkout.",
+  "appStoreCartItemDiscount": "({percent}% off)",
+  "@appStoreCartItemDiscount": { "placeholders": { "percent": { "type": "int" } } },
+  "appStoreAutoAdded": "\"{added}\" was added automatically because \"{trigger}\" needs it.",
+  "@appStoreAutoAdded": { "placeholders": { "added": { "type": "String" }, "trigger": { "type": "String" } } },
+  "appStoreMissingRequirement": "Needs {names} enabled first.",
+  "@appStoreMissingRequirement": { "placeholders": { "names": { "type": "String" } } },
+  "appStoreRequiresAnyVisit": "Record Visit",
+  "appStoreRequiresAnyBookings": "Bookings",
+  "appStoreRequiresAnyContacts": "Contacts",
+  "appStoreRequiresAnyMobileRequests": "Mobile Requests",
+  "appStoreRequiresOr": "or",
+  "appStoreOr": "or",
+  "appStoreCascadeWarning": "This will also stop: {names}",
+  "@appStoreCascadeWarning": { "placeholders": { "names": { "type": "String" } } },
+  "appStoreDiscountBadge": "{percent}% discount applied",
+  "@appStoreDiscountBadge": { "placeholders": { "percent": { "type": "int" } } },
+  "appStoreDiscountBadgeWithApp": "{percent}% discount applied from {app}",
+  "@appStoreDiscountBadgeWithApp": { "placeholders": { "percent": { "type": "int" }, "app": { "type": "String" } } },
+  "appStoreDiscountedShort": "{percent}% off",
+  "@appStoreDiscountedShort": { "placeholders": { "percent": { "type": "int" } } },
+  "appStoreOfferTitle": "{percent}% discount awaits",
+  "@appStoreOfferTitle": { "placeholders": { "percent": { "type": "int" } } },
+  "appStoreOfferDesc": "Unlocks automatically when you subscribe to {app}",
+  "@appStoreOfferDesc": { "placeholders": { "app": { "type": "String" } } },
+  "appStoreAiUnitsCount": "{units} unit",
+  "@appStoreAiUnitsCount": { "placeholders": { "units": { "type": "int" } } },
+  "appStoreAiUnitsIncluded": "Free AI, every month",
+  "whatsappAssistantTitle": "AI Assistant",
+  "whatsappAssistantSubtitle": "Replies to your customers on WhatsApp for you, suggesting your plans and their points at the right moment.",
+  "whatsappAssistantLoadFailed": "Couldn't load the assistant's settings.",
+  "whatsappAssistantConfirm": "Confirm",
+  "whatsappAssistantSaveFailed": "Couldn't save, try again.",
+  "whatsappAssistantToggleTitle": "Assistant is replying",
+  "whatsappAssistantToggleDesc": "Turning it off locks the assistant completely, without cancelling your subscription — turn it back on any time.",
+  "whatsappAssistantToggleConfirmEnableTitle": "Turn on the AI assistant?",
+  "whatsappAssistantToggleConfirmEnableBody": "It will start replying to your customers on WhatsApp right away.",
+  "whatsappAssistantToggleConfirmDisableTitle": "Turn off the AI assistant?",
+  "whatsappAssistantToggleConfirmDisableBody": "It stops replying entirely, as if you weren't subscribed at all — without cancelling the subscription itself.",
+  "whatsappAssistantNotesTitle": "Shop notes",
+  "whatsappAssistantNotesDesc": "What you write here helps the assistant serve your customers with extra context about your shop.",
+  "whatsappAssistantWordLimitTitle": "Customer message word limit",
+  "whatsappAssistantWordLimitDesc": "The longest message the assistant accepts from a customer before asking him to shorten it.",
+  "whatsappAssistantAutoRegisterTitle": "Auto-register contacts",
+  "whatsappAssistantAutoRegisterDesc": "Any new number that messages your WhatsApp is automatically saved as a real contact.",
+  "whatsappAssistantAutoRegisterConfirmEnableTitle": "Turn on auto-registration?",
+  "whatsappAssistantAutoRegisterConfirmEnableBody": "Everyone who messages your WhatsApp number will be automatically saved as a contact, even from a single message.",
+  "whatsappAssistantAutoRegisterConfirmDisableTitle": "Turn off auto-registration?",
+  "whatsappAssistantAutoRegisterConfirmDisableBody": "New numbers will no longer be automatically saved as contacts.",
+  "partnerLoyaltyTitle": "Partner Loyalty",
+  "partnerLoyaltySubtitle": "Form an alliance with another registered shop and grant it a perk on its subscription with us",
+  "partnerLoyaltyCapLabel": "Your current cap",
+  "partnerLoyaltyPrefsTitle": "Alliance checkbox during visit recording",
+  "partnerLoyaltyPrefsDesc": "Turning it on lets any staff member recording a visit form an alliance at the same moment.",
+  "partnerLoyaltyGrantTitle": "Form an alliance",
+  "partnerLoyaltyPhoneLabel": "Partner shop's phone number",
+  "partnerLoyaltyPhoneHintOk": "No alliance with them this month",
+  "partnerLoyaltyPhoneHintAlready": "Already allied with them this month",
+  "partnerLoyaltyPhoneHintUnregistered": "This number is not a registered shop with us",
+  "partnerLoyaltyPercentLabel": "Perk percent",
+  "partnerLoyaltyCapLine": "Max percent you can grant now: {p}%",
+  "@partnerLoyaltyCapLine": {
+    "placeholders": { "p": { "type": "int" } }
+  },
+  "partnerLoyaltyScopeLabel": "Covers",
+  "partnerLoyaltyScopeAll": "All",
+  "partnerLoyaltySubmit": "Form the alliance",
+  "partnerLoyaltySubmitting": "Sending…",
+  "partnerLoyaltyResultSuccess": "Alliance formed — applied automatically at the shop's next renewal.",
+  "partnerLoyaltyResultPartial": "Partially formed — some apps were refused, open the log for details.",
+  "partnerLoyaltyOutcomeGranted": "Succeeded",
+  "partnerLoyaltyOutcomeInvalidPercent": "Invalid perk percent",
+  "partnerLoyaltyOutcomeInvalidScope": "Choose a real app",
+  "partnerLoyaltyOutcomeOverCap": "Exceeds your current cap",
+  "partnerLoyaltyOutcomeNoAccount": "This number is not a registered shop with us",
+  "partnerLoyaltyOutcomeNotSubscribed": "That shop holds none of the apps you chose",
+  "partnerLoyaltyOutcomeBillingUnavailable": "Could not complete, try again",
+  "partnerLoyaltyOutcomeAlreadyHasBetterCoupon": "Already holds a stronger perk",
+  "partnerLoyaltyOutcomeCouponExpired": "Perk expired",
+  "partnerLoyaltyOutcomeCouponExhausted": "Perk exhausted",
+  "partnerLoyaltyOutcomeCouponUnknown": "Unknown perk",
+  "partnerLoyaltyOutcomePlanMismatch": "Perk doesn't match this app",
+  "partnerLoyaltyOutcomeCouponDisabled": "Perk disabled",
+  "partnerLoyaltyOutcomeCouponScheduled": "Perk hasn't started yet",
+  "partnerLoyaltyTabLog": "Log",
+  "partnerLoyaltyTabStats": "Stats",
+  "partnerLoyaltyLogSearchHint": "Search last 4 digits",
+  "partnerLoyaltyLogFilterAll": "All statuses",
+  "partnerLoyaltyLogFilterOk": "Succeeded only",
+  "partnerLoyaltyLogFilterFail": "Failed only",
+  "partnerLoyaltyLogEmptyTitle": "No alliances yet",
+  "partnerLoyaltyLogEmptyDesc": "Your first alliance appears here.",
+  "partnerLoyaltyLogReadFailed": "Could not read the log",
+  "partnerLoyaltyStatsKpiMonth": "Alliances this month",
+  "partnerLoyaltyStatsKpiCap": "Your current cap",
+  "partnerLoyaltyStatsKpiCeiling": "Platform ceiling",
+  "partnerLoyaltyStatsLadderTitle": "Your place on the ladder",
+  "partnerLoyaltyStatsLadderNote": "{n} alliance(s) this month — {left} more to reach the {p}% tier",
+  "@partnerLoyaltyStatsLadderNote": {
+    "placeholders": {
+      "n": { "type": "int" },
+      "left": { "type": "int" },
+      "p": { "type": "int" }
+    }
+  },
+  "partnerLoyaltyStatsLadderAtTop": "{n} alliance(s) this month — you are at the top tier",
+  "@partnerLoyaltyStatsLadderAtTop": {
+    "placeholders": { "n": { "type": "int" } }
+  },
+  "partnerLoyaltyStatsCeilingNote": "Platform ceiling {p}% — no shop ever exceeds it",
+  "@partnerLoyaltyStatsCeilingNote": {
+    "placeholders": { "p": { "type": "int" } }
+  },
+  "partnerLoyaltyStatsChartTitle": "Alliances over the last 6 months",
+  "partnerLoyaltyReadFailedTitle": "Could not read your data",
+  "partnerLoyaltyReadFailedDesc": "Try again shortly.",
+  "shopReadFailed": "Could not read your shop's indicators",
+  "shopMultiBranchTitle": "Choose a branch",
+  "shopMultiBranchDesc": "You have more than one branch — pick one to see its indicators.",
+  "shopEmptyBranchTitle": "No data for this branch yet",
+  "shopRetentionTitle": "Your customer return rate",
+  "shopRetentionMutedNote": "Not enough visits yet to calculate this.",
+  "shopRetentionBrandNew": "Register your first visit to start seeing your return rate.",
+  "shopRegisterFirstVisit": "Register first visit",
+  "shopRetentionPrefix10": "Out of every 10 customers who visited you,",
+  "shopRetentionSuffix": "come back",
+  "shopOneCustomer": "One customer visited you",
+  "shopNCustomers": "{n} customers visited you",
+  "@shopNCustomers": { "placeholders": { "n": { "type": "int" } } },
+  "shopRetentionSmallPrefix": "{base}, of whom",
+  "@shopRetentionSmallPrefix": { "placeholders": { "base": { "type": "String" } } },
+  "shopOverNMonths": "over {n} months",
+  "@shopOverNMonths": { "placeholders": { "n": { "type": "int" } } },
+  "shopUnlimited": "Unlimited",
+  "shopTileSentToday": "Sent today",
+  "shopTileWaiting": "Waiting",
+  "shopTileCeilingRemaining": "Remaining today",
+  "shopNextStepLabel": "Next step",
+  "shopNotNow": "Not now",
+  "shopDeckUrgent": "Urgent",
+  "shopDeckWeek": "This week",
+  "shopDeckOpportunities": "Opportunities",
+  "shopComputedNow": "Computed now",
+  "shopComputedHoursAgo": "Computed {n} hour(s) ago",
+  "@shopComputedHoursAgo": { "placeholders": { "n": { "type": "int" } } },
+  "shopStale": "Stale",
+  "shopRefreshAction": "Refresh",
+  "shopComputingTitle": "Computing your indicators",
+  "shopComputeLoading": "Computing…",
+  "shopComputeAction": "Compute now",
+  "shopAtRiskTitle": "Customers about to drift away",
+  "shopAtRiskMutedNote": "Not enough data yet.",
+  "shopAtRiskAllGood": "No overdue customer right now — all good",
+  "shopWaNotConnected": "Your shop's WhatsApp isn't connected yet",
+  "shopWaNotVerified": "Your shop's WhatsApp number isn't verified yet",
+  "shopCeilingReached": "You've reached today's message limit",
+  "shopDaysOverdue": "{n} day(s) overdue",
+  "@shopDaysOverdue": { "placeholders": { "n": { "type": "int" } } },
+  "shopAtRiskCta": "Send a win-back campaign",
+  "shopAiImpactTitle": "WhatsApp AI assistant impact",
+  "shopAiConversations": "Conversations",
+  "shopAiBookings": "Bookings",
+  "shopAiUpsellRate": "Upsell acceptance",
+  "shopWeekMutedTitle": "This week's visits",
+  "shopWeekMutedNote": "Not enough data yet.",
+  "shopNewReturningMutedTitle": "New vs returning customers",
+  "shopNewReturningMutedNote": "Not enough data yet.",
+  "shopBranchCompareTitle": "Branch comparison",
+  "shopBranchCompareMutedNote": "Needs at least two branches to compare.",
+  "shopStaffCompareTitle": "Staff comparison",
+  "shopStaffCompareMutedNote": "Needs at least two staff members to compare.",
+  "shopWeekTitle": "Visits this week",
+  "shopNewReturningTitle": "New vs returning",
+  "shopNewLabel": "New:",
+  "shopReturningLabel": "Returning:",
+  "shopServicesTitle": "Your services",
+  "shopServicesMutedNote": "Not enough data yet.",
+  "shopMessageFlowTitle": "Reminder message impact",
+  "shopMutedMessageFlowNote": "Not enough data yet.",
+  "shopHoldoutTitle": "Messaged vs not-messaged comparison",
+  "shopMutedHoldoutNote": "Still measuring.",
+  "shopReturnedAfterReminder": "{visits} visit(s) within {days} days after a reminder",
+  "@shopReturnedAfterReminder": {
+    "placeholders": { "visits": { "type": "int" }, "days": { "type": "int" } }
+  },
+  "shopOptOutRate": "{p}% asked to stop receiving messages",
+  "@shopOptOutRate": { "placeholders": { "p": { "type": "String" } } },
+  "shopHoldoutNoMessages": "No messages",
+  "shopHoldoutReached": "Messaged",
+  "shopHoldoutOff": "Message-impact measurement is off — all your customers receive everything, so there's no group to compare against.",
+  "shopHoldoutMeasuring": "We're still measuring your messages' impact — {min} of {need} in the smaller group.",
+  "@shopHoldoutMeasuring": {
+    "placeholders": { "min": { "type": "int" }, "need": { "type": "int" } }
+  },
+  "shopTodayRetrying": "{n} message(s) still trying to go out",
+  "@shopTodayRetrying": { "placeholders": { "n": { "type": "int" } } },
+  "shopTrendUp": "improving",
+  "shopTrendDown": "declining",
+  "shopRetentionSincePeriods": "for {n} periods",
+  "@shopRetentionSincePeriods": { "placeholders": { "n": { "type": "int" } } },
+  "shopAtLeastSuffix": " — at least",
+  "shopRegisterFirstVisitArrow": "Record first visit ←",
+  "shopWeekNoCompare": "We don't have a full week yet to compare",
+  "shopNextStepAlso": "Also: {msg}",
+  "@shopNextStepAlso": { "placeholders": { "msg": { "type": "String" } } },
+  "shopBranchCompareUnassigned": "{n} visit(s) with no branch set — not counted toward any branch.",
+  "@shopBranchCompareUnassigned": { "placeholders": { "n": { "type": "int" } } },
+  "shopBranchCompareNeedTwo": "We don't compare branches yet — needs two or more branches with real visits.",
+  "shopBranchCompareNeedSecond": "One active branch so far — comparison needs a second branch with real visits.",
+  "shopBranchCompareTooShort": "We don't rank branches yet — the period is too short, and comparing now would be unfair to the newest one.",
+  "shopStaffCompareUnassigned": "{n} visit(s) with no staff set — not counted toward anyone.",
+  "@shopStaffCompareUnassigned": { "placeholders": { "n": { "type": "int" } } },
+  "shopStaffCompareNeedTwo": "We don't compare staff yet — needs two or more staff with visits attributed to them.",
+  "shopStaffCompareNeedSecond": "One staff member attributed so far — comparison needs a second with real visits.",
+  "shopStaffCompareTooShort": "We don't rank staff yet — the period is too short, and comparing now would be unfair to the newest one.",
+  "shopPeakTitle": "Your busiest times",
+  "shopPeakMutedNote": "Needs visits spread across enough days and hours to draw.",
+  "shopPeakBusiestTime": "{day} around {h}:00",
+  "@shopPeakBusiestTime": { "placeholders": { "day": { "type": "String" }, "h": { "type": "int" } } },
+  "shopPeakBusiestNote": "Your busiest time: {name}.",
+  "@shopPeakBusiestNote": { "placeholders": { "name": { "type": "String" } } },
+  "shopEntityDayServicesTitle": "Your services by day of week",
+  "shopEntityDayServicesHint": "Which service is requested more on a given day — helps you prepare the right staff that day.",
+  "shopEntityDayServicesMutedNote": "Needs visits spread across enough days to draw.",
+  "shopEntityDayBranchesTitle": "Your branches by day of week",
+  "shopEntityDayBranchesHint": "Your branches don't necessarily share the same rhythm — a mall branch gets busy on holidays, a neighborhood branch after work hours.",
+  "shopEntityDayBranchesMutedNote": "Needs a second branch and visits spread across enough days to draw.",
+  "shopBundlesTitle": "Suggested bundles",
+  "shopBundlesMutedNote": "Not enough associations yet to suggest a bundle from.",
+  "shopBundlesOpportunity": "{n} opportunity",
+  "@shopBundlesOpportunity": { "placeholders": { "n": { "type": "int" } } },
+  "shopAssociationsTitle": "Often requested together",
+  "shopAssociationsMutedNote": "Not enough associations yet.",
+  "shopAssociationsLearningNote": "We don't know yet what's requested with what — spotting associations needs more visits for the pattern to be real, not coincidence. ({have}/{need})",
+  "@shopAssociationsLearningNote": { "placeholders": { "have": { "type": "int" }, "need": { "type": "int" } } },
+  "shopCustomersCount": "{n} customer(s)",
+  "@shopCustomersCount": { "placeholders": { "n": { "type": "int" } } },
+  "shopDay0Short": "Su", "shopDay1Short": "Mo", "shopDay2Short": "Tu", "shopDay3Short": "We",
+  "shopDay4Short": "Th", "shopDay5Short": "Fr", "shopDay6Short": "Sa",
+  "shopDay0Full": "Sunday", "shopDay1Full": "Monday", "shopDay2Full": "Tuesday",
+  "shopDay3Full": "Wednesday", "shopDay4Full": "Thursday", "shopDay5Full": "Friday", "shopDay6Full": "Saturday",
+  "shopMissedTitle": "Customers who haven't tried everything that suits them",
+  "shopMissedMutedNote": "No clear customers yet missing a service usually bought with theirs.",
+  "shopCustomerFallback": "Customer",
+  "shopKpiActiveCustomers": "Active customers",
+  "shopKpiReturnCycle": "Return cycle",
+  "shopDaysSuffix": "{n} days",
+  "@shopDaysSuffix": { "placeholders": { "n": { "type": "int" } } },
+  "shopKpiChurnRate": "Churn",
+  "shopTileServicesPerVisit": "Services per visit",
+  "shopTileExpectedNextWeek": "Expected next week",
+  "shopTileCycleCompletion": "Cycle-return adherence",
+  "shopPerVisitMutedTitle": "Services per visit, and cycle adherence",
+  "shopPerVisitMutedNote": "Needs real visits first to compute.",
+  "shopLeadConversionTitle": "Conversion of first-time contacts",
+  "shopLeadConversionDetail": "{converted} of {total} became a real visit",
+  "@shopLeadConversionDetail": { "placeholders": { "converted": { "type": "int" }, "total": { "type": "int" } } }
 }

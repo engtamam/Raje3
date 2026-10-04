@@ -150,7 +150,7 @@ class EarnTree:
             by_source[r.source] = by_source.get(r.source, 0) + v
         if not by_source:
             return 0, "default"
-        rank = {"service": 3, "general": 1, "default": 0}
+        rank = {"service": 3, "group": 2, "general": 1, "default": 0}
         best = max(by_source.items(),
                    key=lambda kv: (kv[1], rank.get(kv[0].split(":")[0], 2)))
         return total, best[0]

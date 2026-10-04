@@ -1,6 +1,39 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- REQUIRED FOR ANY NETWORK CALL AT ALL — found live (2026-09-28), reported by the owner as
+         "cannot connect to server" on login: this permission was missing entirely. Android
+         blocks every socket the app opens without it, so EVERY api call failed the same way,
+         not just login — it happened to go unnoticed until now because a plugin dependency's
+         own manifest may have merged an equivalent declaration in on some builds, which is not
+         something to depend on. Declared explicitly here regardless of what any dependency does. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- flutter_gemma's OWN model download (GemmaAiModel's `.fromNetwork`, AI_MODEL_SOURCE=download
+         builds) NEVER STARTS WITHOUT THESE — found live (2026-09-28), reported by the owner as the
+         mic staying on a permanent red retry circle with no download ever visibly starting.
+         flutter_gemma's own plugin manifest deliberately does NOT declare these (confirmed: its
+         example app's own AndroidManifest.xml declares every one of them itself, with a comment
+         saying so explicitly — "this is host-app responsibility"), because the underlying download
+         runs as a foreground service (background_downloader/WorkManager) and that is inherently a
+         per-app declaration, not something a library can impose on every consumer. Without them the
+         download's own foreground-service start throws immediately, caught by GemmaAiModel's own
+         catch-all and surfaced as AiModelStatus.error before any byte of progress. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- Android 13+ (API 33): without a RUNTIME grant of this, the foreground service does not
+         activate at all — background_downloader's own displayNotification() bails out before
+         calling setForeground() when it isn't granted. flutter_gemma requests it at runtime
+         automatically; declaring it here is necessary but not sufficient on its own. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Android 14+ (API 34+): startForeground() requires BOTH a matching
+         FOREGROUND_SERVICE_<type> permission AND a matching android:foregroundServiceType on that
+         service's own manifest entry, or it throws IllegalArgumentException:
+         "foregroundServiceType ... is not a subset of ... 0x00000000" — see the <service> override
+         below, which must be declared alongside this permission, not instead of it. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <application
-        android:label="raje3_mobile"
+        android:label="راجع"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -25,6 +58,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Companion to FOREGROUND_SERVICE_DATA_SYNC above (API 34+ requirement) — overrides
+             WorkManager's own shared foreground service to declare a foregroundServiceType.
+             tools:node="merge" merges this attribute onto the background_downloader/WorkManager-
+             provided <service> declaration instead of replacing it. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -11,6 +11,8 @@ import { OperatorI18nProvider } from '../operator-i18n';
 
 let earnMock: () => Promise<unknown>;
 let customerByPhoneMock: () => Promise<unknown>;
+let ensureCustomerMock: (...args: unknown[]) => Promise<unknown>;
+let createBookingMock: (...args: unknown[]) => Promise<unknown>;
 
 vi.mock('../api', async (importOriginal) => {
   const real = await importOriginal<typeof import('../api')>();
@@ -22,6 +24,8 @@ vi.mock('../api', async (importOriginal) => {
     balanceFor: () => Promise.resolve({ points: 0, rewards: [], to_next_reward: 0 }),
     noShowRisk: () => Promise.resolve(null),
     suggestByPrefix: () => Promise.resolve([]),
+    ensureCustomer: (...args: unknown[]) => ensureCustomerMock(...args),
+    createBooking: (...args: unknown[]) => createBookingMock(...args),
   };
 });
 
@@ -33,6 +37,13 @@ const CUSTOMER: CustomerHit = { id: 'cus1', phone: '0500000001', name: 'سالم
 const SERVICES = [
   { id: 'svc1', name: 'قص شعر', duration_minutes: 30, price_minor: 5000, active: true },
 ];
+// `canWrite` reads this single id — present here so the save button renders in every test.
+const CATALOG = {
+  services: [{ service: 'bookings', actions: [
+    { id: 'bookings.create', label: '', method: 'POST' as const, path: '/api/v1/bookings', capability: 'bookings.write' },
+  ] }],
+  unreachable: [],
+};
 
 // BookingDialog now reads `useOperatorI18n()` — wrap once so `open()` stays unchanged.
 function open() {
@@ -40,6 +51,7 @@ function open() {
     <OperatorI18nProvider session={{} as never}>
     <BookingDialog
       session={{} as never}
+      catalog={CATALOG}
       branchId="brn1"
       date="2026-09-05"
       initialCustomer={CUSTOMER}
@@ -77,6 +89,84 @@ describe('BookingDialog — a failed loyalty read, named', () => {
     open();
     await screen.findByText('قص شعر');
     expect(screen.queryByText(/تعذّرت قراءة نقاط هذا العميل وعروضه/)).toBeNull();
+  });
+});
+
+describe('BookingDialog — referral code, the real new-customer door', () => {
+  function openNew(onCreated: (b: unknown, referralNotice?: string) => void) {
+    return rtlRender(
+      <OperatorI18nProvider session={{} as never}>
+      <BookingDialog
+        session={{} as never}
+        catalog={CATALOG}
+        branchId="brn1"
+        date="2026-09-05"
+        initialOperatorId="op1"
+        initialStartsAt={1_893_456_000}
+        services={SERVICES as never}
+        staff={[{ id: 'op1', name: 'موظف', role: 'operator' } as never]}
+        onClose={() => {}}
+        onCreated={onCreated as never}
+      />
+      </OperatorI18nProvider>,
+    );
+  }
+
+  it('shows the referral field only once a brand-new phone is typed, never for a matched customer', async () => {
+    earnMock = () => Promise.resolve({ services: {}, groups: {}, service_group: {}, general: {}, packages: {} });
+    customerByPhoneMock = () => Promise.resolve({ customer: null });
+    openNew(() => {});
+    expect(screen.queryByLabelText(/كود إحالة/)).toBeNull();
+    fireEvent.change(screen.getByPlaceholderText('05…'), { target: { value: '0501234567' } });
+    await screen.findByLabelText(/كود إحالة/);
+  });
+
+  it('sends the typed code to ensureCustomer, and surfaces a real grant on the created booking', async () => {
+    earnMock = () => Promise.resolve({ services: {}, groups: {}, service_group: {}, general: {}, packages: {} });
+    customerByPhoneMock = () => Promise.resolve({ customer: null });
+    ensureCustomerMock = vi.fn(() => Promise.resolve({
+      customer: { id: 'cus_new', phone: '0501234567' },
+      referral_registration: { ok: true, new_customer_reward_type: 'discount_percent',
+        new_customer_reward_params: { percent: 10 } },
+    }));
+    createBookingMock = vi.fn(() => Promise.resolve({ id: 'bkg1' }));
+    const onCreated = vi.fn();
+    openNew(onCreated);
+
+    fireEvent.change(screen.getByPlaceholderText('05…'), { target: { value: '0501234567' } });
+    await screen.findByText('قص شعر');
+    fireEvent.click(screen.getByRole('button', { name: /قص شعر/ }));
+    fireEvent.change(await screen.findByLabelText(/كود إحالة/), { target: { value: 'ab123' } });
+
+    fireEvent.click(screen.getByText('احجز'));
+
+    await waitFor(() => expect(ensureCustomerMock).toHaveBeenCalledWith(
+      expect.anything(), '0501234567', '', 'AB123'));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(
+      { id: 'bkg1' }, expect.stringContaining('تسجيل كود الإحالة')));
+  });
+
+  it('a rejected code still creates the booking, and names the refusal in the same notice', async () => {
+    earnMock = () => Promise.resolve({ services: {}, groups: {}, service_group: {}, general: {}, packages: {} });
+    customerByPhoneMock = () => Promise.resolve({ customer: null });
+    ensureCustomerMock = vi.fn(() => Promise.resolve({
+      customer: { id: 'cus_new', phone: '0501234567' },
+      referral_registration: { ok: false, message: 'كود الإحالة غير صالح' },
+    }));
+    createBookingMock = vi.fn(() => Promise.resolve({ id: 'bkg2' }));
+    const onCreated = vi.fn();
+    openNew(onCreated);
+
+    fireEvent.change(screen.getByPlaceholderText('05…'), { target: { value: '0501234567' } });
+    await screen.findByText('قص شعر');
+    fireEvent.click(screen.getByRole('button', { name: /قص شعر/ }));
+    fireEvent.change(await screen.findByLabelText(/كود إحالة/), { target: { value: 'ZZZZZ' } });
+
+    fireEvent.click(screen.getByText('احجز'));
+
+    await waitFor(() => expect(createBookingMock).toHaveBeenCalled());
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(
+      { id: 'bkg2' }, expect.stringContaining('كود الإحالة غير صالح')));
   });
 });
 

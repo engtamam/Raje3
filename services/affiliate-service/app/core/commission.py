@@ -186,8 +186,6 @@ class CommissionEngine:
         if refunded_minor <= 0 or amount_minor <= 0:
             return "unchanged"
         if refunded_minor >= amount_minor:
-            if commission.status == VOIDED:
-                return "unchanged"
             commission.status = VOIDED
             commission.amount_halalas = 0
             await self._store.put(COMMISSIONS, commission.id, commission.to_dict())
@@ -362,7 +360,7 @@ def _parse_iso(value: str) -> int | None:
     try:
         import datetime as _dt
         return int(_dt.datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp())
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, OverflowError, OSError):
         return None
 
 

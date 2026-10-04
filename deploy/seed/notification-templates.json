@@ -28,30 +28,30 @@
       }
     },
     {
-      "key": "operations.referral_partnership_proposed",
+      "key": "operations.mutual_benefit_proposed",
       "category": "transactional",
       "locales": {
         "ar": {
-          "subject": "طلب شراكة استراتيجية جديد",
+          "subject": "طلب تبادل منافع جديد",
           "body": "محل آخر مسجّل عندنا يقترح شراكة إحالة عملاء معك. راجع الشروط ووافق أو ارفض من شاشة الشراكات."
         },
         "en": {
-          "subject": "New referral partnership proposal",
+          "subject": "New mutual benefit proposal",
           "body": "Another shop on our platform is proposing a customer-referral partnership with you. Review the terms and approve or reject it from the partnerships screen."
         }
       }
     },
     {
-      "key": "operations.referral_partnership_cancel_requested",
+      "key": "operations.mutual_benefit_cancel_requested",
       "category": "transactional",
       "locales": {
         "ar": {
-          "subject": "طلب إنهاء شراكة استراتيجية",
+          "subject": "طلب إنهاء تبادل منافع",
           "body": "الطرف الثاني بشراكة الإحالة معك طلب إنهاءها قبل موعدها. الشراكة تبقى فعّالة حتى توافق أنت."
         },
         "en": {
-          "subject": "Referral partnership cancellation requested",
-          "body": "Your referral partnership partner has requested early cancellation. The partnership stays active until you approve it."
+          "subject": "Mutual benefit cancellation requested",
+          "body": "Your mutual benefit partner has requested early cancellation. The partnership stays active until you approve it."
         }
       }
     }

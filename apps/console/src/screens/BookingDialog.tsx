@@ -32,6 +32,7 @@ import {
   nearestSlot, nearestSlotsAny, type NoShowRisk, noShowRisk, offerFor, pointsByService, rescheduleBooking,
   sentenceFor, setServiceDuration, setServicePrice, suggestByPrefix, type WeeklyHours,
 } from '../api';
+import { action, type Catalog } from '../catalog';
 import { asLocal } from '../phone';
 import { halalas, riyals } from '../money';
 import { PAYMENT_ORDER, paymentLabel, type PaymentStatus } from '../bookingPayment';
@@ -45,6 +46,7 @@ import './booking-dialog-i18n';
 
 export interface BookingDialogProps {
   session: Session;
+  catalog: Catalog;
   branchId: string;
   /** The grid's own day, prefilled — he is already looking at it. */
   date: string;
@@ -63,7 +65,11 @@ export interface BookingDialogProps {
    *  now, or merely because it is busy. */
   weekly?: WeeklyHours;
   onClose: () => void;
-  onCreated: (booking: Booking) => void;
+  /** `referralNotice`, WHEN GIVEN, IS A ONE-LINE TOAST TEXT — this dialog closes the moment a
+   *  booking is created (`onClose` runs immediately in every caller), so any referral-code
+   *  feedback has to travel out with the booking itself rather than render inline here, where
+   *  nobody would ever see it. */
+  onCreated: (booking: Booking, referralNotice?: string) => void;
   /** Set when opened from an existing card's action sheet ("تعديل") rather than an empty cell —
    *  the customer is already fixed (no PATCH route changes who a booking is for), so that whole
    *  step is skipped; services, operator, time and note stay editable and are written back with
@@ -108,7 +114,7 @@ interface Slot { operatorId: string; startsAt: number }
 const SLOTS_PER_DAY = 6;
 
 export function BookingDialog(
-  { session, branchId, date, initialOperatorId, initialStartsAt, initialCustomer,
+  { session, catalog, branchId, date, initialOperatorId, initialStartsAt, initialCustomer,
    initialServiceIds, services, staff, weekly, onClose, onCreated,
    editingBooking, editingCustomerLabel }: BookingDialogProps,
 ) {
@@ -118,6 +124,11 @@ export function BookingDialog(
   const [matches, setMatches] = useState<CustomerHit[] | null>([]);
   const [customer, setCustomer] = useState<CustomerHit | null>(initialCustomer ?? null);
   const [name, setName] = useState(initialCustomer?.name ?? '');
+  // A NEW CUSTOMER'S REFERRAL CODE — the only moment this dialog ever has to collect one
+  // (`ensureCustomer`'s own docstring: this IS the real "new customer" moment for a booking).
+  // Never shown once `customer` is set — a returning customer typing one in would be refused by
+  // the engine itself anyway (see `core/referral_redemption.py`'s own new-customer check).
+  const [referralCode, setReferralCode] = useState('');
   const [chosen, setChosen] = useState<string[]>(editing?.service_ids ?? initialServiceIds ?? []);
   /** HOW MANY OF EACH — "2× غسيل خارجي", like the same thing recorded as a visit. Absent for an
    *  id in `chosen` means one, same default the server side already carries. Seeded from the
@@ -320,6 +331,11 @@ export function BookingDialog(
   const ready = Boolean(!phoneMissing && !servicesMissing && !missingDuration
     && !operatorMissing && !operatorIneligible && !noCommonOperator && !timeMissing
     && !depositAmountMissing);
+  // ONE CAPABILITY BEHIND EVERY WRITE THIS DIALOG MAKES — create, reschedule, edit-services,
+  // edit-note, edit-payment and edit-reward all enforce the SAME backend capability
+  // (`bookings.write`, services/bookings/app/api/v1/bookings.py's `_WRITE`), so any one declared
+  // catalogue id stands for all of them; there is no finer-grained id to ask for.
+  const canWrite = Boolean(action(catalog, 'bookings.create'));
 
   // ── THE MERGED TIME PICKER ────────────────────────────────────────────────────────────────
   //
@@ -474,13 +490,22 @@ export function BookingDialog(
       // THE CUSTOMER, RESOLVED-OR-CREATED HERE, AT THE MOMENT HE COMMITS — not while he types,
       // which would create a row for every phone he tries and abandons.
       let c = customer;
+      let referralNotice: string | undefined;
       if (!c) {
-        const ensured = await ensureCustomer(session, phone, name);
+        const ensured = await ensureCustomer(session, phone, name, referralCode.trim());
         // A REFUSAL RETURNED, NOT THROWN — the route answers 200 with `customer: null` on
         // failure (`reason` is author-written, safe to show), so this is checked explicitly
         // rather than relying on the catch block below to ever see it.
         if (!ensured.customer) { setError(ensured.reason || t('bookingDialog.bookingError')); return; }
         c = ensured.customer;
+        // NEVER BLOCKS THE BOOKING EITHER WAY — a rejected code is only ever a notice, surfaced
+        // by the caller (this dialog closes immediately below); the booking is real regardless.
+        if (ensured.referral_registration) {
+          referralNotice = ensured.referral_registration.ok
+            ? t('bookingDialog.referralRegistered')
+            : tf(t, 'bookingDialog.referralRejected',
+                { reason: ensured.referral_registration.message || '' });
+        }
       }
       const booking = await createBooking(session, {
         branch_id: branchId, operator_id: operatorId, customer_id: c.id, service_ids: chosen,
@@ -502,7 +527,7 @@ export function BookingDialog(
       if (saveToCatalog && singleServiceId && priceMinor !== null) {
         setServicePrice(session, singleServiceId, priceMinor).catch(() => {});
       }
-      onCreated(booking);
+      onCreated(booking, referralNotice);
     } catch (e) {
       const status = e instanceof ApiError ? e.status : (e as { status?: number })?.status;
       setError(status === 402
@@ -587,9 +612,18 @@ export function BookingDialog(
             ) : null}
           </div>
         ) : phone.length >= 3 ? (
-          <Field label={t('bookingDialog.nameLabel')} htmlFor="bkg-name">
-            <Input id="bkg-name" value={name} onChange={(e) => setName(e.target.value)} />
-          </Field>
+          <>
+            <Field label={t('bookingDialog.nameLabel')} htmlFor="bkg-name">
+              <Input id="bkg-name" value={name} onChange={(e) => setName(e.target.value)} />
+            </Field>
+            {/* THE ONLY MOMENT THIS CUSTOMER EVER TYPES ONE IN — `ensureCustomer`'s own docstring:
+                by the time a booking is attended, the customer already exists, so this is the
+                real "new customer" door for a referral code, not the attendance step. */}
+            <Field label={t('bookingDialog.referralCodeLabel')} htmlFor="bkg-referral">
+              <Input id="bkg-referral" value={referralCode} dir="ltr"
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())} />
+            </Field>
+          </>
         ) : null}
 
         {/* ── services ────────────────────────────────────────────────────────────────── */}
@@ -723,7 +757,7 @@ export function BookingDialog(
                       type="button"
                       onClick={() => pickSlot(s)}
                       className={`rounded-full px-3 py-2 text-sm font-medium transition-colors ${
-                        picked ? 'bg-accent text-accent-contrast' : 'bg-surface-2 text-text-primary hover:bg-surface-3'
+                        picked ? 'bg-accent text-accent-contrast' : 'border border-border-subtle bg-surface-1 text-text-primary hover:bg-surface-3'
                       }`}
                     >
                       {timeOfEpoch(s.startsAt)}{opName ? tf(t, 'bookingDialog.withOperator', { name: opName }) : ''}
@@ -838,9 +872,11 @@ export function BookingDialog(
 
         <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-3">
           <Button variant="ghost" onClick={onClose}>{t('bookingDialog.cancel')}</Button>
-          <Button disabled={saving} onClick={save} className="shadow-glow">
-            {saving ? t('bookingDialog.saving') : editing ? t('bookingDialog.saveEdit') : t('bookingDialog.bookNow')}
-          </Button>
+          {canWrite ? (
+            <Button disabled={saving} onClick={save} className="shadow-glow">
+              {saving ? t('bookingDialog.saving') : editing ? t('bookingDialog.saveEdit') : t('bookingDialog.bookNow')}
+            </Button>
+          ) : null}
         </div>
       </div>
     </Modal>

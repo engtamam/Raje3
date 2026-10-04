@@ -18,7 +18,7 @@ image:
   # create_service.py's own convention: "CI rewrites this at publish; never a :latest tag").
   # ship.sh / publish-images.sh must run and overwrite this before any rollout is attempted;
   # a rollout against this digest fails at image pull, which is the correct, loud failure.
-  digest: "sha256:7332ba82eafc1b691a44dec6306d1c83456f24fd2327522caf0184dd4ebd2056"   # efc26ae9, published by publish-images.sh
+  digest: "sha256:261c3a2d4cfe67210d337f53193c22ddbc29445133a87f7a14fb607083c62cfe"   # c66c7925, published by publish-images.sh
 
 replicas: 1
 
@@ -34,10 +34,20 @@ resources:
     # MEASURED-NOT-GUESSED CONVENTION (see loyalty.values.yaml's own note): every live service on
     # this fleet sits at 2-4m at rest. 20m matches the fleet's floor rather than the chart's
     # unmeasured 50m default — revisit once this service actually carries traffic.
-    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
+    cpu: 12m  # smart-cpu-sizing.py: cold tier, node budget-derived
     memory: 128Mi
   limits:
     memory: 256Mi
+
+# CRONJOB PODS YIELD TO REAL SERVICES UNDER NODE CONTENTION — found live (2026-09-28): with
+# this off (the chart default), a seconds-lived CronJob pod competes for scheduling at the
+# same priority as an always-on Deployment, and can win the race and starve it (deploy/k3s/
+# priorityclasses.yaml explains the whole mechanism; api-gateway.values.yaml was the only
+# service that had already turned this on). This only changes what priority THIS service's
+# OWN CronJob pods get (base-services-batch, never-preempt) — zero risk to the Deployment
+# itself, which stays at default priority unless it separately sets priorityClassName.
+priorityClasses:
+  enabled: true
 
 autoscaling:
   enabled: false        # flip on once you have load; requests.cpu above makes it real
@@ -93,7 +103,7 @@ env:
   AUDIT_SERVICE_URL: "http://audit-service:8000"
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"
+  CORS_ALLOWED_ORIGINS: "https://ra-je3.com,https://admin.ra-je3.com"
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 

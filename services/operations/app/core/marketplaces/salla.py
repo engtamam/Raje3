@@ -13,8 +13,8 @@ this module — never guessed:
     https://docs.salla.dev/433804m0
 
 CREDENTIALS COME FROM secrets-admin, NEVER FROM HERE — `Settings.SALLA_CLIENT_ID/_SECRET/
-_WEBHOOK_SECRET` are read at call time, same posture as `PAYMENT_PUBLISHABLE_KEY`'s own comment:
-empty means "not configured yet", answered as a real, named state rather than a crash.
+_WEBHOOK_SECRET` are read at call time; empty means "not configured yet", answered as a real,
+named state rather than a crash.
 """
 from __future__ import annotations
 

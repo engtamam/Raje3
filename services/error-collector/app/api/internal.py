@@ -62,8 +62,8 @@ async def internal_manifest(
 
 
 class EraseIn(BaseModel):
-    tenant: str
-    subject: str
+    tenant: str = Field(min_length=1, max_length=128)
+    subject: str = Field(min_length=1, max_length=256)
 
 
 @router.post("/privacy/erase", dependencies=[Depends(require_internal_token)])
@@ -170,7 +170,7 @@ async def backup_verify(request: Request, body: BackupVerifyIn,
     try:
         return await _backup.verify_restore(
             request.app.state.container.datastore, body.archive,
-            unseal=unseal, token=secrets.token_hex(8))
+            unseal=unseal, token=secrets.token_hex(8), declaration=BACKUP)
     except _backup.BackupError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
@@ -181,14 +181,22 @@ async def backup_import(request: Request, body: BackupImportIn,
     """Restore an archive this service produced. Idempotent; leaves newer rows alone by default."""
     _, unseal = _sealer(settings)
     try:
-        return await _backup.import_archive(
+        result = await _backup.import_archive(
             request.app.state.container.datastore, body.archive,
             unseal=unseal, overwrite=body.overwrite, into_tenant=body.into_tenant,
-            prune=body.prune, scan_cap=settings.BACKUP_MAX_ROWS_PER_COLLECTION)
+            prune=body.prune, scan_cap=settings.BACKUP_MAX_ROWS_PER_COLLECTION,
+            declaration=BACKUP)
     except _backup.BackupError as exc:
         # A bad archive is the caller's problem, not a 500: the checksum failed, the key did not
         # match, or a row had no identity. Say which, so an operator can act.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    await request.app.state.auditor.record(
+        "error_collector.backup_imported", actor="", tenant=body.into_tenant,
+        resource="backup:import",
+        ip=request.client.host if request.client else "",
+        metadata={"overwrite": body.overwrite, "prune": body.prune,
+                 "into_tenant": body.into_tenant})
+    return result
 
 
 # ── the signal stream's own two internal routes ───────────────────────────────────────────────

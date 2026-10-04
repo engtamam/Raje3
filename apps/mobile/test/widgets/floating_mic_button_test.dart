@@ -44,6 +44,8 @@ class _FakeAiModel implements AiModel {
   @override
   Stream<int> get downloadProgress => const Stream.empty();
   @override
+  String? get lastError => null;
+  @override
   Future<void> ensureReady({List<AiTool> tools = const []}) async {}
   @override
   Stream<AiEvent> generate(String prompt, {String systemInstruction = ''}) {
@@ -208,6 +210,7 @@ void main() {
           ChangeNotifierProvider<NavProvider>.value(value: nav),
           Provider<AssistantService>.value(value: assistant),
           Provider<ActionRegistry>.value(value: actionRegistry),
+          Provider<LocalStorage>.value(value: localStorage),
           Provider<TtsModel>.value(value: tts),
           Provider<SpeechInputModel>.value(value: speech),
           Provider<WakeWordModel>.value(value: wakeWord),

@@ -387,6 +387,11 @@ class Settings(BaseSettings):
     # establishments in one request holds a worker until it is killed, and the next run starts over
     # from the same place. Bounded work that finishes beats complete work that never does.
     TICK_MAX_TENANTS: int = 200
+    # A widespread PEER SLOWDOWN (not an outright failure) inflates every tenant's own HTTP
+    # timeout without ever tripping it — TICK_MAX_TENANTS alone cannot bound that, only the count
+    # of tenants, not the clock. Stopping short of the cron's own 5-minute interval means one slow
+    # tick can never still be running when the next one fires.
+    TICK_TIME_BUDGET_SECONDS: int = 240
 
     # ── Ports & adapters (Phase 2) — driver selection, ZERO-INFRA defaults ──
     # Every default reaches NO external system; point at real infra by config.

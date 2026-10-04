@@ -21,8 +21,8 @@
  */
 import type { LucideIcon } from 'lucide-react';
 import {
-  CalendarClock, ClipboardPlus, Gift, HandHeart, Handshake, LifeBuoy, Megaphone, MessageSquare, Star,
-  TrendingUp, Truck, Users, Wrench,
+  Building2, CalendarClock, ClipboardPlus, Gift, HandHeart, Handshake, LifeBuoy, Megaphone,
+  MessageSquare, Share2, Star, TrendingUp, Truck, Users, Wrench,
 } from 'lucide-react';
 import { NAV_ACCENTS } from '../../../ui/packages/ui/src/theme';
 import type { Catalog } from './catalog';
@@ -109,7 +109,8 @@ export const SECTIONS: Section[] = [
   // الحجوزات: نفس الباب الذي يفتح الزيارة (docs/وصف-تطبيق-الحجوزات.md §2.5) — من يحجز لعميلةٍ
   // هو نفسه من يفتح زيارتها حين تحضر، فالقسم يظهر بجانب «تسجيل زيارة» مباشرة، لا بعيداً عنه.
   { service: 'bookings', id: 'bookings', path: '/bookings', label: 'الحجوزات', icon: CalendarClock, requires: ['bookings.list'], accent: NAV_ACCENTS[2] },
-  { service: 'operations', id: 'customers', path: '/customers', label: 'عملائي', icon: Users, requires: ['operations.recent'], accent: NAV_ACCENTS[3] },
+  { service: 'coworking', id: 'coworking', path: '/coworking', label: 'مساحة عمل مشتركة', icon: Building2, requires: ['coworking.list_resources'], accent: NAV_ACCENTS[8] },
+  { service: 'operations', id: 'customers', path: '/customers', label: 'جهات الاتصال', icon: Users, requires: ['operations.recent'], accent: NAV_ACCENTS[3] },
   // «التقييم» — WAS A TAB UNDER «عملائي» (رأي عميل هو حقيقة عن زيارته، نفس نطاق «عملائي»)، صار
   // قسماً قائماً بذاته لأن ما بناه هذا الإصدار (مقارنة الفريق، لوحة الصدارة، مصفوفة الأداء) صار
   // أداة إدارة قائمة بحد ذاتها، لا مجرد قائمة تقييمات. نفس بوابة `operations.ratings` التي كانت
@@ -131,20 +132,27 @@ export const SECTIONS: Section[] = [
   // the full note).
   { service: 'operations', id: 'partner-loyalty', path: '/partner-loyalty', label: 'ولاء الشركاء',
    icon: Handshake, requires: ['operations.coupons_page'], accent: NAV_ACCENTS[10] },
-  // «شراكة استراتيجية» — cross-tenant CUSTOMER referral (core/referral_partnership.py's own
+  // «تبادل منافع» — cross-tenant CUSTOMER referral (core/mutual_benefit.py's own
   // module docstring), never to be confused with the row above: «ولاء الشركاء» discounts OUR
   // OWN subscription price between two shops; this one moves real customers, backed by real
   // catalogue items, mutual-consent only. Gated on the plain list action — every holder of
   // `operations.manage` may propose, view and act on a partnership.
-  { service: 'operations', id: 'referral-partnership', path: '/referral-partnership',
-   label: 'شراكة استراتيجية', icon: HandHeart,
-   requires: ['operations.referral_partnership_list'], accent: NAV_ACCENTS[12] },
+  { service: 'operations', id: 'mutual-benefit', path: '/mutual-benefit',
+   label: 'تبادل منافع', icon: HandHeart,
+   requires: ['operations.mutual_benefit_list'], accent: NAV_ACCENTS[12] },
   // «خدمات متنقلة» — a real sold app now (Phase 4, feature.mobile_requests); the row itself still
   // gates on the review queue's own list action (real per ci/check_ui_actions.py — an action id
   // the catalogue actually declares, never the bare capability string), and MobileRequestsRoute's
   // own AppGate is what draws the locked upgrade card for a shop that has not bought it yet.
   { service: 'operations', id: 'mobile-requests', path: '/mobile-requests', label: 'خدمات متنقلة',
    icon: Truck, requires: ['operations.mobile_requests_list'], accent: NAV_ACCENTS[11] },
+  // «الإحالة والمسوّقين» — the ordinary CUSTOMER-to-CUSTOMER referral program (services/referrals'
+  // campaigns + services/operations' redemption/reports), never to be confused with «شراكة
+  // استراتيجية» (cross-TENANT) above. No entry in apps.ts: this is not a purchasable app tier,
+  // just a capability every section inside the screen already checks — gated here on the plain
+  // list action, same reasoning as «خدماتي ومنتجاتي».
+  { service: 'referrals', id: 'referrals', path: '/referrals', label: 'الإحالة والمسوّقين',
+   icon: Share2, requires: ['referrals.list_campaigns'], accent: NAV_ACCENTS[13] },
   // OPEN WHATEVER APPS THE SHOP HAS BOUGHT, and this comment used to say the opposite — it repeated a sentence
   // the spec has since corrected. The indicators are FREE (16.1): they are the demand engine, not
   // a feature to withhold. What `feature.insights.engine` locks is three of the twenty — the
@@ -178,7 +186,7 @@ export const SECTIONS: Section[] = [
   // holds — he has to see a customer's balance to say it out loud at the counter. Gating on it
   // would put a settings section in the nav of a man whose screen is one screen. The section
   // exists to change the programme, so it is gated on being able to.
-  { service: 'loyalty', id: 'points', path: '/points', label: 'نقاطي', icon: Gift, requires: ['loyalty.rewards.update'], accent: NAV_ACCENTS[7] },
+  { service: 'loyalty', id: 'points', path: '/points', label: 'نقاط الولاء', icon: Gift, requires: ['loyalty.rewards.update'], accent: NAV_ACCENTS[7] },
   // «الدعم الفني» — the shop's own half of the support loop, the affiliate portal's
   // TicketCarousel being the other. `tickets.open` is ticket-service's own user action
   // (platform/services/ticket-service/app/user_actions.py) — `tickets.self`, granted to owner and
@@ -303,7 +311,7 @@ export function visibleSections(catalog: Catalog): SectionState[] {
   return SECTIONS
     // A SECTION WHOSE SERVICE IS DOWN STAYS IN THE RAIL (م · النمط 3). `unreachable` was declared
     // for exactly this and read by `isOutage` alone — which only fires when EVERY service is down.
-    // So loyalty falling over by itself deleted «نقاطي» from the rail without a word, and the
+    // So loyalty falling over by itself deleted «نقاط الولاء» from the rail without a word, and the
     // owner who pays for it phoned support about his permissions.
     .filter((s) => (s.service && down.has(s.service))
       || s.requires.length === 0 || hasAll(catalog, ...s.requires))

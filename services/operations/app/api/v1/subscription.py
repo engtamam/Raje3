@@ -52,6 +52,12 @@ class SubscribeIn(BaseModel):
     payment_token: str = Field(default="", max_length=256)
 
 
+class CheckoutLinkIn(BaseModel):
+    plan_id: str = Field(min_length=1, max_length=64)
+    interval: str = Field(default="month", max_length=16)
+    idempotency_key: str = Field(default="", max_length=128)
+
+
 class CheckoutItemIn(BaseModel):
     plan_id: str = Field(min_length=1, max_length=64)
     interval: str = Field(default="month", max_length=16)
@@ -74,26 +80,23 @@ def _tenant(p) -> str:
 
 
 @router.get("/payment", dependencies=[Depends(rate_limit)])
-async def payment_state(principal=Depends(_OWNER)) -> dict:
-    """Is there a live way to pay — and what does the screen need in order to offer it?
+async def payment_state(request: Request, principal=Depends(_OWNER)) -> dict:
+    """Is there a live way to pay — checked at the one place that actually knows, never guessed.
 
-    THE SCREEN MUST NOT GUESS. Until this existed the plans page assumed payment worked, so with no
-    gateway configured every press wrote «باقتك» over the last one and no riyal moved. A product
-    that hands out its paid tiers to whoever presses hardest is not generous; it is broken, and the
-    first shop to notice tells the second.
-
-    AND IT FLIPS BY ITSELF. One key decides: absent, the screen apologises and sells nothing;
-    present, the card form appears and a subscription waits for a real charge. Nobody edits code
-    on the day we sign with a provider — the key goes in the secret and the product starts selling.
-
-    THE PUBLISHABLE KEY IS MEANT TO BE READ BY A BROWSER — it can mint a single-use token and do
-    nothing else. The secret key lives in billing-service and appears in no response, ever.
+    NO PUBLISHABLE KEY ANY MORE (2026-09-24) — that concept was Moyasar-specific (a token the
+    BROWSER mints directly against the gateway) and never matched TuwaiqPay, the gateway actually
+    live here (hosted-checkout-link only, no browser-side tokenisation at all — see
+    `subscribeFlow.ts`'s own header note on why the card-form path was retired). The real question
+    a screen needs answered is simpler and gateway-agnostic: "is billing configured to sell at
+    all" — `billing_plans.driver` is exactly that ("null" only when BILLING_PLANS_DRIVER itself is
+    unset, the same posture `checkout`/`subscribe` already refuse on with BILLING_NOT_CONFIGURED).
+    Which specific gateway is active, and whether IT is configured, is billing-service's own
+    business — a checkout-link attempt against an unconfigured gateway still answers 503 honestly.
     """
-    cfg = get_settings()
-    key = (cfg.PAYMENT_PUBLISHABLE_KEY or "").strip()
-    return {"enabled": bool(key), "provider": cfg.PAYMENT_PROVIDER if key else "",
-            "publishable_key": key,
-            "message": "" if key else
+    c = request.app.state.container
+    enabled = getattr(c.billing_plans, "driver", "null") != "null"
+    return {"enabled": enabled,
+            "message": "" if enabled else
                        "الدفع الإلكتروني غير متاح مؤقتاً. نعتذر — نعمل على تفعيله، "
                        "وحتى ذلك الحين تواصل معنا لتفعيل باقتك."}
 
@@ -145,23 +148,49 @@ async def apps(request: Request, principal=Depends(_OWNER)) -> dict:
 
 @router.get("/apps/static-features", dependencies=[Depends(rate_limit)])
 async def apps_static_features(principal=Depends(require_user)) -> dict:
-    """«ايش فيه» — تسجيل زيارة/جهات الاتصال/التقييم's own catalog, the ONE gap the other five
-    services' `.../features` routes never had: `/apps` just above answers a TENANT's own held
-    apps, and there was no standalone, tenant-free read of these three apps' feature lists at
-    all — bookings/loyalty/campaigns/insights/whatsapp-assistant each got a real `.../features`
-    route, but operations only ever spread `VISIT_FEATURES`/`CONTACTS_FEATURES`/`RATING_FEATURES`
-    inline into `public()`'s per-shop answer, which needs `held`/`checked` neither of which the
-    admin panel — no shop, no tenant — can ever supply. Found live: PlanCards.tsx fell back to
-    the raw boolean-limit list for these three specifically, one lone card among a shelf of rich
-    ones (owner's own screenshot). Same posture as every sibling route: `require_user` only, no
-    capability, no subscription check — the content is identical for every caller regardless of
-    tenant, same as the constants it reads.
+    """«ايش فيه» — every operations-owned app's own catalog, the ONE gap the other five services'
+    `.../features` routes never had: `/apps` just above answers a TENANT's own held apps, and
+    there was no standalone, tenant-free read of these apps' feature lists at all —
+    bookings/loyalty/campaigns/insights/whatsapp-assistant each got a real `.../features` route,
+    but operations only ever spread these constants inline into `public()`'s per-shop answer,
+    which needs `held`/`checked` neither of which a caller BROWSING an app they do not yet own
+    can ever supply (the same read a store card's own "التفاصيل" makes, before any purchase).
+
+    ORIGINALLY THREE (تسجيل زيارة/جهات الاتصال/التقييم), added for the admin panel alone (no
+    shop, no tenant, could ever ask `/apps`) — found live, a SECOND, wider gap: the shop-owner-
+    facing store shelf itself (console `AppTile`/mobile `apps_store_screen.dart`) had the exact
+    same problem for every OTHER operations-owned app with no `featuresAction` of its own
+    (المساعد الذكي عبر واتساب's siblings تبادل منافع/الاستضافة المهنية/خدمات متنقلة/ولاء
+    الشركاء): `Owned.apps[].features` only ever answers for an app already bought, so a shop
+    deciding WHETHER to buy one saw an empty features section — the one moment a real feature
+    list matters most. All seven now ride the same tenant-free read.
+
+    Same posture as every sibling route: `require_user` only, no capability, no subscription
+    check — the content is identical for every caller regardless of tenant, same as the constants
+    it reads.
     """
     return {
         "visit": list(app_catalogue.VISIT_FEATURES),
         "contacts": list(app_catalogue.CONTACTS_FEATURES),
         "rating": list(app_catalogue.RATING_FEATURES),
+        "mobile_requests": list(app_catalogue.MOBILE_REQUESTS_FEATURES),
+        "coworking": list(app_catalogue.COWORKING_FEATURES),
+        "coupons": list(app_catalogue.COUPONS_FEATURES),
+        "mutual_benefit": list(app_catalogue.MUTUAL_BENEFIT_FEATURES),
+        "referrals": list(app_catalogue.REFERRALS_FEATURES),
     }
+
+
+@router.get("/apps/visibility-overrides", dependencies=[Depends(rate_limit)])
+async def apps_visibility_overrides(request: Request, principal=Depends(require_user)) -> dict:
+    """Which otherwise-hidden (`listed: false`) apps THIS shop specifically has been shown — see
+    `core/app_visibility.py`'s own module docstring for the full design. `require_user` only, same
+    posture as `apps_static_features` above — any staff role browsing the store may ask this, not
+    only the owner. Tenant comes ONLY from `_tenant(principal)`, never a query param — the read
+    side of this mechanism can never be asked about a tenant other than the caller's own."""
+    c = request.app.state.container
+    keys = await c.app_visibility.visible_keys_for_tenant(_tenant(principal))
+    return {"visible_keys": keys}
 
 
 @router.post("/renew-now", dependencies=[Depends(rate_limit)])
@@ -341,6 +370,7 @@ async def subscribe(request: Request, body: SubscribeIn,
     # skips outright — so a free-forever standalone app never re-cycles through a pointless
     # SAR 0 invoice every month. Never for a base row (refused just above, and a base is never
     # free): this only ever touches an app, and only a free one.
+    interval_overridden = free and not is_base(plan_limits) and body.interval != "once"
     interval = "once" if free and not is_base(plan_limits) else body.interval
 
     status_code, out = await c.billing_plans.subscribe(
@@ -361,15 +391,103 @@ async def subscribe(request: Request, body: SubscribeIn,
     # absence of messages a week later. The notice travels with the success, not instead of it.
     if decision.notice:
         out = {**out, "notice": decision.notice}
+    if interval_overridden:
+        out = {**out, "interval": interval}
+    return JSONResponse(status_code=status.HTTP_201_CREATED, content=out)
+
+
+@router.post("/checkout-link", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
+async def checkout_link(request: Request, body: CheckoutLinkIn,
+                        principal=Depends(_OWNER)) -> JSONResponse:
+    """Start a NEW paid subscription with a real, hosted pay-link — the gateway-agnostic
+    replacement for the old browser-tokenised card form (`payment.ts`/`CardForm.tsx`, retired
+    2026-09-24, the same day billing-service's own `subscribe()` was fixed for a real hole: it
+    used to activate a subscription the instant ANY token arrived, never checking whether a charge
+    actually succeeded — base-services v0.25.29).
+
+    SAME PRODUCT RULES AS `subscribe()` ABOVE, MINUS THE MONEY QUESTION — duplicate-purchase
+    (`may_add`) and the WhatsApp-before-paid ordering (`may_subscribe`'s `requires_connection`
+    branch) are both still ours to enforce; billing must never learn either. `paid=True` is passed
+    UNCONDITIONALLY here, not from a client-claimed token: `may_subscribe`'s "no plan without a
+    payment" refusal existed to stop an UNVERIFIED claim from activating a subscription outright,
+    and this path makes no such claim at all — it hands back a link and billing itself refuses to
+    activate anything until the SAME payment settles through the real webhook/reconcile seam every
+    invoice already goes through (see `checkout_link`'s own docstring on `HttpPlans`).
+    """
+    c = request.app.state.container
+    tenant = _tenant(principal)
+    if not tenant:
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"error": "NO_TENANT"})
+
+    plan_limits = await c.billing_plans.limits(body.plan_id)
+    rows = await c.billing_plans.subscriptions(tenant)
+    if plan_limits is None or rows is None:
+        await request.app.state.auditor.record(
+            "subscription.gate_unreadable", actor=getattr(principal, "subject", ""), tenant=tenant,
+            resource=f"plan:{body.plan_id}", ip=request.client.host if request.client else "")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"error": "SUBSCRIPTION_UNAVAILABLE",
+                     "message": "تعذّر التحقق من اشتراكك الحالي. أعد المحاولة بعد قليل — "
+                                "لم يُخصم شيء."})
+    addition = may_add(plan_limits=plan_limits, held=held_keys(rows))
+    if not addition.allowed:
+        await request.app.state.auditor.record(
+            "subscription.already_subscribed", actor=getattr(principal, "subject", ""),
+            tenant=tenant, resource=f"plan:{body.plan_id}",
+            ip=request.client.host if request.client else "")
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                            content={"error": "ALREADY_SUBSCRIBED", "message": addition.reason})
+
+    trial_days = await c.billing_plans.trial_days(body.plan_id)
+    connected = await c.connections.connected(tenant)
+    decision = may_subscribe(
+        connected=connected, trial_days=trial_days, paid=True,
+        requires_connection=requires_whatsapp_connection(granted_keys(plan_limits)))
+    if not decision.allowed:
+        # ONLY THE `requires_connection` BRANCH CAN EVER REFUSE HERE — `paid=True` short-circuits
+        # every other one (see this route's own docstring). Kept as the real `Decision`, never
+        # special-cased, so a change to `may_subscribe` cannot silently stop applying here too.
+        await request.app.state.auditor.record(
+            "subscription.whatsapp_connection_required", actor=principal.subject, tenant=tenant,
+            resource=f"plan:{body.plan_id}", ip=request.client.host if request.client else "")
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                            content={"error": "WHATSAPP_CONNECTION_REQUIRED",
+                                     "message": decision.reason,
+                                     "redirect_screen": decision.redirect_screen})
+
+    if body.interval not in BILLING_INTERVALS:
+        await request.app.state.auditor.record(
+            "subscription.bad_interval", actor=getattr(principal, "subject", ""), tenant=tenant,
+            resource=f"plan:{body.plan_id}", ip=request.client.host if request.client else "")
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_INTERVAL", "message": "مدة الاشتراك غير صحيحة."})
+    if body.interval == "once" and is_base(plan_limits):
+        await request.app.state.auditor.record(
+            "subscription.bad_interval", actor=getattr(principal, "subject", ""), tenant=tenant,
+            resource=f"plan:{body.plan_id}", ip=request.client.host if request.client else "")
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_INTERVAL",
+                                     "message": "هذه الباقة تُجدَّد شهرياً ولا تُشترى مرة واحدة."})
+
+    status_code, out = await c.billing_plans.checkout_link(
+        tenant=tenant, plan_id=body.plan_id, interval=body.interval,
+        idempotency_key=body.idempotency_key)
+    if status_code >= 400:
+        return JSONResponse(status_code=status_code,
+                            content={"error": "BILLING_REFUSED", "detail": out})
+    await request.app.state.auditor.record(
+        "subscription.checkout_link_created", actor=principal.subject, tenant=tenant,
+        resource=f"plan:{body.plan_id}", ip=request.client.host if request.client else "")
     return JSONResponse(status_code=status.HTTP_201_CREATED, content=out)
 
 
 @router.post("/checkout", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def checkout(request: Request, body: CheckoutIn, principal=Depends(_OWNER)) -> JSONResponse:
     """Buy several apps together, one cart, ONE INVOICE, one charge — the answer to a dependency
-    that `may_add`'s single-purchase rule could never satisfy on its own: نقاطي needs تسجيل زيارة/
+    that `may_add`'s single-purchase rule could never satisfy on its own: نقاط الولاء needs تسجيل زيارة/
     الحجوزات first, and until this route existed a shop holding neither had to complete a whole
-    separate purchase for one of them before it could even attempt نقاطي.
+    separate purchase for one of them before it could even attempt نقاط الولاء.
 
     A REAL ATOMIC CHECKOUT, NOT A LOOP OF SINGLE PURCHASES — billing-service shipped
     `POST /internal/billing/subscriptions/checkout` (base-services v0.25.25, at our own
@@ -525,6 +643,116 @@ async def checkout(request: Request, body: CheckoutIn, principal=Depends(_OWNER)
     if notice:
         content["notice"] = notice
     return JSONResponse(status_code=status.HTTP_200_OK, content=content)
+
+
+@router.post("/checkout/link", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
+async def checkout_cart_link(request: Request, body: CheckoutIn,
+                             principal=Depends(_OWNER)) -> JSONResponse:
+    """`checkout()`'s own sibling for a cart that pays by hosted link rather than a client-claimed
+    token (2026-09-24, replacing the browser-tokenised cart checkout the launcher's own
+    `useAppBilling.ts` used to run) — ONE real pay-link for the whole cart; every subscription is
+    created `incomplete` and they all activate together once that ONE invoice settles, same
+    webhook/reconcile seam as every other payment on this platform.
+
+    SAME VALIDATION AS `checkout()`, MINUS THE MONEY QUESTION — `may_add_bundle` and every item's
+    own `may_subscribe` (connection/trial/interval) still run BEFORE anything reaches billing; only
+    what happens after differs. `paid=True` unconditionally, same reasoning as `checkout_link`'s
+    own docstring above: this call makes no claim about a completed charge, it hands back a link
+    and billing itself gates activation on the SAME payment actually settling.
+    """
+    c = request.app.state.container
+    tenant = _tenant(principal)
+    if not tenant:
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"error": "NO_TENANT"})
+
+    plan_ids = [i.plan_id for i in body.items]
+
+    rows = await c.billing_plans.subscriptions(tenant)
+    if rows is None:
+        await request.app.state.auditor.record(
+            "subscription.gate_unreadable", actor=getattr(principal, "subject", ""), tenant=tenant,
+            resource="checkout_link", ip=request.client.host if request.client else "")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"error": "SUBSCRIPTION_UNAVAILABLE",
+                     "message": "تعذّر التحقق من اشتراكك الحالي. أعد المحاولة بعد قليل — "
+                                "لم يُخصم شيء."})
+    held = held_keys(rows)
+
+    limits_list = await asyncio.gather(*(c.billing_plans.limits(pid) for pid in plan_ids))
+    if any(lim is None for lim in limits_list):
+        await request.app.state.auditor.record(
+            "subscription.gate_unreadable", actor=getattr(principal, "subject", ""), tenant=tenant,
+            resource="checkout_link", ip=request.client.host if request.client else "")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"error": "SUBSCRIPTION_UNAVAILABLE",
+                     "message": "تعذّر قراءة أحد التطبيقات بالسلة. أعد المحاولة بعد قليل — "
+                                "لم يُخصم شيء."})
+
+    bundle_decision = may_add_bundle(
+        items=[BundleItem(plan_id=pid, plan_limits=lim) for pid, lim in zip(plan_ids, limits_list)],
+        held=held)
+    if not bundle_decision.allowed:
+        await request.app.state.auditor.record(
+            "subscription.checkout_refused", actor=getattr(principal, "subject", ""), tenant=tenant,
+            resource=f"plan:{bundle_decision.failed_plan_id}" if bundle_decision.failed_plan_id
+                     else "checkout_link",
+            ip=request.client.host if request.client else "")
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                            content={"error": "CHECKOUT_REFUSED",
+                                     "message": bundle_decision.reason,
+                                     "plan_id": bundle_decision.failed_plan_id})
+
+    connected = await c.connections.connected(tenant)
+    checkout_items: list[dict] = []
+    for checkout_item, limits in zip(body.items, limits_list):
+        if checkout_item.interval not in BILLING_INTERVALS:
+            await request.app.state.auditor.record(
+                "subscription.bad_interval", actor=getattr(principal, "subject", ""), tenant=tenant,
+                resource=f"plan:{checkout_item.plan_id}",
+                ip=request.client.host if request.client else "")
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_INTERVAL",
+                                         "message": "مدة الاشتراك غير صحيحة.",
+                                         "plan_id": checkout_item.plan_id})
+        if checkout_item.interval == "once" and is_base(limits):
+            await request.app.state.auditor.record(
+                "subscription.bad_interval", actor=getattr(principal, "subject", ""), tenant=tenant,
+                resource=f"plan:{checkout_item.plan_id}",
+                ip=request.client.host if request.client else "")
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_INTERVAL",
+                                         "message": "هذه الباقة تُجدَّد شهرياً ولا تُشترى مرة واحدة.",
+                                         "plan_id": checkout_item.plan_id})
+
+        item_decision = may_subscribe(
+            connected=connected, trial_days=await c.billing_plans.trial_days(checkout_item.plan_id),
+            paid=True, requires_connection=requires_whatsapp_connection(granted_keys(limits)))
+        if not item_decision.allowed:
+            # ONLY THE `requires_connection` BRANCH CAN EVER REFUSE HERE — same reasoning as
+            # `checkout_link`'s own docstring, `paid=True` short-circuits every other one.
+            await request.app.state.auditor.record(
+                "subscription.whatsapp_connection_required", actor=principal.subject, tenant=tenant,
+                resource=f"plan:{checkout_item.plan_id}",
+                ip=request.client.host if request.client else "")
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                                content={"error": "WHATSAPP_CONNECTION_REQUIRED",
+                                         "message": item_decision.reason,
+                                         "redirect_screen": item_decision.redirect_screen,
+                                         "plan_id": checkout_item.plan_id})
+        checkout_items.append({"plan_id": checkout_item.plan_id, "interval": checkout_item.interval})
+
+    status_code, out = await c.billing_plans.checkout_cart_link(
+        tenant=tenant, items=checkout_items, idempotency_key=body.idempotency_key)
+    if status_code >= 400:
+        return JSONResponse(status_code=status_code,
+                            content={"error": "BILLING_REFUSED", "detail": out})
+    await request.app.state.auditor.record(
+        "subscription.checkout_link_created", actor=principal.subject, tenant=tenant,
+        resource=f"invoice:{out.get('invoice_id') or '-'}",
+        ip=request.client.host if request.client else "")
+    return JSONResponse(status_code=status.HTTP_201_CREATED, content=out)
 
 
 class CheckoutPreviewIn(BaseModel):

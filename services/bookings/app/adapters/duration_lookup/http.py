@@ -43,4 +43,7 @@ class HttpDurationLookup:
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return None
         value = out.get("duration_minutes")
-        return int(value) if value is not None else None
+        if value is None:
+            return None
+        n = int(value)
+        return n if 0 < n <= 10_080 else None  # 7 days — no real booking is ever longer

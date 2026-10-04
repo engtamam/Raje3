@@ -187,8 +187,12 @@ class Consent:
         if now is not None:
             rec.at = now
             # A caller-supplied time orders too, so a test that writes a sequence with explicit
-            # timestamps gets the sequence it asked for rather than the order it happened to run in.
-            rec.seq = now * 1_000_000_000
+            # timestamps gets the sequence it asked for rather than the order it happened to run
+            # in. THE SUB-SECOND PART STILL COMES FROM time_ns() — two records built with the SAME
+            # `now` (the ordinary case for a caller that only has second precision) must not
+            # collide at this field's own sequence, the exact tie-break failure the auto-generated
+            # `time_ns()` default above exists to avoid.
+            rec.seq = now * 1_000_000_000 + (time.time_ns() % 1_000_000_000)
         await self._s.put(CONSENT, rec.id, rec.to_dict())
         return rec
 

@@ -7,6 +7,7 @@ turns every rule we wrote into a suspected bug.
 """
 from __future__ import annotations
 
+import asyncio
 import time
 
 from typing import Any
@@ -206,7 +207,11 @@ async def _branch_scope(container, principal) -> frozenset[str]:
     # so «مشرف يعمل في الملز ويتابع أربعة» could not be expressed at all. Normalising here means the
     # readers below ask MEMBERSHIP, and the day the wire carries four branches not one of them
     # changes: an equality test would have kept working, silently showing him one.
-    return frozenset({scope}) if scope else frozenset()
+    if not scope:
+        return frozenset()
+    if isinstance(scope, (frozenset, set)):
+        return frozenset(scope)
+    return frozenset({scope})
 
 
 def _in_scope(row: dict, scope: frozenset[str]) -> bool:
@@ -861,8 +866,9 @@ async def active_offer(request: Request, subject_ref: str = Query(min_length=8, 
     # already honoured puts the operator in an argument with a customer holding a phone, so an
     # unreachable peer shows nothing rather than something possibly wrong.
     try:
-        used = spent_refs(operations_url=_ops_url(request), token=_ops_token(request),
-                          tenant=_tenant(principal), subject_ref=subject_ref)
+        used = await asyncio.to_thread(
+            spent_refs, operations_url=_ops_url(request), token=_ops_token(request),
+            tenant=_tenant(principal), subject_ref=subject_ref)
     except SpentUnknown:
         return {"offer": None}
 
@@ -1131,7 +1137,7 @@ async def today(request: Request, principal: Principal = Depends(_READ)) -> dict
     # number and gated his sends on another, and the two disagreed by exactly the amount nobody
     # could account for.
     from app.config import get_settings as _settings
-    reached = await Reach(c.datastore, window=_settings().REACH_WINDOW_SECONDS).count(
+    reached, reached_truncated = await Reach(c.datastore, window=_settings().REACH_WINDOW_SECONDS).count(
         tenant, now=int(time.time()))
 
     # DRAINED, NOT A `limit=200` PAGE READ AS THE TOTAL — fixed 2026-09-12, a real gap a QA audit
@@ -1208,5 +1214,6 @@ async def today(request: Request, principal: Principal = Depends(_READ)) -> dict
             "reached_today": reached,
             "remaining": ceiling.remaining(reached),
             "quality": ceiling.quality,
+            "reached_truncated": reached_truncated,
         },
     }

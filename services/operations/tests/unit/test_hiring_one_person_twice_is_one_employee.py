@@ -8,8 +8,8 @@ against what was already there.
     press, slow reply, press again  ->  one membership, TWO operator rows
 
 The shop pays per seat, so the owner buys a seat for a person he hired once. His team screen lists
-the same name twice with no way to tell them apart. And `verify-pin` answers with whichever row it
-reaches first, so the same employee's work lands on one row today and the other tomorrow.
+the same name twice with no way to tell them apart, and whichever row a lookup reaches first is the
+one the rest of the product treats as him.
 
 Nothing failed: 201, a valid row, a screen that refreshed. The second press looked exactly like the
 first one working.

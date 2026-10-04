@@ -3,30 +3,10 @@
 A DIFFERENT PRIVILEGE FROM THE FIELD SCREEN, and separated on purpose. Recording a visit is what
 everyone does all day; adding an operator, changing a price or deactivating a service is the
 owner's. A shop that hires seasonal help must be able to grant the first without the second.
-
-THE PIN IS ATTRIBUTION, NOT AUTHENTICATION — and the distinction decides the whole design.
-
-A four-digit PIN is guessable by construction: ten thousand possibilities, and a colleague standing
-beside you can watch it being typed. It is not, and cannot be, what protects an establishment's
-data. That is the establishment's session, which is a real token behind a real login.
-
-What the PIN answers is a narrower and genuinely useful question: WHICH of the three people sharing
-this tablet recorded that visit. It is asked at SAVE, not at the start of a shift, because the
-screen stays open all day and a login per visit would destroy the five-second rule — and the
-predictable result of that is one device signed in as one person recording everybody's work, which
-is worse than no attribution because it is attribution that lies.
-
-So it is hashed (never stored readable), it is rate-limited (guessing four digits is otherwise
-trivial), a wrong one is audited (a pattern of failures is the signal worth having), and it is
-never returned by any read.
 """
 from __future__ import annotations
 
-import hmac
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
@@ -44,9 +24,9 @@ from app.api import scope as SCOPE
 from app.core.models import (ASSIGNMENT_MODES, PROCEDURE_STEP_SEVERITIES, Branch, Operator,
                              OperatorStepStat, Package, ProcedureStep, Service)
 from app.core import branches as B
-from app.core import operator_ticket as OT
 from app.core import ai_notes as AN
 from app.core import ai_toggle as AT
+from app.core import geo as GEO
 from app.core import msg_limits as ML
 from app.core import scheduling as SCHED
 from app.core import seats as S
@@ -122,103 +102,9 @@ def _tenant(p: Principal) -> str:
     return p.tenant
 
 
-# MOVED to core/operator_ticket.py (2026-09-14) as `pin_hash` — the till's own
-# `POST /till/operators/verify-pin` needed the identical formula, and a second copy here is a
-# second place for the two to drift apart. `OT.pin_hash` is this exact function, unchanged.
-_pin_hash = OT.pin_hash
-
-
 # ── operators ─────────────────────────────────────────────────────────────────────────────────
-class OperatorIn(BaseModel):
-    name: str = Field(min_length=1, max_length=128)
-    # Four digits, and no longer. A longer PIN is not meaningfully safer for what this protects,
-    # and it IS meaningfully slower to type a hundred times a day — which is the cost that decides
-    # whether the product gets used.
-    pin: str = Field(min_length=4, max_length=4, pattern=r"^\d{4}$")
-    role: str = Field(default="operator", max_length=32)
-    # REQUIRED, NOT DESCRIPTIVE — every operator now names a real branch at
-    # the moment he is added, the same way `till.py`'s own door already requires one on a sale.
-    # No silent «كل الفروع» default: an owner with one branch still picks «الفرع الرئيسي»
-    # explicitly, so the choice is a fact he made rather than one we guessed for him.
-    branch_id: str = Field(min_length=1, max_length=64)
-
-
-@router.post("/operators", status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(subscribed_write), Depends(rate_limit)])
-async def create_operator(request: Request, body: OperatorIn,
-                          principal: Principal = Depends(_MANAGE)) -> dict:
-    tenant = _tenant(principal)
-    store = OperatorStore(request.app.state.container.datastore)
-    gauges = request.app.state.container.gauges
-
-    # THE SHARED-TABLET EMPLOYEE IS SWITCHED OFF ON THIS DEPLOYMENT (config `PIN_OPERATORS_ENABLED`).
-    #
-    # The whole path is built and kept — the form, this route, `verify-pin`, the five-minute proof —
-    # and it is simply not what the product is sold on today: every employee gets an account on his
-    # own phone. Hiding the control in the console alone would leave the capability live to anybody
-    # who kept a tab open or replayed a request, and a switch that only changes a screen is the
-    # exact defect this codebase keeps finding. So the door answers too.
-    if not getattr(request.app.state.container_settings, "PIN_OPERATORS_ENABLED", False):
-        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={
-            "error": "PIN_OPERATORS_OFF",
-            "message": "إضافة موظف برمز على الجهاز غير مفعّلة. أضِفه بحسابٍ يدخل به من جوّاله."})
-
-    # AT THE DOOR, NOT IN A SWEEP. The sixteenth employee on a plan of fifteen is refused here, in
-    # the screen where he is being added, with the limit named. A nightly job that finds sixteen
-    # and does nothing is a limit that does not exist; one that deactivates somebody fires days
-    # later at a person who did not make the mistake (core/seats.py).
-    # LIVE ONES ONLY, and the same rule the update route reports by. Counting people who were
-    # stopped months ago would make a shop buy seats for employees who no longer work there — and
-    # the two counts disagreeing is worse still: whichever the owner is looking at is the wrong one.
-    # THE COUNT AND THE INSERT ARE ONE ACT OR THE CAP IS DECORATION. Everything from the count to
-    # the write happens inside the establishment's lane; two managers hiring in the same
-    # millisecond are serialised rather than both told there is room (core/seats.py).
-    # CHECKED BEFORE THE SEAT CLAIM AND THE AUDIT RECORD, not inside them — both are write-ahead
-    # acts (a seat consumed, «operator.created» logged) that must never fire for an operator who
-    # is then refused for lacking a real branch.
-    try:
-        branch_id = await B.resolve_required(
-            BranchStore(request.app.state.container.datastore), tenant, body.branch_id)
-    except B.BranchRequired:
-        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={
-            "error": "BRANCH_REQUIRED", "message": "اختر فرعاً حقيقياً لهذا الموظف."})
-
-    try:
-        async with S.claiming(request.app.state.container.datastore,
-                              tenant=tenant, key=S.SEATS, now=time.time()):
-            current = len([o for o in await store.list(tenant) if o.active])
-            await S.guard_and_report(gauges, tenant=tenant, key=S.SEATS, current=current)
-
-            await request.app.state.auditor.record(
-                "operator.created", actor=principal.subject, tenant=tenant, resource="operator",
-                ip=request.client.host if request.client else "")
-
-            settings = request.app.state.container_settings
-            op = Operator(id=new_id("opr"), tenant=tenant, name=body.name.strip(), role=body.role,
-                          branch_id=branch_id, created=int(time.time()))
-            op.pin_hash = _pin_hash(settings.PII_SALT, tenant, op.id, body.pin)
-            await store.save(op)
-            # REPORTED AFTER THE WRITE, and as the whole count rather than a delta. Before the
-            # write it would be a lie for as long as the write takes, and a failed write would
-            # leave billing believing in an employee who does not exist. Reporting the total means
-            # a failed report heals itself on the next change.
-            await gauges.report(tenant, S.SEATS, current + 1)
-    except S.SeatClaimBusy as exc:
-        return JSONResponse(status_code=status.HTTP_409_CONFLICT,
-                            content={"error": "SEAT_BUSY", "message": str(exc)})
-    except S.SeatLimitReached as exc:
-        # RETURNED, NOT RAISED. The platform's error handler strips an HTTPException's detail, so
-        # a raised refusal reaches the owner as a bare 403 and the sentence naming his limit —
-        # the only part that tells him what to do — is thrown away.
-        return JSONResponse(status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                            content={"error": "SEAT_LIMIT", "message": str(exc)})
-    # public() omits pin_hash — a hash that is never returned cannot be attacked offline by
-    # somebody who reached a read endpoint.
-    return op.public()
-
-
 class MemberIn(BaseModel):
-    """An employee who gets his own login — not a PIN on a shared tablet."""
+    """An employee who gets his own login."""
 
     name: str = Field(min_length=1, max_length=128)
     phone: str = Field(min_length=6, max_length=32)
@@ -226,7 +112,10 @@ class MemberIn(BaseModel):
     # short one anyway, and refusing here means he is told before the round trip.
     password: str = Field(min_length=8, max_length=256)
     role: str = Field(min_length=1, max_length=32)
-    # REQUIRED — see OperatorIn's own note.
+    # REQUIRED, NOT DESCRIPTIVE — every operator now names a real branch at the moment he is
+    # added, the same way `till.py`'s own door already requires one on a sale. No silent
+    # «كل الفروع» default: an owner with one branch still picks «الفرع الرئيسي» explicitly, so
+    # the choice is a fact he made rather than one we guessed for him.
     branch_id: str = Field(min_length=1, max_length=64)
 
 
@@ -321,8 +210,8 @@ async def _finish_hire(request: Request, *, body: MemberIn, tenant: str, store: 
     # — new on every call — while the membership behind it is keyed by phone at identity and is
     # idempotent. So a double press, or a retry on a slow reply, created a SECOND operator row for
     # the same human: two seats consumed by one employee on a plan the owner is paying per seat
-    # for, a name listed twice on his team screen, and `verify-pin` picking whichever row it found
-    # first — so the same person's work is attributed to one row today and the other tomorrow.
+    # for, and a name listed twice on his team screen — so the same person's work could be
+    # attributed to one row today and the other tomorrow.
     #
     # `person_id` is the key identity already deduped for us. Reusing it means the second press
     # overwrites the first row rather than adding one, and the count stays what the owner sees.
@@ -337,10 +226,9 @@ async def _finish_hire(request: Request, *, body: MemberIn, tenant: str, store: 
                   tenant=tenant, name=body.name.strip(), role=body.role,
                   branch_id=branch_id,
                   created=existing.created if existing else int(time.time()))
-    # HIS OWN LOGIN IS HIS IDENTITY, so there is no PIN on this row. `verify-pin` compares against
-    # an empty hash and refuses — which is correct: a man with an account does not also need four
-    # digits, and giving him one would be a second credential to leak.
     op.person_id = person_id
+    if out.get("phone"):
+        op.phone = str(out["phone"])
     await store.save(op)
     # THE COUNT DOES NOT MOVE WHEN NOBODY WAS ADDED. Reporting `current + 1` after re-saving a row
     # that already existed would tell billing the shop grew by an employee it did not hire.
@@ -349,7 +237,7 @@ async def _finish_hire(request: Request, *, body: MemberIn, tenant: str, store: 
 
 
 class OperatorPatch(BaseModel):
-    """What an owner changes about somebody after adding them. NOT the PIN — see below."""
+    """What an owner changes about somebody after adding them."""
 
     name: str | None = Field(default=None, min_length=1, max_length=128)
     role: str | None = Field(default=None, max_length=32)
@@ -377,12 +265,8 @@ async def update_operator(request: Request, operator_id: str, body: OperatorPatc
     happened (core/operations.py). A field that decides something and cannot be corrected is worse
     than one that decides nothing.
 
-    DEACTIVATE, NEVER DELETE: `verify-pin` refuses an inactive operator, and old visits still name
-    him. An employee who left is history, not a gap.
-
-    AND THE PIN IS NOT HERE. Changing somebody's four digits from the same form that renames him
-    invites it to be done casually and read aloud; it is a separate act, and this route not having
-    it is the design rather than an omission.
+    DEACTIVATE, NEVER DELETE: an inactive operator is refused everywhere he would otherwise act,
+    and old visits still name him. An employee who left is history, not a gap.
     """
     tenant = _tenant(principal)
     store = OperatorStore(request.app.state.container.datastore)
@@ -435,10 +319,18 @@ async def update_operator(request: Request, operator_id: str, body: OperatorPatc
     stopping = body.active is False and op.active
     if stopping and op.person_id:
         try:
-            await request.app.state.container.signup.revoke(tenant, op.person_id)
+            await request.app.state.container.signup.revoke(tenant, op.person_id, phone=op.phone)
         except SignupRefused as exc:
+            # THE OTHER FIELD CHANGES STILL LAND — only the deactivation itself failed. A caller
+            # who also renamed him or moved his branch in the same PATCH must not have those
+            # silently discarded because the revoke call happened to fail.
+            op.name = body.name.strip() if body.name is not None else op.name
+            op.role = body.role if body.role is not None else op.role
+            op.branch_id = branch_id
+            await store.save(op)
             return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
-                                content={"error": "NOT_STOPPED", "message": str(exc)})
+                                content={"error": "NOT_STOPPED", "message": str(exc),
+                                         "other_fields_saved": True})
 
     # AND HE IS NOT BROUGHT BACK BY A TOGGLE. His membership is gone, and only a password nobody
     # here has can mint another; flipping this flag would return a name to «فريقي» that consumes a
@@ -456,7 +348,16 @@ async def update_operator(request: Request, operator_id: str, body: OperatorPatc
     # HIS ROW STAYS, HIS LOGIN DOES NOT. Old visits still name him — an employee who left is
     # history, not a gap — but the link to a membership that no longer exists is cleared, so
     # nothing later mistakes it for a live account.
+    #
+    # THE OLD IDENTITY MOVES TO `revoked_person_id`, NOT INTO THE VOID — a real gap a live test
+    # caught: blanking `person_id` with nothing left in its place meant a dismissed employee's own
+    # still-valid, unexpired JWT (identity revoking the membership does not invalidate a token
+    # already issued) matched NO row at all in `branch_scope`'s own lookup, which reads that as
+    # "unassigned" and answers with the WHOLE establishment — promoting the very person being
+    # stopped to see every branch, the exact widening this mechanism exists to prevent. Model.py's
+    # own `revoked_person_id` field is what `branch_scope` now also checks.
     if stopping:
+        op.revoked_person_id = op.person_id
         op.person_id = ""
     await store.save(op)
     # SEATS ARE REPORTED AGAIN, because stopping somebody frees his seat — a gauge is the CURRENT
@@ -583,17 +484,7 @@ async def list_operators(request: Request, principal: Principal = Depends(_READ_
     tenant = _tenant(principal)
     rows = await OperatorStore(request.app.state.container.datastore).list(tenant)
     scope = await branch_scope(request.app.state.container.datastore, principal)
-    return {
-        "operators": SCOPE.visible([o.public() for o in rows], scope),
-        # WHETHER THE SHARED-TABLET EMPLOYEE EXISTS ON THIS DEPLOYMENT (config
-        # `PIN_OPERATORS_ENABLED`). Carried on the read the screen already makes, so the form
-        # offers one way of adding somebody rather than two, one of which the door refuses.
-        #
-        # ANSWERED HERE RATHER THAN ASSUMED THERE: a console that hard-coded «off» would have to be
-        # rebuilt to turn it on, which is the opposite of a switch.
-        "pin_operators_enabled": bool(
-            getattr(request.app.state.container_settings, "PIN_OPERATORS_ENABLED", False)),
-    }
+    return {"operators": SCOPE.visible([o.public() for o in rows], scope)}
 
 
 # SUPERSEDED (2026-09-11) BY THE PLATFORM-WIDE `/api/v1/account/me/locale` (api/v1/__init__.py) —
@@ -663,47 +554,6 @@ async def set_my_pinned_nav(request: Request, body: PinnedNavIn,
     op.pinned_nav_ids = list(dict.fromkeys(body.pinned_nav_ids))  # de-duplicate, keep order
     await store.save(op)
     return op.public()
-
-
-class PinVerifyIn(BaseModel):
-    operator_id: str = Field(min_length=1, max_length=64)
-    pin: str = Field(min_length=4, max_length=4, pattern=r"^\d{4}$")
-
-
-@router.post("/operators/verify-pin", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
-async def verify_pin(request: Request, body: PinVerifyIn,
-                     principal: Principal = Depends(_READ)) -> dict:
-    """Confirm which operator is saving. Called by the field screen at the moment of saving.
-
-    Rate-limited like every route here, and that is what makes a four-digit secret defensible at
-    all: ten thousand possibilities fall in minutes to an unthrottled endpoint.
-    """
-    tenant = _tenant(principal)
-    settings = request.app.state.container_settings
-    op = await OperatorStore(request.app.state.container.datastore).get(tenant, body.operator_id)
-
-    expected = op.pin_hash if op else ""
-    candidate = _pin_hash(settings.PII_SALT, tenant, body.operator_id, body.pin)
-    # compare_digest on both paths, and an unknown operator takes the same path as a wrong PIN:
-    # one answer for "no such operator", "wrong PIN" and "deactivated" (CWE-203/208). Anything
-    # else lets a caller enumerate who works here.
-    ok = bool(op) and op.active and hmac.compare_digest(expected, candidate)
-
-    if not ok:
-        # Audited. One failure is a fat finger; a pattern of them is the signal worth having, and
-        # it cannot be seen if failures are not recorded.
-        await request.app.state.auditor.record(
-            "operator.pin_rejected", actor=principal.subject, tenant=tenant,
-            resource=f"operator:{body.operator_id}",
-            ip=request.client.host if request.client else "")
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "PIN_REJECTED")
-
-    # AND IT ISSUES THE PROOF, which it never used to. Confirming an operator and then handing back
-    # only his name left the visit that followed to name whoever it liked in `operator_id` — and
-    # that field decides which BRANCH the work is filed under. See core/operator_ticket.py.
-    return {"operator": op.public(),
-            "ticket": OT.issue(settings.PII_SALT, tenant, body.operator_id),
-            "ticket_ttl": OT.TTL_SECONDS}
 
 
 # ── how this establishment runs its branches ──────────────────────────────────────────────────
@@ -1062,6 +912,10 @@ class BranchIn(BaseModel):
     lat: float | None = Field(default=None, ge=-90, le=90)
     lng: float | None = Field(default=None, ge=-180, le=180)
     city: str = Field(default="", max_length=80)
+    #: WhatsApp Direct Ordering's own delivery radius — see Branch.delivery_radius_km's own
+    #: docstring. `None` means "not set on this call", folded to 0 (pickup-only) on creation;
+    #: a real value is folded into GEO's own 0-100km bound rather than re-validated here.
+    delivery_radius_km: int | None = Field(default=None)
 
 
 class BranchPatch(BaseModel):
@@ -1072,6 +926,7 @@ class BranchPatch(BaseModel):
     lat: float | None = Field(default=None, ge=-90, le=90)
     lng: float | None = Field(default=None, ge=-180, le=180)
     city: str | None = Field(default=None, max_length=80)
+    delivery_radius_km: int | None = Field(default=None)
 
 
 def _live(rows: list[Branch]) -> int:
@@ -1117,7 +972,9 @@ async def create_branch(request: Request, body: BranchIn,
                 ip=request.client.host if request.client else "")
             b = Branch(id=new_id("brn"), tenant=tenant, name=body.name.strip(),
                        created=int(time.time()),
-                       lat=body.lat or 0.0, lng=body.lng or 0.0, city=body.city.strip())
+                       lat=body.lat or 0.0, lng=body.lng or 0.0, city=body.city.strip(),
+                       delivery_radius_km=(GEO.clamp_radius_km(body.delivery_radius_km)
+                                           if body.delivery_radius_km is not None else 0))
             await store.save(b)
             await gauges.report(tenant, S.BRANCHES, current + 1)
     except S.SeatClaimBusy as exc:
@@ -1195,6 +1052,10 @@ async def update_branch(request: Request, branch_id: str, body: BranchPatch,
                 changes["lng"] = {"from": b.lng, "to": body.lng}
             if body.city is not None and body.city.strip() != b.city:
                 changes["city"] = {"from": b.city, "to": body.city.strip()}
+            if (body.delivery_radius_km is not None
+                    and GEO.clamp_radius_km(body.delivery_radius_km) != b.delivery_radius_km):
+                changes["delivery_radius_km"] = {"from": b.delivery_radius_km,
+                                                 "to": GEO.clamp_radius_km(body.delivery_radius_km)}
 
             await request.app.state.auditor.record(
                 "branch.updated", actor=principal.subject, tenant=tenant,
@@ -1214,6 +1075,8 @@ async def update_branch(request: Request, branch_id: str, body: BranchPatch,
                 b.lng = body.lng
             if body.city is not None:
                 b.city = body.city.strip()
+            if body.delivery_radius_km is not None:
+                b.delivery_radius_km = GEO.clamp_radius_km(body.delivery_radius_km)
             await store.save(b)
             # THE WHOLE COUNT, RECOMPUTED — a gauge is reported, never incremented
             # (core/seats.py). The saved row is the one in `rows` by identity only if the store
@@ -1293,57 +1156,17 @@ async def list_branches(request: Request, principal: Principal = Depends(_READ_B
     return {"branches": kept, "branch_limit": int(limit), "may_add_branch": bool(may_add)}
 
 
-_MAPS_SHORT_LINK_HOSTS = {"goo.gl", "maps.app.goo.gl"}
-
-
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    """Declines to follow — `urlopen` then raises `HTTPError` on the redirect status, which is
-    the only way urllib hands back the `Location` header without actually fetching the page it
-    points to. We want the coordinate hiding in that URL, never the page itself."""
-
-    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D102
-        return None
-
-
-def _resolve_maps_short_link(url: str) -> str:
-    """Follows ONE redirect hop of a Google Maps short link and returns where it landed.
-
-    A BROWSER CANNOT DO THIS ITSELF — reading a cross-origin redirect's destination is exactly
-    what CORS exists to block, so apps/console's own googleMapsLink.ts deliberately never
-    attempts it (see that file's own docstring). This route exists purely to do that one hop on
-    the console's behalf, same-origin from its own point of view.
-
-    RESTRICTED TO GOOGLE'S OWN SHORT-LINK HOSTS, NEVER AN ARBITRARY URL — an open "fetch whatever
-    URL the caller names" route is a textbook SSRF door (a caller could point it at an internal
-    service address). `goo.gl`/`maps.app.goo.gl` are the only two hosts Google actually issues
-    these short links from.
-    """
-    parsed = urllib.parse.urlparse(url)
-    host = (parsed.hostname or "").removeprefix("www.")
-    if parsed.scheme != "https" or host not in _MAPS_SHORT_LINK_HOSTS:
-        return ""
-    opener = urllib.request.build_opener(_NoRedirect)
-    try:
-        opener.open(url, timeout=5)
-        # No redirect at all — nothing further to resolve.
-        return ""
-    except urllib.error.HTTPError as exc:
-        if exc.code in (301, 302, 303, 307, 308):
-            return exc.headers.get("Location") or ""
-        return ""
-    except OSError:
-        return ""
-
-
 @router.get("/resolve-maps-link", dependencies=[Depends(rate_limit)])
 async def resolve_maps_link(request: Request, url: str,
                             principal: Principal = Depends(_READ)) -> dict:
     """`{"resolved_url": "..."}`, or `""` when the link was not one of ours to resolve or carried
-    no redirect. Blocking I/O (urllib, matching signup.py's own `Http` — a second HTTP idiom in
-    this codebase is a second set of timeout/error behaviour to keep in step), so it runs off the
-    event loop via `run_in_threadpool` rather than stalling every other request on this worker.
+    no redirect. The actual SSRF-safe one-redirect-hop logic lives in `core/geo.py` (also the
+    module the new WhatsApp-ordering delivery-radius work reads coordinates through) — kept in ONE
+    place rather than reimplemented here a second time. Blocking I/O under the hood, so it runs
+    off the event loop via `run_in_threadpool` rather than stalling every other request on this
+    worker.
     """
-    resolved = await run_in_threadpool(_resolve_maps_short_link, url)
+    resolved = await run_in_threadpool(GEO.resolve_short_link, url)
     return {"resolved_url": resolved}
 
 
@@ -1411,7 +1234,7 @@ async def list_services(request: Request, include_retired: bool = False, locale:
 
 @router.post("/services", status_code=status.HTTP_201_CREATED,
              dependencies=[Depends(subscribed_write), Depends(rate_limit)])
-async def create_service(request: Request, body: ServiceIn,
+async def create_service(request: Request, body: ServiceIn, background: BackgroundTasks,
                          principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
     tenant = _tenant(principal)
     await request.app.state.auditor.record(
@@ -1422,6 +1245,11 @@ async def create_service(request: Request, body: ServiceIn,
                 duration_minutes=body.duration_minutes, sort=body.sort,
                 description=body.description.strip(), created=int(time.time()))
     await ServiceStore(request.app.state.container.datastore).save(s)
+    # WhatsApp Direct Ordering's own catalog sync — see core/catalog_item_sync_trigger.py. A
+    # brand-new service has no photo yet, so this is a harmless no-op delete until one is
+    # uploaded; fired anyway for the rare case a bulk-created service already has a price.
+    background.add_task(request.app.state.container.catalog_item_sync_trigger.sync,
+                        tenant=tenant, service=s)
     return s.public()
 
 
@@ -1462,7 +1290,7 @@ class ServiceImportIn(BaseModel):
 
 
 @router.post("/services/bulk_import", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
-async def bulk_import_services(request: Request, body: ServiceImportIn,
+async def bulk_import_services(request: Request, body: ServiceImportIn, background: BackgroundTasks,
                                principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
     """Create/update many services from an uploaded file, in one call.
 
@@ -1531,6 +1359,7 @@ async def bulk_import_services(request: Request, body: ServiceImportIn,
 
     created = updated = reactivated = 0
     touched_ids: set[str] = set()
+    changed_services: list[Service] = []
     for row in body.rows:
         name = row.name.strip()
         target = by_external_id.get(row.external_id) if row.external_id else None
@@ -1548,14 +1377,26 @@ async def bulk_import_services(request: Request, body: ServiceImportIn,
             if row.external_id:
                 target.external_id = row.external_id
             if row.image_base64:
+                from app.core import public_catalog_image as PCI
                 from app.core.catalogue_image import store_image
                 stored = await store_image(
                     request.app.state.container.object_store, tenant=tenant, kind="service",
                     item_id=target.id, data=base64.b64decode(row.image_base64),
                     content_type=row.image_content_type, old_key=target.image_key)
                 target.image_key = stored.key
+                # SAME TOKEN ROTATION upload_service_image ALREADY DOES — missing here was a real
+                # bug: a bulk-imported photo got a real image_key but no public_image_token,
+                # so WhatsApp Direct Ordering's own catalog sync (and anything else reading the
+                # public URL) would treat it as having no photo at all despite one being right there.
+                old_token = target.public_image_token
+                target.public_image_token = PCI.new_token()
+                await PCI.register(request.app.state.container.datastore,
+                                   target.public_image_token, tenant=tenant, service_id=target.id)
+                if old_token:
+                    await PCI.revoke(request.app.state.container.datastore, old_token)
             await store.save(target)
             touched_ids.add(target.id)
+            changed_services.append(target)
             if was_stopped:
                 reactivated += 1
             else:
@@ -1566,14 +1407,19 @@ async def bulk_import_services(request: Request, body: ServiceImportIn,
                        external_id=row.external_id, description=row.description.strip(),
                        created=int(time.time()))
             if row.image_base64:
+                from app.core import public_catalog_image as PCI
                 from app.core.catalogue_image import store_image
                 stored = await store_image(
                     request.app.state.container.object_store, tenant=tenant, kind="service",
                     item_id=s.id, data=base64.b64decode(row.image_base64),
                     content_type=row.image_content_type, old_key="")
                 s.image_key = stored.key
+                s.public_image_token = PCI.new_token()
+                await PCI.register(request.app.state.container.datastore,
+                                   s.public_image_token, tenant=tenant, service_id=s.id)
             await store.save(s)
             touched_ids.add(s.id)
+            changed_services.append(s)
             created += 1
 
     deactivated = 0
@@ -1582,7 +1428,15 @@ async def bulk_import_services(request: Request, body: ServiceImportIn,
             if s.id not in touched_ids and s.active is not False:
                 s.active = False
                 await store.save(s)
+                changed_services.append(s)
                 deactivated += 1
+
+    # WhatsApp Direct Ordering's own catalog sync — every service this import created, updated,
+    # reactivated or deactivated may need its catalog item (or its absence) to match, same as a
+    # single manual edit. Reused as a batch (`backfill`, sequential) rather than one trigger call
+    # per row — this route can touch hundreds of services in one request.
+    background.add_task(request.app.state.container.catalog_item_sync_trigger.backfill,
+                        tenant=tenant, services=changed_services)
 
     await request.app.state.auditor.record(
         "service.bulk_imported", actor=principal.subject, tenant=tenant, resource="service",
@@ -1619,6 +1473,7 @@ class ServicePatch(BaseModel):
 
 @router.patch("/services/{service_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def update_service(request: Request, service_id: str, body: ServicePatch,
+                         background: BackgroundTasks,
                          principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
     """Edit a catalogue entry.
 
@@ -1668,6 +1523,10 @@ async def update_service(request: Request, service_id: str, body: ServicePatch,
         s.procedure_step_ids = [sid for sid in body.procedure_step_ids if sid in real_steps]
 
     await store.save(s)
+    # WhatsApp Direct Ordering's own catalog sync — any of name/price/description/active just
+    # changed, so this service's catalog item (or its absence) may need to match.
+    background.add_task(request.app.state.container.catalog_item_sync_trigger.sync,
+                        tenant=tenant, service=s)
     return s.public()
 
 
@@ -1930,6 +1789,7 @@ class CatalogueImageIn(BaseModel):
 
 @router.post("/services/{service_id}/image", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def upload_service_image(request: Request, service_id: str, body: CatalogueImageIn,
+                               background: BackgroundTasks,
                                principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
     """Replace this service's photo. See `catalogue_image.py`'s module docstring for why this is a
     real object, never a URL the console types in."""
@@ -1957,10 +1817,24 @@ async def upload_service_image(request: Request, service_id: str, body: Catalogu
         return JSONResponse({"ok": False, "reason": str(exc)},
                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
     s.image_key = stored.key
+    # A FRESH TOKEN ON EVERY UPLOAD, THE OLD ONE REVOKED IN THE SAME BREATH — see
+    # core/public_catalog_image.py's own module docstring: a URL someone saved or scraped from a
+    # stale cache must go dead the moment the photo changes, never keep resolving to old content.
+    from app.core import public_catalog_image as PCI
+    old_token = s.public_image_token
+    s.public_image_token = PCI.new_token()
+    await PCI.register(request.app.state.container.datastore, s.public_image_token,
+                       tenant=tenant, service_id=service_id)
+    if old_token:
+        await PCI.revoke(request.app.state.container.datastore, old_token)
     await store.save(s)
     await request.app.state.auditor.record(
         "service.image_set", actor=principal.subject, tenant=tenant,
         resource=f"service:{service_id}", ip=request.client.host if request.client else "")
+    # WhatsApp Direct Ordering's own catalog sync — a new photo may flip this service's own
+    # readiness gate (price + a real photo) from not-ready to ready, or just refresh the URL.
+    background.add_task(request.app.state.container.catalog_item_sync_trigger.sync,
+                        tenant=tenant, service=s)
     return s.public()
 
 
@@ -2312,7 +2186,7 @@ async def set_coupon_preferences(request: Request, body: CouponPreferencesIn,
     return {"visit_grant_enabled": row.visit_grant_enabled}
 
 
-# ── referral partnership — NOT the same feature as coupons above, see core/referral_partnership.py
+# ── referral partnership — NOT the same feature as coupons above, see core/mutual_benefit.py
 # ── module docstring. TWO TIERS (owner's own explicit decision, 2026-09-21 — same split
 # ── `operations.grant_coupon`/`operations.grant_coupon_direct` already draws for coupons):
 # ── committing the shop to a partnership — propose/accept/reject/either cancel step — stays
@@ -2324,13 +2198,13 @@ async def set_coupon_preferences(request: Request, body: CouponPreferencesIn,
 # ── exactly a marketing metric this role should see, same reasoning `campaigns.read`/
 # ── `insights.read` already grant it visibility elsewhere — seeing performance is not the same
 # ── act as committing the shop's own services to a partner, and must not require the same key.
-from app.core.referral_partnership import ReferralError
+from app.core.mutual_benefit import MutualBenefitError
 
 _REFERRAL_MANAGE = require_capability("operations.manage")
 _REFERRAL_VIEW = require_capability("operations.read")
 
 
-def _referral_error(exc: ReferralError) -> HTTPException:
+def _mutual_benefit_error(exc: MutualBenefitError) -> HTTPException:
     code = str(exc.args[0]) if exc.args else "error"
     status_map = {
         "not_found": status.HTTP_404_NOT_FOUND,
@@ -2347,7 +2221,7 @@ def _referral_error(exc: ReferralError) -> HTTPException:
     return HTTPException(status_map.get(code, status.HTTP_400_BAD_REQUEST), code.upper())
 
 
-class ProposeReferralIn(BaseModel):
+class ProposeMutualBenefitIn(BaseModel):
     shop_b_phone: str = Field(min_length=3, max_length=32)
     condition_type: str = Field(min_length=1, max_length=32)
     condition_value: str = Field(min_length=1, max_length=64)
@@ -2355,7 +2229,7 @@ class ProposeReferralIn(BaseModel):
     agreement_duration_days: int = Field(gt=0, le=3650)
     per_period_cap: int = Field(default=0, ge=0)
     idempotency_key: str = Field(default="", max_length=128)
-    # NO FREE TEXT ANYWHERE — see core/referral_partnership.py's own "GRANT TYPE" module-docstring
+    # NO FREE TEXT ANYWHERE — see core/mutual_benefit.py's own "GRANT TYPE" module-docstring
     # section for the full, decided-once-and-immutable shape: "gift" (gift_service_id, a real
     # service from shop_b's own catalogue) or "discount" with discount_scope "item"
     # (gift_service_id, same as a gift), "blanket" (nothing else), or "group" (discount_group_id,
@@ -2366,11 +2240,11 @@ class ProposeReferralIn(BaseModel):
     discount_group_id: str = Field(default="", max_length=64)
 
 
-@router.post("/referral-partnership/agreements", dependencies=[Depends(rate_limit)])
-async def propose_referral_partnership(request: Request, body: ProposeReferralIn,
+@router.post("/mutual-benefit/agreements", dependencies=[Depends(rate_limit)])
+async def propose_mutual_benefit(request: Request, body: ProposeMutualBenefitIn,
                                        principal: Principal = Depends(_REFERRAL_MANAGE)):
     tenant = _tenant(principal)
-    engine = request.app.state.container.referral_partnership
+    engine = request.app.state.container.mutual_benefit
     try:
         agreement = await engine.propose(
             shop_a=tenant, shop_b_phone=body.shop_b_phone, operator_id=principal.subject,
@@ -2380,118 +2254,118 @@ async def propose_referral_partnership(request: Request, body: ProposeReferralIn
             per_period_cap=body.per_period_cap, idempotency_key=body.idempotency_key,
             grant_type=body.grant_type, gift_service_id=body.gift_service_id,
             discount_scope=body.discount_scope, discount_group_id=body.discount_group_id)
-    except ReferralError as exc:
-        raise _referral_error(exc) from exc
+    except MutualBenefitError as exc:
+        raise _mutual_benefit_error(exc) from exc
     await request.app.state.auditor.record(
-        "referral_partnership.propose", actor=principal.subject, tenant=tenant,
+        "mutual_benefit.propose", actor=principal.subject, tenant=tenant,
         resource=f"referral_agreement:{agreement.id}",
         ip=request.client.host if request.client else "")
     return agreement.public()
 
 
-@router.get("/referral-partnership/agreements", dependencies=[Depends(rate_limit)])
-async def list_referral_partnerships(request: Request,
+@router.get("/mutual-benefit/agreements", dependencies=[Depends(rate_limit)])
+async def list_mutual_benefits(request: Request,
                                      principal: Principal = Depends(_REFERRAL_VIEW)):
     tenant = _tenant(principal)
-    rows = await request.app.state.container.referral_partnership.agreements_for(tenant)
+    rows = await request.app.state.container.mutual_benefit.agreements_for(tenant)
     return {"agreements": [r.public() for r in rows]}
 
 
-@router.get("/referral-partnership/agreements/{agreement_id}", dependencies=[Depends(rate_limit)])
-async def get_referral_partnership(request: Request, agreement_id: str,
+@router.get("/mutual-benefit/agreements/{agreement_id}", dependencies=[Depends(rate_limit)])
+async def get_mutual_benefit(request: Request, agreement_id: str,
                                    principal: Principal = Depends(_REFERRAL_MANAGE)):
     tenant = _tenant(principal)
     try:
-        agreement = await request.app.state.container.referral_partnership.get(
+        agreement = await request.app.state.container.mutual_benefit.get(
             tenant, agreement_id)
-    except ReferralError as exc:
-        raise _referral_error(exc) from exc
+    except MutualBenefitError as exc:
+        raise _mutual_benefit_error(exc) from exc
     return agreement.public()
 
 
-@router.post("/referral-partnership/agreements/{agreement_id}/accept",
+@router.post("/mutual-benefit/agreements/{agreement_id}/accept",
             dependencies=[Depends(rate_limit)])
-async def accept_referral_partnership(request: Request, agreement_id: str,
+async def accept_mutual_benefit(request: Request, agreement_id: str,
                                       principal: Principal = Depends(_REFERRAL_MANAGE)):
     tenant = _tenant(principal)
     try:
-        agreement = await request.app.state.container.referral_partnership.accept(
+        agreement = await request.app.state.container.mutual_benefit.accept(
             tenant=tenant, agreement_id=agreement_id)
-    except ReferralError as exc:
-        raise _referral_error(exc) from exc
+    except MutualBenefitError as exc:
+        raise _mutual_benefit_error(exc) from exc
     await request.app.state.auditor.record(
-        "referral_partnership.accept", actor=principal.subject, tenant=tenant,
+        "mutual_benefit.accept", actor=principal.subject, tenant=tenant,
         resource=f"referral_agreement:{agreement_id}",
         ip=request.client.host if request.client else "")
     return agreement.public()
 
 
-@router.post("/referral-partnership/agreements/{agreement_id}/reject",
+@router.post("/mutual-benefit/agreements/{agreement_id}/reject",
             dependencies=[Depends(rate_limit)])
-async def reject_referral_partnership(request: Request, agreement_id: str,
+async def reject_mutual_benefit(request: Request, agreement_id: str,
                                       principal: Principal = Depends(_REFERRAL_MANAGE)):
     tenant = _tenant(principal)
     try:
-        agreement = await request.app.state.container.referral_partnership.reject(
+        agreement = await request.app.state.container.mutual_benefit.reject(
             tenant=tenant, agreement_id=agreement_id)
-    except ReferralError as exc:
-        raise _referral_error(exc) from exc
+    except MutualBenefitError as exc:
+        raise _mutual_benefit_error(exc) from exc
     await request.app.state.auditor.record(
-        "referral_partnership.reject", actor=principal.subject, tenant=tenant,
+        "mutual_benefit.reject", actor=principal.subject, tenant=tenant,
         resource=f"referral_agreement:{agreement_id}",
         ip=request.client.host if request.client else "")
     return agreement.public()
 
 
-@router.post("/referral-partnership/agreements/{agreement_id}/cancel-request",
+@router.post("/mutual-benefit/agreements/{agreement_id}/cancel-request",
             dependencies=[Depends(rate_limit)])
-async def cancel_request_referral_partnership(request: Request, agreement_id: str,
+async def cancel_request_mutual_benefit(request: Request, agreement_id: str,
                                               principal: Principal = Depends(_REFERRAL_MANAGE)):
     tenant = _tenant(principal)
     try:
-        agreement = await request.app.state.container.referral_partnership.cancel_request(
+        agreement = await request.app.state.container.mutual_benefit.cancel_request(
             tenant=tenant, agreement_id=agreement_id)
-    except ReferralError as exc:
-        raise _referral_error(exc) from exc
+    except MutualBenefitError as exc:
+        raise _mutual_benefit_error(exc) from exc
     await request.app.state.auditor.record(
-        "referral_partnership.cancel_request", actor=principal.subject, tenant=tenant,
+        "mutual_benefit.cancel_request", actor=principal.subject, tenant=tenant,
         resource=f"referral_agreement:{agreement_id}",
         ip=request.client.host if request.client else "")
     return agreement.public()
 
 
-@router.post("/referral-partnership/agreements/{agreement_id}/cancel-confirm",
+@router.post("/mutual-benefit/agreements/{agreement_id}/cancel-confirm",
             dependencies=[Depends(rate_limit)])
-async def cancel_confirm_referral_partnership(request: Request, agreement_id: str,
+async def cancel_confirm_mutual_benefit(request: Request, agreement_id: str,
                                               principal: Principal = Depends(_REFERRAL_MANAGE)):
     tenant = _tenant(principal)
     try:
-        agreement = await request.app.state.container.referral_partnership.cancel_confirm(
+        agreement = await request.app.state.container.mutual_benefit.cancel_confirm(
             tenant=tenant, agreement_id=agreement_id)
-    except ReferralError as exc:
-        raise _referral_error(exc) from exc
+    except MutualBenefitError as exc:
+        raise _mutual_benefit_error(exc) from exc
     await request.app.state.auditor.record(
-        "referral_partnership.cancel_confirm", actor=principal.subject, tenant=tenant,
+        "mutual_benefit.cancel_confirm", actor=principal.subject, tenant=tenant,
         resource=f"referral_agreement:{agreement_id}",
         ip=request.client.host if request.client else "")
     return agreement.public()
 
 
-@router.get("/referral-partnership/agreements/{agreement_id}/audit-log",
+@router.get("/mutual-benefit/agreements/{agreement_id}/audit-log",
            dependencies=[Depends(rate_limit)])
-async def referral_partnership_audit_log(request: Request, agreement_id: str,
+async def mutual_benefit_audit_log(request: Request, agreement_id: str,
                                          principal: Principal = Depends(_REFERRAL_VIEW)):
     tenant = _tenant(principal)
     try:
-        rows = await request.app.state.container.referral_partnership.audit_log(
+        rows = await request.app.state.container.mutual_benefit.audit_log(
             tenant, agreement_id)
-    except ReferralError as exc:
-        raise _referral_error(exc) from exc
+    except MutualBenefitError as exc:
+        raise _mutual_benefit_error(exc) from exc
     return {"entries": [r.public() for r in rows]}
 
 
-@router.get("/referral-partnership/kpis", dependencies=[Depends(rate_limit)])
-async def referral_partnership_kpis(request: Request,
+@router.get("/mutual-benefit/kpis", dependencies=[Depends(rate_limit)])
+async def mutual_benefit_kpis(request: Request,
                                     principal: Principal = Depends(_REFERRAL_VIEW)):
     tenant = _tenant(principal)
-    return await request.app.state.container.referral_partnership.kpis(tenant)
+    return await request.app.state.container.mutual_benefit.kpis(tenant)

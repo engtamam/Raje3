@@ -241,6 +241,10 @@ _ALLOWED_IDENTITY_FIELD_NAMES = {
     "service_id", "package_id", "earliest_date", "starts_at_iso", "reward_id",
     "booking_id", "reason", "new_starts_at_iso", "service_ids", "proposal_id",
     "idempotency_key", "granted", "include_history",
+    # A NEW CUSTOMER'S REFERRAL CODE (owner instruction, 2026-09-27) — a short, structured
+    # shop-issued code (max_length=16 on the real backend model), never customer message text;
+    # same shape as `reward_id`/`booking_id` right above.
+    "referral_code",
 }
 
 

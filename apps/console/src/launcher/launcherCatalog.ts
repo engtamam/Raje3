@@ -18,6 +18,20 @@ import { APP_ROWS, owns, type AppFeature, type Owned } from '../apps';
 import type { Catalog } from '../catalog';
 import { isReady, type Loading } from '../loading';
 
+/** `GET /api/v1/subscription/apps/static-features`'s own real, tenant-free subkeys — mirrors
+ *  `admin/PlanCards.tsx::STATIC_FEATURES_SUBKEY` exactly (the SAME gap, found on the admin panel
+ *  first): a row operations owns outright carries NO `featuresAction` of its own (its features
+ *  ride along with `Owned.apps[].features` instead), which only ever answers for an app already
+ *  bought — a shop still deciding WHETHER to buy one saw an empty features section, the one
+ *  moment a real feature list matters most. Every key here is read from the static, ownership-
+ *  free payload FIRST, falling back to `Owned.apps[].features` only for a key with no entry here. */
+export const STATIC_FEATURES_SUBKEY: Record<string, string> = {
+  'feature.visit': 'visit', 'feature.contacts': 'contacts', 'feature.rating': 'rating',
+  'feature.mobile_requests': 'mobile_requests', 'feature.coworking': 'coworking',
+  'feature.partner_loyalty': 'coupons', 'feature.mutual_benefit': 'mutual_benefit',
+  'feature.referrals': 'referrals',
+};
+
 export interface LauncherApp {
   id: string;
   label: string;
@@ -57,11 +71,11 @@ export interface LauncherApp {
 //                خدمات متنقلة — moved here 2026-09-22 from growth: a service delivery channel,
 //                same as bookings, not a way to reach new customers).
 //   customers  — the relationship itself: who they are, what they thought, why they come back
-//                (عملائي, التقييم, نقاطي, ولاء الشركاء — moved here 2026-09-22 from growth: the
+//                (عملائي, التقييم, نقاط الولاء, ولاء الشركاء — moved here 2026-09-22 from growth: the
 //                 owner's own framing is that a discount extended to a partner shop is an
 //                 indirect LOYALTY mechanic between businesses, not customer acquisition).
 //   growth     — reaching NEW attention or NEW revenue from outside the existing relationship
-//                (الحملات, شراكة استراتيجية, صفقات).
+//                (الحملات, تبادل منافع, صفقات).
 //   ai         — its own shelf on purpose, not folded into growth: المساعد الذكي is the first of
 //                what this product's own roadmap already names as a growing AI line, and a shelf
 //                that starts at one app still reads as a real category the day a second AI app
@@ -80,7 +94,7 @@ const CATEGORY_OF: Record<string, string> = {
   'partner-loyalty': 'customers',
   messages: 'growth',
   insights: 'growth',
-  'referral-partnership': 'growth',
+  'mutual-benefit': 'growth',
   whatsapp: 'ai',
   'mobile-ai-assistant': 'ai',
 };
@@ -95,9 +109,14 @@ function whatFor(id: string): string {
 
 /** «تطبيقاتي» — only what this role may open at all, from the SAME derivation the rail itself
  *  uses (`visibleSections`), merged with billing's own owned/locked answer per app. */
-export function myApps(catalog: Catalog, owned: Loading<Owned>): LauncherApp[] {
+export function myApps(
+  catalog: Catalog, owned: Loading<Owned>,
+  staticFeatures?: Record<string, import('../apps').AppFeature[]> | null,
+): LauncherApp[] {
   const sections: SectionState[] = visibleSections(catalog).filter((s) => s.id !== 'support');
   const ownedApps = isReady(owned) ? owned.apps : [];
+  const staticFeaturesFor = (key: string | null) =>
+    (key && staticFeatures && STATIC_FEATURES_SUBKEY[key]) ? staticFeatures[STATIC_FEATURES_SUBKEY[key]] : undefined;
   const bySection = sections.map((s) => {
     // SECTION MATCH FIRST, ID AS FALLBACK — most rows tie to their nav section by `section`
     // (loyalty's row `id` is `loyalty` but its nav section is `points`, matched by `section`
@@ -121,7 +140,9 @@ export function myApps(catalog: Catalog, owned: Loading<Owned>): LauncherApp[] {
       unavailable: s.unavailable,
       billingKey: row?.key ?? null,
       featuresAction: row?.featuresAction,
-      inlineFeatures: row ? ownedApps.find((a) => a.key === row.key)?.features : undefined,
+      inlineFeatures: row
+        ? (staticFeaturesFor(row.key) ?? ownedApps.find((a) => a.key === row.key)?.features)
+        : undefined,
     };
   });
 
@@ -146,7 +167,7 @@ export function myApps(catalog: Catalog, owned: Loading<Owned>): LauncherApp[] {
       unavailable: false,
       billingKey: a.key,
       featuresAction: a.featuresAction,
-      inlineFeatures: ownedApps.find((o) => o.key === a.key)?.features,
+      inlineFeatures: staticFeaturesFor(a.key) ?? ownedApps.find((o) => o.key === a.key)?.features,
     }));
 
   // NOT-YET-BOUGHT SECTIONS DO NOT BELONG HERE (found live, owner's own report): a section this
@@ -168,8 +189,13 @@ export function myApps(catalog: Catalog, owned: Loading<Owned>): LauncherApp[] {
  *  tile via `openPath` (found live: the launcher silently dropped these two against the owner's
  *  own comparison with the old متجر التطبيقات screen, which sold every row here regardless of
  *  whether it owned a page). */
-export function allApps(owned: Loading<Owned>): LauncherApp[] {
+export function allApps(
+  owned: Loading<Owned>,
+  staticFeatures?: Record<string, import('../apps').AppFeature[]> | null,
+): LauncherApp[] {
   const ownedApps = isReady(owned) ? owned.apps : [];
+  const staticFeaturesFor = (key: string | null) =>
+    (key && staticFeatures && STATIC_FEATURES_SUBKEY[key]) ? staticFeatures[STATIC_FEATURES_SUBKEY[key]] : undefined;
   return APP_ROWS.filter((a) => a.section || a.openPath).map((a) => {
     const id = a.section || a.id;
     // THE RAIL'S OWN LABEL WINS when this row owns a real nav section — found live: جهات الاتصال

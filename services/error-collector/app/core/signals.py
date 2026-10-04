@@ -146,7 +146,7 @@ class SignalStore:
             "received_at": at,
             # The sort key. Derived from received_at, never from the caller.
             "created": _iso(at),
-            "occurred_at": int(signal.occurred_at) if signal.occurred_at else at,
+            "occurred_at": int(signal.occurred_at) if signal.occurred_at is not None else at,
             "source": signal.source,
             "severity": signal.severity,
             "service": signal.service,

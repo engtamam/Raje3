@@ -494,7 +494,7 @@ if [ -n "${DOMAIN:-}" ]; then
   for f in "$ROOT"/deploy/services/*.values.yaml; do
     # SELECTED BY THE KEY, NOT BY ITS BEING EMPTY. It used to require `""`, and that made the
     # repository's own value a decision this installer had to respect: once a values file carried
-    # `https://kobo-cloud.com`, an install for a DIFFERENT domain skipped it silently and the new
+    # `https://ra-je3.com`, an install for a DIFFERENT domain skipped it silently and the new
     # cluster composed links pointing at somebody else's site. The installer was asked for the
     # domain; it is the authority. So it overwrites whatever the file happens to hold.
     grep -qE '^[[:space:]]*PUBLIC_BASE_URL:[[:space:]]*' "$f" || continue
@@ -735,7 +735,8 @@ soft "affiliate-service's phone-search role" bash "$HERE/hooks/provision-affilia
 #
 # TEMPLATES ARE ABSENT ON PURPOSE. The WhatsApp library is submitted PER ESTABLISHMENT at the
 # moment its account connects (§6.6.1) — a platform-wide push would be a submission to nobody's
-# account. seed-templates.sh takes --tenant for that reason.
+# account. `library.register` (services/operations) does that registration automatically per
+# tenant the moment the account connects; there is no platform-wide seeder to run here.
 step "seed"
 soft "roles" bash "$HERE/seed/seed-roles.sh"
 # assistant-service's OWN HAND-AUTHORED KB (Phase 4) — a ConfigMap this repo's own

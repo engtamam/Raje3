@@ -1,7 +1,7 @@
 name: raje3_mobile
 description: Raje3 mobile app — thin client, every screen talks to our own server directly.
 publish_to: 'none'
-version: 0.1.0+1
+version: 0.1.26
 
 environment:
   sdk: '>=3.5.0 <4.0.0'
@@ -17,7 +17,7 @@ dependencies:
   provider: ^6.1.1
 
   # Navigation
-  go_router: ^14.2.0
+  go_router: ^18.0.1
 
   # Network
   dio: ^5.4.0
@@ -25,20 +25,41 @@ dependencies:
   # Storage — secure_storage for the auth token only; shared_preferences for
   # non-sensitive UI prefs (locale, theme, onboarding flag). NO local database:
   # this is a thin shell, every screen re-fetches from the server.
-  flutter_secure_storage: ^9.2.2
+  flutter_secure_storage: ^11.2.0
   shared_preferences: ^2.2.2
 
   # Utilities
   intl: any
   url_launcher: ^6.2.2
-  package_info_plus: ^8.0.0
-  device_info_plus: ^10.1.0
+  package_info_plus: ^10.2.1
+  device_info_plus: ^13.2.0
   # Shop logo picker («منشأتي») — the picker's OWN `maxWidth`/`imageQuality` constrain the file to
   # apps/console/src/screens/AccountPanes.tsx's own LOGO_PX=256 equivalent at pick time, so no
   # separate image-processing package is needed just to shrink it before it goes inline as a data
   # URI in `branding.logo_url` (PUT /api/v1/tenant/branding) — same field, same shape as the
   # console's own `shrink()`.
   image_picker: ^1.1.2
+  # «منشأتي»'s own brand-color field — pure Dart, no native/platform code (unlike most plugins
+  # this session already fought with), so no gradle/manifest risk. Mobile had no picker at all
+  # (found live, 2026-09-28, reported by the owner): a plain hex text field with no way to open a
+  # palette, unlike console's own `<input type="color">` (apps/console/src/screens/account/
+  # IdentityPane.tsx) which opens the browser's native wheel.
+  flutter_colorpicker: ^1.1.0
+  # «التقييم»'s own «تصدير التقرير» — a real binary (PDF/DOCX) POST response, saved to a temp file
+  # then handed to the OS share sheet. No local database anywhere else in this app; these two are
+  # here purely as OS-integration glue for one already-real server endpoint, not new storage.
+  path_provider: ^2.1.4
+  # TuwaiqPay's manual pay-link, opened INSIDE the app (owner's own instruction, 2026-09-23: never
+  # feel like leaving to something external) — the same "in-app WebView, watch for the return URL"
+  # pattern every real payment SDK uses. Web has no native WebView, so this only really renders on
+  # Android/iOS; on web the pay-link falls back to an external tab (url_helper.dart's own openUrl).
+  webview_flutter: ^4.10.0
+  share_plus: ^13.3.0
+  # «استيراد خدمات من ملف» — CSV only (the server itself "has no business knowing what a .csv or
+  # .xlsx looks like", per its own bulk_import_services docstring: the CLIENT parses the file and
+  # sends structured rows). A real .xlsx parser is a much heavier, separate dependency this pass
+  # does not add — CSV is the real, working half of "CSV/Excel", not a stand-in for both.
+  file_picker: ^13.1.0
 
   # THE REBRAND'S OWN TYPEFACES, loaded the same way the web console loads them
   # (apps/console/index.html: fonts.googleapis.com, Cairo 600-900 + Tajawal
@@ -47,7 +68,7 @@ dependencies:
   # Text using them silently fell back to the OS default font. This includes
   # the wordmark itself (login_screen.dart's _buildLogo, BrandLoadingIndicator)
   # — found live: it visibly did not match the console's own Cairo wordmark.
-  google_fonts: ^6.2.1
+  google_fonts: ^8.2.1
 
   # Icons
   cupertino_icons: ^1.0.8
@@ -84,12 +105,16 @@ dependencies:
   # against the web target this app was tested against all session. `record` is actively
   # maintained and returns the identical raw `Stream<Uint8List>` PCM shape.
   flutter_litert: ^3.9.0
-  record: ^5.2.1
+  record: ^7.1.1
+  flutter_gemma_litertlm: ^1.8.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^4.0.0
+  flutter_lints: ^6.0.0
+
+dependency_overrides:
+  background_downloader: ^9.6.3
 
 flutter:
   uses-material-design: true
@@ -98,10 +123,7 @@ flutter:
     - assets/knowledge/mobile_kb.json
     - assets/knowledge/mobile_actions.json
     - assets/wakeword/raje_wakeword.tflite
-    # THE GEMMA MODEL ITSELF — bundled in the app package (owner's own explicit decision,
-    # 2026-09-22; see AiConfig.gemmaModelAssetPath's own doc comment for the full reasoning and
-    # trade-off). NOT COMMITTED TO GIT (.gitignore excludes assets/models/) — run
-    # scripts/fetch_ai_model.sh BEFORE `flutter build`/`flutter run`, or this path will not exist
-    # and `flutter build` will fail with a clear "asset not found" error, on purpose (a build that
-    # silently shipped without the model would be a worse failure, discovered only on a device).
-    - assets/models/gemma-4-E4B-it-gpu.litertlm
+    # THE GEMMA MODEL IS NOT HERE — it moved to android/ai_model_pack (a Play Asset Delivery
+    # install-time pack), 2026-09-28, once the plain-Flutter-asset shape put the whole ~2.77GB
+    # file in the app's base module, which Google Play caps at 200MB compressed. See
+    # android/ai_model_pack/build.gradle.kts and AiConfig.gemmaModelAssetPath's own doc comment.

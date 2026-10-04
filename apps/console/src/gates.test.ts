@@ -20,7 +20,7 @@ import { DENIED, isReady } from './loading';
 import { owns } from './apps';
 import { visibleSections } from './nav';
 
-describe('the grey box on «نقاطي» that never resolved', () => {
+describe('the grey box on «نقاط الولاء» that never resolved', () => {
   it('a role that cannot ask about billing is not left loading for ever', () => {
     // THE DEFECT. A manager holding `loyalty.manage` and not `billing.self` never triggers the
     // entitlement read, so the state stayed at its initial value and `AppGate` drew a skeleton
@@ -44,7 +44,7 @@ describe('the grey box on «نقاطي» that never resolved', () => {
   });
 });
 
-describe('«نقاطي»: a failed settings read must not draw rules as facts', () => {
+describe('«نقاط الولاء»: a failed settings read must not draw rules as facts', () => {
   it('the earning tab renders nothing editable until the settings arrived', () => {
     // Every control on that tab defaults to `earn?.…?.points ?? 0`, so a failed read presented the
     // whole tree as ZERO — and the first touch on any field WRITES it. The owner corrects a number
@@ -77,7 +77,7 @@ describe('م · النمط 3: declared for a purpose, and nobody read it', () =>
     // `catalog.unreachable` was declared with the reason written beside it — «a section missing
     // because a service is down must be distinguishable from a section missing because this
     // person may not have it» — and its only reader fired when EVERY service was down. So loyalty
-    // falling over alone deleted «نقاطي» silently, and the owner who pays for it phoned support
+    // falling over alone deleted «نقاط الولاء» silently, and the owner who pays for it phoned support
     // about his permissions.
     const catalog = {
       services: [{ service: 'operations', actions: [{ id: 'operations.record_visit' } as never] }],

@@ -11,10 +11,12 @@ import { Messages } from './screens/MessagesRoute';
 import { Points } from './screens/PointsRoute';
 import { Rating } from './screens/RatingRoute';
 import { Coupons } from './screens/CouponsRoute';
-import { ReferralPartnership } from './screens/ReferralPartnershipRoute';
+import { MutualBenefit } from './screens/MutualBenefitRoute';
+import { Referrals } from './screens/ReferralsRoute';
 import { Team } from './screens/TeamRoute';
 import { MobileRequests } from './screens/MobileRequestsRoute';
 import { Bookings } from './screens/BookingsRoute';
+import { Coworking } from './screens/CoworkingRoute';
 import { ShopScreen } from './screens/Shop';
 import { Support } from './screens/SupportRoute';
 import { WhatsAppAssistantRoute } from './screens/WhatsAppAssistantRoute';
@@ -68,6 +70,7 @@ const shopRouter = createBrowserRouter([
       ) },
       { path: 'visit', element: <Visit /> },
       { path: 'bookings', element: <Bookings /> },
+      { path: 'coworking', element: <Coworking /> },
       { path: 'customers', element: <Customers /> },
       // NOT A SECTION IN THE NAV, and deliberately: it is reached BY opening a
       // customer, never by choosing it. A tenth nav entry for a screen that needs an
@@ -79,7 +82,8 @@ const shopRouter = createBrowserRouter([
       { path: 'points', element: <Points /> },
       { path: 'rating', element: <Rating /> },
       { path: 'partner-loyalty', element: <Coupons /> },
-      { path: 'referral-partnership', element: <ReferralPartnership /> },
+      { path: 'mutual-benefit', element: <MutualBenefit /> },
+      { path: 'referrals', element: <Referrals /> },
       { path: 'mobile-requests', element: <MobileRequests /> },
       { path: 'team', element: <Team /> },
       // «محلّي»'s OWN route (nav.ts::SHOP_PATH's own note explains why it is no longer also the

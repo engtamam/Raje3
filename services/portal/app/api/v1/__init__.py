@@ -43,7 +43,8 @@ async def whoami(
 # "/portal/admin/ping" land under the one new /api/v1/portal prefix that now covers all of it.
 # Capability changed from the scaffold's "admin" (nobody was ever granted it) to
 # "platform.secrets" — the one admin_actions.py already declared for this exact action.
-@router.get("/portal/admin/ping", dependencies=[Depends(require_capability("platform.secrets"))])
+@router.get("/portal/admin/ping", dependencies=[Depends(require_capability("platform.secrets")),
+                                               Depends(rate_limit)])
 async def admin_ping() -> dict:
     return {"status": "ok"}
 

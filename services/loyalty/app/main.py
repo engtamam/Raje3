@@ -77,7 +77,7 @@ def create_app() -> FastAPI:
         #
         # THE BUG THIS CLOSES. `Earner.from_visit` was written, tested and reachable at
         # /internal/loyalty/earn, and NOTHING CALLED IT. A visit was recorded and no point was
-        # awarded — so the rewards table, the redemption sheet and «نقاطي» all stood on a balance
+        # awarded — so the rewards table, the redemption sheet and «نقاط الولاء» all stood on a balance
         # that was zero for ever, and every test in this service passed the whole time. Fourth
         # instance of the same shape in this codebase: complete in the depth, cut at the door.
         #

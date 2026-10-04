@@ -113,7 +113,10 @@ async def carousel_shown(request: Request, body: CarouselShownIn) -> dict:
     return {"ok": True}
 
 
-async def _active_tenants(c: Any, *, limit: int) -> list[str]:
+_ACTIVE_TENANTS_BUDGET = 200_000
+
+
+async def _active_tenants(c: Any, *, limit: int = _ACTIVE_TENANTS_BUDGET) -> list[str]:
     """Tenants with a conversation row at all, from OUR OWN datastore — same "derive it from our
     own rows rather than ask a peer" shape as services/reminders' `_active_tenants`. A CronJob
     posts no body and cannot be templated per tenant (one fixed TARGET_URL — see
@@ -121,7 +124,15 @@ async def _active_tenants(c: Any, *, limit: int) -> list[str]:
     worklist rather than be handed one."""
     from app.core.models import CONVERSATIONS
 
-    rows = await c.datastore.scan_all(CONVERSATIONS, limit)
+    rows: list[dict] = []
+    cursor: str | None = None
+    page = 500
+    while True:
+        batch = await c.datastore.scan_all(CONVERSATIONS, page, after=cursor)
+        rows.extend(batch)
+        if len(batch) < page or len(rows) >= limit:
+            break
+        cursor = batch[-1].get("id")
     seen: list[str] = []
     for r in rows:
         t = r.get("tenant") or ""
@@ -282,7 +293,7 @@ async def tick(request: Request, settings: Settings = Depends(get_settings)) -> 
 
     now = int(_time.time())
     batch = settings.CONVERSATION_TICK_BATCH_SIZE
-    tenants = [tenant] if tenant else await _active_tenants(c, limit=2000)
+    tenants = [tenant] if tenant else await _active_tenants(c)
 
     # ── scheduled pricing changes — once per tick, never per-tenant (pricing is platform-wide,
     # same as every other RUNTIME_POLICY knob this service has) ──────────────────────────────────
@@ -677,3 +688,127 @@ async def set_meta_agent_rollout(request: Request, body: SetMetaAgentRolloutIn) 
             actor="system", tenant=body.tenant, resource="meta_agent", ip="",
             metadata={"enabled": result.enabled})
     return {"ok": result.ok, "enabled": result.enabled, "error": result.error}
+
+
+class ProvisionCatalogIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    business_id: str = Field(min_length=1, max_length=128)
+    waba_id: str = Field(min_length=1, max_length=128)
+    phone_number_id: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/whatsapp/catalog/provision", dependencies=[Depends(require_internal_token)])
+async def provision_catalog(request: Request, body: ProvisionCatalogIn) -> dict:
+    """Ensure this tenant has a Meta Commerce Catalog, connected to its WABA, with the cart
+    enabled for the number that just connected — called by operations' own `/whatsapp/connect`
+    background task, the cross-service leg of `core/catalog_provisioning.py::provision_catalog`
+    (that module's own docstring documents the idempotency guarantees — safe to call on every
+    reconnect, never mints a second catalog for the same tenant).
+
+    NEVER 500s ON A PROVISIONING FAILURE — same posture as `provision_meta_agent` above. A caller
+    that wants to know what happened reads the response body's `ok`/`failed_step`/`error`.
+
+    LICENCE CHECKED BEFORE ANY GRAPH CALL — `feature.whatsapp_delivery_orders`, its OWN entitlement
+    (core/order_licence.py), never `container.licence` (`feature.whatsapp`, the AI assistant, a
+    separate paid app)."""
+    from app.core.catalog_provisioning import HttpCatalogProvisioner, provision_catalog as _run
+
+    container = request.app.state.container
+    settings = get_settings()
+
+    if container.order_licence is not None and not await container.order_licence.allowed(body.tenant):
+        return {"ok": False, "failed_step": "", "error": "tenant is not subscribed",
+               "page_id": "", "catalog_id": "", "catalog_created": False, "connected": False,
+               "cart_enabled": False}
+
+    if not getattr(settings, "CATALOG_PROVISIONING_ENABLED", False):
+        return {"ok": False, "failed_step": "", "error": "CATALOG_PROVISIONING_ENABLED is off",
+               "page_id": "", "catalog_id": "", "catalog_created": False, "connected": False,
+               "cart_enabled": False}
+
+    def _provisioner_factory(token: str) -> HttpCatalogProvisioner:
+        return HttpCatalogProvisioner(
+            token=token,
+            graph_base_url=getattr(settings, "META_GRAPH_BASE_URL", "https://graph.facebook.com"),
+            graph_version=getattr(settings, "META_GRAPH_API_VERSION", "v26.0"),
+            timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8))
+
+    result = await _run(
+        tenant=body.tenant, business_id=body.business_id, waba_id=body.waba_id,
+        phone_number_id=body.phone_number_id, secret_store=container.secret_store,
+        settings=settings, provisioner_factory=_provisioner_factory)
+    await request.app.state.auditor.record(
+        "whatsapp_assistant.catalog_provisioned" if result.ok
+        else "whatsapp_assistant.catalog_provision_failed",
+        actor="system", tenant=body.tenant, resource=f"waba:{body.waba_id}", ip="",
+        metadata={"failed_step": result.failed_step, "catalog_id": result.catalog_id,
+                 "catalog_created": result.catalog_created})
+    return {"ok": result.ok, "failed_step": result.failed_step, "error": result.error,
+           "page_id": result.page_id, "catalog_id": result.catalog_id,
+           "catalog_created": result.catalog_created, "connected": result.connected,
+           "cart_enabled": result.cart_enabled}
+
+
+class SyncCatalogItemIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    service_id: str = Field(min_length=1, max_length=128)
+    name: str = Field(default="", max_length=200)
+    description: str = Field(default="", max_length=5000)
+    price_minor: int = Field(default=0, ge=0)
+    active: bool = True
+    image_url: str = Field(default="", max_length=2000)
+
+
+@router.post("/whatsapp/catalog/sync-item", dependencies=[Depends(require_internal_token)])
+async def sync_catalog_item(request: Request, body: SyncCatalogItemIn) -> dict:
+    """Upsert or remove one service's Meta Commerce Catalog item — called by operations' own
+    service create/update/image-upload routes, the cross-service leg of
+    `core/catalog_item_sync.py::sync_service_item` (that module's own docstring documents the
+    readiness gate and why it is always `method: UPDATE` with `allow_upsert`).
+
+    NEVER 500s ON A SYNC FAILURE — same posture as `provision_catalog`/`provision_meta_agent`
+    above. A caller that wants to know what happened reads the response body's
+    `ok`/`failed_step`/`error`.
+
+    LICENCE CHECKED BEFORE ANY GRAPH CALL — same reasoning as `provision_catalog` above:
+    `feature.whatsapp_delivery_orders`, its own entitlement, never the AI assistant's."""
+    from app.core.catalog_item_sync import HttpCatalogItemSyncer, sync_service_item
+
+    container = request.app.state.container
+    settings = get_settings()
+
+    if container.order_licence is not None and not await container.order_licence.allowed(body.tenant):
+        return {"ok": False, "failed_step": "", "error": "tenant is not subscribed",
+               "synced": False, "removed": False}
+
+    if not getattr(settings, "CATALOG_PROVISIONING_ENABLED", False):
+        return {"ok": False, "failed_step": "", "error": "CATALOG_PROVISIONING_ENABLED is off",
+               "synced": False, "removed": False}
+
+    def _syncer_factory(token: str) -> HttpCatalogItemSyncer:
+        return HttpCatalogItemSyncer(
+            token=token,
+            graph_base_url=getattr(settings, "META_GRAPH_BASE_URL", "https://graph.facebook.com"),
+            graph_version=getattr(settings, "META_GRAPH_API_VERSION", "v26.0"),
+            timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8))
+
+    shop_name = ""
+    try:
+        ctx = await container.shop_identity.resolve(body.tenant)
+        shop_name = ctx.name
+    except Exception:                                                        # noqa: BLE001
+        pass  # best-effort -- sync_service_item's own default ("Raje3") covers this
+
+    result = await sync_service_item(
+        tenant=body.tenant, service_id=body.service_id, name=body.name,
+        description=body.description, price_minor=body.price_minor, active=body.active,
+        image_url=body.image_url, secret_store=container.secret_store, settings=settings,
+        shop_name=shop_name, syncer_factory=_syncer_factory)
+    await request.app.state.auditor.record(
+        "whatsapp_assistant.catalog_item_synced" if result.ok
+        else "whatsapp_assistant.catalog_item_sync_failed",
+        actor="system", tenant=body.tenant, resource=f"service:{body.service_id}", ip="",
+        metadata={"failed_step": result.failed_step, "synced": result.synced,
+                 "removed": result.removed})
+    return {"ok": result.ok, "failed_step": result.failed_step, "error": result.error,
+           "synced": result.synced, "removed": result.removed}

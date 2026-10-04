@@ -292,10 +292,14 @@ async def salla_webhook(request: Request) -> Any:
     coupons = request.app.state.container.coupons
     percent = await coupons.effective_cap(tenant)
     if percent > 0:
-        att = await coupons.grant(
-            granter_tenant=tenant, granter_operator_id=f"salla:{merchant_id}",
-            phone=mobile, percent=percent, general=True,
-            order_id=f"salla:{merchant_id}:{order_id}")
+        from app.core.coupons import CouponBusy
+        try:
+            att = await coupons.grant(
+                granter_tenant=tenant, granter_operator_id=f"salla:{merchant_id}",
+                phone=mobile, percent=percent, general=True,
+                order_id=f"salla:{merchant_id}:{order_id}")
+        except CouponBusy:
+            return {"received": True}
         await request.app.state.auditor.record(
             "coupon.grant_attempt", actor=f"salla:{merchant_id}", tenant=tenant,
             resource=f"coupon_attempt:{att.id}",

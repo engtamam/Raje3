@@ -72,8 +72,11 @@ def test_the_refusal_reaches_the_caller_as_402_with_a_sentence():
         insights_engine_licence = NullFeatureLicence("feature.insights.engine", False)
         partner_loyalty_licence = NullFeatureLicence("feature.partner_loyalty", False)
         mobile_requests_licence = NullFeatureLicence("feature.mobile_requests", False)
-        referral_partnership_licence = NullFeatureLicence("feature.referral_partnership", False)
+        mutual_benefit_licence = NullFeatureLicence("feature.mutual_benefit", False)
         mobile_ai_assistant_licence = NullFeatureLicence("feature.mobile_ai_assistant", False)
+        coworking_licence = NullFeatureLicence("feature.coworking", False)
+        referrals_licence = NullFeatureLicence("feature.referrals", False)
+        whatsapp_delivery_orders_licence = NullFeatureLicence("feature.whatsapp_delivery_orders", False)
 
     app.state.container = _Container()
 
@@ -162,6 +165,47 @@ def test_a_shop_holding_only_coupons_is_not_wrongly_refused_the_generic_gate():
         insights_engine_licence = NullFeatureLicence("feature.insights.engine", False)
         mobile_requests_licence = NullFeatureLicence("feature.mobile_requests", False)
         partner_loyalty_licence = NullFeatureLicence("feature.partner_loyalty", True)   # the one that's live
+
+    app.state.container = _Container()
+
+    @app.post("/staff/mode", dependencies=[Depends(subscribed_write)])
+    async def _write() -> dict:
+        return {"ok": True}
+
+    from app.api.auth import Principal, require_user
+
+    app.dependency_overrides[require_user] = lambda: Principal(
+        subject="usr_1", tenant="t1", caps=frozenset({"operations.manage"}))
+
+    resp = TestClient(app).post("/staff/mode")
+    assert resp.status_code == 200, resp.text
+
+
+def test_a_shop_holding_only_referrals_is_not_wrongly_refused_the_generic_gate():
+    """Same reasoning as the coupons test above, for the newest row in `core/apps.py::APPS` —
+    `feature.referrals` (Phase 0, backend-only, not yet sellable). The gate is built from `KEYS`,
+    not a hand-copied tuple, so this passes by construction; this test is what actually proves it
+    rather than trusting the mechanism blindly."""
+    from fastapi import Depends, FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.api.subscribed import subscribed_write
+
+    app = FastAPI()
+
+    class _Container:
+        visit_licence = NullFeatureLicence("feature.visit", False)
+        bookings_licence = NullFeatureLicence("feature.bookings", False)
+        contacts_licence = NullFeatureLicence("feature.contacts", False)
+        whatsapp_licence = NullFeatureLicence("feature.whatsapp", False)
+        campaigns_licence = NullFeatureLicence("feature.campaigns", False)
+        loyalty_licence = NullFeatureLicence("feature.loyalty", False)
+        rating_licence = NullFeatureLicence("feature.rating", False)
+        insights_engine_licence = NullFeatureLicence("feature.insights.engine", False)
+        mobile_requests_licence = NullFeatureLicence("feature.mobile_requests", False)
+        partner_loyalty_licence = NullFeatureLicence("feature.partner_loyalty", False)
+        referrals_licence = NullFeatureLicence("feature.referrals", True)   # the one that's live
+        whatsapp_delivery_orders_licence = NullFeatureLicence("feature.whatsapp_delivery_orders", False)
 
     app.state.container = _Container()
 

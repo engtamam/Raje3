@@ -89,8 +89,8 @@ POD=$(kubectl -n "$NS" get pods --no-headers \
 [ -n "$POD" ] || { red "compliance-service is not running"; exit 1; }
 
 # A SIGNED TOKEN, NOT THE INTERNAL ONE. These are user-tier routes wanting `platform.compliance`;
-# the internal token authenticates a service and answers 401 here — the same 401 that cost an
-# afternoon on seed-templates.sh before it was written down.
+# the internal token authenticates a service and answers 401 here — the same 401 that has cost an
+# afternoon more than once before it was written down.
 KEY=$(kubectl -n "$NS" get secret identity-service-secrets \
       -o jsonpath='{.data.TOKEN_PRIVATE_KEY}' 2>/dev/null | base64 -d)
 [ -n "$KEY" ] || { red "no signing key in identity-service-secrets"; exit 1; }

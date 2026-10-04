@@ -556,7 +556,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   };
 
   /** A picked file, read as base64 and sent as-is — the server (catalogue_image.py) is the one
-   *  place that validates type/size, matching AccountPanes.tsx's own "the server decides" posture
+   *  place that validates type/size, matching account/IdentityPane.tsx's own "the server decides" posture
    *  for a write this small; no client-side resize needed for a product photo (unlike the shop
    *  logo, which is inlined directly and so had to be shrunk by hand). */
   const uploadServiceImage = async (id: string, file: File) => {
@@ -739,7 +739,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
 
   // A DIFFERENT PEER FROM THE OTHER THREE ROWS IN THIS SAME CARD — reminders owns the cycle and
   // the follow-up, loyalty owns the points, and the card only exists to be "one place for every
-  // service-wide default" (the owner's own ask: he was setting this on «نقاطي» and had no reason
+  // service-wide default" (the owner's own ask: he was setting this on «نقاط الولاء» and had no reason
   // to expect a second, separate general setting to live on a different screen entirely).
   const setGeneralPoints = async (n: number) => {
     const a = action(catalog, 'loyalty.settings.general');
@@ -962,7 +962,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 value={naming}
                 onChange={(e) => setNaming(e.target.value)}
                 placeholder={t('services.groupName.placeholder')}
-                className="h-10 flex-1 rounded-lg bg-surface-2 px-3"
+                className="h-10 flex-1 rounded-lg border border-border-subtle bg-surface-1 px-3"
               />
               <Button disabled={saving || !naming.trim()} onClick={() => makeGroup(naming)}>
                 {t('services.save')}
@@ -1270,7 +1270,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   as the inspector's own edit view). Styled as a real dropzone, not a native
                   file-picker button, matching the approved mockup. */}
               {action(catalog, 'operations.upload_service_image') ? (
-                <label className="relative flex aspect-[16/9] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong bg-surface-2 text-text-muted transition-colors hover:border-accent hover:text-accent-on-soft">
+                <label className="relative flex aspect-[16/9] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong bg-surface-1 text-text-muted transition-colors hover:border-accent hover:text-accent-on-soft">
                   {pendingImage ? (
                     <img src={pendingImageUrl ?? ''} alt=""
                         className="absolute inset-0 h-full w-full rounded-lg object-cover" />
@@ -1496,7 +1496,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               </button>
             </div>
             <div className="flex flex-col gap-4 overflow-y-auto p-4">
-              <div className="relative aspect-[16/10] overflow-hidden rounded-lg bg-surface-2">
+              <div className="relative aspect-[16/10] overflow-hidden rounded-lg bg-surface-1">
                 {images[svc.id] ? (
                   <img src={images[svc.id]} alt="" className="h-full w-full object-cover" />
                 ) : (

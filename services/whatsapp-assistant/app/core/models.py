@@ -153,6 +153,40 @@ class ConversationState:
     # A REAL, ALREADY-VALIDATED epoch instant (core/tools.py::request_mobile_visit re-checks it
     # against the shop's own real working hours before this is ever stamped) — never free text.
     mobile_request_time: int = 0
+    # A NEW CUSTOMER'S REFERRAL CODE, offered when `request_mobile_visit` was validated — carried
+    # here the same way `mobile_request_service_ids`/`mobile_request_time` are, since this request
+    # may not become a real one (and register the code) until the shop marks it complete, days
+    # later (services/operations/app/core/mobile_requests.py::complete's own referral hook).
+    mobile_request_referral_code: str = ""
+    # WHATSAPP DIRECT ORDERING — a catalog order message (core/inbound_parse.py's own "order"
+    # kind) arrives with no location at all, so the same one-shot discipline as
+    # `awaiting_mobile_location` above applies, with one real difference: this is money, not a
+    # read-only visit request, so a stale pending order is never left to wait forever —
+    # `pending_order_at` is checked against a TTL (core/conversation.py's own
+    # ORDER_LOCATION_TTL_SECONDS) every time a location or any other message arrives while this
+    # is set, and an expired one is cleared and told so rather than silently acted on with
+    # possibly stale prices.
+    awaiting_order_location: bool = False
+    # `[{"retailer_id": str, "quantity": int}, ...]` — NEVER a price (same "the catalogue is the
+    # one source of truth for what something costs" posture `orders.py`'s own module docstring
+    # already states; this is carried only as the customer's OWN selection, re-priced for real
+    # once Step 4 resolves it against ServiceStore).
+    pending_order_items: list[dict[str, Any]] = field(default_factory=list)
+    pending_order_catalog_id: str = ""
+    pending_order_at: int = 0
+    # THE ORDER MESSAGE'S OWN wamid -- Step 4's idempotency_key for `orders.py::OrderService.
+    # create()`. Deliberately NOT the location message's own wamid (a different event, arriving
+    # later): the fact that must never double-create is "this cart", and a webhook retry of the
+    # SAME order message (or the customer re-sharing their location after a timeout) must settle
+    # on the one real Order either way.
+    pending_order_wamid: str = ""
+    # Set once the location arrives (handle_order_followup) and `awaiting_order_location` clears
+    # to False -- held here for Step 4 (branch resolution + orders.py) to pick up; 0.0 is a real,
+    # valid coordinate on the equator/meridian, so readiness is read from `awaiting_order_location`
+    # having just gone False with `pending_order_items` still non-empty, never from these being
+    # non-zero.
+    pending_order_lat: float = 0.0
+    pending_order_lng: float = 0.0
     updated: int = field(default_factory=lambda: int(time.time()))
 
 

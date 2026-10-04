@@ -99,6 +99,47 @@ async def test_sharing_the_location_afterward_creates_the_real_request():
     assert conv.mobile_request_service_ids == []
 
 
+async def test_a_referral_code_offered_with_the_request_is_carried_to_the_real_create_call():
+    """The customer's referral code is offered when `request_mobile_visit` was validated, and
+    survives the whole location hand-off — the request may not become real (and register the
+    code) until the shop marks it complete, days later, so nothing here can validate it, only
+    carry it faithfully to the one real write."""
+    store = MemoryDataStore()
+    llm = StubLlm()
+    llm.queue_tool_call("request_mobile_visit", service_ids=["svc_wash"],
+                       starts_at_iso="2026-09-14T12:00:00+03:00", referral_code="ab123")
+    mobile = _FakeMobileRequests()
+    engine = _engine(store, llm, mobile_requests=mobile)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="أبي غسيل سيارتي عندي بالبيت وعندي كود إحالة ab123", now=1000)
+    await engine.compose_reply(TENANT, SUBJECT, now=1000 + 180)
+
+    conv = await engine._get(TENANT, SUBJECT)
+    assert conv.mobile_request_referral_code == "ab123"
+
+    await engine.handle_location(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="24.7136,46.6753", now=2000)
+    assert mobile.calls[0]["referral_code"] == "ab123"
+
+    conv = await engine._get(TENANT, SUBJECT)
+    assert conv.mobile_request_referral_code == ""
+
+
+async def test_no_referral_code_offered_sends_an_empty_one_never_a_missing_key():
+    store = MemoryDataStore()
+    llm = StubLlm()
+    llm.queue_tool_call("request_mobile_visit", service_ids=["svc_wash"],
+                       starts_at_iso="2026-09-14T12:00:00+03:00")
+    mobile = _FakeMobileRequests()
+    engine = _engine(store, llm, mobile_requests=mobile)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="أبي غسيل سيارتي عندي بالبيت", now=1000)
+    await engine.compose_reply(TENANT, SUBJECT, now=1000 + 180)
+    await engine.handle_location(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="24.7136,46.6753", now=2000)
+    assert mobile.calls[0]["referral_code"] == ""
+
+
 async def test_a_location_arriving_unprompted_is_never_acted_on():
     store = MemoryDataStore()
     mobile = _FakeMobileRequests()

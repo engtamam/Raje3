@@ -98,7 +98,14 @@ def build_manifest(
                          # 2026-09-15 (assignment) — list only what THEY were assigned, and only
                          # مark تم/لم يتم on it, never accept/reject/assign (see api/v1/
                          # mobile_requests.py's own dual-capability route docstring).
-                         "operations.mobile_requests_manage", "operations.mobile_requests_execute"],
+                         "operations.mobile_requests_manage", "operations.mobile_requests_execute",
+                         # NARROWER THAN operations.read. Gates 5 specific reads — affiliates.py's
+                         # list/get/settlements and referral_reports.py's leaderboard/affiliate
+                         # breakdown — that hand back an individual's phone number and payout
+                         # balance, not the aggregate-only figures every operations.read holder
+                         # already sees. An ordinary staff role reads the customer book without
+                         # also reading who is owed money and by what phone.
+                         "operations.affiliates_read"],
         "endpoints": [
             # `/api/v1/admin/ping` USED TO BE DECLARED HERE and this service has never served it.
             # It came from the generated scaffold, survived every review, and the gate that catches
@@ -175,6 +182,9 @@ def build_manifest(
             # Read by whatsapp-assistant before it ever proposes request_mobile_visit — the shop's
             # own real working hours, so the customer is asked for a time that will be accepted.
             {"path": "/internal/operations/mobile-visit-hours", "tier": "internal", "method": "GET"},
+            # WhatsApp Direct Ordering's own order-creation door (Step 4) — resolves the nearest
+            # branch from the customer's real coordinates and creates the real orders.py Order.
+            {"path": "/internal/operations/whatsapp-orders", "tier": "internal", "method": "POST"},
             # Read by whatsapp-assistant before every auto-registration attempt — see
             # core/whatsapp_auto_register.py's own docstring.
             {"path": "/internal/operations/whatsapp-auto-register", "tier": "internal",
@@ -252,13 +262,11 @@ def build_manifest(
             # Same report, as a branded document (docx/pdf) instead of JSON (phase 8).
             {"path": "/api/v1/field/staff/performance/export", "tier": "user", "method": "POST"},
             # ── the back office ───────────────────────────────────────────────────────────
-            {"path": "/api/v1/staff/operators", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/members", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/operators", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/operators/{}", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/staff/operators/{}/working-hours", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/staff/operators/{}/working-hours", "tier": "user", "method": "DELETE"},
-            {"path": "/api/v1/staff/operators/verify-pin", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/operators/me", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/operators/me/locale", "tier": "user", "method": "PATCH"},
             # The mobile app's own bottom-bar personalisation — see staff.py's own docstring.
@@ -306,32 +314,34 @@ def build_manifest(
             {"path": "/api/v1/staff/coupons/check", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/coupons/preferences", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/coupons/preferences", "tier": "user", "method": "PATCH"},
-            # REFERRAL PARTNERSHIP — NOT coupons above, see core/referral_partnership.py's own
+            # REFERRAL PARTNERSHIP — NOT coupons above, see core/mutual_benefit.py's own
             # module docstring. Every route owner/manager-only (`operations.manage`, already
             # declared above), never a plain operator capability — a commitment against another
             # shop entirely, same posture the design doc requires explicitly.
-            {"path": "/api/v1/staff/referral-partnership/agreements", "tier": "user",
+            {"path": "/api/v1/staff/mutual-benefit/agreements", "tier": "user",
              "method": "POST"},
-            {"path": "/api/v1/staff/referral-partnership/agreements", "tier": "user",
+            {"path": "/api/v1/staff/mutual-benefit/agreements", "tier": "user",
              "method": "GET"},
-            {"path": "/api/v1/staff/referral-partnership/agreements/{}", "tier": "user",
+            {"path": "/api/v1/staff/mutual-benefit/agreements/{}", "tier": "user",
              "method": "GET"},
-            {"path": "/api/v1/staff/referral-partnership/agreements/{}/accept", "tier": "user",
+            {"path": "/api/v1/staff/mutual-benefit/agreements/{}/accept", "tier": "user",
              "method": "POST"},
-            {"path": "/api/v1/staff/referral-partnership/agreements/{}/reject", "tier": "user",
+            {"path": "/api/v1/staff/mutual-benefit/agreements/{}/reject", "tier": "user",
              "method": "POST"},
-            {"path": "/api/v1/staff/referral-partnership/agreements/{}/cancel-request",
+            {"path": "/api/v1/staff/mutual-benefit/agreements/{}/cancel-request",
              "tier": "user", "method": "POST"},
-            {"path": "/api/v1/staff/referral-partnership/agreements/{}/cancel-confirm",
+            {"path": "/api/v1/staff/mutual-benefit/agreements/{}/cancel-confirm",
              "tier": "user", "method": "POST"},
-            {"path": "/api/v1/staff/referral-partnership/agreements/{}/audit-log", "tier": "user",
+            {"path": "/api/v1/staff/mutual-benefit/agreements/{}/audit-log", "tier": "user",
              "method": "GET"},
-            {"path": "/api/v1/staff/referral-partnership/kpis", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/mutual-benefit/kpis", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/coupons/settings", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/coupons/settings", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/platform/coupons/tenant-lookup", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/coupons/tenants/{}", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/coupons/tenants/{}", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/platform/app-visibility", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/platform/app-visibility", "tier": "user", "method": "PUT"},
             # ── the platform console: OURS, not an establishment's ────────────────────────
             # THE EVIDENCE FILE, for whoever is handling a complaint (task 283). Operator
             # surface: a capability a person holds, and an audit row that names them.
@@ -388,12 +398,15 @@ def build_manifest(
             # DECLARED ACTIONS: a route with no action behind it is a route nothing checks. The
             # subscribe path had been live and unlisted since it was written.
             {"path": "/api/v1/subscription", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/subscription/checkout-link", "tier": "user", "method": "POST"},
             {"path": "/api/v1/subscription/checkout", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/subscription/checkout/link", "tier": "user", "method": "POST"},
             {"path": "/api/v1/subscription/checkout/preview", "tier": "user", "method": "POST"},
             {"path": "/api/v1/subscription/renew-now", "tier": "user", "method": "POST"},
             {"path": "/api/v1/subscription/payment", "tier": "user", "method": "GET"},
             {"path": "/api/v1/subscription/apps", "tier": "user", "method": "GET"},
             {"path": "/api/v1/subscription/apps/static-features", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/subscription/apps/visibility-overrides", "tier": "user", "method": "GET"},
             {"path": "/api/v1/whatsapp/connect", "tier": "user", "method": "POST"},
             {"path": "/api/v1/whatsapp/connect", "tier": "user", "method": "GET"},
             # WHAT THE CONSOLE NEEDS TO EVEN OPEN THE POPUP — App ID/Config ID, read live from
@@ -435,6 +448,19 @@ def build_manifest(
             {"path": "/api/v1/till/bookings/{}/attend", "tier": "user", "method": "POST"},
             {"path": "/api/v1/till/rating-request", "tier": "user", "method": "POST"},
             {"path": "/api/v1/till/coupons/grant", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/till/referral/register", "tier": "user", "method": "POST"},
+            # ── Phase 4 of the referral/affiliate app — see api/v1/affiliates.py's own docstring.
+            {"path": "/api/v1/affiliates", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/affiliates", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/{}", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/{}/active", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/affiliates/{}/settle", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/affiliates/{}/settlements", "tier": "user", "method": "GET"},
+            # ── Phase 5a of the referral/affiliate app — read-only performance reporting.
+            {"path": "/api/v1/referrals/reports/summary", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/referrals/reports/leaderboard", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/referrals/reports/campaigns", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/referrals/reports/affiliates", "tier": "user", "method": "GET"},
             # ── Salla — see api/v1/salla.py's own module docstring for the install/callback split.
             {"path": "/api/v1/staff/salla/install", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/salla/status", "tier": "user", "method": "GET"},
@@ -448,10 +474,24 @@ def build_manifest(
             {"path": "/api/v1/staff/mobile-requests/{}/reject", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/mobile-requests/{}/complete", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/mobile-requests/{}/no-show", "tier": "user", "method": "POST"},
+            # ── WhatsApp Direct Ordering, Step 7 -- see api/v1/whatsapp_orders.py's own note.
+            {"path": "/api/v1/staff/whatsapp-orders/{}", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/whatsapp-orders/{}/preparing", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/whatsapp-orders/{}/ready", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/whatsapp-orders/{}/out-for-delivery", "tier": "user",
+             "method": "POST"},
+            {"path": "/api/v1/staff/whatsapp-orders/{}/delivered", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/whatsapp-orders/{}/cancel", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/whatsapp-orders/{}/resolve-mismatch", "tier": "user",
+             "method": "POST"},
             # PUBLIC, deliberately, same posture as signup's own pair right below: Salla's browser
             # redirect and Salla's own server call carry no Bearer token to check.
             {"path": "/api/v1/salla/callback", "tier": "public", "method": "GET"},
             {"path": "/api/v1/salla/webhook", "tier": "public", "method": "POST"},
+            # PUBLIC, deliberately — see api/v1/public_catalog.py's own module docstring: Meta's
+            # WhatsApp Catalog crawler has no bearer token to give, and the capability TOKEN in the
+            # path is the real gate (core/public_catalog_image.py), not a missing auth check.
+            {"path": "/api/v1/public_catalog/{}", "tier": "public", "method": "GET"},
             {"path": "/api/v1/signup/code", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/verify", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/claim", "tier": "public", "method": "POST"},

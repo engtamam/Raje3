@@ -18,7 +18,7 @@ image:
   # Placeholder — set to the real digest by publish-images.sh once this service ships. A moving tag
   # is a rollback that is only a hope; every other service in this chart is pinned by digest and
   # this one should not be the exception the day it goes to production.
-  digest: "sha256:f97973a9c760b9124bbe976712a9187e2bde380aa41d969272bb5092233ae579"   # efc26ae9, published by publish-images.sh
+  digest: "sha256:5109e2dad20c2e71129ed0e0ef64dfea733419d4234d06d5ae6430d4fbb57f58"   # c66c7925, published by publish-images.sh
 
 replicas: 1
 
@@ -45,10 +45,20 @@ drivers:
 
 resources:
   requests:
-    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
+    cpu: 12m  # smart-cpu-sizing.py: cold tier, node budget-derived
     memory: 256Mi
   limits:
     memory: 512Mi
+
+# CRONJOB PODS YIELD TO REAL SERVICES UNDER NODE CONTENTION — found live (2026-09-28): with
+# this off (the chart default), a seconds-lived CronJob pod competes for scheduling at the
+# same priority as an always-on Deployment, and can win the race and starve it (deploy/k3s/
+# priorityclasses.yaml explains the whole mechanism; api-gateway.values.yaml was the only
+# service that had already turned this on). This only changes what priority THIS service's
+# OWN CronJob pods get (base-services-batch, never-preempt) — zero risk to the Deployment
+# itself, which stays at default priority unless it separately sets priorityClassName.
+priorityClasses:
+  enabled: true
 
 autoscaling:
   enabled: false
@@ -109,6 +119,13 @@ env:
   # step (the final "enable" call) this depends on.
   META_AGENT_PROVISIONING_ENABLED: "true"
 
+  # WhatsApp Direct Ordering — Meta Commerce Catalog provisioning (create/connect/enable-cart),
+  # see app/core/catalog_provisioning.py. Same posture as META_AGENT_PROVISIONING_ENABLED right
+  # above: this is a harmless no-op for every tenant until a real META_KNOWLEDGE_TOKEN secret is
+  # set AND a shop actually connects a WhatsApp number — fire-and-forget, never fails the connect
+  # response, reports the exact failed step to the audit trail on any Graph-side surprise.
+  CATALOG_PROVISIONING_ENABLED: "true"
+
   # Same fix as insights/operations/reminders'own DATASTORE_POOL_MAX — the platform default
   # (pool_max=5) is a real ceiling under fleet-wide concurrent load, not a leak: found live,
   # every affected service returning readyz "pool exhausted (max_connections reached)" while
@@ -165,7 +182,7 @@ env:
   # THE TOP-UP LINK in the low-AI-wallet-balance owner notice — same domain reminders/operations
   # already point customers at (deploy/edge/console.yaml serves the whole platform from here); a
   # plain link, never an auto-login token or a dedicated top-up page (owner decision, 2026-09-10).
-  PUBLIC_BASE_URL: "https://kobo-cloud.com"
+  PUBLIC_BASE_URL: "https://ra-je3.com"
   # ACTIVATED — phase 4 (build_system_prompt's `growth` section) shipped in the same commit as
   # this flip: the persona now knows when/how to reach for list_due_services/list_lapsed_services,
   # and the structural guardrails (personalization-by-effect, soft-decline suppression) were both

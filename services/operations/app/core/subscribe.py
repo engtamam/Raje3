@@ -177,7 +177,7 @@ def is_standalone(plan_limits: dict[str, Any] | None) -> bool:
 #: The key naming which OTHER `feature.*` keys a candidate plan needs AT LEAST ONE of already
 #: held before it may be bought — data-driven, same shape/posture as `STANDALONE_KEY` just above:
 #: a small, explicit field on the CANDIDATE plan's own row, never a plan name or id hardcoded
-#: here. "نقاطي" (loyalty) is the first user of it (plans.json's own note on that row): points
+#: here. "نقاط الولاء" (loyalty) is the first user of it (plans.json's own note on that row): points
 #: earned on no customer touchpoint at all are a promise with no way to be kept, so it declares
 #: `["feature.visit", "feature.bookings"]` and `may_add` refuses the purchase unless the shop's
 #: held entitlements already intersect that list. A THIRD app declares its own dependency with
@@ -216,7 +216,7 @@ def may_add(*, plan_limits: dict[str, Any] | None, held: set[str]) -> Decision:
     exists, and carrying dead parameters only invites the next reader to wire one back in. What
     this function still enforces:
 
-    A DEPENDENCY, WHEN THE PLAN DECLARES ONE (`plan.requires_any`, e.g. نقاطي needs a real
+    A DEPENDENCY, WHEN THE PLAN DECLARES ONE (`plan.requires_any`, e.g. نقاط الولاء needs a real
     touchpoint app first) — data-driven off the CANDIDATE plan's own row, checked below.
 
     AND AN APP BOUGHT TWICE is two invoices for one thing, every month, until somebody notices.
@@ -443,6 +443,14 @@ class NullPlans:
                        payment_token: str = "", idempotency_key: str = "") -> tuple[int, dict]:
         return 503, {"error": "BILLING_NOT_CONFIGURED"}
 
+    async def checkout_link(self, *, tenant: str, plan_id: str, interval: str = "month",
+                            idempotency_key: str = "") -> tuple[int, dict]:
+        return 503, {"error": "BILLING_NOT_CONFIGURED"}
+
+    async def checkout_cart_link(self, *, tenant: str, items: list[dict[str, Any]],
+                                 idempotency_key: str = "") -> tuple[int, dict]:
+        return 503, {"error": "BILLING_NOT_CONFIGURED"}
+
     async def checkout_preview(self, *, tenant: str,
                                items: list[dict[str, Any]]) -> tuple[int, dict]:
         return 503, {"error": "BILLING_NOT_CONFIGURED"}
@@ -480,13 +488,16 @@ class HttpPlans:
 
     def __init__(self, *, billing_url: str, plans_path: str, subscribe_path: str,
                  subscriptions_path: str, token: str, timeout: int = 8,
-                 checkout_path: str = "", checkout_preview_path: str = "") -> None:
+                 checkout_path: str = "", checkout_preview_path: str = "",
+                 checkout_link_path: str = "", checkout_cart_link_path: str = "") -> None:
         base = billing_url.rstrip("/")
         self._plans = base + plans_path
         self._subscribe = base + subscribe_path
         self._subscriptions = base + subscriptions_path
         self._checkout = base + checkout_path if checkout_path else ""
         self._checkout_preview = base + checkout_preview_path if checkout_preview_path else ""
+        self._checkout_link = base + checkout_link_path if checkout_link_path else ""
+        self._checkout_cart_link = base + checkout_cart_link_path if checkout_cart_link_path else ""
         self._token = token
         self._timeout = timeout
 
@@ -623,6 +634,40 @@ class HttpPlans:
         if idempotency_key:
             body["idempotency_key"] = idempotency_key
         status, out = self._request(self._checkout, body)
+        return status, out if isinstance(out, dict) else {"detail": out}
+
+    async def checkout_link(self, *, tenant: str, plan_id: str, interval: str = "month",
+                            idempotency_key: str = "") -> tuple[int, dict]:
+        """A NEW subscription, started with a hosted pay-link rather than a client-claimed token
+        (base-services v0.25.30) — the gateway-agnostic replacement for the browser-tokenised card
+        form `payment.ts` used to mint (retired 2026-09-24, see `subscribeFlow.ts`'s own header
+        note). The subscription billing creates is `incomplete` — not billable, not entitled, never
+        swept — and activates ONLY once the payment settles through the normal webhook/reconcile
+        seam every other payment already goes through. A trial plan answers `checkout_required:
+        false` and needs no link at all.
+        """
+        if not self._checkout_link:
+            return 503, {"error": "BILLING_NOT_CONFIGURED"}
+        body: dict[str, Any] = {"tenant": tenant, "plan_id": plan_id, "interval": interval}
+        if idempotency_key:
+            body["idempotency_key"] = idempotency_key
+        status, out = self._request(self._checkout_link, body)
+        return status, out if isinstance(out, dict) else {"detail": out}
+
+    async def checkout_cart_link(self, *, tenant: str, items: list[dict[str, Any]],
+                                 idempotency_key: str = "") -> tuple[int, dict]:
+        """`checkout_link`'s own sibling for SEVERAL plans at once (base-services v0.25.31) — ONE
+        pay-link for the whole cart rather than a charge against a client-claimed token. Every
+        subscription is created `incomplete`; when the single cart invoice settles they ALL
+        activate together (same webhook/reconcile seam as every other payment). Replaces
+        `checkout()`'s own token-based path for a console/app that has no way to mint one any more
+        (TuwaiqPay has no browser/app-side tokenisation — see `checkout_link`'s own docstring)."""
+        if not self._checkout_cart_link:
+            return 503, {"error": "BILLING_NOT_CONFIGURED"}
+        body: dict[str, Any] = {"tenant": tenant, "items": items}
+        if idempotency_key:
+            body["idempotency_key"] = idempotency_key
+        status, out = self._request(self._checkout_cart_link, body)
         return status, out if isinstance(out, dict) else {"detail": out}
 
     async def checkout_preview(self, *, tenant: str,
@@ -777,5 +822,7 @@ def build_plans(settings) -> Any:
         subscriptions_path=settings.BILLING_SUBSCRIPTIONS_PATH,
         checkout_path=settings.BILLING_CHECKOUT_PATH,
         checkout_preview_path=settings.BILLING_CHECKOUT_PREVIEW_PATH,
+        checkout_link_path=settings.BILLING_CHECKOUT_LINK_PATH,
+        checkout_cart_link_path=settings.BILLING_CHECKOUT_CART_LINK_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN,
         timeout=settings.PEER_TIMEOUT_SECONDS)

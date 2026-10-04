@@ -176,3 +176,49 @@ describe('the offer is spent only once the visit it is spent against exists (ط-
     expect(q.stuck()).toHaveLength(1);
   });
 });
+
+describe('a referral code offered with the visit — a one-shot notice, same shape as the '
+        + 'celebration channel', () => {
+  it('fires once the drained visit answers with a real grant', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      visit: { id: 'v1' }, customer: { id: 'c1' }, created_customer: true, duplicate: false,
+      referral_registration: { ok: true, new_customer_reward_type: 'discount_percent',
+                              new_customer_reward_params: { percent: 10 } },
+    }), { status: 201 })));
+    const q = new VisitQueue();
+    const seen: unknown[] = [];
+    q.subscribeToReferralNotices((reg) => seen.push(reg));
+    q.add({ ...draft('k'), referral_code: 'AB123' }, SESSION);
+    await q.drain(SESSION);
+    expect(seen).toEqual([{ ok: true, new_customer_reward_type: 'discount_percent',
+                           new_customer_reward_params: { percent: 10 } }]);
+  });
+
+  it('a rejected code still fires the notice, and the visit is still recorded', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      visit: { id: 'v1' }, customer: { id: 'c1' }, created_customer: true, duplicate: false,
+      referral_registration: { ok: false, message: 'كود الإحالة غير صالح' },
+    }), { status: 201 })));
+    const q = new VisitQueue();
+    const seen: { ok: boolean }[] = [];
+    q.subscribeToReferralNotices((reg) => seen.push(reg));
+    q.add({ ...draft('k'), referral_code: 'ZZZZZ' }, SESSION);
+    await q.drain(SESSION);
+    expect(seen).toHaveLength(1);
+    expect(seen[0].ok).toBe(false);
+    expect(q.pending()).toHaveLength(0);
+    expect(q.stuck()).toHaveLength(0);
+  });
+
+  it('never fires when no code was offered', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      visit: { id: 'v1' }, customer: { id: 'c1' }, created_customer: true, duplicate: false,
+    }), { status: 201 })));
+    const q = new VisitQueue();
+    const seen: unknown[] = [];
+    q.subscribeToReferralNotices((reg) => seen.push(reg));
+    q.add(draft('k'), SESSION);
+    await q.drain(SESSION);
+    expect(seen).toHaveLength(0);
+  });
+});

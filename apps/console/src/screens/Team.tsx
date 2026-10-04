@@ -1,4 +1,4 @@
-/**
+﻿/**
  * «فريقي» — the people and the branches.
  *
  * TWO LISTS, TWO TABS. They were stacked in one scroll, which is how a screen becomes a wall: the
@@ -34,7 +34,6 @@ import { STORE_PATH } from '../nav';
 import { action, call, type Catalog } from '../catalog';
 import { branchGate } from '../branches';
 import type { Session } from '../session';
-import { digitsOnly } from '../digits';
 import { resolveMapsShortLink } from '../api';
 import { isShortGoogleMapsLink, parseGoogleMapsLink, resolveGoogleMapsLink } from '../googleMapsLink';
 import { AssistantHint } from '../AssistantHint';
@@ -146,18 +145,6 @@ export function TeamScreen({ session, catalog, tab: controlledTab, onChangeTab, 
   // the «إضافة فرع» button can answer honestly. `undefined` is an answer that did not arrive,
   // and it never hides the button: an outage must not read as an app entitlement he has outgrown.
   const [mayAddBranch, setMayAddBranch] = useState<boolean | undefined>(undefined);
-  /**
-   * WHETHER «رمز على الجهاز» EXISTS ON THIS DEPLOYMENT.
-   *
-   * The whole path is built and switched off (`PIN_OPERATORS_ENABLED`), and the door refuses it
-   * while it is — so the form offers ONE way of adding somebody rather than two, one of which
-   * answers with an error by design.
-   *
-   * FALSE UNTIL THE SERVER SAYS OTHERWISE, including on a failed read: hiding a path we could not
-   * ask about costs an owner one form; showing one the door refuses costs him a failure he cannot
-   * explain.
-   */
-  const [pinKind, setPinKind] = useState(false);
   // FOR THE SAME EDIT «تخصيص دوام» ALREADY OFFERS, ON THE OTHER SIDE OF THE SAME FACT — an owner
   // asking "what does HE do" is the mirror of Services.tsx's own "who does THIS", and the answer
   // lives in the exact same field (`Service.eligible_staff_ids`), just read from the operator's
@@ -166,7 +153,6 @@ export function TeamScreen({ session, catalog, tab: controlledTab, onChangeTab, 
 
   // WHAT THIS PERSON MAY DO, FROM THE CATALOGUE. The gateway has already filtered it by
   // capability, so an absent action is a permission fact — and the control simply is not rendered.
-  const addOperator = action(catalog, 'operations.create_operator');
   const addBranch = action(catalog, 'operations.create_branch');
   const editBranch = action(catalog, 'operations.update_branch');
   const listBranches = action(catalog, 'operations.list_branches');
@@ -188,16 +174,8 @@ export function TeamScreen({ session, catalog, tab: controlledTab, onChangeTab, 
 
     const o = action(catalog, 'operations.list_operators');
     if (o) {
-      call<{ operators: Operator[]; pin_operators_enabled?: boolean }>(session, o)
-        .then((x) => {
-          setOperators(x.operators ?? []);
-          // THE DEPLOYMENT'S ANSWER, NOT OURS. «رمز على الجهاز» is built end to end and switched
-          // off (`PIN_OPERATORS_ENABLED`), and the door refuses it while it is — so offering the
-          // choice here would be a control that returns an error by design. `undefined` on a
-          // failed read stays false: hiding a path we could not ask about costs one owner one
-          // form; showing one the server refuses costs him a confusing failure.
-          setPinKind(x.pin_operators_enabled === true);
-        })
+      call<{ operators: Operator[] }>(session, o)
+        .then((x) => setOperators(x.operators ?? []))
         .catch(() => setOperators(null));
     } else {
       setOperators([]);
@@ -264,14 +242,12 @@ export function TeamScreen({ session, catalog, tab: controlledTab, onChangeTab, 
             session={session}
             operators={operators}
             branches={branches}
-            add={addOperator}
             edit={action(catalog, 'operations.update_operator')}
             hire={action(catalog, 'operations.hire_member')}
             setHours={setHours}
             clearHours={clearHours}
             services={services}
             updateService={updateService}
-            pinKind={pinKind}
             onChanged={load}
           />
         : <Branches
@@ -292,40 +268,23 @@ export function TeamScreen({ session, catalog, tab: controlledTab, onChangeTab, 
 
 // EXPORTED FOR THE SAME REASON `Branches` IS BELOW: its own test needs it directly rather than
 // driving the whole `TeamScreen` (catalogue, both reads, both tabs) to reach one form.
-export function People({ session, operators, branches, add, edit, hire, setHours, clearHours,
-                        services, updateService, pinKind, onChanged }: {
+export function People({ session, operators, branches, edit, hire, setHours, clearHours,
+                        services, updateService, onChanged }: {
   session: Session;
   operators: Operator[] | null | undefined;
   branches: Branch[] | null | undefined;
-  add: ReturnType<typeof action>;
   edit: ReturnType<typeof action>;
   hire: ReturnType<typeof action>;
   setHours?: ReturnType<typeof action>;
   clearHours?: ReturnType<typeof action>;
   services?: ServiceLite[] | null;
   updateService?: ReturnType<typeof action>;
-  /** Whether this deployment offers «رمز على الجهاز» at all — the server's answer, not a guess. */
-  pinKind: boolean;
   onChanged: () => void;
 }) {
   const { t } = useOperatorI18n();
   const ROLES = roles(t);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
-  const [pin, setPin] = useState('');
-  /**
-   * TWO KINDS OF PERSON, AND THE SHOP DECIDES WHICH IT IS ADDING.
-   *
-   * A PIN is attribution on a shared tablet: it answers «which of the three of us saved that
-   * visit» and protects nothing. A LOGIN is authentication: his own phone and password, his own
-   * role, and — the reason this exists — a branch he is scoped to, so a manager in Jeddah does
-   * not read Riyadh's customers (§12.4).
-   *
-   * Both were impossible to tell apart on this screen until now, because only one existed.
-   */
-  // THE DEFAULT FOLLOWS WHAT EXISTS. «رمز على الجهاز» is switched off on this deployment, and
-  // opening the form on a kind the door refuses would make the commonest act fail by design.
-  const [kind, setKind] = useState<'pin' | 'login'>(pinKind ? 'pin' : 'login');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [branchId, setBranchId] = useState('');
@@ -337,7 +296,7 @@ export function People({ session, operators, branches, add, edit, hire, setHours
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!add) return;
+    if (!hire) return;
     setBusy(true);
     setError('');
     try {
@@ -350,16 +309,10 @@ export function People({ session, operators, branches, add, edit, hire, setHours
       // (`staff.py`'s own BRANCH_REQUIRED) — this form just makes sure he never reaches that
       // refusal: the picker is always shown, and submit stays disabled until he has actually
       // chosen «الفرع الرئيسي» or another real branch himself.
-      if (kind === 'login') {
-        if (!hire) return;
-        await call(session, hire, {
-          name: name.trim(), phone: phone.trim(), password, role, branch_id: branchId,
-        });
-      } else {
-        await call(session, add, { name: name.trim(), pin, role, branch_id: branchId });
-      }
+      await call(session, hire, {
+        name: name.trim(), phone: phone.trim(), password, role, branch_id: branchId,
+      });
       setName('');
-      setPin('');
       setPhone('');
       setPassword('');
       setBranchId('');
@@ -405,60 +358,33 @@ export function People({ session, operators, branches, add, edit, hire, setHours
 
       {/* THE BUTTON THE SCREEN WAS MISSING. It said «أضف موظفيك» and offered no way to — a screen
           that asks for an action it does not provide, found by using it. */}
-      {add && !open ? (
+      {hire && !open ? (
         <Button className="flex items-center justify-center gap-1.5" onClick={() => setOpen(true)}>
           <UserPlus size={16} aria-hidden /> {t('team.addOperator')}
         </Button>
       ) : null}
 
-      {add && open ? (
+      {hire && open ? (
         <form onSubmit={submit} className="flex flex-col gap-3 border-t border-border-subtle pt-3">
           <Field label={t('team.form.name')} required htmlFor="op-name">
             <Input id="op-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </Field>
 
-          {/* THE CHOICE IS NAMED BY WHAT IT GIVES HIM, not by our words for it. «رمز على الجهاز»
-              and «حساب يدخل به» are the two things a shop owner actually decides between. */}
-          {/* THE CHOICE ONLY EXISTS WHERE BOTH KINDS DO. With the shared-tablet employee switched
-              off there is one way of adding somebody, and a two-option control whose second option
-              is refused at the door is worse than no control at all. */}
-          {hire && pinKind ? (
-            <div className="flex items-center gap-2">
-              <Segmented
-                className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
-                ariaLabel={t('team.addKindAriaLabel')}
-                value={kind}
-                onChange={(v) => setKind(v as 'pin' | 'login')}
-                options={[
-                  { value: 'pin', label: t('team.addKind.pin') },
-                  { value: 'login', label: t('team.addKind.login') },
-                ]}
-              />
-              <AssistantHint anchor="team.add_kind" session={session} />
-            </div>
-          ) : null}
-
-          {kind === 'login' ? (
-            <>
-              <Field label={t('team.form.phone')} required htmlFor="op-phone">
-                <Input id="op-phone" value={phone} inputMode="tel" dir="ltr"
-                       onChange={(e) => setPhone(e.target.value)} />
-              </Field>
-              {/* HE CHANGES IT LATER; THE OWNER CHOOSES IT NOW. A temporary password the manager
-                  says out loud beats an invite link a shop employee never opens. */}
-              <Field label={t('team.form.tempPassword')} required htmlFor="op-pw">
-                <Input id="op-pw" value={password} type="password"
-                       onChange={(e) => setPassword(e.target.value)} />
-              </Field>
-            </>
-          ) : null}
-
-          {/* THE BRANCH BELONGS TO BOTH KINDS OF EMPLOYEE, AND IT USED TO BE INSIDE THE LOGIN BLOCK.
-              So a PIN operator — the man on the shared tablet, which is most of a workshop's staff
-              — could never be given one from any screen. And a visit takes its branch from the
-              person recording it, so every visit he took landed in «غير محدَّد». An owner with three
-              branches opened his comparison table and read three empty rows and one huge unnamed
-              one, with nothing on any screen to tell him why.
+          <Field label={t('team.form.phone')} required htmlFor="op-phone">
+            <Input id="op-phone" value={phone} inputMode="tel" dir="ltr"
+                   onChange={(e) => setPhone(e.target.value)} />
+          </Field>
+          {/* HE CHANGES IT LATER; THE OWNER CHOOSES IT NOW. A temporary password the manager
+              says out loud beats an invite link a shop employee never opens. */}
+          <Field label={t('team.form.tempPassword')} required htmlFor="op-pw">
+            <Input id="op-pw" value={password} type="password"
+                   onChange={(e) => setPassword(e.target.value)} />
+          </Field>
+          {/* A VISIT TAKES ITS BRANCH FROM THE PERSON RECORDING IT. An owner who hired somebody
+              before opening a second branch could never say where that person now works — and
+              every visit he took would land in «غير محدَّد». An owner with three branches opened
+              his comparison table and read three empty rows and one huge unnamed one, with
+              nothing on any screen to tell him why.
 
               ALWAYS SHOWN NOW, EVEN FOR ONE PLACE — «كل الفروع» is gone as an
               option entirely. A single-branch shop still picks «الفرع الرئيسي» explicitly: the
@@ -475,22 +401,8 @@ export function People({ session, operators, branches, add, edit, hire, setHours
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </Select>
-            <span className="text-xs text-text-secondary">
-              {kind === 'pin'
-                ? t('team.form.branchHintPin')
-                : t('team.form.branchHintLogin')}
-            </span>
+            <span className="text-xs text-text-secondary">{t('team.form.branchHintLogin')}</span>
           </label>
-          {/* FOUR DIGITS, AND THE SERVER SAYS FOUR. A longer PIN is not meaningfully safer for what
-              it protects and IS meaningfully slower to type a hundred times a day. */}
-          {kind === 'pin' ? (
-          <Field label={t('team.form.pin')} required htmlFor="op-pin">
-            <Input
-              id="op-pin" value={pin} inputMode="numeric" dir="ltr" maxLength={4}
-              onChange={(e) => setPin(digitsOnly(e.target.value).slice(0, 4))}
-            />
-          </Field>
-          ) : null}
           {/* THE ROLE, ASKED RATHER THAN ASSUMED. The form sent `operator` silently — so a shop
               that wanted a manager had no way to say so, and «فريقي» could only ever produce one
               kind of person. */}
@@ -524,7 +436,7 @@ export function People({ session, operators, branches, add, edit, hire, setHours
                       type="radio" name="op-role" value={r.value} checked={selected}
                       onChange={() => setRole(r.value)} className="sr-only"
                     />
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-2 text-text-primary">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border-subtle bg-surface-1 text-text-primary">
                       <Icon size={18} aria-hidden />
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col">
@@ -543,8 +455,7 @@ export function People({ session, operators, branches, add, edit, hire, setHours
             <Button
               type="submit"
               disabled={busy || name.trim().length === 0 || branchId.length === 0
-                || (kind === 'pin' ? pin.length !== 4
-                    : phone.trim().length < 6 || password.length < 8)}
+                || phone.trim().length < 6 || password.length < 8}
             >
               {busy ? t('team.form.saving') : t('team.form.save')}
             </Button>
@@ -761,7 +672,7 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
       </div>
 
       {editing ? (
-        <div className="flex flex-wrap items-end gap-2 rounded-xl bg-surface-2 p-2">
+        <div className="flex flex-wrap items-end gap-2 rounded-xl border border-border-subtle bg-surface-1 p-2">
           <Field label={t('team.form.name')} htmlFor={`op-name-${o.id}`}>
             <Input id={`op-name-${o.id}`} value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
@@ -875,7 +786,7 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
           </span>
 
           {hoursOpen ? (
-            <div className="mt-2 flex flex-col gap-2 rounded-xl bg-surface-2 p-2">
+            <div className="mt-2 flex flex-col gap-2 rounded-xl border border-border-subtle bg-surface-1 p-2">
               {HOURS_DISPLAY_ORDER.map((day) => {
                 const d = hoursDraft[String(day)]
                   ?? { closed: false, start_minute: 480, end_minute: 1320 };
@@ -1161,7 +1072,7 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
         // find it — and until this cycle that name existed nowhere in the product: no row, no
         // tab, no address. Now it is a place, and this is a link to it rather than an
         // instruction.
-        <div className="flex flex-col items-start gap-2 rounded-card bg-surface-2 p-3">
+        <div className="flex flex-col items-start gap-2 rounded-card border border-border-subtle bg-surface-1 p-3">
           {/* Not "your current subscription" (singular) — the branch cap is the SUM of the base's
               own gauge plus every "extra branch" add-on subscription he holds (billing-service
               merges gauge limits across every live subscription), never one subscription's own

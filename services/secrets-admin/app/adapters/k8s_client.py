@@ -115,11 +115,16 @@ class K8sClient:
     def _token(self) -> str:
         try:
             with open(self._token_file, encoding="utf-8") as fh:
-                return fh.read().strip()
+                token = fh.read().strip()
         except OSError as exc:
             raise K8sError(
                 f"no ServiceAccount token at {self._token_file} — the pod was not given one, so "
                 f"every write would be refused 401") from exc
+        if not token:
+            raise K8sError(
+                f"ServiceAccount token at {self._token_file} is empty — every write would be "
+                f"refused 401")
+        return token
 
     def _base(self) -> str:
         if not self._host:

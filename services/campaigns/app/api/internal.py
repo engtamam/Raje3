@@ -124,6 +124,41 @@ async def service_due_settings(request: Request, tenant: str = "") -> dict:
     return settings.as_dict()
 
 
+class VisitEventIn(BaseModel):
+    tenant: str = Field(default="", max_length=128)
+    subject_ref: str = Field(default="", max_length=200)
+    service_ids: list[str] = Field(default_factory=list)
+    package_id: str = Field(default="", max_length=128)
+    occurred_at: int = 0
+
+
+@router.post("/campaigns/milestone/visit-recorded",
+            dependencies=[Depends(require_internal_token)])
+async def milestone_visit_recorded(request: Request, body: VisitEventIn) -> dict:
+    """The ONE hook every real point-of-sale channel eventually reaches — operations' own
+    `record_visit`, which the field screen, an integrated till, and bookings all already call as
+    the single place a visit becomes real (see that function's own «مركز الأحداث» hook for
+    mutual-benefit, the same shape this one follows). One real event, reported once, fans out to
+    every active `community_milestone` campaign it matches — see `core/milestone.py::
+    contribute_from_event` for the actual scoping/counting logic, kept there so this route stays
+    a thin, guarded door and nothing else.
+
+    NEVER REFUSES A VISIT OVER THIS — the caller (operations) is expected to swallow any failure
+    reaching this route entirely (a peer outage, a timeout) the same way it already swallows a
+    failure from the mutual-benefit hook: the visit itself must survive regardless of whether a
+    marketing counter got to see it.
+    """
+    from app.core.milestone import contribute_from_event
+
+    c = request.app.state.container
+    progress = await contribute_from_event(
+        c.datastore, tenant=body.tenant, subject_ref=body.subject_ref,
+        service_ids=list(body.service_ids or []), package_id=body.package_id,
+        now=body.occurred_at or None)
+    return {"contributed": len(progress),
+            "fired": sum(1 for p in progress if p.fired)}
+
+
 class TickIn(BaseModel):
     tenant: str = Field(default="", max_length=128)
 
@@ -308,7 +343,7 @@ async def backup_verify(request: Request, body: BackupVerifyIn,
     try:
         return await _backup.verify_restore(
             request.app.state.container.datastore, body.archive,
-            unseal=unseal, token=secrets.token_hex(8))
+            unseal=unseal, token=secrets.token_hex(8), declaration=BACKUP)
     except _backup.BackupError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
@@ -322,7 +357,8 @@ async def backup_import(request: Request, body: BackupImportIn,
         return await _backup.import_archive(
             request.app.state.container.datastore, body.archive,
             unseal=unseal, overwrite=body.overwrite, into_tenant=body.into_tenant,
-            prune=body.prune, scan_cap=settings.BACKUP_MAX_ROWS_PER_COLLECTION)
+            prune=body.prune, scan_cap=settings.BACKUP_MAX_ROWS_PER_COLLECTION,
+            declaration=BACKUP)
     except _backup.BackupError as exc:
         # A bad archive is the caller's problem, not a 500: the checksum failed, the key did not
         # match, or a row had no identity. Say which, so an operator can act.

@@ -22,7 +22,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/compliance-service
-  digest: "sha256:7b0a15ceb79f97219a38e458444c2ad01cd9a673bca12af3c540e5ac3b6db18a"   # v0.25.27
+  digest: "sha256:6d094f03c8c07c0bc2b0e4bb4be12f8ecf8c7600a60cb56de52dfe0ed5727501"   # v0.25.39
 
 replicas: 1
 
@@ -54,7 +54,7 @@ resources:
     # moment of failure — the process wasn't overloaded, it simply wasn't winning the CPU
     # scheduling race against the fleet's own CronJob churn on a contended 2-vCPU node. At rest,
     # 20m is still plenty; under burst, it is not — this sizes for the burst, not the rest state.
-    cpu: 105m  # smart-cpu-sizing.py: hot tier, node budget-derived
+    cpu: 102m  # smart-cpu-sizing.py: hot tier, node budget-derived
     memory: 192Mi
   limits:
     memory: 384Mi
@@ -189,7 +189,7 @@ env:
   # own /internal/privacy/erase (app/api/internal.py) already deletes them for real (v0.18.30 also
   # fixed the identifier bug that made this ack fail to match the data-map row — see this
   # session's own history for that incident).
-  PRIVACY_TARGETS: "tenant-service=http://tenant-service:8000,identity-service=http://identity-service:8000,authz-service=http://authz-service:8000,audit-service=http://audit-service:8000,job-service=http://job-service:8000,notification-service=http://notification-service:8000,search-service=http://search-service:8000,ticket-service=http://ticket-service:8000,wallet-service=http://wallet-service:8000,billing-service=http://billing-service:8000,onboarding-service=http://onboarding-service:8000,analytics-service=http://analytics-service:8000,webhook-service=http://webhook-service:8000,connector-service=http://connector-service:8000,feature-flag-service=http://feature-flag-service:8000,backup-service=http://backup-service:8000,operations=http://operations:8000,reminders=http://reminders:8000,portal=http://portal:8000,campaigns=http://campaigns:8000,loyalty=http://loyalty:8000,insights=http://insights:8000,bookings=http://bookings:8000,whatsapp-assistant=http://whatsapp-assistant:8000,affiliate-service=http://affiliate-service:8000,assistant-service=http://assistant-service:8000,error-collector=http://error-collector:8000"
+  PRIVACY_TARGETS: "tenant-service=http://tenant-service:8000,identity-service=http://identity-service:8000,authz-service=http://authz-service:8000,audit-service=http://audit-service:8000,job-service=http://job-service:8000,notification-service=http://notification-service:8000,search-service=http://search-service:8000,ticket-service=http://ticket-service:8000,wallet-service=http://wallet-service:8000,billing-service=http://billing-service:8000,onboarding-service=http://onboarding-service:8000,analytics-service=http://analytics-service:8000,webhook-service=http://webhook-service:8000,connector-service=http://connector-service:8000,feature-flag-service=http://feature-flag-service:8000,backup-service=http://backup-service:8000,operations=http://operations:8000,reminders=http://reminders:8000,portal=http://portal:8000,campaigns=http://campaigns:8000,loyalty=http://loyalty:8000,insights=http://insights:8000,bookings=http://bookings:8000,whatsapp-assistant=http://whatsapp-assistant:8000,affiliate-service=http://affiliate-service:8000,assistant-service=http://assistant-service:8000,error-collector=http://error-collector:8000,coworking=http://coworking:8000,referrals=http://referrals:8000"
   PRIVACY_MAX_ATTEMPTS: "8"          # then FAILED and VISIBLE — never silently abandoned
   PRIVACY_CONCURRENCY: "5"
   PRIVACY_PENDING_TIMEOUT_SECONDS: "21600"
@@ -204,7 +204,7 @@ env:
   AUDIT_SERVICE_URL: "http://audit-service:8000"
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  CORS_ALLOWED_ORIGINS: "https://ra-je3.com,https://admin.ra-je3.com"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 

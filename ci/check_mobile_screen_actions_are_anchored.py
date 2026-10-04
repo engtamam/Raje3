@@ -55,6 +55,110 @@ EXEMPT_LINES: dict[str, set[str]] = {
         # A generic "try again after a network error" control, the same on every screen that
         # could ever show it — not a feature of THIS screen specifically.
         "OutlinedButton(onPressed: onRetry, child: Text(S.of(context)!.retry))",
+        # The quantity dialog's own cancel/save — the field right above (anchored) already says
+        # what's being set. "TextButton(" bare covers the save button's own opening line, which
+        # is the only one split across lines in this file — verified as the only bare occurrence.
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(s.mobileRequestsRejectCancel)),",
+        "TextButton(",
+    },
+    "apps/mobile/lib/features/apps/payment_webview_screen.dart": {
+        # Closes the payment screen — the same generic "leave this screen" control every modal's
+        # own AppBar carries, not a feature of the payment flow itself.
+        "leading: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.of(context).pop()),",
+        # The SAME generic "try again after a load failure" control visit_screen.dart's own entry
+        # above is already exempt for — this screen's own version of it.
+        "FilledButton(onPressed: onRetry, child: Text(retryLabel)),",
+    },
+    "apps/mobile/lib/features/account/account_screen.dart": {
+        # A plain yes/no confirm dialog for signing out — the button that OPENS it already says
+        # what it does ("sign out"); "cancel" and "yes, sign out" need no separate explanation.
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.accountSignOutCancel)),",
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(true),",
+    },
+    "apps/mobile/lib/features/account/billing_screen.dart": {
+        # Same generic confirm-dialog posture as account_screen.dart's own sign-out dialog — the
+        # subscription card's own "stop renewal" button (already anchored) is what explains this.
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.cancel)),",
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(true),",
+        # The same generic retry control as visit_screen.dart's own entry.
+        "Center(child: TextButton(onPressed: onRetry, child: Text(s.retry))),",
+    },
+    "apps/mobile/lib/features/account/branch_detail_screen.dart": {
+        # The same generic retry control as visit_screen.dart's own entry.
+        "Center(child: TextButton(onPressed: onRetry, child: Text(s.retry))),",
+        # Same generic confirm-dialog posture as billing_screen.dart's own cancel-subscription
+        # dialog — the row that opens it already says what it does.
+        "TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(s.cancel)),",
+        "TextButton(onPressed: () => Navigator.of(context).pop(true),",
+    },
+    "apps/mobile/lib/features/account/branches_screen.dart": {
+        # The same generic retry control as visit_screen.dart's own entry.
+        "Center(child: TextButton(onPressed: onRetry, child: Text(s.retry))),",
+    },
+    "apps/mobile/lib/features/customers/customer_detail_screen.dart": {
+        # A back-navigation control (same as AppBackButton elsewhere) — its own class is named
+        # `_GlassIconButton`, which the gate's substring match on "IconButton(" catches by
+        # accident. Not a feature of this screen; nothing new to explain over a plain back arrow.
+        "_GlassIconButton(",
+        # `_GlassIconButton`'s own constructor DECLARATION, never a widget instance — the SAME
+        # accidental "IconButton(" substring match, on a line that renders nothing at all.
+        "const _GlassIconButton({required this.icon, required this.onTap});",
+    },
+    "apps/mobile/lib/features/rating/rating_screen.dart": {
+        # A generic "load more of this same list" control — the same shape as every other
+        # paginated list in the app, not a feature of ratings specifically.
+        "TextButton(onPressed: () => _loadRows(reset: false), child: Text(s.ratingLoadMore)),",
+    },
+    "apps/mobile/lib/features/mutual_benefit/mutual_benefit_screen.dart": {
+        # A plain yes/no confirm dialog shared by every destructive action on this screen (cancel
+        # request, cancel confirm, ...) — the row/button that opens it already names the real
+        # action; "cancel" and "yes, do it" need no separate explanation.
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.mobileRequestsRejectCancel)),",
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(s.mutualBenefitConfirm)),",
+    },
+    "apps/mobile/lib/features/services/procedures_tab.dart": {
+        # The rename dialog's own cancel/save (both split across lines, each opening bare on its
+        # own line as just "TextButton(") — the text field right above (anchored) already
+        # explains what's being renamed; "cancel" and "save" need no separate entry. The bulk-
+        # actions "clear selection" TextButton (already covered by its own KbAnchor wrap) shares
+        # this same bare-opening shape, so this exemption is scoped by file, not by button.
+        "TextButton(",
+    },
+    "apps/mobile/lib/features/services/services_screen.dart": {
+        # Three plain yes/no confirm dialogs (name a new group, stop a service, add a new
+        # checklist step) — the field/row right above each one (all anchored) already says what's
+        # being named/stopped/added; "cancel" and "save"/"confirm" need no separate entry.
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(s.mobileRequestsRejectCancel)),",
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()), child: Text(s.servicesSave)),",
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.mobileRequestsRejectCancel)),",
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(true),",
+    },
+    "apps/mobile/lib/features/mobile_requests/mobile_requests_screen.dart": {
+        # `_DangerButton`'s own OutlinedButton lives inside ITS OWN `build()`, a different
+        # function scope than either call site — the gate's bracket-tracking can never see it as
+        # "inside" the KbAnchor(id: 'mobile-requests.card_actions') that already wraps both real
+        # usages (reject, no-show). Not a missing explanation, a one-level indirection the gate
+        # cannot see through.
+        "return OutlinedButton(",
+        # The reject-reason dialog's own cancel/confirm — the field right above (anchored)
+        # already says what's being rejected.
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(s.mobileRequestsRejectCancel)),",
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()), child: Text(s.mobileRequestsRejectConfirm)),",
+    },
+    "apps/mobile/lib/features/whatsapp_assistant/whatsapp_assistant_screen.dart": {
+        # The shared toggle-confirm dialog's own cancel/confirm — the toggle card right above
+        # (anchored) already names the real setting being flipped; "cancel" and "confirm" need no
+        # separate entry.
+        "TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.cancel)),",
+        "TextButton(",
+    },
+    "apps/mobile/lib/features/campaigns/wa_flow_screens.dart": {
+        # A custom flow-preview component named `_FlowTextField` — the SAME accidental
+        # "TextField(" substring match as `_GlassIconButton`'s own entry above, on its
+        # constructor declaration and its own call site. The real TextField it wraps (inside
+        # its own build()) is anchored separately.
+        "return _FlowTextField(",
+        "const _FlowTextField({required this.label, required this.multiline, required this.maxLength, required this.onChanged});",
     },
 }
 

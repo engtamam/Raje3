@@ -245,7 +245,7 @@ const TONE_VAR: Record<string, string> = {
 const TONE_ICON_BG: Record<string, string> = {
   info: 'bg-info-soft text-info-on-soft', success: 'bg-success-soft text-success-on-soft',
   warning: 'bg-warning-soft text-warning-on-soft', danger: 'bg-danger-soft text-danger-on-soft',
-  accent: 'bg-accent-soft text-accent-on-soft', neutral: 'bg-surface-2 text-text-secondary',
+  accent: 'bg-accent-soft text-accent-on-soft', neutral: 'border border-border-subtle bg-surface-1 text-text-secondary',
 };
 /** THE RAIL'S OWN DOT — the SAME tone as the card's own stripe/icon above, never a second,
  *  independently-assigned colour rotation (that mismatch — the rail picking a colour by POSITION
@@ -294,7 +294,9 @@ interface GoalRow {
 /**
  * THE TEMPLATE TYPE EACH GOAL SENDS — the same table campaigns/app/core/models.py's own
  * `GOAL_TEMPLATE` holds, mirrored here so «القوالب» can open the by-type preview
- * (`reminders.preview_by_type`) WITHOUT a reason id, for the five goals that have none. Kept in
+ * (`reminders.preview_by_type`) WITHOUT a reason id, for the goals that have none (`service_due`
+ * is a goal too, but ships as a REASON card instead — see REASON_TEMPLATE_TYPE — so it is not
+ * one of these). Kept in
  * sync by hand, the same way `GOAL_TITLE` above already is — a table this small drifting is a
  * one-line fix; a network round trip just to learn it is not worth the goals endpoint growing a
  * field for exactly one screen.
@@ -303,6 +305,9 @@ const GOAL_TEMPLATE_TYPE: Record<string, string> = {
   announce: 'mkt_announcement',
   service_offer: 'mkt_offer',
   package_offer: 'mkt_offer',
+  // FOUND LIVE (owner's own report, 2026-09-30): missing here, so this goal's own card asked
+  // the by-type preview for `undefined` — GOAL_TEMPLATE's own real mapping for it.
+  community_milestone: 'mkt_community_milestone',
 };
 
 /** THE THREE SECTIONS, IN THE ORDER AN OWNER SHOULD READ THEM — the `cls` values the reasons
@@ -1467,7 +1472,7 @@ export function MessagesScreen(
               <label className="flex items-center gap-2 px-1 text-sm">
                 <span className="text-text-secondary">{t('messages.log.branchLabel')}</span>
                 <select
-                  className="min-h-11 flex-1 rounded-xl bg-surface-2 px-3 text-sm"
+                  className="min-h-11 flex-1 rounded-xl border border-border-subtle bg-surface-1 px-3 text-sm"
                   value={logBranch}
                   aria-label={t('messages.log.branchAriaLabel')}
                   onChange={(e) => setLogBranch(e.target.value)}
@@ -1787,7 +1792,7 @@ export function MessagesScreen(
                           {(['matched', 'sent', 'suppressed', 'redeemed'] as const)
                             .filter((k) => typeof runsTotals[k] === 'number')
                             .map((k) => (
-                              <div key={k} className="rounded-lg bg-surface-2 p-2.5 text-center">
+                              <div key={k} className="rounded-lg border border-border-subtle bg-surface-1 p-2.5 text-center">
                                 <div className="text-lg font-semibold tabular-nums">{runsTotals[k]}</div>
                                 <div className="text-xs text-text-secondary">{t(`messages.campaigns.totals.${k}`)}</div>
                               </div>

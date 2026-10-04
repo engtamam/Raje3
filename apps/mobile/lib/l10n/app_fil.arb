@@ -66,11 +66,17 @@
   "assistantSend": "Ipadala",
   "assistantUnavailable": "Hindi available ang katulong ngayon.",
   "assistantPreparing": "Inihahanda ang katulong...",
+  "assistantRetryDownload": "Subukan ulit",
   "assistantSpeak": "Pakinggan ang sagot",
   "assistantStopSpeaking": "Itigil ang pagsasalita",
   "assistantActionUnavailable": "Hindi mo magagawa ito ngayon.",
   "assistantConfirm": "Kumpirmahin",
   "assistantCancel": "Kanselahin",
+  "assistantReplySettingsTooltip": "Mga setting ng sagot",
+  "assistantReplyModeTitle": "Paano sumasagot ang katulong",
+  "assistantReplyModeSubtitle": "Nalalapat sa bawat sagot, kahit tinanong mo sa boses",
+  "assistantReplyModeVoice": "Boses",
+  "assistantReplyModeText": "Nakasulat na teksto",
   "authLoginSubtitle": "Mag-sign in para magpatuloy",
   "authPhoneLabel": "Numero ng mobile",
   "authPasswordLabel": "Password",
@@ -109,7 +115,7 @@
   "visitNoServicesYet": "Wala pang serbisyo.",
   "visitNoteSectionTitle": "Tala (opsyonal)",
   "visitSaveButtonLabel": "I-save ang pagbisita",
-  "navAppsLabel": "Mga app ko",
+  "navAppsLabel": "Tindahan ng app",
   "navHomeLabel": "Home",
   "navAccountLabel": "Account ko",
   "homeGreetingMorning": "Magandang umaga",
@@ -201,9 +207,41 @@
   "branchesMemberRoleLabel": "Tungkulin",
   "branchesRoleOperator": "Field operator",
   "branchesRoleSupervisor": "Shift supervisor",
+  "branchesRoleMarketer": "Marketing lead",
   "branchesRoleManager": "Manager",
   "branchesSeatLimit": "Hindi pinapayagan ng iyong kasalukuyang plano ang karagdagang empleyado.",
   "branchesHireFailed": "Hindi maidagdag ang empleyado, subukan ulit.",
+  "branchesVisibleAllHint": "Nakikita ang lahat ng sangay",
+  "branchesVisibleSomeHint": "Nakikita ang {count} sangay",
+  "branchesEditMember": "I-edit ang empleyado",
+  "branchesMemberStopped": "Naka-stop",
+  "branchesMemberStationLabel": "Saang sangay siya nagtatrabaho",
+  "branchesMemberVisibilityLabel": "Aling mga sangay ang makikita niya",
+  "branchesVisibilityOwnOnly": "Sariling sangay lang",
+  "branchesVisibilitySome": "Mga tiyak na sangay",
+  "branchesVisibilityAll": "Lahat ng sangay",
+  "branchesWorkingHours": "Oras ng trabaho",
+  "branchesStopMember": "Itigil ang empleyado",
+  "branchesStopMemberTitle": "Itigil ang empleyadong ito?",
+  "branchesStopMemberBody": "Mawawala kay {name} ang access sa app agad. Mananatiling naka-save ang kanyang kasaysayan ng pagbisita.",
+  "branchesStopMemberConfirm": "Itigil",
+  "branchesReactivateMember": "I-reactivate",
+  "branchesRehireRequired": "Ganap nang naka-stop ang empleyadong ito — ang pag-reactivate ay nangangailangan ng muling pagkuha, hindi lang isang toggle.",
+  "branchesHoursSaved": "Na-save ang oras ng trabaho.",
+  "branchesHoursExceedsShop": "Mas malawak ang oras na ito kaysa sa oras ng tindahan mismo — ayusin ito.",
+  "branchesHoursHint": "Kung wala kang babaguhin, susundin niya ang oras ng tindahan mismo awtomatiko.",
+  "branchesHoursClear": "Ibalik sa default na oras ng tindahan",
+  "branchesDayMonday": "Lunes",
+  "branchesDayTuesday": "Martes",
+  "branchesDayWednesday": "Miyerkules",
+  "branchesDayThursday": "Huwebes",
+  "branchesDayFriday": "Biyernes",
+  "branchesDaySaturday": "Sabado",
+  "branchesDaySunday": "Linggo",
+  "branchesDayClosed": "Sarado",
+  "accountLanguageSectionTitle": "Wika",
+  "accountLanguageRow": "Wika ng app",
+  "accountLanguageSheetTitle": "Pumili ng wika ng app",
   "accountSecuritySectionTitle": "Seguridad",
   "accountChangePasswordRow": "Palitan ang password",
   "accountChangePasswordFailed": "Hindi mapalitan ang password, subukan ulit.",
@@ -218,6 +256,7 @@
   "billingLoadFailed": "Hindi na-load ang datos ng pagsingil. Hilahin pababa para subukan muli.",
   "billingAllGood": "Maayos ang iyong billing — walang kailangang pansinin ngayon.",
   "billingPastDue": "Mayroon kang overdue na invoice — bayaran ito para maiwasan ang pagka-pause ng iyong mga serbisyo.",
+  "billingPaymentConfirming": "Natanggap namin ang iyong pagsubok na bayad at kinukumpirma na ito — maaaring umabot ito ng 20 minuto.",
   "billingUsageSectionTitle": "Ang iyong paggamit",
   "billingUsageStaffSeats": "Upuan ng staff",
   "billingUsageBranches": "Mga sangay",
@@ -247,6 +286,7 @@
   "billingInvoiceStatusDraft": "Draft",
   "billingPayNow": "Magbayad ngayon",
   "billingPayLinkFailed": "Hindi nagawa ang pay link. Subukan muli.",
+  "paymentPageLoadFailed": "Hindi na-load ang pahina ng pagbabayad. Tingnan ang iyong koneksyon at subukan muli.",
   "billingCancelConfirmTitle": "Ihinto ang pag-renew?",
   "billingCancelConfirmBody": "Patuloy na gagana ang serbisyo hanggang sa katapusan ng kasalukuyang panahon, pagkatapos hindi na ito mare-renew.",
   "billingCancelConfirmAction": "Ihinto ang pag-renew",
@@ -267,5 +307,1156 @@
   "writeVehicleTrackingDisabledConfirm": "Ia-off ang field ng plate number sa visit-registration screen ng tindahang ito. Kumpirmahin?",
   "writeVehicleTrackingEnabledDone": "Na-on na ang pagsubaybay sa sasakyan ✓",
   "writeVehicleTrackingDisabledDone": "Na-off na ang pagsubaybay sa sasakyan ✓",
-  "writeVehicleTrackingFailed": "Hindi mapalitan ang setting ng pagsubaybay sa sasakyan, subukan muli."
+  "writeVehicleTrackingFailed": "Hindi mapalitan ang setting ng pagsubaybay sa sasakyan, subukan muli.",
+  "mobileRequestsTitle": "Mga hiling na mobile",
+  "mobileRequestsSubtitle": "Mga hiling para sa serbisyong pupunta sa customer, mula pagtanggap hanggang pagkumpleto.",
+  "mobileRequestsKpiPending": "Naghihintay ng desisyon",
+  "mobileRequestsKpiNeedsDecision": "Kailangan ng desisyon",
+  "mobileRequestsKpiCompletedMonth": "Nakumpleto ngayong buwan",
+  "mobileRequestsBannerGo": "Tingnan",
+  "mobileRequestsFilterAll": "Lahat",
+  "mobileRequestsFilterPending": "Nakabinbin",
+  "mobileRequestsFilterAccepted": "Tinanggap",
+  "mobileRequestsFilterNeedsDecision": "Kailangan ng desisyon",
+  "mobileRequestsFilterCompleted": "Nakumpleto",
+  "mobileRequestsFilterClosed": "Sarado",
+  "mobileRequestsSearchHint": "Maghanap sa pangalan o telepono",
+  "mobileRequestsLoadFailedTitle": "Hindi ma-load ang mga hiling",
+  "mobileRequestsLoadFailedBody": "Suriin ang iyong koneksyon at subukan ulit.",
+  "mobileRequestsRetry": "Subukan ulit",
+  "mobileRequestsEmptyTitle": "Wala pang hiling",
+  "mobileRequestsEmptyBody": "Lalabas dito ang mga hiling ng mobile-service mula sa iyong mga customer.",
+  "mobileRequestsStatusPending": "Nakabinbin",
+  "mobileRequestsStatusAccepted": "Tinanggap",
+  "mobileRequestsStatusNeedsDecision": "Kailangan ng desisyon",
+  "mobileRequestsStatusCompleted": "Nakumpleto",
+  "mobileRequestsStatusNoShow": "Hindi dumating",
+  "mobileRequestsStatusRejected": "Tinanggihan",
+  "mobileRequestsUnnamed": "Walang pangalan",
+  "mobileRequestsOpenMap": "Lokasyon",
+  "mobileRequestsPhoneCopied": "Nakopya ang numero ng telepono",
+  "mobileRequestsRiskyCustomer": "Customer na mataas ang risk sa no-show",
+  "mobileRequestsRejectReasonLine": "Dahilan ng pagtanggi: {reason}",
+  "mobileRequestsActionAccept": "Tanggapin",
+  "mobileRequestsActionReject": "Tanggihan",
+  "mobileRequestsActionComplete": "Kumpleto",
+  "mobileRequestsActionNoShow": "Hindi dumating",
+  "mobileRequestsAssignUnassigned": "Walang itinalaga",
+  "mobileRequestsActionFailed": "Hindi nakumpleto ang aksyon, subukan ulit.",
+  "mobileRequestsRejectTitle": "Dahilan ng pagtanggi",
+  "mobileRequestsRejectHint": "Opsyonal",
+  "mobileRequestsRejectCancel": "Kanselahin",
+  "mobileRequestsRejectConfirm": "Tanggihan ang hiling",
+  "mobileRequestsAddOpen": "Magdagdag ng hiling",
+  "mobileRequestsAddTitle": "Magdagdag ng hiling ng mobile service",
+  "mobileRequestsAddPhoneLabel": "Telepono ng customer",
+  "mobileRequestsAddNameLabel": "Pangalan ng customer (opsyonal)",
+  "mobileRequestsAddServicesLabel": "Mga serbisyo",
+  "mobileRequestsAddServicesEmpty": "Wala pang available na serbisyo.",
+  "mobileRequestsAddDayLabel": "Araw",
+  "mobileRequestsAddTimeLabel": "Oras",
+  "mobileRequestsAddMapsLinkLabel": "Link ng lokasyon sa Google Maps",
+  "mobileRequestsAddMapsLinkHint": "Tumatanggap ng buo o pinaikling Google Maps link.",
+  "mobileRequestsAddMapsLinkShort": "Pinaikling link ito — i-paste ang buong Google Maps link.",
+  "mobileRequestsAddMapsLinkInvalid": "Hindi mabasa ang lokasyon mula sa link na ito.",
+  "mobileRequestsAddAssignLabel": "Italaga kay (opsyonal)",
+  "mobileRequestsAddCancel": "Kanselahin",
+  "mobileRequestsAddSubmit": "Idagdag ang hiling",
+  "mobileRequestsAddSubmitting": "Idinaragdag...",
+  "mobileRequestsAddError": "Hindi naidagdag ang hiling, subukan ulit.",
+  "mobileRequestsBannerText": "{count, plural, one{1 hiling ang nangangailangan ng desisyon mo ngayon} other{{count} hiling ang nangangailangan ng desisyon mo ngayon}}",
+  "mobileRequestsAddMapsLinkResolving": "Binabasa ang lokasyon mula sa link...",
+  "customersTitle": "Mga Kontak",
+  "customersAddOpen": "Magdagdag ng customer",
+  "customersSearchHint": "Maghanap sa pangalan o telepono",
+  "customersTabAll": "Lahat",
+  "customersTabOverdue": "Naantala",
+  "customersSearchFailedTitle": "Hindi available ang paghahanap ngayon",
+  "customersSearchFailedBody": "Subukan ulit sandali.",
+  "customersSearchEmpty": "Walang resulta",
+  "customersLoadFailedTitle": "Hindi na-load",
+  "customersEmptyTitle": "Wala pang customer",
+  "customersOverdueEmpty": "Walang naaantala ngayon",
+  "customersUnnamed": "Walang pangalan",
+  "customersVisitCount": "{count, plural, one{1 bisita} other{{count} na bisita}}",
+  "customersOverdueBadge": "Naantala",
+  "customersStatEveryDays": "{days, plural, other{tuwing {days} araw}}",
+  "customersOverdueBanner": "Naantala na sa karaniwang bisita — karaniwan tuwing {every} araw, {since} araw na mula sa huling bisita",
+  "customersVisitMeter": "Odometer: {n}",
+  "customersOfferExpiredBadge": "Nag-expire na",
+  "customersDeniedAllTitle": "Wala kang pahintulot na tingnan ang listahan ng customer",
+  "customersDeniedOverdueTitle": "Wala kang pahintulot na tingnan kung sino ang naantala",
+  "customersDeniedDesc": "Hilingin sa may-ari ng tindahan ang pahintulot na ito.",
+  "customersAddTitle": "Magdagdag ng bagong customer",
+  "customersAddPhoneLabel": "Telepono ng customer",
+  "customersAddNameLabel": "Pangalan ng customer",
+  "customersAddPhoneInvalid": "Hindi tama ang numero ng telepono.",
+  "customersAddFailed": "Hindi naidagdag ang customer, subukan ulit.",
+  "customersAddSubmitting": "Idinaragdag...",
+  "customersAddSubmit": "Idagdag",
+  "customersActionFailed": "Hindi nakumpleto ang aksyon, subukan ulit.",
+  "customersRepeatedIssuesTitle": "Paulit-ulit na isyu",
+  "customersVehiclesTitle": "Mga sasakyan",
+  "customersLoyaltyTitle": "Loyalty",
+  "customersLoyaltyLoading": "Nilo-load...",
+  "customersLoyaltyPoints": "{count} puntos",
+  "customersLoyaltyAdjust": "Ayusin",
+  "customersOffersTitle": "Mga aktibong alok",
+  "customersOfferExpires": "Mag-e-expire {date}",
+  "customersVisitsTitle": "Kasaysayan ng bisita",
+  "customersVisitsEmpty": "Wala pang bisita",
+  "customersVisitNoServices": "Walang naitalang serbisyo",
+  "customersRenameTitle": "I-edit ang pangalan ng customer",
+  "customersRenameSubmit": "I-save",
+  "customersLoyaltyAdjustTitle": "Ayusin ang loyalty points",
+  "customersLoyaltyAdjustNoteLabel": "Dahilan ng pagsasaayos",
+  "customersLoyaltyAdjustNoteRequired": "Magsulat ng totoong dahilan (hindi bababa sa 3 karakter), at pumili ng hindi zero na halaga.",
+  "customersLoyaltyAdjustSubmit": "I-save ang pagsasaayos",
+  "customersEraseButton": "Burahin ang data ng customer na ito",
+  "customersEraseTitle": "Burahin ang data ng customer",
+  "customersEraseWarning": "Permanente nitong buburahin ang lahat ng data ng customer mula sa platform — hindi na ito mababawi.",
+  "customersEraseTypeNameLabel": "Para kumpirmahin, i-type ang pangalan ng customer: {name}",
+  "customersEraseConfirm": "Buraburahin nang permanente",
+  "customersBookingsTitle": "Mga booking",
+  "customersAttendanceRate": "{rate}% pagdalo",
+  "customersBookingsNoneUpcoming": "Walang paparating na booking",
+  "customersCyclesTitle": "Mga cycle ng paalala",
+  "customersCyclesEveryDays": "Bawat {days} araw",
+  "customersCyclesEditHint": "Itakda ang interval, at hihinto ang awtomatikong pagkatuto para sa serbisyong ito sa customer na ito.",
+  "customersCyclesSave": "I-save",
+  "customersLogTitle": "Tala ng mga mensahe",
+  "customersLogEmpty": "Wala pa kaming naipadala sa kanila",
+  "customersLogOutcomeSent": "Naipadala",
+  "customersLogOutcomeSuppressed": "Hindi naipadala",
+  "customersTemplateVisitConfirmation": "Kumpirmasyon ng pagbisita",
+  "customersTemplateVisitConfirmationRating": "Kahilingan ng rating pagkatapos ng pagbisita",
+  "customersTemplateBookingConfirmation": "Kumpirmasyon ng booking",
+  "customersTemplateVisitRedeemed": "Abiso ng pag-claim ng gantimpala",
+  "customersTemplateServiceReminder": "Paalala ng serbisyo",
+  "customersTemplateFollowUp": "Follow-up pagkatapos ng pagbisita",
+  "customersTemplateAccountNotice": "Abiso tungkol sa account",
+  "customersTemplatePointsExpiring": "Babala ng mag-e-expire na puntos",
+  "customersTemplateLoyaltyActivation": "Pag-activate ng loyalty program",
+  "customersTemplateWinback": "Pagbawi sa nawalang customer",
+  "customersTemplatePersonalOccasion": "Pagbati sa okasyon",
+  "customersShowAll": "Ipakita lahat ({count})",
+  "customersCyclesUnknownService": "Hindi kilalang serbisyo",
+  "customersVisitGapDays": "{days, plural, =0{sa parehong araw} one{pagkatapos ng 1 araw} other{pagkatapos ng {days} araw}}",
+  "customersCountLabel": "{count, plural, =0{wala pang customer} one{1 customer} other{{count} na customer}}",
+  "ratingTitle": "Mga rating",
+  "pointsTitle": "Loyalty Points",
+  "pointsAddReward": "Bagong reward",
+  "pointsEditReward": "I-edit ang reward",
+  "pointsTabRewards": "Mga reward",
+  "pointsTabLeaderboard": "Pinaka-redeem",
+  "pointsOutstandingHint": "puntos na utang pa ng tindahan sa mga customer",
+  "pointsRedemptionsCount": "{count, plural, one{1 redemption} other{{count} redemption}}",
+  "pointsCustomersCount": "{count, plural, one{1 customer ang nag-redeem} other{{count} customer ang nag-redeem}}",
+  "pointsExpiredWarning": "{percent}% ng mga puntos na ibinigay ay nag-expire na hindi na-redeem — suriin ang presyo ng reward",
+  "pointsLoadFailedTitle": "Hindi ma-load ang mga reward",
+  "pointsRewardsEmpty": "Wala pang reward — idagdag ang unang reward para sa iyong mga customer",
+  "pointsLeaderboardEmpty": "Wala pang redemption — lalabas dito kapag may nag-redeem na customer",
+  "pointsLeaderboardTitle": "Pinaka-redeem",
+  "pointsLeaderboardHint": "Ang top limang reward na na-redeem ng iyong mga customer",
+  "pointsTimesRedeemed": "{count, plural, one{isang beses} other{{count} beses}}",
+  "pointsRewardRetired": "Naka-retire",
+  "pointsRewardServiceHint": "Serbisyo: {name}",
+  "pointsRewardDiscountHint": "{amount} SAR na diskwento",
+  "pointsRewardItemHint": "Regalo, hindi konektado sa katalogo",
+  "pointsRewardNameLabel": "Pangalan ng reward",
+  "pointsRewardTypeLabel": "Uri ng reward",
+  "pointsTypeService": "Isang serbisyo mula sa iyong katalogo",
+  "pointsTypeItem": "Isang regalo",
+  "pointsTypeDiscount": "Diskwentong pera",
+  "pointsRewardServiceLabel": "Aling serbisyo",
+  "pointsRewardDiscountLabel": "Halaga ng diskwento, SAR",
+  "pointsRewardCostLabel": "Gastos sa puntos",
+  "pointsRewardActiveLabel": "Aktibo — maaaring i-redeem ng mga customer",
+  "pointsRewardInvalid": "Maglagay ng pangalan at tunay na gastos sa puntos na higit sa zero",
+  "pointsSaveFailed": "Hindi na-save, subukan ulit",
+  "pointsModeTitle": "Paraan ng pagkalkula",
+  "pointsModeHint": "Ayon sa serbisyo: bawat serbisyo may sariling puntos. Ayon sa halaga ng invoice: isang puntos kada riyal.",
+  "pointsModeServices": "Ayon sa serbisyo",
+  "pointsModeInvoice": "Ayon sa halaga ng invoice",
+  "pointsModeNeedsPricedServices": "Ang pagkalkula ayon sa halaga ng invoice ay nangangailangan munang mapresyuhan ang bawat serbisyo — presyuhan lahat sa Mga Serbisyo, pagkatapos i-on.",
+  "pointsOpenEarnSettings": "Setting ng puntos kada serbisyo",
+  "ratingLeaderboardTitle": "Pinakamataas ang rating",
+  "ratingCardNoName": "Walang pangalan",
+  "ratingMetricVisits": "Pinakamaraming bisita",
+  "ratingMetricRatings": "Pinakamaraming rating",
+  "ratingMetricAvg": "Pinakamataas ang rating",
+  "ratingStaffCount": "{count, plural, one{1 kawani} other{{count} kawani}}",
+  "ratingTableTitle": "Bawat kawani",
+  "ratingTableVisitsValue": "{n} bisita",
+  "ratingTableRatingsValue": "{n} rating",
+  "ratingTableEngagementValue": "{n}% engagement",
+  "ratingTableNoShowValue": "{n}% no-show",
+  "ratingPeriodWeek": "Linggo",
+  "ratingPeriodMonth": "Buwan",
+  "ratingPeriodQuarter": "Quarter",
+  "ratingPeriodCustom": "Custom",
+  "ratingCustomSince": "Mula: {date}",
+  "ratingCustomUntil": "Hanggang: {date}",
+  "ratingCustomRangeInvalid": "Invalid ang saklaw — siguraduhing nauna ang petsa ng simula sa petsa ng pagtatapos",
+  "ratingExportLocaleLabel": "Wika ng ulat",
+  "localeNameAr": "العربية",
+  "localeNameEn": "English",
+  "localeNameUr": "اردو",
+  "localeNameHa": "Hausa",
+  "localeNameFil": "Filipino",
+  "localeNameBn": "বাংলা",
+  "ratingTopIssuesTitle": "Pinaka-paulit-ulit na isyu",
+  "ratingFilterUnhandled": "Nakabinbin",
+  "ratingFilterAll": "Lahat",
+  "ratingFilterHandled": "Nahandle na",
+  "ratingStarsAll": "Lahat ng bituin",
+  "ratingLoadFailedTitle": "Hindi na-load ang mga rating",
+  "ratingEmptyTitle": "Wala pang rating",
+  "ratingLoadMore": "Magpakita pa",
+  "ratingHandledPlain": "Nahandle na",
+  "ratingMarkHandled": "Markahan bilang nahandle",
+  "ratingMarkHandledHint": "Permanenteng naitala ito — hindi na ito mababawi mamaya.",
+  "ratingHandledNoteLabel": "Tala (opsyonal)",
+  "ratingMarkHandledConfirm": "Kumpirmahin",
+  "ratingActionFailed": "Hindi nakumpleto ang aksyon, subukan ulit.",
+  "ratingWeightedAvgHint": "{count, plural, =0{walang rating sa huling 30 araw} one{mula sa 1 rating sa huling 30 araw} other{mula sa {count} rating sa huling 30 araw}}",
+  "ratingUnhandledCount": "{count, plural, one{1 rating ang nakabinbin} other{{count} rating ang nakabinbin}}",
+  "ratingVisitsShort": "{count, plural, one{1 bisita} other{{count} na bisita}}",
+  "ratingIssueFilterLabel": "Isyu: {label}",
+  "ratingByOperator": "Sinilbihan ni {name}",
+  "ratingHandledWithNote": "Nahandle na: {note}",
+  "ratingQuadrantTitle": "Quadrant ng performance",
+  "ratingQuadrantHint": "Kalidad laban sa engagement rate — pindutin ang anumang punto para sa training record.",
+  "ratingQuadrantStars": "Mga bituin",
+  "ratingQuadrantUnderused": "Hindi gaanong ginagamit",
+  "ratingQuadrantNeedsCoaching": "Kailangan ng coaching",
+  "ratingQuadrantAtRisk": "Nangangailangan ng pansin",
+  "ratingTrainingTitle": "Training record",
+  "ratingTrainingNoAccess": "Wala kang pahintulot na makita ito.",
+  "ratingTrainingClean": "Malinis na record — walang paulit-ulit na isyu.",
+  "ratingEngagementPercent": "{percent}% engagement",
+  "ratingTabOverview": "Overview",
+  "ratingTabFeed": "Lahat ng rating",
+  "ratingOverviewEmpty": "Wala pang performance data para sa huling 30 araw.",
+  "ratingExportTitle": "I-export ang ulat",
+  "ratingExportHint": "Ang ulat ng performance ng team para sa napiling panahon, handa nang ibahagi.",
+  "ratingExportFailed": "Hindi na-export ang ulat, subukan ulit.",
+  "customersPrivacyRequestsTitle": "Mga hiling sa privacy",
+  "customersPrivacyRequestErase": "Hiling sa pagbura ng data",
+  "customersPrivacyRequestCopy": "Hiling sa kopya ng data",
+  "customersPrivacyRequestGeneric": "Hiling: {type}",
+  "customersPrivacyRequestClose": "Isara",
+  "customersLoyaltyHistoryTitle": "Kasaysayan ng puntos",
+  "customersLoyaltyHistoryNoReason": "Walang ibinigay na dahilan",
+  "customersLoyaltyReasonRedeem": "Ginamit na reward",
+  "customersLoyaltyReasonAdjust": "Manual na pagsasaayos",
+  "customersLoyaltyReasonEarn": "Puntos mula sa bisita",
+  "customersLoyaltyReasonExpire": "Nag-expire",
+  "readCustomersFailed": "Hindi nakuha ang data ng customer ngayon, subukan ulit.",
+  "readCustomersTotal": "{count, plural, =0{Wala ka pang nakarehistrong customer.} one{May 1 kang nakarehistrong customer.} other{May {count} kang nakarehistrong customer.}}",
+  "readCustomersOverdueCount": "{count, plural, =0{Walang customer na naantala sa kanilang cycle ngayon.} one{May 1 kang customer na naantala sa cycle.} other{May {count} kang customer na naantala sa cycle.}}",
+  "readMobileRequestsFailed": "Hindi nakuha ang mga mobile request ngayon, subukan ulit.",
+  "readMobileRequestsPendingCount": "{count, plural, =0{Walang mobile request na naghihintay ng desisyon.} one{May 1 kang hiling na naghihintay ng desisyon.} other{May {count} kang hiling na naghihintay ng desisyon.}}",
+  "readMobileRequestsNeedsDecisionCount": "{count, plural, =0{Walang mobile request na nangangailangan ng desisyon mo ngayon.} one{1 hiling ang nangangailangan ng desisyon mo ngayon.} other{{count} hiling ang nangangailangan ng desisyon mo ngayon.}}",
+  "readRatingFailed": "Hindi nakuha ang rating data ngayon, subukan ulit.",
+  "readRatingNone": "Wala ka pang rating sa huling 30 araw.",
+  "readRatingAverage": "Ang average rating mo sa huling 30 araw ay {avg} sa 5, mula sa {count} rating.",
+  "readRatingUnhandledCount": "{count, plural, =0{Walang nakabinbin na rating.} one{May 1 kang nakabinbing rating.} other{May {count} kang nakabinbing rating.}}",
+  "readRatingTopStaff": "Ang pinakamataas ang rating na staff sa huling 30 araw ay si {name}, na may average na {avg} sa 5.",
+  "readMobileRequestsCompletedCount": "{count, plural, =0{Wala ka pang nakumpletong mobile request ngayong buwan.} one{1 ang nakumpleto mo ngayong buwan.} other{{count} ang nakumpleto mo ngayong buwan.}}",
+  "readMobileRequestsTodayCount": "{count, plural, =0{Wala pang dumarating na mobile request ngayong araw.} one{1 hiling ang dumating ngayong araw.} other{{count} hiling ang dumating ngayong araw.}}",
+  "readOperatorsFailed": "Hindi nakuha ang bilang ng staff ngayon, subukan ulit.",
+  "readOperatorsCount": "{count, plural, =0{Wala ka pang nakarehistrong staff.} one{May 1 kang miyembro ng staff.} other{May {count} kang miyembro ng staff.}}",
+  "readBranchesDisconnectedCount": "{count, plural, =0{Lahat ng aktibong branch mo ay konektado at gumagana ang WhatsApp.} one{May 1 kang branch na hindi gumagana ang WhatsApp.} other{May {count} kang branch na hindi gumagana ang WhatsApp.}}",
+  "readCustomersRecentNone": "Wala ka pang nakarehistrong customer.",
+  "readCustomersRecentName": "Ang pinakabagong customer mo ay si {name}.",
+  "readRatingCriticalIssuesCount": "{count, plural, =0{Walang nakabinbing rating na may kritikal na isyu.} one{May 1 kang nakabinbing rating na may kritikal na isyu.} other{May {count} kang nakabinbing rating na may kritikal na isyu.}}",
+  "readPerBranchModeOn": "Oo, tumatakbo ang tindahan mo sa multi-branch mode.",
+  "readPerBranchModeOff": "Hindi, tumatakbo ang tindahan mo bilang iisang branch lang.",
+  "readBillingOverdueYes": "Oo, may overdue kang invoice — bayaran ito para maiwasan ang pagkakansela ng serbisyo.",
+  "readBillingOverdueNo": "Hindi, maayos ang billing mo, walang overdue na invoice.",
+  "readServicesFailed": "Hindi nakuha ang bilang ng serbisyo ngayon, subukan ulit.",
+  "readServicesCount": "{count, plural, =0{Wala ka pang serbisyo sa listahan mo.} one{May 1 kang serbisyo sa listahan mo.} other{May {count} kang serbisyo sa listahan mo.}}",
+  "readCustomersTodayCount": "{count, plural, =0{Wala pang bagong customer na dumating ngayong araw.} one{1 bagong customer ang dumating ngayong araw.} other{{count} bagong customer ang dumating ngayong araw.}}",
+  "readMobileRequestsRejectedCount": "{count, plural, =0{Wala kang tinanggihang mobile request ngayong buwan.} one{1 ang tinanggihan mo ngayong buwan.} other{{count} ang tinanggihan mo ngayong buwan.}}",
+  "readMobileRequestsNoShowCount": "{count, plural, =0{Walang customer na hindi dumating ngayong buwan.} one{1 customer ang hindi dumating ngayong buwan.} other{{count} customer ang hindi dumating ngayong buwan.}}",
+  "readRatingFiveStarCount": "{count, plural, =0{Wala ka pang five-star rating.} one{May 1 kang five-star rating.} other{May {count} kang five-star rating.}}",
+  "readBranchesActiveCount": "{count, plural, =0{Wala kang aktibong branch ngayon.} one{May 1 kang aktibong branch.} other{May {count} kang aktibong branch.}}",
+  "servicesTitle": "Mga serbisyo ko",
+  "servicesUnnamedGlyph": "?",
+  "servicesSearchHint": "Maghanap sa pangalan ng serbisyo",
+  "servicesTabActive": "Aktibo",
+  "servicesTabStopped": "Nakahinto",
+  "servicesLoadFailedTitle": "Hindi na-load ang mga serbisyo",
+  "servicesEmptyActive": "Wala pang aktibong serbisyo",
+  "servicesEmptyStopped": "Walang nakahintong serbisyo",
+  "servicesAddOpen": "Magdagdag ng serbisyo",
+  "servicesNoPrice": "Walang nakatakdang presyo",
+  "servicesNoDuration": "Hindi nakatakda",
+  "servicesNoCycle": "Walang cycle",
+  "servicesStopTitle": "Ihinto ang serbisyo",
+  "servicesStopConfirm": "Ihinto",
+  "servicesActionFailed": "Hindi nakumpleto ang aksyon, subukan ulit.",
+  "servicesEditTitle": "I-edit ang serbisyo",
+  "servicesAddTitle": "Magdagdag ng bagong serbisyo",
+  "servicesNameLabel": "Pangalan ng serbisyo",
+  "servicesPriceLabel": "Presyo (opsyonal)",
+  "servicesDurationLabel": "Tagal sa minuto (opsyonal)",
+  "servicesCycleLabel": "Cycle ng paalala sa araw (opsyonal)",
+  "servicesDescriptionLabel": "Maikling paglalarawan (opsyonal)",
+  "servicesSaving": "Sine-save...",
+  "servicesSave": "I-save",
+  "servicesNameRequired": "Kailangan ang pangalan ng serbisyo",
+  "servicesActiveCount": "{count, plural, =0{Wala ka pang aktibong serbisyo.} one{May 1 kang aktibong serbisyo.} other{May {count} kang aktibong serbisyo.}}",
+  "servicesDurationMinutes": "{count} minuto",
+  "servicesCycleDays": "Bawat {count} araw",
+  "servicesStopWarning": "Ihihinto nito ang \"{name}\" — hindi ito lalabas sa bagong bisita, at hihinto ang mga paalala nito. Hindi kailanman nabuburang ang data nito.",
+  "servicesPhotoPickFailed": "Hindi napili ang larawan",
+  "servicesPhotoUploadFailed": "Na-save, pero hindi na-upload ang larawan",
+  "servicesPhotoLabel": "Larawan ng serbisyo (opsyonal)",
+  "servicesUploadPhoto": "Mag-upload ng larawan",
+  "@servicesUploadPhoto": {
+    "description": "servicesUploadPhoto"
+  },
+  "servicesChangePhoto": "Palitan ang larawan",
+  "@servicesChangePhoto": {
+    "description": "servicesChangePhoto"
+  },
+  "servicesRemovePhoto": "Alisin",
+  "@servicesRemovePhoto": {
+    "description": "servicesRemovePhoto"
+  },
+  "servicesAssignmentLabel": "Sino ang nagbibigay ng serbisyong ito?",
+  "servicesAssignmentAuto": "Kahit sinong available na staff",
+  "servicesAssignmentNamed": "Tiyak na staff",
+  "servicesChecklistLabel": "Checklist ng pamamaraan",
+  "servicesChecklistEmpty": "Wala pang hakbang — magdagdag ng una",
+  "servicesStepAddTitle": "Magdagdag ng hakbang",
+  "servicesGeneralSettingsTitle": "Pangkalahatang setting",
+  "servicesGeneralSettingsHint": "Ang halagang sinusunod ng bawat serbisyong hindi pa naka-customize",
+  "servicesFollowUpLabel": "Mga araw ng follow-up pagkatapos ng bisita",
+  "servicesPointsLabel": "Puntos kada bisita",
+  "servicesGroupThem": "Pagsamahin",
+  "servicesGroupNameHint": "Pangalan ng grupo",
+  "servicesAllGroups": "Lahat",
+  "servicesStepEditTitle": "I-edit ang hakbang",
+  "servicesStepCriticalLabel": "Kritikal na hakbang",
+  "servicesStepRetire": "Ihinto ang hakbang na ito",
+  "servicesStepEditHint": "Pindutin nang matagal ang anumang hakbang para i-edit o ihinto ito",
+  "servicesAdvancedTitle": "Mga advanced na setting",
+  "servicesAdvancedHint": "I-customize ang serbisyong ito mula sa pangkalahatang setting — cycle, puntos, at pagpapangkat",
+  "servicesGroupLabel": "Grupo",
+  "servicesNoGroup": "Walang grupo",
+  "servicesNewGroup": "Bagong grupo",
+  "servicesFollowGeneralAction": "Sundin ang pangkalahatan",
+  "servicesCustomizeAction": "I-customize",
+  "servicesFollowUpDays": "Follow-up pagkatapos ng {n} araw",
+  "servicesPointsPerVisit": "{n} puntos",
+  "servicesSuggestionText": "{n} serbisyo ang may parehong halaga — ang pagsasama-sama sa kanila ay nagpapadali sa pag-edit sa kanila nang magkasama sa hinaharap.",
+  "servicesFollowsGeneral": "Sumusunod sa pangkalahatan — {hint}",
+  "servicesPageTabServices": "Mga serbisyo",
+  "servicesPageTabPackages": "Mga package",
+  "servicesPackageAdd": "Magdagdag ng package",
+  "servicesPackageNeedsTwoServices": "Nangangailangan ang package ng hindi bababa sa dalawang aktibong serbisyo",
+  "servicesPackageEmpty": "Wala pang package",
+  "servicesPackageEditTitle": "I-edit ang package",
+  "servicesPackageAddTitle": "Magdagdag ng bagong package",
+  "servicesPackageNameLabel": "Pangalan ng package",
+  "servicesPackagePriceRequired": "Kailangan ang presyo ng package, higit sa zero",
+  "servicesPackageServicesLabel": "Kasamang mga serbisyo",
+  "servicesImportTitle": "Mag-import ng mga serbisyo mula sa file",
+  "servicesImportHint": "CSV file na may mga column: name, price, duration_minutes, cycle_days, description",
+  "servicesImportPickFile": "Pumili ng CSV file",
+  "servicesImportReadFailed": "Hindi mabasa ang file",
+  "servicesImportParseFailed": "Walang name column ang file, o hindi wasto ang format nito",
+  "servicesImportDeactivateMissing": "Ihinto ang mga serbisyong wala sa file",
+  "servicesImportDeactivateMissingHint": "Ang anumang serbisyong mayroon ka ngayon na wala sa file na ito ay awtomatikong ihihinto",
+  "servicesImportConfirm": "I-import",
+  "servicesImportClose": "Tapos na",
+  "servicesImportRowCount": "{n, plural, one{1 row} other{{n} rows}} na handa nang i-import",
+  "servicesImportDone": "Nadagdag {created}, na-update {updated}, na-reactivate {reactivated}.",
+  "visitPackagesSectionTitle": "Mga featured na package",
+  "visitNameFieldHint": "Pangalan ng customer (opsyonal)",
+  "visitMeterFieldHint": "Reading ng odometer",
+  "visitQuantityDialogTitle": "Dami",
+  "visitCouponCheckboxLabel": "Magbigay ng discount coupon sa ibang tindahan",
+  "visitCouponPhoneHint": "Numero ng may-ari ng tindahan",
+  "visitClearAllButton": "I-clear lahat",
+  "visitServicesSelectedCount": "{n, plural, one{1 serbisyo ang napili} other{{n} serbisyo ang napili}}",
+  "visitTodayBookingsTitle": "Mga appointment ngayon",
+  "visitBookingAttendFailed": "Hindi na-confirm ang pagdating, subukan ulit",
+  "branchSwitcherChooseBranch": "Pumili ng sangay",
+  "branchSwitcherTitle": "Kasalukuyang sangay",
+  "branchSwitcherHint": "Ang lahat ng bubuksan mo pagkatapos nito ay para sa sangay na ito",
+  "proceduresPrintFailed": "Hindi magawa ang dokumento",
+  "@proceduresPrintFailed": {
+    "description": "proceduresPrintFailed"
+  },
+  "proceduresTitle": "Mga Pamamaraan",
+  "@proceduresTitle": {
+    "description": "proceduresTitle"
+  },
+  "proceduresSubtitle": "I-set ang checklist ng pamamaraan para sa bawat serbisyo, o pamahalaan ang buong shared library. I-long-press ang serbisyo para piliin ito para sa pag-print",
+  "@proceduresSubtitle": {
+    "description": "proceduresSubtitle"
+  },
+  "proceduresLibraryLink": "Library ng Pamamaraan",
+  "@proceduresLibraryLink": {
+    "description": "proceduresLibraryLink"
+  },
+  "proceduresPrint": "I-print",
+  "@proceduresPrint": {
+    "description": "proceduresPrint"
+  },
+  "proceduresEmptyTitle": "Wala pang aktibong serbisyo",
+  "@proceduresEmptyTitle": {
+    "description": "proceduresEmptyTitle"
+  },
+  "servicesStepSeverityNormal": "Normal",
+  "@servicesStepSeverityNormal": {
+    "description": "servicesStepSeverityNormal"
+  },
+  "servicesStepSeverityCritical": "Kritikal",
+  "@servicesStepSeverityCritical": {
+    "description": "servicesStepSeverityCritical"
+  },
+  "proceduresSaveFailed": "Hindi ma-save",
+  "@proceduresSaveFailed": {
+    "description": "proceduresSaveFailed"
+  },
+  "proceduresDrawerSubtitle": "I-drag para ayusin, o magdagdag ng hakbang mula sa library",
+  "@proceduresDrawerSubtitle": {
+    "description": "proceduresDrawerSubtitle"
+  },
+  "proceduresDrawerEmpty": "Wala pang hakbang para sa serbisyong ito",
+  "@proceduresDrawerEmpty": {
+    "description": "proceduresDrawerEmpty"
+  },
+  "proceduresDrawerAddButton": "Idagdag mula sa library",
+  "@proceduresDrawerAddButton": {
+    "description": "proceduresDrawerAddButton"
+  },
+  "proceduresPickTitle": "Pumili ng hakbang",
+  "@proceduresPickTitle": {
+    "description": "proceduresPickTitle"
+  },
+  "proceduresPickClose": "Isara",
+  "@proceduresPickClose": {
+    "description": "proceduresPickClose"
+  },
+  "proceduresPickApply": "Idagdag",
+  "@proceduresPickApply": {
+    "description": "proceduresPickApply"
+  },
+  "proceduresPickSearch": "Maghanap ng hakbang",
+  "@proceduresPickSearch": {
+    "description": "proceduresPickSearch"
+  },
+  "proceduresPickEmpty": "Walang resulta",
+  "@proceduresPickEmpty": {
+    "description": "proceduresPickEmpty"
+  },
+  "proceduresPickCreatePlaceholder": "Bagong hakbang...",
+  "@proceduresPickCreatePlaceholder": {
+    "description": "proceduresPickCreatePlaceholder"
+  },
+  "proceduresLibrarySaveFailed": "Hindi ma-save",
+  "@proceduresLibrarySaveFailed": {
+    "description": "proceduresLibrarySaveFailed"
+  },
+  "proceduresLibraryTitle": "Library ng Pamamaraan",
+  "@proceduresLibraryTitle": {
+    "description": "proceduresLibraryTitle"
+  },
+  "proceduresLibrarySubtitle": "Bawat hakbang dito ay shared sa lahat ng serbisyong gumagamit nito - ang pag-edit nito ay nagbabago saanman",
+  "@proceduresLibrarySubtitle": {
+    "description": "proceduresLibrarySubtitle"
+  },
+  "proceduresLibraryNewPlaceholder": "Teksto ng bagong hakbang",
+  "@proceduresLibraryNewPlaceholder": {
+    "description": "proceduresLibraryNewPlaceholder"
+  },
+  "proceduresLibraryAdd": "Idagdag",
+  "@proceduresLibraryAdd": {
+    "description": "proceduresLibraryAdd"
+  },
+  "proceduresLibraryShowRetired": "Ipakita ang mga retirado",
+  "@proceduresLibraryShowRetired": {
+    "description": "proceduresLibraryShowRetired"
+  },
+  "proceduresLibraryEmpty": "Wala pang hakbang",
+  "@proceduresLibraryEmpty": {
+    "description": "proceduresLibraryEmpty"
+  },
+  "proceduresLibraryRetired": "Retirado",
+  "@proceduresLibraryRetired": {
+    "description": "proceduresLibraryRetired"
+  },
+  "proceduresLibraryRetire": "I-retire",
+  "@proceduresLibraryRetire": {
+    "description": "proceduresLibraryRetire"
+  },
+  "proceduresLibraryReactivate": "I-reactivate",
+  "@proceduresLibraryReactivate": {
+    "description": "proceduresLibraryReactivate"
+  },
+  "proceduresSeverityHint": "Ang kritikal na hakbang ay naka-highlight para sa staff at hindi maaaring laktawan habang ginagawa ang serbisyo",
+  "@proceduresSeverityHint": {
+    "description": "proceduresSeverityHint"
+  },
+  "proceduresSelectedCount": "{n} napili",
+  "@proceduresSelectedCount": {
+    "description": "proceduresSelectedCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "proceduresStepCount": "{n} hakbang",
+  "@proceduresStepCount": {
+    "description": "proceduresStepCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "proceduresUsedIn": "Ginagamit sa {n} serbisyo",
+  "@proceduresUsedIn": {
+    "description": "proceduresUsedIn",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "mutualBenefitProposeButton": "Mag-propose ng partnership",
+  "@mutualBenefitProposeButton": {
+    "description": "mutualBenefitProposeButton"
+  },
+  "mutualBenefitTitle": "Mutual Benefit",
+  "@mutualBenefitTitle": {
+    "description": "mutualBenefitTitle"
+  },
+  "mutualBenefitSubtitle": "Ilipat ang tunay na customer sa pagitan mo at ibang tindahan, sa magkabilang pagsang-ayon",
+  "@mutualBenefitSubtitle": {
+    "description": "mutualBenefitSubtitle"
+  },
+  "mutualBenefitRoleAll": "Lahat",
+  "@mutualBenefitRoleAll": {
+    "description": "mutualBenefitRoleAll"
+  },
+  "mutualBenefitRoleReferrer": "Bilang referrer",
+  "@mutualBenefitRoleReferrer": {
+    "description": "mutualBenefitRoleReferrer"
+  },
+  "mutualBenefitRoleBeneficiary": "Bilang beneficiary",
+  "@mutualBenefitRoleBeneficiary": {
+    "description": "mutualBenefitRoleBeneficiary"
+  },
+  "mutualBenefitLoadFailed": "Hindi ma-load ang mga partnership",
+  "@mutualBenefitLoadFailed": {
+    "description": "mutualBenefitLoadFailed"
+  },
+  "mutualBenefitEmptyTitle": "Wala pang partnership",
+  "@mutualBenefitEmptyTitle": {
+    "description": "mutualBenefitEmptyTitle"
+  },
+  "mutualBenefitKpiAsReferrer": "Bilang referrer",
+  "@mutualBenefitKpiAsReferrer": {
+    "description": "mutualBenefitKpiAsReferrer"
+  },
+  "mutualBenefitKpiAsBeneficiary": "Bilang beneficiary",
+  "@mutualBenefitKpiAsBeneficiary": {
+    "description": "mutualBenefitKpiAsBeneficiary"
+  },
+  "mutualBenefitKpiSent": "Na-refer",
+  "@mutualBenefitKpiSent": {
+    "description": "mutualBenefitKpiSent"
+  },
+  "mutualBenefitKpiRedeemed": "Na-redeem",
+  "@mutualBenefitKpiRedeemed": {
+    "description": "mutualBenefitKpiRedeemed"
+  },
+  "mutualBenefitKpiRate": "Redemption rate",
+  "@mutualBenefitKpiRate": {
+    "description": "mutualBenefitKpiRate"
+  },
+  "mutualBenefitConfirm": "Kumpirmahin",
+  "@mutualBenefitConfirm": {
+    "description": "mutualBenefitConfirm"
+  },
+  "mutualBenefitGrantDiscountBlanket": "Diskwento sa buong bisita",
+  "@mutualBenefitGrantDiscountBlanket": {
+    "description": "mutualBenefitGrantDiscountBlanket"
+  },
+  "mutualBenefitStatusProposed": "Iminungkahi",
+  "@mutualBenefitStatusProposed": {
+    "description": "mutualBenefitStatusProposed"
+  },
+  "mutualBenefitStatusActive": "Aktibo",
+  "@mutualBenefitStatusActive": {
+    "description": "mutualBenefitStatusActive"
+  },
+  "mutualBenefitStatusPaused": "Naka-pause",
+  "@mutualBenefitStatusPaused": {
+    "description": "mutualBenefitStatusPaused"
+  },
+  "mutualBenefitStatusCancelRequested": "Hiniling na kanselahin",
+  "@mutualBenefitStatusCancelRequested": {
+    "description": "mutualBenefitStatusCancelRequested"
+  },
+  "mutualBenefitStatusEnded": "Tapos na",
+  "@mutualBenefitStatusEnded": {
+    "description": "mutualBenefitStatusEnded"
+  },
+  "mutualBenefitStatusRejected": "Tinanggihan",
+  "@mutualBenefitStatusRejected": {
+    "description": "mutualBenefitStatusRejected"
+  },
+  "mutualBenefitStatusExpiredUnanswered": "Nag-expire, walang sagot",
+  "@mutualBenefitStatusExpiredUnanswered": {
+    "description": "mutualBenefitStatusExpiredUnanswered"
+  },
+  "mutualBenefitEventProposed": "Iminungkahi ang partnership",
+  "@mutualBenefitEventProposed": {
+    "description": "mutualBenefitEventProposed"
+  },
+  "mutualBenefitEventAccepted": "Tinanggap ang partnership",
+  "@mutualBenefitEventAccepted": {
+    "description": "mutualBenefitEventAccepted"
+  },
+  "mutualBenefitEventRejected": "Tinanggihan ang partnership",
+  "@mutualBenefitEventRejected": {
+    "description": "mutualBenefitEventRejected"
+  },
+  "mutualBenefitEventActivated": "Na-activate ang partnership",
+  "@mutualBenefitEventActivated": {
+    "description": "mutualBenefitEventActivated"
+  },
+  "mutualBenefitEventCancelRequested": "Hiniling na kanselahin",
+  "@mutualBenefitEventCancelRequested": {
+    "description": "mutualBenefitEventCancelRequested"
+  },
+  "mutualBenefitEventCancelConfirmed": "Nakumpirma ang pagkansela",
+  "@mutualBenefitEventCancelConfirmed": {
+    "description": "mutualBenefitEventCancelConfirmed"
+  },
+  "mutualBenefitEventExpiredUnanswered": "Nag-expire nang walang sagot",
+  "@mutualBenefitEventExpiredUnanswered": {
+    "description": "mutualBenefitEventExpiredUnanswered"
+  },
+  "mutualBenefitEventPaused": "Naka-pause",
+  "@mutualBenefitEventPaused": {
+    "description": "mutualBenefitEventPaused"
+  },
+  "mutualBenefitEventResumed": "Ipinagpatuloy",
+  "@mutualBenefitEventResumed": {
+    "description": "mutualBenefitEventResumed"
+  },
+  "mutualBenefitEventEndedTerm": "Natapos ang termino",
+  "@mutualBenefitEventEndedTerm": {
+    "description": "mutualBenefitEventEndedTerm"
+  },
+  "mutualBenefitEventGrantCreated": "Bagong grant",
+  "@mutualBenefitEventGrantCreated": {
+    "description": "mutualBenefitEventGrantCreated"
+  },
+  "mutualBenefitEventGrantRedeemed": "Na-redeem ang grant",
+  "@mutualBenefitEventGrantRedeemed": {
+    "description": "mutualBenefitEventGrantRedeemed"
+  },
+  "mutualBenefitActivityActive": "Aktibo",
+  "@mutualBenefitActivityActive": {
+    "description": "mutualBenefitActivityActive"
+  },
+  "mutualBenefitActivityPaused": "Naka-pause",
+  "@mutualBenefitActivityPaused": {
+    "description": "mutualBenefitActivityPaused"
+  },
+  "mutualBenefitActivityPending": "Naghihintay ng sagot",
+  "@mutualBenefitActivityPending": {
+    "description": "mutualBenefitActivityPending"
+  },
+  "mutualBenefitActivityInactive": "Hindi aktibo",
+  "@mutualBenefitActivityInactive": {
+    "description": "mutualBenefitActivityInactive"
+  },
+  "mutualBenefitScorecardTitle": "Pagganap",
+  "@mutualBenefitScorecardTitle": {
+    "description": "mutualBenefitScorecardTitle"
+  },
+  "mutualBenefitScorecardFailed": "Hindi ma-load ang pagganap",
+  "@mutualBenefitScorecardFailed": {
+    "description": "mutualBenefitScorecardFailed"
+  },
+  "mutualBenefitActivityTitle": "Kamakailang aktibidad",
+  "@mutualBenefitActivityTitle": {
+    "description": "mutualBenefitActivityTitle"
+  },
+  "mutualBenefitActivityEmpty": "Wala pang aktibidad",
+  "@mutualBenefitActivityEmpty": {
+    "description": "mutualBenefitActivityEmpty"
+  },
+  "mutualBenefitAgreementsTitle": "Mga kasunduan",
+  "@mutualBenefitAgreementsTitle": {
+    "description": "mutualBenefitAgreementsTitle"
+  },
+  "mutualBenefitConfirmCancel": "Tapusin na ang partnership na ito?",
+  "@mutualBenefitConfirmCancel": {
+    "description": "mutualBenefitConfirmCancel"
+  },
+  "mutualBenefitActionAccept": "Tanggapin",
+  "@mutualBenefitActionAccept": {
+    "description": "mutualBenefitActionAccept"
+  },
+  "mutualBenefitActionReject": "Tanggihan",
+  "@mutualBenefitActionReject": {
+    "description": "mutualBenefitActionReject"
+  },
+  "mutualBenefitActionWaitingThem": "Naghihintay sa kabilang panig",
+  "@mutualBenefitActionWaitingThem": {
+    "description": "mutualBenefitActionWaitingThem"
+  },
+  "mutualBenefitActionCancelRequest": "Humiling na tapusin",
+  "@mutualBenefitActionCancelRequest": {
+    "description": "mutualBenefitActionCancelRequest"
+  },
+  "mutualBenefitActionCancelConfirm": "Kumpirmahin ang pagtatapos",
+  "@mutualBenefitActionCancelConfirm": {
+    "description": "mutualBenefitActionCancelConfirm"
+  },
+  "mutualBenefitProposeTitle": "Mag-propose ng bagong partnership",
+  "@mutualBenefitProposeTitle": {
+    "description": "mutualBenefitProposeTitle"
+  },
+  "mutualBenefitProposePhoneLabel": "Numero ng ibang tindahan",
+  "@mutualBenefitProposePhoneLabel": {
+    "description": "mutualBenefitProposePhoneLabel"
+  },
+  "mutualBenefitProposeConditionLabel": "Kondisyon ng pagiging karapat-dapat sa iyong tindahan",
+  "@mutualBenefitProposeConditionLabel": {
+    "description": "mutualBenefitProposeConditionLabel"
+  },
+  "mutualBenefitConditionMinTotal": "Pinakamababang invoice",
+  "@mutualBenefitConditionMinTotal": {
+    "description": "mutualBenefitConditionMinTotal"
+  },
+  "mutualBenefitConditionServiceId": "Isang partikular na serbisyo",
+  "@mutualBenefitConditionServiceId": {
+    "description": "mutualBenefitConditionServiceId"
+  },
+  "mutualBenefitProposeConditionValueRiyals": "Halaga (SAR)",
+  "@mutualBenefitProposeConditionValueRiyals": {
+    "description": "mutualBenefitProposeConditionValueRiyals"
+  },
+  "mutualBenefitProposeConditionValueService": "Serbisyo",
+  "@mutualBenefitProposeConditionValueService": {
+    "description": "mutualBenefitProposeConditionValueService"
+  },
+  "mutualBenefitProposeValidityLabel": "Bisa (araw)",
+  "@mutualBenefitProposeValidityLabel": {
+    "description": "mutualBenefitProposeValidityLabel"
+  },
+  "mutualBenefitProposeDurationLabel": "Tagal (araw)",
+  "@mutualBenefitProposeDurationLabel": {
+    "description": "mutualBenefitProposeDurationLabel"
+  },
+  "mutualBenefitProposeCapLabel": "Limit / 30 araw",
+  "@mutualBenefitProposeCapLabel": {
+    "description": "mutualBenefitProposeCapLabel"
+  },
+  "mutualBenefitProposeGrantTypeLabel": "Uri ng grant",
+  "@mutualBenefitProposeGrantTypeLabel": {
+    "description": "mutualBenefitProposeGrantTypeLabel"
+  },
+  "mutualBenefitGrantTypeDiscount": "Diskwento",
+  "@mutualBenefitGrantTypeDiscount": {
+    "description": "mutualBenefitGrantTypeDiscount"
+  },
+  "mutualBenefitGrantTypeGift": "Regalo",
+  "@mutualBenefitGrantTypeGift": {
+    "description": "mutualBenefitGrantTypeGift"
+  },
+  "mutualBenefitScopeBlanket": "Buong bisita",
+  "@mutualBenefitScopeBlanket": {
+    "description": "mutualBenefitScopeBlanket"
+  },
+  "mutualBenefitScopeItem": "Isang partikular na serbisyo",
+  "@mutualBenefitScopeItem": {
+    "description": "mutualBenefitScopeItem"
+  },
+  "mutualBenefitScopeGroup": "Grupo/package",
+  "@mutualBenefitScopeGroup": {
+    "description": "mutualBenefitScopeGroup"
+  },
+  "mutualBenefitProposeServiceLabel": "Serbisyo",
+  "@mutualBenefitProposeServiceLabel": {
+    "description": "mutualBenefitProposeServiceLabel"
+  },
+  "mutualBenefitProposeGroupLabel": "Grupo",
+  "@mutualBenefitProposeGroupLabel": {
+    "description": "mutualBenefitProposeGroupLabel"
+  },
+  "mutualBenefitProposeImmutableNote": "Ang mga termino ng grant ay fixed na pagkatapos ipadala — kailangan ng bagong kasunduan para sa ibang alok",
+  "@mutualBenefitProposeImmutableNote": {
+    "description": "mutualBenefitProposeImmutableNote"
+  },
+  "mutualBenefitProposeSubmitting": "Ipinapadala...",
+  "@mutualBenefitProposeSubmitting": {
+    "description": "mutualBenefitProposeSubmitting"
+  },
+  "mutualBenefitProposeSubmit": "Ipadala ang panukala",
+  "@mutualBenefitProposeSubmit": {
+    "description": "mutualBenefitProposeSubmit"
+  },
+  "mutualBenefitGrantGift": "Regalo: {name}",
+  "@mutualBenefitGrantGift": {
+    "description": "mutualBenefitGrantGift",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mutualBenefitGrantDiscountItem": "Diskwento sa: {name}",
+  "@mutualBenefitGrantDiscountItem": {
+    "description": "mutualBenefitGrantDiscountItem",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mutualBenefitGrantDiscountGroup": "Diskwento sa grupo: {name}",
+  "@mutualBenefitGrantDiscountGroup": {
+    "description": "mutualBenefitGrantDiscountGroup",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mutualBenefitPartnerCount": "{n} kasunduan",
+  "@mutualBenefitPartnerCount": {
+    "description": "mutualBenefitPartnerCount",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "mutualBenefitProposeResultFail": "Hindi maipadala ang panukala",
+  "@mutualBenefitProposeResultFail": {
+    "description": "mutualBenefitProposeResultFail"
+  },
+  "mutualBenefitRefusal402": "Hindi subscribed ang tindahan mo sa Mutual Benefit app — mag-subscribe muna sa app store",
+  "@mutualBenefitRefusal402": {
+    "description": "mutualBenefitRefusal402"
+  },
+  "mutualBenefitRefusal403": "Wala kang pahintulot para sa aksyong ito",
+  "@mutualBenefitRefusal403": {
+    "description": "mutualBenefitRefusal403"
+  },
+  "mutualBenefitRefusal400": "Hindi valid ang datos ng panukala — suriin ang kondisyon, o baka ikaw mismo ang minumungkahi mong partner",
+  "@mutualBenefitRefusal400": {
+    "description": "mutualBenefitRefusal400"
+  },
+  "mutualBenefitRefusal404": "Walang natagpuang tindahan sa numerong iyon, o wala ang napiling serbisyo/grupo sa katalogo ng kabilang tindahan",
+  "@mutualBenefitRefusal404": {
+    "description": "mutualBenefitRefusal404"
+  },
+  "mutualBenefitRefusal409": "Naabot mo na ang limitasyon na 3 aktibong partnership, o nagbago ang estado ng partnership",
+  "@mutualBenefitRefusal409": {
+    "description": "mutualBenefitRefusal409"
+  },
+  "mutualBenefitRefusal503": "Pansamantalang hindi available ang billing, subukan muli mamaya",
+  "@mutualBenefitRefusal503": {
+    "description": "mutualBenefitRefusal503"
+  },
+  "appStoreTitle": "App Store",
+  "appStoreSubtitle": "Palaguin ang tindahan mo gamit ang totoong apps, isa-isa",
+  "appStoreTabMine": "Mga app ko",
+  "appStoreTabAll": "App Store",
+  "appStoreDetails": "Detalye",
+  "appStorePerMonth": "kada buwan",
+  "appStorePerMonthShort": "/buwan",
+  "appStoreActive": "Aktibo",
+  "appStoreTrialing": "Trial",
+  "appStoreSubscribe": "Mag-subscribe ngayon",
+  "appStoreCancelRenewal": "Ihinto ang renewal",
+  "appStoreUndoCancel": "I-undo ang pagkanselá",
+  "appStoreConfirmCancel": "Ihinto ang renewal ng app na ito? Mananatiling aktibo hanggang matapos ang bayad na yugto",
+  "appStoreCartCount": "{n} sa cart",
+  "appStoreCheckout": "Mag-checkout",
+  "appStoreCheckingOut": "Nagche-checkout...",
+  "appStoreRefusal402": "Hindi pa naka-enable ang bayad sa account mo ngayon — makipag-ugnayan para i-enable",
+  "appStoreRefusal403": "Wala kang pahintulot na kumpletuhin ang bilhing ito",
+  "appStoreRefusal404": "Hindi nahanap ang planong hiniling — i-refresh at subukan ulit",
+  "appStoreRefusal409": "May-ari na ng app na ito, o nagbago ang kalagayan nito habang bumibili",
+  "appStoreRefusalGeneric": "Hindi nakumpleto ang pagbili, subukan ulit",
+  "appStoreCapacityTitle": "Kapasidad",
+  "appStoreCapacityConfirmRemove": "Alisin ang huling unit ng \"{name}\"? Ihihinto nito ang buong renewal",
+  "appStoreCartSubtotal": "Subtotal",
+  "appStoreCartDiscount": "Diskwento",
+  "appStoreCartTax": "Buwis",
+  "appStoreCartTotal": "Kabuuan",
+  "appStoreCartDiscountCaveat": "Ipinapakita bago ang diskwento at buwis; ang eksaktong halaga ay kakalkulahin at ipapakita sa checkout.",
+  "appStoreCartItemDiscount": "({percent}% diskwento)",
+  "@appStoreCartItemDiscount": { "placeholders": { "percent": { "type": "int" } } },
+  "appStoreAutoAdded": "Naidagdag ang \"{added}\" awtomatiko dahil kailangan ito ng \"{trigger}\".",
+  "@appStoreAutoAdded": { "placeholders": { "added": { "type": "String" }, "trigger": { "type": "String" } } },
+  "appStoreMissingRequirement": "Kailangan munang paganahin ang {names}.",
+  "@appStoreMissingRequirement": { "placeholders": { "names": { "type": "String" } } },
+  "appStoreRequiresAnyVisit": "I-record ang Bisita",
+  "appStoreRequiresAnyBookings": "Mga Booking",
+  "appStoreRequiresAnyContacts": "Mga Contact",
+  "appStoreRequiresAnyMobileRequests": "Mobile Requests",
+  "appStoreRequiresOr": "o",
+  "appStoreOr": "o",
+  "appStoreCascadeWarning": "Ihihinto rin ito: {names}",
+  "@appStoreCascadeWarning": { "placeholders": { "names": { "type": "String" } } },
+  "appStoreDiscountBadge": "{percent}% na diskwento ang naaplay",
+  "@appStoreDiscountBadge": { "placeholders": { "percent": { "type": "int" } } },
+  "appStoreDiscountBadgeWithApp": "{percent}% na diskwento mula sa {app}",
+  "@appStoreDiscountBadgeWithApp": { "placeholders": { "percent": { "type": "int" }, "app": { "type": "String" } } },
+  "appStoreDiscountedShort": "{percent}% na diskwento",
+  "@appStoreDiscountedShort": { "placeholders": { "percent": { "type": "int" } } },
+  "appStoreOfferTitle": "May naghihintay na {percent}% na diskwento",
+  "@appStoreOfferTitle": { "placeholders": { "percent": { "type": "int" } } },
+  "appStoreOfferDesc": "Awtomatikong ma-a-unlock kapag nag-subscribe ka sa {app}",
+  "@appStoreOfferDesc": { "placeholders": { "app": { "type": "String" } } },
+  "appStoreAiUnitsCount": "{units} yunit",
+  "@appStoreAiUnitsCount": { "placeholders": { "units": { "type": "int" } } },
+  "appStoreAiUnitsIncluded": "Libreng AI, bawat buwan",
+  "whatsappAssistantTitle": "AI Assistant",
+  "whatsappAssistantSubtitle": "Sumasagot sa mga customer mo sa WhatsApp para sa iyo, iminumungkahi ang mga plano mo at ang points nila sa tamang sandali.",
+  "whatsappAssistantLoadFailed": "Hindi na-load ang settings ng assistant.",
+  "whatsappAssistantConfirm": "Kumpirmahin",
+  "whatsappAssistantSaveFailed": "Hindi na-save, subukan ulit.",
+  "whatsappAssistantToggleTitle": "Sumasagot ang assistant",
+  "whatsappAssistantToggleDesc": "Ang pag-off ay kumpletong iki-lock ang assistant, nang hindi kinakansela ang subscription mo — buksan muli anumang oras.",
+  "whatsappAssistantToggleConfirmEnableTitle": "I-on ang AI assistant?",
+  "whatsappAssistantToggleConfirmEnableBody": "Magsisimula itong sumagot sa mga customer mo sa WhatsApp agad.",
+  "whatsappAssistantToggleConfirmDisableTitle": "I-off ang AI assistant?",
+  "whatsappAssistantToggleConfirmDisableBody": "Hihinto itong sumagot nang tuluyan, na parang hindi ka nag-subscribe — nang hindi kinakansela ang subscription mismo.",
+  "whatsappAssistantNotesTitle": "Mga tala ng tindahan",
+  "whatsappAssistantNotesDesc": "Ang isinusulat mo dito ay tumutulong sa assistant na paglingkuran ang mga customer mo nang may karagdagang konteksto tungkol sa tindahan mo.",
+  "whatsappAssistantWordLimitTitle": "Limitasyon ng salita ng mensahe ng customer",
+  "whatsappAssistantWordLimitDesc": "Ang pinakamahabang mensaheng tinatanggap ng assistant mula sa customer bago hilingin sa kanyang paikliin ito.",
+  "whatsappAssistantAutoRegisterTitle": "Awtomatikong pagrehistro ng contact",
+  "whatsappAssistantAutoRegisterDesc": "Anumang bagong numerong magme-message sa WhatsApp mo ay awtomatikong ise-save bilang tunay na contact.",
+  "whatsappAssistantAutoRegisterConfirmEnableTitle": "I-on ang awtomatikong pagrehistro?",
+  "whatsappAssistantAutoRegisterConfirmEnableBody": "Ang lahat ng magme-message sa WhatsApp number mo ay awtomatikong ise-save bilang contact, kahit sa iisang mensahe lang.",
+  "whatsappAssistantAutoRegisterConfirmDisableTitle": "I-off ang awtomatikong pagrehistro?",
+  "whatsappAssistantAutoRegisterConfirmDisableBody": "Ang mga bagong numero ay hindi na awtomatikong ise-save bilang contact.",
+  "partnerLoyaltyTitle": "Katapatan ng Kasosyo",
+  "partnerLoyaltySubtitle": "Bumuo ng alyansa sa ibang tindahang nakarehistro sa amin at bigyan ito ng benepisyo sa subscription nito",
+  "partnerLoyaltyCapLabel": "Kasalukuyang limitasyon mo",
+  "partnerLoyaltyPrefsTitle": "Checkbox ng alyansa habang nagre-record ng bisita",
+  "partnerLoyaltyPrefsDesc": "Ang pag-on dito ay nagbibigay-daan sa sinumang staff na nagre-record ng bisita na bumuo ng alyansa sa parehong sandali.",
+  "partnerLoyaltyGrantTitle": "Bumuo ng alyansa",
+  "partnerLoyaltyPhoneLabel": "Numero ng telepono ng katuwang na tindahan",
+  "partnerLoyaltyPhoneHintOk": "Walang alyansa sa kanila ngayong buwan",
+  "partnerLoyaltyPhoneHintAlready": "May alyansa ka na sa kanila ngayong buwan",
+  "partnerLoyaltyPhoneHintUnregistered": "Hindi ito nakarehistrong tindahan sa amin",
+  "partnerLoyaltyPercentLabel": "Porsyento ng benepisyo",
+  "partnerLoyaltyCapLine": "Pinakamataas na porsyentong maibibigay mo ngayon: {p}%",
+  "@partnerLoyaltyCapLine": {
+    "placeholders": { "p": { "type": "int" } }
+  },
+  "partnerLoyaltyScopeLabel": "Sakop",
+  "partnerLoyaltyScopeAll": "Lahat",
+  "partnerLoyaltySubmit": "Buuin ang alyansa",
+  "partnerLoyaltySubmitting": "Ipinapadala…",
+  "partnerLoyaltyResultSuccess": "Nabuo ang alyansa — awtomatikong ilalapat sa susunod na pag-renew ng tindahan.",
+  "partnerLoyaltyResultPartial": "Bahagyang nabuo — may ilang app na tinanggihan, buksan ang «Log» para sa detalye.",
+  "partnerLoyaltyOutcomeGranted": "Tagumpay",
+  "partnerLoyaltyOutcomeInvalidPercent": "Hindi tamang porsyento ng benepisyo",
+  "partnerLoyaltyOutcomeInvalidScope": "Pumili ng tunay na app",
+  "partnerLoyaltyOutcomeOverCap": "Lampas sa kasalukuyang limitasyon mo",
+  "partnerLoyaltyOutcomeNoAccount": "Hindi ito nakarehistrong tindahan sa amin",
+  "partnerLoyaltyOutcomeNotSubscribed": "Wala sa mga piniling app ang taglay ng tindahang iyon",
+  "partnerLoyaltyOutcomeBillingUnavailable": "Hindi natapos, subukan muli",
+  "partnerLoyaltyOutcomeAlreadyHasBetterCoupon": "May mas malakas nang benepisyo",
+  "partnerLoyaltyOutcomeCouponExpired": "Expired na ang benepisyo",
+  "partnerLoyaltyOutcomeCouponExhausted": "Naubos na ang benepisyo",
+  "partnerLoyaltyOutcomeCouponUnknown": "Hindi kilalang benepisyo",
+  "partnerLoyaltyOutcomePlanMismatch": "Hindi tugma ang benepisyo sa app na ito",
+  "partnerLoyaltyOutcomeCouponDisabled": "Naka-disable ang benepisyo",
+  "partnerLoyaltyOutcomeCouponScheduled": "Hindi pa nagsisimula ang benepisyo",
+  "partnerLoyaltyTabLog": "Log",
+  "partnerLoyaltyTabStats": "Estadistika",
+  "partnerLoyaltyLogSearchHint": "Maghanap gamit ang huling 4 na digit",
+  "partnerLoyaltyLogFilterAll": "Lahat ng status",
+  "partnerLoyaltyLogFilterOk": "Matagumpay lang",
+  "partnerLoyaltyLogFilterFail": "Nabigo lang",
+  "partnerLoyaltyLogEmptyTitle": "Wala pang alyansa",
+  "partnerLoyaltyLogEmptyDesc": "Lalabas dito ang unang alyansa mo.",
+  "partnerLoyaltyLogReadFailed": "Hindi mabasa ang log",
+  "partnerLoyaltyStatsKpiMonth": "Mga alyansa ngayong buwan",
+  "partnerLoyaltyStatsKpiCap": "Kasalukuyang limitasyon mo",
+  "partnerLoyaltyStatsKpiCeiling": "Pinakamataas na limitasyon ng platform",
+  "partnerLoyaltyStatsLadderTitle": "Ang posisyon mo sa hagdan",
+  "partnerLoyaltyStatsLadderNote": "{n} alyansa ngayong buwan — {left} na lang para sa tier na {p}%",
+  "@partnerLoyaltyStatsLadderNote": {
+    "placeholders": {
+      "n": { "type": "int" },
+      "left": { "type": "int" },
+      "p": { "type": "int" }
+    }
+  },
+  "partnerLoyaltyStatsLadderAtTop": "{n} alyansa ngayong buwan — nasa pinakamataas na tier ka na",
+  "@partnerLoyaltyStatsLadderAtTop": {
+    "placeholders": { "n": { "type": "int" } }
+  },
+  "partnerLoyaltyStatsCeilingNote": "Pinakamataas na limitasyon ng platform {p}% — walang tindahang lalampas dito",
+  "@partnerLoyaltyStatsCeilingNote": {
+    "placeholders": { "p": { "type": "int" } }
+  },
+  "partnerLoyaltyStatsChartTitle": "Bilang ng alyansa sa nakaraang 6 na buwan",
+  "partnerLoyaltyReadFailedTitle": "Hindi mabasa ang datos mo",
+  "partnerLoyaltyReadFailedDesc": "Subukan muli sa ibang pagkakataon.",
+  "shopReadFailed": "Hindi mabasa ang mga indikador ng tindahan mo",
+  "shopMultiBranchTitle": "Pumili ng sangay",
+  "shopMultiBranchDesc": "May higit sa isang sangay ka — pumili ng isa para makita ang mga indikador nito.",
+  "shopEmptyBranchTitle": "Wala pang datos para sa sangay na ito",
+  "shopRetentionTitle": "Rate ng pagbalik ng mga customer mo",
+  "shopRetentionMutedNote": "Hindi pa sapat ang mga bisita para kalkulahin ito.",
+  "shopRetentionBrandNew": "I-rehistro ang unang bisita para makita ang rate ng pagbalik.",
+  "shopRegisterFirstVisit": "Irehistro ang unang bisita",
+  "shopRetentionPrefix10": "Sa bawat 10 customer na bumisita sa iyo,",
+  "shopRetentionSuffix": "ang bumalik",
+  "shopOneCustomer": "Isang customer ang bumisita sa iyo",
+  "shopNCustomers": "{n} customer ang bumisita sa iyo",
+  "@shopNCustomers": { "placeholders": { "n": { "type": "int" } } },
+  "shopRetentionSmallPrefix": "{base}, kung saan",
+  "@shopRetentionSmallPrefix": { "placeholders": { "base": { "type": "String" } } },
+  "shopOverNMonths": "sa loob ng {n} buwan",
+  "@shopOverNMonths": { "placeholders": { "n": { "type": "int" } } },
+  "shopUnlimited": "Walang limitasyon",
+  "shopTileSentToday": "Naipadala ngayon",
+  "shopTileWaiting": "Naghihintay",
+  "shopTileCeilingRemaining": "Natitira ngayon",
+  "shopNextStepLabel": "Susunod na hakbang",
+  "shopNotNow": "Hindi ngayon",
+  "shopDeckUrgent": "Agaran",
+  "shopDeckWeek": "Ngayong linggo",
+  "shopDeckOpportunities": "Mga pagkakataon",
+  "shopComputedNow": "Nakalkula ngayon",
+  "shopComputedHoursAgo": "Nakalkula {n} oras ang nakalipas",
+  "@shopComputedHoursAgo": { "placeholders": { "n": { "type": "int" } } },
+  "shopStale": "Luma na",
+  "shopRefreshAction": "I-refresh",
+  "shopComputingTitle": "Kinakalkula ang mga indikador mo",
+  "shopComputeLoading": "Kinakalkula…",
+  "shopComputeAction": "Kalkulahin ngayon",
+  "shopAtRiskTitle": "Mga customer na malapit nang umalis",
+  "shopAtRiskMutedNote": "Hindi pa sapat ang datos.",
+  "shopAtRiskAllGood": "Walang overdue na customer ngayon — maayos ang lahat",
+  "shopWaNotConnected": "Hindi pa nakakonekta ang WhatsApp ng tindahan mo",
+  "shopWaNotVerified": "Hindi pa na-verify ang numero ng WhatsApp ng tindahan mo",
+  "shopCeilingReached": "Naabot mo na ang limitasyon ng mensahe ngayong araw",
+  "shopDaysOverdue": "{n} araw na overdue",
+  "@shopDaysOverdue": { "placeholders": { "n": { "type": "int" } } },
+  "shopAtRiskCta": "Magpadala ng win-back campaign",
+  "shopAiImpactTitle": "Epekto ng AI assistant sa WhatsApp",
+  "shopAiConversations": "Mga usapan",
+  "shopAiBookings": "Mga booking",
+  "shopAiUpsellRate": "Pagtanggap sa upsell",
+  "shopWeekMutedTitle": "Mga bisita ngayong linggo",
+  "shopWeekMutedNote": "Hindi pa sapat ang datos.",
+  "shopNewReturningMutedTitle": "Bago kumpara sa bumabalik na customer",
+  "shopNewReturningMutedNote": "Hindi pa sapat ang datos.",
+  "shopBranchCompareTitle": "Paghahambing ng sangay",
+  "shopBranchCompareMutedNote": "Kailangan ng hindi bababa sa dalawang sangay para maihambing.",
+  "shopStaffCompareTitle": "Paghahambing ng staff",
+  "shopStaffCompareMutedNote": "Kailangan ng hindi bababa sa dalawang staff para maihambing.",
+  "shopWeekTitle": "Mga bisita ngayong linggo",
+  "shopNewReturningTitle": "Bago kumpara sa bumabalik",
+  "shopNewLabel": "Bago:",
+  "shopReturningLabel": "Bumabalik:",
+  "shopServicesTitle": "Mga serbisyo mo",
+  "shopServicesMutedNote": "Hindi pa sapat ang datos.",
+  "shopMessageFlowTitle": "Epekto ng reminder message",
+  "shopMutedMessageFlowNote": "Hindi pa sapat ang datos.",
+  "shopHoldoutTitle": "Paghahambing: na-message kumpara sa hindi",
+  "shopMutedHoldoutNote": "Sinusukat pa.",
+  "shopReturnedAfterReminder": "{visits} bisita sa loob ng {days} araw pagkatapos ng reminder",
+  "@shopReturnedAfterReminder": {
+    "placeholders": { "visits": { "type": "int" }, "days": { "type": "int" } }
+  },
+  "shopOptOutRate": "{p}% ang humiling na itigil ang mensahe",
+  "@shopOptOutRate": { "placeholders": { "p": { "type": "String" } } },
+  "shopHoldoutNoMessages": "Walang mensahe",
+  "shopHoldoutReached": "Na-message",
+  "shopHoldoutOff": "Naka-off ang pagsukat ng epekto ng mensahe — natatanggap ng lahat ng customer mo ang lahat, kaya walang grupong maikukumpara.",
+  "shopHoldoutMeasuring": "Sinusukat pa namin ang epekto ng mensahe sa tindahan mo — {min} sa {need} sa mas maliit na grupo.",
+  "@shopHoldoutMeasuring": {
+    "placeholders": { "min": { "type": "int" }, "need": { "type": "int" } }
+  },
+  "shopTodayRetrying": "May {n} mensaheng sinusubukan pa ring makalabas",
+  "@shopTodayRetrying": { "placeholders": { "n": { "type": "int" } } },
+  "shopTrendUp": "gumagaling",
+  "shopTrendDown": "bumababa",
+  "shopRetentionSincePeriods": "sa loob ng {n} yugto",
+  "@shopRetentionSincePeriods": { "placeholders": { "n": { "type": "int" } } },
+  "shopAtLeastSuffix": " — kahit man lang",
+  "shopRegisterFirstVisitArrow": "Irehistro ang unang bisita ←",
+  "shopWeekNoCompare": "Wala pa kaming kumpletong linggo para ikumpara",
+  "shopNextStepAlso": "Dagdag pa: {msg}",
+  "@shopNextStepAlso": { "placeholders": { "msg": { "type": "String" } } },
+  "shopBranchCompareUnassigned": "{n} bisitang walang itinalagang branch — hindi naibilang sa kahit anong branch.",
+  "@shopBranchCompareUnassigned": { "placeholders": { "n": { "type": "int" } } },
+  "shopBranchCompareNeedTwo": "Hindi pa namin ikinukumpara ang mga branch — kailangan ng dalawa o higit pang branch na may totoong bisita.",
+  "shopBranchCompareNeedSecond": "Isang aktibong branch pa lamang — kailangan ng pangalawang branch na may totoong bisita para sa paghahambing.",
+  "shopBranchCompareTooShort": "Hindi pa namin ini-rank ang mga branch — maikli pa ang panahon, at hindi pa makatarungan ang paghahambing sa pinakabago.",
+  "shopStaffCompareUnassigned": "{n} bisitang walang itinalagang staff — hindi naibilang kaninuman.",
+  "@shopStaffCompareUnassigned": { "placeholders": { "n": { "type": "int" } } },
+  "shopStaffCompareNeedTwo": "Hindi pa namin ikinukumpara ang staff — kailangan ng dalawa o higit pang staff na may naitalagang bisita.",
+  "shopStaffCompareNeedSecond": "Isang naitalagang staff pa lamang — kailangan ng pangalawa na may totoong bisita para sa paghahambing.",
+  "shopStaffCompareTooShort": "Hindi pa namin ini-rank ang staff — maikli pa ang panahon, at hindi pa makatarungan ang paghahambing sa pinakabago.",
+  "shopPeakTitle": "Mga pinaka-busy mong oras",
+  "shopPeakMutedNote": "Kailangan ng mga bisitang kumalat sa sapat na araw at oras para maiguhit.",
+  "shopPeakBusiestTime": "{day} humigit-kumulang {h}:00",
+  "@shopPeakBusiestTime": { "placeholders": { "day": { "type": "String" }, "h": { "type": "int" } } },
+  "shopPeakBusiestNote": "Ang pinaka-busy mong oras: {name}.",
+  "@shopPeakBusiestNote": { "placeholders": { "name": { "type": "String" } } },
+  "shopEntityDayServicesTitle": "Mga serbisyo mo ayon sa araw ng linggo",
+  "shopEntityDayServicesHint": "Aling serbisyo ang mas hinihiling sa tiyak na araw — tumutulong ito sa paghahanda ng tamang staff sa araw na iyon.",
+  "shopEntityDayServicesMutedNote": "Kailangan ng mga bisitang kumalat sa sapat na araw para maiguhit.",
+  "shopEntityDayBranchesTitle": "Mga branch mo ayon sa araw ng linggo",
+  "shopEntityDayBranchesHint": "Hindi kailangang magkapareho ang ritmo ng mga branch mo — busy ang branch sa mall sa holiday, busy ang branch sa neighborhood pagkatapos ng trabaho.",
+  "shopEntityDayBranchesMutedNote": "Kailangan ng pangalawang branch at mga bisitang kumalat sa sapat na araw para maiguhit.",
+  "shopBundlesTitle": "Mga iminumungkahing bundle",
+  "shopBundlesMutedNote": "Kulang pa ang mga association para makapagmungkahi ng bundle mula rito.",
+  "shopBundlesOpportunity": "{n} pagkakataon",
+  "@shopBundlesOpportunity": { "placeholders": { "n": { "type": "int" } } },
+  "shopAssociationsTitle": "Madalas hilingin nang magkasama",
+  "shopAssociationsMutedNote": "Kulang pa ang mga association.",
+  "shopAssociationsLearningNote": "Hindi pa namin alam kung ano ang hinihiling kasama ng ano — kailangan ng mas maraming bisita ang pagtukoy ng association para totoo ang resulta, hindi lang pagkakataon. ({have}/{need})",
+  "@shopAssociationsLearningNote": { "placeholders": { "have": { "type": "int" }, "need": { "type": "int" } } },
+  "shopCustomersCount": "{n} customer",
+  "@shopCustomersCount": { "placeholders": { "n": { "type": "int" } } },
+  "shopDay0Short": "Lin", "shopDay1Short": "Lun", "shopDay2Short": "Mar", "shopDay3Short": "Miy",
+  "shopDay4Short": "Huw", "shopDay5Short": "Biy", "shopDay6Short": "Sab",
+  "shopDay0Full": "Linggo", "shopDay1Full": "Lunes", "shopDay2Full": "Martes",
+  "shopDay3Full": "Miyerkules", "shopDay4Full": "Huwebes", "shopDay5Full": "Biyernes", "shopDay6Full": "Sabado",
+  "shopMissedTitle": "Mga customer na hindi pa nasubukan ang lahat ng angkop sa kanila",
+  "shopMissedMutedNote": "Wala pang malinaw na customer na kulang sa serbisyong karaniwang binibili kasama ng kanila.",
+  "shopCustomerFallback": "Customer",
+  "shopKpiActiveCustomers": "Aktibong customer",
+  "shopKpiReturnCycle": "Return cycle",
+  "shopDaysSuffix": "{n} araw",
+  "@shopDaysSuffix": { "placeholders": { "n": { "type": "int" } } },
+  "shopKpiChurnRate": "Churn",
+  "shopTileServicesPerVisit": "Serbisyo kada bisita",
+  "shopTileExpectedNextWeek": "Inaasahan sa susunod na linggo",
+  "shopTileCycleCompletion": "Pagsunod sa cycle",
+  "shopPerVisitMutedTitle": "Serbisyo kada bisita, at pagsunod sa cycle",
+  "shopPerVisitMutedNote": "Kailangan muna ng totoong mga pagbisita para makuwenta.",
+  "shopLeadConversionTitle": "Pagbabago ng mga unang beses na nakipag-ugnayan",
+  "shopLeadConversionDetail": "{converted} sa {total} ang naging tunay na bisita",
+  "@shopLeadConversionDetail": { "placeholders": { "converted": { "type": "int" }, "total": { "type": "int" } } }
 }

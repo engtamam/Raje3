@@ -299,7 +299,7 @@ class Scheduler:
         due_by_service = {}
         for sid in services:
             svc = cfgs.get(sid, {})
-            if float(svc.get("cycle_days", intervals[sid])) <= 0 and sid not in intervals:
+            if float(svc.get("cycle_days", intervals[sid])) <= 0:
                 continue
             due_by_service[sid] = adaptive.next_due_at(
                 last_visit_at=occurred, interval_days=intervals[sid],
@@ -403,6 +403,57 @@ class Scheduler:
         await self._sched.upsert(tenant, sch.key, as_row(sch))
         outcome.scheduled.append(sch.key)
         return outcome
+
+    # ORDER_ID -> REASON ID, one per status `core/orders.py` (services/operations) can emit —
+    # see reasons.py's own six `order_*` entries, added together with this mapping.
+    _ORDER_REASON_BY_STATUS = {
+        "confirmed": "order_confirmed",
+        "preparing": "order_preparing",
+        "ready": "order_ready",
+        "out_for_delivery": "order_out_for_delivery",
+        "delivered": "order_delivered",
+        "cancelled": "order_cancelled",
+    }
+
+    async def on_order(self, event: dict[str, Any], *, now: int) -> VisitOutcome:
+        """One WhatsApp Direct Ordering status change -> one immediate schedule.
+
+        NO RETRACTION WINDOW, UNLIKE `on_booking` — a customer who just paid, or whose order just
+        became physically ready, has nothing left to reconsider in the next few minutes the way a
+        fresh booking does; `due_at=now` sends it on the very next tick.
+
+        EACH STATUS IS ITS OWN SCHEDULE ROW (`kind=f"order_{status}"`), NEVER ONE MUTABLE SLOT PER
+        ORDER — unlike a booking's single reschedulable confirmation, an order's six statuses are
+        six genuinely separate messages, each switchable on its own by the owner (reasons.py's own
+        per-reason `default_on`/`owner_can_switch`). The SAME status arriving twice (a redelivered
+        event) upserts onto the SAME key rather than duplicating, which is the dedup this product
+        needs here — there is no second, different fact a repeat of "confirmed" could carry.
+
+        AN UNRECOGNISED STATUS REFUSES TO GUESS, same posture `on_booking` already takes for an
+        unrecognised `kind_word`."""
+        tenant = event.get("tenant") or ""
+        subject = event.get("subject_ref") or ""
+        order_id = event.get("order_id") or ""
+        status = event.get("status") or ""
+        if not tenant or not subject or not order_id:
+            return VisitOutcome(scheduled=[])
+        reason_id = self._ORDER_REASON_BY_STATUS.get(status)
+        if reason_id is None:
+            return VisitOutcome(scheduled=[])
+
+        # A SHORT, CUSTOMER-FACING NUMBER — never the raw internal id (Schedule.order_number's own
+        # docstring). The last 6 hex characters of `ord_<uuid32>` are as collision-resistant as
+        # anything shorter would be, and shorter is the entire point of this field existing.
+        order_number = f"#{order_id[-6:].upper()}"
+
+        sch = Schedule(
+            tenant=tenant, subject_ref=subject, service_id=order_id,
+            kind=f"order_{status}", due_at=now, cls="service",
+            template_type=T.get(reason_id).template_type,
+            order_id=order_id, order_number=order_number,
+            branch_id=event.get("branch_id") or "")
+        await self._sched.upsert(tenant, sch.key, as_row(sch))
+        return VisitOutcome(scheduled=[sch.key])
 
     async def _learn(self, tenant: str, subject: str, service_id: str, *,
                      occurred: int, svc: dict[str, Any]) -> tuple[float, bool, bool]:

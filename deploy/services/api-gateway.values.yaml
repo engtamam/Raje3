@@ -12,7 +12,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/api-gateway
-  digest: "sha256:b0ac0cf62af8da598388253c1689c45290f21d61981b31f977a46f51a90fd5f3"   # v0.25.27
+  digest: "sha256:730331879f671ff414cd3650d40354dddba483fb834c9e4a74daa4b9f26d1ead"   # v0.25.39
 
 replicas: 1
 
@@ -48,7 +48,7 @@ resources:
     # carries EVERY other service's traffic on top of its own: it is structurally the single
     # busiest process in the fleet, and deserves a proportionally higher weight than a peer that
     # only serves its own domain.
-    cpu: 208m  # smart-cpu-sizing.py: hottest tier, node budget-derived
+    cpu: 202m  # smart-cpu-sizing.py: hottest tier, node budget-derived
     memory: 192Mi
   limits:
     memory: 384Mi
@@ -97,6 +97,16 @@ env:
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 
+  # ── Tenant-status enforcement (v0.25.38) — a suspended/deleted tenant loses ALL access ──
+  # Owner-approved policy, 2026-09-28: previously tenant.status was enforced only by
+  # tenant-service's own 3 self-service edit routes; this gates every authenticated request
+  # here at the gateway. Complements identity-service's own mint-time gate (its own
+  # values.yaml) — identity stops NEW tokens, this kills ALREADY-ISSUED ones within
+  # TENANT_STATUS_TTL_SECONDS.
+  TENANT_GATE_DRIVER: "tenant"
+  TENANT_SERVICE_URL: "http://tenant-service:8000"
+  TENANT_STATUS_ENFORCEMENT: "block"
+
   # ── The route table — routes are DATA, not code ───────────────────────────────────────────
   # strip_prefix is FALSE everywhere on purpose. Our upstreams serve these exact paths
   # (/api/v1/tenants, not /tenants), so stripping would forward "/" and 404 everything.
@@ -138,6 +148,15 @@ env:
   # nothing in any log said so, because a 404 at the gateway never reaches a service.
   #
   # Everything else is auth=required, because deny-by-default applies to routing too.
+  # /api/v1/public_catalog CARRIES NO TOKEN, BY DESIGN (2026-10-03) — the one route Meta's
+  # own WhatsApp Catalog crawler must be able to fetch an image from with no bearer token, since it
+  # has none to give. Gated by a random, unguessable, 256-bit capability TOKEN in the path instead
+  # of an identity check (operations/app/core/public_catalog_image.py's own module docstring) — a
+  # token rotates every time the photo is replaced, so a leaked/scraped URL goes dead on its own.
+  # Scoped to this one narrow prefix (operations/app/api/v1/public_catalog.py — the gateway
+  # prefix must match that module's own filename exactly, ci/check_a_route_with_no_token_is_
+  # open_at_the_door.py enforces it), so no other route can inherit this exemption by accident.
+  #
   # /api/v1/prefs CARRIES NO TOKEN, BY DESIGN, AND THE GATEWAY DISAGREED (ط-6).
   # `reminders/api/v1/prefs.py` opens by saying this surface is reached from a link at the end of a
   # message and that the link carries nothing — the reference is an opaque HMAC, the route returns
@@ -233,6 +252,7 @@ env:
       {"prefix":"/api/v1/billing","upstream":"http://billing-service:8000","auth":"required","strip_prefix":false},
 
       {"prefix":"/api/v1/signup","upstream":"http://operations:8000","auth":"none","strip_prefix":false},
+      {"prefix":"/api/v1/public_catalog","upstream":"http://operations:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/oauth/token","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/service-accounts","upstream":"http://identity-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/till","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
@@ -254,6 +274,9 @@ env:
       {"prefix":"/api/v1/campaigns","upstream":"http://campaigns:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/search","upstream":"http://search-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/bookings","upstream":"http://bookings:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/coworking","upstream":"http://coworking:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/p/coworking","upstream":"http://coworking:8000","auth":"none","strip_prefix":false},
+      {"prefix":"/api/v1/referrals","upstream":"http://referrals:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/wallet","upstream":"http://wallet-service:8000","auth":"required","strip_prefix":false},
 
       {"prefix":"/api/v1/tickets","upstream":"http://ticket-service:8000","auth":"required","strip_prefix":false},
@@ -280,6 +303,7 @@ env:
       {"prefix":"/api/v1/platform/statements","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/wallet-topups","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/coupons","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/platform/app-visibility","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/template-help","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/silent","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/limits","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
@@ -331,7 +355,7 @@ env:
   # ── Admin panel aggregator (spec §15) ─────────────────────────────────────────────────────
   # CONFIG ONLY — never a request value. An aggregator that fans out to a caller-named host is
   # an SSRF console. Each service appears the moment it answers /internal/manifest.
-  ADMIN_SERVICES: "analytics-service=http://analytics-service:8000,audit-service=http://audit-service:8000,authz-service=http://authz-service:8000,billing-service=http://billing-service:8000,campaigns=http://campaigns:8000,compliance-service=http://compliance-service:8000,connector-service=http://connector-service:8000,feature-flag-service=http://feature-flag-service:8000,identity-service=http://identity-service:8000,job-service=http://job-service:8000,notification-service=http://notification-service:8000,onboarding-service=http://onboarding-service:8000,operations=http://operations:8000,portal=http://portal:8000,reminders=http://reminders:8000,search-service=http://search-service:8000,tenant-service=http://tenant-service:8000,ticket-service=http://ticket-service:8000,wallet-service=http://wallet-service:8000,webhook-service=http://webhook-service:8000,loyalty=http://loyalty:8000,insights=http://insights:8000,bookings=http://bookings:8000,affiliate-service=http://affiliate-service:8000,secrets-admin=http://secrets-admin:8000,whatsapp-assistant=http://whatsapp-assistant:8000,assistant-service=http://assistant-service:8000,error-collector=http://error-collector:8000"
+  ADMIN_SERVICES: "analytics-service=http://analytics-service:8000,audit-service=http://audit-service:8000,authz-service=http://authz-service:8000,billing-service=http://billing-service:8000,campaigns=http://campaigns:8000,compliance-service=http://compliance-service:8000,connector-service=http://connector-service:8000,feature-flag-service=http://feature-flag-service:8000,identity-service=http://identity-service:8000,job-service=http://job-service:8000,notification-service=http://notification-service:8000,onboarding-service=http://onboarding-service:8000,operations=http://operations:8000,portal=http://portal:8000,reminders=http://reminders:8000,search-service=http://search-service:8000,tenant-service=http://tenant-service:8000,ticket-service=http://ticket-service:8000,wallet-service=http://wallet-service:8000,webhook-service=http://webhook-service:8000,loyalty=http://loyalty:8000,insights=http://insights:8000,bookings=http://bookings:8000,affiliate-service=http://affiliate-service:8000,secrets-admin=http://secrets-admin:8000,whatsapp-assistant=http://whatsapp-assistant:8000,assistant-service=http://assistant-service:8000,error-collector=http://error-collector:8000,coworking=http://coworking:8000,referrals=http://referrals:8000"
   # OURS ADDED, AND THE OMISSION WAS INVISIBLE. The gateway aggregates every service's declared
   # actions into ONE catalog the console calls — and it only asks the services named here. Our
   # four declared forty actions between them and the gateway never asked for one of them, so the
@@ -350,10 +374,7 @@ env:
 
   # ── CORS ──────────────────────────────────────────────────────────────────────────────────
   # This is the origin the browser actually talks to, so this is where CORS truly matters.
-  # http://localhost:8767 is the mobile app's own flutter-run-on-chrome dev origin, needed to
-  # test the app end-to-end against this server from a browser rather than a device. Exact-match
-  # only (cors_origins has no wildcard support), so it has to be the literal port flutter runs on.
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa,http://localhost:8767,http://localhost:8769,http://localhost:8770"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  CORS_ALLOWED_ORIGINS: "https://ra-je3.com,https://admin.ra-je3.com"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
   # NOT a dev-only addition — x-client-type is a REAL header the mobile app sends on every
   # request (apps/mobile/lib/core/network/api_client.dart, AppConfig.apiClientTypeHeader), so it

@@ -44,7 +44,22 @@ export interface Plan {
   listed?: boolean;
   prices?: Price[];
   limits?: Record<string, Limit>;
+  /** Non-zero means this plan is entered free, no charge at signup at all — the same field
+   *  `subscription.checkout_link` (services/operations) reads server-side to decide whether a
+   *  plan even needs a pay-link. Read here for the identical reason: a trial/free plan goes
+   *  through the plain `subscription.activate` call, never a pay-link it does not need. */
+  trial_days?: number;
 }
+/** Free forever, or a trial that owes nothing today — the one shape `subscription.activate` still
+ *  handles directly, no pay-link needed at all (billing-service creates it straight away). Mirrors
+ *  `may_subscribe`'s own `paid` computation (services/operations/app/core/subscribe.py) so every
+ *  caller here — `subscribeFlow.ts`'s single locked-card buy, `useAppBilling.ts`'s launcher tile
+ *  and cart — takes the exact same branch the server will. */
+export function needsNoPayment(plan: Plan): boolean {
+  const priceMinor = plan.prices?.[0]?.amount_minor ?? 0;
+  return priceMinor === 0 || (plan.trial_days ?? 0) > 0;
+}
+
 export interface Subscription {
   id: string; plan_id?: string; plan_name?: string; status?: string;
   /** How many units of a CAPACITY row this one subscription holds — Odoo-style per-seat licensing,
@@ -84,8 +99,15 @@ export const LIMIT_KEYS: Record<string, { label: string; unit?: string }> = {
   'feature.whatsapp': { label: 'plans.limit.whatsapp.label' },
   'feature.partner_loyalty': { label: 'plans.limit.coupons.label' },
   'feature.mobile_requests': { label: 'plans.limit.mobileRequests.label' },
-  'feature.referral_partnership': { label: 'plans.limit.referralPartnership.label' },
+  'feature.mutual_benefit': { label: 'plans.limit.mutualBenefit.label' },
   'feature.mobile_ai_assistant': { label: 'plans.limit.mobileAiAssistant.label' },
+  'feature.coworking': { label: 'plans.limit.coworking.label' },
+  // Phase 0 only (services/referrals) — no screen calls this yet; `listed: false` on its plan
+  // row keeps the card itself from ever reaching a real customer (see deploy/seed/plans.json).
+  'feature.referrals': { label: 'plans.limit.referrals.label' },
+  // Phase 0 only, same posture as `feature.referrals` above -- `listed: false` on its plan row
+  // (deploy/seed/plans.json) keeps the card from ever reaching a real customer.
+  'feature.whatsapp_delivery_orders': { label: 'plans.limit.whatsappDeliveryOrders.label' },
   'plan.standalone': { label: 'plans.limit.standalone.label' },
   // `plan.requires_any` NEVER ACTUALLY PRINTS via `planLines` (its value is a list, never a
   // positive `limit`) — the entry exists only so `ci/check_entitlements.py` finds the wording it
@@ -139,6 +161,7 @@ export const REQUIRES_ANY_KEYS: Record<string, string> = {
   'feature.visit': 'plans.requiresAny.visit',
   'feature.bookings': 'plans.requiresAny.bookings',
   'feature.contacts': 'plans.requiresAny.contacts',
+  'feature.mobile_requests': 'plans.requiresAny.mobileRequests',
 };
 
 /** The OTHER feature keys this plan's own row says at least one of must already be held —

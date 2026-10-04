@@ -65,7 +65,7 @@ class _Resp:
 def _http(**kw):
     return HttpMetaAgentProvisioner(
         token="tok", graph_base_url="https://graph.facebook.com", graph_version="v26.0",
-        connector_base_url="https://kobo-cloud.com", connector_auth_token="ctok", **kw)
+        connector_base_url="https://ra-je3.com", connector_auth_token="ctok", **kw)
 
 
 def test_tool_registration_payload_shape():
@@ -176,7 +176,7 @@ def test_build_returns_http_when_enabled():
         META_AGENT_PROVISIONING_ENABLED = True
         META_GRAPH_BASE_URL = "https://graph.facebook.com"
         META_GRAPH_API_VERSION = "v26.0"
-        PUBLIC_BASE_URL = "https://kobo-cloud.com"
+        PUBLIC_BASE_URL = "https://ra-je3.com"
         CONNECTOR_API_TOKEN = "ctok"
         PEER_TIMEOUT_SECONDS = 8
     assert isinstance(build(_S(), secret_store=_FakeSecrets()), HttpMetaAgentProvisioner)
@@ -482,7 +482,7 @@ class _StepProvisioner:
 class _S:
     META_AGENT_PROVISIONING_ENABLED = True
     KNOWLEDGE_EXPORT_ENABLED = False
-    PUBLIC_BASE_URL = "https://kobo-cloud.com"
+    PUBLIC_BASE_URL = "https://ra-je3.com"
     CONNECTOR_API_TOKEN = "ctok"
 
 

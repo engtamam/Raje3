@@ -24,10 +24,8 @@ import { Button } from '../rj-ui/Button';
 import { ServiceGrid } from '../ServiceGrid';
 import { Steps } from '../Steps';
 import { newIdempotencyKey, queue, type Queued } from '../queue';
-import type { ReferralGrantAck } from '../api';
-import { ReferralGrantCelebration } from './ReferralGrantCelebration';
-import { proof } from '../operator';
-import { WhoIsSaving } from '../WhoIsSaving';
+import type { MutualBenefitGrantAck } from '../api';
+import { MutualBenefitGrantCelebration } from './MutualBenefitGrantCelebration';
 import { isSignedIn, useSession } from '../session';
 import { digitsOnly, western } from '../digits';
 import { TodayBookingsStrip } from '../TodayBookingsStrip';
@@ -117,6 +115,9 @@ export function Visit() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
+  // A NEW CUSTOMER'S OWN REFERRAL CODE — the real "new customer" moment for a walk-in visit
+  // (`recordVisit`'s own hook: only ever attempted when this exact call creates the customer).
+  const [referralCode, setReferralCode] = useState('');
   const [plate, setPlate] = useState('');
   /** What he sees while typing: the same string, with the separator placed for him. */
   const [plateText, setPlateText] = useState('');
@@ -131,8 +132,6 @@ export function Visit() {
   // it as "waiting to be sent" counted visits that will never be sent among them, and the number
   // an operator watched go down would have stalled at one for ever with no explanation.
   const [queued, setQueued] = useState<Queued[]>([]);
-  /** The «من يحفظ؟» sheet is open. The press is held until it answers, either way. */
-  const [asking, setAsking] = useState(false);
   const pending = queued.filter((r) => !r.stuck);
   const stuck = queued.filter((r) => r.stuck);
   const [matches, setMatches] = useState<CustomerHit[] | null>([]);
@@ -202,8 +201,18 @@ export function Visit() {
   // queue's own row-state `subscribe` above (see queue.ts's own note on why): fires once, only
   // for a grant this screen's OWN drain actually just produced, never replayed on an unrelated
   // re-render.
-  const [celebration, setCelebration] = useState<ReferralGrantAck | null>(null);
+  const [celebration, setCelebration] = useState<MutualBenefitGrantAck | null>(null);
   useEffect(() => queue.subscribeToCelebrations(setCelebration), []);
+
+  // A REFERRAL CODE'S OWN OUTCOME — same "separate one-shot channel" reasoning as the
+  // celebration above (queue.ts's own note): the visit that offered a code may have already
+  // drained by the time the server answers, well after this screen moved on to the next
+  // customer, so this can only ever arrive as a toast, never inline on a still-open form.
+  useEffect(() => queue.subscribeToReferralNotices((reg) => {
+    setNote(reg.ok ? t('visit.referral.registered')
+                  : tf(t, 'visit.referral.rejected', { reason: reg.message || '' }));
+    window.setTimeout(() => setNote(null), 4000);
+  }), [t]);
 
   const toggle = useCallback((id: string) => {
     setChosen((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
@@ -439,18 +448,10 @@ export function Visit() {
   const plateOk = !showPlate || (/[0-9٠-٩]/.test(plate) && /\p{L}/u.test(plate));
   const ready = chosen.length > 0 && phoneUsable && plateOk;
 
-  /**
-   * EVERYTHING THE SAVE DOES ONCE THE «WHO» IS SETTLED — proved or deliberately skipped.
-   *
-   * Split out of `save` because the answer to «من يحفظ؟» arrives from a sheet, one render later:
-   * the press cannot both ask and commit, and holding the entry in state until the answer comes
-   * back is what lets «تخطّي» and «تأكيد» end in the same place.
-   */
   const commit = useCallback(() => {
     // MINTED HERE, ONCE PER SAVE. Not inside the queue and not inside the request — a key created
     // where the request is sent would be a new key on every retry, which is exactly no key.
     const key = newIdempotencyKey();
-    const who = proof();
     // THE OFFER TRAVELS WITH THE VISIT, NOT BESIDE IT (ط-1). Calling `applyOffer` here, alongside
     // `queue.add`, raced the very request the queue was about to send: the server has no visit to
     // attach an offer to until `recordVisit` has landed, and the two calls reached it in whatever
@@ -462,15 +463,11 @@ export function Visit() {
       service_ids: chosen,
       quantities: Object.keys(quantities).length > 0 ? quantities : undefined,
       name: name.trim() || undefined,
+      referral_code: referralCode.trim() || undefined,
       plate: showPlate && plate.trim() ? plate.trim() : undefined,
       meter: showMeter && meter ? Number(meter) : undefined,
       package_id: selectedPackageId || undefined,
       idempotency_key: key,
-      // EMPTY IS AN ANSWER. He skipped, or nobody in this shop has a PIN — and a visit filed under
-      // nobody is the truth, while a visit filed under whoever the device last remembered is the
-      // defect this whole path exists to close.
-      operator_id: who?.id,
-      operator_ticket: who?.ticket,
       // EMPTY WHEN THE CHECKBOX WAS NEVER TICKED — the ordinary visit, unaffected. The outcome
       // (granted, or the real reason it was not) is never awaited here; it lands in «كوبونات»'s
       // own السجل once the queue actually sends this visit, same as everything else this screen
@@ -494,12 +491,13 @@ export function Visit() {
     setSelectedPackageId('');
     setPhone('');
     setName('');
+    setReferralCode('');
     setPlate('');
     setMeter('');
     setNote(t('visit.saved'));
     window.setTimeout(() => setNote(null), 1500);
   }, [applying, chosen, quantities, couponOn, couponPercent, couponPhone, couponScope, meter, name,
-     phone, plate, selectedPackageId, session, showMeter, showPlate, subject]);
+     phone, plate, referralCode, selectedPackageId, session, showMeter, showPlate, subject]);
 
   const save = useCallback(() => {
     // A WRONG NUMBER IS REFUSED HERE AND NOWHERE ELSE, and the refusal SAYS what is wrong. Silence
@@ -519,10 +517,6 @@ export function Visit() {
       return;
     }
     if (!ready) return;
-    // WHO IS SAVING, ASKED ONCE PER PROOF AND NOT ONCE PER VISIT. A live ticket goes straight
-    // through, so the busy hour is uninterrupted; an expired one opens the sheet, which remembers
-    // his name so re-proving is four digits.
-    if (!proof()) { setAsking(true); return; }
     commit();
   }, [chosen, commit, phoneUsable, plateOk, ready, showPlate]);
 
@@ -628,7 +622,7 @@ export function Visit() {
               <button
                 type="button"
                 onClick={() => { setChanging(false); }}
-                className="min-h-11 shrink-0 rounded-xl bg-surface-2 text-sm font-semibold"
+                className="min-h-11 shrink-0 rounded-xl border border-border-subtle bg-surface-1 text-sm font-semibold"
               >
                 {t('visit.cancelEdit')}
               </button>
@@ -719,7 +713,7 @@ export function Visit() {
                           type="button"
                           disabled={Boolean(redeeming)}
                           onClick={() => spend(r.id, r.name)}
-                          className="flex w-full items-center justify-between gap-3 rounded-lg bg-surface-2 px-3 py-3 text-start disabled:opacity-60"
+                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface-1 px-3 py-3 text-start disabled:opacity-60"
                         >
                           <span>{r.name}</span>
                           <span className="shrink-0 tabular-nums text-sm text-text-secondary">
@@ -801,7 +795,7 @@ export function Visit() {
           setChanging(true);
           setPlateKnown(false);
         }}
-        className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-surface-2 text-base font-semibold"
+        className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-border-subtle bg-surface-1 text-base font-semibold"
       >
         <Pencil size={15} aria-hidden />
         {t('visit.editCustomer')}
@@ -947,7 +941,7 @@ export function Visit() {
           <button
             type="button"
             onClick={() => { setChosen([]); setSelectedPackageId(''); }}
-            className="min-h-[44px] rounded-xl bg-surface-2 px-4 text-sm font-semibold"
+            className="min-h-[44px] rounded-xl border border-border-subtle bg-surface-1 px-4 text-sm font-semibold"
           >
             {t('visit.chosen.clear')}
           </button>
@@ -1020,7 +1014,7 @@ export function Visit() {
           he missed — and «لا عروض» is the wrong answer for a customer we have never met, and a
           lie when we simply could not ask. Three facts, three sentences. */}
       {!hasPerks && phone.length >= 9 ? (
-        <p className="mb-2 rounded-xl bg-surface-2 px-3 py-2 text-sm text-text-secondary">
+        <p className="mb-2 rounded-xl border border-border-subtle bg-surface-1 px-3 py-2 text-sm text-text-secondary">
           {perks === 'failed'
             ? t('visit.perks.failed')
             : subject
@@ -1038,6 +1032,21 @@ export function Visit() {
                 placeholder={t('visit.name.placeholder')}
                 className="h-14 rounded-xl bg-surface-1 px-4 text-lg shadow-sm placeholder:text-text-secondary"
               />
+
+              {/* SHOWN FOR ANY COMPLETE NUMBER, NEW OR RETURNING (owner instruction, 2026-09-27):
+                  who is actually eligible is now the campaign's/affiliate's own configured choice
+                  ("new"/"max_visits"/"open"), not a client-side "must be brand-new" guess — the
+                  field always offers the attempt and the engine's own answer lands as the toast
+                  above (`visit.referral.registered`/`visit.referral.rejected`). */}
+              {phone.length >= 9 ? (
+                <input
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  dir="ltr"
+                  placeholder={t('visit.referralCode.placeholder')}
+                  className="h-14 rounded-xl bg-surface-1 px-4 text-lg shadow-sm placeholder:text-text-secondary"
+                />
+              ) : null}
 
               {showMeter ? (
                 <input
@@ -1098,7 +1107,7 @@ export function Visit() {
       {/* PORTALS TO document.body ITSELF — its position here in the tree is irrelevant to layout,
           only to lifecycle (unmounts with this screen, same as every other Visit-only overlay). */}
       {celebration ? (
-        <ReferralGrantCelebration grant={celebration} onClose={() => setCelebration(null)} />
+        <MutualBenefitGrantCelebration grant={celebration} onClose={() => setCelebration(null)} />
       ) : null}
       <div className="mx-auto max-w-4xl">
         {/* NO "TODAY'S CUSTOMERS" STRIP HERE, AND IT WAS THE FIRST THING ON THE SCREEN.
@@ -1186,15 +1195,6 @@ export function Visit() {
           sidebar — the shell's own column, which it has no business covering. Sticky keeps it
           pinned to the bottom of the scrolling area it belongs to, and it can never reach past
           the column it lives in, at any width and with the sidebar collapsed or open. */}
-
-      {/* BOTH ANSWERS END IN THE SAME SAVE. «تأكيد» attaches the ticket, «تخطّي» files the visit
-          under nobody — and neither leaves the operator holding a screen that will not commit. */}
-      <WhoIsSaving
-        session={session}
-        open={asking}
-        onProved={() => { setAsking(false); commit(); }}
-        onSkip={() => { setAsking(false); commit(); }}
-      />
     </main>
   );
 }

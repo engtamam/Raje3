@@ -17,6 +17,7 @@ import {
   type AssignmentSettings, type FieldOperator, type WeeklyHours,
 } from '../api';
 import type { Session } from '../session';
+import { action, type Catalog } from '../catalog';
 import { useOperatorI18n, tf } from '../operator-i18n';
 import './booking-settings-dialog-i18n';
 
@@ -45,8 +46,9 @@ function algorithms(t: (key: string) => string): { value: AssignmentSettings['al
   ];
 }
 
-export function BookingSettingsDialog({ session, weekly, assignment, staff, onClose, onHoursSaved, onAssignmentSaved }: {
+export function BookingSettingsDialog({ session, catalog, weekly, assignment, staff, onClose, onHoursSaved, onAssignmentSaved }: {
   session: Session;
+  catalog: Catalog;
   weekly: WeeklyHours;
   assignment: AssignmentSettings;
   /** كل الموظفين النشطين بدور ميداني — نفس المجموعة اللي «تلقائي» يختار من بينها فعلياً. */
@@ -151,11 +153,11 @@ export function BookingSettingsDialog({ session, weekly, assignment, staff, onCl
                       <div className="flex min-w-[220px] flex-1 items-center gap-2">
                         <input type="time" value={minutesToTime(d.start_minute)}
                               onChange={(e) => setDay(day, { start_minute: timeToMinutes(e.target.value) })}
-                              className="h-9 rounded-lg bg-surface-2 px-2 text-sm" dir="ltr" />
+                              className="h-9 rounded-lg border border-border-subtle bg-surface-1 px-2 text-sm" dir="ltr" />
                         <span className="text-text-secondary">{t('bookingSettings.hours.to')}</span>
                         <input type="time" value={minutesToTime(d.end_minute)}
                               onChange={(e) => setDay(day, { end_minute: timeToMinutes(e.target.value) })}
-                              className="h-9 rounded-lg bg-surface-2 px-2 text-sm" dir="ltr" />
+                              className="h-9 rounded-lg border border-border-subtle bg-surface-1 px-2 text-sm" dir="ltr" />
                       </div>
                     ) : (
                       <span className="flex-1 text-sm text-text-muted">{t('bookingSettings.hours.closed')}</span>
@@ -167,7 +169,9 @@ export function BookingSettingsDialog({ session, weekly, assignment, staff, onCl
             {hoursError ? <p className="text-sm text-danger">{hoursError}</p> : null}
             <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-3">
               <Button variant="ghost" onClick={onClose}>{t('bookingSettings.cancel')}</Button>
-              <Button disabled={hoursSaving} onClick={saveHours}>{hoursSaving ? t('bookingSettings.saving') : t('bookingSettings.save')}</Button>
+              {action(catalog, 'bookings.set_working_hours') ? (
+                <Button disabled={hoursSaving} onClick={saveHours}>{hoursSaving ? t('bookingSettings.saving') : t('bookingSettings.save')}</Button>
+              ) : null}
             </div>
           </div>
         ) : (
@@ -196,12 +200,12 @@ export function BookingSettingsDialog({ session, weekly, assignment, staff, onCl
                       <span className="min-w-0 flex-1 truncate">{s.name}</span>
                       <button type="button" disabled={i === 0} onClick={() => move(s.id, -1)}
                              aria-label={tf(t, 'bookingSettings.assignment.moveUp', { name: s.name })}
-                             className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-2 text-text-secondary disabled:opacity-30">
+                             className="grid size-7 shrink-0 place-items-center rounded-full border border-border-subtle bg-surface-1 text-text-secondary disabled:opacity-30">
                         ↑
                       </button>
                       <button type="button" disabled={i === ordered.length - 1} onClick={() => move(s.id, 1)}
                              aria-label={tf(t, 'bookingSettings.assignment.moveDown', { name: s.name })}
-                             className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-2 text-text-secondary disabled:opacity-30">
+                             className="grid size-7 shrink-0 place-items-center rounded-full border border-border-subtle bg-surface-1 text-text-secondary disabled:opacity-30">
                         ↓
                       </button>
                     </li>
@@ -213,7 +217,9 @@ export function BookingSettingsDialog({ session, weekly, assignment, staff, onCl
             {assignError ? <p className="text-sm text-danger">{assignError}</p> : null}
             <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-3">
               <Button variant="ghost" onClick={onClose}>{t('bookingSettings.cancel')}</Button>
-              <Button disabled={assignSaving} onClick={saveAssignment}>{assignSaving ? t('bookingSettings.saving') : t('bookingSettings.save')}</Button>
+              {action(catalog, 'bookings.set_assignment_settings') ? (
+                <Button disabled={assignSaving} onClick={saveAssignment}>{assignSaving ? t('bookingSettings.saving') : t('bookingSettings.save')}</Button>
+              ) : null}
             </div>
           </div>
         )}

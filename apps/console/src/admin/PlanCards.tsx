@@ -76,20 +76,28 @@ const FEATURES_PATH: Record<string, string> = {
   'feature.campaigns': '/api/v1/campaigns/features',
   'feature.insights.engine': '/api/v1/insights/features',
   'feature.whatsapp': '/api/v1/assistant/features',
-  // تسجيل زيارة/جهات الاتصال/التقييم — operations' own STATIC catalog (added 2026-09-11, the one
-  // gap the other five services never had): they used to be served ONLY inline per-tenant
-  // (`Owned.apps[].features`, via `GET /subscription/apps`), which an admin token can never ask
-  // for (no tenant to ask about) — this card fell back to the raw boolean-limit list, the one
-  // stale card on an otherwise-redesigned shelf (owner's own screenshot). The THREE keys share
-  // ONE route returning `{visit, contacts, rating}`; `STATIC_FEATURES_SUBKEY` below says which
-  // array is this plan's own.
+  // العمليات المملوكة مباشرة — operations' own STATIC catalog (added 2026-09-11 for the first
+  // three, extended 2026-09-27 to every operations-owned row): they used to be served ONLY
+  // inline per-tenant (`Owned.apps[].features`, via `GET /subscription/apps`), which an admin
+  // token can never ask for (no tenant to ask about) — this card fell back to the raw
+  // boolean-limit list, the one stale card on an otherwise-redesigned shelf (owner's own
+  // screenshot). All seven keys share ONE route; `STATIC_FEATURES_SUBKEY` below says which array
+  // is this plan's own.
   'feature.visit': '/api/v1/subscription/apps/static-features',
   'feature.contacts': '/api/v1/subscription/apps/static-features',
   'feature.rating': '/api/v1/subscription/apps/static-features',
+  'feature.mobile_requests': '/api/v1/subscription/apps/static-features',
+  'feature.coworking': '/api/v1/subscription/apps/static-features',
+  'feature.partner_loyalty': '/api/v1/subscription/apps/static-features',
+  'feature.mutual_benefit': '/api/v1/subscription/apps/static-features',
+  'feature.referrals': '/api/v1/subscription/apps/static-features',
 };
 
-const STATIC_FEATURES_SUBKEY: Record<string, 'visit' | 'contacts' | 'rating'> = {
+const STATIC_FEATURES_SUBKEY: Record<string, string> = {
   'feature.visit': 'visit', 'feature.contacts': 'contacts', 'feature.rating': 'rating',
+  'feature.mobile_requests': 'mobile_requests', 'feature.coworking': 'coworking',
+  'feature.partner_loyalty': 'coupons', 'feature.mutual_benefit': 'mutual_benefit',
+  'feature.referrals': 'referrals',
 };
 
 interface LimitEntry { kind: 'boolean' | 'gauge' | 'counter' | string; limit: number | 'unlimited'; period?: string }
@@ -320,9 +328,9 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload,
           fetcher={async (path) => {
             const subKey = matchedApp ? STATIC_FEATURES_SUBKEY[matchedApp.key ?? ''] : undefined;
             if (subKey) {
-              // ONE COMBINED ROUTE, THREE CARDS — each reads its own slice rather than the whole
-              // `{visit, contacts, rating}` object AppFeatureList expects as `{features}`.
-              const all = await req<Record<'visit' | 'contacts' | 'rating', import('../apps').AppFeature[]>>(
+              // ONE COMBINED ROUTE, MANY CARDS — each reads its own slice rather than the whole
+              // combined object AppFeatureList expects as `{features}`.
+              const all = await req<Record<string, import('../apps').AppFeature[]>>(
                 path, 'GET', undefined, session.access_token);
               return { features: all[subKey] ?? [] };
             }

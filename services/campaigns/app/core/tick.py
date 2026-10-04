@@ -25,6 +25,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.adapters.datastore.drain import drain
+from app.core import milestone
 
 # Saudi Arabia has no daylight saving, so a fixed offset is correct — the same constant as
 # reminders' gate, and the same reason it is named rather than inlined.
@@ -148,7 +149,7 @@ class Tick:
             if not fire_at or fire_at > now:
                 res.skipped += 1
                 return
-            finished = await self._fire(campaign, now=now, res=res)
+            result = await self._fire(campaign, now=now, res=res)
             # DONE, not re-armed — but only once it IS done. A pass is bounded by the campaign's
             # share of the day's ceiling, so a campaign to eight hundred people reaches two hundred
             # and returns `finished=False`. Closing it there told the owner it had run, and the
@@ -157,9 +158,56 @@ class Tick:
             #
             # Left active, the next tick continues it — and `_already_reached` means nobody is
             # contacted twice.
-            if finished:
+            if result.finished:
                 campaign["state"] = "done"
                 await self._save(campaign, now)
+            return
+
+        if trigger == "milestone":
+            # EVERY TICK, NEVER THROTTLED — unlike `standing`'s once-a-Riyadh-day guard. A shared
+            # counter can cross its threshold at any minute, and a shop watching «62/100» wants
+            # the reveal the moment it happens, not up to a day late.
+            res.evaluated += 1
+            result = await self._fire(campaign, now=now, res=res)
+            if not result.finished:
+                # STILL MID-COHORT (a large reveal against a small per-pass cap) — more to send
+                # next pass, same resumable shape a large `scheduled` campaign already has. Never
+                # ends the round early over this.
+                return
+            tenant, cid = campaign.get("tenant", ""), campaign.get("id", "")
+            # `finished=True` HERE MEANS "this pass did not hit its per-pass send cap" — true of
+            # every ordinary no-op pass while the counter is still climbing, so it is NOT by
+            # itself "the round is over" the way it is for a `scheduled` campaign. Only the
+            # progress record (fully drained) or the campaign's own deadline (passed, never
+            # crossed) actually ends a round. A single-key progress read, not a scan.
+            progress = await milestone.read_progress(self._s, tenant, cid)
+            fully_drained = progress is not None and progress.fired and result.run.matched == 0
+            expires_at = int(campaign.get("expires_at") or 0)
+            deadline_passed = (not fully_drained and (progress is None or not progress.fired)
+                              and bool(expires_at) and now > expires_at)
+            if not fully_drained and not deadline_passed:
+                # STILL COUNTING, STILL WITHIN ITS WINDOW — the ordinary, harmless case on every
+                # tick until one of the two real endings above actually happens.
+                return
+            if campaign.get("milestone_recurring"):
+                # A FRESH ROUND, BACK TO BACK — the next period starts exactly when this one
+                # ended (`expires_at`, not `now`), so a tick that runs a little late never lets
+                # gaps or drift creep into a repeating schedule. Same period length
+                # (`expires_at - fire_at`) every round; `validate_milestone_recurrence` already
+                # refused a recurring campaign with no real period to repeat.
+                period = expires_at - int(campaign.get("fire_at") or 0)
+                campaign["fire_at"] = expires_at
+                campaign["expires_at"] = expires_at + max(period, 1)
+                await milestone.reset_progress(self._s, tenant, cid)
+                await self._save(campaign, now)
+                return
+            # ONE-SHOT, AND THIS ROUND IS OVER — either the whole earned cohort has been sent
+            # (success), or the deadline passed with the threshold never crossed (the challenge
+            # simply did not happen in time). Both are `done`; nothing here distinguishes them
+            # further — `progress.fired` on the last-read row already tells the two apart for
+            # anyone building a screen around this later.
+            campaign["state"] = "done"
+            await self._save(campaign, now)
             return
 
         if trigger == "standing":
@@ -205,16 +253,19 @@ class Tick:
             res.evaluated += 1
             campaign["last_evaluated"] = now      # stamped first, for the reason above
             await self._save(campaign, now)
-            finished = await self._fire(campaign, now=now, res=res)
-            if finished:
+            result = await self._fire(campaign, now=now, res=res)
+            if result.finished:
                 campaign["state"] = "done"
                 await self._save(campaign, now)
             return
 
         res.skipped += 1
 
-    async def _fire(self, campaign: dict[str, Any], *, now: int, res: TickResult) -> bool:
-        """Fire one pass. Returns whether the campaign is FINISHED — see the caller."""
+    async def _fire(self, campaign: dict[str, Any], *, now: int, res: TickResult) -> Any:
+        """Fire one pass. Returns the real `DispatchResult` — `.finished` is what the `scheduled`
+        and manual-rescue callers read; the `milestone` branch also reads `.run.matched`, which a
+        bare bool could not have carried.
+        """
         # THE SHARE ON THE CRON PATH TOO, read the same way the screen reads it. `_share_for` is
         # the tick's own resolver: a campaign fired by the clock spends from the same ceiling as
         # one fired by a press, and honouring the reserve on only one of the two paths is the same
@@ -227,7 +278,7 @@ class Tick:
         for k, v in out.run.reasons.items():
             res.reasons[k] = res.reasons.get(k, 0) + v
 
-        return out.finished
+        return out
 
     async def _save(self, campaign: dict[str, Any], now: int) -> None:
         campaign["updated"] = now

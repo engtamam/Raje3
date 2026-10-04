@@ -34,7 +34,7 @@ vi.mock('../catalog', async (importOriginal) => {
   };
 });
 
-const { InvoicesPane } = await import('./AccountPanes');
+const { InvoicesPane } = await import('./account/InvoicesPane');
 
 afterEach(() => { cleanup(); downloadCalls.length = 0; });
 
@@ -84,8 +84,8 @@ describe('«فواتيري» — real downloads', () => {
       };
     });
     vi.resetModules();
-    const { InvoicesPane: Fresh } = await import('./AccountPanes');
-    // `vi.resetModules()` above means `./AccountPanes` (and everything it imports, including
+    const { InvoicesPane: Fresh } = await import('./account/InvoicesPane');
+    // `vi.resetModules()` above means `./account/InvoicesPane` (and everything it imports, including
     // operator-i18n's own `createContext`) is now a DIFFERENT module instance than the one
     // `OperatorI18nProvider` imported at this file's top — a provider from the old instance
     // cannot satisfy a `useOperatorI18n()` call reading the new instance's context. Re-import

@@ -265,12 +265,6 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "قائمة اقتراحاتٍ من أول الأرقام أو اللوحة، مضيَّقةً على فرع القارئ من رمزه. "
                 "«تعذّر البحث» غير «لا يوجد عميل»، والردّ يفرّق بينهما.",
     },
-    {
-        "id": "operations.verify_pin", "label": "تأكيد رمز العامل", "method": "POST",
-        "path": "/api/v1/staff/operators/verify-pin", "capability": "operations.read",
-        "group": "الشاشة",
-        "help": "نسبة لا تسجيل دخول: يُسأل عند الحفظ فقط، والشاشة تبقى مفتوحة طوال الوردية.",
-    },
     # ── the partner's own console — neither a tenant nor us (see api/v1/partner.py) ───────
     # DECLARED AS USER ACTIONS, not admin: a partner acts on its OWN data, exactly like a customer
     # does. Putting them in admin_actions would render them in OUR panel, which is the one place
@@ -346,15 +340,28 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "التطبيقات التي اشتريتها وما تفعله، ليعرف كل قسم أيعرض أم يقفل.",
     },
     {
-        "id": "subscription.apps_static_features", "label": "مميزات تسجيل زيارة/جهات الاتصال/التقييم",
+        "id": "subscription.apps_static_features", "label": "مميزات تطبيقات عمليات المحل",
         "method": "GET", "path": "/api/v1/subscription/apps/static-features",
         "capability": "billing.self", "group": "الاشتراك",
         # NOT TENANT-SCOPED — same catalog for every caller (Depends(require_user) only, no
         # capability actually enforced), unlike its sibling `subscription.apps` right above which
         # answers what THIS shop owns. See the route's own docstring for why it exists: the admin
-        # panel has no tenant to ask `/apps` about, and these three apps' features had no
-        # standalone read the way the other five services' `.../features` routes already do.
-        "help": "قائمة المميزات الحقيقية لتسجيل زيارة وجهات الاتصال والتقييم، بصياغة تسويقية قصيرة.",
+        # panel has no tenant to ask `/apps` about, and neither does a shop still deciding whether
+        # to BUY one of these seven apps — every other operations-owned app with no
+        # `featuresAction` of its own reads from here now, not just تسجيل زيارة/جهات الاتصال/
+        # التقييم.
+        "help": "قائمة المميزات الحقيقية لكل تطبيق تديره عمليات المحل مباشرة، بصياغة تسويقية قصيرة.",
+    },
+    {
+        "id": "subscription.apps_visibility_overrides", "label": "تطبيقات مخصَّصة لهذا المحل",
+        "method": "GET", "path": "/api/v1/subscription/apps/visibility-overrides",
+        "capability": "billing.self", "group": "الاشتراك",
+        # TENANT-SCOPED, UNLIKE ITS SIBLING RIGHT ABOVE — this one DOES answer per-caller, from
+        # `_tenant(principal)` alone (core/app_visibility.py's own module docstring on why that is
+        # what makes it IDOR-safe by construction). `Depends(require_user)` only, no capability
+        # actually enforced, same posture as `apps_static_features` — any staff role browsing the
+        # store may ask this, not only the owner.
+        "help": "أي تطبيقات مخفية عن الجميع أظهرها لك المشغّل تحديداً، لتظهر في متجرك أنت وحدك.",
     },
     {
         # `subscription.activate`, NOT `billing.subscribe` — which is what billing-service calls
@@ -368,16 +375,44 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "اختر باقتك وفعّلها. يشترط ربط واتساب قبل الاشتراك المدفوع، والتجربة معفاة.",
     },
     {
+        # THE CONSOLE'S OWN PAID PATH NOW (2026-09-24), replacing the browser-tokenised card form:
+        # a real TuwaiqPay pay-link, never a `payment_token` the console has no way to mint any
+        # more (TuwaiqPay has no browser-side tokenisation at all). `subscription.activate` above
+        # still accepts a token on its wire shape — billing itself now charges before activating
+        # rather than trusting one blindly — but nothing in this codebase sends one any more; every
+        # real caller of `subscription.activate` today is a FREE/trial plan. See `checkout_link`'s
+        # own docstring (api/v1/subscription.py) for the full reasoning.
+        "id": "subscription.checkout_link", "label": "رابط دفع اشتراك جديد", "method": "POST",
+        "path": "/api/v1/subscription/checkout-link", "capability": "billing.self",
+        "group": "حسابي",
+        "help": "يبدأ اشتراكاً مدفوعاً برابط دفع حقيقي — الاشتراك يُفعَّل فقط بعد تأكيد الدفع فعلياً.",
+    },
+    {
+        # `checkout_link`'s own sibling for a whole cart — the launcher's own store checkout
+        # (`useAppBilling.ts`), replacing its old browser-tokenised path (2026-09-24, same reason
+        # `subscription.checkout_link` replaced the single-plan one).
+        "id": "subscription.checkout_cart_link", "label": "رابط دفع سلة شراء", "method": "POST",
+        "path": "/api/v1/subscription/checkout/link", "capability": "billing.self",
+        "group": "حسابي",
+        "help": "يبدأ شراء عدة تطبيقات مع بعض برابط دفع واحد — تُفعَّل كلها معاً بعد تأكيد الدفع.",
+    },
+    {
         # THE SAME REAL MECHANISM THE WHATSAPP RENEWAL FLOW ALREADY USES (adapters/
         # renewal_provider.py::renew_now) — reused, never re-implemented — now reachable from
         # the console too, not only from a WhatsApp button. Exists for TuwaiqPay (no card-on-
         # file/recurring-charge support): a shop needs a real way to trigger a due cycle's
         # charge itself, ahead of the daily sweep reaching its own scheduled date.
+        #
+        # NO `sub_id` PARAM (removed 2026-09-23) — the route itself (`/renew-now`) has taken none
+        # since 2026-09-22 (`renewal_provider.py::RenewalProvider.renew_now`'s own docstring: "the
+        # real bug this replaced"). It always renews the shop's WHOLE together-billed group, never
+        # one subscription alone; a caller cannot narrow it to a single app even if it tried. This
+        # declaration used to claim otherwise, which is what led the console to remove its own
+        # early-renewal button on 2026-09-22 believing the underlying bug was still live.
         "id": "subscription.renew_now", "label": "تجديد مبكر", "method": "POST",
         "path": "/api/v1/subscription/renew-now", "capability": "billing.self", "group": "حسابي",
         "confirm": True,
-        "params": [{"name": "sub_id", "in": "body", "type": "string", "required": True}],
-        "help": "يجبر دورة فوترة هذا الاشتراك تصير الآن، ويرجّع رابط دفع حقيقي.",
+        "help": "يجبر دورة فوترة كل اشتراكات المحل المشتركة تصير الآن، ويرجّع رابط دفع لكل واحد.",
     },
     {
         # THE CART — several apps in one checkout, validated together (a dependency and the app
@@ -539,14 +574,9 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "نفس قائمة الفريق، تُستخدم هنا لنسبة الحجز لعامل ورسم قائمة الفنيين بشاشة الحجوزات.",
     },
     {
-        "id": "operations.create_operator", "label": "إضافة عامل", "method": "POST",
-        "path": "/api/v1/staff/operators", "capability": "operations.manage", "group": "الفريق",
-        "help": "الرمز نسبة لا تسجيل دخول: يُسأل عند الحفظ لينسب العمل لصاحبه.",
-    },
-    {
         "id": "operations.hire_member", "label": "توظيف بحساب", "method": "POST",
         "path": "/api/v1/staff/members", "capability": "operations.manage", "group": "الفريق",
-        "help": "حسابٌ يدخل به بنفسه ودورٌ له — غير الرمز الرباعي الذي يُنسب به العمل على جهازٍ مشترك.",
+        "help": "حسابٌ يدخل به الموظف بنفسه ودورٌ له.",
     },
     {
         "id": "operations.update_operator", "label": "تعديل عامل", "method": "PATCH",
@@ -705,72 +735,72 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "capability": "operations.grant_coupon_direct", "group": "كوبونات",
         "help": "تحكّم كامل من صاحب المحل — تشغيل الخانة لا يعني إجباره على استخدامها.",
     },
-    # ── شراكة استراتيجية — core/referral_partnership.py's own module docstring. NOT coupons: that
+    # ── تبادل منافع — core/mutual_benefit.py's own module docstring. NOT coupons: that
     # app moves money on OUR OWN subscription; this one moves real customers between two real
     # shops, mutual-consent only, backed by both shops' own catalogues. Every route already exists
     # (staff.py's own `_REFERRAL_MANAGE = require_capability("operations.manage")`) — this block is
     # only what was missing for the console to reach them at all.
     {
-        "id": "operations.referral_partnership_propose", "label": "اقتراح شراكة استراتيجية",
-        "method": "POST", "path": "/api/v1/staff/referral-partnership/agreements",
-        "capability": "operations.manage", "group": "شراكة استراتيجية",
+        "id": "operations.mutual_benefit_propose", "label": "اقتراح تبادل منافع",
+        "method": "POST", "path": "/api/v1/staff/mutual-benefit/agreements",
+        "capability": "operations.manage", "group": "تبادل منافع",
         "help": "شرط، ومدة، وحد أقصى 3 شراكات نشطة بنفس الوقت — والطرف الآخر يوافق قبل أن تسري.",
     },
     {
-        "id": "operations.referral_partnership_list", "label": "قائمة شراكاتي الاستراتيجية",
-        "method": "GET", "path": "/api/v1/staff/referral-partnership/agreements",
-        "capability": "operations.read", "group": "شراكة استراتيجية",
+        "id": "operations.mutual_benefit_list", "label": "قائمة شراكاتي الاستراتيجية",
+        "method": "GET", "path": "/api/v1/staff/mutual-benefit/agreements",
+        "capability": "operations.read", "group": "تبادل منافع",
         "help": "كل شراكة اقترحتها أو اقتُرحت عليك، بأي حالة.",
     },
     {
-        "id": "operations.referral_partnership_get", "label": "تفاصيل شراكة استراتيجية",
-        "method": "GET", "path": "/api/v1/staff/referral-partnership/agreements/{id}",
-        "capability": "operations.manage", "group": "شراكة استراتيجية",
+        "id": "operations.mutual_benefit_get", "label": "تفاصيل تبادل منافع",
+        "method": "GET", "path": "/api/v1/staff/mutual-benefit/agreements/{id}",
+        "capability": "operations.manage", "group": "تبادل منافع",
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
         "help": "شراكة واحدة بكامل شروطها — القائمة تكفي للاستعراض، وهذه لعرض شراكة بعينها.",
     },
     {
-        "id": "operations.referral_partnership_accept", "label": "قبول شراكة استراتيجية",
-        "method": "POST", "path": "/api/v1/staff/referral-partnership/agreements/{id}/accept",
-        "capability": "operations.manage", "group": "شراكة استراتيجية", "confirm": True,
+        "id": "operations.mutual_benefit_accept", "label": "قبول تبادل منافع",
+        "method": "POST", "path": "/api/v1/staff/mutual-benefit/agreements/{id}/accept",
+        "capability": "operations.manage", "group": "تبادل منافع", "confirm": True,
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
         "help": "يُفعّلها فعلياً — يُرفض إن كانت ستتجاوز حد الشراكات النشطة لأي من الطرفين.",
     },
     {
-        "id": "operations.referral_partnership_reject", "label": "رفض شراكة استراتيجية",
-        "method": "POST", "path": "/api/v1/staff/referral-partnership/agreements/{id}/reject",
-        "capability": "operations.manage", "group": "شراكة استراتيجية",
+        "id": "operations.mutual_benefit_reject", "label": "رفض تبادل منافع",
+        "method": "POST", "path": "/api/v1/staff/mutual-benefit/agreements/{id}/reject",
+        "capability": "operations.manage", "group": "تبادل منافع",
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
         "help": "قبل القبول فقط — بلا أثر بعدها.",
     },
     {
-        "id": "operations.referral_partnership_cancel_request", "label": "طلب إنهاء شراكة مبكراً",
+        "id": "operations.mutual_benefit_cancel_request", "label": "طلب إنهاء شراكة مبكراً",
         "method": "POST",
-        "path": "/api/v1/staff/referral-partnership/agreements/{id}/cancel-request",
-        "capability": "operations.manage", "group": "شراكة استراتيجية",
+        "path": "/api/v1/staff/mutual-benefit/agreements/{id}/cancel-request",
+        "capability": "operations.manage", "group": "تبادل منافع",
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
         "help": "الطرف الآخر يجب أن يوافق أيضاً قبل أن تنتهي فعلياً.",
     },
     {
-        "id": "operations.referral_partnership_cancel_confirm", "label": "تأكيد إنهاء شراكة مبكراً",
+        "id": "operations.mutual_benefit_cancel_confirm", "label": "تأكيد إنهاء شراكة مبكراً",
         "method": "POST",
-        "path": "/api/v1/staff/referral-partnership/agreements/{id}/cancel-confirm",
-        "capability": "operations.manage", "group": "شراكة استراتيجية", "confirm": True,
+        "path": "/api/v1/staff/mutual-benefit/agreements/{id}/cancel-confirm",
+        "capability": "operations.manage", "group": "تبادل منافع", "confirm": True,
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
         "help": "ينهيها فعلياً بموافقة الطرفين — لا رجوع بعدها.",
     },
     {
-        "id": "operations.referral_partnership_audit_log", "label": "سجل أحداث شراكة استراتيجية",
+        "id": "operations.mutual_benefit_audit_log", "label": "سجل أحداث تبادل منافع",
         "method": "GET",
-        "path": "/api/v1/staff/referral-partnership/agreements/{id}/audit-log",
-        "capability": "operations.read", "group": "شراكة استراتيجية",
+        "path": "/api/v1/staff/mutual-benefit/agreements/{id}/audit-log",
+        "capability": "operations.read", "group": "تبادل منافع",
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
         "help": "كل حدث حقيقي جرى على هذه الشراكة، بترتيبه الزمني.",
     },
     {
-        "id": "operations.referral_partnership_kpis", "label": "أداء شراكاتي الاستراتيجية",
-        "method": "GET", "path": "/api/v1/staff/referral-partnership/kpis",
-        "capability": "operations.read", "group": "شراكة استراتيجية",
+        "id": "operations.mutual_benefit_kpis", "label": "أداء شراكاتي الاستراتيجية",
+        "method": "GET", "path": "/api/v1/staff/mutual-benefit/kpis",
+        "capability": "operations.read", "group": "تبادل منافع",
         "help": "المُرسَل، المُستَبدَل، المنتهي بلا استخدام — كمُحيل وكمانح، منفصلين.",
     },
     {
@@ -839,6 +869,126 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/staff/mobile-requests/{request_id}/assign",
         "capability": "operations.mobile_requests_manage", "group": "خدمات متنقلة",
         "help": "اختياري بالكامل — تسمية من سينفّذ الطلب، ليعرف تحميل كل موظف ويقدر يوزّع بنفسه.",
+    },
+    # ── طلبات التوصيل عبر الواتساب — Step 7، نفس صلاحية تسجيل الزيارة (owner's own decision,
+    # whatsapp-ordering-app-gap-analysis.md) لا صلاحية مدير حصرية — كل من يسجّل زيارة يقدر يحدّث حالة
+    # الطلب.
+    {
+        "id": "whatsapp_order.get", "label": "عرض طلب توصيل واتساب", "method": "GET",
+        "path": "/api/v1/staff/whatsapp-orders/{order_id}", "capability": "operations.record",
+        "group": "طلبات التوصيل عبر الواتساب", "help": "تفاصيل طلب واحد، بما فيها رابط الدفع وحالته.",
+    },
+    {
+        "id": "whatsapp_order.preparing", "label": "بدء تجهيز الطلب", "method": "POST",
+        "path": "/api/v1/staff/whatsapp-orders/{order_id}/preparing",
+        "capability": "operations.record", "group": "طلبات التوصيل عبر الواتساب",
+        "help": "يرسل للعميل تلقائيًا رسالة «جاري تجهيز طلبك». يعمل فقط لو الطلب مؤكَّد الدفع.",
+    },
+    {
+        "id": "whatsapp_order.ready", "label": "الطلب جاهز", "method": "POST",
+        "path": "/api/v1/staff/whatsapp-orders/{order_id}/ready",
+        "capability": "operations.record", "group": "طلبات التوصيل عبر الواتساب",
+        "help": "يرسل للعميل تلقائيًا رسالة «طلبك جاهز».",
+    },
+    {
+        "id": "whatsapp_order.out_for_delivery", "label": "الطلب خرج للتوصيل", "method": "POST",
+        "path": "/api/v1/staff/whatsapp-orders/{order_id}/out-for-delivery",
+        "capability": "operations.record", "group": "طلبات التوصيل عبر الواتساب",
+        "help": "يرسل للعميل تلقائيًا رسالة «طلبك في الطريق».",
+    },
+    {
+        "id": "whatsapp_order.delivered", "label": "تم تسليم الطلب", "method": "POST",
+        "path": "/api/v1/staff/whatsapp-orders/{order_id}/delivered",
+        "capability": "operations.record", "group": "طلبات التوصيل عبر الواتساب",
+        "help": "يسجّل زيارة حقيقية فوراً — نقاط الولاء وكل شيء آخر يُحسب تلقائياً، نفس أي زيارة ثانية.",
+    },
+    {
+        "id": "whatsapp_order.cancel", "label": "إلغاء طلب توصيل", "method": "POST",
+        "path": "/api/v1/staff/whatsapp-orders/{order_id}/cancel",
+        "capability": "operations.record", "group": "طلبات التوصيل عبر الواتساب",
+        "help": "فقط قبل بدء التجهيز — بعدها الإلغاء يحتاج تواصل مباشر مع العميل.",
+    },
+    {
+        "id": "whatsapp_order.resolve_mismatch", "label": "حل خلل مطابقة الدفع يدويًا",
+        "method": "POST", "path": "/api/v1/staff/whatsapp-orders/{order_id}/resolve-mismatch",
+        "capability": "operations.record", "group": "طلبات التوصيل عبر الواتساب",
+        "help": "تأكدت من صحة الدفع بوسيلة أخرى (كشف حساب، اتصال بالعميل) وتبغى تكمل الطلب يدويًا.",
+    },
+    # ── المسوّقون والمؤثرون — Phase 4 of services/referrals' own plan doc. NOT the ordinary
+    # referral code above (core/referral_redemption.py): a distinct tier the shop assigns
+    # directly, by phone, with its own negotiated code/discount/reward — never both roles for one
+    # phone at once (core/affiliates.py's own module docstring).
+    {
+        "id": "affiliate.add", "label": "أضف مسوّقاً", "method": "POST",
+        "path": "/api/v1/affiliates", "capability": "operations.manage", "group": "المسوّقون",
+        "help": "كود مخصص، نسبة خصم لمتابعيه، ومكافأة لكل عملية بيع عبر كوده — مستقلة كليًا عن "
+               "حملة الإحالة العادية.",
+    },
+    {
+        "id": "affiliate.list", "label": "قائمة المسوّقين", "method": "GET",
+        "path": "/api/v1/affiliates", "capability": "operations.affiliates_read", "group": "المسوّقون",
+        "help": "كل مسوّق أُضيف بهذا المتجر، برصيده الحالي غير المُسوَّى.",
+    },
+    {
+        "id": "affiliate.get", "label": "تفاصيل مسوّق", "method": "GET",
+        "path": "/api/v1/affiliates/{affiliate_id}", "capability": "operations.affiliates_read",
+        "group": "المسوّقون",
+        "params": [{"name": "affiliate_id", "in": "path", "type": "string", "required": True}],
+        "help": "شروط مسوّق واحد بالتفصيل ورصيده الحالي.",
+    },
+    {
+        "id": "affiliate.set_active", "label": "أوقف/فعّل مسوّقاً", "method": "PUT",
+        "path": "/api/v1/affiliates/{affiliate_id}/active", "capability": "operations.manage",
+        "group": "المسوّقون", "confirm": True,
+        "params": [{"name": "affiliate_id", "in": "path", "type": "string", "required": True}],
+        "help": "الإيقاف لا يمس رصيده المتراكم — يبقى بانتظار التسوية حتى لو أُوقف.",
+    },
+    {
+        "id": "affiliate.settle", "label": "سجّل تسوية مع مسوّق", "method": "POST",
+        "path": "/api/v1/affiliates/{affiliate_id}/settle", "capability": "operations.manage",
+        "group": "المسوّقون", "confirm": True,
+        "params": [{"name": "affiliate_id", "in": "path", "type": "string", "required": True}],
+        "help": "توثيق فقط — التحويل الفعلي يصير خارج النظام، هنا فقط تُسجَّل أنه تم وبأي مبلغ.",
+    },
+    {
+        "id": "affiliate.list_settlements", "label": "سجل تسويات مسوّق", "method": "GET",
+        "path": "/api/v1/affiliates/{affiliate_id}/settlements",
+        "capability": "operations.affiliates_read", "group": "المسوّقون",
+        "params": [{"name": "affiliate_id", "in": "path", "type": "string", "required": True}],
+        "help": "كل تسوية سُجِّلت لهذا المسوّق: المبلغ، من نفّذها، ومتى.",
+    },
+    # ── تقارير الإحالة والمسوّقين — Phase 5a. القراءة فقط، بلا أي كتابة؛ راجع core/
+    # referral_reports.py's own module docstring للمقاييس المتعمَّد استبعادها (K-factor، النقرات).
+    {
+        "id": "referral.report_summary", "label": "ملخص أداء الإحالة", "method": "GET",
+        "path": "/api/v1/referrals/reports/summary", "capability": "operations.read",
+        "group": "تقارير الإحالة",
+        "params": [{"name": "since", "in": "query", "type": "integer", "required": False},
+                  {"name": "until", "in": "query", "type": "integer", "required": False}],
+        "help": "الإيراد الحقيقي، تكلفة المكافآت، معدل التحويل، وعملاء جدد اكتُسبوا فعليًا.",
+    },
+    {
+        "id": "referral.report_leaderboard", "label": "أفضل السفراء والمسوّقين", "method": "GET",
+        "path": "/api/v1/referrals/reports/leaderboard", "capability": "operations.affiliates_read",
+        "group": "تقارير الإحالة",
+        "params": [{"name": "since", "in": "query", "type": "integer", "required": False},
+                  {"name": "until", "in": "query", "type": "integer", "required": False},
+                  {"name": "limit", "in": "query", "type": "integer", "required": False}],
+        "help": "مرتّبة حسب الإيراد الفعلي، لا عدد مرات الاستخدام وحده.",
+    },
+    {
+        "id": "referral.report_campaigns", "label": "أداء حملات الإحالة", "method": "GET",
+        "path": "/api/v1/referrals/reports/campaigns", "capability": "operations.read",
+        "group": "تقارير الإحالة",
+        "params": [{"name": "since", "in": "query", "type": "integer", "required": False},
+                  {"name": "until", "in": "query", "type": "integer", "required": False}],
+        "help": "لكل حملة إحالة عادية: كم تسجيل، كم فعليًا انصرف، وأي إيراد جاء منه.",
+    },
+    {
+        "id": "referral.report_affiliates", "label": "أداء المسوّقين", "method": "GET",
+        "path": "/api/v1/referrals/reports/affiliates", "capability": "operations.affiliates_read",
+        "group": "تقارير الإحالة",
+        "help": "كل مسوّق أُضيف، برصيده الحالي وإجمالي الإيراد اللي جابه.",
     },
 ]
 
@@ -913,9 +1063,6 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
     {"method": "POST", "path": "/api/v1/till/bookings/{}/attend",
      "why": "the till marking a booking attended at the counter — same service-account door as "
             "the rest of this file"},
-    {"method": "POST", "path": "/api/v1/till/operators/verify-pin",
-     "why": "the till confirming an operator's PIN at the counter, on a service account "
-            "credential — see staff.py's own module docstring on what a PIN is for"},
     {"method": "POST", "path": "/api/v1/till/rating-request",
      "why": "the till expediting a rating request at the counter, same machine credential as "
             "every other till.py route"},
@@ -923,6 +1070,11 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
      "why": "an external store/site granting a shop-to-shop coupon from a real order, same "
             "service-account door as every other till.py route — the console reaches the same "
             "engine through /staff/coupons/grant instead"},
+    {"method": "POST", "path": "/api/v1/till/referral/register",
+     "why": "a cashier's software validating a referral code at the counter (services/referrals' "
+            "own Phase 3), same service-account door as every other till.py route — no console "
+            "surface exists for this yet, and the pending grant it creates applies automatically "
+            "the next time /till/offer/apply runs for that same customer"},
     {"method": "GET", "path": "/api/v1/salla/callback",
      "why": "Salla's own browser redirect back after the owner approves the consent screen — "
             "arrives with no Bearer token to check, same reasoning as signup's own unauthenticated "
@@ -930,4 +1082,9 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
     {"method": "POST", "path": "/api/v1/salla/webhook",
      "why": "Salla's own server calling us on a subscribed event, verified by HMAC signature "
             "instead of a Bearer token — see api/v1/salla.py's own module docstring"},
+    {"method": "GET", "path": "/api/v1/public_catalog/{}",
+     "why": "Meta's own Commerce Catalog crawler fetches a service's photo by this URL with no "
+            "login at all — see core/public_catalog_image.py's own module docstring on why a "
+            "capability token replaces an identity check here. No console screen calls this "
+            "directly; the token is handed to Meta, never to a signed-in operator's own session"},
 ]

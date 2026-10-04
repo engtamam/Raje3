@@ -1,6 +1,6 @@
 import type { ShellContext } from '../shell-context';
 import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
-import { AccountScreen, type PaneLink } from './Account';
+import { AccountScreen, type PaneLink } from './account/AccountScreen';
 import { type Loading } from '../loading';
 import type { Owned } from '../apps';
 import type { Catalog } from '../catalog';

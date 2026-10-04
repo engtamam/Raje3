@@ -142,6 +142,7 @@ class MobileLocationRequest:
     — never free text."""
     service_ids: list[str]
     requested_time: int
+    referral_code: str = ""
 
 
 class ToolValidationError(Exception):
@@ -255,6 +256,13 @@ async def _tool_propose_booking(ctx: ToolContext, args: dict[str, Any]) -> ToolR
             reward_id = ""
             reward_dropped = True
 
+    # A NEW CUSTOMER'S OWN REFERRAL CODE — the model fills this ONLY when the customer actually
+    # said one in the conversation (see the tool's own schema description); never validated here,
+    # never trusted as real — it rides along as plain intent and is checked for real, against the
+    # real engine, only at confirm time (`_confirm_propose_booking` below), the same "the model
+    # proposes, the backend decides" posture `reward_id` right above already holds.
+    referral_code = str(args.get("referral_code") or "").strip()
+
     proposal_id = f"prp_{uuid.uuid4().hex[:24]}"
     proposal_args: dict[str, Any] = {"starts_at": starts_at}
     if package_id:
@@ -263,6 +271,8 @@ async def _tool_propose_booking(ctx: ToolContext, args: dict[str, Any]) -> ToolR
         proposal_args["service_id"] = service_id
     if reward_id:
         proposal_args["reward_id"] = reward_id
+    if referral_code:
+        proposal_args["referral_code"] = referral_code
     proposal = PendingProposal(
         id=proposal_id, tenant=ctx.tenant, subject_ref=ctx.subject_ref,
         conversation_id=ctx.conversation_id, tool="propose_booking",
@@ -687,7 +697,14 @@ async def _tool_check_mobile_visit_hours(ctx: ToolContext, args: dict[str, Any])
 
 async def _tool_request_mobile_visit(ctx: ToolContext, args: dict[str, Any]) -> ToolResult:
     raw_ids = args.get("service_ids") or []
-    service_ids = [str(sid) for sid in raw_ids if str(sid).strip()][:20]
+    seen: set[str] = set()
+    service_ids: list[str] = []
+    for sid in raw_ids:
+        s = str(sid).strip()
+        if s and s not in seen:
+            seen.add(s)
+            service_ids.append(s)
+    service_ids = service_ids[:20]
     if not service_ids:
         raise ToolValidationError("request_mobile_visit requires at least one service_id")
     # RE-VALIDATED against the shop's REAL catalogue — never trusted from the model's own
@@ -717,7 +734,12 @@ async def _tool_request_mobile_visit(ctx: ToolContext, args: dict[str, Any]) -> 
             if reason:
                 raise ToolValidationError(reason)
 
-    return MobileLocationRequest(service_ids=service_ids, requested_time=starts_at)
+    # A NEW CUSTOMER'S OWN REFERRAL CODE — same "the model fills it only when the customer
+    # actually said one" posture as propose_booking's own referral_code (this function's own
+    # sibling above); never validated here, only carried along until the request is created.
+    referral_code = str(args.get("referral_code") or "").strip()
+    return MobileLocationRequest(service_ids=service_ids, requested_time=starts_at,
+                                 referral_code=referral_code)
 
 
 # ── WHICH APP(S) EACH TOOL BELONGS TO ───────────────────────────────────────────────────────────
@@ -893,6 +915,7 @@ async def execute_confirmed_proposal(*, tenant: str, proposal_id: str, store: An
                                      booking_provider: Any, auditor: Any,
                                      idempotency_key: str, now: int | None = None,
                                      branch_id: str = "", from_number: str = "",
+                                     conversation_id: str = "",
                                      booking_management_enabled: bool = True
                                      ) -> dict[str, Any]:
     """The ONLY path that turns a proposal into a real write — see `_execute_confirmed_proposal`'s
@@ -908,6 +931,8 @@ async def execute_confirmed_proposal(*, tenant: str, proposal_id: str, store: An
     row = await store.get(PENDING_PROPOSALS, proposal_id)
     if row is None or row.get("tenant") != tenant:
         raise ToolValidationError("no such pending proposal for this tenant")
+    if conversation_id and row.get("conversation_id") != conversation_id:
+        raise ToolValidationError("this proposal does not belong to this conversation")
     if row.get("consumed"):
         raise ToolValidationError("proposal already consumed")
     if int(row.get("expires_at") or 0) < now:
@@ -972,12 +997,14 @@ async def _confirm_propose_booking(ctx: ExecuteContext, row: dict, args: dict[st
                 tenant=ctx.tenant, subject_ref=subject_ref, package_id=package_id,
                 starts_at=int(args["starts_at"]), idempotency_key=ctx.idempotency_key,
                 branch_id=ctx.branch_id, from_number=ctx.from_number,
-                intended_reward_id=str(args.get("reward_id") or ""))
+                intended_reward_id=str(args.get("reward_id") or ""),
+                referral_code=str(args.get("referral_code") or ""))
         else:
             booking = await ctx.booking_provider.hold_and_confirm(
                 tenant=ctx.tenant, subject_ref=subject_ref, service_id=args["service_id"],
                 starts_at=int(args["starts_at"]), idempotency_key=ctx.idempotency_key,
                 branch_id=ctx.branch_id, from_number=ctx.from_number,
+                referral_code=str(args.get("referral_code") or ""),
                 intended_reward_id=str(args.get("reward_id") or ""))
     except ToolValidationError:
         raise
@@ -1155,15 +1182,20 @@ def _parse_date(value: Any) -> int | None:
         d = _dt.datetime.strptime(str(value), "%Y-%m-%d")
         return int(d.replace(tzinfo=_dt.timezone.utc).timestamp())
     except ValueError:
-        return None
+        raise ToolValidationError(f"earliest_date is not a valid YYYY-MM-DD date: {value!r}")
 
 
 def _parse_iso(value: Any) -> int | None:
     if not value:
         return None
     import datetime as _dt
+
+    from app.core.riyadh import RIYADH
     try:
-        return int(_dt.datetime.fromisoformat(str(value)).timestamp())
+        d = _dt.datetime.fromisoformat(str(value))
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=RIYADH)
+        return int(d.timestamp())
     except ValueError:
         return None
 

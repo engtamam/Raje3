@@ -125,6 +125,25 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
+/**
+ * ONE SENTENCE FOR EVERY ACTION FAILURE ON THIS SCREEN — same "the server's own real reason,
+ * never a blank failure" convention Customer.tsx's own save/offer handlers already hold to.
+ *
+ * A 403 HERE IS ALMOST ALWAYS `OUTSIDE_YOUR_BRANCH` (services/operations/app/api/v1/
+ * mobile_requests.py's own `_require_branch_access`/branch checks in `assign_mobile_request` and
+ * `create_mobile_request`) — but the SERVER'S OWN SENTENCE never reaches here: `api/errors.py`
+ * strips every `HTTPException` detail on the way out (CWE-209), so `call()`'s own `err.message`
+ * falls back to a bare `METHOD path → 403`. Rather than show that, this screen names the one real
+ * reason a manager reading it actually needs — the request moved (or the operator he tried to
+ * assign works) outside the branch he can see. Any OTHER status keeps the server's own sentence
+ * when one arrived (`err.message`), same as every other screen in this console.
+ */
+function actionErrorMessage(e: unknown, t: (k: string) => string): string {
+  const status = e instanceof Error ? (e as Error & { status?: number }).status : undefined;
+  if (status === 403) return t('mobileRequests.action.outsideBranch');
+  return e instanceof Error && e.message ? e.message : t('mobileRequests.action.genericError');
+}
+
 function formatDate(ts: number, locale: string): string {
   if (!ts) return '';
   return new Date(ts * 1000).toLocaleDateString(locale === 'ar' ? 'ar-SA' : locale, {
@@ -155,6 +174,16 @@ export function MobileRequestsScreen({ session, catalog }: { session: Session; c
   const [busyId, setBusyId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   const [addOpen, setAddOpen] = useState(false);
+  // A REAL SENTENCE FOR A REFUSED ACTION — see `actionErrorMessage`'s own docstring. Cleared on
+  // the next attempt and self-clearing after a few seconds, same "confirmation that clears itself"
+  // pattern Customer.tsx's own `namingMsg` already uses, so a stale refusal never lingers over a
+  // screen that keeps changing under it.
+  const [actionError, setActionError] = useState('');
+
+  function reportActionError(e: unknown) {
+    setActionError(actionErrorMessage(e, t));
+    window.setTimeout(() => setActionError(''), 5000);
+  }
 
   // TICKS THE "منذ كذا"/"تحتاج قرار" READ FORWARD without a refetch — a card that was fine when
   // the list loaded must still flip into the needs-decision bucket while the owner is looking at
@@ -262,9 +291,12 @@ export function MobileRequestsScreen({ session, catalog }: { session: Session; c
   async function onAccept(r: MobileServiceRequest) {
     if (!acceptAction || busyId) return;
     setBusyId(r.id);
+    setActionError('');
     try {
       await call(session, acceptAction, { request_id: r.id });
       load();
+    } catch (e) {
+      reportActionError(e);
     } finally { setBusyId(null); }
   }
 
@@ -274,36 +306,48 @@ export function MobileRequestsScreen({ session, catalog }: { session: Session; c
     // confirm uses; a full modal is more weight than an optional one-line reason needs.
     const reason = window.prompt(t('mobileRequests.reject.reasonPrompt')) ?? '';
     setBusyId(r.id);
+    setActionError('');
     try {
       await call(session, rejectAction, { request_id: r.id, reason: reason.trim() });
       load();
+    } catch (e) {
+      reportActionError(e);
     } finally { setBusyId(null); }
   }
 
   async function onComplete(r: MobileServiceRequest) {
     if (!completeAction || busyId) return;
     setBusyId(r.id);
+    setActionError('');
     try {
       await call(session, completeAction, { request_id: r.id });
       load();
+    } catch (e) {
+      reportActionError(e);
     } finally { setBusyId(null); }
   }
 
   async function onNoShow(r: MobileServiceRequest) {
     if (!noShowAction || busyId) return;
     setBusyId(r.id);
+    setActionError('');
     try {
       await call(session, noShowAction, { request_id: r.id });
       load();
+    } catch (e) {
+      reportActionError(e);
     } finally { setBusyId(null); }
   }
 
   async function onAssign(r: MobileServiceRequest, operatorId: string) {
     if (!assignAction || busyId) return;
     setBusyId(r.id);
+    setActionError('');
     try {
       await call(session, assignAction, { request_id: r.id, operator_id: operatorId });
       load();
+    } catch (e) {
+      reportActionError(e);
     } finally { setBusyId(null); }
   }
 
@@ -334,6 +378,12 @@ export function MobileRequestsScreen({ session, catalog }: { session: Session; c
         <KpiCard icon={<CalendarCheck2 size={18} />} label={t('mobileRequests.kpi.completedThisMonth')}
                 value={completedThisMonth} tone="success" testId="mobile-requests-kpi-completed" />
       </div>
+
+      {actionError ? (
+        <p role="alert" className="rounded-card border border-danger/30 bg-danger-soft px-4 py-2 text-sm font-semibold text-danger">
+          {actionError}
+        </p>
+      ) : null}
 
       {needsDecisionRows.length > 0 ? (
         <div className="flex flex-wrap items-center gap-3 rounded-card border border-warning/30 bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-on-soft">
@@ -459,7 +509,12 @@ function AddRequestModal({
       });
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('mobileRequests.add.error'));
+      // SAME REAL-SENTENCE RULE AS EVERY ACTION ON THIS SCREEN — a manager assigning outside
+      // their own branch at creation time (`create_mobile_request`'s own check) gets the same
+      // clear sentence `onAssign` shows, not a bare `POST ... → 403`.
+      const status = e instanceof Error ? (e as Error & { status?: number }).status : undefined;
+      setError(status === 403 ? t('mobileRequests.action.outsideBranch')
+              : (e instanceof Error && e.message ? e.message : t('mobileRequests.add.error')));
     } finally {
       setSubmitting(false);
     }

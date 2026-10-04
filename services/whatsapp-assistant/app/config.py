@@ -157,6 +157,10 @@ class Settings(BaseSettings):
     # third-party model (Gemini/Google), used to read your loyalty balance and propose actions on
     # your behalf. A materially different processing purpose from ordinary transactional messages.
     CONSENT_PURPOSE: str = "whatsapp_ai_assistant"
+    # `feature.whatsapp_delivery_orders`'s OWN purpose — a customer who only ever orders from the
+    # catalog never touches the LLM, so asking under `CONSENT_PURPOSE` above would misdescribe what
+    # actually happens to their message.
+    CONSENT_PURPOSE_ORDERING: str = "whatsapp_catalog_ordering"
     # FAIL_OPEN, NOT FAIL_CLOSED — and this is a real product decision, not a default nobody
     # thought about: the customer TEXTED THE SHOP FIRST. Refusing to answer him because
     # compliance-service could not be reached (UNKNOWN) reads as "the shop's WhatsApp appears
@@ -249,6 +253,13 @@ class Settings(BaseSettings):
     # own docstring). Flipping this alone does nothing until that call site exists.
     META_AGENT_PROVISIONING_ENABLED: bool = False
 
+    # Meta Commerce Catalog provisioning for WhatsApp Direct Ordering -- see
+    # core/catalog_provisioning.py for the three-step sequence (create/connect/enable-cart) and
+    # its idempotency guarantees. OFF by default, same posture as META_AGENT_PROVISIONING_ENABLED
+    # right above: the orchestration is reviewed and tested standalone, wired to connect-time by
+    # operations/app/api/v1/connect.py via its own catalog_provision_trigger.
+    CATALOG_PROVISIONING_ENABLED: bool = False
+
     OPERATIONS_SERVICE_URL: str = ""
     # ESCALATED: no phone->customer lookup existed anywhere in operations before this service. We
     # added the narrowest possible route, /internal/operations/customer-by-phone (reusing the
@@ -290,6 +301,8 @@ class Settings(BaseSettings):
     # peer call here; withheld from the model entirely (see llm_tool_allowlist below) whenever that
     # URL is empty, same "withheld, not offered-and-refused" posture as the carousel/rhythm tools.
     OPERATIONS_MOBILE_REQUESTS_PATH: str = "/internal/operations/mobile-requests"
+    # WhatsApp Direct Ordering's own order-creation door (Step 4) — see app/ports/orders.py.
+    OPERATIONS_WHATSAPP_ORDERS_PATH: str = "/internal/operations/whatsapp-orders"
     # The read `check_mobile_visit_hours` makes before `request_mobile_visit` is ever proposed —
     # the shop's own real weekly working hours (services/operations/app/api/internal.py::
     # internal_mobile_visit_hours, itself a thin proxy over bookings' own working-hours read).
@@ -459,7 +472,7 @@ class Settings(BaseSettings):
     # (core/wallet_low_balance_trigger.py). The owner logs in there and tops up normally; no
     # dedicated top-up page or auto-login token, by owner decision (2026-09-10) — simpler, cheaper,
     # and console already serves the whole platform from this one domain (deploy/edge/console.yaml).
-    PUBLIC_BASE_URL: str = "https://kobo-cloud.com"
+    PUBLIC_BASE_URL: str = "https://ra-je3.com"
 
     @field_validator("WALLET_ESTIMATED_MAX_TOKENS_PER_TURN", "WALLET_SAFETY_MARGIN_HALALAS")
     @classmethod

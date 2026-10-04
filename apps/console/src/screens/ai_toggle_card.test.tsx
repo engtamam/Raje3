@@ -21,7 +21,7 @@ vi.mock('../catalog', async (importOriginal) => {
   };
 });
 
-const { AiToggleCard } = await import('./AccountPanes');
+const { AiToggleCard } = await import('./whatsapp-assistant-cards');
 
 afterEach(() => { cleanup(); });
 

@@ -74,13 +74,13 @@ def _token(caps=None, **over) -> str:
 
 def test_set_payout_method_refuses_with_no_token(client):
     r = client.put("/api/v1/affiliates/me/payout-method",
-                   json={"channel": "bank_iban", "account_ref": "SA00"})
+                   json={"channel": "bank_iban", "account_ref": "SA0000000000000000000000"})
     assert r.status_code == 401
 
 
 def test_set_payout_method_404s_for_a_non_affiliate(client):
     r = client.put("/api/v1/affiliates/me/payout-method",
-                   json={"channel": "bank_iban", "account_ref": "SA00"},
+                   json={"channel": "bank_iban", "account_ref": "SA0000000000000000000000"},
                    headers={"Authorization": f"Bearer {_token()}"})
     assert r.status_code == 404
 
@@ -206,7 +206,7 @@ def _seed_withdrawal(client: TestClient) -> tuple[str, str]:
         commission = Commission(id=f"comm-r{n}", tenant=f"t-r{n}", affiliate_id=aff.id,
                                 kind=CONVERSION, amount_halalas=4000, status=CONFIRMED)
         await c.datastore.put(COMMISSIONS, commission.id, commission.to_dict())
-        await c.payouts.set_payout_method(aff.id, channel="bank_iban", account_ref="SA00")
+        await c.payouts.set_payout_method(aff.id, channel="bank_iban", account_ref="SA0000000000000000000000")
         out = await c.payouts.request_withdrawal(aff.id)
         return aff.id, out["id"]
     return asyncio.run(seed())

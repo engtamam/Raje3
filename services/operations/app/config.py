@@ -225,6 +225,16 @@ class Settings(BaseSettings):
     # OFF by default (that service's own META_AGENT_PROVISIONING_ENABLED gate decides whether the
     # call does anything real; this side just needs somewhere real to send it).
     WHATSAPP_META_AGENT_PROVISION_PATH: str = "/internal/whatsapp/meta-agent/provision"
+    # Meta Commerce Catalog provisioning (WhatsApp Direct Ordering), fired right alongside the
+    # Meta Business Agent trigger above -- see
+    # services/whatsapp-assistant/app/core/catalog_provisioning.py for the create/connect/
+    # enable-cart sequence and its idempotency guarantees. OFF by default (that service's own
+    # CATALOG_PROVISIONING_ENABLED gate decides whether the call does anything real).
+    WHATSAPP_CATALOG_PROVISION_PATH: str = "/internal/whatsapp/catalog/provision"
+    # Per-service catalog item sync, fired on every service create/update/image-upload — see
+    # services/whatsapp-assistant/app/core/catalog_item_sync.py and
+    # core/catalog_item_sync_trigger.py.
+    WHATSAPP_CATALOG_ITEM_SYNC_PATH: str = "/internal/whatsapp/catalog/sync-item"
     # The on/off switch for a number ALREADY onboarded -- see meta_agent_rollout_trigger.py's own
     # docstring. Fired by the AI kill switch (staff.py::set_ai_toggle), never a re-run of
     # provisioning. A subscription simply lapsing with nobody touching the switch is not covered
@@ -276,27 +286,26 @@ class Settings(BaseSettings):
     # `HttpPlans.checkout`/`checkout_preview` docstrings for why this pair exists at all).
     BILLING_CHECKOUT_PATH: str = "/internal/billing/subscriptions/checkout"
     BILLING_CHECKOUT_PREVIEW_PATH: str = "/internal/billing/subscriptions/checkout/preview"
-
-    # ── the payment gateway, as the SCREEN needs to know it ───────────────────────────────────
-    #
-    # ONE KEY IS THE WHOLE SWITCH. Empty means no gateway is live, and the plans screen says so in
-    # a sentence instead of handing out paid tiers to whoever presses hardest. Filled means the
-    # card form appears and the subscription waits for a real charge. No code change, no rebuild:
-    # put the key in the secret and the product starts selling.
-    #
-    # PUBLISHABLE BY DESIGN. This is the key the gateway means to be read by a browser — it can
-    # create a token and nothing else. The SECRET key lives in billing-service and is never here,
-    # never in the console, and never in a response.
-    PAYMENT_PUBLISHABLE_KEY: str = ""
-    PAYMENT_PROVIDER: str = "moyasar"
+    # A HOSTED-CHECKOUT-LINK NEW SUBSCRIPTION (base-services v0.25.30) — the gateway-agnostic
+    # replacement for the old browser-tokenised card form (`payment.ts`, retired 2026-09-24): the
+    # subscription is created `incomplete` and activates only once the payment settles (billing's
+    # own webhook/reconcile seam), never on the strength of a client-claimed token. See
+    # `subscribeFlow.ts`'s own header note for the console-side half of this replacement.
+    BILLING_CHECKOUT_LINK_PATH: str = "/internal/billing/subscriptions/checkout-link"
+    # THE CART'S OWN HOSTED LINK (base-services v0.25.31) — `checkout-link`'s sibling for several
+    # plans at once: ONE pay-link for the whole cart, every subscription created `incomplete` and
+    # all activating together once that ONE invoice settles. A deliberately separate path from the
+    # single-plan one above (never overloaded with an `items[]` body on the same route) — one
+    # schema per path keeps validation strict, the provider's own call.
+    BILLING_CHECKOUT_CART_LINK_PATH: str = "/internal/billing/subscriptions/checkout/link"
 
     # ── Salla (marketplace app — shop-to-shop alliances from a real Salla order) ────────────────
     # SET FROM THE PARTNERS PORTAL, THROUGH secrets-admin — never typed here. A shop owner
     # registers the app at portal.salla.partners, pastes the three values this app gives him into
     # the secrets screen (same posture as every other external credential — see
     # secrets-admin/app/core/secret_registry.py's own module docstring). Empty means the Salla
-    # integration simply answers "not configured" rather than failing — same posture
-    # PAYMENT_PUBLISHABLE_KEY's own comment above documents for an unconfigured gateway.
+    # integration simply answers "not configured" rather than failing, same posture every other
+    # optional peer credential in this file holds.
     SALLA_CLIENT_ID: str = ""
     SALLA_CLIENT_SECRET: str = ""
     # HMAC-SHA256 key Salla signs every webhook call with (`X-Salla-Signature` header) — set ONCE
@@ -339,6 +348,13 @@ class Settings(BaseSettings):
     # THE EVIDENCE FILE'S OTHER HALF (task 283): consent transitions and the send log, read from
     # the service that writes them. A copy of either here would be evidence about our copy.
     REMINDERS_EVIDENCE_PATH: str = "/internal/reminders/evidence"
+    # WHERE A REAL VISIT REPORTS ITSELF TOWARD A SHOP'S OWN "جماعي" MILESTONE CAMPAIGNS (a shared
+    # counter crossing a threshold — see campaigns' own core/milestone.py). Fire-and-forget from
+    # `record_visit`'s own hook, same posture as the mutual-benefit one right beside it: empty
+    # disables the hook entirely rather than guessing, and any failure to reach it must never cost
+    # the visit itself.
+    CAMPAIGNS_SERVICE_URL: str = ""           # e.g. http://campaigns:8000
+    CAMPAIGNS_MILESTONE_VISIT_PATH: str = "/internal/campaigns/milestone/visit-recorded"
     COMPLIANCE_SERVICE_URL: str = ""         # e.g. http://compliance-service:8000
     # THE ONE QUESTION ASKED OF `bookings`: the shop's own working hours, so a staff member's
     # custom hours can be refused at write time if they reach outside them. Empty means this
@@ -347,6 +363,11 @@ class Settings(BaseSettings):
     # a peer that may not be configured in every environment.
     BOOKINGS_SERVICE_URL: str = ""           # e.g. http://bookings:8000
     BOOKINGS_WORKING_HOURS_PATH: str = "/internal/working-hours"
+    # WhatsApp Direct Ordering's own pay-link minter — see adapters/payments_desk.py. Empty means
+    # `OrderService.request_payment()` simply cannot mint a link (the caller sees `None` and must
+    # tell the customer to try again shortly), the same "blank = not wired yet" trade every other
+    # optional peer URL in this file already takes.
+    PAYMENTS_SERVICE_URL: str = ""           # e.g. http://payments-service:8000
     # WHERE A SHOP'S DATA LIVES, as "service:category" pairs, registered at signup so a DSAR has
     # somewhere to go. Config and not code: a service deployed next month must not need a release
     # of the signup saga, and a deployment that omits one can be seen in one place.
@@ -395,6 +416,10 @@ class Settings(BaseSettings):
     # Empty means a shop starts with no rewards — a missing table rather than a failed signup,
     # which is the right trade for a peer that may not be deployed.
     LOYALTY_SERVICE_URL: str = ""            # e.g. http://loyalty:8000
+    # THE GLOBAL ANONYMOUS REFERRAL CODE, AND THIS SHOP'S OWN CAMPAIGN — services/referrals holds
+    # both (see its own docs/خطة-تطبيق-الإحالة-والمسوقين-2026-09-27.md). Optional, same posture as
+    # LOYALTY_SERVICE_URL above it: a shop with no referral campaign never calls this at all.
+    REFERRALS_SERVICE_URL: str = ""          # e.g. http://referrals:8000
     # WHO BROUGHT THIS SHOP — the affiliate portal's own attribution, deliberately separate from
     # PartnerRegistry/partner_key just above: a marketer earns a flat amount on an identity-
     # authenticated account, a till partner earns a percentage on a bearer key. See
@@ -473,7 +498,7 @@ class Settings(BaseSettings):
     # as reminders' own PUBLIC_BASE_URL — empty here means booking-Flow provisioning simply omits
     # endpoint_uri (Meta then refuses/ignores actual traffic, but the clone itself still succeeds,
     # so a shop connecting before DOMAIN is set is not blocked, only inert until it is).
-    PUBLIC_BASE_URL: str = ""                # e.g. https://raje3.sa
+    PUBLIC_BASE_URL: str = ""                # this deployment's own public domain, set at install
     # How many establishments one sweep pass reconciles. A repair pass that runs again in an hour:
     # progress beats completeness, and a fleet-wide scan on one request is a request that times out.
     TEMPLATE_SYNC_MAX_TENANTS: int = 200
@@ -557,22 +582,6 @@ class Settings(BaseSettings):
     # number. That needs two registered numbers (#167). This flag turns on after that ONE check,
     # not after a chain nobody has walked.
     BRANCH_MODE_PER_BRANCH_READY: bool = False
-
-    # ── the shared-tablet employee ────────────────────────────────────────────────────────────
-    # OFF, AND KEPT WHOLE. «رمز على الجهاز» adds a person with four digits instead of a login: he
-    # proves himself at «من يحفظ؟» and the visit carries his name. It is built end to end — the
-    # form, `create_operator`, `verify-pin`, the five-minute proof — and it is not what this
-    # product is being sold on today: every employee gets an account on his own phone.
-    #
-    # SWITCHED OFF RATHER THAN DELETED, on purpose. Deleting a working path costs a rewrite the day
-    # a shop with one counter tablet asks for it; leaving it visible costs every owner a choice he
-    # does not need and a second credential to manage. So it stays complete and unreachable, and
-    # this line is the whole of the decision.
-    #
-    # AND IT IS ENFORCED AT THE DOOR, not only in the screen: `create_operator` refuses while this
-    # is false. A capability hidden by the console alone is a capability, and this file would then
-    # be describing a wish.
-    PIN_OPERATORS_ENABLED: bool = False
 
     # THE KILL SWITCH for selling any plan marked `plan.standalone` (core/subscribe.py::may_add,
     # is_standalone) WITHOUT الأساس underneath it — e.g. "واتساب الذكي (مستقل)". False makes

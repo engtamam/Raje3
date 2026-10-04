@@ -28,7 +28,7 @@ class _FakeSender:
         return "dlv_1"
 
 
-def _trigger(phones=None, base_url="https://kobo-cloud.com"):
+def _trigger(phones=None, base_url="https://ra-je3.com"):
     sender = _FakeSender()
     owner_phone = _FakeOwnerPhone(phones if phones is not None else {"t1": "+966500000000"})
     trigger = WalletLowBalanceTrigger(owner_phone=owner_phone, sender=sender,
@@ -42,7 +42,7 @@ def test_a_real_event_sends_the_notice_from_the_platform_number():
     assert ok is True
     assert sender.sent == [{"tenant": "_platform", "to": "+966500000000",
                             "template_name": "ai_wallet_low_balance",
-                            "variables": ["https://kobo-cloud.com"],
+                            "variables": ["https://ra-je3.com"],
                             "idempotency_key": "walletlow:t1:1000"}]
 
 
@@ -61,9 +61,9 @@ def test_a_tenant_with_no_reachable_owner_sends_nothing():
 
 
 def test_a_trailing_slash_on_the_base_url_is_stripped():
-    trigger, sender = _trigger(base_url="https://kobo-cloud.com/")
+    trigger, sender = _trigger(base_url="https://ra-je3.com/")
     run(trigger.handle({"tenant": "t1", "threshold": 1000}))
-    assert sender.sent[0]["variables"] == ["https://kobo-cloud.com"]
+    assert sender.sent[0]["variables"] == ["https://ra-je3.com"]
 
 
 def test_two_different_tenants_are_independent():

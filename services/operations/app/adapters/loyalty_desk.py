@@ -98,6 +98,19 @@ class LoyaltyDesk:
             "tenant": tenant, "subject_ref": subject_ref, "reward_id": reward_id,
             "idempotency_key": idempotency_key, "actor": actor, "branch_id": branch_id})
 
+    async def award(self, *, tenant: str, subject_ref: str, points: int, idempotency_key: str,
+                    reason: str = "", actor: str = "", branch_id: str = "") -> dict[str, Any] | None:
+        """Credit points for a reason that is not a visit — `loyalty`'s own `/internal/loyalty/
+        award`, the generic gift primitive `core/referral_redemption.py` reuses (tagged
+        `reason="referral"`) rather than growing a second, referral-specific loyalty endpoint —
+        the plan doc's own "لا اعتماد أو تعديل على نظام النقاط الموجود" rule, applied here."""
+        if not self.configured or points <= 0:
+            return None
+        return await run_in_threadpool(self._call, "/internal/loyalty/award", body={
+            "tenant": tenant, "subject_ref": subject_ref, "points": points,
+            "idempotency_key": idempotency_key, "reason": reason, "actor": actor,
+            "branch_id": branch_id})
+
     async def rating_bonus(self, *, tenant: str, subject_ref: str, visit_id: str, points: int,
                            actor: str = "", branch_id: str = "") -> dict[str, Any] | None:
         """Credit the rating app's own incentive for one just-submitted rating.

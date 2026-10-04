@@ -26,6 +26,8 @@ class _FakeAiModel implements AiModel {
   @override
   Stream<int> get downloadProgress => const Stream.empty();
   @override
+  String? get lastError => null;
+  @override
   Future<void> ensureReady({List<AiTool> tools = const []}) async {
     lastTools = tools;
   }
@@ -98,6 +100,12 @@ void main() {
   group('AssistantService visibility — the real KB, the real capability catalogue', () {
     late KbService kb;
 
+    // The "visit.register" entry's OWN heading, never a bare 'تسجيل زيارة' — that phrase also
+    // appears inside OTHER, ungated entries' own body prose (adding a customer "بدون تسجيل
+    // زيارة", the vehicle-tracking switch's own description), so a bare substring check cannot
+    // tell "the gated entry is present" apart from "an unrelated entry mentioned the same words".
+    const visitHeading = '## تسجيل زيارة\n';
+
     setUpAll(() async {
       kb = KbService();
       await kb.init(); // loads the REAL assets/knowledge/mobile_kb.json shipped with the app
@@ -109,7 +117,7 @@ void main() {
       final assistant = AssistantService(aiModel: ai, kbService: kb, actionRegistry: actionRegistry);
       await assistant.ask('?', lang: 'ar', catalog: _catalogWith([])).drain<void>();
 
-      expect(ai.lastSystemInstruction, isNot(contains('تسجيل زيارة')));
+      expect(ai.lastSystemInstruction, isNot(contains(visitHeading)));
     });
 
     test('the same entry DOES reach the model once the session actually holds the capability',
@@ -120,7 +128,7 @@ void main() {
           .ask('?', lang: 'ar', catalog: _catalogWith(['operations.record_visit']))
           .drain<void>();
 
-      expect(ai.lastSystemInstruction, contains('تسجيل زيارة'));
+      expect(ai.lastSystemInstruction, contains(visitHeading));
     });
 
     test('an ungated entry (auth.login) is visible with an empty catalogue', () async {

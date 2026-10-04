@@ -27,6 +27,7 @@ from app.core.models import (
     EMPLOYMENT_REJECTED,
     EMPLOYMENT_REQUESTED,
     EMPLOYMENT_REQUESTS,
+    VOIDED,
     Affiliate,
     EmploymentRequest,
     new_id,
@@ -49,13 +50,15 @@ async def _count_commissions(store, affiliate_id: str) -> int:
     was would make a marketer with 2,001 commissions look exactly like one with 2,000, forever
     short of a threshold he has long since passed. Bypasses the registry's own `of_affiliate`
     (which throws its cursor away) and pages the raw collection directly — same shape
-    payouts.py/wafa.py already use for this exact bug in their own commission reads."""
+    payouts.py/wafa.py already use for this exact bug in their own commission reads.
+
+    Excludes VOIDED, matching WafaService's own refund_rate definition of "converted"."""
     total = 0
     cursor: str | None = None
     while True:
         rows, cursor = await store.find(COMMISSIONS, {"affiliate_id": affiliate_id},
                                         limit=_COMMISSION_PAGE, after=cursor, sort=("id", "asc"))
-        total += len(rows)
+        total += sum(1 for r in rows if r.get("status") != VOIDED)
         if not cursor:
             return total
 
@@ -159,15 +162,26 @@ class EmploymentService:
                      reason: str = "") -> EmploymentRequest:
         if decision not in _DECISIONS:
             raise EmploymentError("قرار غير معروف.", reason="bad_decision")
-        req = await self.get(request_id)
-        if req is None:
-            raise EmploymentError("الطلب غير موجود.", reason="not_found")
-        if req.status != EMPLOYMENT_REQUESTED:
-            raise EmploymentError("هذا الطلب تم البتّ فيه بالفعل.", reason="already_decided")
+        # locked, same as WafaService.admin_decide
+        now0 = int(time.time())
+        lock_key = f"decide:{request_id}"
+        took = await self._s.claim(_EMPLOYMENT_LOCKS, lock_key, {"request_id": request_id, "at": now0},
+                                   ttl_seconds=_LOCK_TTL_SECONDS, now=now0)
+        if not took:
+            raise EmploymentError("قرار آخر يعالج هذا الطلب الآن، حاول بعد لحظات.",
+                                  reason="already_pending")
+        try:
+            req = await self.get(request_id)
+            if req is None:
+                raise EmploymentError("الطلب غير موجود.", reason="not_found")
+            if req.status != EMPLOYMENT_REQUESTED:
+                raise EmploymentError("هذا الطلب تم البتّ فيه بالفعل.", reason="already_decided")
 
-        req.status = decision
-        req.decided_by = decided_by
-        req.decided_at = int(time.time())
-        req.reason = reason[:500]
-        await self._s.put(EMPLOYMENT_REQUESTS, req.id, req.to_dict())
-        return req
+            req.status = decision
+            req.decided_by = decided_by
+            req.decided_at = int(time.time())
+            req.reason = reason[:500]
+            await self._s.put(EMPLOYMENT_REQUESTS, req.id, req.to_dict())
+            return req
+        finally:
+            await self._s.delete(_EMPLOYMENT_LOCKS, lock_key)

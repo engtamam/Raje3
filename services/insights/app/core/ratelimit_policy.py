@@ -63,7 +63,7 @@ class RateLimitPolicy:
 
     def classify(self, path: str) -> RouteClass:
         for r in self._routes:
-            if path.startswith(r.prefix):
+            if path == r.prefix or path.startswith(r.prefix.rstrip("/") + "/"):
                 return r
         return self._default
 

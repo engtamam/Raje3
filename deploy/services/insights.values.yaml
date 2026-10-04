@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/insights
-  digest: "sha256:6ffd66e5b3b9ccdb130a72d7ff292ab44635c6c6ea700d96df5b7700b829830f"   # efc26ae9, published by publish-images.sh
+  digest: "sha256:386cee14d1fafc2731576bb6a0cea24e7d23c43da822054085b4111146ed5ba4"   # c66c7925, published by publish-images.sh
 
 replicas: 1
 
@@ -42,7 +42,7 @@ resources:
     # moment of failure — the process wasn't overloaded, it simply wasn't winning the CPU
     # scheduling race against the fleet's own CronJob churn on a contended 2-vCPU node. At rest,
     # 20m is still plenty; under burst, it is not — this sizes for the burst, not the rest state.
-    cpu: 105m  # smart-cpu-sizing.py: hot tier, node budget-derived
+    cpu: 102m  # smart-cpu-sizing.py: hot tier, node budget-derived
     memory: 128Mi
   limits:
     memory: 256Mi
@@ -168,7 +168,7 @@ env:
   # shown a recommendation we have stopped believing.
   ASSOC_STRONG_LIFT: "1.5"
   ASSOC_WEAK_LIFT: "1.2"
-  ASSOC_MIN_BASKETS: "200"
+  ASSOC_MIN_BASKETS: "100"
   ASSOC_MIN_PAIR_SUPPORT: "5"
   # After this the panel LABELS the number stale. It is still served — a figure from this morning
   # beats a spinner — but the owner is told its age, because one who compares ours to his till at
@@ -181,7 +181,7 @@ env:
   # dashboard, which changes numbers its owner may have just read.
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  CORS_ALLOWED_ORIGINS: "https://ra-je3.com,https://admin.ra-je3.com"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 

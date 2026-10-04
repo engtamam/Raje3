@@ -1,13 +1,13 @@
 /**
  * The cart half of `useAppBilling` — adding/removing an app, the auto-add of an unmet
  * `plan.requires_any` dependency (the owner's own instruction: never a text-only suggestion,
- * the dependency travels in the same cart), and `finishCheckout`'s own success/failure handling.
+ * the dependency travels in the same cart), and `checkout()`'s own hosted-pay-link flow
+ * (`subscription.checkout_cart_link`, 2026-09-24, replacing the retired browser-tokenised
+ * card-form pair).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { useAppBilling } from './useAppBilling';
-
-vi.mock('../payment', () => ({ canMintToken: true, confirmToken: vi.fn(), tokenizeCard: vi.fn() }));
 
 const PLAN_VISIT = {
   id: 'plan_visit', name: 'تسجيل زيارة', active: true,
@@ -20,7 +20,7 @@ const PLAN_BOOKINGS = {
   limits: { 'feature.bookings': { kind: 'boolean', limit: 1 } },
 };
 const PLAN_LOYALTY = {
-  id: 'plan_loyalty', name: 'نقاطي', active: true,
+  id: 'plan_loyalty', name: 'نقاط الولاء', active: true,
   prices: [{ interval: 'month', amount_minor: 9900, currency: 'SAR' }],
   limits: {
     'feature.loyalty': { kind: 'boolean', limit: 1 },
@@ -35,6 +35,10 @@ const PLAN_CAMPAIGNS = {
 
 let checkoutCalls: unknown[] = [];
 let checkoutShouldThrow: Error | null = null;
+// DEFAULT: an all-free cart — billing already created it, no link to follow. Individual tests
+// override this to a real `{checkout_url}` to exercise the redirect path instead.
+let checkoutResponse: { checkout_required?: boolean; checkout_url?: string; notice?: string } =
+  { checkout_required: false, notice: '' };
 let heldSubs: unknown[] = [];
 let previewCalls: unknown[] = [];
 let previewResponse: unknown = null;
@@ -52,10 +56,10 @@ vi.mock('../catalog', async (importOriginal) => {
       if (a.id === 'billing.my_subscriptions') return { subscriptions: heldSubs };
       if (a.id === 'subscription.payment_state') return { enabled: true };
       if (a.id === 'billing.discount_preview') return { previews: {}, potential: {} };
-      if (a.id === 'subscription.checkout') {
+      if (a.id === 'subscription.checkout_cart_link') {
         checkoutCalls.push(body);
         if (checkoutShouldThrow) throw checkoutShouldThrow;
-        return { notice: '' };
+        return checkoutResponse;
       }
       if (a.id === 'subscription.checkout_preview') {
         previewCalls.push(body);
@@ -74,6 +78,7 @@ afterEach(() => {
   vi.clearAllMocks();
   checkoutCalls = [];
   checkoutShouldThrow = null;
+  checkoutResponse = { checkout_required: false, notice: '' };
   heldSubs = [];
   previewCalls = [];
   previewResponse = null;
@@ -189,53 +194,67 @@ describe('cartPreview', () => {
     await act(async () => { await new Promise((r) => setTimeout(r, 250)); });
     expect(result.current.cartPreview).not.toBeNull();
 
-    await act(async () => { await result.current.finishCheckout(['plan_campaigns'], 'tok_1'); });
+    await act(async () => { await result.current.checkout(); });
     await act(async () => { await new Promise((r) => setTimeout(r, 250)); });
     expect(result.current.cart).toEqual([]);
     expect(result.current.cartPreview).toBeNull();
   });
 });
 
-describe('checkout / finishCheckout', () => {
-  it('opens the card form with every cart plan id', async () => {
-    const result = await setUp();
-    act(() => result.current.toggleCart(PLAN_CAMPAIGNS));
-    act(() => result.current.checkout());
-    expect(result.current.cardFormPending).toEqual({ kind: 'checkout', planIds: ['plan_campaigns'] });
-  });
-
+describe('checkout', () => {
   it('does nothing on an empty cart', async () => {
     const result = await setUp();
-    act(() => result.current.checkout());
-    expect(result.current.cardFormPending).toBeNull();
+    await act(async () => { await result.current.checkout(); });
+    expect(checkoutCalls).toEqual([]);
   });
 
-  it('finishCheckout sends every item with a month interval and the token', async () => {
+  it('sends every item with a month interval', async () => {
     const result = await setUp();
     act(() => result.current.toggleCart(PLAN_LOYALTY)); // + auto-added plan_visit
-    await act(async () => { await result.current.finishCheckout(result.current.cart, 'tok_1'); });
+    await act(async () => { await result.current.checkout(); });
     expect(checkoutCalls).toEqual([{
       items: [{ plan_id: 'plan_loyalty', interval: 'month' }, { plan_id: 'plan_visit', interval: 'month' }],
-      payment_token: 'tok_1',
     }]);
   });
 
-  it('clears the cart and the card form on success', async () => {
+  it('clears the cart on an all-free cart (checkout_required: false, no link to follow)', async () => {
     const result = await setUp();
     act(() => result.current.toggleCart(PLAN_CAMPAIGNS));
-    act(() => result.current.checkout());
-    await act(async () => { await result.current.finishCheckout(['plan_campaigns'], 'tok_1'); });
+    await act(async () => { await result.current.checkout(); });
     expect(result.current.cart).toEqual([]);
-    expect(result.current.cardFormPending).toBeNull();
     expect(result.current.cartError).toBe('');
+  });
+
+  it('navigates to the real pay-link when the cart actually costs something', async () => {
+    checkoutResponse = { checkout_required: true, checkout_url: 'https://pay.example/cart_1' };
+    // jsdom does not implement real navigation — a plain writable stub, same technique
+    // wallet_pane.test.tsx's own redirect test uses, so `.assign` is observable rather than
+    // throwing "not implemented".
+    const originalLocation = window.location;
+    const assign = vi.fn();
+    // @ts-expect-error — deliberately narrowing for this test's own stub
+    delete window.location;
+    // @ts-expect-error — same
+    window.location = { ...originalLocation, assign };
+    try {
+      const result = await setUp();
+      act(() => result.current.toggleCart(PLAN_CAMPAIGNS));
+      await act(async () => { await result.current.checkout(); });
+      expect(assign).toHaveBeenCalledWith('https://pay.example/cart_1');
+      // THE CART IS LEFT ALONE — the whole page is about to navigate away; clearing it here
+      // would only matter if the redirect somehow failed, and the real page load makes that
+      // moot anyway.
+    } finally {
+      // @ts-expect-error — restoring the real Location object after the test's own stub
+      window.location = originalLocation;
+    }
   });
 
   it('keeps the cart and surfaces the error on a refused checkout', async () => {
     checkoutShouldThrow = new Error('هذا التطبيق يحتاج تفعيل تسجيل زيارة أولاً.');
     const result = await setUp();
     act(() => result.current.toggleCart(PLAN_CAMPAIGNS));
-    act(() => result.current.checkout());
-    await act(async () => { await result.current.finishCheckout(['plan_campaigns'], 'tok_1'); });
+    await act(async () => { await result.current.checkout(); });
     expect(result.current.cart).toEqual(['plan_campaigns']);
     expect(result.current.cartError).toBe('هذا التطبيق يحتاج تفعيل تسجيل زيارة أولاً.');
   });
@@ -244,7 +263,7 @@ describe('checkout / finishCheckout', () => {
     checkoutShouldThrow = 'not an Error instance' as unknown as Error;
     const result = await setUp();
     act(() => result.current.toggleCart(PLAN_CAMPAIGNS));
-    await act(async () => { await result.current.finishCheckout(['plan_campaigns'], 'tok_1'); });
+    await act(async () => { await result.current.checkout(); });
     expect(result.current.cartError).not.toBe('');
   });
 });

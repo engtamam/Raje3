@@ -1,4 +1,295 @@
 {
+  "coworking": {
+    "title": { "ar": "التواصل الجماعي", "en": "Coworking" },
+    "body": {
+      "ar": "موارد قابلة للتأجير بالساعة (مكاتب، غرف) وطلبات انضمام العاملين المستقلين.",
+      "en": "Hourly-rentable resources (desks, rooms) and freelancer join requests."
+    },
+    "kind": "screen",
+    "anchor": "coworking"
+  },
+  "coworking.add_button": {
+    "title": { "ar": "مورد جديد", "en": "New resource" },
+    "body": { "ar": "يفتح نموذج إضافة مورد جديد للتأجير.", "en": "Opens the form to add a new rentable resource." },
+    "kind": "action",
+    "anchor": "coworking.add_button"
+  },
+  "coworking.bookings_sheet.cancel": {
+    "title": { "ar": "إلغاء الحجز", "en": "Cancel booking" },
+    "body": { "ar": "يلغي حجز هذا المورد لهذا الوقت.", "en": "Cancels this resource's booking for this slot." },
+    "kind": "action",
+    "anchor": "coworking.bookings_sheet.cancel"
+  },
+  "coworking.join_row": {
+    "title": { "ar": "طلب انضمام", "en": "Join request" },
+    "body": { "ar": "اسحب يمين للقبول، يسار للرفض.", "en": "Swipe right to approve, left to reject." },
+    "kind": "action",
+    "anchor": "coworking.join_row"
+  },
+  "coworking.main_tabs": {
+    "title": { "ar": "الموارد / طلبات الانضمام", "en": "Resources / Join requests" },
+    "body": { "ar": "يبدّل بين قائمة الموارد وطلبات انضمام العاملين المستقلين.", "en": "Switches between the resource list and freelancer join requests." },
+    "kind": "action",
+    "anchor": "coworking.main_tabs"
+  },
+  "coworking.pause_switch": {
+    "title": { "ar": "إيقاف الاستقبال", "en": "Pause intake" },
+    "body": { "ar": "يوقف الحجوزات الجديدة لكل الموارد مؤقتاً.", "en": "Pauses new bookings for every resource temporarily." },
+    "kind": "action",
+    "anchor": "coworking.pause_switch"
+  },
+  "coworking.resource_card": {
+    "title": { "ar": "بطاقة المورد", "en": "Resource card" },
+    "body": { "ar": "اضغط للتعديل.", "en": "Tap to edit." },
+    "kind": "action",
+    "anchor": "coworking.resource_card"
+  },
+  "coworking.resource_sheet.active_toggle": {
+    "title": { "ar": "نشط", "en": "Active" },
+    "body": { "ar": "لو أوقفته، هذا المورد يختفي من قائمة الحجز لعملائك.", "en": "Turning this off hides the resource from your customers' booking list." },
+    "kind": "action",
+    "anchor": "coworking.resource_sheet.active_toggle"
+  },
+  "coworking.resource_sheet.branch_field": {
+    "title": { "ar": "الفرع", "en": "Branch" },
+    "body": { "ar": "أي فرع يملك هذا المورد.", "en": "Which branch owns this resource." },
+    "kind": "field",
+    "anchor": "coworking.resource_sheet.branch_field"
+  },
+  "coworking.resource_sheet.description_field": {
+    "title": { "ar": "الوصف", "en": "Description" },
+    "body": { "ar": "وصف مختصر اختياري يظهر لعميلك عند الحجز.", "en": "An optional short description your customer sees when booking." },
+    "kind": "field",
+    "anchor": "coworking.resource_sheet.description_field"
+  },
+  "coworking.resource_sheet.name_field": {
+    "title": { "ar": "اسم المورد", "en": "Resource name" },
+    "body": { "ar": "اسم المورد كما يظهر لعميلك، مثل «كرسي 1».", "en": "The resource's name as your customer sees it, e.g. \"Desk 1\"." },
+    "kind": "field",
+    "anchor": "coworking.resource_sheet.name_field"
+  },
+  "coworking.resource_sheet.photo": {
+    "title": { "ar": "صورة المورد", "en": "Resource photo" },
+    "body": { "ar": "اضغط لإضافة أو استبدال صورة هذا المورد.", "en": "Tap to add or replace this resource's photo." },
+    "kind": "action",
+    "anchor": "coworking.resource_sheet.photo"
+  },
+  "coworking.resource_sheet.price_field": {
+    "title": { "ar": "السعر بالساعة", "en": "Hourly price" },
+    "body": { "ar": "سعر تأجير هذا المورد لكل ساعة بالريال.", "en": "This resource's rental price per hour, in SAR." },
+    "kind": "field",
+    "anchor": "coworking.resource_sheet.price_field"
+  },
+  "coworking.resource_sheet.submit": {
+    "title": { "ar": "حفظ", "en": "Save" },
+    "body": { "ar": "يحفظ بيانات المورد الجديد أو المُعدَّل.", "en": "Saves the new or edited resource's details." },
+    "kind": "action",
+    "anchor": "coworking.resource_sheet.submit"
+  },
+  "referrals.add_affiliate_button": {
+    "title": { "ar": "إضافة مسوّق", "en": "Add affiliate" },
+    "body": { "ar": "يفتح نموذج إضافة مسوّق بالعمولة جديد.", "en": "Opens the form to add a new commission-based affiliate." },
+    "kind": "action",
+    "anchor": "referrals.add_affiliate_button"
+  },
+  "referrals.wizard_eligibility": {
+    "title": { "ar": "من يقدر يستخدم الكود", "en": "Who can use the code" },
+    "body": { "ar": "يحدد هل الكود لعميل جديد فقط أو لأي عميل.", "en": "Sets whether the code is for new customers only or any customer." },
+    "kind": "field",
+    "anchor": "referrals.wizard_eligibility"
+  },
+  "bookings.new_sheet.referral_code_field": {
+    "title": { "ar": "كود إحالة", "en": "Referral code" },
+    "body": { "ar": "كود إحالة اختياري يربط هذا الحجز بمن أحاله.", "en": "An optional referral code linking this booking to whoever referred it." },
+    "kind": "field",
+    "anchor": "bookings.new_sheet.referral_code_field"
+  },
+  "account.shop.color_picker.cancel": {
+    "title": { "ar": "إلغاء", "en": "Cancel" },
+    "body": { "ar": "يغلق لوحة الألوان بدون تغيير.", "en": "Closes the color palette without changing anything." },
+    "kind": "action",
+    "anchor": "account.shop.color_picker.cancel"
+  },
+  "account.shop.color_picker.confirm": {
+    "title": { "ar": "تم", "en": "Done" },
+    "body": { "ar": "يعتمد اللون المختار من اللوحة.", "en": "Applies the color chosen from the palette." },
+    "kind": "action",
+    "anchor": "account.shop.color_picker.confirm"
+  },
+  "campaigns.launch_wizard.back_button": {
+    "title": { "ar": "رجوع", "en": "Back" },
+    "body": { "ar": "يرجعك للخطوة السابقة.", "en": "Takes you back to the previous step." },
+    "kind": "action",
+    "anchor": "campaigns.launch_wizard.back_button"
+  },
+  "campaigns.launch_wizard.goal_search_field": {
+    "title": { "ar": "بحث", "en": "Search" },
+    "body": { "ar": "يبحث بين أهداف الحملات المتاحة.", "en": "Searches the available campaign goals." },
+    "kind": "field",
+    "anchor": "campaigns.launch_wizard.goal_search_field"
+  },
+  "campaigns.launch_wizard.offer_amount_field": {
+    "title": { "ar": "قيمة العرض", "en": "Offer amount" },
+    "body": { "ar": "نسبة أو مبلغ الخصم المرسل للعميل.", "en": "The discount percent or amount sent to the customer." },
+    "kind": "field",
+    "anchor": "campaigns.launch_wizard.offer_amount_field"
+  },
+  "campaigns.launch_wizard.reward_points_field": {
+    "title": { "ar": "عدد النقاط", "en": "Points" },
+    "body": { "ar": "عدد نقاط الولاء الممنوحة بهذه الحملة.", "en": "The loyalty points granted by this campaign." },
+    "kind": "field",
+    "anchor": "campaigns.launch_wizard.reward_points_field"
+  },
+  "campaigns.launch_wizard.milestone_threshold_field": {
+    "title": { "ar": "حد الإنجاز", "en": "Milestone threshold" },
+    "body": { "ar": "الرقم اللي يُطلق الرسالة عند الوصول له.", "en": "The number that triggers the message once reached." },
+    "kind": "field",
+    "anchor": "campaigns.launch_wizard.milestone_threshold_field"
+  },
+  "campaigns.launch_wizard.owner_text_field": {
+    "title": { "ar": "نص جديد", "en": "New text" },
+    "body": { "ar": "نصك الخاص لهذا الجزء من الرسالة.", "en": "Your own wording for this part of the message." },
+    "kind": "field",
+    "anchor": "campaigns.launch_wizard.owner_text_field"
+  },
+  "campaigns.launch_wizard.flow_error_back": {
+    "title": { "ar": "رجوع للرسالة", "en": "Back to message" },
+    "body": { "ar": "يرجعك من معاينة الفلو لمعاينة الرسالة.", "en": "Returns from the flow preview to the message preview." },
+    "kind": "action",
+    "anchor": "campaigns.launch_wizard.flow_error_back"
+  },
+  "campaigns.message_preview_sheet.close": {
+    "title": { "ar": "إغلاق", "en": "Close" },
+    "body": { "ar": "يغلق معاينة الرسالة.", "en": "Closes the message preview." },
+    "kind": "action",
+    "anchor": "campaigns.message_preview_sheet.close"
+  },
+  "campaigns.message_preview_sheet.flow_error_back": {
+    "title": { "ar": "رجوع للرسالة", "en": "Back to message" },
+    "body": { "ar": "يرجعك من معاينة الفلو لمعاينة الرسالة.", "en": "Returns from the flow preview to the message preview." },
+    "kind": "action",
+    "anchor": "campaigns.message_preview_sheet.flow_error_back"
+  },
+  "campaigns.pause_button": {
+    "title": { "ar": "إيقاف الحملة", "en": "Pause campaign" },
+    "body": { "ar": "يوقف هذه الحملة مؤقتاً.", "en": "Pauses this campaign temporarily." },
+    "kind": "action",
+    "anchor": "campaigns.pause_button"
+  },
+  "campaigns.text_editor_sheet.close": {
+    "title": { "ar": "إغلاق", "en": "Close" },
+    "body": { "ar": "يغلق محرر النص.", "en": "Closes the text editor." },
+    "kind": "action",
+    "anchor": "campaigns.text_editor_sheet.close"
+  },
+  "campaigns.text_editor_sheet.body_field": {
+    "title": { "ar": "نص الرسالة", "en": "Message text" },
+    "body": { "ar": "اكتب نصك الخاص، وأضف بلاغات جاهزة من القائمة أعلاه.", "en": "Write your own wording, and insert ready-made blanks from the list above." },
+    "kind": "field",
+    "anchor": "campaigns.text_editor_sheet.body_field"
+  },
+  "campaigns.wa_flow_preview.footer_button": {
+    "title": { "ar": "زر المتابعة", "en": "Continue button" },
+    "body": { "ar": "زر متابعة الفلو كما يظهر لعميلك بالواتساب.", "en": "The flow's own continue button, as your customer sees it on WhatsApp." },
+    "kind": "action",
+    "anchor": "campaigns.wa_flow_preview.footer_button"
+  },
+  "campaigns.wa_flow_preview.text_field": {
+    "title": { "ar": "حقل إدخال", "en": "Input field" },
+    "body": { "ar": "حقل إدخال داخل الفلو كما يظهر لعميلك.", "en": "A flow input field, as your customer sees it." },
+    "kind": "field",
+    "anchor": "campaigns.wa_flow_preview.text_field"
+  },
+  "coworking.resource_sheet.availability_time": {
+    "title": { "ar": "وقت التوفر", "en": "Availability time" },
+    "body": { "ar": "بداية أو نهاية توفر هذا المورد باليوم.", "en": "This resource's start or end availability time that day." },
+    "kind": "field",
+    "anchor": "coworking.resource_sheet.availability_time"
+  },
+  "coworking.share_link_copy": {
+    "title": { "ar": "نسخ الرابط", "en": "Copy link" },
+    "body": { "ar": "ينسخ رابط الانضمام لتشاركه.", "en": "Copies the join link to share it." },
+    "kind": "action",
+    "anchor": "coworking.share_link_copy"
+  },
+  "partner_loyalty.grant_phone_field": {
+    "title": { "ar": "جوال الشريك", "en": "Partner phone" },
+    "body": { "ar": "رقم جوال الشريك اللي راح تمنحه نقاط.", "en": "The partner's phone number you're granting points to." },
+    "kind": "field",
+    "anchor": "partner_loyalty.grant_phone_field"
+  },
+  "partner_loyalty.log_search_field": {
+    "title": { "ar": "بحث", "en": "Search" },
+    "body": { "ar": "يبحث بسجل نقاط الشركاء برقم الجوال.", "en": "Searches the partner points log by phone number." },
+    "kind": "field",
+    "anchor": "partner_loyalty.log_search_field"
+  },
+  "referrals.add_affiliate_sheet.phone_field": {
+    "title": { "ar": "جوال المسوّق", "en": "Affiliate phone" },
+    "body": { "ar": "رقم جوال المسوّق الجديد.", "en": "The new affiliate's phone number." },
+    "kind": "field",
+    "anchor": "referrals.add_affiliate_sheet.phone_field"
+  },
+  "referrals.add_affiliate_sheet.code_field": {
+    "title": { "ar": "كوده الخاص", "en": "His own code" },
+    "body": { "ar": "كود الإحالة الخاص بهذا المسوّق.", "en": "This affiliate's own referral code." },
+    "kind": "field",
+    "anchor": "referrals.add_affiliate_sheet.code_field"
+  },
+  "referrals.add_affiliate_sheet.discount_field": {
+    "title": { "ar": "خصم العميل الجديد", "en": "New customer discount" },
+    "body": { "ar": "نسبة الخصم للعميل اللي يستخدم كوده.", "en": "The discount percent for a customer using his code." },
+    "kind": "field",
+    "anchor": "referrals.add_affiliate_sheet.discount_field"
+  },
+  "referrals.add_affiliate_sheet.reward_amount_field": {
+    "title": { "ar": "مكافأة المسوّق", "en": "Affiliate reward" },
+    "body": { "ar": "نسبة أو نقاط مكافأة المسوّق نفسه.", "en": "The affiliate's own reward percent or points." },
+    "kind": "field",
+    "anchor": "referrals.add_affiliate_sheet.reward_amount_field"
+  },
+  "referrals.add_affiliate_sheet.max_visits_field": {
+    "title": { "ar": "أقصى عدد زيارات", "en": "Max visits" },
+    "body": { "ar": "أقصى عدد زيارات يقدر يستخدم فيها الكود.", "en": "The most visits the code can be used for." },
+    "kind": "field",
+    "anchor": "referrals.add_affiliate_sheet.max_visits_field"
+  },
+  "referrals.wizard_max_visits_field": {
+    "title": { "ar": "أقصى عدد زيارات", "en": "Max visits" },
+    "body": { "ar": "أقصى عدد زيارات يقدر يستخدم فيها الكود.", "en": "The most visits the code can be used for." },
+    "kind": "field",
+    "anchor": "referrals.wizard_max_visits_field"
+  },
+  "shop.register_first_visit_cta": {
+    "title": { "ar": "سجّل أول زيارة", "en": "Register first visit" },
+    "body": { "ar": "ينقلك لتسجيل أول زيارة لعميلك.", "en": "Takes you to register your customer's first visit." },
+    "kind": "action",
+    "anchor": "shop.register_first_visit_cta"
+  },
+  "shop.next_step_card.cta": {
+    "title": { "ar": "زر الخطوة التالية", "en": "Next-step button" },
+    "body": { "ar": "ينفّذ الخطوة المقترحة لك الآن.", "en": "Carries out the step suggested to you now." },
+    "kind": "action",
+    "anchor": "shop.next_step_card.cta"
+  },
+  "shop.next_step_card.dismiss": {
+    "title": { "ar": "ليس الآن", "en": "Not now" },
+    "body": { "ar": "يخفي هذا الاقتراح.", "en": "Dismisses this suggestion." },
+    "kind": "action",
+    "anchor": "shop.next_step_card.dismiss"
+  },
+  "shop.computing_view.refresh": {
+    "title": { "ar": "تحديث", "en": "Refresh" },
+    "body": { "ar": "يعيد حساب أرقام لوحتك.", "en": "Recomputes your dashboard's numbers." },
+    "kind": "action",
+    "anchor": "shop.computing_view.refresh"
+  },
+  "shop.at_risk_card.win_back_cta": {
+    "title": { "ar": "استرجاع العملاء", "en": "Win them back" },
+    "body": { "ar": "ينقلك لحملة استرجاع لهؤلاء العملاء.", "en": "Takes you to a win-back campaign for these customers." },
+    "kind": "action",
+    "anchor": "shop.at_risk_card.win_back_cta"
+  },
   "auth.login": {
     "title": {
       "ar": "تسجيل الدخول",
@@ -430,6 +721,30 @@
     },
     "kind": "action",
     "anchor": "account.shop_row"
+  },
+  "account.language_row": {
+    "title": {
+      "ar": "لغة التطبيق",
+      "en": "App language"
+    },
+    "body": {
+      "ar": "يفتح قائمة لاختيار لغة عرض التطبيق من بين ست لغات مدعومة.",
+      "en": "Opens a list to choose the app's display language, from six supported languages."
+    },
+    "kind": "action",
+    "anchor": "account.language_row"
+  },
+  "account.language_option": {
+    "title": {
+      "ar": "خيار لغة",
+      "en": "A language option"
+    },
+    "body": {
+      "ar": "يختار هذه اللغة للتطبيق فورًا ويحفظها.",
+      "en": "Selects this language for the app immediately and remembers it."
+    },
+    "kind": "action",
+    "anchor": "account.language_option"
   },
   "account.billing_row": {
     "title": {
@@ -877,14 +1192,2118 @@
   },
   "apps": {
     "title": {
-      "ar": "تطبيقاتي",
-      "en": "My apps"
+      "ar": "متجر التطبيقات",
+      "en": "App store"
     },
     "body": {
-      "ar": "متجر التطبيقات وإدارتها لسا مو متوفرة على الجوال — تقدر تديرها من الموقع حاليًا.",
-      "en": "The app store and app management aren't available on mobile yet — you can manage them from the website for now."
+      "ar": "تطبيقاتك المشترك فيها بتبويب «تطبيقاتي»، وكل التطبيقات المتاحة للشراء بتبويب «المتجر» — أضِف أكثر من تطبيق للسلة وادفع لها مرة وحدة، أو اشترِ تطبيق لحاله فورًا.",
+      "en": "Your subscribed apps under \"My apps\", and every purchasable app under \"Store\" — add several to the cart and pay for them together, or buy one on its own right away."
     },
     "kind": "screen",
     "anchor": "apps"
+  },
+  "apps.capacity_stepper": {
+    "title": {
+      "ar": "زيادة أو تقليل السعة",
+      "en": "Increase or decrease capacity"
+    },
+    "body": {
+      "ar": "تحكّم بعدد الوحدات (مقاعد موظفين أو فروع) — أول وحدة تحتاج رابط دفع حقيقي مثل أي تطبيق، وأي وحدة بعدها تُضاف أو تُحذف فورًا على نفس الاشتراك.",
+      "en": "Control how many units (staff seats or branches) you hold — the first one needs a real pay-link like any app, every unit after that adds or removes instantly on the same subscription."
+    },
+    "kind": "action",
+    "anchor": "apps.capacity_stepper"
+  },
+  "apps.capacity_confirm_remove": {
+    "title": {
+      "ar": "تأكيد إلغاء آخر وحدة",
+      "en": "Confirm removing the last unit"
+    },
+    "body": {
+      "ar": "حذف الوحدة الأخيرة يوقف تجديد التطبيق كامل، لا يُنقص العدد فقط — لهذا يطلب تأكيداً قبل ما يصير.",
+      "en": "Removing the last unit stops the whole app's renewal, not just the count — that's why it asks you to confirm first."
+    },
+    "kind": "action",
+    "anchor": "apps.capacity_confirm_remove"
+  },
+  "apps.details_undo_cancel": {
+    "title": {
+      "ar": "تراجع عن إيقاف التجديد",
+      "en": "Undo stopping the renewal"
+    },
+    "body": {
+      "ar": "يرجّع هذا التطبيق يتجدد تلقائياً بدل ما يتوقف بنهاية الفترة الحالية.",
+      "en": "Makes this app renew automatically again instead of stopping at the end of the current period."
+    },
+    "kind": "action",
+    "anchor": "apps.details_undo_cancel"
+  },
+  "apps.details_cancel": {
+    "title": {
+      "ar": "إيقاف تجديد التطبيق",
+      "en": "Stop the app's renewal"
+    },
+    "body": {
+      "ar": "يوقف التجديد التالي بعد تأكيدك — التطبيق يبقى شغّالاً حتى نهاية الفترة الحالية اللي دفعتها، ثم يتوقف.",
+      "en": "Stops the next renewal once you confirm — the app keeps working until the end of the period you already paid for, then it stops."
+    },
+    "kind": "action",
+    "anchor": "apps.details_cancel"
+  },
+  "mobile-requests": {
+    "title": {
+      "ar": "خدمات متنقلة",
+      "en": "Mobile requests"
+    },
+    "body": {
+      "ar": "قائمة طلبات الخدمة المتنقلة — تصل بها الخدمة للعميل بدل ما يجي هو للمحل. اقبل أو ارفض الطلب، وبعد التنفيذ علّمه تمّ أو لم يتم.",
+      "en": "The queue of mobile-service requests — the service travels to the customer instead of them coming to the shop. Accept or reject a request, then mark it done or no-show after it happens."
+    },
+    "kind": "screen",
+    "anchor": "mobile-requests"
+  },
+  "mobile-requests.add_button": {
+    "title": {
+      "ar": "إضافة طلب",
+      "en": "Add request"
+    },
+    "body": {
+      "ar": "يفتح نموذج لإضافة طلب خدمة متنقلة يدوياً — لعميل اتصل أو حضر للمحل بدل الواتساب.",
+      "en": "Opens a form to add a mobile-service request manually — for a customer who called or came in, instead of WhatsApp."
+    },
+    "kind": "action",
+    "anchor": "mobile-requests.add_button"
+  },
+  "mobile-requests.search_field": {
+    "title": {
+      "ar": "بحث",
+      "en": "Search"
+    },
+    "body": {
+      "ar": "يبحث بين الطلبات باسم العميل أو رقم جواله.",
+      "en": "Searches the requests by the customer's name or phone number."
+    },
+    "kind": "field",
+    "anchor": "mobile-requests.search_field"
+  },
+  "mobile-requests.request_card": {
+    "title": {
+      "ar": "بطاقة الطلب",
+      "en": "Request card"
+    },
+    "body": {
+      "ar": "تفاصيل طلب واحد: العميل، الخدمات، الوقت المطلوب، والموقع.",
+      "en": "One request's details: the customer, the services, the requested time, and the location."
+    },
+    "kind": "field",
+    "anchor": "mobile-requests.request_card"
+  },
+  "mobile-requests.card_actions": {
+    "title": {
+      "ar": "إجراءات الطلب",
+      "en": "Request actions"
+    },
+    "body": {
+      "ar": "قبول أو رفض طلب بانتظار قرار، أو تعليم طلب مقبول بأنه تمّ أو لم يحضر العميل.",
+      "en": "Accept or reject a pending request, or mark an accepted one as done or as a no-show."
+    },
+    "kind": "action",
+    "anchor": "mobile-requests.card_actions"
+  },
+  "mobile-requests.reject_reason_field": {
+    "title": {
+      "ar": "سبب الرفض",
+      "en": "Reason for rejecting"
+    },
+    "body": {
+      "ar": "سبب اختياري يوضّح للعميل ليش رُفض طلبه.",
+      "en": "An optional reason explaining to the customer why his request was rejected."
+    },
+    "kind": "field",
+    "anchor": "mobile-requests.reject_reason_field"
+  },
+  "mobile-requests.add_sheet": {
+    "title": {
+      "ar": "نموذج إضافة الطلب",
+      "en": "Add-request form"
+    },
+    "body": {
+      "ar": "جوال العميل، الخدمات، الوقت، ورابط موقعه من خرائط جوجل.",
+      "en": "The customer's phone, the services, the time, and their Google Maps location link."
+    },
+    "kind": "field",
+    "anchor": "mobile-requests.add_sheet"
+  },
+  "customers": {
+    "title": {
+      "ar": "جهات الاتصال",
+      "en": "Contacts"
+    },
+    "body": {
+      "ar": "دفتر عملاء المحل — بحث فوري، تبويب «من تأخّر» عن موعده المعتاد، وإضافة عميل جديد.",
+      "en": "The shop's customer book — instant search, an «overdue» tab for whoever is late on their usual cycle, and adding a new customer."
+    },
+    "kind": "screen",
+    "anchor": "customers"
+  },
+  "customers.add_button": {
+    "title": {
+      "ar": "إضافة عميل",
+      "en": "Add customer"
+    },
+    "body": {
+      "ar": "يفتح نموذج لإضافة عميل جديد بجواله واسمه، بدون تسجيل زيارة.",
+      "en": "Opens a form to add a new customer by phone and name, without recording a visit."
+    },
+    "kind": "action",
+    "anchor": "customers.add_button"
+  },
+  "customers.search_field": {
+    "title": {
+      "ar": "بحث",
+      "en": "Search"
+    },
+    "body": {
+      "ar": "بحث فوري حقيقي من السيرفر بالاسم أو الجوال، ليس فلترة للقائمة المعروضة فقط.",
+      "en": "A real, live server search by name or phone — not a filter of only the list already shown."
+    },
+    "kind": "field",
+    "anchor": "customers.search_field"
+  },
+  "customers.add_sheet": {
+    "title": {
+      "ar": "نموذج إضافة عميل",
+      "en": "Add-customer form"
+    },
+    "body": {
+      "ar": "جوال العميل واسمه.",
+      "en": "The customer's phone and name."
+    },
+    "kind": "field",
+    "anchor": "customers.add_sheet"
+  },
+  "customer_detail": {
+    "title": {
+      "ar": "ملف العميل",
+      "en": "Customer profile"
+    },
+    "body": {
+      "ar": "بيانات العميل، مركباته، رصيد الولاء والعروض، وسجل زياراته.",
+      "en": "The customer's profile — their data, vehicles, loyalty balance and offers, and visit history."
+    },
+    "kind": "screen",
+    "anchor": "customer_detail"
+  },
+  "customer_detail.rename_button": {
+    "title": {
+      "ar": "تعديل الاسم",
+      "en": "Edit name"
+    },
+    "body": {
+      "ar": "يعدّل اسم العميل — رقم جواله يبقى كما هو دائماً، فهو هويته الثابتة.",
+      "en": "Edits the customer's name — their phone number never changes, it's their fixed identity."
+    },
+    "kind": "action",
+    "anchor": "customer_detail.rename_button"
+  },
+  "customer_detail.show_all_button": {
+    "title": {
+      "ar": "عرض الكل",
+      "en": "Show all"
+    },
+    "body": {
+      "ar": "يفتح القائمة الكاملة لهذا السجل بدل آخر أربع عمليات فقط.",
+      "en": "Opens this record's full list instead of just the last four entries."
+    },
+    "kind": "action",
+    "anchor": "customer_detail.show_all_button"
+  },
+  "customer_detail.expanded_list_close_button": {
+    "title": {
+      "ar": "إغلاق",
+      "en": "Close"
+    },
+    "body": {
+      "ar": "يغلق قائمة السجل الكاملة ويرجعك للشاشة.",
+      "en": "Closes the full list and returns to the screen."
+    },
+    "kind": "action",
+    "anchor": "customer_detail.expanded_list_close_button"
+  },
+  "customer_detail.adjust_loyalty_button": {
+    "title": {
+      "ar": "تعديل نقاط الولاء",
+      "en": "Adjust loyalty points"
+    },
+    "body": {
+      "ar": "إضافة أو خصم نقاط ولاء يدوياً، مع سبب مكتوب — أداة اعتذار أو تصحيح.",
+      "en": "Manually adds or deducts loyalty points, with a written reason — an apology or correction tool."
+    },
+    "kind": "action",
+    "anchor": "customer_detail.adjust_loyalty_button"
+  },
+  "customer_detail.loyalty_adjust_stepper": {
+    "title": {
+      "ar": "قيمة التعديل",
+      "en": "Adjustment amount"
+    },
+    "body": {
+      "ar": "كم نقطة تضيف أو تخصم — رقم موجب يضيف، رقم سالب يخصم.",
+      "en": "How many points to add or take — a positive number adds, a negative one deducts."
+    },
+    "kind": "field",
+    "anchor": "customer_detail.loyalty_adjust_stepper"
+  },
+  "customer_detail.loyalty_adjust_note_field": {
+    "title": {
+      "ar": "سبب التعديل",
+      "en": "Reason for the adjustment"
+    },
+    "body": {
+      "ar": "ملاحظة تبقى بسجل العميل توضّح ليش عُدِّلت نقاطه.",
+      "en": "A note that stays on the customer's own record explaining why the points changed."
+    },
+    "kind": "field",
+    "anchor": "customer_detail.loyalty_adjust_note_field"
+  },
+  "customer_detail.cycles_stepper": {
+    "title": {
+      "ar": "كل كم يوم يرجع العميل",
+      "en": "How often the customer should return"
+    },
+    "body": {
+      "ar": "يضبط دورة التذكير الخاصة بهذا العميل — لو ما رجع خلال هذي المدة، يظهر كعميل متأخر.",
+      "en": "Sets this customer's own reminder cycle — if he doesn't return within it, he shows up as overdue."
+    },
+    "kind": "field",
+    "anchor": "customer_detail.cycles_stepper"
+  },
+  "customer_detail.rename_field": {
+    "title": {
+      "ar": "اسم العميل الجديد",
+      "en": "The customer's new name"
+    },
+    "body": {
+      "ar": "الاسم الجديد اللي راح يظهر بدل الاسم الحالي بكل مكان.",
+      "en": "The new name that replaces the current one everywhere it's shown."
+    },
+    "kind": "field",
+    "anchor": "customer_detail.rename_field"
+  },
+  "customer_detail.erase_confirm_field": {
+    "title": {
+      "ar": "اكتب اسم العميل للتأكيد",
+      "en": "Type the customer's name to confirm"
+    },
+    "body": {
+      "ar": "لازم تكتب اسم العميل بالضبط قبل ما يفعّل زر الحذف — يمنع الحذف بالغلط.",
+      "en": "You must type the customer's exact name before the delete button turns on — this prevents an accidental delete."
+    },
+    "kind": "field",
+    "anchor": "customer_detail.erase_confirm_field"
+  },
+  "customer_detail.erase_confirm_button": {
+    "title": {
+      "ar": "تأكيد حذف بيانات العميل",
+      "en": "Confirm erasing the customer's data"
+    },
+    "body": {
+      "ar": "حذف نهائي لا يُتراجع عنه — يمسح بيانات العميل الشخصية فعلياً، مو مجرد إخفائه.",
+      "en": "A permanent, irreversible erase — actually deletes the customer's personal data, not just hides him."
+    },
+    "kind": "action",
+    "anchor": "customer_detail.erase_confirm_button"
+  },
+  "customer_detail.erase_button": {
+    "title": {
+      "ar": "حذف بيانات العميل",
+      "en": "Erase customer data"
+    },
+    "body": {
+      "ar": "حذف نهائي لبيانات العميل من كل أجزاء المنصة — يحتاج كتابة اسمه للتأكيد، ولا يمكن التراجع عنه.",
+      "en": "Permanently erases the customer's data across the whole platform — requires typing their name to confirm, and cannot be undone."
+    },
+    "kind": "action",
+    "anchor": "customer_detail.erase_button"
+  },
+  "shop": {
+    "title": {
+      "ar": "محلّي",
+      "en": "My shop"
+    },
+    "body": {
+      "ar": "نظرة عامة على أداء محلك — نسبة رجوع عملائك، عملاء على وشك الابتعاد، الخطوة التالية المقترحة، وأداء الأسبوع والفروع والموظفين والخدمات، مقسّمة حسب الإلحاح لا حسب النوع.",
+      "en": "An overview of your shop's performance — your customer return rate, customers about to drift away, the suggested next step, and this week's/branches'/staff's/services' performance, grouped by urgency not by data type."
+    },
+    "kind": "screen",
+    "anchor": "shop",
+    "requires": [
+      "reminders.today",
+      "insights.dashboard"
+    ]
+  },
+  "shop.next_step": {
+    "title": {
+      "ar": "الخطوة التالية",
+      "en": "Next step"
+    },
+    "body": {
+      "ar": "الفعل الواحد اللي المحرك رتّبه كأهم شي تسويه الحين، مبني من بيانات محلك الحقيقية — مو نص ثابت.",
+      "en": "The single action the engine ranked as the most important thing to do right now, built from your shop's real data — never a fixed line of text."
+    },
+    "kind": "action",
+    "anchor": "shop.next_step",
+    "requires": [
+      "insights.dashboard"
+    ]
+  },
+  "rating": {
+    "title": {
+      "ar": "التقييم",
+      "en": "Ratings"
+    },
+    "body": {
+      "ar": "متوسط تقييم المحل، أفضل الموظفين، وأكثر الشكاوى تكراراً — بلاغات العملاء بعد كل زيارة.",
+      "en": "The shop's average rating, top-rated staff, and the most repeated complaints — customer feedback after each visit."
+    },
+    "kind": "screen",
+    "anchor": "rating"
+  },
+  "rating.filters": {
+    "title": {
+      "ar": "فلاتر التقييمات",
+      "en": "Rating filters"
+    },
+    "body": {
+      "ar": "فلترة حسب معالجة الشكوى (بانتظار/الكل/معالجة) وعدد النجوم.",
+      "en": "Filters ratings by handled state (pending/all/handled) and star count."
+    },
+    "kind": "field",
+    "anchor": "rating.filters"
+  },
+  "rating.leaderboard": {
+    "title": {
+      "ar": "الأعلى تقييماً",
+      "en": "Top-rated staff"
+    },
+    "body": {
+      "ar": "أفضل ثلاثة موظفين حسب المقياس المختار (زيارات، تقييمات، أو متوسط التقييم) خلال المدة المختارة، وبقية الموظفين تحتهم.",
+      "en": "The top three staff by whichever metric is selected (visits, ratings, or average rating) over the chosen period, with the rest of the staff listed below them."
+    },
+    "kind": "field",
+    "anchor": "rating.leaderboard"
+  },
+  "rating.top_issues": {
+    "title": {
+      "ar": "أكثر المشاكل تكراراً",
+      "en": "Most repeated issues"
+    },
+    "body": {
+      "ar": "أكثر نقاط الشكوى تكراراً بالتقييمات المعروضة — اضغط عليها للفلترة.",
+      "en": "The most repeated complaint points across the shown ratings — tap one to filter by it."
+    },
+    "kind": "field",
+    "anchor": "rating.top_issues"
+  },
+  "rating.custom_range_pickers": {
+    "title": {
+      "ar": "تحديد فترة مخصصة",
+      "en": "Set a custom date range"
+    },
+    "body": {
+      "ar": "اختر تاريخ البداية والنهاية بنفسك بدل الفترات الجاهزة (أسبوع/شهر/ربع).",
+      "en": "Pick your own start and end dates instead of the ready-made periods (week/month/quarter)."
+    },
+    "kind": "field",
+    "anchor": "rating.custom_range_pickers"
+  },
+  "rating.handled_note_field": {
+    "title": {
+      "ar": "ملاحظة المعالجة",
+      "en": "Handling note"
+    },
+    "body": {
+      "ar": "وش سويت عشان تعالج هذا التقييم — تبقى بسجل التقييم للرجوع لها لاحقاً.",
+      "en": "What you did to handle this rating — stays on its own record for later reference."
+    },
+    "kind": "field",
+    "anchor": "rating.handled_note_field"
+  },
+  "rating.rating_card": {
+    "title": {
+      "ar": "بطاقة تقييم",
+      "en": "Rating card"
+    },
+    "body": {
+      "ar": "تقييم عميل واحد: عدد النجوم، ملاحظته، والموظف اللي خدمه.",
+      "en": "One customer's rating: the star count, their feedback, and who served them."
+    },
+    "kind": "field",
+    "anchor": "rating.rating_card"
+  },
+  "rating.mark_handled_button": {
+    "title": {
+      "ar": "تعليم كمعالَج",
+      "en": "Mark as handled"
+    },
+    "body": {
+      "ar": "يعلّم التقييم إنه اتُّصِل بالعميل بشأنه، مع ملاحظة اختيارية — إجراء نهائي لا رجعة فيه.",
+      "en": "Marks the rating as followed up on with the customer, with an optional note — final, cannot be undone."
+    },
+    "kind": "action",
+    "anchor": "rating.mark_handled_button"
+  },
+  "rating.quadrant": {
+    "title": {
+      "ar": "رباعية الأداء",
+      "en": "Performance quadrant"
+    },
+    "body": {
+      "ar": "يوزّع الموظفين حسب الجودة مقابل معدل التفاعل — اضغط على أي نقطة لسجل تدريب ذاك الموظف.",
+      "en": "Plots staff by quality against engagement rate — tap any point for that operator's training record."
+    },
+    "kind": "field",
+    "anchor": "rating.quadrant"
+  },
+  "rating.main_tabs": {
+    "title": {
+      "ar": "تبويبات التقييم",
+      "en": "Rating tabs"
+    },
+    "body": {
+      "ar": "التنقل بين نظرة عامة (لوحة الصدارة ورباعية الأداء) وكل التقييمات (القائمة القابلة للفلترة).",
+      "en": "Switches between Overview (leaderboard and performance quadrant) and All Ratings (the filterable feed)."
+    },
+    "kind": "field",
+    "anchor": "rating.main_tabs"
+  },
+  "rating.export_button": {
+    "title": {
+      "ar": "تصدير التقرير",
+      "en": "Export report"
+    },
+    "body": {
+      "ar": "يصدّر تقرير أداء الفريق آخر 30 يوم كملف PDF أو Word، جاهز للمشاركة.",
+      "en": "Exports the team's performance report for the last 30 days as a PDF or Word file, ready to share."
+    },
+    "kind": "action",
+    "anchor": "rating.export_button"
+  },
+  "customers.privacy_requests": {
+    "title": {
+      "ar": "طلبات حماية البيانات",
+      "en": "Privacy requests"
+    },
+    "body": {
+      "ar": "طلبات وصول أو حذف بيانات رفعها عملاء وتنتظر ردّ المحل — إغلاقها هنا يسجّل إنك رددت عليها فقط، ولا يحذف شي.",
+      "en": "Access or erasure requests customers raised, waiting for the shop's reply — closing one here only records that you answered, it doesn't delete anything."
+    },
+    "kind": "field",
+    "anchor": "customers.privacy_requests"
+  },
+  "services": {
+    "title": {
+      "ar": "خدماتي ومنتجاتي",
+      "en": "My services"
+    },
+    "body": {
+      "ar": "قائمة خدمات محلك: الاسم والسعر والمدة ودورة التذكير — إضافة خدمة جديدة أو تعديل وإيقاف خدمة موجودة.",
+      "en": "Your shop's service list — name, price, duration, and reminder cycle — add a new service or edit and stop an existing one."
+    },
+    "kind": "screen",
+    "anchor": "services"
+  },
+  "services.add_button": {
+    "title": {
+      "ar": "إضافة خدمة",
+      "en": "Add service"
+    },
+    "body": {
+      "ar": "يفتح نموذج لإضافة خدمة جديدة لقائمتك.",
+      "en": "Opens a form to add a new service to your list."
+    },
+    "kind": "action",
+    "anchor": "services.add_button"
+  },
+  "services.search_field": {
+    "title": {
+      "ar": "بحث",
+      "en": "Search"
+    },
+    "body": {
+      "ar": "يبحث بين خدماتك بالاسم.",
+      "en": "Searches your services by name."
+    },
+    "kind": "field",
+    "anchor": "services.search_field"
+  },
+  "services.service_card": {
+    "title": {
+      "ar": "بطاقة خدمة",
+      "en": "Service card"
+    },
+    "body": {
+      "ar": "اسم الخدمة وسعرها ومدتها ودورة تذكيرها، مع مفتاح لإيقافها أو تفعيلها.",
+      "en": "The service name, price, duration, and reminder cycle, with a switch to stop or reactivate it."
+    },
+    "kind": "field",
+    "anchor": "services.service_card"
+  },
+  "services.add_sheet": {
+    "title": {
+      "ar": "نموذج الخدمة",
+      "en": "Service form"
+    },
+    "body": {
+      "ar": "الاسم والسعر والمدة ودورة التذكير ووصف مختصر.",
+      "en": "Name, price, duration, reminder cycle, and a short description."
+    },
+    "kind": "field",
+    "anchor": "services.add_sheet"
+  },
+  "services.procedures_bulk_actions": {
+    "title": {
+      "ar": "إجراءات التحديد الجماعي",
+      "en": "Bulk selection actions"
+    },
+    "body": {
+      "ar": "امسح التحديد كله، أو اطبع الخطوات المحدّدة دفعة واحدة.",
+      "en": "Clear the whole selection, or print the selected steps all at once."
+    },
+    "kind": "action",
+    "anchor": "services.procedures_bulk_actions"
+  },
+  "services.procedures_drawer_footer": {
+    "title": {
+      "ar": "طباعة أو حفظ قائمة الخطوات",
+      "en": "Print or save the step checklist"
+    },
+    "body": {
+      "ar": "اطبع القائمة كما هي، أو احفظ ترتيبها الجديد لهذه الخدمة.",
+      "en": "Print the list as it is, or save its new order for this service."
+    },
+    "kind": "action",
+    "anchor": "services.procedures_drawer_footer"
+  },
+  "services.procedures_drawer_remove_step": {
+    "title": {
+      "ar": "إزالة خطوة من القائمة",
+      "en": "Remove a step from the list"
+    },
+    "body": {
+      "ar": "يشيل هذي الخطوة من قائمة هذي الخدمة بس، ما يحذفها من مكتبة الخطوات نفسها.",
+      "en": "Removes this step from this service's own list only — it doesn't delete it from the shared step library."
+    },
+    "kind": "action",
+    "anchor": "services.procedures_drawer_remove_step"
+  },
+  "services.procedures_library_add": {
+    "title": {
+      "ar": "إضافة خطوة جديدة للمكتبة",
+      "en": "Add a new step to the library"
+    },
+    "body": {
+      "ar": "نص الخطوة الجديدة ودرجة أهميتها، تُضاف لمكتبة الخطوات المشتركة بين كل خدماتك.",
+      "en": "The new step's text and how critical it is — added to the step library shared across all your services."
+    },
+    "kind": "field",
+    "anchor": "services.procedures_library_add"
+  },
+  "services.procedures_library_rename_dialog": {
+    "title": {
+      "ar": "تعديل نص الخطوة",
+      "en": "Edit the step's text"
+    },
+    "body": {
+      "ar": "تعديل هذا النص يُحدّثه بكل خدمة تستخدم نفس هذي الخطوة، مو خدمة وحدة بس.",
+      "en": "Editing this text updates it everywhere this step is used, across every service, not just one."
+    },
+    "kind": "field",
+    "anchor": "services.procedures_library_rename_dialog"
+  },
+  "services.procedures_picker_create": {
+    "title": {
+      "ar": "إنشاء خطوة جديدة أثناء الاختيار",
+      "en": "Create a new step while choosing"
+    },
+    "body": {
+      "ar": "ما لقيت الخطوة اللي تبيها؟ أنشئها مباشرة وتُضاف لهذي الخدمة فورًا.",
+      "en": "Couldn't find the step you want? Create it right here and it's added to this service immediately."
+    },
+    "kind": "field",
+    "anchor": "services.procedures_picker_create"
+  },
+  "services.procedures_picker_footer": {
+    "title": {
+      "ar": "إضافة الخطوات المحدّدة",
+      "en": "Add the selected steps"
+    },
+    "body": {
+      "ar": "أضِف كل الخطوات اللي حدّدتها لهذي الخدمة دفعة واحدة، أو أغلق بدون إضافة.",
+      "en": "Adds every step you've selected to this service in one go, or close without adding anything."
+    },
+    "kind": "action",
+    "anchor": "services.procedures_picker_footer"
+  },
+  "services.procedures_picker_search": {
+    "title": {
+      "ar": "بحث بمكتبة الخطوات",
+      "en": "Search the step library"
+    },
+    "body": {
+      "ar": "دوّر باسم الخطوة بين كل الخطوات الموجودة بمكتبتك.",
+      "en": "Search by step name across every step already in your library."
+    },
+    "kind": "field",
+    "anchor": "services.procedures_picker_search"
+  },
+  "services.suggestion_banner": {
+    "title": {
+      "ar": "اقتراح تجميع تلقائي",
+      "en": "Automatic grouping suggestion"
+    },
+    "body": {
+      "ar": "اكتشفنا خدمات تتشابه بالاسم — جمّعها بمجموعة وحدة بضغطة، أو تجاهل الاقتراح.",
+      "en": "We found services with similar names — group them together in one tap, or dismiss the suggestion."
+    },
+    "kind": "action",
+    "anchor": "services.suggestion_banner"
+  },
+  "services.group_name_field": {
+    "title": {
+      "ar": "اسم المجموعة",
+      "en": "Group name"
+    },
+    "body": {
+      "ar": "الاسم اللي راح تظهر تحته هالخدمات المجمّعة.",
+      "en": "The name these grouped services will appear under."
+    },
+    "kind": "field",
+    "anchor": "services.group_name_field"
+  },
+  "services.step_add_field": {
+    "title": {
+      "ar": "نص الخطوة الجديدة",
+      "en": "The new step's text"
+    },
+    "body": {
+      "ar": "خطوة تُضاف لمكتبة خطوات الخدمة المشتركة بين كل خدماتك.",
+      "en": "A step added to the shared service-checklist library across all your services."
+    },
+    "kind": "field",
+    "anchor": "services.step_add_field"
+  },
+  "services.step_edit_field": {
+    "title": {
+      "ar": "تعديل نص الخطوة",
+      "en": "Edit the step's text"
+    },
+    "body": {
+      "ar": "تعديل هذا النص يُحدّثه بكل خدمة تستخدم نفس هذي الخطوة.",
+      "en": "Editing this text updates it everywhere this step is used."
+    },
+    "kind": "field",
+    "anchor": "services.step_edit_field"
+  },
+  "services.step_retire_button": {
+    "title": {
+      "ar": "إيقاف الخطوة",
+      "en": "Retire the step"
+    },
+    "body": {
+      "ar": "يوقفها عن الظهور بأي قائمة جديدة، بدون حذفها من السجل.",
+      "en": "Stops it from appearing on any new checklist, without deleting it from the record."
+    },
+    "kind": "action",
+    "anchor": "services.step_retire_button"
+  },
+  "services.general_settings_fields": {
+    "title": {
+      "ar": "إعدادات عامة للخدمات",
+      "en": "General service settings"
+    },
+    "body": {
+      "ar": "القيمة الافتراضية لدورة التذكير وعدد النقاط لكل خدمة ما لها إعداد خاص بها.",
+      "en": "The default reminder-cycle length and points value for any service that has no override of its own."
+    },
+    "kind": "field",
+    "anchor": "services.general_settings_fields"
+  },
+  "services.override_field": {
+    "title": {
+      "ar": "تخصيص إعداد لهذي الخدمة",
+      "en": "Customize this service's own setting"
+    },
+    "body": {
+      "ar": "يتبع الإعداد العام افتراضياً — اضغط «تخصيص» عشان تحط قيمة مختلفة لهذي الخدمة بالذات.",
+      "en": "Follows the general setting by default — tap \"Customize\" to give this specific service its own value instead."
+    },
+    "kind": "field",
+    "anchor": "services.override_field"
+  },
+  "services.package_fields": {
+    "title": {
+      "ar": "بيانات الباقة",
+      "en": "Package details"
+    },
+    "body": {
+      "ar": "اسم الباقة، سعرها الإجمالي، ووصف مختصر — الخدمات اللي تضمّها تُختار بالأسفل.",
+      "en": "The package's name, its total price, and a short description — which services it bundles are chosen below."
+    },
+    "kind": "field",
+    "anchor": "services.package_fields"
+  },
+  "visit.register.today_bookings": {
+    "title": {
+      "ar": "مواعيد اليوم",
+      "en": "Today's appointments"
+    },
+    "body": {
+      "ar": "يعرض حجوزات اليوم المعروفة، وضغطة واحدة تسجّل زيارة العميل الذي حضر لموعده.",
+      "en": "Shows today's known bookings — one tap records the visit for a customer who showed up for their appointment."
+    },
+    "kind": "field",
+    "anchor": "visit.register.today_bookings",
+    "requires": [
+      "bookings.read"
+    ]
+  },
+  "visit.register.packages_rail": {
+    "title": {
+      "ar": "باقات مميّزة",
+      "en": "Featured packages"
+    },
+    "body": {
+      "ar": "باقات خدمات جاهزة بسعر واحد — لمسة تختار كل خدماتها دفعة واحدة.",
+      "en": "Ready-made service bundles at one price — one tap selects every service in the bundle at once."
+    },
+    "kind": "field",
+    "anchor": "visit.register.packages_rail"
+  },
+  "visit.register.clear_all_button": {
+    "title": {
+      "ar": "مسح الكل",
+      "en": "Clear all"
+    },
+    "body": {
+      "ar": "يلغي كل الخدمات المختارة حالياً دفعة واحدة.",
+      "en": "Deselects every currently-chosen service at once."
+    },
+    "kind": "action",
+    "anchor": "visit.register.clear_all_button"
+  },
+  "visit.register.name_meter_fields": {
+    "title": {
+      "ar": "اسم العميل والعدّاد",
+      "en": "Customer name and odometer"
+    },
+    "body": {
+      "ar": "اسم العميل اختياري، وحقل العدّاد يظهر فقط للمحلات التي تتبع المركبات.",
+      "en": "The customer's name is optional; the odometer field appears only for shops that track vehicles."
+    },
+    "kind": "field",
+    "anchor": "visit.register.name_meter_fields"
+  },
+  "visit.register.coupon_section": {
+    "title": {
+      "ar": "منح كوبون لمحل آخر",
+      "en": "Grant a coupon to another shop"
+    },
+    "body": {
+      "ar": "يمنح خصماً على اشتراك محل آخر مسجّل عندنا، يُطبَّق تلقائياً عند تجديده القادم.",
+      "en": "Grants a discount on another registered shop's subscription, applied automatically at its next renewal."
+    },
+    "kind": "action",
+    "anchor": "visit.register.coupon_section",
+    "requires": [
+      "operations.grant_coupon"
+    ]
+  },
+  "visit.quantity_dialog_field": {
+    "title": {
+      "ar": "الكمية",
+      "en": "Quantity"
+    },
+    "body": {
+      "ar": "اكتب الرقم مباشرة بدل ما تضغط +/- عدة مرات.",
+      "en": "Type the number directly instead of tapping +/- several times."
+    },
+    "kind": "field",
+    "anchor": "visit.quantity_dialog_field"
+  },
+  "services.import_button": {
+    "title": {
+      "ar": "استيراد من ملف",
+      "en": "Import from a file"
+    },
+    "body": {
+      "ar": "يستورد عدة خدمات دفعة واحدة من ملف CSV.",
+      "en": "Imports several services at once from a CSV file."
+    },
+    "kind": "action",
+    "anchor": "services.import_button",
+    "requires": [
+      "operations.bulk_import_services"
+    ]
+  },
+  "services.general_settings_button": {
+    "title": {
+      "ar": "الإعداد العام",
+      "en": "General default"
+    },
+    "body": {
+      "ar": "يفتح القيمة الافتراضية (أيام المتابعة والنقاط) التي تتبعها كل خدمة لم تُخصَّص بعد.",
+      "en": "Opens the default value (follow-up days and points) every non-customised service follows."
+    },
+    "kind": "action",
+    "anchor": "services.general_settings_button"
+  },
+  "services.page_tabs": {
+    "title": {
+      "ar": "الخدمات والباقات",
+      "en": "Services and packages"
+    },
+    "body": {
+      "ar": "يبدّل بين قائمة خدماتك وقائمة باقاتك.",
+      "en": "Switches between your services list and your packages list."
+    },
+    "kind": "field",
+    "anchor": "services.page_tabs"
+  },
+  "services.packages_tab": {
+    "title": {
+      "ar": "الباقات",
+      "en": "Packages"
+    },
+    "body": {
+      "ar": "قائمة باقات الخدمات — عدة خدمات تُباع معاً بسعر واحد.",
+      "en": "Your packages list — several services sold together at one price."
+    },
+    "kind": "field",
+    "anchor": "services.packages_tab"
+  },
+  "home.branch_switcher": {
+    "title": {
+      "ar": "تبديل الفرع",
+      "en": "Switch branch"
+    },
+    "body": {
+      "ar": "يفتح قائمة فروعك لاختيار أيّها تعمل عليه الآن. يظهر فقط لو عندك أكثر من فرع.",
+      "en": "Opens your branches list to choose which one you're working on now. Only shown when you have more than one branch."
+    },
+    "kind": "action",
+    "anchor": "home.branch_switcher"
+  },
+  "rating.period": {
+    "title": {
+      "ar": "المدة الزمنية",
+      "en": "Time period"
+    },
+    "body": {
+      "ar": "يختار المدة اللي تُحسب عليها أرقام هذي الشاشة — أسبوع، شهر، ربع سنة، أو مدى مخصّص بتاريخين.",
+      "en": "Chooses the period this screen's numbers are computed over — a week, a month, a quarter, or a custom two-date range."
+    },
+    "kind": "field",
+    "anchor": "rating.period"
+  },
+  "rating.staff_table": {
+    "title": {
+      "ar": "كل موظف",
+      "en": "Every staff member"
+    },
+    "body": {
+      "ar": "جدول كامل بكل موظف: عدد الزيارات، التقييمات، نسبة التفاعل، متوسط التقييم، ونسبة عدم الحضور.",
+      "en": "A full table of every staff member: visit count, ratings, engagement rate, average rating, and no-show rate."
+    },
+    "kind": "field",
+    "anchor": "rating.staff_table"
+  },
+  "account.shop.branches.detail.edit_member.name_field": {
+    "title": {
+      "ar": "اسم الموظف",
+      "en": "Employee name"
+    },
+    "body": {
+      "ar": "اسم الموظف كما يظهر لبقية الفريق.",
+      "en": "The employee's name, as the rest of the team sees it."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.detail.edit_member.name_field"
+  },
+  "account.shop.branches.detail.edit_member.role_field": {
+    "title": {
+      "ar": "صلاحية الموظف",
+      "en": "Employee role"
+    },
+    "body": {
+      "ar": "الدور اللي يحدد شو يقدر يسوي بالتطبيق — موظف ميداني، مشرف وردية، مسؤول تسويق، أو مدير.",
+      "en": "The role deciding what he may do in the app — field operator, shift supervisor, marketing lead, or manager."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.detail.edit_member.role_field"
+  },
+  "account.shop.branches.detail.edit_member.station_field": {
+    "title": {
+      "ar": "فرع الموظف",
+      "en": "Employee's branch"
+    },
+    "body": {
+      "ar": "الفرع اللي يشتغل فيه هذا الموظف فعليًا — يوثّر على أي زيارات تُنسب له.",
+      "en": "Which branch this employee actually works at — affects which visits get attributed to him."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.detail.edit_member.station_field"
+  },
+  "account.shop.branches.detail.edit_member.visibility_field": {
+    "title": {
+      "ar": "أي فروع يشوفها",
+      "en": "Which branches he may see"
+    },
+    "body": {
+      "ar": "فرعه بس، فروع محددة يختارها المالك، أو كل الفروع — يتحكم بأي بيانات يشوفها الموظف بباقي الشاشات.",
+      "en": "His own branch only, a set the owner picks, or every branch — controls what data he sees across the rest of the app."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.detail.edit_member.visibility_field"
+  },
+  "account.shop.branches.detail.edit_member.working_hours_button": {
+    "title": {
+      "ar": "ساعات عمل الموظف",
+      "en": "Employee's working hours"
+    },
+    "body": {
+      "ar": "يفتح تعديل ساعات دوام هذا الموظف — لو ما عدّلتها يتبع ساعات المحل تلقائيًا.",
+      "en": "Opens this employee's own hours editor — left untouched, he follows the shop's own hours automatically."
+    },
+    "kind": "action",
+    "anchor": "account.shop.branches.detail.edit_member.working_hours_button"
+  },
+  "account.shop.branches.detail.edit_member.save": {
+    "title": {
+      "ar": "حفظ تعديل الموظف",
+      "en": "Save employee changes"
+    },
+    "body": {
+      "ar": "يحفظ كل التعديلات على هذا الموظف دفعة واحدة.",
+      "en": "Saves every change to this employee at once."
+    },
+    "kind": "action",
+    "anchor": "account.shop.branches.detail.edit_member.save"
+  },
+  "account.shop.branches.detail.edit_member.stop_reactivate": {
+    "title": {
+      "ar": "إيقاف أو إعادة تفعيل الموظف",
+      "en": "Stop or reactivate the employee"
+    },
+    "body": {
+      "ar": "يوقف دخول الموظف للتطبيق فورًا، أو يعيد تفعيله (يحتاج توظيف من جديد لو كان موقوفًا تمامًا).",
+      "en": "Stops the employee's access to the app immediately, or reactivates him (needs hiring again if fully stopped)."
+    },
+    "kind": "action",
+    "anchor": "account.shop.branches.detail.edit_member.stop_reactivate"
+  },
+  "account.shop.branches.detail.working_hours.time_pickers": {
+    "title": {
+      "ar": "وقت بداية ونهاية الدوام",
+      "en": "Shift start and end time"
+    },
+    "body": {
+      "ar": "حدّد ساعة بداية ونهاية الدوام لهذا اليوم، أو أطفئ المفتاح لتعليمه يوم إجازة.",
+      "en": "Set the start and end time for this day's shift, or switch it off to mark the day as a day off."
+    },
+    "kind": "field",
+    "anchor": "account.shop.branches.detail.working_hours.time_pickers"
+  },
+  "account.shop.branches.detail.working_hours.save": {
+    "title": {
+      "ar": "حفظ ساعات العمل",
+      "en": "Save working hours"
+    },
+    "body": {
+      "ar": "يحفظ ساعات دوام هذا الموظف لكل أيام الأسبوع دفعة واحدة.",
+      "en": "Saves this employee's working hours for the whole week at once."
+    },
+    "kind": "action",
+    "anchor": "account.shop.branches.detail.working_hours.save"
+  },
+  "account.shop.branches.detail.working_hours.clear": {
+    "title": {
+      "ar": "إرجاع ساعات المحل الافتراضية",
+      "en": "Reset to the shop's default hours"
+    },
+    "body": {
+      "ar": "يمسح ساعات هذا الموظف الخاصة، فيرجع يتبع ساعات المحل تلقائيًا.",
+      "en": "Clears this employee's own hours, so he goes back to following the shop's own hours automatically."
+    },
+    "kind": "action",
+    "anchor": "account.shop.branches.detail.working_hours.clear"
+  },
+  "account.version_footer": {
+    "title": {
+      "ar": "رقم نسخة التطبيق",
+      "en": "App version number"
+    },
+    "body": {
+      "ar": "يفيد عند التواصل بخصوص مشكلة، لتحديد أي نسخة مثبتة عندك.",
+      "en": "Useful when reporting an issue, to know exactly which version you have installed."
+    },
+    "kind": "field",
+    "anchor": "account.version_footer"
+  },
+  "points": {
+    "title": {
+      "ar": "نقاط الولاء",
+      "en": "Loyalty Points"
+    },
+    "body": {
+      "ar": "شاشة برنامج نقاط الولاء: المكافآت اللي يقدر عملاؤك يستبدلونها بنقاطهم، وأكثر المكافآت طلبًا.",
+      "en": "The loyalty-points program screen: the rewards your customers may redeem with their points, and the most-redeemed ones."
+    },
+    "kind": "screen",
+    "anchor": "points",
+    "requires": [
+      "loyalty.rewards.update"
+    ]
+  },
+  "whatsapp-assistant": {
+    "title": {
+      "ar": "المساعد الذكي عبر واتساب",
+      "en": "WhatsApp AI assistant"
+    },
+    "body": {
+      "ar": "يرد على عملائك بواتساب نيابة عنك، ويقترح عليهم باقاتك ونقاطهم بالوقت المناسب. هنا تتحكم بتشغيله، ملاحظاته، وحدوده.",
+      "en": "Replies to your customers on WhatsApp for you, suggesting your plans and their points at the right moment. Here you control turning it on, its notes, and its limits."
+    },
+    "kind": "screen",
+    "anchor": "whatsapp-assistant"
+  },
+  "whatsapp-assistant.toggle": {
+    "title": {
+      "ar": "تشغيل/إيقاف المساعد",
+      "en": "Turn the assistant on/off"
+    },
+    "body": {
+      "ar": "إيقافه يقفل المساعد تمامًا وكأنك غير مشترك فيه، بدون إلغاء اشتراك التطبيق نفسه — ترجعه متى شئت.",
+      "en": "Turning it off locks the assistant completely, as if you weren't subscribed at all, without cancelling the app subscription itself — turn it back on any time."
+    },
+    "kind": "action",
+    "anchor": "whatsapp-assistant.toggle"
+  },
+  "whatsapp-assistant.notes_field": {
+    "title": {
+      "ar": "ملاحظات المحل",
+      "en": "Shop notes"
+    },
+    "body": {
+      "ar": "معلومات إضافية عن محلك يستخدمها المساعد وهو يرد على عملائك — لا تكتب هنا بيانات شخصية لعملائك.",
+      "en": "Extra context about your shop the assistant uses while replying to your customers — never write your customers' own personal data here."
+    },
+    "kind": "field",
+    "anchor": "whatsapp-assistant.notes_field"
+  },
+  "whatsapp-assistant.auto_register_toggle": {
+    "title": {
+      "ar": "تسجيل جهات الاتصال تلقائيًا",
+      "en": "Auto-register contacts"
+    },
+    "body": {
+      "ar": "أي رقم جديد يراسل واتسابك يُسجَّل تلقائيًا كجهة اتصال حقيقية، حتى لو رسالة وحدة.",
+      "en": "Any new number that messages your WhatsApp is automatically saved as a real contact, even from a single message."
+    },
+    "kind": "action",
+    "anchor": "whatsapp-assistant.auto_register_toggle"
+  },
+  "partner-loyalty": {
+    "title": {
+      "ar": "ولاء الشركاء",
+      "en": "Partner loyalty"
+    },
+    "body": {
+      "ar": "كوّن تحالفاً مع محل آخر مسجّل عندنا — تمنحه امتيازاً على اشتراكه معنا يُطبَّق تلقائياً عند تجديده القادم. غير محدَّث عندك؟ راجع سجل المحاولات والإحصائيات بالتبويبين أدناه.",
+      "en": "Form an alliance with another registered shop — you grant it a perk on its subscription with us, applied automatically at its next renewal. Check the log and stats tabs below for your history."
+    },
+    "kind": "screen",
+    "anchor": "partner-loyalty",
+    "requires": [
+      "operations.coupons_page"
+    ]
+  },
+  "partner-loyalty.grant_form": {
+    "title": {
+      "ar": "نموذج تكوين التحالف",
+      "en": "Alliance grant form"
+    },
+    "body": {
+      "ar": "رقم جوال المحل الشريك، نسبة الامتياز، والتطبيقات المشمولة — تحقّق سريع من الرقم يظهر فور ما تكتبه.",
+      "en": "The partner shop's phone number, the perk percent, and which apps it covers — a quick check on the number appears as you type it."
+    },
+    "kind": "action",
+    "anchor": "partner-loyalty.grant_form",
+    "requires": [
+      "operations.grant_coupon_direct"
+    ]
+  },
+  "partner-loyalty.prefs_toggle": {
+    "title": {
+      "ar": "خانة تكوين التحالف أثناء تسجيل الزيارة",
+      "en": "Alliance checkbox during visit recording"
+    },
+    "body": {
+      "ar": "تشغيلها يسمح لأي موظف يسجّل زيارة إنه يكوّن تحالفاً بنفس اللحظة، بدون فتح هذي الشاشة.",
+      "en": "Turning it on lets any staff member recording a visit form an alliance at the same moment, without opening this screen."
+    },
+    "kind": "action",
+    "anchor": "partner-loyalty.prefs_toggle",
+    "requires": [
+      "operations.grant_coupon_direct"
+    ]
+  },
+  "mutual-benefit": {
+    "title": {
+      "ar": "تبادل منافع",
+      "en": "Mutual benefit"
+    },
+    "body": {
+      "ar": "تحالفاتك مع محلات ثانية مسجّلة عندنا — كل محل يمنح الثاني امتيازاً لعميله المُحال، تلقائياً بمجرد ما يثبت إنه عميل حقيقي. اعرض شراكة جديدة، أو رُدّ على عرض وصلك.",
+      "en": "Your alliances with other registered shops — each grants the other a perk for a referred customer, automatically once they prove they're a real customer. Propose a new partnership, or respond to one that came in."
+    },
+    "kind": "screen",
+    "anchor": "mutual-benefit",
+    "requires": [
+      "operations.mutual_benefit_list"
+    ]
+  },
+  "mutual_benefit.row_accept_reject": {
+    "title": {
+      "ar": "قبول أو رفض عرض الشراكة",
+      "en": "Accept or reject the partnership offer"
+    },
+    "body": {
+      "ar": "القبول يفعّل الشراكة فوراً، والرفض ينهيها بلا رجعة — القرار للمحل اللي وصله العرض.",
+      "en": "Accepting activates the partnership right away; rejecting ends it for good — the decision belongs to the shop the offer was sent to."
+    },
+    "kind": "action",
+    "anchor": "mutual_benefit.row_accept_reject"
+  },
+  "mutual_benefit.row_cancel_request": {
+    "title": {
+      "ar": "طلب إنهاء الشراكة",
+      "en": "Request to end the partnership"
+    },
+    "body": {
+      "ar": "يرسل طلب إنهاء للطرف الثاني — الشراكة تبقى فعّالة لين ما يوافق.",
+      "en": "Sends the other shop a request to end it — the partnership stays active until they agree."
+    },
+    "kind": "action",
+    "anchor": "mutual_benefit.row_cancel_request"
+  },
+  "mutual_benefit.row_cancel_confirm": {
+    "title": {
+      "ar": "تأكيد إنهاء الشراكة",
+      "en": "Confirm ending the partnership"
+    },
+    "body": {
+      "ar": "الطرف الثاني طلب إنهاء الشراكة، وهذا تأكيدك — بمجرد الموافقة تنتهي فوراً.",
+      "en": "The other shop asked to end this partnership, and this is your confirmation — it ends immediately once you agree."
+    },
+    "kind": "action",
+    "anchor": "mutual_benefit.row_cancel_confirm"
+  },
+  "mutual_benefit.propose_phone_field": {
+    "title": {
+      "ar": "رقم صاحب المحل الآخر",
+      "en": "The other shop owner's number"
+    },
+    "body": {
+      "ar": "رقم واتساب صاحب المحل اللي تبي تعرض عليه الشراكة.",
+      "en": "The WhatsApp number of the shop owner you want to propose the partnership to."
+    },
+    "kind": "field",
+    "anchor": "mutual_benefit.propose_phone_field"
+  },
+  "mutual_benefit.propose_condition_fields": {
+    "title": {
+      "ar": "شروط الشراكة",
+      "en": "Partnership conditions"
+    },
+    "body": {
+      "ar": "متى يستحق العميل المُحال الامتياز (بعد مبلغ معيّن أو خدمة معيّنة)، وصلاحية المنحة ومدتها وسقفها الأقصى.",
+      "en": "When a referred customer earns the perk (after a set amount or a specific service), and the grant's own validity window, duration, and maximum cap."
+    },
+    "kind": "field",
+    "anchor": "mutual_benefit.propose_condition_fields"
+  },
+  "points.add_button": {
+    "title": {
+      "ar": "إضافة مكافأة",
+      "en": "Add a reward"
+    },
+    "body": {
+      "ar": "يفتح نموذج إضافة مكافأة جديدة لبرنامج النقاط.",
+      "en": "Opens the form to add a new reward to the loyalty program."
+    },
+    "kind": "action",
+    "anchor": "points.add_button",
+    "requires": [
+      "loyalty.rewards.create"
+    ]
+  },
+  "points.leaderboard": {
+    "title": {
+      "ar": "الأعلى طلبًا",
+      "en": "Most redeemed"
+    },
+    "body": {
+      "ar": "أكثر خمس مكافآت استبدلها عملاؤك، مرتبة بعدد مرات الاستبدال.",
+      "en": "The top five rewards your customers redeemed, ranked by how many times."
+    },
+    "kind": "field",
+    "anchor": "points.leaderboard"
+  },
+  "points.main_tabs": {
+    "title": {
+      "ar": "تبويبات نقاط الولاء",
+      "en": "Points tabs"
+    },
+    "body": {
+      "ar": "يبدّل بين قائمة المكافآت والأعلى طلبًا منها.",
+      "en": "Switches between the rewards list and the most-redeemed ranking."
+    },
+    "kind": "field",
+    "anchor": "points.main_tabs"
+  },
+  "points.reward_card": {
+    "title": {
+      "ar": "بطاقة المكافأة",
+      "en": "Reward card"
+    },
+    "body": {
+      "ar": "بطاقة مكافأة واحدة — اسمها، نوعها، وثمنها بالنقاط. اضغط عليها لتعديلها.",
+      "en": "One reward — its name, type, and its cost in points. Tap it to edit."
+    },
+    "kind": "field",
+    "anchor": "points.reward_card"
+  },
+  "points.reward_sheet.name_field": {
+    "title": {
+      "ar": "اسم المكافأة",
+      "en": "Reward name"
+    },
+    "body": {
+      "ar": "الاسم اللي يشوفه العميل لهذي المكافأة.",
+      "en": "The name the customer sees for this reward."
+    },
+    "kind": "field",
+    "anchor": "points.reward_sheet.name_field"
+  },
+  "points.reward_sheet.type_field": {
+    "title": {
+      "ar": "نوع المكافأة",
+      "en": "Reward type"
+    },
+    "body": {
+      "ar": "خدمة من كتالوجك، هدية غير مرتبطة بالكتالوج، أو خصم مبلغ معيّن.",
+      "en": "A service from your catalogue, a gift unrelated to the catalogue, or a cash discount."
+    },
+    "kind": "field",
+    "anchor": "points.reward_sheet.type_field"
+  },
+  "points.reward_sheet.service_field": {
+    "title": {
+      "ar": "خدمة المكافأة",
+      "en": "The reward's own service"
+    },
+    "body": {
+      "ar": "أي خدمة من كتالوجك يحصل عليها العميل عند استبدال هذي المكافأة.",
+      "en": "Which of your catalogue services the customer gets when redeeming this reward."
+    },
+    "kind": "field",
+    "anchor": "points.reward_sheet.service_field"
+  },
+  "points.reward_sheet.discount_field": {
+    "title": {
+      "ar": "قيمة الخصم",
+      "en": "Discount amount"
+    },
+    "body": {
+      "ar": "قيمة الخصم بالريال اللي يحصل عليها العميل عند استبدال هذي المكافأة.",
+      "en": "The riyal amount the customer is discounted when redeeming this reward."
+    },
+    "kind": "field",
+    "anchor": "points.reward_sheet.discount_field"
+  },
+  "points.reward_sheet.cost_field": {
+    "title": {
+      "ar": "ثمن المكافأة بالنقاط",
+      "en": "The reward's own point cost"
+    },
+    "body": {
+      "ar": "كم نقطة يحتاجها العميل عشان يستبدل هذي المكافأة.",
+      "en": "How many points a customer needs to redeem this reward."
+    },
+    "kind": "field",
+    "anchor": "points.reward_sheet.cost_field"
+  },
+  "points.reward_sheet.active_toggle": {
+    "title": {
+      "ar": "تفعيل/إيقاف المكافأة",
+      "en": "Activate/retire the reward"
+    },
+    "body": {
+      "ar": "يوقف هذي المكافأة عن عملائك بدون حذفها، أو يعيد تفعيلها.",
+      "en": "Retires this reward from your customers without deleting it, or reinstates it."
+    },
+    "kind": "action",
+    "anchor": "points.reward_sheet.active_toggle"
+  },
+  "points.reward_sheet.submit": {
+    "title": {
+      "ar": "حفظ المكافأة",
+      "en": "Save the reward"
+    },
+    "body": {
+      "ar": "يحفظ المكافأة الجديدة أو التعديلات عليها.",
+      "en": "Saves the new reward, or your changes to an existing one."
+    },
+    "kind": "action",
+    "anchor": "points.reward_sheet.submit"
+  },
+  "points.earning_settings_card": {
+    "title": {
+      "ar": "طريقة الاحتساب",
+      "en": "Earning method"
+    },
+    "body": {
+      "ar": "كيف يكسب عملاؤك نقاطهم: نقاط ثابتة لكل خدمة، أو نقطة لكل ريال يدفعونه.",
+      "en": "How your customers earn their points: a fixed number per service, or one point per riyal they pay."
+    },
+    "kind": "field",
+    "anchor": "points.earning_settings_card"
+  },
+  "points.mode_field": {
+    "title": {
+      "ar": "تبديل طريقة الاحتساب",
+      "en": "Switch the earning method"
+    },
+    "body": {
+      "ar": "يبدّل بين الاحتساب بالخدمات (كل خدمة نقاطها الثابتة) أو بقيمة الفاتورة (نقطة لكل ريال) — يحتاج كل الخدمات مسعّرة عشان يفعّل بقيمة الفاتورة.",
+      "en": "Switches between by-service earning (each service has its own fixed points) and by-invoice-value (one point per riyal) — needs every service priced to turn on by-invoice-value."
+    },
+    "kind": "action",
+    "anchor": "points.mode_field",
+    "requires": [
+      "loyalty.settings.mode"
+    ]
+  },
+  "points.open_earn_settings_button": {
+    "title": {
+      "ar": "إعدادات نقاط كل خدمة",
+      "en": "Per-service points settings"
+    },
+    "body": {
+      "ar": "يفتح شاشة خدماتي ومنتجاتي حيث تحدّد كم نقطة تكسب كل خدمة على حدة.",
+      "en": "Opens the services screen where you set how many points each individual service earns."
+    },
+    "kind": "action",
+    "anchor": "points.open_earn_settings_button"
+  },
+  "bookings": {
+    "title": {
+      "ar": "الحجوزات",
+      "en": "Bookings"
+    },
+    "body": {
+      "ar": "شاشة الحجوزات: جدول اليوم بترتيب الوقت، فلترة حسب الموظف، وإضافة حجز جديد.",
+      "en": "The bookings screen: today's schedule in time order, filter by staff member, and add a new booking."
+    },
+    "kind": "screen",
+    "anchor": "bookings",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.new_button": {
+    "title": {
+      "ar": "حجز جديد",
+      "en": "New booking"
+    },
+    "body": {
+      "ar": "يفتح خطوات حجز جديد: الخدمات، الموظف، الوقت، ثم التأكيد.",
+      "en": "Opens the new-booking steps: services, staff, time, then confirmation."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_button",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.staff_filter": {
+    "title": {
+      "ar": "فلترة حسب الموظف",
+      "en": "Filter by staff"
+    },
+    "body": {
+      "ar": "يعرض حجوزات موظف واحد بس، أو الكل.",
+      "en": "Shows only one staff member's bookings, or everyone's."
+    },
+    "kind": "action",
+    "anchor": "bookings.staff_filter",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.booking_card": {
+    "title": {
+      "ar": "بطاقة الحجز",
+      "en": "Booking card"
+    },
+    "body": {
+      "ar": "يفتح تفاصيل الحجز والإجراءات المتاحة له (حضر، لم يحضر، إلغاء، تعديل).",
+      "en": "Opens the booking's details and its available actions (attend, no-show, cancel, edit)."
+    },
+    "kind": "action",
+    "anchor": "bookings.booking_card",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.today_button": {
+    "title": {
+      "ar": "اذهب لليوم",
+      "en": "Jump to today"
+    },
+    "body": {
+      "ar": "يرجّع شريط التاريخ لليوم الحالي.",
+      "en": "Jumps the date strip back to today."
+    },
+    "kind": "action",
+    "anchor": "bookings.today_button",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.details.status_actions": {
+    "title": {
+      "ar": "تعديل / حضر",
+      "en": "Edit / attend"
+    },
+    "body": {
+      "ar": "تعديل الحجز، أو تسجيله كحضر.",
+      "en": "Edit the booking, or mark it as attended."
+    },
+    "kind": "action",
+    "anchor": "bookings.details.status_actions",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.details.negative_actions": {
+    "title": {
+      "ar": "لم يحضر / إلغاء",
+      "en": "No-show / cancel"
+    },
+    "body": {
+      "ar": "تسجيل الحجز كـ«لم يحضر»، أو إلغاؤه نهائيًا.",
+      "en": "Mark the booking as a no-show, or cancel it entirely."
+    },
+    "kind": "action",
+    "anchor": "bookings.details.negative_actions",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.phone_field": {
+    "title": {
+      "ar": "جوال العميل",
+      "en": "Customer phone"
+    },
+    "body": {
+      "ar": "يبحث عن عميل موجود برقم جواله، أو يجهّز حجزًا لعميل جديد.",
+      "en": "Searches for an existing customer by phone, or prepares a booking for a new one."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.phone_field",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.name_field": {
+    "title": {
+      "ar": "اسم العميل الجديد",
+      "en": "New customer's name"
+    },
+    "body": {
+      "ar": "اسم اختياري لعميل جديد ما زال غير مسجّل.",
+      "en": "An optional name for a new, not-yet-registered customer."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.name_field",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.services_grid": {
+    "title": {
+      "ar": "اختيار الخدمات",
+      "en": "Choose services"
+    },
+    "body": {
+      "ar": "يختار خدمة أو أكثر للحجز، مع عدد كل خدمة.",
+      "en": "Selects one or more services for the booking, with a quantity for each."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.services_grid",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.quantity_stepper": {
+    "title": {
+      "ar": "عدد الخدمة",
+      "en": "Service quantity"
+    },
+    "body": {
+      "ar": "كم مرة من نفس الخدمة بهذا الحجز — مثل 2× غسيل خارجي.",
+      "en": "How many times this same service appears in the booking — e.g. 2× exterior wash."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.quantity_stepper",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.staff_field": {
+    "title": {
+      "ar": "اختيار الموظف",
+      "en": "Choose staff"
+    },
+    "body": {
+      "ar": "يختار موظفًا معيّنًا يقدر يسوي كل الخدمات المختارة، أو «أي متاح».",
+      "en": "Picks one staff member who can perform every chosen service together, or \"anyone available\"."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.staff_field",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.day_nav": {
+    "title": {
+      "ar": "تغيير اليوم",
+      "en": "Change day"
+    },
+    "body": {
+      "ar": "ينتقل يومًا للأمام أو للخلف أثناء البحث عن موعد.",
+      "en": "Moves a day forward or back while searching for a slot."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.day_nav",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.time_slots": {
+    "title": {
+      "ar": "اختيار الوقت",
+      "en": "Choose a time"
+    },
+    "body": {
+      "ar": "يعرض كل المواعيد الفاضية فعلًا لليوم المختار — الضغط يثبّت الوقت والموظف معًا.",
+      "en": "Shows every slot that's actually free on the chosen day — tapping one fixes both the time and the staff member."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.time_slots",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.note_field": {
+    "title": {
+      "ar": "ملاحظة الحجز",
+      "en": "Booking note"
+    },
+    "body": {
+      "ar": "ملاحظة اختيارية تُحفظ مع الحجز.",
+      "en": "An optional note saved with the booking."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.note_field",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.payment_field": {
+    "title": {
+      "ar": "حالة الدفع",
+      "en": "Payment status"
+    },
+    "body": {
+      "ar": "بدون دفع، عربون، أو مدفوع بالكامل.",
+      "en": "No payment, a deposit, or paid in full."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.payment_field",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.new_sheet.deposit_field": {
+    "title": {
+      "ar": "مبلغ العربون",
+      "en": "Deposit amount"
+    },
+    "body": {
+      "ar": "المبلغ المطلوب كعربون لهذا الحجز.",
+      "en": "The amount required as a deposit for this booking."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.deposit_field",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.settings_button": {
+    "title": {
+      "ar": "إعدادات الحجوزات",
+      "en": "Booking settings"
+    },
+    "body": {
+      "ar": "يفتح إعدادات ساعات فتح الحجوزات للمحل وطريقة توزيع الحجوزات التلقائي.",
+      "en": "Opens the shop's booking hours and the auto-assignment settings."
+    },
+    "kind": "action",
+    "anchor": "bookings.settings_button",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.settings.tabs": {
+    "title": {
+      "ar": "التبديل بين الإعدادين",
+      "en": "Switch settings tab"
+    },
+    "body": {
+      "ar": "التبديل بين ساعات العمل وطريقة التوزيع.",
+      "en": "Switches between working hours and the assignment method."
+    },
+    "kind": "action",
+    "anchor": "bookings.settings.tabs",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.settings.hours.time_pickers": {
+    "title": {
+      "ar": "ساعات فتح الحجوزات",
+      "en": "Booking hours"
+    },
+    "body": {
+      "ar": "يفتح/يغلق يومًا للحجوزات، ويضبط وقت البداية والنهاية — للمحل كله، مو موظف واحد.",
+      "en": "Opens/closes a day for bookings, and sets its start/end time — for the whole shop, not one employee."
+    },
+    "kind": "action",
+    "anchor": "bookings.settings.hours.time_pickers",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.settings.hours.save": {
+    "title": {
+      "ar": "حفظ ساعات العمل",
+      "en": "Save working hours"
+    },
+    "body": {
+      "ar": "يحفظ ساعات فتح الحجوزات الأسبوعية للمحل.",
+      "en": "Saves the shop's weekly booking hours."
+    },
+    "kind": "action",
+    "anchor": "bookings.settings.hours.save",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.settings.assignment.algorithm": {
+    "title": {
+      "ar": "طريقة التوزيع التلقائي",
+      "en": "Auto-assignment method"
+    },
+    "body": {
+      "ar": "يختار كيف يُوزَّع الحجز تلقائيًا بين الموظفين المؤهلين: الأقرب دورًا، الأقل ازدحامًا، أو ترتيب يدوي.",
+      "en": "Chooses how a booking auto-assigns among eligible staff: nearest turn, least busy, or a manual order."
+    },
+    "kind": "action",
+    "anchor": "bookings.settings.assignment.algorithm",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.settings.assignment.manual_order": {
+    "title": {
+      "ar": "ترتيب التوزيع اليدوي",
+      "en": "Manual assignment order"
+    },
+    "body": {
+      "ar": "يرتّب أولوية الموظفين بالتوزيع اليدوي بالأسهم.",
+      "en": "Reorders staff priority for manual assignment with the arrows."
+    },
+    "kind": "action",
+    "anchor": "bookings.settings.assignment.manual_order",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.settings.assignment.save": {
+    "title": {
+      "ar": "حفظ طريقة التوزيع",
+      "en": "Save assignment method"
+    },
+    "body": {
+      "ar": "يحفظ طريقة التوزيع التلقائي المختارة.",
+      "en": "Saves the chosen auto-assignment method."
+    },
+    "kind": "action",
+    "anchor": "bookings.settings.assignment.save",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.new_sheet.reward_field": {
+    "title": {
+      "ar": "نية استرجاع مكافأة",
+      "en": "Reward redemption intent"
+    },
+    "body": {
+      "ar": "يسجّل نية العميل استرجاع مكافأة عند هذا الحجز — الصرف الفعلي يصير فقط لمّا يُسجَّل حضوره.",
+      "en": "Records the customer's intent to redeem a reward for this booking — the actual spend happens only once he's marked attended."
+    },
+    "kind": "action",
+    "anchor": "bookings.new_sheet.reward_field",
+    "requires": [
+      "bookings.create"
+    ]
+  },
+  "bookings.month_button": {
+    "title": {
+      "ar": "عرض الشهر",
+      "en": "Month view"
+    },
+    "body": {
+      "ar": "يفتح شهرًا كاملًا يظهر فيه عدد الحجوزات الحقيقي بكل يوم، وتضغط أي يوم فتنتقل له مباشرة.",
+      "en": "Opens a full month showing the real booking count on each day; tapping a day jumps straight to it."
+    },
+    "kind": "action",
+    "anchor": "bookings.month_button",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.month_sheet.month_nav": {
+    "title": {
+      "ar": "التنقّل بين الشهور",
+      "en": "Navigate months"
+    },
+    "body": {
+      "ar": "ينتقل شهرًا للأمام أو للخلف.",
+      "en": "Moves a month forward or back."
+    },
+    "kind": "action",
+    "anchor": "bookings.month_sheet.month_nav",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.month_sheet.day_cell": {
+    "title": {
+      "ar": "يوم بالشهر",
+      "en": "A day in the month"
+    },
+    "body": {
+      "ar": "يعرض عدد الحجوزات الحقيقي بهذا اليوم بلون يعكس ازدحامه؛ الضغط عليه ينقلك لأجندة ذاك اليوم.",
+      "en": "Shows that day's real booking count, tinted by how busy it is; tapping it jumps to that day's agenda."
+    },
+    "kind": "action",
+    "anchor": "bookings.month_sheet.day_cell",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.customer_search_button": {
+    "title": {
+      "ar": "متى موعد عميل؟",
+      "en": "When is a customer's appointment?"
+    },
+    "body": {
+      "ar": "يبحث عن عميل بجواله ويعرض كل مواعيده — القادمة والسابقة، عبر كل الفروع.",
+      "en": "Searches for a customer by phone and shows all his appointments — upcoming and past, across every branch."
+    },
+    "kind": "action",
+    "anchor": "bookings.customer_search_button",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.customer_search.phone_field": {
+    "title": {
+      "ar": "جوال العميل",
+      "en": "Customer phone"
+    },
+    "body": {
+      "ar": "يبحث عن عميل موجود برقم جواله.",
+      "en": "Searches for an existing customer by phone."
+    },
+    "kind": "action",
+    "anchor": "bookings.customer_search.phone_field",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.customer_search.results": {
+    "title": {
+      "ar": "نتائج البحث",
+      "en": "Search results"
+    },
+    "body": {
+      "ar": "يختار العميل المقصود من نتائج البحث.",
+      "en": "Picks the intended customer from the search results."
+    },
+    "kind": "action",
+    "anchor": "bookings.customer_search.results",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.customer_history.clear_button": {
+    "title": {
+      "ar": "رجوع لليوم",
+      "en": "Back to today"
+    },
+    "body": {
+      "ar": "يقفل سجل هذا العميل ويرجع لأجندة اليوم.",
+      "en": "Closes this customer's history and returns to today's agenda."
+    },
+    "kind": "action",
+    "anchor": "bookings.customer_history.clear_button",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.customer_history.mode_tabs": {
+    "title": {
+      "ar": "القادمة / السابقة",
+      "en": "Upcoming / past"
+    },
+    "body": {
+      "ar": "يبدّل بين مواعيد العميل القادمة وسجله السابق (حجوزات وزيارات).",
+      "en": "Switches between the customer's upcoming appointments and his past record (bookings and visits)."
+    },
+    "kind": "action",
+    "anchor": "bookings.customer_history.mode_tabs",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "bookings.customer_history.entry": {
+    "title": {
+      "ar": "حجز أو زيارة سابقة",
+      "en": "A booking or past visit"
+    },
+    "body": {
+      "ar": "حجز يفتح تفاصيله وإجراءاته؛ زيارة سابقة تُعرض بلا إجراء — سجل تاريخي فقط.",
+      "en": "A booking opens its details and actions; a past visit is shown with no action — a historical record only."
+    },
+    "kind": "action",
+    "anchor": "bookings.customer_history.entry",
+    "requires": [
+      "bookings.list"
+    ]
+  },
+  "referrals": {
+    "title": {
+      "ar": "نظام الإحالة",
+      "en": "Referral program"
+    },
+    "body": {
+      "ar": "شاشة صاحب المحل لمراقبة برنامج الإحالة وإدارته: حالة الحملة، الأعلى إيرادًا، وأرصدة الشركاء.",
+      "en": "The owner's own screen for monitoring and managing the referral program: campaign state, top revenue drivers, and affiliate balances."
+    },
+    "kind": "field",
+    "anchor": "referrals",
+    "requires": [
+      "referrals.manage"
+    ]
+  },
+  "referrals.add_button": {
+    "title": {
+      "ar": "حملة إحالة جديدة",
+      "en": "New referral campaign"
+    },
+    "body": {
+      "ar": "يفتح معالج إنشاء حملة إحالة جديدة (النمط ثم المكافآت). شروط الحملة ثابتة بعد الإنشاء — لا تعديل لاحقًا، فقط إيقاف/تفعيل.",
+      "en": "Opens the wizard to create a new referral campaign (mode, then rewards). Terms are fixed once created — only pause/resume after that, never an edit."
+    },
+    "kind": "action",
+    "anchor": "referrals.add_button",
+    "requires": [
+      "referrals.manage"
+    ]
+  },
+  "referrals.campaign_card": {
+    "title": {
+      "ar": "بطاقة الحملة",
+      "en": "Campaign card"
+    },
+    "body": {
+      "ar": "مكافأة صاحب الإحالة ومكافأة العميل الجديد الإلزامية للحملة الحالية.",
+      "en": "The referrer's own reward and the current campaign's mandatory new-customer reward."
+    },
+    "kind": "field",
+    "anchor": "referrals.campaign_card"
+  },
+  "referrals.toggle_active": {
+    "title": {
+      "ar": "تفعيل/إيقاف الحملة",
+      "en": "Activate/pause the campaign"
+    },
+    "body": {
+      "ar": "المفتاح الوحيد القابل للتغيير في حملة إحالة بعد إنشائها.",
+      "en": "The one and only thing that can change on a referral campaign after it is created."
+    },
+    "kind": "action",
+    "anchor": "referrals.toggle_active",
+    "requires": [
+      "referrals.manage"
+    ]
+  },
+  "referrals.main_tabs": {
+    "title": {
+      "ar": "تبويبات نظام الإحالة",
+      "en": "Referral program tabs"
+    },
+    "body": {
+      "ar": "التبديل بين بطاقة الحملة وقائمة الأعلى إيرادًا/الشركاء.",
+      "en": "Switches between the campaign card and the top-revenue/affiliates list."
+    },
+    "kind": "field",
+    "anchor": "referrals.main_tabs"
+  },
+  "referrals.leaderboard": {
+    "title": {
+      "ar": "الأعلى إيرادًا",
+      "en": "Top revenue drivers"
+    },
+    "body": {
+      "ar": "المُحيلون الأعلى إيرادًا فعليًا، لا بعدد مرات الاستخدام فقط.",
+      "en": "The referrers who drove the most real revenue, never ranked by redemption count alone."
+    },
+    "kind": "field",
+    "anchor": "referrals.leaderboard"
+  },
+  "referrals.affiliate_card": {
+    "title": {
+      "ar": "بطاقة شريك",
+      "en": "Affiliate card"
+    },
+    "body": {
+      "ar": "رصيد الشريك غير المسوّى وإجمالي ما كسبه، مع مشاركة كوده.",
+      "en": "The affiliate's own unsettled balance and lifetime earnings, with a share action for their code."
+    },
+    "kind": "action",
+    "anchor": "referrals.affiliate_card"
+  },
+  "referrals.wizard_mode": {
+    "title": {
+      "ar": "نمط الحملة",
+      "en": "Campaign mode"
+    },
+    "body": {
+      "ar": "مرة واحدة، عدد محدد، أو بلا حد لكل عميل مُحيل.",
+      "en": "Once, a fixed number of times, or unlimited per referring customer."
+    },
+    "kind": "field",
+    "anchor": "referrals.wizard_mode"
+  },
+  "referrals.wizard_back_button": {
+    "title": {
+      "ar": "السابق",
+      "en": "Back"
+    },
+    "body": {
+      "ar": "يعود لخطوة اختيار النمط.",
+      "en": "Returns to the mode-selection step."
+    },
+    "kind": "action",
+    "anchor": "referrals.wizard_back_button"
+  },
+  "referrals.wizard_cap_limit_field": {
+    "title": {
+      "ar": "عدد سقف الاستخدام",
+      "en": "Usage cap count"
+    },
+    "body": {
+      "ar": "أقصى عدد إحالات تُحتسب لكل فترة (اختياري).",
+      "en": "The maximum number of referrals counted per period (optional)."
+    },
+    "kind": "field",
+    "anchor": "referrals.wizard_cap_limit_field"
+  },
+  "referrals.wizard_min_spend_field": {
+    "title": {
+      "ar": "حد أدنى للفاتورة",
+      "en": "Minimum invoice"
+    },
+    "body": {
+      "ar": "أقل مبلغ فاتورة يشترط لاعتماد الإحالة (اختياري).",
+      "en": "The smallest invoice amount required for the referral to count (optional)."
+    },
+    "kind": "field",
+    "anchor": "referrals.wizard_min_spend_field"
+  },
+  "referrals.wizard_reward_type": {
+    "title": {
+      "ar": "نوع مكافأة صاحب الإحالة",
+      "en": "Referrer reward type"
+    },
+    "body": {
+      "ar": "أحد الأنواع الثمانية الحقيقية لمكافأة من يُحيل عميلًا.",
+      "en": "One of the eight real reward shapes for the person who referred a new customer."
+    },
+    "kind": "field",
+    "anchor": "referrals.wizard_reward_type"
+  },
+  "referrals.wizard_reward_value_field": {
+    "title": {
+      "ar": "قيمة مكافأة صاحب الإحالة",
+      "en": "Referrer reward value"
+    },
+    "body": {
+      "ar": "عدد النقاط أو النسبة، حسب نوع المكافأة المختار.",
+      "en": "Points or percent, depending on the chosen reward type."
+    },
+    "kind": "field",
+    "anchor": "referrals.wizard_reward_value_field"
+  },
+  "referrals.wizard_new_customer_type": {
+    "title": {
+      "ar": "نوع مكافأة العميل الجديد",
+      "en": "New-customer reward type"
+    },
+    "body": {
+      "ar": "مكافأة إلزامية للعميل الجديد — نقاط ترحيبية أو خصم على فاتورته الأولى.",
+      "en": "A mandatory reward for the new customer — welcome points or a discount on their first invoice."
+    },
+    "kind": "field",
+    "anchor": "referrals.wizard_new_customer_type"
+  },
+  "referrals.wizard_new_customer_value_field": {
+    "title": {
+      "ar": "قيمة مكافأة العميل الجديد",
+      "en": "New-customer reward value"
+    },
+    "body": {
+      "ar": "عدد النقاط أو نسبة الخصم، حسب النوع المختار.",
+      "en": "Points or discount percent, depending on the chosen type."
+    },
+    "kind": "field",
+    "anchor": "referrals.wizard_new_customer_value_field"
   }
 }

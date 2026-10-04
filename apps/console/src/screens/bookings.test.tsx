@@ -145,12 +145,21 @@ afterEach(() => {
 const { BookingsScreen } = await import('./Bookings');
 
 const session = {} as never;
+// `canWrite` reads this single id — present here so every write control renders in every test.
+const catalog = {
+  services: [{ service: 'bookings', actions: [
+    { id: 'bookings.create', label: '', method: 'POST' as const, path: '/api/v1/bookings', capability: 'bookings.write' },
+    { id: 'bookings.set_working_hours', label: '', method: 'PATCH' as const, path: '/api/v1/bookings/working-hours', capability: 'bookings.manage' },
+    { id: 'bookings.set_assignment_settings', label: '', method: 'PATCH' as const, path: '/api/v1/bookings/assignment-settings', capability: 'bookings.manage' },
+  ] }],
+  unreachable: [],
+};
 
 function open(props: Partial<Parameters<typeof BookingsScreen>[0]> = {}) {
   return render(createElement(OperatorI18nProvider, {
     session,
     children: createElement(BookingsScreen, {
-      session, branch: '', branches: [], onBranch: () => {}, ...props,
+      session, catalog, branch: '', branches: [], onBranch: () => {}, ...props,
     }),
   }));
 }

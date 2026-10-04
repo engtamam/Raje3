@@ -50,6 +50,22 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "كل حجوزات فرع معيّن في يوم واحد.",
     },
     {
+        "id": "bookings.counts", "label": "عدد الحجوزات باليوم", "method": "GET",
+        "path": "/api/v1/bookings/counts", "capability": "bookings.read",
+        "params": [{"name": "branch_id", "in": "query", "type": "string", "required": True},
+                  {"name": "start", "in": "query", "type": "string", "required": True},
+                  {"name": "end", "in": "query", "type": "string", "required": True}],
+        "group": "الحجوزات",
+        "help": "كم حجزًا يقع في كل يوم من نطاق تاريخ — لعرض الشهر/السنة، لا الحجوزات نفسها.",
+    },
+    {
+        "id": "bookings.for_customer", "label": "حجوزات عميل", "method": "GET",
+        "path": "/api/v1/bookings/for-customer", "capability": "bookings.read",
+        "params": [{"name": "customer_id", "in": "query", "type": "string", "required": True}],
+        "group": "الحجوزات",
+        "help": "كل حجوزات هذا العميل، عبر كل الفروع — القادمة والسابقة.",
+    },
+    {
         "id": "bookings.no_show_risk", "label": "مؤشّر عدم الحضور", "method": "GET",
         "path": "/api/v1/bookings/risk", "capability": "bookings.read",
         "params": [{"name": "customer_id", "in": "query", "type": "string", "required": True}],
@@ -107,6 +123,20 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "يغيّر ملاحظة الحجز فقط، بلا مساس بالوقت أو الخدمات.",
     },
     {
+        "id": "bookings.edit_payment", "label": "تعديل الدفع", "method": "PATCH",
+        "path": "/api/v1/bookings/{booking_id}/payment", "capability": "bookings.write",
+        "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
+        "group": "الحجوزات",
+        "help": "يغيّر حالة الدفع (بدون/عربون/مدفوع) ومبلغ العربون إن وُجد.",
+    },
+    {
+        "id": "bookings.edit_reward", "label": "تعديل نية الاسترجاع", "method": "PATCH",
+        "path": "/api/v1/bookings/{booking_id}/reward", "capability": "bookings.write",
+        "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
+        "group": "الحجوزات",
+        "help": "يسجّل أو يلغي مكافأة ينوي العميل استرجاعها عند حضوره — الصرف الفعلي يصير لاحقًا.",
+    },
+    {
         "id": "bookings.cancel", "label": "إلغاء الحجز", "method": "PATCH",
         "path": "/api/v1/bookings/{booking_id}/cancel", "capability": "bookings.write",
         "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
@@ -128,5 +158,32 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
         "confirm": True, "group": "الحجوزات",
         "help": "يقفل الحجز بوصفه لم يحضر، ويُحسب في مؤشّر عدم حضوره لاحقاً.",
+    },
+    {
+        "id": "bookings.working_hours", "label": "قراءة ساعات فتح الحجوزات", "method": "GET",
+        "path": "/api/v1/bookings/working-hours", "capability": "bookings.read",
+        "group": "إعدادات الحجوزات",
+        "help": "ساعات فتح الحجوزات الأسبوعية الحالية للمحل.",
+    },
+    {
+        "id": "bookings.assignment_settings", "label": "قراءة طريقة التوزيع", "method": "GET",
+        "path": "/api/v1/bookings/assignment-settings", "capability": "bookings.read",
+        "group": "إعدادات الحجوزات",
+        "help": "طريقة التوزيع التلقائي الحالية بين الموظفين المؤهلين.",
+    },
+    {
+        "id": "bookings.set_working_hours", "label": "ساعات فتح الحجوزات", "method": "PATCH",
+        "path": "/api/v1/bookings/working-hours", "capability": "bookings.manage",
+        "group": "إعدادات الحجوزات",
+        # ADDED alongside the manifest declaring `bookings.manage` for the first time (it was
+        # enforced by `_MANAGE` from day one, just never advertised) — the console/mobile save
+        # button had NOTHING to check the catalogue against until this existed.
+        "help": "يضبط ساعات فتح الحجوزات الأسبوعية للمحل كله — تُطبَّق على كل الفروع.",
+    },
+    {
+        "id": "bookings.set_assignment_settings", "label": "طريقة التوزيع التلقائي", "method": "PATCH",
+        "path": "/api/v1/bookings/assignment-settings", "capability": "bookings.manage",
+        "group": "إعدادات الحجوزات",
+        "help": "يضبط كيف يُختار العامل تلقائيًا لخدمة \"توزيع تلقائي\" بين أكثر من موظف مؤهل.",
     },
 ]

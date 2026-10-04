@@ -28,7 +28,6 @@ import { hasFailed, isReady, type Loading } from '../loading';
 import { STORE_PATH } from '../nav';
 import { APP_ROWS, owns, type Owned } from '../apps';
 import { missingRequirement } from '../billingShared';
-import { CardForm } from './CardForm';
 import { useSubscribeFlow } from '../subscribeFlow';
 import type { Session } from '../session';
 import { useOperatorI18n } from '../operator-i18n';
@@ -100,9 +99,7 @@ export function LockedCard({ appId, session, catalog, owned }: {
       {lockedNote ? <p className="text-xs text-warning">{lockedNote}</p> : null}
       {flow.error ? <p className="text-xs text-danger">{flow.error}</p> : null}
 
-      {flow.cardFormPending ? (
-        <SubscribeCardForm flow={flow} />
-      ) : canBuyHere && plan ? (
+      {canBuyHere && plan ? (
         // INLINE, RIGHT HERE — same purchase `Plans.tsx` itself calls
         // (`subscription.activate`), not a re-implementation of it, and the store link stays one
         // press away below for the same shop on a screen where this app is not the only thing he
@@ -123,23 +120,6 @@ export function LockedCard({ appId, session, catalog, owned }: {
         </Link>
       )}
     </Card>
-  );
-}
-
-/** The subscribe card form, inline on the locked card itself — same `CardForm` component
- *  `Plans.tsx` renders, wired to this card's own flow instance rather than a screen-wide one. */
-function SubscribeCardForm({ flow }: { flow: ReturnType<typeof useSubscribeFlow> }) {
-  if (!flow.cardFormPending) return null;
-  return (
-    <CardForm
-      pending={flow.cardFormPending}
-      onCancel={() => flow.setCardFormPending(null)}
-      onToken={(token) => {
-        if (flow.cardFormPending?.kind === 'subscribe') {
-          void flow.finishSubscribe(flow.cardFormPending.planId, token, flow.cardFormPending.quantity ?? 1);
-        }
-      }}
-    />
   );
 }
 

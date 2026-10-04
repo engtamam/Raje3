@@ -373,7 +373,13 @@ _ARABIC_INDIC_RE = re.compile("[" + "".join(f"{chr(lo)}-{chr(hi)}" for lo, hi in
 # descend into them at all, not merely to skip acting on what it finds there. Same skip set as
 # before (node_modules/platform/.venv/__pycache__/dist at ANY depth, .git and .claude at the root),
 # same body below — only how the file list is produced changed.
-_SKIP_DIR_NAMES = {"node_modules", "platform", ".venv", "__pycache__", "dist"}
+_SKIP_DIR_NAMES = {"node_modules", "platform", ".venv", "__pycache__", "dist", "build", ".dart_tool", ".playwright-mcp"}
+# A PROSE FILE IS NEVER THIS BIG — a 200MB+ file reaching `read_text` at all means the directory
+# skip list above missed some build/cache output (found live: a MemoryError decoding one such file
+# crashed the whole gate, failing "nothing built, nothing shipped" for reasons with zero relation
+# to the actual deploy wiring). Sized OUT before the decode, not caught after — `stat()` is cheap
+# and a decode attempt on a file this size is the expensive, crash-prone path.
+_MAX_TEXT_SCAN_BYTES = 8 * 1024 * 1024
 
 
 def _arabic_indic_hits(p: Path) -> tuple[Path, str] | None:
@@ -382,8 +388,10 @@ def _arabic_indic_hits(p: Path) -> tuple[Path, str] | None:
     after pruning); CPython releases the GIL for the duration of that syscall, so threads here
     genuinely overlap I/O wait instead of only trading off against each other."""
     try:
+        if p.stat().st_size > _MAX_TEXT_SCAN_BYTES:
+            return None                               # a build/cache artifact the skip list missed
         text = p.read_text(encoding="utf-8")
-    except (UnicodeDecodeError, OSError):
+    except (UnicodeDecodeError, OSError, MemoryError):
         return None                                   # binary, or unreadable: not prose
     # ── the one legitimate reason to WRITE these characters ──────────────────────────────────
     # Code that REFUSES or CONVERTS Arabic-Indic digits has to name them: the plate normaliser

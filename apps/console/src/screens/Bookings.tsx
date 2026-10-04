@@ -26,6 +26,7 @@ import {
 } from '../api';
 import { asLocal } from '../phone';
 import { digitsOnly } from '../digits';
+import { action, type Catalog } from '../catalog';
 import type { ScopeBranch } from '../branch-scope';
 import { riyals } from '../money';
 import { PAYMENT_COLOR, PAYMENT_ORDER, paymentLabel, type PaymentStatus } from '../bookingPayment';
@@ -142,6 +143,7 @@ const STATUS_VARS: Record<Booking['status'], { fg: string; bg: string }> = {
 
 export interface BookingsScreenProps {
   session: Session;
+  catalog: Catalog;
   branch: string;
   branches: ScopeBranch[];
   onBranch: (id: string) => void;
@@ -167,7 +169,10 @@ interface UndoState {
   previousOperatorId: string;
 }
 
-export function BookingsScreen({ session, branch, branches, onBranch }: BookingsScreenProps) {
+export function BookingsScreen({ session, catalog, branch, branches, onBranch }: BookingsScreenProps) {
+  // SAME SINGLE `bookings.write` CAPABILITY BEHIND EVERY WRITE THIS SCREEN MAKES (drag-and-drop
+  // reschedule, attend/no-show/cancel from the card menu) — see BookingDialog.tsx's own `canWrite`.
+  const canWrite = Boolean(action(catalog, 'bookings.create'));
   const { t } = useOperatorI18n();
   const activeBranch = branch || (branches.length === 1 ? branches[0].id : '');
 
@@ -1423,6 +1428,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           content, on the one screen where every extra pixel is a slot he could otherwise see.
           `+` reads the same act at a fifth of the width; `aria-label` carries the words a sighted
           tap never needed. */}
+      {canWrite ? (
       <button
         type="button"
         onClick={() => setDialog({})}
@@ -1433,10 +1439,12 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
       >
         <Plus size={24} aria-hidden />
       </button>
+      ) : null}
 
       {settingsDialogOpen ? (
         <BookingSettingsDialog
           session={session}
+          catalog={catalog}
           weekly={weekly ?? {}}
           assignment={assignSettings ?? { algorithm: 'nearest', manual_order: [] }}
           staff={(staff ?? []).filter((s) => s.active !== false && s.role === 'operator')}
@@ -1449,6 +1457,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
       {dialog !== 'closed' ? (
         <BookingDialog
           session={session}
+          catalog={catalog}
           branchId={activeBranch}
           date={dialog.startsAt ? dateKeyOf(dialog.startsAt) : date}
           initialOperatorId={dialog.operatorId}
@@ -1464,13 +1473,16 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           editingBooking={dialog.editing}
           editingCustomerLabel={dialog.editingLabel}
           onClose={() => setDialog('closed')}
-          onCreated={(b) => {
+          onCreated={(b, referralNotice) => {
             const wasEditing = Boolean(dialog.editing);
             setDialog('closed');
             setRows((cur) => (wasEditing
               ? (cur ?? []).map((x) => (x.id === b.id ? b : x))
               : [...(cur ?? []), b]));
-            say(wasEditing ? t('bookings.editSaved') : t('bookings.created'));
+            // ONE TOAST, NOT TWO — `say()` holds a single message; a second immediate call
+            // would silently replace the first before it ever rendered.
+            const created = wasEditing ? t('bookings.editSaved') : t('bookings.created');
+            say(referralNotice ? `${created} — ${referralNotice}` : created);
           }}
         />
       ) : null}
@@ -1478,6 +1490,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
       {openBooking ? (
         <BookingActions
           booking={openBooking}
+          canWrite={canWrite}
           operatorLabel={nameOf(openBooking.operator_id)}
           services={services ?? []}
           priceMinorOf={priceMinorOf}
@@ -1843,9 +1856,9 @@ function CustomerHistoryList({ entries, nameOf, serviceNameOf, priceMinorOf, onO
  *  visual identity. Closing a booking as attended offers "احجزي الجلسة القادمة" (§2.7) when the
  *  service has a real cycle — the sleeping field `cycle_days` already in the catalogue, used for
  *  its own purpose rather than reinvented. */
-function BookingActions({ booking, operatorLabel, services, priceMinorOf, serviceNamesOf,
+function BookingActions({ booking, canWrite, operatorLabel, services, priceMinorOf, serviceNamesOf,
                          cycleDaysOf, onClose, onChanged, onBookNext, onEdit, session, say }: {
-  booking: Booking; operatorLabel: string; services: CatalogueService[];
+  booking: Booking; canWrite: boolean; operatorLabel: string; services: CatalogueService[];
   // BUILT ONCE, ONE LEVEL UP (in `BookingsScreen`) — passed down so this sheet reuses those
   // lookups instead of re-deriving them via `.find()` per service id on every open.
   priceMinorOf: (b: Booking) => number | null;
@@ -1985,17 +1998,22 @@ function BookingActions({ booking, operatorLabel, services, priceMinorOf, servic
           </div>
           {/* أيقونات فقط، صف واحد — التفاصيل أعلاه هي ما يقرأه، هذا فقط ما يضغطه. */}
           <div className="flex items-center justify-center gap-3">
+            {canWrite ? (
             <button type="button" onClick={() => onEdit(booking)} aria-label={t('bookings.editBooking')} title={t('bookings.editBooking')}
                    className="grid h-12 w-12 place-items-center rounded-full"
                    style={{ background: 'var(--rj-line)', color: 'var(--rj-ink)' }}>
               <Pencil size={18} aria-hidden />
             </button>
+            ) : null}
+            {canWrite ? (
             <button type="button" disabled={busy} onClick={() => act(attendBooking, t('bookings.attendedTitle'))}
                    aria-label={t('bookings.attend')} title={t('bookings.attend')}
                    className="grid h-12 w-12 place-items-center rounded-full"
                    style={{ background: 'var(--rj-attended-soft)', color: 'var(--rj-attended)' }}>
               <Check size={20} aria-hidden />
             </button>
+            ) : null}
+            {canWrite ? (
             <button type="button" disabled={busy}
                    onClick={() => act((s, id) => noShowBooking(s, id), t('bookings.markedNoShow'))}
                    aria-label={t('bookings.noShow')} title={t('bookings.noShow')}
@@ -2003,6 +2021,8 @@ function BookingActions({ booking, operatorLabel, services, priceMinorOf, servic
                    style={{ background: 'var(--rj-noshow-soft)', color: 'var(--rj-noshow)' }}>
               <X size={20} aria-hidden />
             </button>
+            ) : null}
+            {canWrite ? (
             <button type="button" disabled={busy}
                    onClick={() => act((s, id) => cancelBooking(s, id), t('bookings.cancelledDone'))}
                    aria-label={t('bookings.cancelBooking')} title={t('bookings.cancelBooking')}
@@ -2010,6 +2030,7 @@ function BookingActions({ booking, operatorLabel, services, priceMinorOf, servic
                    style={{ background: 'var(--rj-cancelled-soft)', color: 'var(--rj-cancelled)' }}>
               <Trash2 size={18} aria-hidden />
             </button>
+            ) : null}
           </div>
           </>
         ) : (

@@ -7,9 +7,11 @@ import 'package:raje3_mobile/core/actions/action_model.dart';
 import 'package:raje3_mobile/core/actions/action_registry.dart';
 import 'package:raje3_mobile/core/ai/ai_model.dart';
 import 'package:raje3_mobile/core/ai/assistant_service.dart';
+import 'package:raje3_mobile/core/ai/assistant_turn.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/storage/local_storage.dart';
 import 'package:raje3_mobile/core/tts/tts_model.dart';
+import 'package:raje3_mobile/core/utils/speech_locale.dart';
 import 'package:raje3_mobile/core/voice/speech_input_model.dart';
 import 'package:raje3_mobile/core/wakeword/wake_word_model.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
@@ -53,6 +55,14 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
 
   Offset? _fraction;
   _VoiceState _state = _VoiceState.idle;
+  // MIRRORS AssistantService'S OWN STATE, PURELY FOR THE SMALL DOWNLOAD RING BELOW — the app
+  // itself never blocks on this: the model downloads in the background the moment this button
+  // first mounts (see initState), and every screen underneath keeps working exactly as if the
+  // assistant weren't there at all. Only the button's own decoration reacts to it.
+  AiModelStatus _modelStatus = AiModelStatus.unavailable;
+  int _downloadPercent = 0;
+  StreamSubscription<AiModelStatus>? _modelStatusSubscription;
+  StreamSubscription<int>? _downloadProgressSubscription;
   StreamSubscription<AiEvent>? _answerSubscription;
   // GUARDS AGAINST A DOUBLE-TAP RACE: _startOrFallBack awaits isAvailable() before _state
   // leaves idle, so a second tap landing inside that window would otherwise start listening
@@ -79,12 +89,29 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
     _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
       ..repeat(reverse: true);
     unawaited(_maybeStartWakeWord());
+
+    // STARTS THE MODEL DOWNLOAD THE MOMENT THIS BUTTON MOUNTS, NEVER WAITING FOR A FIRST TAP —
+    // the owner's own call (2026-09-28): the app stays fully usable the whole time; this button
+    // is the only thing that shows anything is happening, via the small ring below. A no-op if
+    // the model is already downloaded/ready (AiModel.ensureReady's own contract).
+    _modelStatus = _assistant.status;
+    _modelStatusSubscription = _assistant.statusStream.listen((s) {
+      if (mounted) setState(() => _modelStatus = s);
+    });
+    _downloadProgressSubscription = _assistant.downloadProgress.listen((p) {
+      if (mounted) setState(() => _downloadPercent = p);
+    });
+    if (_modelStatus != AiModelStatus.ready) {
+      unawaited(_assistant.ensureReady(context.read<NavProvider>().catalog));
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _wakeWord.dispose();
+    _modelStatusSubscription?.cancel();
+    _downloadProgressSubscription?.cancel();
     _answerSubscription?.cancel();
     _pulseController.dispose();
     super.dispose();
@@ -122,6 +149,15 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
     // "no implicit fallthrough" rule to keep these four branches independent.
     switch (_state) {
       case _VoiceState.idle:
+        if (_modelStatus == AiModelStatus.error) {
+          // RETRY, NOT A DEAD BUTTON — a lost connection mid-download previously left the
+          // assistant stuck in AiModelStatus.error forever (found live, 2026-09-28: nothing
+          // anywhere retried it). A tap here re-fires the exact same ensureReady() the button's
+          // own initState already tried once.
+          setState(() => _modelStatus = AiModelStatus.downloading);
+          unawaited(_assistant.ensureReady(context.read<NavProvider>().catalog));
+          return;
+        }
         await _startOrFallBack();
         return;
       case _VoiceState.listening:
@@ -137,7 +173,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
         _answerSubscription?.cancel();
         _answerSubscription = null;
         // DEFENSIVE, NOT REDUNDANT: onDone can already be queued as a microtask the instant
-        // before cancel() runs, so _speakAnswer may have started speaking a beat before this
+        // before cancel() runs, so _deliverAnswer may have started speaking a beat before this
         // branch finishes — stop() is a harmless no-op if nothing is speaking yet.
         await _tts.stop();
         _goIdle();
@@ -147,6 +183,14 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
         _goIdle();
         return;
     }
+  }
+
+  void _showLastError() {
+    final error = _assistant.aiModel.lastError;
+    if (!mounted || error == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error), duration: const Duration(seconds: 8)),
+    );
   }
 
   /// The one place `_state` moves back to idle — always re-arms passive wake-word listening
@@ -181,7 +225,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
       final lang = Localizations.localeOf(context).languageCode;
       setState(() => _state = _VoiceState.listening);
       await _speech.startListening(
-        languageCode: lang,
+        languageCode: speechLocaleTag(lang),
         onResult: (text, {required isFinal}) {
           if (isFinal) _handleRecognized(text, lang);
         },
@@ -213,21 +257,21 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
           case AiTextToken(:final text):
             buffer.write(text);
           case AiActionProposed():
-            _handleProposedAction(event, lang);
+            _handleProposedAction(event, lang, question);
         }
       },
       onDone: () {
-        // Guarded the same way _speakAnswer guards itself below — a proposed action already
-        // resolved to idle (or to opening the chat sheet) must not also speak whatever text,
+        // Guarded the same way _deliverAnswer guards itself below — a proposed action already
+        // resolved to idle (or to opening the chat sheet) must not also deliver whatever text,
         // if any, arrived alongside it.
-        if (_state == _VoiceState.thinking) _speakAnswer(buffer.toString(), lang);
+        if (_state == _VoiceState.thinking) _deliverAnswer(question, buffer.toString(), lang);
       },
     );
   }
 
   /// Resolves [event] against the REAL, CURRENT catalog — never the snapshot [_handleRecognized]
   /// captured when the question was first asked, since a capability can change mid-turn.
-  void _handleProposedAction(AiActionProposed event, String lang) {
+  void _handleProposedAction(AiActionProposed event, String lang, String question) {
     if (!mounted || _state != _VoiceState.thinking) return; // cancelled meanwhile
     final catalog = context.read<NavProvider>().catalog;
     final decision = _executor.resolve(event, catalog);
@@ -239,7 +283,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
       case ActionRunNow(:final action):
         _answerSubscription?.cancel();
         _answerSubscription = null;
-        unawaited(_runAndSpeak(action, lang));
+        unawaited(_runAndDeliver(question, action, lang));
       case ActionNeedsConfirmation():
         // NO HANDS-FREE CONFIRMATION SURFACE EXISTS on this button — a sensitive action falls
         // back to the chat sheet, where a real tap can confirm it (AssistantChatSheet's own
@@ -251,25 +295,39 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
     }
   }
 
-  /// Carries out a run-now action, then SPEAKS whatever real answer it produced (a READ action)
-  /// before returning to idle — never a silent `_goIdle()` for those, which would make the
-  /// operator wait for a voice reply that simply never comes. `null` (navigation; nothing to
-  /// say) goes idle immediately, same as before this existed.
-  Future<void> _runAndSpeak(AppAction action, String lang) async {
+  /// Carries out a run-now action, then DELIVERS whatever real answer it produced (a READ
+  /// action) before returning to idle — never a silent `_goIdle()` for those, which would make
+  /// the operator wait for a reply that simply never comes. `null` (navigation; nothing to say)
+  /// goes idle immediately, same as before this existed.
+  Future<void> _runAndDeliver(String question, AppAction action, String lang) async {
     final result = await _executor.execute(context, action);
     if (!mounted) return;
     if (result != null) {
-      await _speakAnswer(result, lang);
+      await _deliverAnswer(question, result, lang);
       return;
     }
     _goIdle();
   }
 
-  Future<void> _speakAnswer(String answer, String lang) async {
+  /// Speaks [answer] aloud, or — when the operator's own reply-mode setting asks for text
+  /// instead (see [LocalStorage.assistantReplyIsVoice]) — opens the chat sheet with [question]
+  /// and [answer] already filled in, exactly as if he had typed the question there himself.
+  /// This is the one place a voice QUESTION can still end in a WRITTEN answer.
+  Future<void> _deliverAnswer(String question, String answer, String lang) async {
     if (!mounted || _state != _VoiceState.thinking) return; // cancelled meanwhile
+    if (!widget.localStorage.assistantReplyIsVoice) {
+      _goIdle();
+      AssistantChatSheet.show(context, seed: AssistantTurn(question: question, answer: answer));
+      return;
+    }
     setState(() => _state = _VoiceState.speaking);
-    await _tts.speak(answer, languageCode: lang);
+    await _tts.speak(answer, languageCode: speechLocaleTag(lang));
     if (mounted && _state == _VoiceState.speaking) _goIdle();
+  }
+
+  IconData _mainIcon() {
+    if (_state != _VoiceState.idle) return Icons.stop_rounded;
+    return Icons.mic_rounded;
   }
 
   @override
@@ -281,6 +339,7 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
     // the button always renders at Stack's default alignment, never where a drag left it. This
     // widget's build() must return Positioned directly — no RenderObjectWidget between it and
     // whatever Stack this sits in.
+    final dark = context.isDark;
     final size = MediaQuery.sizeOf(context);
     final width = size.width;
     final height = size.height;
@@ -303,6 +362,12 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
           if (_fraction != null) widget.localStorage.setMicButtonPosition(_fraction!);
         },
         onTap: _onTap,
+        // LONG-PRESS SHOWS THE REAL EXCEPTION, NOT JUST "IT FAILED" — ensureReady() never
+        // rethrows (by design, see AiModel.ensureReady's own doc comment), so before
+        // AiModel.lastError existed a support report only ever carried "the red circle stayed
+        // red", never the actual reason. A tap keeps retrying (the fix above); a long-press
+        // is a diagnostic escape hatch that does not interrupt that flow.
+        onLongPress: _modelStatus == AiModelStatus.error ? _showLastError : null,
         child: AnimatedBuilder(
           animation: _pulseController,
           builder: (context, child) {
@@ -324,25 +389,61 @@ class _FloatingMicButtonState extends State<FloatingMicButton>
               ],
             );
           },
-          child: Container(
-            width: _size,
-            height: _size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: appPrimaryGradient,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.accent.withValues(alpha: 0.35),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
+          child: Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: _size,
+                height: _size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: appPrimaryGradient,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.accent.withValues(alpha: 0.35),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Icon(
-              _state == _VoiceState.idle ? Icons.mic_rounded : Icons.stop_rounded,
-              color: AppColors.accentContrast,
-              size: 26,
-            ),
+                child: Icon(
+                  _mainIcon(),
+                  color: AppColors.accentContrast,
+                  size: 26,
+                ),
+              ),
+              // THE ONLY VISIBLE TRACE OF THE BACKGROUND MODEL DOWNLOAD — a thin ring, never a
+              // blocking dialog: the button (and every screen under it) stays fully usable while
+              // this shows. Hidden entirely once ready/idle-with-no-model-story, so a device that
+              // never runs the assistant (AiModelStatus.unavailable) sees no ring, ever.
+              if (_state == _VoiceState.idle && _modelStatus == AiModelStatus.downloading)
+                SizedBox(
+                  width: _size + 6,
+                  height: _size + 6,
+                  child: CircularProgressIndicator(
+                    value: _downloadPercent > 0 ? _downloadPercent / 100 : null,
+                    strokeWidth: 2.5,
+                    // BLUE, NOT accentContrast (white) — found live (2026-09-28): this ring sits
+                    // OUTSIDE the button's own colored circle (size + 6, against the screen's own
+                    // light background), so white-on-white was invisible. A real device could not
+                    // tell the download was even running.
+                    color: dark ? AppDarkColors.info : AppColors.info,
+                    backgroundColor: (dark ? AppDarkColors.info : AppColors.info).withValues(alpha: 0.25),
+                  ),
+                ),
+              if (_state == _VoiceState.idle && _modelStatus == AiModelStatus.error)
+                Positioned(
+                  bottom: -2,
+                  right: -2,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.redAccent),
+                    child: const Icon(Icons.refresh_rounded, size: 11, color: Colors.white),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

@@ -82,7 +82,7 @@ export function CartBar({
             {/* THE REAL BREAKDOWN — only once billing itself has answered. Every row here is a
                 field `preview` returned untouched: nothing here is computed by this component. */}
             {preview ? (
-              <div className="flex flex-col gap-1 rounded-2xl bg-surface-2 p-3 text-xs">
+              <div className="flex flex-col gap-1 rounded-2xl border border-border-subtle bg-surface-1 p-3 text-xs">
                 <div className="flex items-center justify-between text-text-secondary">
                   <span>{t('launcher.cart.subtotal')}</span>
                   <span className="tabular-nums">{riyals(preview.subtotal_minor)}</span>
@@ -114,7 +114,7 @@ export function CartBar({
 
             <div className="flex flex-wrap gap-1.5">
               {plans.map((p) => (
-                <span key={p.id} className="flex items-center gap-1 rounded-full bg-surface-2 py-1 ps-3 pe-1.5 text-xs font-semibold">
+                <span key={p.id} className="flex items-center gap-1 rounded-full border border-border-subtle bg-surface-1 py-1 ps-3 pe-1.5 text-xs font-semibold">
                   {appDisplayName(p)}
                   {discounts[p.id] ? (
                     <span className="text-success">{tf(t, 'launcher.cart.itemDiscount', { percent: discounts[p.id].percent })}</span>

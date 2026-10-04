@@ -236,6 +236,35 @@ MOBILE_REQUESTS_FEATURES: tuple[dict[str, Any], ...] = (
      },
 )
 
+COWORKING_FEATURES: tuple[dict[str, Any], ...] = (
+    # Inline on this row (never a console `featuresAction`) even though services/coworking owns
+    # the app's actual code — ci/check_every_app_has_features.py's own two valid sources; a remote
+    # `featuresAction` would need apps.ts wired, and this pass is explicitly backend-only, no
+    # console screen at all (spec: "Do NOT wire any console/mobile UI").
+    {"id": "coworking.turns_idle_hours_into_income", "title": "يحوّل وقتك الفاضي إلى دخل حقيقي",
+     "detail": "كرسي أو محطة واقفة بساعات هدوئك تصير مصدر دخل إضافي — تؤجّرها بالساعة لمن يحتاجها",
+     "icon": "trending-up", "tone": "success", "shared_with": [], "owned_by": "",
+     # A fixed hourly rate per resource — no commission/percentage mode: designed then explicitly
+     # rejected by the owner as too complex and unverifiable.
+     },
+    {"id": "coworking.never_touches_your_money", "title": "لا يمسّ فلوسك ولا فلوس مستأجرك أبداً",
+     "detail": "السعر رقم مرجعي بس — الدفع الفعلي مباشر بينك وبين المستأجر، خارج منصتنا تماماً",
+     "icon": "shield", "tone": "blue", "shared_with": [], "owned_by": "",
+     },
+    {"id": "coworking.you_meet_everyone_once", "title": "تعرف كل مستقلّ قبل ما يحجز أول مرة",
+     "detail": "أول محاولة حجز تصير طلب انضمام ينتظر موافقتك — بعدها يحجز مباشرة بلا أي تدخل منك",
+     "icon": "check-circle", "tone": "amber", "shared_with": [], "owned_by": "",
+     },
+    {"id": "coworking.block_anyone_anytime", "title": "احظر أي رقم فوراً، حتى بلا سابق طلب",
+     "detail": "تأخّر عن الموعد أو ما عجبك تعامله؟ احظره ويتوقف عن الحجز عندك نهائياً من لحظتها",
+     "icon": "user-plus", "tone": "violet", "shared_with": [], "owned_by": "",
+     },
+    {"id": "coworking.your_own_link_no_marketplace", "title": "رابطك الخاص، لا سوق عام يشاركك فيه أحد",
+     "detail": "رابط واحد لمحلك تشاركه بنفسك مع من تثق بهم — لا بحث ولا ظهور عشوائي لأي غريب",
+     "icon": "map-pin", "tone": "blue", "shared_with": [], "owned_by": "",
+     },
+)
+
 COUPONS_FEATURES: tuple[dict[str, Any], ...] = (
     # An earlier pass here listed the automatic-redemption mechanism, the privacy design, and the
     # per-attempt audit trail as "features". Cut (owner's own correction, 2026-09-14): those are
@@ -271,10 +300,44 @@ COUPONS_FEATURES: tuple[dict[str, Any], ...] = (
      },
 )
 
-# SHARE OF `feature.referral_partnership` — see docs/خطة-شراكة-استراتيجية-الإحالة.md and
-# core/referral_partnership.py's own module docstring. NOT `coupons.py`: a completely different
+WHATSAPP_DELIVERY_ORDERS_FEATURES: tuple[dict[str, Any], ...] = (
+    {"id": "whatsapp_delivery_orders.official_catalog", "title": "كتالوج واتساب الرسمي، لا فلو مخصّص",
+     "detail": "عميلك يطلب من كتالوج ميتا نفسه اللي يعرفه، بلا تدريب أو تعلّم واجهة جديدة",
+     "icon": "check-circle", "tone": "teal", "shared_with": [], "owned_by": ""},
+    {"id": "whatsapp_delivery_orders.geo_gated_checkout", "title": "موقعه يتحقق قبل أي رابط دفع",
+     "detail": "نحدد أقرب فرع يغطي عنوانه فعلاً قبل ما يوصله أي رابط دفع — لا طلب يضيع في الطريق",
+     "icon": "map-pin", "tone": "violet", "shared_with": [], "owned_by": ""},
+    {"id": "whatsapp_delivery_orders.your_own_gateway", "title": "الدفع يروح لحسابك مباشرة",
+     "detail": "رابط دفع ببوابتك الخاصة — المبلغ يصلك أنت، نحن لا نلمسه ولا نتدخل فيه",
+     "icon": "shield", "tone": "blue", "shared_with": [], "owned_by": ""},
+)
+
+# `feature.referrals` — services/referrals + core/referral_redemption.py's own module docstring.
+# NOT `feature.mutual_benefit`: an ORDINARY customer refers a friend for a reward (both real
+# customers of THIS shop), never a cross-tenant eligibility detection between two shops.
+REFERRALS_FEATURES: tuple[dict[str, Any], ...] = (
+    {"id": "referrals.win_win_by_design", "title": "مكافأة حقيقية للطرفين، لا لك وحدك",
+     "detail": "كل إحالة ناجحة تكسب صاحبها مكافأة، وتمنح العميل الجديد خصماً أو نقاطاً ترحيبية —"
+              " قاعدة الطرفين إلزامية على كل حملة",
+     "icon": "user-plus", "tone": "success", "shared_with": [], "owned_by": ""},
+    {"id": "referrals.eight_reward_shapes", "title": "ثمانية أشكال مكافأة تختار منها",
+     "detail": "نقاط ثابتة، نسبة من الفاتورة، مضاعف عند الترقية، صندوق حظ، وغيرها — تصمّم الحملة"
+              " اللي تناسبك",
+     "icon": "gift", "tone": "violet", "shared_with": [], "owned_by": ""},
+    {"id": "referrals.affiliate_tier", "title": "طبقة مسوّقين مستقلة بشروطها الخاصة",
+     "detail": "أضف مسوّقاً بكوده الخاص وخصمه ومكافأته المتفاوَض عليها، مستقلة تماماً عن حملتك"
+              " العادية",
+     "icon": "megaphone", "tone": "amber", "shared_with": [], "owned_by": ""},
+    {"id": "referrals.configurable_eligibility", "title": "أنت تقرر من يقدر يستخدم الكود",
+     "detail": "عميل جديد فقط، حتى عدد زيارات معيّن، أو مفتوح للجميع — قرارك أنت لكل حملة"
+              " ولكل مسوّق",
+     "icon": "check-circle", "tone": "info", "shared_with": [], "owned_by": ""},
+)
+
+# SHARE OF `feature.mutual_benefit` — see docs/خطة-شراكة-استراتيجية-الإحالة.md and
+# core/mutual_benefit.py's own module docstring. NOT `coupons.py`: a completely different
 # feature, financially unrelated — this one never touches money, pricing, or billing at all.
-REFERRAL_PARTNERSHIP_FEATURES: tuple[dict[str, Any], ...] = (
+MUTUAL_BENEFIT_FEATURES: tuple[dict[str, Any], ...] = (
     {"id": "referral.brings_you_ready_customers", "title": "يجلب لك عملاء جاهزين من محل تثق به",
      "detail": "عميل حقق شرطاً عند شريكك يصير مستحقاً لعرضك تلقائياً — بلا أي إثبات يحمله",
      "icon": "user-plus", "tone": "violet", "shared_with": [], "owned_by": ""},
@@ -352,17 +415,17 @@ APPS: tuple[dict[str, Any], ...] = (
              "فعلاً.",
      "features": list(MOBILE_REQUESTS_FEATURES)},
     # REFERRAL PARTNERSHIP — backend-only for now (this pass). See
-    # docs/خطة-شراكة-استراتيجية-الإحالة.md and core/referral_partnership.py's own module docstring.
-    # `screen: "referral-partnership"` names the console section a LATER, UI-only pass builds —
+    # docs/خطة-شراكة-استراتيجية-الإحالة.md and core/mutual_benefit.py's own module docstring.
+    # `screen: "mutual-benefit"` names the console section a LATER, UI-only pass builds —
     # declared here now so `ci/check_listed_apps_are_wired.py` never sees this row missing once the
     # plan is listed (same posture `feature.coupons`'s own row took, above).
-    {"key": "feature.referral_partnership", "name": "شراكة استراتيجية (إحالة عملاء)",
-     "screen": "referral-partnership",
+    {"key": "feature.mutual_benefit", "name": "تبادل منافع (إحالة عملاء)",
+     "screen": "mutual-benefit",
      "what": "عميل يحقق شرطاً عند محل تثق به يصير مستحقاً تلقائياً لعرضك — بموافقة الطرفين، بلا أي "
              "لمسة مالية منّا.",
-     "features": list(REFERRAL_PARTNERSHIP_FEATURES)},
+     "features": list(MUTUAL_BENEFIT_FEATURES)},
     # MOBILE AI ASSISTANT — on-device (apps/mobile only, Gemma 4 via flutter_gemma), no console
-    # screen AT ALL, ever — unlike `feature.referral_partnership`'s own row above (a console UI
+    # screen AT ALL, ever — unlike `feature.mutual_benefit`'s own row above (a console UI
     # that landed LATER), this app's whole surface lives on the phone, by design (owner's own
     # words: "كل شي بتطبيق الجوال لانه كل شي في تطبيق الجوال"). `screen` still names a real,
     # stable id (not a console route) purely so `ci/check_listed_apps_are_wired.py`'s own
@@ -371,6 +434,38 @@ APPS: tuple[dict[str, Any], ...] = (
     {"key": "feature.mobile_ai_assistant", "name": "المساعد الذكي (تطبيق الجوال)",
      "screen": "mobile-ai-assistant",
      "what": "يجاوبك ويرشدك داخل التطبيق بصوتك أو بالكتابة، فوراً وبلا انتظار."},
+    # THE ASTĪDĀFA APP — backend-only for now, built entirely in services/coworking (its own
+    # microservice, never a module here). See that service's own README for the full design:
+    # hourly-only pricing (no commission mode — designed then explicitly rejected as too complex
+    # and unverifiable), NO money moves through this platform (a stored price fact, never a
+    # transaction), one shareable link per SHOP (no cross-shop marketplace/discovery), and a
+    # freelancer's own end-customer is invisible to us entirely — no visit, no customer row.
+    # `screen: 'coworking'` names a real, stable id purely so
+    # `ci/check_listed_apps_are_wired.py`'s own pairing has something to match, the same posture
+    # `feature.mobile_ai_assistant`'s own row above already takes for a surface with no console
+    # screen (this one's whole admin/public surface lives in coworking's own API, not here).
+    {"key": "feature.coworking", "name": "الاستضافة المهنية", "screen": "coworking",
+     "what": "يحوّل وقت محلك الفاضي إلى دخل إضافي — تؤجّر كرسياً أو محطة بالساعة لمستقلّين تثق بهم، "
+             "بلا أي التزام مالي علينا.",
+     "features": list(COWORKING_FEATURES)},
+    # REFERRAL & AFFILIATE MARKETING — docs/خطة-تطبيق-الإحالة-والمسوقين-2026-09-27.md, now fully
+    # real: campaigns, the till-side redemption engine, the affiliate/marketer tier, and
+    # configurable beneficiary eligibility ("new"/"max_visits"/"open") all shipped and tested, with
+    # both console and mobile UI (including an add-affiliate form on each). Plan row flipped to
+    # `listed: true` 2026-09-27 (deploy/seed/plans.json) the same day this stopped being sold ahead
+    # of being built.
+    {"key": "feature.referrals", "name": "الإحالة والمسوقين", "screen": "referrals",
+     "what": "برنامج إحالة ومسوّقين يكافئ من يرشّح محلّك لعملاء جدد.",
+     "features": list(REFERRALS_FEATURES)},
+    # WHATSAPP DIRECT ORDERING — services/whatsapp-assistant's own catalog_provisioning.py/
+    # catalog_item_sync.py/conversation.py::handle_order. A SEPARATE app from `feature.whatsapp`
+    # (بوت خدمة العملاء الذكي) even though both live in the same microservice — a shop can buy
+    # catalog ordering without ever buying the AI assistant, and vice versa.
+    {"key": "feature.whatsapp_delivery_orders", "name": "طلبات التوصيل عبر الواتساب",
+     "screen": "whatsapp-delivery-orders",
+     "what": "عميلك يطلب مباشرة من كتالوج واتساب الرسمي، ويدفع ببوابتك الخاصة — يصلك الطلب جاهزاً "
+             "لتسجّله بنظامك الحالي.",
+     "features": list(WHATSAPP_DELIVERY_ORDERS_FEATURES)},
 )
 
 # BOTH ROWS ABOVE WERE MISSING FOR THE SAME REASON, FOUND THE SAME DAY: a plan's
@@ -403,6 +498,7 @@ KEYS: tuple[str, ...] = tuple(a["key"] for a in APPS)
 # or screen, so the set stays exactly what someone actually decided rather than what looked right.
 REQUIRES_WHATSAPP_KEYS: frozenset[str] = frozenset({
     "feature.whatsapp", "feature.rating", "feature.campaigns",
+    "feature.whatsapp_delivery_orders",
 })
 
 

@@ -1,5 +1,5 @@
 /**
- * «نقاطي» — the rewards table, and what a visit is worth.
+ * «نقاط الولاء» — the rewards table, and what a visit is worth.
  *
  * THE PROMISE UNDER TEST IS §10.8: the table ARRIVES FILLED for his sector. That sentence was on
  * the screen for weeks while no service in this product had ever been asked to fill it — the empty

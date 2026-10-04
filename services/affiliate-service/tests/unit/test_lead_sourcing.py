@@ -36,7 +36,7 @@ class FakeOnboarding:
         self._teams = teams   # manager_id -> [promoter_id, ...]
 
     async def team(self, manager_id: str) -> list[dict]:
-        return [{"id": p} for p in self._teams.get(manager_id, [])]
+        return [{"id": p, "status": ACTIVE} for p in self._teams.get(manager_id, [])]
 
 
 def _place(place_id: str, name: str = "صالون تجريبي") -> dict:

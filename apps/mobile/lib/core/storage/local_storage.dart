@@ -187,6 +187,22 @@ class LocalStorage {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // AI ASSISTANT REPLY MODE
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// 'voice' (speak every answer aloud, even one typed in the chat sheet) or
+  /// 'text' (never speak — a voice QUESTION still gets a written answer,
+  /// shown in the chat sheet, instead of the mic button speaking it back).
+  /// Defaults to 'voice' — the app's own behaviour before this setting
+  /// existed, so an operator who never opens the setting sees no change.
+  bool get assistantReplyIsVoice =>
+      getString(AppConstants.assistantReplyModeKey) != 'text';
+
+  Future<bool> setAssistantReplyIsVoice(bool voice) {
+    return setString(AppConstants.assistantReplyModeKey, voice ? 'voice' : 'text');
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // MOBILE AI ASSISTANT ENTITLEMENT (cached, fallback-only — see AiEntitlementProvider)
   // ─────────────────────────────────────────────────────────────────────────
 

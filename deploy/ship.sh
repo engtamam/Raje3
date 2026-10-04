@@ -70,11 +70,21 @@ ROOT="$(cd "$HERE/.." && pwd)"
 PORT="${PORT:-22}"
 NS="${NS:-base-services}"
 
+# `-i "$KEY"`, SAME AS pack.sh's OWN scp/ssh CALLS — FOUND MISSING HERE, LIVE (2026-09-28). This
+# array used to carry no identity flag at all, so it silently fell back to ssh-agent/`~/.ssh/config`
+# instead of the key an automated caller (ops-mcp's own `deploy_ship`, which sets `KEY` in the
+# environment for exactly this purpose — see its own docstring: "Raje3's own deploy scripts (pack.sh,
+# ship.sh's internal ssh/scp) read a KEY env var") actually pointed at. A human running this by hand
+# with the right key already loaded in an agent never noticed; every unattended ship did, as a
+# `Permission denied (publickey)` that looked like a dead or rotated credential and was neither —
+# repeated live across several ship attempts before this was traced to the flag never being passed.
+# Optional (`${KEY:+...}`), not required, so a caller relying on an agent/config identity instead of
+# an explicit path keeps working exactly as before.
 # KEEPALIVES, BECAUSE THE VERIFY STEP IS THE LONGEST QUIET MOMENT IN THE RUN. Between the rollout
 # and the digest read the connection can sit idle long enough for something in the middle to drop
 # it, and the failure surfaces as «Connection closed» during VERIFY — which reads as "the image did
 # not take" about an image that took.
-SSH=(ssh -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=30
+SSH=(ssh ${KEY:+-i "$KEY"} -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=30
      -o ConnectTimeout=20 -o TCPKeepAlive=yes -p "$PORT" "$REMOTE")
 
 red(){ printf '\e[31m✗ %s\e[0m\n' "$*" >&2; }
@@ -170,14 +180,19 @@ verify_running() {
   # for CLUSTER_VIA=ssh (and is simply the real binary, KUBECONFIG already in the environment,
   # for CLUSTER_VIA=node/local) — so this function now asks it the same way every other script
   # under deploy/ does, instead of answering the question a second time.
-  for _ in $(seq 1 40); do
+  # 1 MINUTE, NOT 10 — shortened 2026-09-28, now that cluster.sh's own kubectl() wrapper carries
+  # -i "$KEY" (this file's own fix above): a real pod on this fleet has always come up in single-
+  # digit seconds every time this session watched one by hand, so ten minutes of retrying was
+  # never patience for a slow rollout, only headroom for the ssh auth failure that fix closes. A
+  # genuinely stuck pod still fails loudly below, just after 1 minute instead of 10.
+  for _ in $(seq 1 4); do
     running="$(kubectl -n "$NS" get pods --no-headers 2>/dev/null \
       | awk -v svc="$svc" '$1 ~ ("^" svc "-[0-9a-f]") && $3=="Running" && $2=="1/1" {print $1; exit}')"
     [ -n "$running" ] && break
     sleep 15
   done
   if [ -z "$running" ]; then
-    red "$svc: no ready pod after 10 minutes"
+    red "$svc: no ready pod after 1 minute"
     kubectl -n "$NS" get pods --no-headers | grep "^$svc-"
     kubectl -n "$NS" logs \
       "$(kubectl -n "$NS" get pods --no-headers | awk -v svc="$svc" '$1 ~ ("^" svc "-") {print $1; exit}')" \
@@ -391,6 +406,20 @@ ship_many() {
   say "app display names — no raw plan-name reads"
   python3 "$ROOT/ci/check_app_display_name_is_not_bypassed.py" || {
     red "app display names: raw plan-name read(s) found above — nothing built, nothing shipped"; return 1; }
+
+  # FOUND LIVE (2026-09-28), a 13-service audit: bookings/loyalty both called
+  # import_archive/verify_restore with no declaration=, so every restore used the default "{id}"
+  # template regardless of what backup_manifest.py declared — a composite-keyed collection
+  # (loyalty_balances, booking_slots) could never actually be restored. Seven more services had the
+  # identical gap latent with no composite-keyed collection yet to expose it.
+  say "backup routes pass a real declaration="
+  python3 "$ROOT/ci/check_backup_routes_pass_declaration.py" || {
+    red "backup routes: call site(s) found above — nothing built, nothing shipped"; return 1; }
+
+  # Pre-existing gate, never wired in until now (2026-09-28) — closed 11 real gaps first.
+  say "backup manifest covers every written collection"
+  python3 "$ROOT/ci/check_backup_manifest_declares_written_collections.py" || {
+    red "backup coverage: gap(s) found above — nothing built, nothing shipped"; return 1; }
 
   # ── 1. tests ────────────────────────────────────────────────────────────────────────────────
   for svc in "${ours[@]}"; do

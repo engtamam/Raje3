@@ -27,9 +27,11 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.goals import GOAL_CATEGORIES, cards, resolve_goal
-from app.core.models import (GOAL_TEMPLATE, REWARD_ENABLED_GOALS, REWARD_KINDS, Campaign, as_row,
-                             offers_something, validate_loyalty_window, validate_reward,
-                             validate_window)
+from app.core.models import (GOAL_TEMPLATE, MILESTONE_LAUNCH_TEMPLATE_TYPE,
+                             REWARD_ENABLED_GOALS, REWARD_KINDS, Campaign, as_row,
+                             offers_something, validate_loyalty_window,
+                             validate_milestone_recurrence, validate_milestone_threshold,
+                             validate_reward, validate_window)
 from app.core import service_due_settings as SDS
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.goal_stats import read_goal_stats, record_use
@@ -40,6 +42,8 @@ from app.core.spread import plan as plan_spread
 from app.core.spread import sentence as spread_sentence
 from app.core.report import build as build_report, history, totals
 from app.core.riyadh import local
+from app.core.pii import subject_ref
+from app.config import get_settings
 
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
 
@@ -147,6 +151,16 @@ class CampaignIn(BaseModel):
     # and `REWARD_ENABLED_GOALS` below.
     reward_type: str = Field(default="discount", max_length=16)
     reward_points: int = Field(default=0, ge=0, le=100000)
+    # "جماعي" ONLY (`community_milestone`) — the fixed shared target the whole cohort is revealed
+    # together at (see core/milestone.py's own docstring: fixed at creation, v1, no reset). `0` is
+    # every other goal's own no-op default; `validate_milestone_threshold` is what actually refuses
+    # a real milestone campaign with too small a target, not this bound (which only stops pydantic
+    # accepting something absurd before that real check ever runs).
+    milestone_threshold: int = Field(default=0, ge=0, le=1_000_000)
+    # "جماعي" ONLY — restarts a fresh round the moment one round's own `expires_at` passes,
+    # whether it fired or not (see Campaign.milestone_recurring's own docstring, and
+    # `validate_milestone_recurrence` for why recurring needs both `fire_at`/`expires_at` explicit).
+    milestone_recurring: bool = Field(default=False)
 
 
 def _combine_ids_and_names(single_id: str, ids: list[str], single_name: str,
@@ -282,14 +296,42 @@ async def preview(request: Request, body: CampaignIn,
             body.scope_service_ids if body.goal == "package_offer" else []))),
         body.package_name, body.package_names)
 
-    # THE CLASS THE CAMPAIGN WILL ACTUALLY BE SENT UNDER (ج-1). Not the resolver's default: the
-    # preview exists to tell the owner what will happen, and a preview run under different rules
-    # than the send is a number that is worse than no number.
-    audience = await c.audience.resolve_for(
-        _tenant(principal), goal=body.goal, now=_now(), cls=spec["cls"],
-        already_reached=set(), service_id=body.service_id, service_ids=service_ids_all,
-        branch_id=body.branch_id,
-        window_days=body.loyalty_window_days, min_visits=body.loyalty_min_visits)
+    # "جماعي" GOALS DO NOT MATCH CUSTOMERS ONE AT A TIME — see core/milestone.py's own module
+    # docstring. A campaign that does not exist yet has, by definition, a shared counter sitting
+    # at 0 — there is no per-customer predicate to resolve, and asking `audience.resolve_for` would
+    # silently degrade to "matched nobody" through `_MATCHERS`'s own unknown-goal fallback rather
+    # than an honest, intentional empty answer. Validated here too, the same "refused on the screen
+    # he is looking at" reasoning every other coherence check in this route already follows.
+    if body.goal == "community_milestone":
+        threshold_error = validate_milestone_threshold(body.milestone_threshold)
+        if threshold_error:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST", "reason": threshold_error})
+        # `fire_at` IS THIS CHALLENGE'S OWN START (0 = counting from the moment it is created),
+        # `expires_at` IS ITS DEADLINE — the SAME two fields every other offer goal already has
+        # (`OFFER_GOALS` now includes this goal), checked here for basic date-order coherence on
+        # the screen he is looking at, same reasoning every other check in this route follows.
+        if body.fire_at and body.expires_at and body.fire_at >= body.expires_at:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST",
+                                         "reason": "تاريخ البداية يجب أن يكون قبل تاريخ النهاية"})
+        recurrence_error = validate_milestone_recurrence(
+            recurring=body.milestone_recurring, fire_at=body.fire_at,
+            expires_at=body.expires_at)
+        if recurrence_error:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST", "reason": recurrence_error})
+        from app.core.audience import Audience
+        audience = Audience()
+    else:
+        # THE CLASS THE CAMPAIGN WILL ACTUALLY BE SENT UNDER (ج-1). Not the resolver's default:
+        # the preview exists to tell the owner what will happen, and a preview run under different
+        # rules than the send is a number that is worse than no number.
+        audience = await c.audience.resolve_for(
+            _tenant(principal), goal=body.goal, now=_now(), cls=spec["cls"],
+            already_reached=set(), service_id=body.service_id, service_ids=service_ids_all,
+            branch_id=body.branch_id,
+            window_days=body.loyalty_window_days, min_visits=body.loyalty_min_visits)
 
     try:
         p = build_preview(
@@ -539,6 +581,28 @@ async def create(request: Request, body: CampaignIn,
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "BAD_REQUEST", "reason": loyalty_error})
 
+    # "جماعي" GOALS ONLY (`community_milestone`) — the fixed shared target, refused here before
+    # anything is written, same "a coherence error is the owner's to fix, not a draft he now has
+    # to clean up" reasoning every other validation in this route already follows.
+    if body.goal == "community_milestone":
+        milestone_error = validate_milestone_threshold(body.milestone_threshold)
+        if milestone_error:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST", "reason": milestone_error})
+        # `fire_at`/`expires_at` ALREADY REQUIRED BY `OFFER_GOALS`'S OWN CHECK ABOVE — this is
+        # the extra date-ORDER coherence check that generic block does not know to make (it only
+        # knows "expires_at must be set and in the future", never anything about `fire_at`).
+        if body.fire_at and body.fire_at >= body.expires_at:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST",
+                                         "reason": "تاريخ البداية يجب أن يكون قبل تاريخ النهاية"})
+        recurrence_error = validate_milestone_recurrence(
+            recurring=body.milestone_recurring, fire_at=body.fire_at,
+            expires_at=body.expires_at)
+        if recurrence_error:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST", "reason": recurrence_error})
+
     # ── one press, one campaign ──────────────────────────────────────────────────────────────
     # See core/press.py for why. In short: everything that stops a customer receiving the same
     # thing twice is keyed on `campaign_id`, and this route minted a new one on every request —
@@ -549,7 +613,11 @@ async def create(request: Request, body: CampaignIn,
         branch_id=body.branch_id or "", reward_kind=reward_kind, reward_amount=reward_amount,
         expires_at=body.expires_at or 0, fire_at=body.fire_at or 0,
         package_id=body.package_id or "", window_start_hour=body.window_start_hour,
-        window_end_hour=body.window_end_hour, window_weekdays=body.window_weekdays)
+        window_end_hour=body.window_end_hour, window_weekdays=body.window_weekdays,
+        milestone_threshold=body.milestone_threshold or 0,
+        milestone_recurring=bool(body.milestone_recurring),
+        reward_type=body.reward_type if body.goal in REWARD_ENABLED_GOALS else "discount",
+        reward_points=body.reward_points if body.goal in REWARD_ENABLED_GOALS else 0)
     taken = await press.claim(c.datastore, _tenant(principal), press_key, now=now)
     if not taken.first:
         if taken.in_flight:
@@ -601,6 +669,12 @@ async def create(request: Request, body: CampaignIn,
                         # preview. Meaningless for every goal but `reward_loyal`.
                         loyalty_window_days=body.loyalty_window_days,
                         loyalty_min_visits=body.loyalty_min_visits,
+                        # "جماعي" ONLY (`community_milestone`) — `0` for every other goal, the
+                        # same "not yet decided" convention every optional numeric field here uses.
+                        milestone_threshold=(body.milestone_threshold
+                                            if body.goal == "community_milestone" else 0),
+                        milestone_recurring=(bool(body.milestone_recurring)
+                                            if body.goal == "community_milestone" else False),
                         # EVERY CHOSEN NAME, empties dropped (a name that sanitised to "" — never
                         # sent in the first place — is not named). SEVERAL, since 2026-09-13: one
                         # per selected service or package, in the order chosen — the same order
@@ -628,7 +702,53 @@ async def create(request: Request, body: CampaignIn,
     # campaign history (see app.core.goal_stats's own docstring, same move `record_lock` already
     # made). Counted here, once, on an actual creation — never on a re-press the idempotency claim
     # above already resolved to the SAME campaign.
-    await record_use(c.datastore, campaign.tenant, campaign.goal)
+    #
+    # BEST-EFFORT, DELIBERATELY. The campaign itself is already written and its claim already
+    # settled above — a display counter that could not claim its own lock under heavy contention
+    # must never turn into a 500 on a campaign that was, in fact, created.
+    try:
+        await record_use(c.datastore, campaign.tenant, campaign.goal)
+    except Exception:
+        pass
+
+    # THE LAUNCH ANNOUNCEMENT — "جماعي" ONLY, a genuinely different message from the REVEAL
+    # (`campaign.template_type`, sent later by the ordinary milestone tick cycle once the
+    # threshold crosses). Sent ONCE, here, regardless of what happens next below (a future
+    # `fire_at` handed to job-service, or simply falling through — a milestone's own trigger is
+    # never "manual") — the challenge exists and is worth announcing the moment it is created,
+    # whether counting itself starts today or on a future date.
+    #
+    # A SYNTHETIC "announce"-SHAPED FIRE, NEVER THE REAL CAMPAIGN ROW AS-IS — same broadcast
+    # audience rule "أعلن جديدك" already uses (`_match_broadcast`, everyone the gate allows), but
+    # under its OWN id (`f"{campaign.id}_launch"`), never the real `campaign.id`. Reusing the real
+    # id would make every customer who received THIS broadcast count as "already reached" against
+    # the REVEAL's own dedup ledger (`dispatch.py`'s `_already_reached`) — silently excluding a
+    # genuine winner from ever getting their congratulations message for the sole reason that
+    # they already saw the launch announcement.
+    #
+    # BEST-EFFORT, LIKE EVERY OTHER SIDE-EFFECT ON THIS ROUTE — a missing/unapproved launch
+    # template, or any peer failure, must never cost the shop the challenge itself.
+    #
+    # A KNOWN, ACCEPTED COST: `goal="announce"` HERE MEANS THIS BROADCAST'S OWN REACH BUMPS
+    # `goal_stats.py`'s "announce" ROW, NOT "community_milestone"'s — `_save()` (dispatch.py) reads
+    # the same `goal` field this resolver dispatch needs, and there is no second field to
+    # distinguish "which mechanic resolves this" from "which goal's rail counter this reach
+    # belongs to". Accepted because `goal_stats` is explicitly a COSMETIC side counter (its own
+    # docstring), never load-bearing — unlike `campaign_reached`'s own dedup ledger, which the
+    # synthetic id above already keeps correctly isolated.
+    if body.goal == "community_milestone":
+        try:
+            launch_template = await c.templates.pick(_tenant(principal),
+                                                      MILESTONE_LAUNCH_TEMPLATE_TYPE)
+            if launch_template is not None:
+                launch_share = await _todays_share(c, _tenant(principal))
+                launch_row = {**as_row(campaign), "id": f"{campaign.id}_launch",
+                             "goal": "announce", "template_type": MILESTONE_LAUNCH_TEMPLATE_TYPE}
+                await c.dispatcher.fire(
+                    launch_row, now=now, fired_by=principal.subject,
+                    daily_share=launch_share.per_day if launch_share.known else None)
+        except Exception:      # noqa: BLE001 — best-effort; the challenge itself must still exist
+            pass
 
     # A FUTURE `fire_at` — ANY GOAL NOW, not only «مناسبة عميلك» (2026-09-12). Best-effort handed
     # to job-service (platform/services/job-service) so it fires close to the exact moment
@@ -811,6 +931,13 @@ def _now() -> int:
 _PLATFORM = require_capability("platform.campaigns")
 
 
+def _platform_actor(principal: Principal) -> str:
+    s = get_settings()
+    if not s.PII_SALT:
+        return ""
+    return subject_ref(s.PII_SALT, principal.tenant or "", principal.subject)
+
+
 class AudienceCapIn(BaseModel):
     # The ceiling on one campaign's audience. A product limit, not a technical one: an
     # establishment sending to more than this in one go is a case we want to see before it goes
@@ -834,14 +961,15 @@ async def set_audience_cap(request: Request, body: AudienceCapIn, tenant: str = 
     shop that legitimately needed it.
     """
     scope = tenant or "_global"
+    actor = _platform_actor(principal)
     await request.app.state.auditor.record(
-        "campaign.audience_cap_changed", actor=principal.subject, tenant=tenant,
+        "campaign.audience_cap_changed", actor=actor, tenant=tenant,
         resource=f"audience_cap:{scope}", ip=request.client.host if request.client else "")
     row = body.model_dump()
     row["id"] = scope
     row["tenant"] = "_platform"
     row["scope"] = scope
-    row["actor"] = principal.subject
+    row["actor"] = actor
     await request.app.state.container.datastore.put(
         "audience_caps", f"_platform|{scope}", row)
     return {"scope": scope, "max_audience": body.max_audience}

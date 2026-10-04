@@ -2,7 +2,7 @@
 
 WHY THIS EXISTS. `may_add`'s own `plan.requires_any` gate checks a candidate plan against `held`
 alone — what the shop ALREADY owns from an earlier, separate purchase. So an app declaring a
-dependency (نقاطي needs تسجيل زيارة/الحجوزات first) could only ever be bought in a fixed order,
+dependency (نقاط الولاء needs تسجيل زيارة/الحجوزات first) could only ever be bought in a fixed order,
 across two checkouts. `may_add_bundle` lets a dependency and the app that needs it travel in the
 SAME cart, checked against `held` UNION every OTHER item's own grants in that cart — see
 subscribe.py's own docstring on the function for the full reasoning.
@@ -74,7 +74,7 @@ def test_the_same_plan_id_twice_is_refused():
 
 # ── the whole reason this function exists: a dependency satisfied WITHIN the same cart ───────
 def test_a_dependency_satisfied_by_another_item_in_the_same_cart_is_allowed():
-    """نقاطي + تسجيل زيارة together, neither held before — impossible with `may_add` alone
+    """نقاط الولاء + تسجيل زيارة together, neither held before — impossible with `may_add` alone
     (LOYALTY would be refused since `held` is empty), allowed here because VISIT travels with it."""
     d = may_add_bundle(items=[item("plan_loyalty", LOYALTY), item("plan_visit", VISIT)],
                        held=set())

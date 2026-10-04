@@ -142,19 +142,21 @@ class BookingStore:
         rows, _ = await self._find(tenant, {"idempotency_key": key}, limit=1)
         return _from_row(rows[0]) if rows else None
 
-    async def for_customer(self, tenant: str, customer_id: str, limit: int = 200) -> list[Booking]:
-        rows, _ = await self._find(tenant, {"customer_id": customer_id}, limit=limit)
-        return [_from_row(r) for r in rows]
+    async def for_customer(self, tenant: str, customer_id: str, limit: int = 200
+                           ) -> tuple[list[Booking], bool]:
+        rows, cursor = await self._find(tenant, {"customer_id": customer_id}, limit=limit)
+        return [_from_row(r) for r in rows], bool(cursor)
 
-    async def for_subject(self, tenant: str, subject_ref: str, limit: int = 200) -> list[Booking]:
+    async def for_subject(self, tenant: str, subject_ref: str, limit: int = 200
+                          ) -> tuple[list[Booking], bool]:
         """SAME QUERY as `for_customer`, keyed by the pseudonym instead of the real id — for a
         caller that only ever holds `subject_ref` (a read-only phone→pseudonym resolution, e.g.)
         and must never be handed — or made to mint — a real `customer_id` just to look up a
         history. `subject_ref` is stamped on every booking once at creation (see `Booking`'s own
         field note), so this is exactly as complete a history as `for_customer` gives, through a
         door that costs the caller nothing to open."""
-        rows, _ = await self._find(tenant, {"subject_ref": subject_ref}, limit=limit)
-        return [_from_row(r) for r in rows]
+        rows, cursor = await self._find(tenant, {"subject_ref": subject_ref}, limit=limit)
+        return [_from_row(r) for r in rows], bool(cursor)
 
     async def _find(self, tenant: str, where: dict[str, Any] | None = None, *,
                     limit: int = 200) -> tuple[list[dict], str | None]:
@@ -386,6 +388,11 @@ class BookingStore:
             if held:
                 break
             await asyncio.sleep(_SAVE_LOCK_RETRY_DELAY_SECONDS)
+        if not held:
+            # FAIL CLOSED — proceeding unprotected here is exactly the race this mutex exists to
+            # close. A busy conflict the caller can retry beats a silent clobber.
+            raise ConcurrentEditError(
+                "تعذّر الحفظ الآن — الحجز مشغول من عملية أخرى، أعد المحاولة بعد لحظة")
         try:
             current = await self.get(b.tenant, b.id)
             if current is not None and current.rev != expected_rev:

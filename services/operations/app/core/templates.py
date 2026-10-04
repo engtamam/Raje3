@@ -55,8 +55,16 @@ CATEGORIES = ("UTILITY", "MARKETING", "AUTHENTICATION")
 # `establishment` USED TO BE A THIRD — `per_weekly_digest`'s own owner-name slot, deleted with the
 # template itself (2026-09-13, the weekly report feature removed entirely). Nothing fills
 # `establishment` any more.
+#
+# `reward` WAS MISSING HERE, AND IT TOOK THE WHOLE LIBRARY DOWN WITH IT — FOUND LIVE (owner's own
+# report, 2026-09-30). `rendering.py::render()` has handled `source == "reward"` since the
+# occasion pilot (2026-09-13; see its own comment there), and 16 rows across the loyalty/occasion
+# templates already declare it in their own `fills` — but this validator's own list never learned
+# the name. `seed_from_file()` upserts every row in one pass and raises on the FIRST unknown fill
+# it meets, so ALL 66 templates silently kept whatever the table already held, on every boot,
+# for as long as this gap existed — never just the 16 that actually used `reward`.
 FILLS = ("system", "catalogue", "owner", "amount", "date", "invite", "stop_link",
-        "rating_cta")
+        "rating_cta", "reward")
 # WHICH REMINDER MODEL A TEMPLATE SERVES (spec 16.6.5). Not a second taxonomy competing with the
 # five classes: the class says what a message IS to the regulator, the model says which kind of
 # business it is FOR. A cafe customer returns in days and there is no such thing as "time for your
@@ -229,6 +237,13 @@ class TemplateLibrary:
             "media_header": dict(t.get("media_header") or {}),
             "flat_button": dict(t.get("flat_button") or {}),
             "variables": variables, "fills": fills,
+            # FOUND LIVE (owner's own report, 2026-09-30) — same "never forwarded" bug as
+            # flow_button/carousel above (2026-09-13's own comment), just never caught before now.
+            # `examples` is authored per-row in the seed file, read by reminders' own
+            # `sample_slots()` for what a preview should show in an owner/reward/etc. slot — but
+            # this dict never carried the key at all, so every stored row's own example was
+            # silently `None` regardless of what the file said, on every seed, forever.
+            "examples": list(t.get("examples") or []),
             # WHAT TO DO WHEN IT CANNOT GO OUT NOW — quiet hours, or the day's ceiling.
             #
             # `reminders` has read this field since task 137 («a late confirmation is not late but
@@ -298,9 +313,25 @@ class TemplateLibrary:
         wanted = {str(row.get("name") or ""): row for row in data.get("templates", [])
                   if row.get("name")}
         n = 0
-        for row in wanted.values():
-            await self.upsert(row)
-            n += 1
+        failed: list[str] = []
+        # ONE BAD ROW MUST NEVER BLOCK THE OTHER 65 — FOUND LIVE (owner's own report, 2026-09-30):
+        # a single template with a fill kind this validator did not yet recognise ('reward', see
+        # FILLS' own comment) raised on the FIRST row `wanted.values()` happened to reach it at,
+        # and every remaining row in this same pass — including ones with nothing wrong at all —
+        # was left holding whatever the table already had, on every single boot, for as long as
+        # that one row stayed broken. A skipped row is loud (logged by name, below) and visible
+        # (still active under its LAST GOOD content); it is never silently "the whole reconcile
+        # didn't happen."
+        for name, row in wanted.items():
+            try:
+                await self.upsert(row)
+                n += 1
+            except TemplateError as exc:
+                failed.append(f"{name}: {exc}")
+        if failed:
+            raise TemplateError(
+                f"{len(failed)}/{len(wanted)} template(s) failed to seed (the other "
+                f"{n} upserted normally): " + "; ".join(failed))
 
         # RETIRED, NOT DELETED. A template we stopped shipping is one an establishment may still
         # have registered with Meta under that exact name — deleting our row leaves both pointing

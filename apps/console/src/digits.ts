@@ -3,13 +3,9 @@
  *
  * WHAT THE SCREENS WERE DOING, AND IT IS WORSE THAN A WRONG VALUE. Six inputs filtered the typed
  * string with `/\D/g` or `/[^0-9]/g`. In JavaScript both mean exactly `0-9`, so a keyboard set to
- * Arabic produced characters that were DELETED on the way into the box. He types his four-digit
- * PIN and the field stays empty. There is no error to read, nothing to correct, and no reason
- * offered — the screen simply does not respond to his typing.
- *
- * WHERE IT LANDS HARDEST. `WhoIsSaving` is the PIN prompt on the field screen, entered with a
- * customer standing in front of him, dozens of times a day. `Team` is where an owner sets that PIN
- * in the first place — so a shop could be locked out of a code it never successfully typed.
+ * Arabic produced characters that were DELETED on the way into the box. He types a number and the
+ * field stays empty. There is no error to read, nothing to correct, and no reason offered — the
+ * screen simply does not respond to his typing.
  *
  * AND ONE SCREEN CONTRADICTED ITSELF IN TWO LINES. `Visit.tsx` guards the plate with
  * `/[0-9٠-٩]/`, under a comment stating plainly that a plate is typed on an Arabic keyboard as

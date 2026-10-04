@@ -46,6 +46,10 @@ FROM_A_PEER: dict[str, str] = {
     "response_json": "Meta's WhatsApp webhook — the Flow's own completion payload, inside nfm_reply",
     "button_reply": "Meta's WhatsApp webhook — a template button tap, forwarded verbatim onto the bus",
     "list_reply": "Meta's WhatsApp webhook — an interactive-list selection, forwarded verbatim",
+    "product_items": "Meta's WhatsApp webhook — an order message's cart, forwarded verbatim onto "
+                     "the bus (whatsapp-assistant/inbound_parse.py reads it from `order`)",
+    "product_retailer_id": "Meta's WhatsApp webhook — one order-message cart line's catalog item "
+                           "id, inside product_items",
     "geometry": "Google Places API's own response shape (lead_sourcing.py's search step)",
     "formatted_phone_number": "Google Places API's own response shape (lead_sourcing.py's details step)",
 }

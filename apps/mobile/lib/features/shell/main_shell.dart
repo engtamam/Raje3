@@ -16,11 +16,17 @@ import 'package:raje3_mobile/widgets/floating_mic_button.dart';
 /// the owner changed the underlying philosophy: a bottom bar that lists installed "apps" reads
 /// as an app list, not a navigation bar. Every super-app case study researched for this pass
 /// (WeChat, Grab, Careem) keeps its bar to a handful of FIXED anchors and surfaces the actual
-/// services from the home screen's own launcher grid ([HomeScreen]) and a dedicated apps screen
-/// ([AppsScreen], "تطبيقاتي") instead. See NavProvider's own doc comment for the full reasoning.
+/// services from the home screen's own launcher grid ([HomeScreen]) and a dedicated app store
+/// screen ([AppsStoreScreen], "متجر التطبيقات") instead. See NavProvider's own doc comment for
+/// the full reasoning.
+///
+/// «متجر التطبيقات» ITSELF NO LONGER HAS AN "OWNED" SHELF OF ITS OWN — owner's own explicit call
+/// (2026-09-29), once the home grid started showing every owned app directly
+/// (NavProvider.ownedSections): the store's own internal tab toggle (browse vs. mine) is gone,
+/// it is always the browse/buy shelf now. This bottom-bar tab is purely "go discover/buy more."
 ///
 /// Order (right to left in an RTL layout — see MainShell's own destinations list, which is
-/// built left-to-right and rendered mirrored by the framework): تطبيقاتي, محلّي, الرئيسية
+/// built left-to-right and rendered mirrored by the framework): متجر التطبيقات, محلّي, الرئيسية
 /// (centre), حسابي, and the one customizable slot (default: تسجيل زيارة).
 ///
 /// «محلّي» is the one fixed slot that is STILL capability-gated — it is the 'shop' nav section

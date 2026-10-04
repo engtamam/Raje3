@@ -67,7 +67,7 @@ async def fetch_tenant_name(settings: Any, tenant: str) -> str:
     allowlist (the same peer read `fetch_branding` above already makes, just a different field).
 
     WHY THIS IS SAFE TO SHOW ACROSS TENANTS, UNLIKE MOST CROSS-TENANT READS IN THIS PRODUCT: a
-    shop's own public name is not PII and is not the privacy boundary `core/referral_partnership.py`
+    shop's own public name is not PII and is not the privacy boundary `core/mutual_benefit.py`
     protects — that boundary is "shop B must never learn shop A's identity while only checking
     eligibility" (module docstring). Here the direction is the opposite and already known to the
     caller: shop A itself, reading its OWN partnership's own `shop_b` field, asking what that

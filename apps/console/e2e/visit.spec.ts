@@ -278,7 +278,7 @@ test('a customer with points can spend them, in front of him', async ({ shop }) 
   // had set. A test that depends on unstated configuration is not testing the product; it is
   // testing whoever seeded the tenant last. So it states it.
   await open(shop, '/points');
-  // «نقاطي» OPENS ON «المكافآت», because the table is what an owner comes to read; what a visit
+  // «نقاط الولاء» OPENS ON «المكافآت», because the table is what an owner comes to read; what a visit
   // EARNS lives behind «الكسب». A test that assumes the first tab is the only tab reports a
   // missing field that is simply one tap away.
   await shop.getByRole('radio', { name: 'الكسب' }).click();

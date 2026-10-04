@@ -83,9 +83,6 @@ const SECRET_HELP: Record<string, string> = {
   // بالضبط أي حقل هو عندهم — الاسم يختلف من مزوّد لآخر رغم إنه نفس الخانة هنا.
   PAYMENT_EXTRA_ID: 'معرّف إضافي لحساب التاجر لدى مزوّد بوابة الدفع المفعّل حالياً (اسمه يختلف حسب المزوّد — راجع لوحة تحكّمه).',
   PAYMENT_EXTRA_SECRET: 'كلمة مرور نفس حساب التاجر لدى مزوّد بوابة الدفع المفعّل حالياً.',
-  // يظهر لمتصفح العميل مباشرة (شاشة الاشتراك) — ليس سرّاً بنفس معنى الاثنين أعلاه، لكنه بلا مكان
-  // آمن يُكتب فيه غير هنا حتى الآن.
-  PAYMENT_PUBLISHABLE_KEY: 'المفتاح العام (Publishable) لنفس حساب التاجر — من لوحة تحكّم مزوّد بوابة الدفع المفعّل حالياً، وليس سرّياً بذاته لكنه ما زال يحتاج مكاناً واحداً موثوقاً يُكتب فيه.',
   // تطبيق «تحالف استراتيجي» على سلة — الأداة الثلاثة من لوحة الشركاء (portal.salla.partners) بعد
   // إنشاء التطبيق: الأول والثاني من إعدادات التطبيق الأساسية، الثالث من تبويب الـwebhooks بنفس
   // إعدادات التطبيق (يُدخَل مرة واحدة للتطبيق كله، لا لكل تاجر).
@@ -115,7 +112,6 @@ const PROVIDER_OF: Record<string, string> = {
   WHATSAPP_ACCESS_TOKEN: 'meta', WHATSAPP_PHONE_NUMBER_ID: 'meta', WHATSAPP_BUSINESS_ACCOUNT_ID: 'meta',
   ASSISTANT_MODEL_PROJECT: 'assistant_ai', ASSISTANT_MODEL_CREDENTIAL: 'assistant_ai',
   PAYMENT_API_KEY: 'payment', PAYMENT_EXTRA_ID: 'payment', PAYMENT_EXTRA_SECRET: 'payment',
-  PAYMENT_PUBLISHABLE_KEY: 'payment',
   SALLA_CLIENT_ID: 'salla', SALLA_CLIENT_SECRET: 'salla', SALLA_WEBHOOK_SECRET: 'salla',
 };
 const PROVIDER_META: Record<string, { label: string; icon: typeof MessageCircle }> = {
@@ -946,7 +942,7 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
         ) : (
           <div className="flex flex-col gap-2">
             {pending.map((c) => (
-              <div key={c.key} className="flex items-center justify-between gap-2 rounded-card bg-surface-2 p-3 text-sm">
+              <div key={c.key} className="flex items-center justify-between gap-2 rounded-card border border-border-subtle bg-surface-1 p-3 text-sm">
                 <div>
                   <p className="font-medium">{PRICING_KEY_LABEL[c.key] ?? c.key}</p>
                   <p className="text-label text-text-secondary">

@@ -11,7 +11,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/authz-service
-  digest: "sha256:82857ce0a02000baec101a43d6a7b3b6fbf731ec067e2f003117b47ac0f31046"   # v0.25.27
+  digest: "sha256:4a1b34d23e217e9b735ca71cc41b21494876fdf9880de55d6c334cfbf068f45c"   # v0.25.39
 
 replicas: 1
 
@@ -34,10 +34,20 @@ resources:
     # these files, so on a quiet node this service still takes a whole core if it needs one.
     # The number below decides two things only: that it is always guaranteed this much, and
     # what share it gets when the node is genuinely contended.
-    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
+    cpu: 12m  # smart-cpu-sizing.py: cold tier, node budget-derived
     memory: 128Mi
   limits:
     memory: 256Mi
+
+# CRONJOB PODS YIELD TO REAL SERVICES UNDER NODE CONTENTION — found live (2026-09-28): with
+# this off (the chart default), a seconds-lived CronJob pod competes for scheduling at the
+# same priority as an always-on Deployment, and can win the race and starve it (deploy/k3s/
+# priorityclasses.yaml explains the whole mechanism; api-gateway.values.yaml was the only
+# service that had already turned this on). This only changes what priority THIS service's
+# OWN CronJob pods get (base-services-batch, never-preempt) — zero risk to the Deployment
+# itself, which stays at default priority unless it separately sets priorityClassName.
+priorityClasses:
+  enabled: true
 
 autoscaling:
   enabled: false
@@ -142,6 +152,9 @@ env:
     campaigns.read,campaigns.manage,
     loyalty.read,loyalty.redeem,loyalty.manage,
     bookings.read,bookings.write,bookings.manage,
+    coworking.manage,
+    referrals.manage,
+    operations.affiliates_read,
     insights.read,
     billing.read,billing.manage,billing.self,
     tenant.read,identity.read,identity.manage,identity.self,compliance.self,compliance.manage,
@@ -155,7 +168,7 @@ env:
   AUDIT_SERVICE_URL: "http://audit-service:8000"
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  CORS_ALLOWED_ORIGINS: "https://ra-je3.com,https://admin.ra-je3.com"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 

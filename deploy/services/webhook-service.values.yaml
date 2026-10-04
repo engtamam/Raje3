@@ -32,7 +32,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/webhook-service
-  digest: "sha256:7499d7fa39b084d4b2ce8086635ba9958d37f62ab5a94aafdfa37fb7a979050a"   # v0.25.27
+  digest: "sha256:05bd5478d10d2f5dc81528461e8b954422abf01d5f3918469b90a77ab7ecbe12"   # v0.25.39
 
 replicas: 1
 
@@ -57,10 +57,20 @@ resources:
     # these files, so on a quiet node this service still takes a whole core if it needs one.
     # The number below decides two things only: that it is always guaranteed this much, and
     # what share it gets when the node is genuinely contended.
-    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
+    cpu: 12m  # smart-cpu-sizing.py: cold tier, node budget-derived
     memory: 256Mi
   limits:
     memory: 512Mi
+
+# CRONJOB PODS YIELD TO REAL SERVICES UNDER NODE CONTENTION — found live (2026-09-28): with
+# this off (the chart default), a seconds-lived CronJob pod competes for scheduling at the
+# same priority as an always-on Deployment, and can win the race and starve it (deploy/k3s/
+# priorityclasses.yaml explains the whole mechanism; api-gateway.values.yaml was the only
+# service that had already turned this on). This only changes what priority THIS service's
+# OWN CronJob pods get (base-services-batch, never-preempt) — zero risk to the Deployment
+# itself, which stays at default priority unless it separately sets priorityClassName.
+priorityClasses:
+  enabled: true
 
 autoscaling:
   enabled: false
@@ -158,7 +168,7 @@ env:
   AUDIT_SERVICE_URL: "http://audit-service:8000"
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"
+  CORS_ALLOWED_ORIGINS: "https://ra-je3.com,https://admin.ra-je3.com"
   CORS_ALLOW_CREDENTIALS: "true"
   # Distinct from WEBHOOK_ALLOWED_HOSTS: this bounds the service's OWN outbound helper calls, not
   # customer delivery destinations. Empty, because it has none.

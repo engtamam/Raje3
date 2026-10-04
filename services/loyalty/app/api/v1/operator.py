@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.api.auth import Principal, require_user
 from app.api.authz import require_capability
@@ -81,6 +81,13 @@ class ConfigIn(BaseModel):
     key: str = Field(..., min_length=1, max_length=128)
     value: str | int | float | bool
     tenant: str = Field(default="", max_length=128)
+
+    @field_validator("value")
+    @classmethod
+    def _bounded_string(cls, v):
+        if isinstance(v, str) and len(v) > 4096:
+            raise ValueError("value too long")
+        return v
 
 
 # The operator surface: policy an operator changes after launch. The credential-management routes

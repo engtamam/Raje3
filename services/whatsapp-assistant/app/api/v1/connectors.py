@@ -159,7 +159,7 @@ async def _invoke(request: Request, *, tool: str, ctx: _ConnectorBase,
         try:
             held = await container.held_apps.held(ctx.tenant)
         except Exception:                                              # noqa: BLE001
-            held = frozenset()
+            held = None
     base_tools = frozenset({tool})
     allowed = T.tools_for_held_apps(base_tools, held)
     if tool not in allowed:
@@ -287,13 +287,15 @@ class ProposeBookingIn(_ConnectorBase):
     package_id: str = ""
     starts_at_iso: str
     reward_id: str = ""
+    referral_code: str = ""
 
 
 @router.post("/propose_booking", dependencies=[Depends(require_connector_token)])
 async def propose_booking(body: ProposeBookingIn, request: Request) -> dict:
     return await _invoke(request, tool="propose_booking", ctx=body, args={
         "service_id": body.service_id, "package_id": body.package_id,
-        "starts_at_iso": body.starts_at_iso, "reward_id": body.reward_id})
+        "starts_at_iso": body.starts_at_iso, "reward_id": body.reward_id,
+        "referral_code": body.referral_code})
 
 
 class GetServiceProcedureIn(_ConnectorBase):
@@ -341,12 +343,14 @@ async def propose_reschedule_booking(body: ProposeRescheduleBookingIn, request: 
 class RequestMobileVisitIn(_ConnectorBase):
     service_ids: list[str] = Field(min_length=1)
     starts_at_iso: str
+    referral_code: str = ""
 
 
 @router.post("/request_mobile_visit", dependencies=[Depends(require_connector_token)])
 async def request_mobile_visit(body: RequestMobileVisitIn, request: Request) -> dict:
     return await _invoke(request, tool="request_mobile_visit", ctx=body, args={
-        "service_ids": body.service_ids, "starts_at_iso": body.starts_at_iso})
+        "service_ids": body.service_ids, "starts_at_iso": body.starts_at_iso,
+        "referral_code": body.referral_code})
 
 
 class CheckGrowthOpportunitiesIn(_ConnectorBase):
@@ -378,7 +382,7 @@ async def confirm_proposal(body: ConfirmProposalIn, request: Request) -> dict:
             tenant=body.tenant, proposal_id=body.proposal_id, store=container.datastore,
             booking_provider=container.booking_provider, auditor=request.app.state.auditor,
             idempotency_key=body.idempotency_key, branch_id=body.branch_id,
-            from_number=body.from_number,
+            from_number=body.from_number, conversation_id=body.conversation_id,
             booking_management_enabled=settings.BOOKING_MANAGEMENT_ENABLED)
     except T.ToolValidationError as exc:
         return _refuse(str(exc))

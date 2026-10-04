@@ -21,6 +21,19 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// share_plus's own android/build.gradle.kts skips applying the classic Kotlin Gradle Plugin
+// whenever AGP major >= 9, assuming AGP's built-in Kotlin support covers it — but this project
+// has android.builtInKotlin=false (flutter_tts and other plugins still apply KGP themselves and
+// AGP9 refuses that once built-in Kotlin is on, so it must stay off project-wide). With built-in
+// Kotlin off AND share_plus's own KGP application skipped, its module compiled with no Kotlin
+// plugin applied at all — cross-file references inside the plugin's own sources failed to
+// resolve. Applied here instead of patching the plugin's own (pub-cache) build file.
+subprojects {
+    if (name == "share_plus") {
+        pluginManager.apply("org.jetbrains.kotlin.android")
+    }
+}
+
 // Legacy plugin subprojects (e.g. mic_stream) don't declare Java/Kotlin source
 // compatibility themselves, so they pick up mismatched defaults (javac on 11,
 // Kotlin on 17) under this JDK/AGP/Kotlin combo and fail Gradle's JVM-target

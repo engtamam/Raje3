@@ -46,6 +46,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.core import riyadh
+
 DAY = 86400
 
 
@@ -88,7 +90,7 @@ def plan(*, audience: int, available_per_day: int, expires_at: int = 0,
     # that cannot finish in time refuses and names both remedies, because only the owner can
     # choose between them.
     if expires_at and now:
-        days_left = max(0, (expires_at - now) // DAY)
+        days_left = max(0, (riyadh.local(expires_at).date() - riyadh.local(now).date()).days)
         if days > days_left:
             reach = available_per_day * days_left
             return Plan(days=days, per_day=available_per_day, total=audience,

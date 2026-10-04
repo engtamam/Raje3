@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.core.models import GOAL_TEMPLATE, GOAL_TRIGGER, offers_something
+from app.core.models import GOAL_MECHANIC, GOAL_TEMPLATE, GOAL_TRIGGER, offers_something
 
 # THE KINDS HE FILLS HIMSELF. `system` is ours — his name, the shop, a balance — and never a
 # question. `catalogue` is a tap on his own service list rather than typing; the two typed ones
@@ -33,6 +33,13 @@ MANUAL_BLANKS = ("catalogue", "amount", "date", "owner")
 GOAL_CATEGORIES = ["عروض وخصومات", "ولاء وعودة", "مناسبات", "إعلانات وتوعية"]
 
 # What each card says. Two words and a line — the owner is choosing, not reading.
+#
+# MECHANIC LIVES ON `models.GOAL_MECHANIC`, NOT HERE — HOW a goal decides who it reaches is a
+# property of the goal itself, held for EVERY real goal (`models.GOALS`, including `service_due`,
+# which has no card at all), the same way `GOAL_TEMPLATE`/`GOAL_TRIGGER` already are. A goal with no
+# launch-screen card (`service_due` — a standing settings record, never something to launch) still
+# has a real, CI-checked mechanic — putting it here instead would mean a goal is only as real as
+# its UI.
 CARDS = {
     "win_back": {
         "title": "رجّع اللي غابوا",
@@ -74,6 +81,14 @@ CARDS = {
         "line": "روّج لباقة كاملة بسعرها الحقيقي",
         "icon": "tag",
         "category": "عروض وخصومات",
+    },
+    "community_milestone": {
+        "title": "هدف جماعي",
+        # THE LINE NAMES THE SHAPE, NOT THE MECHANISM — an owner reads "يفتح للجميع"، never
+        # "عتبة" أو "عدّاد مشترك". The number itself is his own choice on the launch screen.
+        "line": "يفتح للجميع أول ما يوصلون العدد اللي تحدّده",
+        "icon": "target",
+        "category": "إعلانات وتوعية",
     },
 }
 
@@ -191,6 +206,11 @@ def cards(*, fills_by_type: dict[str, list[str]] | None = None,
 
 def _behaviour(goal: str) -> str:
     trigger = GOAL_TRIGGER.get(goal, "manual")
+    if trigger == "milestone":
+        # NEVER "تُرسَل مرة واحدة" ALONE — technically true (it does fire once) but silent about
+        # the one fact that makes this goal different: it waits for a shared count, not a press or
+        # a clock. See core/milestone.py's own docstring and preview.describe_when's sibling note.
+        return "تنتظر حتى يصل الهدف الجماعي، ثم تُرسَل مرة واحدة للجميع"
     if trigger == "standing":
         return "تعمل تلقائياً كل يوم"
     if trigger == "scheduled":
@@ -201,11 +221,20 @@ def _behaviour(goal: str) -> str:
 def resolve_goal(goal: str) -> dict[str, Any]:
     """Everything the system needs from a goal the owner pressed.
 
-    One place, so a new goal is a row in CARDS and a row in GOAL_TEMPLATE — not a change in four
-    files where the fourth is forgotten.
+    One place, so a new goal is a row in GOAL_TEMPLATE (and, once its own launch screen exists, a
+    row in CARDS too) — not a change in four files where the fourth is forgotten.
+
+    VALID AGAINST `GOAL_TEMPLATE` (every real goal), NOT `CARDS` (only the ones with a
+    launch-screen card) — `POST /campaigns`/`/preview` must accept a real, wired, cardless goal
+    like `community_milestone` (real machinery, no console/mobile screen yet — see
+    `core/milestone.py`'s own docstring) or `service_due` would, if it ever needed this route
+    instead of its own settings-only one. A goal only reachable through `CARDS` would make an
+    owner's screen the definition of which goals exist, which is exactly backwards — the same fix
+    `core/mechanics.py::resolver_for` already made for the identical reason.
     """
-    if goal not in CARDS:
-        raise ValueError(f"unknown goal {goal!r} — one of {sorted(CARDS)}")
+    if goal not in GOAL_TEMPLATE:
+        raise ValueError(f"unknown goal {goal!r} — one of {sorted(GOAL_TEMPLATE)}")
     template_type, cls = GOAL_TEMPLATE[goal]
     return {"goal": goal, "template_type": template_type, "cls": cls,
-            "trigger": GOAL_TRIGGER.get(goal, "manual"), "behaviour": _behaviour(goal)}
+            "trigger": GOAL_TRIGGER.get(goal, "manual"), "behaviour": _behaviour(goal),
+            "mechanic": GOAL_MECHANIC.get(goal, "")}

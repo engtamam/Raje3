@@ -5,15 +5,31 @@ import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/router/route_names.dart';
 import 'package:raje3_mobile/features/account/account_screen.dart';
+import 'package:raje3_mobile/features/apps/apps_store_screen.dart';
 import 'package:raje3_mobile/features/account/billing_screen.dart';
 import 'package:raje3_mobile/features/account/branch_detail_screen.dart';
 import 'package:raje3_mobile/features/account/branches_screen.dart';
 import 'package:raje3_mobile/features/account/shop_identity_screen.dart';
 import 'package:raje3_mobile/features/auth/login_screen.dart';
+import 'package:raje3_mobile/features/bookings/bookings_screen.dart';
+import 'package:raje3_mobile/features/campaigns/messages_screen.dart';
+import 'package:raje3_mobile/features/coworking/coworking_screen.dart';
 import 'package:raje3_mobile/features/auth/signup_screen.dart';
+import 'package:raje3_mobile/features/customers/customer_detail_screen.dart';
+import 'package:raje3_mobile/features/customers/customers_screen.dart';
 import 'package:raje3_mobile/features/home/home_screen.dart';
+import 'package:raje3_mobile/features/mobile_requests/mobile_requests_screen.dart';
+import 'package:raje3_mobile/features/partner_loyalty/partner_loyalty_screen.dart';
+import 'package:raje3_mobile/features/points/points_screen.dart';
+import 'package:raje3_mobile/features/rating/rating_screen.dart';
+import 'package:raje3_mobile/features/shop/shop_screen.dart';
+import 'package:raje3_mobile/features/mutual_benefit/mutual_benefit_screen.dart';
+import 'package:raje3_mobile/features/referrals/referrals_screen.dart';
+
+import 'package:raje3_mobile/features/services/services_screen.dart';
 import 'package:raje3_mobile/features/shell/main_shell.dart';
 import 'package:raje3_mobile/features/visit/visit_screen.dart';
+import 'package:raje3_mobile/features/whatsapp_assistant/whatsapp_assistant_screen.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
@@ -79,6 +95,12 @@ class AppRouter {
           name: RouteNames.billing,
           builder: (context, state) => const BillingScreen(),
         ),
+        GoRoute(
+          path: RouteNames.customerDetailPath,
+          name: RouteNames.customerDetail,
+          builder: (context, state) =>
+              CustomerDetailScreen(customerId: state.pathParameters['customerId']!),
+        ),
         ShellRoute(
           navigatorKey: _shellNavKey,
           builder: (context, state, child) => MainShell(child: child),
@@ -91,9 +113,9 @@ class AppRouter {
             GoRoute(
               path: RouteNames.appsPath,
               name: RouteNames.apps,
-              builder: (context, state) => KbAnchor(
+              builder: (context, state) => const KbAnchor(
                 id: 'apps',
-                child: _NotYetOnMobile(label: S.of(context)!.navAppsLabel),
+                child: AppsStoreScreen(),
               ),
             ),
             GoRoute(
@@ -101,12 +123,45 @@ class AppRouter {
               name: RouteNames.account,
               builder: (context, state) => const AccountScreen(),
             ),
+            // INSIDE the shell, same bottom bar every other app gets (owner's own catch,
+            // 2026-09-24) — was a standalone top-level route with its own back button before;
+            // moved here instead of adding it to `kNavSections` (that list is auto-generated
+            // from the console's own catalogue, not a place to hand-add a mobile-only route).
+            GoRoute(
+              path: RouteNames.whatsappAssistantPath,
+              name: RouteNames.whatsappAssistant,
+              builder: (context, state) => const WhatsappAssistantScreen(),
+            ),
+            // EXPLICIT, NOT GENERATED — kNavSections DOES include 'coworking' now (console's own
+            // nav.ts has carried it for a while; the generator was just stale, see the loop's own
+            // comment below). Kept as its own GoRoute anyway, reached from both the home grid AND
+            // the app store's own row (`AppRow.route`), since CoworkingScreen's own CapabilityGate
+            // is the real gate either way.
+            GoRoute(
+              path: RouteNames.coworkingPath,
+              name: RouteNames.coworking,
+              builder: (context, state) => const CoworkingScreen(),
+            ),
+            // EXPLICIT, NOT GENERATED — same reasoning as coworking above. Reached from the home
+            // grid, the app store's own row, and gated additionally by `referrals.list_campaigns`
+            // (ReferralsScreen's own CapabilityGate).
+            GoRoute(
+              path: RouteNames.referralsPath,
+              name: RouteNames.referrals,
+              builder: (context, state) => const ReferralsScreen(),
+            ),
+            // 'coworking'/'referrals' EXCLUDED — found live (2026-09-28): the nav generator was
+            // stale (an unmapped lucide icon made it fail silently and never got re-run after
+            // console's nav.ts added both), so this loop never saw them before. Now that it does,
+            // they'd collide with the two explicit, more-specifically-gated GoRoutes above
+            // (GoRouter throws on a duplicate route name) — those routes stay authoritative.
             for (final section in kNavSections)
-              GoRoute(
-                path: section.path,
-                name: section.id,
-                builder: (context, state) => _screenFor(section),
-              ),
+              if (section.id != RouteNames.coworking && section.id != RouteNames.referrals)
+                GoRoute(
+                  path: section.path,
+                  name: section.id,
+                  builder: (context, state) => _screenFor(section),
+                ),
           ],
         ),
       ],
@@ -117,6 +172,26 @@ class AppRouter {
     switch (section.id) {
       case 'visit':
         return const VisitScreen();
+      case 'bookings':
+        return const BookingsScreen();
+      case 'mobile-requests':
+        return const MobileRequestsScreen();
+      case 'customers':
+        return const CustomersScreen();
+      case 'rating':
+        return const RatingScreen();
+      case 'shop':
+        return const ShopScreen();
+      case 'services':
+        return const ServicesScreen();
+      case 'points':
+        return const PointsScreen();
+      case 'messages':
+        return const MessagesScreen();
+      case 'partner-loyalty':
+        return const PartnerLoyaltyScreen();
+      case 'mutual-benefit':
+        return const MutualBenefitScreen();
       default:
         return _NotYetOnMobile(label: section.label);
     }

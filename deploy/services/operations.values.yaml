@@ -26,7 +26,7 @@ image:
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
   repository: ghcr.io/engtamam/raje3/operations
-  digest: "sha256:e9db80e47854f58497799a087ddd55e81e3702f0fc200004ac73e13b37699fcd"   # 86df41a3, published by publish-images.sh
+  digest: "sha256:87fe781c90af39c01f6147684e8bdfdb3901c48ca53bf653e3a6c216ad7b6667"   # 5837acf9, published by publish-images.sh
 
 replicas: 1
 
@@ -58,7 +58,7 @@ resources:
     # moment of failure — the process wasn't overloaded, it simply wasn't winning the CPU
     # scheduling race against the fleet's own CronJob churn on a contended 2-vCPU node. At rest,
     # 40m is still plenty; under burst, it is not — this sizes for the burst, not the rest state.
-    cpu: 105m  # smart-cpu-sizing.py: hot tier, node budget-derived
+    cpu: 102m  # smart-cpu-sizing.py: hot tier, node budget-derived
     memory: 256Mi
   limits:
     memory: 512Mi
@@ -264,19 +264,8 @@ env:
   # can say what came from where. A service present in PRIVACY_TARGETS but missing from this list
   # is reachable by the dispatcher and invisible to the map — the erase never runs, and the DSAR
   # still reports complete. That is the precise failure mode this list is written against.
-  # ── the payment gateway, as far as the SCREEN is concerned ────────────────────────────────
-  #
-  # EMPTY IS A DECISION, NOT A GAP. With no key the plans page says «الدفع مغلق مؤقتاً» and sells
-  # nothing; nobody walks between paid tiers for free because there is no till. The day we sign
-  # with a provider this is the ONLY edit on our side — the browser key goes here, the SECRET key
-  # goes into billing-service's secret, and the product starts selling with no code change.
-  #
-  # PUBLISHABLE ON PURPOSE: this key can mint a single-use card token and do nothing else. The
-  # secret key is billing-service's alone and never reaches a browser or a response.
-  PAYMENT_PUBLISHABLE_KEY: ""
-  PAYMENT_PROVIDER: "moyasar"
 
-  TENANT_DATA_MAP: "operations:visits,operations:customers,reminders:messages,loyalty:points,campaigns:campaigns,insights:analytics,portal:pages,identity-service:accounts,tenant-service:tenant,authz-service:roles,audit-service:audit,notification-service:notifications,search-service:search,billing-service:billing,onboarding-service:onboarding,ticket-service:tickets,job-service:jobs,wallet-service:wallet,analytics-service:events,webhook-service:deliveries,connector-service:connections,feature-flag-service:flags,backup-service:archives,bookings:bookings,whatsapp-assistant:conversations,affiliate-service:affiliates,assistant-service:conversations,error-collector:signals"
+  TENANT_DATA_MAP: "operations:visits,operations:customers,reminders:messages,loyalty:points,campaigns:campaigns,insights:analytics,portal:pages,identity-service:accounts,tenant-service:tenant,authz-service:roles,audit-service:audit,notification-service:notifications,search-service:search,billing-service:billing,onboarding-service:onboarding,ticket-service:tickets,job-service:jobs,wallet-service:wallet,analytics-service:events,webhook-service:deliveries,connector-service:connections,feature-flag-service:flags,backup-service:archives,bookings:bookings,whatsapp-assistant:conversations,affiliate-service:affiliates,assistant-service:conversations,error-collector:signals,coworking:resource_bookings,referrals:referral_code"
 
   IDENTITY_SERVICE_URL: "http://identity-service:8000"
   TENANT_SERVICE_URL: "http://tenant-service:8000"
@@ -313,6 +302,11 @@ env:
   # service, and it is optional in code: an unreachable loyalty is a missing table, never a failed
   # signup.
   LOYALTY_SERVICE_URL: "http://loyalty:8000"
+  # THE GLOBAL ANONYMOUS REFERRAL CODE'S OWN TILL-SIDE REDEMPTION (services/referrals, Phase 3) —
+  # same optionality as LOYALTY_SERVICE_URL above: an unreachable/unset referrals means this
+  # source is simply never asked, the same posture core/entitlements.py's own gateway already
+  # takes for every optional source.
+  REFERRALS_SERVICE_URL: "http://referrals:8000"
   # WHO BROUGHT THIS SHOP — the affiliate portal's own attribution (core/signup.py's own
   # affiliate_ref note). Same optionality as LOYALTY_SERVICE_URL above: a shop signing up with no
   # `?aff=` link never calls this at all, and the stamp is best-effort either way (a bad/unknown
@@ -344,7 +338,7 @@ env:
   # be removed.
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"
+  CORS_ALLOWED_ORIGINS: "https://ra-je3.com,https://admin.ra-je3.com"
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 
@@ -367,7 +361,7 @@ env:
   # built from this. Same install-time overwrite mechanism as reminders' own PUBLIC_BASE_URL
   # (bring-up.sh's "public address" step patches any values file declaring this key with the
   # real DOMAIN) — the value here is only what a fresh install starts from before that runs.
-  PUBLIC_BASE_URL: "https://kobo-cloud.com"
+  PUBLIC_BASE_URL: "https://ra-je3.com"
   # job-service — the platform's own durable scheduler (adapters/job_service.py), Salla's token
   # refresh being this service's first use of it. Empty means NullJobService, like every other
   # optional peer here: the refresh scan simply finds nothing to enqueue.

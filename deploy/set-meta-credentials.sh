@@ -86,7 +86,7 @@ if [ "$MINTED" -eq 1 ]; then
   echo
   echo "      $TOKEN"
   echo
-  echo "  Callback URL:  https://kobo-cloud.com/webhooks/whatsapp"
+  echo "  Callback URL:  https://ra-je3.com/webhooks/whatsapp"
   echo "  Subscribe to:  messages, account_update, message_template_status_update"
 fi
 ok "done — the handshake will succeed the moment Meta calls with that token"

@@ -31,11 +31,11 @@
   },
 
   "urls": {
-    "marketing": "https://raje3.com.sa",
-    "app": "https://app.raje3.com.sa",
-    "admin": "https://admin.raje3.com.sa",
-    "docs": "https://docs.raje3.com.sa",
-    "status": "https://status.raje3.com.sa"
+    "marketing": "https://ra-je3.com",
+    "app": "https://ra-je3.com/app",
+    "admin": "https://admin.ra-je3.com",
+    "docs": "https://ra-je3.com/docs",
+    "status": "https://status.ra-je3.com"
   },
 
   "support": {
@@ -82,8 +82,8 @@
       "ar": "",
       "en": ""
     },
-    "termsUrl": "https://raje3.com.sa/terms",
-    "privacyUrl": "https://raje3.com.sa/privacy",
+    "termsUrl": "https://ra-je3.com/app/legal/terms",
+    "privacyUrl": "https://ra-je3.com/app/legal/privacy-policy",
     "dpoEmail": ""
   },
 

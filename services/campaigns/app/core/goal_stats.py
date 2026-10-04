@@ -48,6 +48,15 @@ async def _bump(store: Any, tenant: str, goal: str, field: str, by: int) -> None
         if held:
             break
         await asyncio.sleep(_MUTEX_RETRY_DELAY_SECONDS)
+    if not held:
+        # NEVER AN UNPROTECTED READ-MODIFY-WRITE. Falling through here used to run the same
+        # increment anyway with no lock held — a classic lost-update race under concurrent bumps
+        # to the same tenant+goal (two callers read the same count, one write clobbers the
+        # other's), silently understating `uses`/`reach`, the exact numbers the create screen's
+        # own rail shows as ground truth. Raising loses nothing a caller cannot retry: `record_use`
+        # runs once per created campaign and `record_reach` once per saved run, both already
+        # wrapped by their own caller's error handling.
+        raise RuntimeError(f"could not claim goal-stats lock for {tenant}/{field}/{goal}")
     try:
         row = await store.get(GOAL_STATS, tenant) or {"tenant": tenant, "uses": {}, "reach": {}}
         bucket = dict(row.get(field) or {})
@@ -56,8 +65,7 @@ async def _bump(store: Any, tenant: str, goal: str, field: str, by: int) -> None
         row[field] = bucket
         await store.put(GOAL_STATS, tenant, row)
     finally:
-        if held:
-            await store.delete(_MUTEX_COLLECTION, mutex_key)
+        await store.delete(_MUTEX_COLLECTION, mutex_key)
 
 
 async def record_use(store: Any, tenant: str, goal: str) -> None:

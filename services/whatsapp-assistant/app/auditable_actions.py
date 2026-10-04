@@ -261,6 +261,44 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "this record on an audit-sink outage costs visibility, never safety",
     },
     {
+        "action": "whatsapp_assistant.catalog_provisioned",
+        "source": "internal",
+        "critical": False,
+        "resource": "catalog",
+        "why": "a Meta Commerce Catalog now exists for this tenant, connected to its WABA with "
+               "the cart enabled — this is the one record of when WhatsApp Direct Ordering became "
+               "technically available for the shop. Not critical: the catalog itself (and this "
+               "module's own idempotency guard) is the durable fact; losing the audit row on a "
+               "sink outage costs visibility, never a duplicate catalog or an inconsistent state",
+    },
+    {
+        "action": "whatsapp_assistant.catalog_provision_failed",
+        "source": "internal",
+        "critical": False,
+        "resource": "catalog",
+        "why": "catalog provisioning stopped at a named step (missing ids, no credential, a Graph "
+               "call failing) — fire-and-forget by design, so this is the ONLY place an operator "
+               "can later see which step failed and why, to retry it",
+    },
+    {
+        "action": "whatsapp_assistant.catalog_item_synced",
+        "source": "internal",
+        "critical": False,
+        "resource": "catalog_item",
+        "why": "one service's catalog item was upserted or removed to match the owner's own "
+               "current edit — not critical: the catalog itself is the durable fact, and the "
+               "next edit to this same service re-attempts a failed sync on its own",
+    },
+    {
+        "action": "whatsapp_assistant.catalog_item_sync_failed",
+        "source": "internal",
+        "critical": False,
+        "resource": "catalog_item",
+        "why": "catalog item sync stopped at a named step (no catalog yet, no display phone, a "
+               "Graph call failing) — fire-and-forget by design, so this is the ONLY place an "
+               "operator can later see which step failed and why",
+    },
+    {
         "action": "whatsapp_assistant.meta_agent_rollout_enabled",
         "source": "internal",
         "critical": True,

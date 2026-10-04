@@ -18,6 +18,9 @@ class NullAiModel implements AiModel {
   Stream<int> get downloadProgress => const Stream.empty();
 
   @override
+  String? get lastError => null;
+
+  @override
   Future<void> ensureReady({List<AiTool> tools = const []}) async {}
 
   @override

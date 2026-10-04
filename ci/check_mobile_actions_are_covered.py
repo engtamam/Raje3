@@ -48,6 +48,9 @@ SCREEN_ACTION_EXEMPT = {
     "account.shop.branches.detail": "needs a specific branchId chosen from the branches list — "
                                      "not a fixed voice destination itself, reached only by "
                                      "picking a branch from account.shop.branches",
+    "customer_detail": "needs a specific customerId chosen from the customers list — not a "
+                        "fixed voice destination itself, reached only by picking a customer "
+                        "from customers",
 }
 
 

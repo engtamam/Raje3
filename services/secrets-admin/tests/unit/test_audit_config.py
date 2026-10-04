@@ -56,6 +56,16 @@ def test_a_non_http_audit_url_is_refused():
 
 def test_production_happy_config_passes():
     Settings(ENV="production", AUDIT_SINK_DRIVER="http",
+             AUDIT_SERVICE_URL="https://audit-service:8000", **_OK).assert_audit_config_ok()
+
+
+def test_a_plain_http_audit_url_is_accepted_in_production():
+    # NOT REFUSED — see config.py's own assert_audit_config_ok docstring: audit-service has no
+    # TLS termination on its cluster-internal port, same as every other service's own
+    # AUDIT_SERVICE_URL on this fleet, so a hard refusal here crash-looped this service in
+    # production the moment it shipped (found live, 2026-09-28) with no https:// value that could
+    # ever have satisfied it.
+    Settings(ENV="production", AUDIT_SINK_DRIVER="http",
              AUDIT_SERVICE_URL="http://audit-service:8000", **_OK).assert_audit_config_ok()
 
 

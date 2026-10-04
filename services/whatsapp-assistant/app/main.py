@@ -129,6 +129,14 @@ def create_app() -> FastAPI:
             await container.event_bus.subscribe("whatsapp.message", _on_whatsapp_message)
             await container.event_bus.subscribe("whatsapp.status", lambda e: None)
             await container.event_bus.subscribe("subscription.renewed", _on_subscription_renewed)
+            # A TOKEN-LESS GATEWAY'S OWN RENEWAL (TuwaiqPay, base-services v0.25.30) — billing
+            # cannot even ATTEMPT a card charge on these, so it skips straight to minting the pay
+            # link and emits this instead of (or alongside) `subscription.renewed`. Same handler,
+            # deliberately: the payload carries the same `tenant`/`invoice_id` shape, and
+            # `RenewalTrigger.handle`'s own per-invoice claim already makes a duplicate delivery
+            # from both events a no-op — never a second message for one renewal.
+            await container.event_bus.subscribe(
+                "subscription.renewal_payment_link", _on_subscription_renewed)
             await container.event_bus.subscribe("wallet.balance_low", _on_balance_low)
             logger.info("subscribed", extra={"topic": "whatsapp.message"})
         except Exception as exc:                                            # noqa: BLE001

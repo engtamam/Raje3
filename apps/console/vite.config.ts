@@ -18,7 +18,8 @@ const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 // theme.config.ts's OWN hardcoded gold every build, and a change to product.json did nothing. Read
 // straight from the file the doc comment already points at, so the promise is finally true.
 const product = JSON.parse(readFileSync(here('../../config/product.json'), 'utf8')) as
-  { brand: { accent: { light: string; dark: string } }; support: { phone: string } };
+  { brand: { accent: { light: string; dark: string } }; support: { phone: string };
+    urls: { app: string } };
 
 export default defineConfig({
   // THE CONSOLE LIVES AT /app/, AND THE BUNDLE HAS TO KNOW. Without this every asset is written as
@@ -32,6 +33,11 @@ export default defineConfig({
     // owner's own instruction (2026-09-16): stop the icon opening the old screen, keep the route
     // itself alive underneath for when he asks to relink it.
     __SUPPORT_WHATSAPP_PHONE__: JSON.stringify(product.support.phone),
+    // THE REAL, DEPLOYED GATEWAY ORIGIN — `config/product.json`'s own `urls.app`, the same
+    // origin every `/p/*` public route (coworking's own freelancer portal, e.g.) is actually
+    // served from. Coworking.tsx's own shareable-link card reads this rather than hardcoding the
+    // domain a second time.
+    __PUBLIC_APP_ORIGIN__: JSON.stringify(product.urls.app),
   },
   plugins: [react(), legalDocsPlugin()],
   resolve: {

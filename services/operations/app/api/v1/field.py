@@ -27,7 +27,6 @@ from app.api import scope as SCOPE
 from app.api.scope import branch_scope
 from app.config import get_settings
 from app.core import erase_customer as E
-from app.core import operator_ticket as OT
 from app.core import plate as P
 from app.core import vehicles as V
 from app.core.operations import OperationError, Operations
@@ -80,21 +79,16 @@ class VisitIn(BaseModel):
     # (so the visit still shows what was actually done); this is purely the attribution loyalty
     # reads to price the visit by the package's own point value instead of summing components.
     package_id: str = Field(default="", max_length=64)
+    # A NEW CUSTOMER'S REFERRAL CODE — the same "type it in once, at the counter" door the
+    # integrated till's own `/referral/register` already has, now open to a walk-in visit too.
+    # Ignored (never even attempted) unless this call actually creates a new customer — see
+    # `Operations.record_visit`'s own referral hook.
+    referral_code: str = Field(default="", max_length=16)
     # OPTIONAL, and blank is a real value — a required name produces "عميل" and "." and "ااا",
     # which are worse than blank because an invented name becomes a greeting in a real message.
     name: str = Field(default="", max_length=128)
     # Shops that work on cars only. A salon never sends it, and the screen never shows the field.
     plate: str = Field(default="", max_length=32)
-    operator_id: str = Field(default="", max_length=64)
-    # THE PROOF THAT `operator_id` IS HIS TO CLAIM (و-4). `verify-pin` establishes who is saving
-    # and used to hand back only a name, so this field was a free string: a device could file its
-    # work against any operator in the shop — and `_branch_for` reads exactly this field to decide
-    # which BRANCH the visit belongs to, so the branch numbers moved with it. That is the same hole
-    # `_branch_for`'s own note describes closing, one field to the left.
-    #
-    # Empty is allowed and means «no person» — the till sends none, and a shop that never set PINs
-    # records visits with no operator at all. What is refused is a NAME WITHOUT A TICKET.
-    operator_ticket: str = Field(default="", max_length=200)
     branch_id: str = Field(default="", max_length=64)
     meter: int = Field(default=0, ge=0, le=10_000_000)
     note: str = Field(default="", max_length=1000)
@@ -191,18 +185,6 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
     if package_id and await _svc(request).package_by_id(tenant, package_id) is None:
         package_id = ""
 
-    # ── A NAME ON THE VISIT MUST BE A NAME SOMEBODY PROVED (و-4) ──────────────────────────────
-    # `verify-pin` now issues a short-lived signed ticket for the operator it confirmed, and this
-    # is where the two halves finally meet. An unproven name is dropped rather than refused: the
-    # visit is the product and losing it costs the shop a customer, while losing the attribution
-    # costs it a column. What must never happen is the attribution being WRONG — «من سجّل هذه
-    # الزيارة» and «في أي فرع» are both read off this field.
-    operator_id = body.operator_id.strip()
-    if operator_id and not OT.verifies(
-            request.app.state.container_settings.PII_SALT, tenant, operator_id,
-            body.operator_ticket, at=body.occurred_at):
-        operator_id = ""
-
     # Write-ahead. Critical: a visit the log cannot witness must not happen.
     await request.app.state.auditor.record(
         "visit.recorded", actor=principal.subject, tenant=tenant, resource="visit",
@@ -211,10 +193,11 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
     try:
         result = await _svc(request).record_visit(
             tenant=tenant, phone=body.phone, service_ids=body.service_ids, name=body.name,
-            plate=body.plate, operator_id=operator_id, branch_id=body.branch_id,
+            plate=body.plate, branch_id=body.branch_id,
             meter=body.meter, note=body.note, custom_service=body.custom_service,
             idempotency_key=body.idempotency_key, occurred_at=body.occurred_at,
-            package_id=package_id, quantities=body.quantities)
+            package_id=package_id, quantities=body.quantities,
+            referral_code=body.referral_code)
     except OperationError as exc:
         # RETURNED, NOT RAISED — the third time this file says it, and the one place it was not
         # done. The plate refusal above and the offer refusal below both return; this raised, and
@@ -270,18 +253,20 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
           "created_customer": result.created_customer, "duplicate": result.duplicate}
     if coupon_result is not None:
         out["coupon_attempt"] = coupon_result.public()
+    if result.referral_registration is not None:
+        out["referral_registration"] = result.referral_registration
 
     # THE COUNTER'S OWN CELEBRATION MOMENT — `None` on every ordinary visit; a real grant only on
     # the rare one that just made this customer eligible for a NEW partner reward (owner's own
     # requirement: "احتفال" at the exact moment it happens, never a routine screen). The partner
     # shop's own NAME is resolved here, best-effort — `fetch_tenant_name` degrades silently, so a
     # tenant-service outage loses only the name, never the grant itself or the visit.
-    grant = result.new_referral_grant
+    grant = result.new_mutual_benefit_grant
     if grant is not None:
         from app.core.tenant_branding import fetch_tenant_name
 
         partner_name = await fetch_tenant_name(request.app.state.container_settings, grant.shop_b)
-        out["referral_grant"] = {
+        out["mutual_benefit_grant"] = {
             "grant_type": grant.grant_type,
             "gift_service_name": grant.gift_service_name,
             "discount_scope": grant.discount_scope,
@@ -606,6 +591,10 @@ async def customer_by_phone(request: Request, phone: str,
 class EnsureCustomerIn(BaseModel):
     phone: str = Field(min_length=1, max_length=32)
     name: str = Field(default="", max_length=128)
+    # A NEW CUSTOMER'S REFERRAL CODE — the real "new customer" moment for a booking (see
+    # `Operations.ensure_customer`'s own docstring): the console's new-booking dialog calls this
+    # route BEFORE it has a `customer_id`, which is the only time this customer ever types one in.
+    referral_code: str = Field(default="", max_length=16)
 
 
 @router.post("/customers/ensure", dependencies=[Depends(subscribed_write_or_customer_creating_app), Depends(rate_limit)])
@@ -630,7 +619,9 @@ async def ensure_customer(request: Request, body: EnsureCustomerIn, background: 
     not waiting on a search index write to get his `customer_id` back.
     """
     try:
-        c = await _svc(request).ensure_customer(_tenant(principal), body.phone, body.name)
+        c, referral_registration = await _svc(request).ensure_customer(
+            _tenant(principal), body.phone, body.name,
+            referral_code=body.referral_code, actor=principal.subject)
     except OperationError as exc:
         # RETURNED, NOT RAISED — same rule as `record_visit` above: the platform strips
         # HTTPException detail on the way out (CWE-209 by design), and the console dialog calling
@@ -639,7 +630,10 @@ async def ensure_customer(request: Request, body: EnsureCustomerIn, background: 
     seams = request.app.state.container.seams
     background.add_task(seams.index_customer_row, tenant=_tenant(principal), customer_id=c.id,
                         phone=c.phone, name=c.name, plates=[])
-    return {"customer": {**c.public(), "subject_ref": c.subject_ref}}
+    out = {"customer": {**c.public(), "subject_ref": c.subject_ref}}
+    if referral_registration is not None:
+        out["referral_registration"] = referral_registration
+    return out
 
 
 class ResolveIn(BaseModel):

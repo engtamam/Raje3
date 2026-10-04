@@ -1,10 +1,12 @@
 /**
  * Real billing for the launcher's own app-details window — subscribe, cancel, undo-cancel,
- * cross-app discounts. The SAME real logic `screens/Plans.tsx` already has (`choose`/
- * `finishSubscribe`/`cancelApp`/`undoCancel`/`cascadeTargets`), reused rather than reinvented:
- * this is real money moving through a real, tested 3DS card-tokenisation flow
- * (`CardForm`/`payment.ts`/`pendingPayment.ts`), and a second copy of that logic is exactly the
- * kind of drift that ends in a double-charge or a silent refusal.
+ * cross-app discounts. `cancelApp`/`undoCancel`/`cascadeTargets` are the same real logic
+ * `screens/Plans.tsx` originally earned; the SUBSCRIBE half (`choose`/`checkout`) now goes
+ * through a real hosted TuwaiqPay pay-link instead of the retired browser-tokenised card form
+ * (`CardForm`/`payment.ts`/`pendingPayment.ts`, 2026-09-24 — see `subscribeFlow.ts`'s own header
+ * note for the full reasoning; `billingShared.tsx::needsNoPayment` is the one shared rule that
+ * keeps this hook, `subscribeFlow.ts`, and the server itself from ever disagreeing about which
+ * plans need a link at all).
  *
  * NO BASE — the base subscription concept was retired 2026-09-10 (purged from `Plans.tsx` itself
  * the same day this file was written).
@@ -17,9 +19,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { action, call, type Catalog } from '../catalog';
-import { appDisplayName, appKey, canBuy, kindOf, requiresAny, type Plan, type Subscription } from '../billingShared';
-import { canMintToken, confirmToken } from '../payment';
-import { takePending, type PendingPayment } from '../pendingPayment';
+import { appDisplayName, appKey, kindOf, needsNoPayment, requiresAny, type Plan, type Subscription } from '../billingShared';
 import { riyals } from '../money';
 import type { Session } from '../session';
 
@@ -74,7 +74,15 @@ export interface CartPreview {
   items: CartPreviewItem[];
 }
 
-export function useAppBilling(session: Session, catalog: Catalog) {
+export function useAppBilling(
+  session: Session, catalog: Catalog,
+  /** Feature keys ONE platform operator made visible for THIS tenant specifically, on top of
+   *  whatever is globally `listed` — `AppLauncher.tsx`'s own fetch of `subscription.
+   *  apps_visibility_overrides`, tenant already resolved server-side from the caller's own
+   *  token (see `core/app_visibility.py`'s own module docstring). Defaulted to `[]` so every
+   *  existing caller keeps behaving exactly as before this param existed. */
+  visibleOverrideKeys: string[] = [],
+) {
   const [plans, setPlans] = useState<Plan[] | null | undefined>(undefined);
   const [subs, setSubs] = useState<Subscription[] | null | undefined>(undefined);
   const [discountPreviews, setDiscountPreviews] = useState<Record<string, DiscountInfo>>({});
@@ -87,8 +95,6 @@ export function useAppBilling(session: Session, catalog: Catalog) {
   const [appCancelError, setAppCancelError] = useState('');
   const [undoingAppCancelId, setUndoingAppCancelId] = useState('');
   const [undoCancelError, setUndoCancelError] = useState('');
-  const [cardFormPending, setCardFormPending] = useState<PendingPayment | null>(null);
-  const [resolvingReturn, setResolvingReturn] = useState(false);
   const [capacityBusyPlanId, setCapacityBusyPlanId] = useState('');
   const [capacityError, setCapacityError] = useState('');
   const [cart, setCart] = useState<string[]>([]);
@@ -105,7 +111,8 @@ export function useAppBilling(session: Session, catalog: Catalog) {
   const load = () => {
     if (canBrowse) {
       call<{ plans: Plan[] }>(session, canBrowse)
-        .then((x) => setPlans((x.plans ?? []).filter((p) => p.active !== false && p.listed !== false)))
+        .then((x) => setPlans((x.plans ?? []).filter((p) => p.active !== false
+          && (p.listed !== false || visibleOverrideKeys.includes(appKey(p) ?? '')))))
         .catch(() => setPlans(null));
     } else {
       setPlans([]);
@@ -126,7 +133,15 @@ export function useAppBilling(session: Session, catalog: Catalog) {
     }
   };
 
-  useEffect(load, [session, catalog]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A JOINED STRING, NEVER THE ARRAY ITSELF — `visibleOverrideKeys` defaults to `[]` when a caller
+  // passes nothing (a NEW array literal on every single render), and a caller that DOES pass one
+  // (`AppLauncher.tsx`) is not guaranteed to memoise it either. Depending on the array reference
+  // would make this effect's own dependency look "different" every render regardless of content,
+  // re-firing `load()` in an infinite loop — found live (2026-09-28) as an outright test hang, not
+  // a slow re-render. A joined string is a real VALUE comparison, exactly what a dependency array
+  // is supposed to give this effect.
+  const visibleOverrideKeysDep = visibleOverrideKeys.join(',');
+  useEffect(load, [session, catalog, visibleOverrideKeysDep]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const a = action(catalog, 'subscription.payment_state');
@@ -233,20 +248,33 @@ export function useAppBilling(session: Session, catalog: Catalog) {
     }
   };
 
-  const choose = (p: Plan) => {
+  /** A free/trial plan finishes right here (billing-service creates it directly, no payment
+   *  question at all); anything that actually costs something navigates the WHOLE PAGE to a real
+   *  TuwaiqPay pay-link and never returns to this function — same posture as `subscribeFlow.ts`'s
+   *  own `startPaidCheckout`, this is its launcher-tile twin. */
+  const choose = async (p: Plan) => {
     setError('');
     if (!canSubscribe) return;
-    if (!canBuy({ hasAction: true, gatewayEnabled: Boolean(pay?.enabled), canMint: canMintToken })) return;
-    setCardFormPending({ kind: 'subscribe', planId: p.id, quantity: 1 });
-  };
-
-  const finishSubscribe = async (planId: string, payment_token: string, quantity = 1) => {
-    if (!canSubscribe) return;
-    setBusy(true); setError('');
+    if (!needsNoPayment(p)) {
+      const linkAction = action(catalog, 'subscription.checkout_link');
+      if (!linkAction) return;
+      setBusy(true);
+      try {
+        const out = await call<{ checkout_url?: string; pay_url?: string; checkout_required?: boolean }>(
+          session, linkAction, { plan_id: p.id, quantity: 1 });
+        const url = out.checkout_url || out.pay_url;
+        if (out.checkout_required === false || !url) { setBusy(false); load(); return; }
+        window.location.assign(url);
+      } catch (e) {
+        setBusy(false);
+        setError(e instanceof Error ? e.message : 'تعذّر إنشاء رابط الدفع.');
+      }
+      return;
+    }
+    setBusy(true);
     try {
-      const out = await call<{ notice?: string }>(session, canSubscribe, { plan_id: planId, payment_token, quantity });
+      const out = await call<{ notice?: string }>(session, canSubscribe, { plan_id: p.id, quantity: 1 });
       setNotice(out?.notice ?? '');
-      setCardFormPending(null);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'تعذّر تفعيل الاشتراك.');
@@ -254,30 +282,6 @@ export function useAppBilling(session: Session, catalog: Catalog) {
       setBusy(false);
     }
   };
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tokenId = params.get('id');
-    const pending = takePending();
-    if (!tokenId || !pending || (pending.kind !== 'subscribe' && pending.kind !== 'checkout')) return;
-    setResolvingReturn(true);
-    confirmToken(tokenId)
-      .then((result) => {
-        if (result.kind === 'error') { setError(result.message); return; }
-        if (result.kind !== 'token') return;
-        return pending.kind === 'subscribe'
-          ? finishSubscribe(pending.planId, result.token, pending.quantity ?? 1)
-          : finishCheckout(pending.planIds, result.token);
-      })
-      .finally(() => {
-        setResolvingReturn(false);
-        const url = new URL(window.location.href);
-        for (const k of ['id', 'status', 'message']) url.searchParams.delete(k);
-        window.history.replaceState({}, '', url.toString());
-      });
-    // Runs once, on mount only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // ONE LOOKUP, BY THE SAME `feature.*` KEY `launcherCatalog.ts`'s `billingKey` already carries —
   // so a tile never has to re-derive `appKey(plan)` itself, and can never disagree with the hook
@@ -391,44 +395,45 @@ export function useAppBilling(session: Session, catalog: Catalog) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, session, catalog]);
 
-  const checkout = () => {
+  /** ONE REAL PAY-LINK FOR THE WHOLE CART — `subscription.checkout_cart_link` (2026-09-24,
+   *  replacing the browser-tokenised `finishCheckout`/`CardForm` pair). An all-free/trial cart
+   *  answers `checkout_required: false` and is already created (billing's own doing); anything
+   *  with a real price in it navigates the whole page to the one link that pays for the lot —
+   *  every subscription in the cart activates together once that single invoice settles. */
+  const checkout = async () => {
     setCartError('');
     if (!canSubscribe || cart.length === 0) return;
-    if (!canBuy({ hasAction: true, gatewayEnabled: Boolean(pay?.enabled), canMint: canMintToken })) return;
-    setCardFormPending({ kind: 'checkout', planIds: cart });
-  };
-
-  const finishCheckout = async (planIds: string[], payment_token: string) => {
-    const a = action(catalog, 'subscription.checkout');
+    const a = action(catalog, 'subscription.checkout_cart_link');
     if (!a) return;
-    setCartBusy(true); setCartError('');
+    setCartBusy(true);
     try {
-      const out = await call<{ notice?: string }>(session, a, {
-        items: planIds.map((id) => ({ plan_id: id, interval: 'month' })),
-        payment_token,
-      });
-      setNotice(out?.notice ?? '');
-      setCardFormPending(null);
-      setCart([]);
-      setCartNotice('');
-      load();
+      const out = await call<{ checkout_url?: string; pay_url?: string; checkout_required?: boolean; notice?: string }>(
+        session, a, { items: cart.map((id) => ({ plan_id: id, interval: 'month' })) });
+      const url = out.checkout_url || out.pay_url;
+      if (out.checkout_required === false || !url) {
+        setNotice(out?.notice ?? '');
+        setCart([]);
+        setCartNotice('');
+        setCartBusy(false);
+        load();
+        return;
+      }
+      window.location.assign(url);
     } catch (e) {
-      setCartError(e instanceof Error ? e.message : 'تعذّر إتمام الشراء.');
-    } finally {
       setCartBusy(false);
+      setCartError(e instanceof Error ? e.message : 'تعذّر إتمام الشراء.');
     }
   };
 
   return {
     subs, discountPreviews, potentialDiscounts, pay, busy, error, notice,
     cancelingAppId, appCancelError, undoingAppCancelId, undoCancelError,
-    cardFormPending, setCardFormPending, resolvingReturn,
-    canSubscribe: Boolean(canSubscribe), sellableBase: Boolean(canSubscribe && pay?.enabled && canMintToken),
-    choose, finishSubscribe, cancelApp, undoCancel, cascadeTargets, renewalDay,
+    canSubscribe: Boolean(canSubscribe), sellableBase: Boolean(canSubscribe),
+    choose, cancelApp, undoCancel, cascadeTargets, renewalDay,
     planByKey, subByPlanId, unitsPerHalala, aiEnabled,
     capacity, capacitySubs, capacityBusyPlanId, capacityError, changeCapacityQuantity,
     cart, cartPlans, cartTotalMinor, cartNotice, cartBusy, cartError,
     cartPreview, cartPreviewBusy, cartPreviewError,
-    toggleCart, checkout, finishCheckout,
+    toggleCart, checkout,
   };
 }

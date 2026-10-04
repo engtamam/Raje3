@@ -151,6 +151,7 @@ class Container:
     active_offers: Any = None
     wallet_balance: Any = None
     licence: Any = None
+    order_licence: Any = None
     sender: Any = None
     secret_store: Any = None
     inbound_feed: Any = None
@@ -321,6 +322,10 @@ def build_container(settings: Settings) -> Container:
     # gate on `request_mobile_visit`.
     from app.adapters import mobile_requests as MR
     container.mobile_requests = MR.build(settings)
+    # WhatsApp Direct Ordering's own order-creation door (Step 4) — same reuses-OPERATIONS_
+    # SERVICE_URL, degrades-to-Null shape as mobile_requests right above.
+    from app.adapters import orders as ORD
+    container.orders = ORD.build(settings)
     container.related_services = RS.build(settings)
     from app.core import active_offers as AO
     container.active_offers = AO.build(settings)
@@ -328,6 +333,10 @@ def build_container(settings: Settings) -> Container:
     container.licence = ToggleGatedLicence(build_licence(settings),
                                            shop_identity=container.shop_identity,
                                            ai_assistant_enabled=settings.AI_ASSISTANT_ENABLED)
+    # `feature.whatsapp_delivery_orders` -- its OWN entitlement, never `container.licence` above
+    # (that one is `feature.whatsapp`, the AI assistant, a completely separate paid app).
+    from app.core.order_licence import build_order_licence
+    container.order_licence = build_order_licence(settings)
     from app.core.base_entitlement import build_base_entitlement
     from app.core.held_apps import build_held_apps
 
@@ -404,6 +413,8 @@ def build_container(settings: Settings) -> Container:
         catalog_provider=container.catalog_provider,
         rhythm_provider=container.rhythm_provider,
         mobile_requests=container.mobile_requests,
+        orders=container.orders,
+        order_licence=container.order_licence,
         runtime_config=container.runtime_config,
         max_carousel_cards=settings.MAX_CAROUSEL_CARDS, max_reply_tokens=settings.MAX_REPLY_TOKENS,
         wallet_estimated_tokens=settings.WALLET_ESTIMATED_MAX_TOKENS_PER_TURN,

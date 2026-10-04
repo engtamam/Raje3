@@ -198,6 +198,55 @@ def test_a_new_row_with_an_embedded_image_ends_up_a_real_readable_photo_on_the_s
     assert got.headers["content-type"] == "image/png"
 
 
+def test_a_bulk_imported_image_gets_a_working_public_catalog_url(client_mem):
+    """REAL BUG, FOUND AND FIXED: a bulk-imported photo set image_key but never minted
+    public_image_token — the field WhatsApp Direct Ordering's own catalog sync (and anything else
+    reading the public URL) depends on entirely. Proven end to end: fetch the token straight off
+    the datastore (the console has no route that echoes it back, by design — see
+    public_catalog_image.py's own docstring on why it is a capability, not a readable field), then
+    hit the real public, unauthenticated route with it."""
+    r = client_mem.post("/api/v1/staff/services/bulk_import", json={"rows": [{
+        "name": "غسيل خارجي", "image_base64": base64.b64encode(_PNG_1PX).decode(),
+        "image_content_type": "image/png"}]}, headers=HEADERS)
+    assert r.status_code == 200, r.text
+    sid = client_mem.get("/api/v1/staff/services", headers=HEADERS).json()["services"][0]["id"]
+
+    from app.core.stores import ServiceStore
+    store = ServiceStore(client_mem.app.state.container.datastore)
+    import asyncio
+    s = asyncio.run(store.get("t1", sid))
+    assert s.public_image_token != ""
+
+    got = client_mem.get(f"/api/v1/public_catalog/{s.public_image_token}")
+    assert got.status_code == 200
+    assert got.content == _PNG_1PX
+
+
+def test_reimporting_with_a_new_image_rotates_the_public_token_and_kills_the_old_one(client_mem):
+    client_mem.post("/api/v1/staff/services/bulk_import", json={"rows": [{
+        "name": "غسيل خارجي", "image_base64": base64.b64encode(_PNG_1PX).decode(),
+        "image_content_type": "image/png"}]}, headers=HEADERS)
+
+    from app.core.stores import ServiceStore
+    import asyncio
+    store = ServiceStore(client_mem.app.state.container.datastore)
+    sid = client_mem.get("/api/v1/staff/services", headers=HEADERS).json()["services"][0]["id"]
+    old_token = asyncio.run(store.get("t1", sid)).public_image_token
+
+    other_png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNgAAIAAAUAAen63NgAAAAASUVORK5CYII=")
+    client_mem.post("/api/v1/staff/services/bulk_import", json={"rows": [{
+        "name": "غسيل خارجي", "image_base64": base64.b64encode(other_png).decode(),
+        "image_content_type": "image/png"}]}, headers=HEADERS)
+    new_token = asyncio.run(store.get("t1", sid)).public_image_token
+
+    assert new_token != old_token
+    assert client_mem.get(f"/api/v1/public_catalog/{old_token}").status_code == 404
+    got = client_mem.get(f"/api/v1/public_catalog/{new_token}")
+    assert got.status_code == 200
+    assert got.content == other_png
+
+
 def test_reimporting_the_same_row_without_an_image_keeps_the_existing_photo(client_mem):
     # UNLIKE description/price, a blank image column is NOT "clear it" — see ServiceImportRow's
     # own note: a partial photo-refresh file must not wipe every OTHER row's picture.
@@ -249,3 +298,45 @@ def test_replacing_a_photo_via_reimport_deletes_the_old_object(client_mem):
     got = _image_get(client_mem, sid)
     assert got.content == other_png
     assert got.content != _PNG_1PX
+
+
+# ── WhatsApp Direct Ordering catalog sync ─────────────────────────────────────────────────────
+
+def test_import_schedules_a_catalog_backfill_for_every_created_and_updated_service(client):
+    """bulk_import is a separate write path from create_service/update_service and must not
+    bypass the same catalog sync those routes trigger on every edit."""
+    synced_ids: list[str] = []
+
+    async def _fake_backfill(*, tenant, services):
+        synced_ids.extend(s.id for s in services)
+        return len(services)
+
+    client.app.state.container.catalog_item_sync_trigger.backfill = _fake_backfill
+
+    r = _import(client, [{"name": "قص شعر", "price_minor": 3000},
+                         {"name": "حلاقة ذقن", "price_minor": 2000}])
+    assert r.status_code == 200, r.text
+    service_ids = {s["id"] for s in
+                  client.get("/api/v1/staff/services", headers=HEADERS).json()["services"]}
+    assert set(synced_ids) == service_ids
+
+
+def test_import_backfill_includes_services_deactivated_by_missing(client):
+    synced_ids: list[str] = []
+
+    async def _fake_backfill(*, tenant, services):
+        synced_ids.extend(s.id for s in services)
+        return len(services)
+
+    client.app.state.container.catalog_item_sync_trigger.backfill = _fake_backfill
+
+    _import(client, [{"name": "قص شعر"}, {"name": "حلاقة ذقن"}])
+    synced_ids.clear()
+    rows = client.get("/api/v1/staff/services", headers=HEADERS).json()["services"]
+    kept_id = rows[0]["id"]
+    removed_id = rows[1]["id"]
+
+    r = _import(client, [{"name": rows[0]["name"]}], deactivate_missing=True)
+    assert r.status_code == 200, r.text
+    assert kept_id in synced_ids
+    assert removed_id in synced_ids

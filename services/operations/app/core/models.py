@@ -242,6 +242,12 @@ class Service:
     # file-service note argued for keeping OUT of scope for one picture per shop; a catalogue can
     # hold dozens, so this one earns the real object store that logo deliberately went without.
     image_key: str = ""
+    # THE CAPABILITY TOKEN FOR THIS SERVICE'S PUBLIC IMAGE URL (core/public_catalog_image.py) —
+    # WhatsApp Direct Ordering's own catalog sync needs Meta's crawler to fetch the photo with no
+    # login, which `image_key` alone cannot offer (the staff route over it is gated). Empty until
+    # the first image is uploaded; a NEW token is minted on every re-upload and the old one is
+    # revoked in the same breath, so a leaked/cached URL goes dead the moment the photo changes.
+    public_image_token: str = ""
     # THE PROTOCOL — an ORDERED reference into `ProcedureStep`'s own shared catalogue (see below),
     # same "id-list on the owning side, not a junction row" convention `eligible_staff_ids` above
     # already established for this file. ORDER IS LIST POSITION, deliberately not a second field:
@@ -491,25 +497,34 @@ class Visit:
 
 @dataclass
 class Operator:
-    """Who recorded the visit.
-
-    `pin_hash` — never the PIN. A four-digit PIN is guessable by construction, so it is not a
-    credential that protects data; it is an attribution check at the moment of saving, and the
-    screen behind it is already inside an authenticated establishment session.
-    """
+    """Who recorded the visit."""
     id: str
     tenant: str
     name: str
-    pin_hash: str = ""
     role: str = "operator"
     branch_id: str = ""
-    # WHO HE IS AT IDENTITY, when he has an account of his own. Empty for the PIN-only operators a
-    # shared tablet attributes work to — they are a name and a rhythm, not a login.
-    #
-    # THIS FIELD IS WHAT MAKES A BRANCH SCOPE POSSIBLE. A token carries `sub`; a branch lives on
-    # this row; nothing else in the product joins the two. Without it, "show this manager only his
-    # branch" has no way to know which manager is asking.
+    # WHO HE IS AT IDENTITY, and THE FIELD THAT MAKES A BRANCH SCOPE POSSIBLE. A token carries
+    # `sub`; a branch lives on this row; nothing else in the product joins the two. Without it,
+    # "show this manager only his branch" has no way to know which manager is asking.
     person_id: str = ""
+    # HIS OWN LOGIN NUMBER, SET ONCE AT HIRE AND NEVER CHANGED BY A RENAME/MOVE — the one thing
+    # `revoke` (api/v1/staff.py::update_operator) needs that `person_id` alone cannot give it:
+    # `signup.PHONE_INDEX` is keyed by PHONE, not by person_id, and revoking a membership used to
+    # leave that index entry behind forever (FOUND LIVE, owner's own report, 2026-10-03) — a
+    # dismissed employee's number stayed "already registered elsewhere" permanently, blocking him
+    # from ever being hired again anywhere, or signing up as an owner himself, with no self-service
+    # fix. Empty for the PIN-only operators a shared tablet attributes work to, same as `person_id`.
+    phone: str = ""
+    # THE PERSON_ID A STOPPED ROW USED TO HOLD, kept AFTER `person_id` above is blanked on stop
+    # (api/v1/staff.py's own `update_operator`) — a real, live security gap this closes: blanking
+    # `person_id` alone left NOTHING on the row for `api/scope.py::branch_scope` to match a
+    # dismissed employee's own still-valid, unexpired JWT against, so that lookup fell all the way
+    # through to "no row for this subject at all" — the SAME answer an unassigned owner gets —
+    # widening a stopped employee to see every branch instead of the REVOKED (see nothing) answer
+    # that same lookup is supposed to give. `person_id` still gets blanked (the "has_login"/
+    # rehire-required rule below still needs that), but the identity a stale token might still
+    # carry is preserved here, permanently, so `branch_scope` can still recognise it.
+    revoked_person_id: str = ""
     # WHAT HE MAY SEE, which is not where he WORKS. `branch_id` above is his station: it decides
     # where his visits are counted, and it is one place. This decides which branches' numbers,
     # messages and customers he may read, and an owner asks for more than one of those often — a
@@ -551,8 +566,6 @@ class Operator:
     pinned_nav_ids: list[str] = field(default_factory=list)
 
     def public(self) -> dict[str, Any]:
-        """No pin_hash. Not because it is readable, but because a hash that is never returned
-        cannot be attacked offline by someone who reached a read endpoint."""
         return {"id": self.id, "tenant": self.tenant, "name": self.name, "role": self.role,
                 "branch_id": self.branch_id, "active": self.active, "created": self.created,
                 # WHAT HE MAY SEE, BESIDE WHERE HE WORKS. «فريقي» has to show both or the owner
@@ -568,11 +581,6 @@ class Operator:
                 # A BOOLEAN, NEVER THE ID. The screen needs to know he can sign in; the identifier
                 # itself is identity's and belongs in no response of ours.
                 "has_login": bool(self.person_id),
-                # ALSO A BOOLEAN, and for the field screen rather than for «فريقي»: the sheet that
-                # asks «من يحفظ؟» must not offer a name that cannot answer. An operator with no PIN
-                # listed there is a tap that ends in a refusal he has no way to satisfy, with a
-                # customer waiting.
-                "has_pin": bool(self.pin_hash),
                 "locale": self.locale,
                 "pinned_nav_ids": list(self.pinned_nav_ids)}
 
@@ -597,11 +605,18 @@ class Branch:
     lat: float = 0.0
     lng: float = 0.0
     city: str = ""
+    #: HOW FAR THIS BRANCH WILL DELIVER, in kilometres — for the WhatsApp Direct Ordering app
+    #: (core/orders.py). 0 is a real, valid choice (pickup-only, no delivery radius at all), never
+    #: a missing value; the actual 0-100km bound is enforced where it is SET (core/geo.py's own
+    #: `clamp_radius_km`), not re-validated here, the same "validate once, at the edge" posture
+    #: `Service.duration_minutes`'s own docstring argues for its own "0 = not configured" default.
+    delivery_radius_km: int = 0
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "name": self.name,
                 "active": self.active, "created": self.created, "closed_at": self.closed_at,
-                "lat": self.lat, "lng": self.lng, "city": self.city}
+                "lat": self.lat, "lng": self.lng, "city": self.city,
+                "delivery_radius_km": self.delivery_radius_km}
 
 
 @dataclass

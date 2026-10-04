@@ -47,6 +47,15 @@ async def branch_scope(store: Any, principal: Principal) -> "str | frozenset[str
     A stopped row is now its own answer. His membership is revoked when he is stopped
     (api/v1/staff.py), so in practice no token reaches here at all — this is the second lock, and
     it is the one that holds if the first is ever skipped or a token is still in flight.
+
+    AND THE SECOND LOCK NEEDS SOMETHING LEFT TO MATCH. `update_operator` blanks `person_id` the
+    moment it stops somebody (so nothing later mistakes the row for a live login) — which used to
+    mean this exact lookup found NO row at all for a dismissed employee's own still-valid,
+    unexpired token, read that as "unassigned", and answered with the WHOLE establishment: the
+    identical widening this function's own history says it was already fixed against, reopened by
+    a later, unrelated change. `revoked_person_id` (models.py's own field) is where that identity
+    moves to instead of vanishing, checked here as a second, explicit match — a real gap a live
+    test caught, not a hypothetical one.
     """
     subject = getattr(principal, "subject", "") or ""
     tenant = getattr(principal, "tenant", "") or ""
@@ -54,6 +63,11 @@ async def branch_scope(store: Any, principal: Principal) -> "str | frozenset[str
         return ""
     rows = await OperatorStore(store).list(tenant)
     for op in rows:
+        # `subject` is already guaranteed non-empty by the guard above, so this can only match a
+        # row that genuinely recorded THIS subject as the identity it revoked — never an
+        # accidental "" == "" coincidence against a row that was simply never stopped.
+        if op.revoked_person_id == subject:
+            return REVOKED
         if op.person_id == subject:
             if not op.active:
                 return REVOKED

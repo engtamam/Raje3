@@ -27,7 +27,7 @@ import datetime as _dt
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.api.auth import Principal
 from app.api.authz import require_capability
@@ -49,6 +49,20 @@ from app.core.secret_registry import (
 router = APIRouter(prefix="/secrets", tags=["secrets"])
 
 _logger = get_logger("app.secrets")
+
+# ONE LOCK PER KEY, NOT ONE GLOBAL LOCK — two owners rotating different credentials must not block
+# each other; two requests racing the SAME key (a double submit, a retried request) must never
+# both reach `patch_secret` concurrently, since the second's annotations (last4/updated_at/
+# updated_by) could land on top of the first's value with the first's own metadata, or vice versa.
+_write_locks: dict[str, asyncio.Lock] = {}
+
+
+def _lock_for(key: str) -> asyncio.Lock:
+    lock = _write_locks.get(key)
+    if lock is None:
+        lock = asyncio.Lock()
+        _write_locks[key] = lock
+    return lock
 
 # NARROWER THAN `platform.operations`, DELIBERATELY. Editing a message template and replacing the
 # credential that every WhatsApp message in the product is sent with are not the same privilege,
@@ -83,6 +97,18 @@ class SecretIn(BaseModel):
     """
 
     value: str = Field(max_length=4096)
+
+    @field_validator("value", mode="before")
+    @classmethod
+    def _strip(cls, v: str) -> str:
+        return v.strip() if isinstance(v, str) else v
+
+    @field_validator("value")
+    @classmethod
+    def _no_control_chars(cls, v: str) -> str:
+        if any((ord(c) < 0x20 and c != "\t") or ord(c) == 0x7f for c in v):
+            raise ValueError("value contains control characters")
+        return v
 
 
 @router.get("", dependencies=[Depends(rate_limit)])
@@ -187,7 +213,16 @@ async def set_secret(request: Request, key: str, body: SecretIn,
     value = body.value.strip()
     if not value:
         return _refuse("أدخل القيمة — لا يمكن حفظ مفتاح فارغ.")
+    if len(value) < 5:
+        # last4_of reveals the WHOLE value for anything this short — refused rather than
+        # stored, since the "hint" would be a full disclosure.
+        return _refuse("القيمة قصيرة جداً لتُخزَّن بأمان.")
 
+    async with _lock_for(key):
+        return await _write_secret(request, entry, value, principal, guard)
+
+
+async def _write_secret(request: Request, entry, value: str, principal: Principal, guard) -> dict:
     at = _now_iso()
     actor = getattr(principal, "subject", "") or ""
     # NO VALUE AND NO FRAGMENT OF ONE IN THIS RECORD — not the last four either. The audit log is

@@ -123,7 +123,7 @@ def test_a_standalone_plan_still_refuses_a_second_copy():
     assert d.allowed is False and "مفعّل" in d.reason
 
 
-# ── `plan.requires_any` — نقاطي needs a touchpoint app first ───────────────────────────────────
+# ── `plan.requires_any` — نقاط الولاء needs a touchpoint app first ───────────────────────────────────
 LOYALTY = {"feature.loyalty": {"kind": "boolean", "limit": 1},
           "plan.requires_any": {"kind": "list", "list": ["feature.visit", "feature.bookings"]}}
 

@@ -299,7 +299,7 @@ function RepeatRow({ i, total, onMove, onRemove, children }: {
   const { t } = useBlockDocI18n();
   return (
     <div className="flex items-start gap-2 rounded-lg border border-border-subtle bg-surface-2/40 p-2">
-      <span className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded bg-surface-2 text-[0.65rem] font-semibold text-text-muted">{i + 1}</span>
+      <span className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded border border-border-subtle bg-surface-1 text-[0.65rem] font-semibold text-text-muted">{i + 1}</span>
       <div className="min-w-0 flex-1">{children}</div>
       <div className="flex shrink-0 flex-col gap-0.5 text-text-muted">
         <button type="button" onClick={() => onMove(-1)} disabled={i === 0} className="rounded p-0.5 hover:bg-surface-2 disabled:opacity-30" title={t('legal.moveUp')}><ChevronUp size={13} /></button>
@@ -477,9 +477,9 @@ export function SectionRail({
                 className={`group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-start transition ${
                   on ? 'bg-accent-soft ring-1 ring-accent/25' : 'hover:bg-surface-2'}`}>
                 <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg text-xs font-semibold tabular-nums transition ${
-                  on ? 'bg-accent text-accent-contrast shadow-sm' : 'bg-surface-2 text-text-muted group-hover:text-text-secondary'}`}>{i + 1}</span>
+                  on ? 'bg-accent text-accent-contrast shadow-sm' : 'border border-border-subtle bg-surface-1 text-text-muted group-hover:text-text-secondary'}`}>{i + 1}</span>
                 <span className={`min-w-0 flex-1 truncate text-sm leading-snug ${on ? 'font-semibold text-accent-on-soft' : 'text-text-secondary'}`}>{sectionLabel(s, i)}</span>
-                <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-2xs tabular-nums ${on ? 'bg-accent/15 text-accent-on-soft' : 'bg-surface-2 text-text-muted'}`}>{s.blocks.length}</span>
+                <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-2xs tabular-nums ${on ? 'bg-accent/15 text-accent-on-soft' : 'border border-border-subtle bg-surface-1 text-text-muted'}`}>{s.blocks.length}</span>
               </button>
             </li>
           );
@@ -694,7 +694,7 @@ export function BlockIndexRail({
               className={onReorder && railOver === i && railFrom.current !== i ? 'rounded-xl ring-2 ring-accent/50' : undefined}>
               <button type="button" onClick={() => onSelect(i)}
                 className={`group flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-start transition ${on ? 'bg-accent-soft ring-1 ring-accent/25' : 'hover:bg-surface-2'}`}>
-                <span className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg text-[0.65rem] font-semibold tabular-nums transition ${on ? 'bg-accent text-accent-contrast shadow-sm' : 'bg-surface-2 text-text-muted group-hover:text-text-secondary'}`}>{i + 1}</span>
+                <span className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg text-[0.65rem] font-semibold tabular-nums transition ${on ? 'bg-accent text-accent-contrast shadow-sm' : 'border border-border-subtle bg-surface-1 text-text-muted group-hover:text-text-secondary'}`}>{i + 1}</span>
                 <span className="min-w-0 flex-1">
                   <span className={`block text-xs font-semibold ${on ? 'text-accent-on-soft' : 'text-text-secondary'}`}>{blockKindLabel(t, b.type)}</span>
                   <span className="mt-0.5 block truncate text-2xs text-text-muted">{gist || t('legal.emptyBlock')}</span>
@@ -836,7 +836,7 @@ function BlockEditor({
       <button type="button" onClick={onOpen}
         className="group flex w-full items-center gap-2 rounded-xl border border-border-subtle bg-surface-1 px-3 py-2 text-start transition hover:border-accent/50 hover:bg-surface-2/40">
         <ChevronRight size={15} className="shrink-0 text-text-muted transition group-hover:text-accent" />
-        <span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-surface-2 text-[0.7rem] font-semibold text-text-muted">{index + 1}</span>
+        <span className="grid h-5 w-5 shrink-0 place-items-center rounded border border-border-subtle bg-surface-1 text-[0.7rem] font-semibold text-text-muted">{index + 1}</span>
         <Badge tone="info">{blockKindLabel(t, block.type)}</Badge>
         <span className="min-w-0 flex-1 truncate text-sm text-text-secondary">{gist || <span className="text-text-muted">{t('legal.emptyBlock')}</span>}</span>
       </button>

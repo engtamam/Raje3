@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
+import 'package:raje3_mobile/core/providers/branch_provider.dart';
+import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/utils/formatters.dart';
 import 'package:raje3_mobile/core/utils/validators.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
@@ -52,12 +54,47 @@ class _VisitScreenState extends State<VisitScreen>
   final _phoneController = TextEditingController();
   final _noteController = TextEditingController();
   final _plateController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _meterController = TextEditingController();
   final _phoneFocus = FocusNode();
   final _plateFocus = FocusNode();
 
   bool _loadingCatalogue = true;
   String? _catalogueError;
   List<Map<String, dynamic>> _services = [];
+  List<Map<String, dynamic>> _packages = [];
+
+  // ── Today's known appointments — `GET /api/v1/bookings`, resolved to today's business day and
+  // this shop's own single branch (multi-branch: skipped entirely, same "not yet narrowed" rule
+  // the rest of this app already holds to — see `_loadTodayBookings`'s own note). `null` = not
+  // loaded / not applicable; an empty list is a real, silent "nobody today".
+  List<Map<String, dynamic>>? _todayBookings;
+  Map<String, String> _operatorNames = {};
+  String _busyBookingId = '';
+
+  /// service_id -> its own resolved loyalty points (`GET /api/v1/loyalty/settings`, the same
+  /// tree `services_catalogue_service.dart`'s own `EarnSettingsTree` already models for
+  /// «خدماتي ومنتجاتي») — fetched once alongside the catalogue purely for display on each tile;
+  /// never sent back, never a source of truth for what the visit actually earns.
+  final Map<String, int> _servicePoints = {};
+
+  /// The package tapped to select its member services in one motion — highlighted itself, and its
+  /// own tint carries onto every service tile it added, so the operator sees at a glance which
+  /// selections came from one tap rather than several.
+  String? _selectedPackageId;
+
+  // ── Shop-to-shop coupon grant, riding on this same visit — `Visit.tsx`'s own "checkbox during
+  // visit recording" surface. `null` = still unknown (or the tenant/role does not have this at
+  // all — `operations.grant_coupon` absent from the catalogue means this section is never shown,
+  // never a control that refuses). Scope note: this mobile pass supports the GENERAL grant only
+  // (every app the beneficiary holds) — the console's own per-app scope picker reads from its
+  // local app registry (`APP_ROWS`), which has no mobile equivalent yet; not stubbed, simply the
+  // one real, always-available choice, "العام", built first.
+  bool? _couponScreenEnabled;
+  bool _couponOn = false;
+  final _couponPhoneController = TextEditingController();
+  final _couponPercentController = TextEditingController(text: '10');
+  int _couponPercent = 10;
 
   // ── vehicle/plate — GET /api/v1/field/catalogue's own `tracks_vehicle`, the SAME server fact
   // apps/console/src/screens/Visit.tsx's own `showPlate` reads. A shop this is true for REFUSES
@@ -68,6 +105,8 @@ class _VisitScreenState extends State<VisitScreen>
   bool _lookingUpPlate = false;
   String? _vehicleCustomerName;
   bool _plateLookedUp = false;
+  Timer? _plateSuggestDebounce;
+  List<Map<String, dynamic>> _plateSuggestions = [];
 
   Timer? _suggestDebounce;
   Timer? _exactDebounce;
@@ -119,19 +158,33 @@ class _VisitScreenState extends State<VisitScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _phoneFocus.requestFocus();
     });
+    // A BRANCH SWITCH ELSEWHERE (the home hero's own chip) MUST REACH TODAY'S APPOINTMENTS HERE
+    // TOO — this screen is reachable without ever leaving it, so a stale diary from the branch he
+    // just left would show the wrong shop's own customers.
+    context.read<BranchProvider>().addListener(_onBranchChanged);
+  }
+
+  void _onBranchChanged() {
+    if (mounted) _loadTodayBookings();
   }
 
   @override
   void dispose() {
+    context.read<BranchProvider>().removeListener(_onBranchChanged);
     _entryController.dispose();
     _phoneController.dispose();
     _noteController.dispose();
     _plateController.dispose();
+    _nameController.dispose();
+    _meterController.dispose();
+    _couponPhoneController.dispose();
+    _couponPercentController.dispose();
     _phoneFocus.dispose();
     _plateFocus.dispose();
     _suggestDebounce?.cancel();
     _exactDebounce?.cancel();
     _plateLookupDebounce?.cancel();
+    _plateSuggestDebounce?.cancel();
     super.dispose();
   }
 
@@ -150,18 +203,161 @@ class _VisitScreenState extends State<VisitScreen>
               .whereType<Map<String, dynamic>>()
               .toList()
           : <Map<String, dynamic>>[];
+      final packages = body is Map<String, dynamic>
+          ? (body['packages'] as List<dynamic>? ?? const [])
+              .whereType<Map<String, dynamic>>()
+              .toList()
+          : <Map<String, dynamic>>[];
       final tracksVehicle = body is Map<String, dynamic> && body['tracks_vehicle'] == true;
       if (!mounted) return;
       setState(() {
         _services = services;
+        _packages = packages;
         _tracksVehicle = tracksVehicle;
         _loadingCatalogue = false;
       });
+      unawaited(_loadServicePoints());
+      unawaited(_loadCouponPreference());
+      unawaited(_loadTodayBookings());
     } on DioException {
       if (!mounted) return;
       setState(() {
         _catalogueError = S.of(context)!.visitCatalogueLoadErrorFallback;
         _loadingCatalogue = false;
+      });
+    }
+  }
+
+  /// «كم نقطة يكسبها العميل من كل خدمة» — a real, resolved number per tile (service's own
+  /// override → its group → tenant general → platform floor), read once from the same tree
+  /// `services_catalogue_service.dart`'s own `EarnSettingsTree` models. Silent on failure: a shop
+  /// with no loyalty programme, or a role without `loyalty.read`, simply shows no points badge —
+  /// never a blocked grid over a purely decorative number.
+  Future<void> _loadServicePoints() async {
+    try {
+      final response = await _api.apiClient.dio.get<dynamic>('/api/v1/loyalty/settings');
+      final body = response.data;
+      if (body is! Map) return;
+      final generalPoints = (body['general'] is Map ? (body['general']['points'] as num?) : null)?.toInt();
+      final defaultPoints = (body['defaults'] is Map ? (body['defaults']['points'] as num?) : null)?.toInt();
+      final serviceGroup = <String, String>{
+        for (final e in ((body['service_group'] as Map?) ?? const {}).entries)
+          e.key.toString(): e.value.toString(),
+      };
+      final groupPoints = <String, int>{
+        for (final e in ((body['groups'] as Map?) ?? const {}).entries)
+          e.key.toString(): (e.value is Map ? (e.value['points'] as num?)?.toInt() : null) ?? 0,
+      };
+      final servicePoints = <String, int>{
+        for (final e in ((body['services'] as Map?) ?? const {}).entries)
+          e.key.toString(): (e.value is Map ? (e.value['points'] as num?)?.toInt() : null) ?? 0,
+      };
+      if (!mounted) return;
+      setState(() {
+        for (final service in _services) {
+          final id = service['id'] as String? ?? '';
+          if (id.isEmpty) continue;
+          final own = servicePoints[id];
+          final group = serviceGroup[id];
+          final resolved = own ?? (group != null ? groupPoints[group] : null) ?? generalPoints ?? defaultPoints ?? 0;
+          if (resolved > 0) _servicePoints[id] = resolved;
+        }
+      });
+    } on DioException {
+      // Decorative only — never blocks or errors the screen.
+    }
+  }
+
+  /// `GET /api/v1/staff/coupons/preferences` — whether the owner turned the visit-screen coupon
+  /// checkbox ON at all («تحالف استراتيجي»'s own switch). Never fetched unless the role already
+  /// carries `operations.grant_coupon` — the same capability the server itself checks before
+  /// attempting any grant, so a role/tenant without it never even asks.
+  Future<void> _loadCouponPreference() async {
+    final catalog = context.read<NavProvider>().catalog;
+    if (!catalog.hasAll(['operations.grant_coupon'])) return;
+    try {
+      final response = await _api.apiClient.dio.get<dynamic>('/api/v1/staff/coupons/preferences');
+      final body = response.data;
+      final enabled = body is Map && body['visit_grant_enabled'] == true;
+      if (!mounted) return;
+      setState(() => _couponScreenEnabled = enabled);
+    } on DioException {
+      if (mounted) setState(() => _couponScreenEnabled = false);
+    }
+  }
+
+  /// Every open booking for TODAY, this shop's own business day — an operator recognises a walk-
+  /// in he already knows is coming and confirms it in one tap, never a lookup. Reads the real
+  /// branch scope from [BranchProvider] — the home hero's own switcher — rather than re-guessing
+  /// it here; a single-branch shop resolves silently (BranchProvider auto-selects its only
+  /// branch), a multi-branch shop that has not opened the switcher yet still gets its default
+  /// (BranchProvider.load's own "first branch" fallback), and the chip is always there to correct
+  /// it explicitly.
+  Future<void> _loadTodayBookings() async {
+    final catalog = context.read<NavProvider>().catalog;
+    if (!catalog.hasAll(['bookings.read'])) return;
+    final branchProvider = context.read<BranchProvider>();
+    if (!branchProvider.loaded) await branchProvider.load();
+    final branchId = branchProvider.selectedId;
+    if (branchId == null) return;
+    final now = DateTime.now();
+    final dateStr =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    try {
+      final response = await _api.apiClient.dio
+          .get<dynamic>('/api/v1/bookings', queryParameters: {'branch_id': branchId, 'date': dateStr});
+      final body = response.data;
+      final rows = body is Map<String, dynamic>
+          ? (body['bookings'] as List<dynamic>? ?? const [])
+              .whereType<Map<String, dynamic>>()
+              .where((b) => b['status'] == 'booked')
+              .toList()
+          : <Map<String, dynamic>>[];
+      rows.sort((a, b) =>
+          ((a['starts_at'] as num?) ?? 0).compareTo((b['starts_at'] as num?) ?? 0));
+      if (!mounted) return;
+      setState(() => _todayBookings = rows);
+      final operators = await _api.fetchOperators();
+      if (operators != null && mounted) {
+        setState(() => _operatorNames = {for (final o in operators) o.id: o.name});
+      }
+    } on DioException {
+      if (mounted) setState(() => _todayBookings = const []);
+    }
+  }
+
+  /// One tap: `PATCH /api/v1/bookings/{id}/attend` creates the real visit server-side directly
+  /// from what the booking already decided (customer, services, operator) — genuinely faster than
+  /// opening the visit form, not merely a shortcut to it.
+  Future<void> _attendBooking(Map<String, dynamic> booking) async {
+    final id = booking['id'] as String? ?? '';
+    if (id.isEmpty || _busyBookingId.isNotEmpty) return;
+    HapticFeedback.selectionClick();
+    setState(() => _busyBookingId = id);
+    try {
+      final response = await _api.apiClient.dio.patch<dynamic>(
+        '/api/v1/bookings/${Uri.encodeComponent(id)}/attend',
+        data: {'occurred_at': DateTime.now().millisecondsSinceEpoch ~/ 1000},
+      );
+      if (!mounted) return;
+      final status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) {
+        HapticFeedback.mediumImpact();
+        setState(() {
+          _todayBookings = _todayBookings!.where((b) => b['id'] != id).toList();
+          _busyBookingId = '';
+        });
+      } else {
+        setState(() {
+          _busyBookingId = '';
+          _saveError = S.of(context)!.visitBookingAttendFailed;
+        });
+      }
+    } on DioException {
+      if (!mounted) return;
+      setState(() {
+        _busyBookingId = '';
+        _saveError = S.of(context)!.visitBookingAttendFailed;
       });
     }
   }
@@ -227,11 +423,13 @@ class _VisitScreenState extends State<VisitScreen>
       text: phone,
       selection: TextSelection.collapsed(offset: phone.length),
     );
+    final foundName = customer['name'] as String?;
     setState(() {
       _suggestions = [];
-      _customerName = customer['name'] as String?;
+      _customerName = foundName;
       _lookedUp = true;
       _lookingUp = false;
+      if (foundName != null && foundName.isNotEmpty) _nameController.text = foundName;
     });
     // THE SUGGESTION ROW HAS NO `subject_ref` (search-service's own `suggest`/`search` answer
     // names/phones only) — a quiet, un-flagged re-lookup fetches it purely for the loyalty/offer
@@ -259,10 +457,12 @@ class _VisitScreenState extends State<VisitScreen>
       final customer = body is Map<String, dynamic> ? body['customer'] : null;
       final subjectRef = customer is Map<String, dynamic> ? customer['subject_ref'] as String? : null;
       if (!silent) {
+        final foundName = customer is Map<String, dynamic> ? customer['name'] as String? : null;
         setState(() {
-          _customerName = customer is Map<String, dynamic> ? customer['name'] as String? : null;
+          _customerName = foundName;
           _lookedUp = true;
           _lookingUp = false;
+          if (foundName != null && foundName.isNotEmpty) _nameController.text = foundName;
         });
       }
       if (subjectRef != null && subjectRef.isNotEmpty) {
@@ -297,10 +497,68 @@ class _VisitScreenState extends State<VisitScreen>
       });
     }
     _clearLoyaltyAndOffer();
+    _plateSuggestDebounce?.cancel();
     _plateLookupDebounce?.cancel();
     final plate = formatted.trim();
+    // TWO CHARACTERS ARE ENOUGH TO NARROW A YARD — same threshold `Visit.tsx`'s own plate
+    // suggestions use; an operator reading four characters off a bumper should not have to type
+    // the whole plate before a car we already know starts showing up.
+    if (plate.length < 2) {
+      setState(() => _plateSuggestions = []);
+    } else {
+      _plateSuggestDebounce =
+          Timer(const Duration(milliseconds: 250), () => _fetchPlateSuggestions(plate));
+    }
     if (plate.length < 3) return;
     _plateLookupDebounce = Timer(const Duration(milliseconds: 220), () => _lookupPlate(plate));
+  }
+
+  /// Same `/customers/suggest` route the phone field already calls — it indexes plates too (see
+  /// `field.py::suggest_customers`'s own row shape) — filtered here to rows that actually carry
+  /// one, since the same prefix can just as plausibly match somebody's phone number.
+  Future<void> _fetchPlateSuggestions(String prefix) async {
+    try {
+      final response = await _api.apiClient.dio.get<dynamic>(
+        '/api/v1/field/customers/suggest',
+        queryParameters: {'prefix': prefix},
+      );
+      if (!mounted || _plateController.text.trim() != prefix) return;
+      final body = response.data;
+      final rows = body is Map<String, dynamic>
+          ? (body['customers'] as List<dynamic>? ?? const [])
+              .whereType<Map<String, dynamic>>()
+              .where((c) => (c['plate'] as String?)?.isNotEmpty == true)
+              .take(4)
+              .toList()
+          : <Map<String, dynamic>>[];
+      setState(() => _plateSuggestions = rows);
+    } on DioException {
+      if (mounted) setState(() => _plateSuggestions = []);
+    }
+  }
+
+  /// Pick a plate suggestion directly — fills both the plate and, when the row carries one, the
+  /// phone/name too, same one-tap shortcut the phone field's own suggestions already give.
+  void _pickPlateSuggestion(Map<String, dynamic> hit) {
+    final plate = hit['plate'] as String? ?? '';
+    if (plate.isEmpty) return;
+    HapticFeedback.selectionClick();
+    _plateSuggestDebounce?.cancel();
+    _plateLookupDebounce?.cancel();
+    final formatted = Formatters.formatPlate(plate);
+    _plateController.value =
+        TextEditingValue(text: formatted, selection: TextSelection.collapsed(offset: formatted.length));
+    final phone = hit['phone'] as String? ?? '';
+    final foundName = hit['name'] as String?;
+    setState(() {
+      _plateSuggestions = [];
+      _vehicleCustomerName = foundName;
+      _plateLookedUp = true;
+      _lookingUpPlate = false;
+      if (phone.isNotEmpty) _phoneController.text = phone;
+      if (foundName != null && foundName.isNotEmpty) _nameController.text = foundName;
+    });
+    if (phone.isNotEmpty) unawaited(_lookupExact(phone, silent: true));
   }
 
   Future<void> _lookupPlate(String plate) async {
@@ -314,10 +572,12 @@ class _VisitScreenState extends State<VisitScreen>
       final body = response.data;
       final customer = body is Map<String, dynamic> ? body['customer'] : null;
       final subjectRef = customer is Map<String, dynamic> ? customer['subject_ref'] as String? : null;
+      final foundName = customer is Map<String, dynamic> ? customer['name'] as String? : null;
       setState(() {
-        _vehicleCustomerName = customer is Map<String, dynamic> ? customer['name'] as String? : null;
+        _vehicleCustomerName = foundName;
         _plateLookedUp = true;
         _lookingUpPlate = false;
+        if (foundName != null && foundName.isNotEmpty) _nameController.text = foundName;
       });
       if (subjectRef != null && subjectRef.isNotEmpty) {
         unawaited(_loadLoyaltyAndOffer(subjectRef));
@@ -474,7 +734,23 @@ class _VisitScreenState extends State<VisitScreen>
       } else {
         _selected[serviceId] = 1;
       }
+      _clearPackageIfIncomplete();
     });
+  }
+
+  /// A package attribution must never travel with an INCOMPLETE set of its own member services —
+  /// `package_id` tells the server "price this visit as the package", so a package badge left on
+  /// after the operator manually dropped one of its two services would misprice the visit at the
+  /// bundle's price for work that was not actually the bundle. Deselecting the package tag itself
+  /// never touches which services stay chosen — only ever the reverse.
+  void _clearPackageIfIncomplete() {
+    final id = _selectedPackageId;
+    if (id == null) return;
+    final pkg = _packages.cast<Map<String, dynamic>?>().firstWhere((p) => p?['id'] == id, orElse: () => null);
+    final memberIds = ((pkg?['service_ids'] as List?) ?? const []).map((e) => e.toString());
+    if (!memberIds.every(_selected.containsKey)) {
+      _selectedPackageId = null;
+    }
   }
 
   void _changeQuantity(String serviceId, int delta) {
@@ -483,6 +759,81 @@ class _VisitScreenState extends State<VisitScreen>
       final current = _selected[serviceId] ?? 1;
       final next = (current + delta).clamp(1, 20);
       _selected[serviceId] = next;
+    });
+  }
+
+  /// A typed quantity, not just +/- taps — an operator selling "12× غسيل" types the number once
+  /// instead of tapping the stepper eleven times. Same 1–20 ceiling `_changeQuantity` already
+  /// enforces server-side (`check_quantities`'s own per-line cap).
+  void _setQuantity(String serviceId, int value) {
+    HapticFeedback.selectionClick();
+    setState(() => _selected[serviceId] = value.clamp(1, 20));
+  }
+
+  Future<void> _promptQuantity(BuildContext context, String serviceId, int current) async {
+    final s = S.of(context)!;
+    final controller = TextEditingController(text: '$current');
+    final value = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(s.visitQuantityDialogTitle),
+        content: KbAnchor(
+          id: 'visit.quantity_dialog_field',
+          child: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          textDirection: TextDirection.ltr,
+          style: AppTextStyles.displaySmall,
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(s.mobileRequestsRejectCancel)),
+          TextButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(int.tryParse(controller.text.trim())),
+            child: Text(s.servicesSave),
+          ),
+        ],
+      ),
+    );
+    if (value != null && value > 0) _setQuantity(serviceId, value);
+  }
+
+  /// One tap adds every member service of the package at quantity 1; tapping the SAME package
+  /// again undoes exactly what it added — never anything the operator separately chose by hand.
+  /// Mirrors `Visit.tsx`'s own `selectPackage` exactly: a visit sells one package at a time, so
+  /// picking a second one first steps the previous one aside.
+  void _selectPackage(Map<String, dynamic> pkg) {
+    HapticFeedback.selectionClick();
+    final id = pkg['id'] as String? ?? '';
+    if (id.isEmpty) return;
+    final memberIds = ((pkg['service_ids'] as List?) ?? const [])
+        .map((e) => e.toString())
+        .toList(growable: false);
+    setState(() {
+      if (_selectedPackageId == id) {
+        for (final sid in memberIds) {
+          _selected.remove(sid);
+        }
+        _selectedPackageId = null;
+        return;
+      }
+      if (_selectedPackageId != null) {
+        final previous = _packages.cast<Map<String, dynamic>?>().firstWhere(
+            (p) => p?['id'] == _selectedPackageId,
+            orElse: () => null);
+        final previousIds = ((previous?['service_ids'] as List?) ?? const [])
+            .map((e) => e.toString());
+        for (final sid in previousIds) {
+          _selected.remove(sid);
+        }
+      }
+      for (final sid in memberIds) {
+        _selected[sid] = 1;
+      }
+      _selectedPackageId = id;
     });
   }
 
@@ -514,14 +865,26 @@ class _VisitScreenState extends State<VisitScreen>
       _saveError = null;
     });
     try {
+      final name = _nameController.text.trim();
+      final meter = _meterController.text.trim();
       final response = await _api.apiClient.dio.post<dynamic>(
         '/api/v1/field/visits',
         data: {
           'phone': phone,
           if (_tracksVehicle) 'plate': plate,
+          if (name.isNotEmpty) 'name': name,
+          if (_tracksVehicle && meter.isNotEmpty) 'meter': int.tryParse(meter),
           'service_ids': _selected.keys.toList(),
           'quantities': _selected,
+          if (_selectedPackageId != null) 'package_id': _selectedPackageId,
           'note': _noteController.text.trim(),
+          if (_couponOn && _couponPhoneController.text.trim().isNotEmpty) ...{
+            'coupon_phone': _couponPhoneController.text.trim(),
+            'coupon_percent': _couponPercent,
+            // GENERAL ONLY — this pass's own scope decision, see this file's own header comment
+            // on `_couponScreenEnabled` for why there is no per-app picker yet.
+            'coupon_general': true,
+          },
           'idempotency_key': DateTime.now().microsecondsSinceEpoch.toString(),
           'occurred_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
         },
@@ -542,15 +905,23 @@ class _VisitScreenState extends State<VisitScreen>
           _saving = false;
           _justSaved = true;
           _selected.clear();
+          _selectedPackageId = null;
           _phoneController.clear();
           _noteController.clear();
           _plateController.clear();
+          _nameController.clear();
+          _meterController.clear();
+          _couponOn = false;
+          _couponPhoneController.clear();
+          _couponPercent = 10;
+          _couponPercentController.text = '10';
           _noteOpen = false;
           _lookedUp = false;
           _customerName = null;
           _suggestions = [];
           _plateLookedUp = false;
           _vehicleCustomerName = null;
+          _plateSuggestions = [];
           _subjectRef = null;
           _loyaltyPoints = null;
           _loyaltyToNextReward = 0;
@@ -635,6 +1006,10 @@ class _VisitScreenState extends State<VisitScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (_todayBookings != null && _todayBookings!.isNotEmpty) ...[
+                  _buildTodayBookings(),
+                  const SizedBox(height: AppSpacing.lg),
+                ],
                 if (_tracksVehicle) ...[
                   _buildPlateCard(),
                   const SizedBox(height: AppSpacing.lg),
@@ -642,7 +1017,17 @@ class _VisitScreenState extends State<VisitScreen>
                 _buildPhoneCard(),
                 _buildLoyaltyAndOfferSection(),
                 const SizedBox(height: AppSpacing.lg),
+                if (_packages.isNotEmpty) ...[
+                  _buildPackagesRail(),
+                  const SizedBox(height: AppSpacing.lg),
+                ],
                 _buildServicesGrid(),
+                const SizedBox(height: AppSpacing.md),
+                _buildNameAndMeterFields(),
+                if (_couponScreenEnabled == true) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _buildCouponSection(),
+                ],
                 const SizedBox(height: AppSpacing.md),
                 _buildNoteToggle(),
                 if (_saveError != null) ...[
@@ -667,6 +1052,63 @@ class _VisitScreenState extends State<VisitScreen>
         ),
         _buildBottomBar(),
       ],
+    );
+  }
+
+  // ── Today's known appointments — a real fact this operator can act on before the customer
+  // even opens his mouth: he already knows who is coming and when. First on screen, ahead of
+  // everything else, because recognising a face at the door beats typing a number every time.
+
+  Widget _buildTodayBookings() {
+    final s = S.of(context)!;
+    final locale = Localizations.localeOf(context).languageCode;
+    final rows = _todayBookings!.take(6).toList();
+    return KbAnchor(
+      id: 'visit.register.today_bookings',
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: context.isDark ? AppDarkColors.infoSoft : AppColors.infoSoft,
+          borderRadius: AppRadius.cardRadius,
+          border: Border.all(
+              color: (context.isDark ? AppDarkColors.info : AppColors.info).withValues(alpha: 0.25)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.event_available_rounded,
+                    size: 16, color: context.isDark ? AppDarkColors.info : AppColors.info),
+                const SizedBox(width: AppSpacing.xs),
+                Text(s.visitTodayBookingsTitle,
+                    style: AppTextStyles.labelMedium.copyWith(
+                        color: context.isDark ? AppDarkColors.infoOnSoft : AppColors.infoOnSoft,
+                        fontWeight: FontWeight.w800)),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            for (final b in rows)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                child: _TodayBookingRow(
+                  timeLabel: Formatters.formatTime(
+                      DateTime.fromMillisecondsSinceEpoch(((b['starts_at'] as num?) ?? 0).toInt() * 1000),
+                      locale: locale),
+                  operatorName: _operatorNames[b['operator_id'] as String? ?? ''] ?? '',
+                  serviceNames: ((b['service_ids'] as List?) ?? const [])
+                      .map((id) => _services
+                          .cast<Map<String, dynamic>?>()
+                          .firstWhere((svc) => svc?['id'] == id, orElse: () => null)?['name'] as String?)
+                      .whereType<String>()
+                      .join(' + '),
+                  busy: _busyBookingId == b['id'],
+                  onAttend: () => _attendBooking(b),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -765,7 +1207,9 @@ class _VisitScreenState extends State<VisitScreen>
                         style: AppTextStyles.bodySmall.copyWith(color: AppColors.danger),
                       ),
                     )
-                  : (_plateLookedUp ? _buildVehicleBadge() : const SizedBox(width: double.infinity)),
+                  : (_plateSuggestions.isNotEmpty
+                      ? _buildPlateSuggestions()
+                      : (_plateLookedUp ? _buildVehicleBadge() : const SizedBox(width: double.infinity))),
             ),
           ],
         ),
@@ -801,6 +1245,61 @@ class _VisitScreenState extends State<VisitScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// A car he read four characters off a bumper — finishing the plate by hand when we already
+  /// hold it is work we can do for him, and one tap fills the owner too. Mirrors the phone
+  /// field's own suggestion list, car-toned instead of person-toned.
+  Widget _buildPlateSuggestions() {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.md),
+      child: Column(
+        children: [
+          for (final hit in _plateSuggestions)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: Material(
+                color: AppColors.surface2,
+                borderRadius: AppRadius.standardRadius,
+                child: InkWell(
+                  borderRadius: AppRadius.standardRadius,
+                  onTap: () => _pickPlateSuggestion(hit),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 30,
+                          height: 30,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            color: AppColors.infoSoft,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.directions_car_rounded, size: 16, color: AppColors.info),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(
+                          Formatters.formatPlate(hit['plate'] as String? ?? ''),
+                          textDirection: TextDirection.ltr,
+                          style: AppTextStyles.bodyMedium.copyWith(
+                              fontWeight: FontWeight.w700, fontFeatures: const [FontFeature.tabularFigures()]),
+                        ),
+                        const Spacer(),
+                        Text(
+                          (hit['name'] as String?)?.isNotEmpty == true ? hit['name'] as String : '—',
+                          style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -1087,37 +1586,316 @@ class _VisitScreenState extends State<VisitScreen>
     );
   }
 
-  // ── Services — one-tap chips, not a checklist ────────────────────────────
+  // ── Packages — one tap sells the whole bundle, the same "متجر متعدد الخدمات"
+  //    professional shop-catalogue feel the owner asked for: a horizontal rail
+  //    of real product cards, never a plain filter chip. ─────────────────────
+
+  Widget _buildPackagesRail() {
+    final s = S.of(context)!;
+    return KbAnchor(
+      id: 'visit.register.packages_rail',
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFFBF1DD), Color(0xFFF3E1B8)],
+          ),
+          borderRadius: AppRadius.cardRadius,
+          border: Border.all(color: const Color(0xFFE0AA4D).withValues(alpha: 0.35)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFB7862B),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.workspace_premium_rounded, size: 14, color: Colors.white),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(s.visitPackagesSectionTitle,
+                    style: AppTextStyles.labelMedium
+                        .copyWith(color: const Color(0xFF7A5A17), fontWeight: FontWeight.w800)),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            SizedBox(
+              height: 132,
+              child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _packages.length,
+              separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+              itemBuilder: (context, i) {
+                final pkg = _packages[i];
+                final id = pkg['id'] as String? ?? '';
+                final memberNames = ((pkg['service_ids'] as List?) ?? const [])
+                    .map((sid) => _services.cast<Map<String, dynamic>?>().firstWhere(
+                        (svc) => svc?['id'] == sid,
+                        orElse: () => null)?['name'] as String?)
+                    .whereType<String>()
+                    .join(' + ');
+                return _PackageCard(
+                  name: pkg['name'] as String? ?? '',
+                  memberNames: memberNames,
+                  priceMinor: (pkg['price_minor'] as num?)?.toInt() ?? 0,
+                  hasImage: pkg['has_image'] == true,
+                  imageUrl: '/api/v1/field/catalogue/packages/$id/image',
+                  selected: _selectedPackageId == id,
+                  onTap: () => _selectPackage(pkg),
+                );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Services — a real product grid: photo, name, price, points, and a
+  //    quantity stepper once selected — never a flat grey chip wall. ───────
+
+  static const List<List<Color>> _serviceTonePalette = [
+    [Color(0xFF6D5FE8), Color(0xFF8B7CF6)], // violet
+    [Color(0xFF0E8A64), Color(0xFF17B37F)], // emerald
+    [Color(0xFFC2622B), Color(0xFFE0823F)], // amber-orange
+    [Color(0xFF2F5F8F), Color(0xFF4B84BD)], // ocean blue
+    [Color(0xFFB7412F), Color(0xFFDD5C45)], // clay red
+    [Color(0xFFA0680A), Color(0xFFC98A1F)], // gold
+  ];
 
   Widget _buildServicesGrid() {
+    final s = S.of(context)!;
     return KbAnchor(
       id: 'visit.register.services_grid',
       child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          S.of(context)!.visitServicesSectionTitle,
-          style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        if (_services.isEmpty)
-          Text(S.of(context)!.visitNoServicesYet, style: AppTextStyles.bodySmall)
-        else
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              for (final service in _services)
-                _ServiceChip(
-                  name: service['name'] as String? ?? '',
-                  quantity: _selected[service['id'] as String? ?? ''],
-                  onTap: () => _toggleService(service['id'] as String? ?? ''),
-                  onQuantityChange: (delta) =>
-                      _changeQuantity(service['id'] as String? ?? '', delta),
+              Expanded(
+                child: Text(
+                  _selected.isEmpty
+                      ? s.visitServicesSectionTitle
+                      : s.visitServicesSelectedCount(_selected.length),
+                  style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary),
+                ),
+              ),
+              if (_selected.isNotEmpty)
+                KbAnchor(
+                  id: 'visit.register.clear_all_button',
+                  child: TextButton(
+                    onPressed: () => setState(() {
+                      _selected.clear();
+                      _selectedPackageId = null;
+                    }),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.danger,
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(s.visitClearAllButton, style: AppTextStyles.caption),
+                  ),
                 ),
             ],
           ),
-      ],
+          const SizedBox(height: AppSpacing.sm),
+          if (_services.isEmpty)
+            Text(s.visitNoServicesYet, style: AppTextStyles.bodySmall)
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: AppSpacing.sm,
+                crossAxisSpacing: AppSpacing.sm,
+                childAspectRatio: 0.86,
+              ),
+              itemCount: _services.length,
+              itemBuilder: (context, i) {
+                final service = _services[i];
+                final id = service['id'] as String? ?? '';
+                final tone = _serviceTonePalette[i % _serviceTonePalette.length];
+                return _ServiceTile(
+                  name: service['name'] as String? ?? '',
+                  priceMinor: (service['price_minor'] as num?)?.toInt() ?? 0,
+                  points: _servicePoints[id],
+                  hasImage: service['has_image'] == true,
+                  imageUrl: '/api/v1/field/catalogue/services/$id/image',
+                  toneGradient: tone,
+                  quantity: _selected[id],
+                  onTap: () => _toggleService(id),
+                  onQuantityChange: (delta) => _changeQuantity(id, delta),
+                  onQuantityTap: () => _promptQuantity(context, id, _selected[id] ?? 1),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ── Name + meter — always on screen, never behind a second tap; the meter
+  //    is asked only where the shop's own «حسابي» setting tracks vehicles. ──
+
+  Widget _buildNameAndMeterFields() {
+    final s = S.of(context)!;
+    return KbAnchor(
+      id: 'visit.register.name_meter_fields',
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: _tracksVehicle ? 3 : 1,
+            child: TextField(
+              controller: _nameController,
+              style: AppTextStyles.bodyMedium,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AppColors.surface2,
+                hintText: s.visitNameFieldHint,
+                prefixIcon: const Icon(Icons.badge_outlined, size: 18, color: AppColors.textMuted),
+                border: OutlineInputBorder(
+                    borderRadius: AppRadius.standardRadius, borderSide: BorderSide.none),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+              ),
+            ),
+          ),
+          if (_tracksVehicle) ...[
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              flex: 2,
+              child: TextField(
+                controller: _meterController,
+                keyboardType: TextInputType.number,
+                textDirection: TextDirection.ltr,
+                style: AppTextStyles.bodyMedium.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: AppColors.surface2,
+                  hintText: s.visitMeterFieldHint,
+                  prefixIcon:
+                      const Icon(Icons.speed_rounded, size: 18, color: AppColors.textMuted),
+                  border: OutlineInputBorder(
+                      borderRadius: AppRadius.standardRadius, borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ── Coupon — «تحالف استراتيجي»'s own visit-screen shortcut: a discount on another shop's own
+  // subscription, riding on this same visit's own save. Collapsed to one checkbox until asked
+  // for, same posture the note field already takes — this is a rare act on the busiest screen in
+  // the product, never a permanent block of fields in the way of the ordinary five-second visit.
+
+  Widget _buildCouponSection() {
+    final s = S.of(context)!;
+    return KbAnchor(
+      id: 'visit.register.coupon_section',
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: (context.isDark ? AppDarkColors.accentSoft : AppColors.accentSoft),
+          borderRadius: AppRadius.standardRadius,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: () => setState(() => _couponOn = !_couponOn),
+              borderRadius: AppRadius.standardRadius,
+              child: Row(
+                children: [
+                  Icon(Icons.card_giftcard_rounded,
+                      size: 18, color: context.isDark ? AppDarkColors.accent : AppColors.accent),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(s.visitCouponCheckboxLabel,
+                        style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+                  ),
+                  Switch(
+                    value: _couponOn,
+                    onChanged: (v) => setState(() => _couponOn = v),
+                    activeThumbColor: context.isDark ? AppDarkColors.accent : AppColors.accent,
+                  ),
+                ],
+              ),
+            ),
+            AnimatedSize(
+              duration: AppMotion.base,
+              curve: Curves.easeOut,
+              alignment: Alignment.topCenter,
+              child: !_couponOn
+                  ? const SizedBox(width: double.infinity)
+                  : Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.sm),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: TextField(
+                              controller: _couponPhoneController,
+                              keyboardType: TextInputType.phone,
+                              textDirection: TextDirection.ltr,
+                              style: AppTextStyles.bodySmall,
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: AppColors.surface1,
+                                hintText: s.visitCouponPhoneHint,
+                                isDense: true,
+                                border: OutlineInputBorder(
+                                    borderRadius: AppRadius.standardRadius, borderSide: BorderSide.none),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: TextField(
+                              controller: _couponPercentController,
+                              keyboardType: TextInputType.number,
+                              textDirection: TextDirection.ltr,
+                              textAlign: TextAlign.center,
+                              style: AppTextStyles.bodySmall,
+                              onChanged: (v) {
+                                final n = int.tryParse(v);
+                                if (n != null) _couponPercent = n.clamp(1, 100);
+                              },
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: AppColors.surface1,
+                                suffixText: '%',
+                                isDense: true,
+                                border: OutlineInputBorder(
+                                    borderRadius: AppRadius.standardRadius, borderSide: BorderSide.none),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1306,67 +2084,409 @@ class _VisitScreenState extends State<VisitScreen>
   }
 }
 
-/// One tap to add at quantity 1; the stepper only appears once selected, so an unselected chip
-/// never carries a control the customer's actual count has no use for yet.
-class _ServiceChip extends StatelessWidget {
+/// One product tile — photo (or a tonal gradient monogram when the service has none), name,
+/// price, a points badge when the catalogue earns any, and a quantity stepper that only takes
+/// over the footer once selected. The "احترافية" the owner asked for by name: a real catalogue
+/// card, never a grey pill with text on it.
+class _ServiceTile extends StatelessWidget {
   final String name;
+  final int priceMinor;
+  final int? points;
+  final bool hasImage;
+  final String imageUrl;
+  final List<Color> toneGradient;
   final int? quantity;
   final VoidCallback onTap;
   final ValueChanged<int> onQuantityChange;
+  final VoidCallback onQuantityTap;
 
-  const _ServiceChip({
+  const _ServiceTile({
     required this.name,
+    required this.priceMinor,
+    required this.points,
+    required this.hasImage,
+    required this.imageUrl,
+    required this.toneGradient,
     required this.quantity,
     required this.onTap,
     required this.onQuantityChange,
+    required this.onQuantityTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context)!;
+    final locale = Localizations.localeOf(context).languageCode;
     final selected = quantity != null;
+    final tone = toneGradient[0];
     return AnimatedContainer(
       duration: AppMotion.fast,
       curve: Curves.easeOut,
       decoration: BoxDecoration(
-        gradient: selected ? appPrimaryGradient : null,
-        color: selected ? null : AppColors.surface2,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: selected ? null : Border.all(color: AppColors.borderSubtle),
+        color: AppColors.surface1,
+        borderRadius: AppRadius.cardRadius,
+        border: Border.all(color: selected ? tone : AppColors.borderSubtle, width: selected ? 2 : 1),
         boxShadow: selected
-            ? [
-                BoxShadow(
-                  color: AppColors.accent.withValues(alpha: 0.35),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
-                ),
-              ]
-            : null,
+            ? [BoxShadow(color: tone.withValues(alpha: 0.30), blurRadius: 16, offset: const Offset(0, 6))]
+            : AppShadows.card,
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
+        borderRadius: AppRadius.cardRadius,
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
-          borderRadius: BorderRadius.circular(AppRadius.pill),
           onTap: onTap,
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: selected ? AppSpacing.xs : AppSpacing.sm,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  name,
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: selected ? AppColors.accentContrast : AppColors.textPrimary,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // THE PHOTO STRIP — a real image when the service has one, otherwise a tonal
+              // gradient carrying the service's own initial like a real product placeholder,
+              // never a bare grey box.
+              AspectRatio(
+                aspectRatio: 1.6,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (hasImage)
+                      _CatalogueImage(path: imageUrl, toneGradient: toneGradient, initial: name)
+                    else
+                      _ToneMonogram(toneGradient: toneGradient, initial: name),
+                    if (selected)
+                      Positioned.directional(
+                        textDirection: Directionality.of(context),
+                        top: 6,
+                        end: 6,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(color: tone, shape: BoxShape.circle),
+                          child: const Icon(Icons.check_rounded, size: 14, color: Colors.white),
+                        ),
+                      ),
+                    if (points != null && points! > 0)
+                      Positioned.directional(
+                        textDirection: Directionality.of(context),
+                        top: 6,
+                        start: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(AppRadius.pill),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.stars_rounded, size: 11, color: Color(0xFFF6B93B)),
+                              const SizedBox(width: 2),
+                              Text('$points',
+                                  style: AppTextStyles.caption
+                                      .copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.sm, 6, AppSpacing.sm, AppSpacing.sm),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w700)),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              priceMinor > 0
+                                  ? Formatters.formatCurrency(priceMinor / 100, locale: locale)
+                                  : s.servicesNoPrice,
+                              style: AppTextStyles.caption.copyWith(
+                                  color: tone, fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                          if (selected)
+                            _QuantityStepper(
+                              quantity: quantity!,
+                              tone: tone,
+                              onChange: onQuantityChange,
+                              onTapNumber: onQuantityTap,
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                if (selected) ...[
-                  const SizedBox(width: AppSpacing.xs),
-                  _QuantityStepper(quantity: quantity!, onChange: onQuantityChange),
-                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One appointment, one tap. The check button IS the whole act — no visit form, no confirmation
+/// screen; `_attendBooking` records the real visit the instant this is pressed.
+class _TodayBookingRow extends StatelessWidget {
+  const _TodayBookingRow({
+    required this.timeLabel,
+    required this.operatorName,
+    required this.serviceNames,
+    required this.busy,
+    required this.onAttend,
+  });
+  final String timeLabel;
+  final String operatorName;
+  final String serviceNames;
+  final bool busy;
+  final VoidCallback onAttend;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = context.isDark;
+    final ink = dark ? AppDarkColors.infoOnSoft : AppColors.infoOnSoft;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.surface1,
+        borderRadius: AppRadius.standardRadius,
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: (dark ? AppDarkColors.info : AppColors.info).withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+            ),
+            child: Text(timeLabel,
+                textDirection: TextDirection.ltr,
+                style: AppTextStyles.caption.copyWith(color: ink, fontWeight: FontWeight.w800)),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              [operatorName, if (serviceNames.isNotEmpty) serviceNames]
+                  .where((s) => s.isNotEmpty)
+                  .join(' · '),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.caption.copyWith(color: context.appColors.textSecondary),
+            ),
+          ),
+          InkWell(
+            onTap: busy ? null : onAttend,
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: (dark ? AppDarkColors.info : AppColors.info).withValues(alpha: 0.18),
+                shape: BoxShape.circle,
+              ),
+              child: busy
+                  ? SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: ink))
+                  : Icon(Icons.check_rounded, size: 16, color: ink),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToneMonogram extends StatelessWidget {
+  const _ToneMonogram({required this.toneGradient, required this.initial});
+  final List<Color> toneGradient;
+  final String initial;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: toneGradient,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initial.isNotEmpty ? initial.substring(0, 1).toUpperCase() : '?',
+        style: AppTextStyles.headlineMedium.copyWith(color: Colors.white.withValues(alpha: 0.9)),
+      ),
+    );
+  }
+}
+
+/// Lazy, cached-per-widget-instance fetch of one catalogue photo (service or package) — never
+/// requested unless `hasImage` already said one exists, matching the route's own 404-when-absent
+/// contract; a tonal monogram covers every frame before the bytes land and on any failure.
+class _CatalogueImage extends StatefulWidget {
+  const _CatalogueImage({required this.path, required this.toneGradient, required this.initial});
+  final String path;
+  final List<Color> toneGradient;
+  final String initial;
+
+  @override
+  State<_CatalogueImage> createState() => _CatalogueImageState();
+}
+
+class _CatalogueImageState extends State<_CatalogueImage> {
+  Uint8List? _bytes;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final response = await context.read<AuthProvider>().apiClient.dio.get<List<int>>(
+            widget.path,
+            options: Options(responseType: ResponseType.bytes),
+          );
+      final data = response.data;
+      if (!mounted || data == null) return;
+      setState(() => _bytes = Uint8List.fromList(data));
+    } on DioException {
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_bytes != null) return Image.memory(_bytes!, fit: BoxFit.cover);
+    if (_failed) return _ToneMonogram(toneGradient: widget.toneGradient, initial: widget.initial);
+    return _ToneMonogram(toneGradient: widget.toneGradient, initial: widget.initial);
+  }
+}
+
+/// A real product card for a package — matches `_ServiceTile`'s own visual language (photo strip
+/// + name + price) so «الباقات» reads as the same professional catalogue, not a second, plainer
+/// control bolted on beside it.
+class _PackageCard extends StatelessWidget {
+  const _PackageCard({
+    required this.name,
+    required this.memberNames,
+    required this.priceMinor,
+    required this.hasImage,
+    required this.imageUrl,
+    required this.selected,
+    required this.onTap,
+  });
+  final String name;
+  final String memberNames;
+  final int priceMinor;
+  final bool hasImage;
+  final String imageUrl;
+  final bool selected;
+  final VoidCallback onTap;
+
+  static const _tone = [Color(0xFFB7862B), Color(0xFFE0AA4D)];
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context)!;
+    final locale = Localizations.localeOf(context).languageCode;
+    return SizedBox(
+      width: 160,
+      child: AnimatedContainer(
+        duration: AppMotion.fast,
+        decoration: BoxDecoration(
+          color: AppColors.surface1,
+          borderRadius: AppRadius.cardRadius,
+          border: Border.all(color: selected ? _tone[0] : AppColors.borderSubtle, width: selected ? 2 : 1),
+          boxShadow: selected
+              ? [BoxShadow(color: _tone[0].withValues(alpha: 0.30), blurRadius: 16, offset: const Offset(0, 6))]
+              : AppShadows.card,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: AppRadius.cardRadius,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: 60,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (hasImage)
+                        _CatalogueImage(path: imageUrl, toneGradient: _tone, initial: name)
+                      else
+                        _ToneMonogram(toneGradient: _tone, initial: name),
+                      Positioned.directional(
+                        textDirection: Directionality.of(context),
+                        top: 4,
+                        start: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(AppRadius.pill),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.inventory_2_rounded, size: 10, color: Colors.white),
+                              const SizedBox(width: 3),
+                              Text(s.servicesPageTabPackages,
+                                  style: AppTextStyles.caption
+                                      .copyWith(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (selected)
+                        Positioned.directional(
+                          textDirection: Directionality.of(context),
+                          top: 4,
+                          end: 4,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(color: _tone[0], shape: BoxShape.circle),
+                            child: const Icon(Icons.check_rounded, size: 12, color: Colors.white),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xs),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w800)),
+                      Text(memberNames,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.caption.copyWith(color: AppColors.textMuted, fontSize: 10)),
+                      const SizedBox(height: 2),
+                      Text(Formatters.formatCurrency(priceMinor / 100, locale: locale),
+                          style: AppTextStyles.caption
+                              .copyWith(color: _tone[0], fontWeight: FontWeight.w800)),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -1376,10 +2496,21 @@ class _ServiceChip extends StatelessWidget {
   }
 }
 
+/// Bigger, thumb-friendly +/-, and the number itself is a real button — tapping it opens
+/// [_VisitScreenState._promptQuantity] to type "12" once instead of tapping +11 times (the
+/// owner's own ask, found live: the old 18px controls were "صغيرة" and typed-entry was missing
+/// entirely).
 class _QuantityStepper extends StatelessWidget {
   final int quantity;
+  final Color tone;
   final ValueChanged<int> onChange;
-  const _QuantityStepper({required this.quantity, required this.onChange});
+  final VoidCallback onTapNumber;
+  const _QuantityStepper({
+    required this.quantity,
+    required this.tone,
+    required this.onChange,
+    required this.onTapNumber,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1387,14 +2518,17 @@ class _QuantityStepper extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _stepperButton(Icons.remove_rounded, () => onChange(-1)),
-        SizedBox(
-          width: 20,
-          child: Text(
-            '$quantity',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.accentContrast,
-              fontWeight: FontWeight.w700,
+        InkWell(
+          onTap: onTapNumber,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 26),
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+            alignment: Alignment.center,
+            child: Text(
+              '$quantity',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodySmall.copyWith(color: tone, fontWeight: FontWeight.w800),
             ),
           ),
         ),
@@ -1408,14 +2542,11 @@ class _QuantityStepper extends StatelessWidget {
       customBorder: const CircleBorder(),
       onTap: onTap,
       child: Container(
-        width: 22,
-        height: 22,
+        width: 28,
+        height: 28,
         alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.22),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, size: 14, color: AppColors.accentContrast),
+        decoration: BoxDecoration(color: tone.withValues(alpha: 0.16), shape: BoxShape.circle),
+        child: Icon(icon, size: 16, color: tone),
       ),
     );
   }

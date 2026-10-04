@@ -18,13 +18,13 @@ registerOperatorStrings({
     'customers.ago.twoDaysAgo': 'قبل يومين',
     'customers.ago.daysAgo': 'قبل {n} أيام',
 
-    'customers.title': 'عملائي',
+    'customers.title': 'جهات الاتصال',
 
     'customers.asks.title': 'طلبات على البيانات ({n})',
     'customers.asks.body': 'عملاء طلبوا نسخة من بياناتهم أو حذفها من صفحاتهم. الرد عليهم مسؤوليتك نظاماً، خلال ثلاثين يوماً من تاريخ الطلب.',
 
     'customers.tabsAriaLabel': 'أقسام العملاء',
-    'customers.tab.all': 'عملائي',
+    'customers.tab.all': 'جهات الاتصال',
     'customers.tab.overdue': 'من تأخّر',
     'customers.overdueHint': 'من تأخّر عن موعده المعتاد',
 
@@ -75,13 +75,13 @@ registerOperatorStrings({
     'customers.ago.twoDaysAgo': 'Two days ago',
     'customers.ago.daysAgo': '{n} days ago',
 
-    'customers.title': 'My Customers',
+    'customers.title': 'Contacts',
 
     'customers.asks.title': 'Data requests ({n})',
     'customers.asks.body': "Customers requested a copy of their data or its deletion, from their own pages. Answering them is your legal responsibility, within thirty days of the request.",
 
     'customers.tabsAriaLabel': 'Customer sections',
-    'customers.tab.all': 'My Customers',
+    'customers.tab.all': 'Contacts',
     'customers.tab.overdue': 'Overdue',
     'customers.overdueHint': 'Overdue on their usual cycle',
 
@@ -132,13 +132,13 @@ registerOperatorStrings({
     'customers.ago.twoDaysAgo': 'دو دن پہلے',
     'customers.ago.daysAgo': '{n} دن پہلے',
 
-    'customers.title': 'میرے گاہک',
+    'customers.title': 'رابطے',
 
     'customers.asks.title': 'ڈیٹا کی درخواستیں ({n})',
     'customers.asks.body': 'گاہکوں نے اپنے صفحات سے اپنے ڈیٹا کی کاپی یا حذف کی درخواست کی۔ ان کا جواب دینا آپ کی قانونی ذمہ داری ہے، درخواست کی تاریخ سے تیس دن کے اندر۔',
 
     'customers.tabsAriaLabel': 'گاہکوں کے حصے',
-    'customers.tab.all': 'میرے گاہک',
+    'customers.tab.all': 'رابطے',
     'customers.tab.overdue': 'تاخیر والے',
     'customers.overdueHint': 'اپنے معمول کے چکر سے تاخیر میں',
 
@@ -189,13 +189,13 @@ registerOperatorStrings({
     'customers.ago.twoDaysAgo': 'Kwana biyu da suka wuce',
     'customers.ago.daysAgo': 'Kwanaki {n} da suka wuce',
 
-    'customers.title': 'Abokan Cinikina',
+    'customers.title': 'Masu Tuntuɓa',
 
     'customers.asks.title': 'Buƙatun bayanai ({n})',
     'customers.asks.body': "Abokan ciniki sun nemi kwafin bayanansu ko sharewa daga shafukansu. Amsa musu alhaki ne naka bisa doka, cikin kwanaki talatin daga ranar buƙatar.",
 
     'customers.tabsAriaLabel': 'Sassan abokan ciniki',
-    'customers.tab.all': 'Abokan Cinikina',
+    'customers.tab.all': 'Masu Tuntuɓa',
     'customers.tab.overdue': 'Waɗanda suka makara',
     'customers.overdueHint': 'Ya makara a kan zagayensa na yau da kullum',
 
@@ -246,13 +246,13 @@ registerOperatorStrings({
     'customers.ago.twoDaysAgo': 'Dalawang araw ang nakalipas',
     'customers.ago.daysAgo': '{n} araw ang nakalipas',
 
-    'customers.title': 'Aking Mga Customer',
+    'customers.title': 'Mga Kontak',
 
     'customers.asks.title': 'Mga hiling sa data ({n})',
     'customers.asks.body': "Humiling ang mga customer ng kopya ng data nila o pagbura nito, mula sa sarili nilang page. Ang pagsagot sa kanila ay legal mong responsibilidad, sa loob ng tatlumpung araw mula sa petsa ng hiling.",
 
     'customers.tabsAriaLabel': 'Mga seksyon ng customer',
-    'customers.tab.all': 'Aking Mga Customer',
+    'customers.tab.all': 'Mga Kontak',
     'customers.tab.overdue': 'Huli',
     'customers.overdueHint': 'Huli sa karaniwang cycle nila',
 
@@ -303,13 +303,13 @@ registerOperatorStrings({
     'customers.ago.twoDaysAgo': 'দুই দিন আগে',
     'customers.ago.daysAgo': '{n} দিন আগে',
 
-    'customers.title': 'আমার গ্রাহক',
+    'customers.title': 'পরিচিতি',
 
     'customers.asks.title': 'তথ্যের অনুরোধ ({n})',
     'customers.asks.body': 'গ্রাহকরা তাদের নিজস্ব পৃষ্ঠা থেকে তাদের তথ্যের কপি অথবা মুছে ফেলার অনুরোধ করেছে। এর উত্তর দেওয়া আপনার আইনি দায়িত্ব, অনুরোধের তারিখ থেকে ত্রিশ দিনের মধ্যে।',
 
     'customers.tabsAriaLabel': 'গ্রাহকের বিভাগ',
-    'customers.tab.all': 'আমার গ্রাহক',
+    'customers.tab.all': 'পরিচিতি',
     'customers.tab.overdue': 'দেরি হয়েছে যাদের',
     'customers.overdueHint': 'তাদের স্বাভাবিক চক্র থেকে দেরি হয়েছে যাদের',
 

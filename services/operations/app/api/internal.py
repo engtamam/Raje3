@@ -128,7 +128,8 @@ async def erase_subject(request: Request, body: EraseIn) -> dict:
         "subject.erased", actor="", tenant=body.tenant, resource="subject",
         ip=request.client.host if request.client else "")
     eraser = OperationsErasure(store=c.datastore, pii_salt=s.PII_SALT,
-                               max_scan=s.ERASURE_MAX_SCAN)
+                               max_scan=s.ERASURE_MAX_SCAN,
+                               default_cc=s.SIGNUP_PHONE_DEFAULT_CC)
     return await eraser.erase(body.tenant, body.subject)
 
 
@@ -1254,6 +1255,9 @@ class MobileServiceRequestIn(BaseModel):
     requested_time: int = Field(gt=0)
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
+    # A NEW CUSTOMER'S REFERRAL CODE, if the bot's own conversation collected one — carried
+    # through to `complete()` later, since this request may not turn into a real visit for days.
+    referral_code: str = Field(default="", max_length=16)
 
 
 @router.post("/operations/mobile-requests", dependencies=[Depends(require_internal_token)])
@@ -1285,7 +1289,7 @@ async def internal_create_mobile_request(request: Request, body: MobileServiceRe
         row = await c.mobile_requests.create(
             tenant=body.tenant, phone=body.phone, customer_name=body.customer_name,
             service_ids=body.service_ids, requested_time=body.requested_time,
-            lat=body.lat, lng=body.lng)
+            lat=body.lat, lng=body.lng, referral_code=body.referral_code)
     except MobileRequestError as exc:
         # RETURNED, NOT RAISED — same rule the visit routes around it follow: whatsapp-assistant's
         # own conversation needs a real sentence to relay back to the customer, not a stripped
@@ -1310,6 +1314,71 @@ async def internal_mobile_visit_hours(request: Request, tenant: str) -> dict:
     c = request.app.state.container
     weekly = await c.bookings_desk.working_hours(tenant) if c.bookings_desk is not None else None
     return {"weekly": weekly}
+
+
+class WhatsAppOrderItemIn(BaseModel):
+    service_id: str = Field(min_length=1, max_length=128)
+    quantity: int = Field(gt=0)
+
+
+class WhatsAppOrderIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    phone: str = Field(min_length=3, max_length=32)
+    customer_name: str = Field(default="", max_length=128)
+    items: list[WhatsAppOrderItemIn] = Field(min_length=1, max_length=40)
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    idempotency_key: str = Field(min_length=1, max_length=300)
+    note: str = Field(default="", max_length=1000)
+
+
+@router.post("/operations/whatsapp-orders", dependencies=[Depends(require_internal_token)])
+async def internal_create_whatsapp_order(request: Request, body: WhatsAppOrderIn) -> dict:
+    """WhatsApp Direct Ordering's own door (Step 4, whatsapp-catalog-ordering-execution-plan.md) —
+    the ONLY step that decides WHICH branch an order belongs to, since this service is the one
+    that already holds `BranchStore` and `core/geo.py`'s own distance math; whatsapp-assistant
+    sends the customer's real coordinates and nothing else, never a branch guess of its own.
+
+    `idempotency_key` IS THE CUSTOMER'S OWN ORDER MESSAGE'S wamid, NEVER THE LOCATION MESSAGE'S —
+    see `core/orders.py::OrderService.create()`'s own docstring on why this must identify the
+    CART, not the particular delivery attempt that happened to complete it. The same cart re-sent
+    (a webhook retry, or the customer re-sharing their pin) must settle on the SAME order.
+
+    NO BRANCH COVERS THIS POINT is reported exactly like every other real refusal here — returned,
+    never raised, so whatsapp-assistant has a real sentence to relay rather than a stripped
+    HTTPException detail."""
+    from app.core.geo import nearest_branch_for_point
+    from app.core.orders import OrderError
+
+    c = request.app.state.container
+    branches = await BranchStore(c.datastore).list(body.tenant)
+    branch = nearest_branch_for_point(branches, lat=body.lat, lng=body.lng)
+    if branch is None:
+        return {"created": False,
+               "reason": "عذرًا، موقعك خارج نطاق التوصيل لكل فروعنا حاليًا."}
+    try:
+        order = await c.orders.create(
+            tenant=body.tenant, branch_id=branch.id, phone=body.phone,
+            customer_name=body.customer_name,
+            items=[(i.service_id, i.quantity) for i in body.items],
+            lat=body.lat, lng=body.lng, idempotency_key=body.idempotency_key, note=body.note)
+    except OrderError as exc:
+        return {"created": False, "reason": str(exc)}
+
+    # THE ORDER IS NOT "RECEIVED" UNTIL IT IS PAID (the owner's own call) — this route never tells
+    # whatsapp-assistant to treat `created: true` alone as a finished order; the pay link is minted
+    # in the SAME round trip so the customer's very first reply is "pay to confirm", never "order
+    # received". A link-minting failure (no gateway connected, payments-service unreachable) is
+    # reported the same way every other refusal here is -- returned, never raised -- with the order
+    # itself already safely recorded (`order.create()`'s own idempotency key), so a retry of this
+    # exact request settles on the SAME order rather than creating a second one.
+    try:
+        paid = await c.orders.request_payment(body.tenant, order.id)
+    except OrderError as exc:
+        return {"created": True, "order_id": order.id, "branch_id": order.branch_id,
+               "total_minor": order.total_minor, "pay_url": "", "pay_reason": str(exc)}
+    return {"created": True, "order_id": paid.id, "branch_id": paid.branch_id,
+           "total_minor": paid.total_minor, "pay_url": paid.pay_url, "pay_reason": ""}
 
 
 class BookingRewardRedeemIn(BaseModel):
@@ -2129,6 +2198,11 @@ async def read_branch_operators(request: Request, body: BranchOperatorsIn) -> di
 class CustomerIdByPhoneIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     phone: str = Field(min_length=1, max_length=32)
+    # A NEW CUSTOMER'S REFERRAL CODE — the WhatsApp booking Flow's own real "new customer" moment
+    # (see `Operations.ensure_customer`'s own docstring): this route resolves-or-creates the
+    # customer BEFORE bookings' `create()` ever runs, so this is the only time this customer ever
+    # types a code in for a booking made over WhatsApp.
+    referral_code: str = Field(default="", max_length=16)
 
 
 @router.post("/operations/customer-id-by-phone", dependencies=[Depends(require_internal_token)])
@@ -2154,7 +2228,9 @@ async def customer_id_by_phone(request: Request, body: CustomerIdByPhoneIn,
         # docstring above), so every row it creates genuinely first reached this shop over
         # WhatsApp. An already-existing customer keeps his real original source (Customer.source's
         # own docstring), so a return visitor resolved here through a booking never gets relabeled.
-        cust = await c.operations.ensure_customer(body.tenant, body.phone, source="whatsapp")
+        cust, referral_registration = await c.operations.ensure_customer(
+            body.tenant, body.phone, source="whatsapp",
+            referral_code=body.referral_code, actor="whatsapp")
     except OperationError as exc:
         return {"customer_id": "", "reason": str(exc)}
     # SAME BACKGROUND SEAM `/api/v1/field/customers/ensure` fires — a customer resolved here for
@@ -2162,7 +2238,10 @@ async def customer_id_by_phone(request: Request, body: CustomerIdByPhoneIn,
     # not only after his first attended visit (see that route's own note on this exact gap).
     background.add_task(c.seams.index_customer_row, tenant=body.tenant, customer_id=cust.id,
                         phone=cust.phone, name=cust.name, plates=[])
-    return {"customer_id": cust.id, "subject_ref": cust.subject_ref}
+    out = {"customer_id": cust.id, "subject_ref": cust.subject_ref}
+    if referral_registration is not None:
+        out["referral_registration"] = referral_registration
+    return out
 
 
 @router.post("/operations/operators", dependencies=[Depends(require_internal_token)])
@@ -2189,8 +2268,8 @@ async def read_operators_full(request: Request, body: CatalogueIn) -> dict:
     unlike `read_operators`/`read_branch_operators` above (both deliberately id+name(+active),
     shaped for a single caller's own narrow need). For the ops-mcp case-timeline/shop-report
     tool: "who had what access, and since when" is exactly what `Operator.public()` already
-    answers safely (no `pin_hash`, never — see that method's own docstring), so this route is
-    a thin reuse of it, not a new field selection to keep in sync with a second one.
+    answers, so this route is a thin reuse of it, not a new field selection to keep in sync
+    with a second one.
     """
     c = request.app.state.container
     rows = await OperatorStore(c.datastore).list(body.tenant)
@@ -2265,7 +2344,7 @@ async def backup_verify(request: Request, body: BackupVerifyIn,
     try:
         return await _backup.verify_restore(
             request.app.state.container.datastore, body.archive,
-            unseal=unseal, token=secrets.token_hex(8))
+            unseal=unseal, token=secrets.token_hex(8), declaration=BACKUP)
     except _backup.BackupError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
@@ -2279,7 +2358,8 @@ async def backup_import(request: Request, body: BackupImportIn,
         return await _backup.import_archive(
             request.app.state.container.datastore, body.archive,
             unseal=unseal, overwrite=body.overwrite, into_tenant=body.into_tenant,
-            prune=body.prune, scan_cap=settings.BACKUP_MAX_ROWS_PER_COLLECTION)
+            prune=body.prune, scan_cap=settings.BACKUP_MAX_ROWS_PER_COLLECTION,
+            declaration=BACKUP)
     except _backup.BackupError as exc:
         # A bad archive is the caller's problem, not a 500: the checksum failed, the key did not
         # match, or a row had no identity. Say which, so an operator can act.
@@ -2477,7 +2557,8 @@ async def retention_sweep(request: Request) -> dict:
             key=s.RETENTION_ENTITLEMENT_KEY, token=s.INTERNAL_SERVICE_TOKEN,
             timeout=s.PEER_TIMEOUT_SECONDS)
     eraser = OperationsErasure(store=c.datastore, pii_salt=s.PII_SALT,
-                               max_scan=s.ERASURE_MAX_SCAN)
+                               max_scan=s.ERASURE_MAX_SCAN,
+                               default_cc=s.SIGNUP_PHONE_DEFAULT_CC)
     sweeper = retention_core.Sweeper(
         store=c.datastore, eraser=eraser,
         runtime_config=RuntimeConfig(c.datastore, Settings, policy=RUNTIME_POLICY),

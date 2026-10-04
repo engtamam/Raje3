@@ -17,7 +17,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/assistant-service
-  digest: "sha256:e052f67a825f94780661b519a1777a2dfe7c3fcdf317f6c0c45fc98fbbdcde76"   # v0.25.27
+  digest: "sha256:36d3c299261668c63f07502a6d078eca52dd8f30e88ae19b13a51ee5f4533bef"   # v0.25.39
 
 replicas: 1
 
@@ -33,10 +33,20 @@ drivers:
 
 resources:
   requests:
-    cpu: 14m  # smart-cpu-sizing.py: cold tier — new service, no real traffic yet to measure against
+    cpu: 12m  # smart-cpu-sizing.py: cold tier, node budget-derived
     memory: 128Mi
   limits:
     memory: 256Mi
+
+# CRONJOB PODS YIELD TO REAL SERVICES UNDER NODE CONTENTION — found live (2026-09-28): with
+# this off (the chart default), a seconds-lived CronJob pod competes for scheduling at the
+# same priority as an always-on Deployment, and can win the race and starve it (deploy/k3s/
+# priorityclasses.yaml explains the whole mechanism; api-gateway.values.yaml was the only
+# service that had already turned this on). This only changes what priority THIS service's
+# OWN CronJob pods get (base-services-batch, never-preempt) — zero risk to the Deployment
+# itself, which stays at default priority unless it separately sets priorityClassName.
+priorityClasses:
+  enabled: true
 
 autoscaling:
   enabled: false
@@ -140,9 +150,17 @@ env:
 
   BRAND_NAME: "راجِع"
 
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  CORS_ALLOWED_ORIGINS: "https://ra-je3.com,https://admin.ra-je3.com"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
+
+  # v0.25.36's assistant-003 boot guard refuses to start unless this route is explicitly
+  # allow-listed. "*" (not a named service) because INTERNAL_CALLER_DRIVER is still the default
+  # "shared" here — no assertion-based caller identity is deployed for this service, so every
+  # internal caller (only services/whatsapp-assistant calls this route today, confirmed by grep)
+  # arrives as the unnamed shared-token peer; a named entry would just lock out that real caller.
+  INTERNAL_ROUTE_POLICY_JSON: |
+    {"/internal/assistant/connections": ["*"]}
 
 # THE HEARTBEAT for CONVERSATION_RETENTION_DAYS. Without this the purge never runs and old
 # conversation rows (once Phase 6 turns CONVERSATIONS_ENABLED on) accumulate forever — the same

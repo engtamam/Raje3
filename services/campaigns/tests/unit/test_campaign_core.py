@@ -200,11 +200,15 @@ def test_a_campaign_never_touching_the_thresholds_gets_todays_defaults():
 
 def test_reward_enabled_goals_now_covers_the_offer_goals_too():
     """Started as the `occasion`-only pilot, then `win_back`, then `service_offer`/
-    `package_offer` (both fire `mkt_offer`, so one template rewrite reaches both). `reward_loyal`
-    (already built around redeeming an existing balance), `announce` (offers nothing at all), and
-    `service_due` (owner's own call: on/off switch only, never a reward choice) all stay out."""
+    `package_offer` (both fire `mkt_offer`, so one template rewrite reaches both), then
+    `community_milestone` (2026-09-27, the "جماعي" mechanic's own reward — reuses the exact same
+    discount/gift/points composition every individual-mechanic offer goal already uses).
+    `reward_loyal` (already built around redeeming an existing balance), `announce` (offers nothing
+    at all), and `service_due` (owner's own call: on/off switch only, never a reward choice) all
+    stay out."""
     from app.core.models import REWARD_ENABLED_GOALS
-    assert REWARD_ENABLED_GOALS == {"occasion", "win_back", "service_offer", "package_offer"}
+    assert REWARD_ENABLED_GOALS == {"occasion", "win_back", "service_offer", "package_offer",
+                                    "community_milestone"}
 
 
 def test_service_due_is_a_standing_goal_sending_the_service_reminder_template():

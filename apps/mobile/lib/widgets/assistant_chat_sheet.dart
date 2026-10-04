@@ -7,29 +7,38 @@ import 'package:raje3_mobile/core/actions/action_model.dart';
 import 'package:raje3_mobile/core/actions/action_registry.dart';
 import 'package:raje3_mobile/core/ai/ai_model.dart';
 import 'package:raje3_mobile/core/ai/assistant_service.dart';
+import 'package:raje3_mobile/core/ai/assistant_turn.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
+import 'package:raje3_mobile/core/storage/local_storage.dart';
 import 'package:raje3_mobile/features/home/app_tone.dart';
 import 'package:raje3_mobile/models/catalog_model.dart';
 import 'package:raje3_mobile/core/tts/tts_model.dart';
+import 'package:raje3_mobile/core/utils/speech_locale.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/assistant_reply_mode_sheet.dart';
 
 /// Phase 1 of the on-device assistant: type a question, get a text answer grounded in
 /// [AssistantService]'s own KB — the floating mic button's `onTap` opens this today; voice input
 /// and output are separate, later phases (see AiModel's own doc comment on why speech OUTPUT is
 /// an entirely independent port).
 class AssistantChatSheet extends StatefulWidget {
-  const AssistantChatSheet({super.key});
+  /// A voice question already answered elsewhere (see [FloatingMicButton]'s own "text reply
+  /// mode" branch) — shown here exactly like one typed in, rather than making the operator
+  /// re-ask it.
+  final AssistantTurn? seed;
+
+  const AssistantChatSheet({super.key, this.seed});
 
   @override
   State<AssistantChatSheet> createState() => _AssistantChatSheetState();
 
-  static void show(BuildContext context) {
+  static void show(BuildContext context, {AssistantTurn? seed}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const AssistantChatSheet(),
+      builder: (_) => AssistantChatSheet(seed: seed),
     );
   }
 }
@@ -37,14 +46,17 @@ class AssistantChatSheet extends StatefulWidget {
 class _AssistantChatSheetState extends State<AssistantChatSheet> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
-  final List<_Turn> _turns = [];
+  late final List<AssistantTurn> _turns = widget.seed == null ? [] : [widget.seed!];
   AiModelStatus _status = AiModelStatus.unavailable;
+  int _downloadPercent = 0;
+  StreamSubscription<int>? _downloadProgressSubscription;
   bool _answering = false;
-  _Turn? _speaking;
+  AssistantTurn? _speaking;
 
   late final AssistantService _assistant;
   late final TtsModel _tts;
   late final ActionExecutor _executor;
+  late final LocalStorage _localStorage;
 
   @override
   void initState() {
@@ -52,9 +64,13 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
     _assistant = context.read<AssistantService>();
     _tts = context.read<TtsModel>();
     _executor = ActionExecutor(registry: context.read<ActionRegistry>());
+    _localStorage = context.read<LocalStorage>();
     _status = _assistant.status;
     _assistant.statusStream.listen((s) {
       if (mounted) setState(() => _status = s);
+    });
+    _downloadProgressSubscription = _assistant.downloadProgress.listen((p) {
+      if (mounted) setState(() => _downloadPercent = p);
     });
     if (_status != AiModelStatus.ready) {
       _assistant.ensureReady(context.read<NavProvider>().catalog);
@@ -65,11 +81,22 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _downloadProgressSubscription?.cancel();
     _tts.stop();
     super.dispose();
   }
 
-  Future<void> _toggleSpeak(_Turn turn) async {
+  /// Retries the exact same [AssistantService.ensureReady] the sheet's own initState already
+  /// tried once — a lost connection mid-download previously left [_status] stuck at
+  /// [AiModelStatus.error] forever, with no way back short of force-closing the app (found live,
+  /// 2026-09-28). [AiModelStatus.unavailable] gets no such button: that state means the device or
+  /// build genuinely cannot run the model at all, not a failure retrying would ever fix.
+  void _retryDownload() {
+    setState(() => _status = AiModelStatus.downloading);
+    _assistant.ensureReady(context.read<NavProvider>().catalog);
+  }
+
+  Future<void> _toggleSpeak(AssistantTurn turn) async {
     if (_speaking == turn) {
       await _tts.stop();
       if (mounted) setState(() => _speaking = null);
@@ -79,7 +106,7 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
     await _tts.stop();
     if (!mounted) return;
     setState(() => _speaking = turn);
-    await _tts.speak(turn.answer, languageCode: lang);
+    await _tts.speak(turn.answer, languageCode: speechLocaleTag(lang));
     if (mounted && _speaking == turn) setState(() => _speaking = null);
   }
 
@@ -90,7 +117,7 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
 
     final catalog = context.read<NavProvider>().catalog;
     final lang = Localizations.localeOf(context).languageCode;
-    final turn = _Turn(question: question, answer: '');
+    final turn = AssistantTurn(question: question);
     setState(() {
       _turns.add(turn);
       _answering = true;
@@ -107,7 +134,14 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
         }
       },
       onDone: () {
-        if (mounted) setState(() => _answering = false);
+        if (!mounted) return;
+        setState(() => _answering = false);
+        // TYPED QUESTION, SPOKEN ANSWER — only when the operator's own reply-mode setting asks
+        // for it (see assistant_reply_mode_sheet.dart); the manual 🔊 button below always works
+        // regardless, this just does it automatically.
+        if (_localStorage.assistantReplyIsVoice && turn.answer.isNotEmpty) {
+          unawaited(_toggleSpeak(turn));
+        }
       },
     );
   }
@@ -115,7 +149,7 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
   /// Resolves one proposed action against the REAL, CURRENT catalog — [_send]'s own [catalog]
   /// snapshot can be a beat stale by the time the model actually proposes something, so this
   /// re-reads it fresh rather than trusting the one captured when the question was first asked.
-  void _handleProposedAction(_Turn turn, AiActionProposed event, Catalog catalog) {
+  void _handleProposedAction(AssistantTurn turn, AiActionProposed event, Catalog catalog) {
     final freshCatalog = context.read<NavProvider>().catalog;
     final decision = _executor.resolve(event, freshCatalog);
     switch (decision) {
@@ -133,7 +167,7 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
   /// confusingly on top of it) or, for a READ action with a real spoken answer, appends that
   /// answer to the turn and keeps the sheet open — there is nowhere to navigate TO, so closing
   /// it would hide the one thing the operator actually asked for.
-  Future<void> _runAndShow(_Turn turn, AppAction action) async {
+  Future<void> _runAndShow(AssistantTurn turn, AppAction action) async {
     final result = await _executor.execute(context, action);
     if (!mounted) return;
     if (result != null) {
@@ -143,7 +177,7 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
     if (Navigator.of(context).canPop()) Navigator.of(context).pop();
   }
 
-  void _confirmPendingAction(_Turn turn) {
+  void _confirmPendingAction(AssistantTurn turn) {
     final action = turn.pendingAction;
     if (action == null) return;
     setState(() => turn.pendingAction = null);
@@ -166,8 +200,20 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Text(s.assistantChatTitle, style: AppTextStyles.headlineSmall),
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                  AppSpacing.md, AppSpacing.md, AppSpacing.sm, AppSpacing.md),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(s.assistantChatTitle, style: AppTextStyles.headlineSmall),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.tune_rounded, size: 20),
+                    tooltip: s.assistantReplySettingsTooltip,
+                    onPressed: () => AssistantReplyModeSheet.show(context),
+                  ),
+                ],
+              ),
             ),
             Expanded(child: _buildBody(scrollController)),
             _buildInputRow(s),
@@ -179,11 +225,30 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
 
   Widget _buildBody(ScrollController scrollController) {
     final s = S.of(context)!;
-    if (_status == AiModelStatus.unavailable || _status == AiModelStatus.error) {
+    if (_status == AiModelStatus.unavailable) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Text(s.assistantUnavailable, style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
+        ),
+      );
+    }
+    if (_status == AiModelStatus.error) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(s.assistantUnavailable, style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
+              const SizedBox(height: AppSpacing.md),
+              FilledButton.icon(
+                onPressed: _retryDownload,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: Text(s.assistantRetryDownload),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -194,9 +259,13 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(),
+              CircularProgressIndicator(value: _downloadPercent > 0 ? _downloadPercent / 100 : null),
               const SizedBox(height: AppSpacing.md),
-              Text(s.assistantPreparing, style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
+              Text(
+                _downloadPercent > 0 ? '${s.assistantPreparing} ($_downloadPercent%)' : s.assistantPreparing,
+                style: AppTextStyles.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
@@ -210,7 +279,7 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
     );
   }
 
-  Widget _buildTurn(_Turn turn) {
+  Widget _buildTurn(AssistantTurn turn) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Column(
@@ -280,13 +349,6 @@ class _AssistantChatSheetState extends State<AssistantChatSheet> {
       ),
     );
   }
-}
-
-class _Turn {
-  final String question;
-  String answer;
-  AppAction? pendingAction;
-  _Turn({required this.question, required this.answer});
 }
 
 /// The card a sensitive action's confirmation actually shows — [action]'s OWN

@@ -4,7 +4,7 @@ import { RatingScreen } from './Rating';
 import { AppGate } from './Locked';
 
 /**
- * «التقييم» — the whole section is the app here, same as «نقاطي»/«الحجوزات»: a shop that has not
+ * «التقييم» — the whole section is the app here, same as «نقاط الولاء»/«الحجوزات»: a shop that has not
  * bought the rating app sees only its own locked card, upgrade-flow and all (see subscribeFlow.ts).
  */
 export function Rating() {

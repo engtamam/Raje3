@@ -294,6 +294,13 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "operator",
     },
     {
+        "action": "operator.pin_confirmed",
+        "source": "user",
+        "critical": False,
+        "resource": "operator",
+        "why": "a full history of who confirmed which visit cannot be reconstructed from failures alone",
+    },
+    {
         # Moving somebody to a branch decides where his work is counted — and stopping him ends
         # his access to the shared screen.
         "action": "operator.updated",
@@ -788,6 +795,14 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "only, every call witnessed hit or miss.",
     },
     {
+        "action": "platform.coupon_tenant_searched_by_phone",
+        "source": "admin",
+        "critical": False,
+        "resource": "phone-suffix:{last4}",
+        "why": "resolves a phone to a tenant id for the coupon override screen, the same "
+               "cross-tenant identity lookup platform.customer_searched_by_phone already audits",
+    },
+    {
         "action": "platform.customer_success_scanned",
         "source": "admin",
         "critical": False,
@@ -882,6 +897,41 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "top-up?» is actually answered from",
     },
     {
+        "action": "referral.register_attempt",
+        "source": "internal",
+        "critical": False,
+        "resource": "referral_code",
+        "why": "a cashier typed in someone else's referral code for a new customer — every "
+               "attempt, successful or refused, is a promise (a discount, a referrer's reward) "
+               "an owner needs explained later, same reasoning coupon.grant_attempt already "
+               "documents for a shop-to-shop coupon",
+    },
+    {
+        "action": "affiliate.added",
+        "source": "internal",
+        "critical": False,
+        "resource": "affiliate",
+        "why": "a distinct marketer tier the owner assigns directly, with its own negotiated "
+               "code/discount/reward — an owner needs to see who was onboarded, by whom, and when",
+    },
+    {
+        "action": "affiliate.status_changed",
+        "source": "internal",
+        "critical": False,
+        "resource": "affiliate",
+        "why": "pausing/resuming a marketer changes whether their code earns anything right now, "
+               "without touching their negotiated terms or their unsettled balance",
+    },
+    {
+        "action": "affiliate.settlement_recorded",
+        "source": "internal",
+        "critical": True,
+        "resource": "affiliate_settlement",
+        "why": "the platform moves no money for this at all (plan doc §5's own \"بلا أي تدخل "
+               "مالي\") — which is exactly why the RECORD of what an owner claims was paid, by "
+               "whom, and for how many points, is the only accountability that exists for it",
+    },
+    {
         "action": "coupon.grant_attempt",
         "source": "internal",
         "critical": False,
@@ -916,7 +966,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "staff stopped seeing it (or started) needs to see this was a deliberate switch",
     },
     {
-        "action": "referral_partnership.propose",
+        "action": "app_visibility.set",
+        "source": "internal",
+        "critical": False,
+        "resource": "app_visibility_override",
+        "why": "a platform operator made an otherwise-hidden app visible (or hid it again) for "
+               "one specific tenant — never money-moving on its own, but the reason a shop's "
+               "store shelf shows an app nobody else can see needs to be findable later.",
+    },
+    {
+        "action": "mutual_benefit.propose",
         "source": "internal",
         "critical": False,
         "resource": "referral_agreement",
@@ -924,7 +983,7 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "to see who on his side proposed a cross-tenant partnership, and when",
     },
     {
-        "action": "referral_partnership.accept",
+        "action": "mutual_benefit.accept",
         "source": "internal",
         "critical": True,
         "resource": "referral_agreement",
@@ -932,7 +991,7 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "act that turns an incoming proposal into a live commitment",
     },
     {
-        "action": "referral_partnership.reject",
+        "action": "mutual_benefit.reject",
         "source": "internal",
         "critical": False,
         "resource": "referral_agreement",
@@ -940,7 +999,7 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "other shop asks why nothing ever activated",
     },
     {
-        "action": "referral_partnership.cancel_request",
+        "action": "mutual_benefit.cancel_request",
         "source": "internal",
         "critical": False,
         "resource": "referral_agreement",
@@ -948,7 +1007,7 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "until the other side confirms, but the request itself is a fact worth keeping",
     },
     {
-        "action": "referral_partnership.cancel_confirm",
+        "action": "mutual_benefit.cancel_confirm",
         "source": "internal",
         "critical": True,
         "resource": "referral_agreement",
@@ -1019,5 +1078,54 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "mobile_request",
         "why": "feeds the next customer's own no-show risk read — an owner disputing that read "
                "needs to see exactly which past requests it is built from",
+    },
+    {
+        "action": "whatsapp_order.preparing",
+        "source": "user",
+        "critical": False,
+        "resource": "whatsapp_order",
+        "why": "who at the shop started preparing a WhatsApp catalog order, and when — the moment "
+               "the customer's own automatic status message was sent",
+    },
+    {
+        "action": "whatsapp_order.ready",
+        "source": "user",
+        "critical": False,
+        "resource": "whatsapp_order",
+        "why": "same trail as preparing — traces the customer-facing 'ready' message back to who "
+               "at the shop actually marked it",
+    },
+    {
+        "action": "whatsapp_order.out_for_delivery",
+        "source": "user",
+        "critical": False,
+        "resource": "whatsapp_order",
+        "why": "the moment the shop said the order left for delivery — needed if a customer "
+               "disputes how long delivery actually took",
+    },
+    {
+        "action": "whatsapp_order.delivered",
+        "source": "user",
+        "critical": False,
+        "resource": "whatsapp_order",
+        "why": "the order that turned into a real, loyalty-earning visit — traceable back to the "
+               "WhatsApp cart that started it, same reasoning as mobile_request.completed above",
+    },
+    {
+        "action": "whatsapp_order.cancelled",
+        "source": "user",
+        "critical": False,
+        "resource": "whatsapp_order",
+        "why": "a customer asking why their order never arrived needs a real answer — this is the "
+               "record that the shop cancelled it, by whom, and the stated reason",
+    },
+    {
+        "action": "whatsapp_order.mismatch_resolved",
+        "source": "user",
+        "critical": True,
+        "resource": "whatsapp_order",
+        "why": "a human overrode a PAYMENT MISMATCH by hand, off-platform evidence only — this is "
+               "money-adjacent enough that losing the record of who did it and when is not "
+               "acceptable; refuse the action rather than lose the trail",
     },
 ]

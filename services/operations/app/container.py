@@ -237,7 +237,7 @@ def build_container(settings: Settings) -> Container:
     phone_search_ro = (PhoneSearchReadOnly(settings.DATASTORE_DSN_PHONE_SEARCH)
                        if settings.DATASTORE_DSN_PHONE_SEARCH else None)
     # KEPT AS A LOCAL, NOT JUST HANDED TO `with_offer_chooser` — `core/entitlements.py`'s own
-    # `EntitlementGateway` (built below, once `referral_partnership` exists) wraps this SAME
+    # `EntitlementGateway` (built below, once `mutual_benefit` exists) wraps this SAME
     # callable as its campaign source, rather than this service learning reminders' route shape a
     # second time.
     reminders_offer_chooser = http_chooser(reminders_url=settings.REMINDERS_SERVICE_URL,
@@ -317,6 +317,22 @@ def build_container(settings: Settings) -> Container:
         base_url=settings.WHATSAPP_ASSISTANT_SERVICE_URL,
         path=settings.WHATSAPP_META_AGENT_PROVISION_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN)
+    # Fires whatsapp-assistant's own Meta Commerce Catalog provisioning right after a number
+    # connects — see core/catalog_provision_trigger.py's own docstring.
+    from app.core.catalog_provision_trigger import CatalogProvisionTrigger
+
+    container.catalog_provision_trigger = CatalogProvisionTrigger(
+        base_url=settings.WHATSAPP_ASSISTANT_SERVICE_URL,
+        path=settings.WHATSAPP_CATALOG_PROVISION_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN)
+    # Per-service catalog item sync — see core/catalog_item_sync_trigger.py's own docstring.
+    from app.core.catalog_item_sync_trigger import CatalogItemSyncTrigger
+
+    container.catalog_item_sync_trigger = CatalogItemSyncTrigger(
+        base_url=settings.WHATSAPP_ASSISTANT_SERVICE_URL,
+        path=settings.WHATSAPP_CATALOG_ITEM_SYNC_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN,
+        public_base_url=settings.PUBLIC_BASE_URL)
     # The on/off switch for a number already onboarded — see core/meta_agent_rollout_trigger.py.
     from app.core.meta_agent_rollout_trigger import MetaAgentRolloutTrigger
 
@@ -357,6 +373,23 @@ def build_container(settings: Settings) -> Container:
         seams=container.seams, working_hours=container.bookings_desk,
         plans=container.billing_plans, default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
 
+    # WhatsApp Direct Ordering — see core/orders.py's own module docstring. `payments` is the
+    # merchant's-own-gateway pay-link minter (adapters/payments_desk.py); `services`/`branches` are
+    # what prices a line server-side and confirms the branch is real, never trusted off the wire.
+    from app.adapters.payments_desk import build_payments_desk
+    from app.core.order_pause import OrderPauseStore
+    from app.core.orders import OrderService
+    from app.core.stores import BranchStore, ServiceStore
+
+    container.payments_desk = build_payments_desk(settings)
+    container.order_pauses = OrderPauseStore(container.datastore)
+    container.orders = OrderService(
+        store=container.datastore, services=ServiceStore(container.datastore),
+        branches=BranchStore(container.datastore), operations=container.operations,
+        seams=container.seams, payments=container.payments_desk, events=container.event_bus,
+        working_hours=container.bookings_desk, pauses=container.order_pauses,
+        default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
+
     # Shop-to-shop coupons (base-services v0.23.0) — needs `billing_plans` above, so it is built
     # right after it. See core/coupons.py's own module docstring for the full design.
     from app.core.coupons import CouponService
@@ -365,20 +398,62 @@ def build_container(settings: Settings) -> Container:
         store=container.datastore, plans=container.billing_plans,
         default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
 
-    # Referral partnership — NOT the same feature as coupons above (see that module's own module
-    # docstring, and core/referral_partnership.py's own for the full contrast). Needs
+    # Per-tenant app-visibility overrides — see core/app_visibility.py's own module docstring.
+    from app.core.app_visibility import AppVisibilityOverrides
+
+    container.app_visibility = AppVisibilityOverrides(store=container.datastore)
+
+    # Mutual benefit — NOT the same feature as coupons above (see that module's own module
+    # docstring, and core/mutual_benefit.py's own for the full contrast). Needs
     # `billing_plans` (just built) for its own feature-gate/pause-resume check, `authz_desk` and
     # `inapp_notifier` (both already built above) to find and reach a proposal's own recipients.
     # Installed onto the already-built `container.operations` via its own setter — see
-    # `Operations.with_referral_engine`'s own docstring for why this is a post-construction wire
+    # `Operations.with_mutual_benefit_engine`'s own docstring for why this is a post-construction wire
     # rather than a constructor argument.
-    from app.core.referral_partnership import ReferralPartnershipEngine
+    from app.core.mutual_benefit import MutualBenefitEngine
 
-    container.referral_partnership = ReferralPartnershipEngine(
+    container.mutual_benefit = MutualBenefitEngine(
         store=container.datastore, plans=container.billing_plans,
         notifier=container.inapp_notifier, authz=container.authz_desk,
         default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
-    container.operations.with_referral_engine(container.referral_partnership)
+    container.operations.with_mutual_benefit_engine(container.mutual_benefit)
+
+    # THE GLOBAL ANONYMOUS REFERRAL CODE'S OWN TILL-SIDE REDEMPTION (services/referrals, Phase 3)
+    # — the SECOND real EntitlementGateway source, alongside mutual_benefit above. Reaches
+    # `referrals` (code/campaign reads) and `loyalty` (crediting the referrer's own reward) over
+    # HTTP, same "empty URL means disabled" posture every optional peer here takes.
+    from app.adapters.referrals_desk import build_referrals_desk
+    from app.core.affiliates import AffiliateService
+    from app.core.referral_redemption import ReferralRedemptionEngine
+
+    container.referrals_desk = build_referrals_desk(settings)
+    # PHASE 4 — the marketer/influencer tier (core/affiliates.py's own module docstring), wholly
+    # this shop's own data, wired into the SAME redemption engine so a code typed at the till
+    # never needs to know in advance whether it belongs to an ordinary referrer or an affiliate.
+    container.affiliates = AffiliateService(container.datastore,
+                                            default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
+    container.referral_redemption = ReferralRedemptionEngine(
+        store=container.datastore, referrals_desk=container.referrals_desk,
+        loyalty_desk=container.loyalty_desk, pii_salt=settings.PII_SALT,
+        default_cc=settings.SIGNUP_PHONE_DEFAULT_CC, affiliates=container.affiliates)
+    # THE WALK-IN DOOR ONTO THE SAME ENGINE — a visit recorded with no till involved at all is now
+    # able to register a new customer's referral code too, not just an integrated till's own
+    # `/referral/register` route. See `Operations.with_referral_redemption_engine`'s own docstring.
+    container.operations.with_referral_redemption_engine(container.referral_redemption)
+
+    # PHASE 5a — read-only performance reporting over the same grants/affiliate rows above.
+    from app.core.referral_reports import ReferralReportService
+
+    container.referral_reports = ReferralReportService(container.datastore)
+
+    # THE "جماعي" MILESTONE HOOK — a separate service (campaigns), reached over HTTP, unlike the
+    # in-process mutual-benefit engine just above. `build_milestone_peer` returns a silent no-op
+    # when `CAMPAIGNS_SERVICE_URL` is unset, the same "empty means disabled, not a guess" posture
+    # every other optional peer in this fleet already takes.
+    from app.adapters.milestone_peer import build_milestone_peer
+
+    container.milestone_peer = build_milestone_peer(settings)
+    container.operations.with_milestone_peer(container.milestone_peer)
 
     # THE ONE AGGREGATION POINT `apply_offer` now consults instead of calling the reminders
     # chooser directly — see core/entitlements.py's own module docstring for the tie-break rule
@@ -387,7 +462,8 @@ def build_container(settings: Settings) -> Container:
     from app.core.entitlements import EntitlementGateway
 
     container.entitlement_gateway = EntitlementGateway(
-        referral_engine=container.referral_partnership, campaign_chooser=reminders_offer_chooser)
+        mutual_benefit_engine=container.mutual_benefit, campaign_chooser=reminders_offer_chooser,
+        referral_code_engine=container.referral_redemption)
     container.operations.with_entitlement_gateway(container.entitlement_gateway)
 
     # Salla — infrastructure only, see core/marketplaces/salla.py's own module docstring.
@@ -471,8 +547,8 @@ def build_container(settings: Settings) -> Container:
     container.insights_engine_licence = build_feature_licence(settings, "feature.insights.engine")
     container.partner_loyalty_licence = build_feature_licence(settings, "feature.partner_loyalty")
     container.mobile_requests_licence = build_feature_licence(settings, "feature.mobile_requests")
-    container.referral_partnership_licence = build_feature_licence(
-        settings, "feature.referral_partnership")
+    container.mutual_benefit_licence = build_feature_licence(
+        settings, "feature.mutual_benefit")
     # WITHOUT THIS, `subscribed_write`'s own generic OR-gate (app/api/subscribed.py::_ANY_APP,
     # derived from core/apps.py::KEYS) reads `getattr(container, "mobile_ai_assistant_licence",
     # None)` as `None` for EVERY tenant and, by that gate's own documented "an unwired licence
@@ -481,6 +557,20 @@ def build_container(settings: Settings) -> Container:
     # without this line landing in the same change.
     container.mobile_ai_assistant_licence = build_feature_licence(
         settings, "feature.mobile_ai_assistant")
+    # SAME REASON AS `mobile_ai_assistant_licence` ABOVE — feature.coworking's own entitlement
+    # check lives entirely inside services/coworking (its own separate microservice, never a
+    # module here); this attribute exists ONLY so `subscribed_write`'s generic "holds ANY app" OR
+    # can see it, not because operations enforces anything about co-working resources itself.
+    container.coworking_licence = build_feature_licence(settings, "feature.coworking")
+    # Same rule, same reason: `feature.referrals` joined `core/apps.py::APPS` (Phase 0 backend
+    # registration), so it must join here in the same change or `subscribed_write`'s generic
+    # OR-gate reads it as unwired and opens for every shop.
+    container.referrals_licence = build_feature_licence(settings, "feature.referrals")
+    # Same rule again: `feature.whatsapp_delivery_orders` joined `core/apps.py::APPS` too — its own
+    # entitlement enforcement lives in services/whatsapp-assistant (core/order_licence.py), never
+    # here; this attribute exists only so `subscribed_write`'s OR-gate can see it.
+    container.whatsapp_delivery_orders_licence = build_feature_licence(
+        settings, "feature.whatsapp_delivery_orders")
     container.templates = TemplateLibrary(container.datastore)
     # The door. Built early, because a signup that cannot
     # seed a catalogue is a signup that lands the new owner on an empty «خدماتي».

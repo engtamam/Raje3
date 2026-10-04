@@ -116,7 +116,7 @@ async def test_cannot_request_with_no_payout_method_set():
 async def test_a_request_locks_every_available_confirmed_commission():
     svc, store = build()
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c1", amount=4000)
     await _seed_commission(store, id="c2", amount=5000)
     await _seed_commission(store, id="c3", amount=1000, status=PENDING)   # not confirmed yet
@@ -133,7 +133,7 @@ async def test_a_request_locks_every_available_confirmed_commission():
 async def test_a_second_request_cannot_claim_already_locked_commissions():
     svc, store = build()
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c1", amount=4000)
     await svc.request_withdrawal(AFF)
 
@@ -146,7 +146,7 @@ async def test_a_second_request_cannot_claim_already_locked_commissions():
 async def test_below_the_minimum_is_refused():
     svc, store = build(min_withdrawal=10000)
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c1", amount=4000)
     with pytest.raises(PayoutError) as exc:
         await svc.request_withdrawal(AFF)
@@ -161,7 +161,7 @@ async def test_min_halalas_override_replaces_the_boot_time_default_for_one_call(
     plumbing is proven separately below."""
     svc, store = build(min_withdrawal=10000)   # booted with 100 ريال
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c1", amount=4000)   # 40 ريال
     # The boot default alone would refuse this; a live override raising it to 3000 halalas (30
     # ريال) must let it through.
@@ -173,7 +173,7 @@ async def test_min_halalas_override_replaces_the_boot_time_default_for_one_call(
 async def test_min_halalas_override_can_also_refuse_below_a_raised_live_threshold():
     svc, store = build(min_withdrawal=1000)   # booted with 10 ريال — would normally pass
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c1", amount=4000)
     with pytest.raises(PayoutError) as exc:
         await svc.request_withdrawal(AFF, min_halalas=40000)   # live override: 400 ريال
@@ -218,7 +218,7 @@ async def test_effective_min_withdrawal_ignores_a_nonsense_override_rather_than_
 async def test_the_request_locks_the_current_payout_method_not_a_future_one():
     svc, store = build()
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c1", amount=4000)
     out = await svc.request_withdrawal(AFF)
 
@@ -227,7 +227,7 @@ async def test_the_request_locks_the_current_payout_method_not_a_future_one():
                                 account_ref="0501234567")
     rows = await svc.of_affiliate(AFF)
     assert rows[0].payout_channel == "bank_iban"
-    assert rows[0].payout_account_ref == "SA00"
+    assert rows[0].payout_account_ref == "SA0000000000000000000000"
 
 
 # ── admin: complete / reject ─────────────────────────────────────────────────────────────────
@@ -235,7 +235,7 @@ async def test_the_request_locks_the_current_payout_method_not_a_future_one():
 async def test_completing_without_a_receipt_is_refused():
     svc, store = build()
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c1", amount=4000)
     out = await svc.request_withdrawal(AFF)
     with pytest.raises(PayoutError) as exc:
@@ -247,7 +247,7 @@ async def test_completing_without_a_receipt_is_refused():
 async def test_completing_with_a_receipt_succeeds_and_is_idempotent():
     svc, store = build()
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c1", amount=4000)
     out = await svc.request_withdrawal(AFF)
 
@@ -265,7 +265,7 @@ async def test_completing_with_a_receipt_succeeds_and_is_idempotent():
 async def test_rejecting_releases_the_locked_commissions_back_to_available():
     svc, store = build()
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c1", amount=4000)
     out = await svc.request_withdrawal(AFF)
 
@@ -287,7 +287,7 @@ async def test_rejecting_releases_many_commissions_with_one_batched_read():
     still read one commission at a time would still pass a value-only assertion."""
     svc, store = build()
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     ids = [f"c{i}" for i in range(5)]
     for cid in ids:
         await _seed_commission(store, id=cid, amount=1000)
@@ -321,7 +321,7 @@ async def test_rejecting_releases_many_commissions_with_one_batched_read():
 async def test_rejecting_lets_a_new_request_be_made_afterward():
     svc, store = build()
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c1", amount=4000)
     first = await svc.request_withdrawal(AFF)
     await svc.reject(first["id"], decided_by="admin1")
@@ -334,7 +334,7 @@ async def test_rejecting_lets_a_new_request_be_made_afterward():
 async def test_rejecting_twice_is_idempotent():
     svc, store = build()
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c1", amount=4000)
     out = await svc.request_withdrawal(AFF)
     first = await svc.reject(out["id"], decided_by="admin1")
@@ -347,7 +347,7 @@ async def test_rejecting_twice_is_idempotent():
 async def test_cannot_complete_an_already_rejected_request():
     svc, store = build()
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c1", amount=4000)
     out = await svc.request_withdrawal(AFF)
     await svc.reject(out["id"], decided_by="admin1")
@@ -360,7 +360,7 @@ async def test_cannot_complete_an_already_rejected_request():
 async def test_cannot_reject_an_already_completed_request():
     svc, store = build()
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c1", amount=4000)
     out = await svc.request_withdrawal(AFF)
     await svc.complete(out["id"], decided_by="admin1", receipt_reference="r")
@@ -373,7 +373,7 @@ async def test_cannot_reject_an_already_completed_request():
 async def test_balance_splits_pending_confirmed_and_withdrawn():
     svc, store = build()
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c-pending", amount=1000, status=PENDING)
     await _seed_commission(store, id="c-confirmed", amount=2000, status=CONFIRMED)
     await _seed_commission(store, id="c-withdrawn", amount=3000, status=CONFIRMED)
@@ -409,7 +409,7 @@ async def test_request_withdrawal_claims_every_confirmed_commission_past_a_singl
     reflect every single one of them, not just whatever fit in the first page find() returned."""
     svc, store = build()
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     row_count = 1200
     for i in range(row_count):
         await _seed_commission(store, id=f"c-{i:05d}", amount=100, status=CONFIRMED)
@@ -446,7 +446,7 @@ def test_receipt_object_key_strips_the_marker():
 async def test_save_receipt_upload_sets_the_reference_and_content_type():
     svc, store = build()
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c1", amount=4000)
     out = await svc.request_withdrawal(AFF)
 
@@ -467,7 +467,7 @@ async def test_save_receipt_upload_refuses_for_an_unknown_withdrawal():
 async def test_save_receipt_upload_refuses_once_the_request_is_no_longer_pending():
     svc, store = build()
     await _seed_affiliate(store)
-    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA0000000000000000000000")
     await _seed_commission(store, id="c1", amount=4000)
     out = await svc.request_withdrawal(AFF)
     await svc.complete(out["id"], decided_by="admin1", receipt_reference="https://x")

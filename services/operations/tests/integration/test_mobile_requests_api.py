@@ -433,3 +433,175 @@ def test_an_execute_only_caller_cannot_accept_or_reject_or_assign(client):
                        headers=exec_auth, json={}).status_code == 403
     assert client.post(f"/api/v1/staff/mobile-requests/{request_id}/assign",
                        headers=exec_auth, json={"operator_id": "op_1"}).status_code == 403
+
+
+# ── branch scoping — derived from the ASSIGNED operator's own station (core/branch_domains.py's
+# own `mobile_requests` row, `derived_from="assigned_operator_branch"`) ────────────────────────
+def _seed_operator(client: TestClient, *, operator_id: str, branch_id: str,
+                   person_id: str = "", visible_branch_ids: list[str] | None = None,
+                   visible_all: bool = False) -> None:
+    import asyncio
+
+    from app.core.models import Operator
+    from app.core.stores import OperatorStore
+
+    asyncio.run(OperatorStore(client.app.state.container.datastore).save(Operator(
+        id=operator_id, tenant=TENANT, name=operator_id, branch_id=branch_id,
+        person_id=person_id, visible_branch_ids=visible_branch_ids or [],
+        visible_all=visible_all)))
+
+
+def _jeddah_manager_auth() -> dict:
+    # A MANAGER'S OWN ROW SCOPES THEM TO THEIR OWN STATION (`branch_scope()`'s own "otherwise
+    # where he works" rule) — no `visible_branch_ids`/`visible_all` needed to test the narrow case.
+    return _auth("operations.mobile_requests_manage", sub="mgr_jeddah")
+
+
+def test_manager_does_not_see_a_request_assigned_to_another_branchs_operator(client):
+    _seed_operator(client, operator_id="mgr_jeddah_row", branch_id="jeddah",
+                  person_id="mgr_jeddah")
+    _seed_operator(client, operator_id="op_riyadh", branch_id="riyadh")
+    request_id = _create_request(client)
+    client.post(f"/api/v1/staff/mobile-requests/{request_id}/assign",
+               headers=_auth("operations.mobile_requests_manage"),
+               json={"operator_id": "op_riyadh"})
+
+    r = client.get("/api/v1/staff/mobile-requests", headers=_jeddah_manager_auth())
+    assert r.status_code == 200
+    assert r.json()["requests"] == []
+
+
+def test_manager_still_sees_an_unassigned_request_regardless_of_branch(client):
+    """The owner's own rule: an unassigned request stays visible to every branch's manager."""
+    _seed_operator(client, operator_id="mgr_jeddah_row", branch_id="jeddah",
+                  person_id="mgr_jeddah")
+    _create_request(client)
+
+    r = client.get("/api/v1/staff/mobile-requests", headers=_jeddah_manager_auth())
+    assert r.status_code == 200
+    assert len(r.json()["requests"]) == 1
+
+
+def test_manager_sees_a_request_assigned_to_their_own_branchs_operator(client):
+    _seed_operator(client, operator_id="mgr_jeddah_row", branch_id="jeddah",
+                  person_id="mgr_jeddah")
+    _seed_operator(client, operator_id="op_jeddah", branch_id="jeddah")
+    request_id = _create_request(client)
+    client.post(f"/api/v1/staff/mobile-requests/{request_id}/assign",
+               headers=_auth("operations.mobile_requests_manage"),
+               json={"operator_id": "op_jeddah"})
+
+    r = client.get("/api/v1/staff/mobile-requests", headers=_jeddah_manager_auth())
+    assert r.status_code == 200
+    assert [row["id"] for row in r.json()["requests"]] == [request_id]
+
+
+def test_manager_cannot_reassign_a_request_assigned_outside_their_branch(client):
+    _seed_operator(client, operator_id="mgr_jeddah_row", branch_id="jeddah",
+                  person_id="mgr_jeddah")
+    _seed_operator(client, operator_id="op_riyadh", branch_id="riyadh")
+    _seed_operator(client, operator_id="op_jeddah", branch_id="jeddah")
+    request_id = _create_request(client)
+    client.post(f"/api/v1/staff/mobile-requests/{request_id}/assign",
+               headers=_auth("operations.mobile_requests_manage"),
+               json={"operator_id": "op_riyadh"})
+
+    r = client.post(f"/api/v1/staff/mobile-requests/{request_id}/assign",
+                    headers=_jeddah_manager_auth(), json={"operator_id": "op_jeddah"})
+    assert r.status_code == 403
+
+
+def test_manager_cannot_assign_a_request_to_an_operator_outside_their_branch(client):
+    _seed_operator(client, operator_id="mgr_jeddah_row", branch_id="jeddah",
+                  person_id="mgr_jeddah")
+    _seed_operator(client, operator_id="op_riyadh", branch_id="riyadh")
+    request_id = _create_request(client)
+
+    r = client.post(f"/api/v1/staff/mobile-requests/{request_id}/assign",
+                    headers=_jeddah_manager_auth(), json={"operator_id": "op_riyadh"})
+    assert r.status_code == 403
+
+
+def test_manager_may_assign_within_their_own_branch(client):
+    _seed_operator(client, operator_id="mgr_jeddah_row", branch_id="jeddah",
+                  person_id="mgr_jeddah")
+    _seed_operator(client, operator_id="op_jeddah", branch_id="jeddah")
+    request_id = _create_request(client)
+
+    r = client.post(f"/api/v1/staff/mobile-requests/{request_id}/assign",
+                    headers=_jeddah_manager_auth(), json={"operator_id": "op_jeddah"})
+    assert r.status_code == 200
+    assert r.json()["assigned_to"] == "op_jeddah"
+
+
+def test_manual_create_cannot_assign_at_creation_to_another_branch(client):
+    _seed_operator(client, operator_id="mgr_jeddah_row", branch_id="jeddah",
+                  person_id="mgr_jeddah")
+    _seed_operator(client, operator_id="op_riyadh", branch_id="riyadh")
+    sid = _seed_service(client)
+    r = client.post("/api/v1/staff/mobile-requests", headers=_jeddah_manager_auth(),
+                    json={"phone": PHONE, "service_ids": [sid], "requested_time": 1_800_000_000,
+                         "lat": 24.7, "lng": 46.6, "operator_id": "op_riyadh"})
+    assert r.status_code == 403
+
+
+def test_manager_cannot_accept_or_complete_a_request_assigned_outside_their_branch(client):
+    _seed_operator(client, operator_id="mgr_jeddah_row", branch_id="jeddah",
+                  person_id="mgr_jeddah")
+    _seed_operator(client, operator_id="op_riyadh", branch_id="riyadh")
+    request_id = _create_request(client)
+    client.post(f"/api/v1/staff/mobile-requests/{request_id}/assign",
+               headers=_auth("operations.mobile_requests_manage"),
+               json={"operator_id": "op_riyadh"})
+
+    assert client.post(f"/api/v1/staff/mobile-requests/{request_id}/accept",
+                       headers=_jeddah_manager_auth()).status_code == 403
+    # Accept it as an unscoped manager so `complete` has something to act on.
+    client.post(f"/api/v1/staff/mobile-requests/{request_id}/accept",
+               headers=_auth("operations.mobile_requests_manage"))
+    assert client.post(f"/api/v1/staff/mobile-requests/{request_id}/complete",
+                       headers=_jeddah_manager_auth()).status_code == 403
+
+
+def test_manager_over_several_branches_sees_both(client):
+    """`visible_branch_ids` — a supervisor over several branches, same mechanism `staff.py`'s own
+    `list_operators`/`list_branches` already use, reused here rather than reinvented."""
+    _seed_operator(client, operator_id="sup_row", branch_id="jeddah", person_id="sup_1",
+                  visible_branch_ids=["jeddah", "riyadh"])
+    _seed_operator(client, operator_id="op_jeddah", branch_id="jeddah")
+    _seed_operator(client, operator_id="op_riyadh", branch_id="riyadh")
+    a = _create_request(client)
+    b = _create_request(client, phone="0509999999")
+    client.post(f"/api/v1/staff/mobile-requests/{a}/assign",
+               headers=_auth("operations.mobile_requests_manage"), json={"operator_id": "op_jeddah"})
+    client.post(f"/api/v1/staff/mobile-requests/{b}/assign",
+               headers=_auth("operations.mobile_requests_manage"), json={"operator_id": "op_riyadh"})
+
+    r = client.get("/api/v1/staff/mobile-requests",
+                   headers=_auth("operations.mobile_requests_manage", sub="sup_1"))
+    assert r.status_code == 200
+    ids = {row["id"] for row in r.json()["requests"]}
+    assert ids == {a, b}
+
+
+def test_a_stopped_managers_token_still_narrows_to_nothing_assigned(client):
+    """A revoked operator row (`active=False`) reads REVOKED from `branch_scope()` — the same
+    "we could not check, so refuse" posture as every other branch-scoped read in this fleet.
+    Unassigned requests stay visible either way (the module's own always-allowed rule)."""
+    from app.core.models import Operator
+    import asyncio
+    from app.core.stores import OperatorStore
+
+    asyncio.run(OperatorStore(client.app.state.container.datastore).save(Operator(
+        id="mgr_stopped_row", tenant=TENANT, name="x", branch_id="jeddah",
+        person_id="mgr_stopped", active=False)))
+    _seed_operator(client, operator_id="op_jeddah", branch_id="jeddah")
+    request_id = _create_request(client)
+    client.post(f"/api/v1/staff/mobile-requests/{request_id}/assign",
+               headers=_auth("operations.mobile_requests_manage"),
+               json={"operator_id": "op_jeddah"})
+
+    r = client.get("/api/v1/staff/mobile-requests",
+                   headers=_auth("operations.mobile_requests_manage", sub="mgr_stopped"))
+    assert r.status_code == 200
+    assert r.json()["requests"] == []

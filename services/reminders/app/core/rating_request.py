@@ -52,8 +52,11 @@ class RatingRequestStore:
         row = await self._s.get(_COLL, flow_token)
         if row is None:
             return None
-        await self._s.delete(_COLL, flow_token)
-        return self._row(row)
+        # `delete()`'s own bool return is the race guard: two concurrent submits can both read the
+        # row above, but only the one whose delete() actually removed it (True) may treat this as
+        # a real, single consumption — the loser's delete() finds nothing left and gets False.
+        deleted = await self._s.delete(_COLL, flow_token)
+        return self._row(row) if deleted else None
 
     async def get(self, flow_token: str) -> RatingRequest | None:
         """The row, WITHOUT consuming it — the hosted rating page's own read

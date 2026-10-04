@@ -4,11 +4,8 @@
 #
 # SCOPE — read this before adding anything here. identity-service authenticates the owner, the
 # manager, custom roles, our own super-admin team — AND, since a hired employee gets his own
-# phone+password account (services/operations/app/core/signup.py's own `hire()`,
-# PIN_OPERATORS_ENABLED=false is this deployment's live default), most field operators too. The
-# shared-tablet 4-digit PIN (spec §3.5) is the OTHER, currently-dormant path — attribution only,
-# never authentication, and it stays a `operations` domain concern when it is used. Do not assume
-# "field operator" means "no identity-service account here": check PIN_OPERATORS_ENABLED first.
+# phone+password account (services/operations/app/core/signup.py's own `hire()`), every field
+# operator too. Every operator row in `operations` is backed by an identity-service account.
 service:
   name: identity-service
   port: 8000
@@ -23,7 +20,7 @@ image:
   # and falls back to the legacy no-AAD format on InvalidTag, so every pre-existing sealed secret
   # keeps working with no migration or re-entry, and the next write to each row re-seals it with
   # the AAD. Confirmed safe by the sister session before this repin.
-  digest: "sha256:a80974c1296147426adc1f7fe083e1f8060c189fdbc94cb7c59b1e4aa832b50d"   # v0.25.27
+  digest: "sha256:4393e3b7bf38da2182b2122a618fcb2e3b6255490d2c46bdfc87879b524aaeb4"   # v0.25.39
 
 replicas: 1
 
@@ -46,10 +43,20 @@ resources:
     # these files, so on a quiet node this service still takes a whole core if it needs one.
     # The number below decides two things only: that it is always guaranteed this much, and
     # what share it gets when the node is genuinely contended.
-    cpu: 53m  # smart-cpu-sizing.py: medium tier, node budget-derived
+    cpu: 51m  # smart-cpu-sizing.py: medium tier, node budget-derived
     memory: 192Mi     # argon2 hashing is memory-hard by design
   limits:
     memory: 384Mi
+
+# CRONJOB PODS YIELD TO REAL SERVICES UNDER NODE CONTENTION — found live (2026-09-28): with
+# this off (the chart default), a seconds-lived CronJob pod competes for scheduling at the
+# same priority as an always-on Deployment, and can win the race and starve it (deploy/k3s/
+# priorityclasses.yaml explains the whole mechanism; api-gateway.values.yaml was the only
+# service that had already turned this on). This only changes what priority THIS service's
+# OWN CronJob pods get (base-services-batch, never-preempt) — zero risk to the Deployment
+# itself, which stays at default priority unless it separately sets priorityClassName.
+priorityClasses:
+  enabled: true
 
 autoscaling:
   enabled: false
@@ -89,6 +96,13 @@ env:
   # database. Raised fleet-wide rather than per-incident so the next burst (a mass redeploy, a
   # traffic spike) does not rediscover this one service at a time.
   DATASTORE_POOL_MAX: "10"
+
+  # ── Tenant-status enforcement (v0.25.38) — a suspended/deleted tenant mints NO token ──
+  # Owner-approved policy, 2026-09-28: gates the MINT (login, refresh, tenant select).
+  # Complements api-gateway's own per-request gate above — this stops NEW tokens, the
+  # gateway kills sessions already issued before the tenant was suspended/deleted.
+  IDENTITY_TENANT_STATUS_ENFORCEMENT: "block"
+  TENANT_SERVICE_URL: "http://tenant-service:8000"
 
   # ── Token signing ─────────────────────────────────────────────────────────────────────────
   # rs256, not hs256: identity SIGNS and every other service only VERIFIES. With a shared
@@ -247,7 +261,7 @@ env:
   # expense — every one of those messages is billed to somebody.
   OTP_RESEND_COOLDOWN_SECONDS: "60"
   OTP_MAX_PER_HOUR: "5"
-  EMAIL_VERIFICATION_URL: "https://app.raje3.com.sa/verify?token="
+  EMAIL_VERIFICATION_URL: "https://ra-je3.com/app/verify?token="
   # Sends through notification-service, which arrives in Wave 3. Until then verification mail is
   # not delivered and this is the first thing to re-check when Wave 3 lands.
   NOTIFIER_DRIVER: "http"
@@ -299,6 +313,18 @@ env:
   # POST /internal/tenancy/seed-owner — the platform's own chicken-and-egg breaker, which creates
   # a tenant's FIRST owner over the internal token, refuses to overwrite one on a staffed tenant,
   # and returns an undo reference for the saga.
+  #
+  # THIS MUST STAY "true", AND HERE IS THE CONSEQUENCE OF EVER FLIPPING IT — confirmed by a deep
+  # audit, 2026-10-03. With it OFF, identity falls back to its own single-tenant `User`/
+  # `UserRepository` path, whose phone-uniqueness index is scoped PER TENANT
+  # (`_index_key = f"{tenant}::{normalize(phone)}"`) — the SAME phone number could then register
+  # a completely separate account at a second tenant, silently contradicting every product
+  # assumption this file and services/operations's own signup saga are built on (one phone = one
+  # human = one account, platform-wide). With it ON, phone uniqueness runs through the `Person`/
+  # `MembershipStore` path instead, keyed GLOBALLY with no tenant in the index at all — which is
+  # the actual, verified behaviour of this deployment today. Flipping this flag is not a
+  # performance or feature toggle; it is a change to what "one phone number" means on the whole
+  # platform, for every establishment already registered.
   IDENTITY_MULTI_TENANT: "true"
 
   # ── Direct capabilities on a membership: OFF, and that is a decision, not a default ────────
@@ -323,14 +349,7 @@ env:
   AUDIT_SERVICE_URL: "http://audit-service:8000"
   AUDIT_FAIL_CLOSED: "true"
 
-  # `http://localhost:8767` — TEMPORARY, this testing session only, same reasoning as
-  # `api-gateway.values.yaml`'s own identical addition: `/api/v1/auth/*` routes at the edge
-  # DIRECTLY to this service (deploy/edge/edge.json), bypassing api-gateway's own CORS entirely —
-  # found live, 2026-09-22: change-password from a browser mobile build 400'd with "No
-  # 'Access-Control-Allow-Origin' header" even though api-gateway's own origin list already had
-  # this port, because this service's separate CORS check never saw it. Remove once real
-  # production domains exist again (#338's own note on why empty here would blank the list).
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa,http://localhost:8767"
+  CORS_ALLOWED_ORIGINS: "https://ra-je3.com,https://admin.ra-je3.com"
   CORS_ALLOW_CREDENTIALS: "true"
   # Same real, permanent headers `api-gateway.values.yaml`'s own note explains — apps/mobile sends
   # x-client-type on every call and x-tenant-id on every call after the first (once a tenant is

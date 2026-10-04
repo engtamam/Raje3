@@ -26,7 +26,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import {
-  Cake, Clock, Gift, Info, Megaphone, RotateCcw, Search, Tag, type LucideIcon,
+  Cake, Clock, Gift, Info, Megaphone, RotateCcw, Search, Tag, Target, type LucideIcon,
 } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
@@ -71,7 +71,9 @@ export const FLOW_ELIGIBLE_GOALS = new Set(['win_back', 'occasion', 'service_off
 // though the backend has accepted that choice for those two goals since the day it shipped.
 // `reward_loyal` (redeeming an EXISTING balance, a different mechanic) and `announce` (offers
 // nothing) stay out, matching the backend exactly.
-const REWARD_ENABLED_GOALS = new Set(['occasion', 'win_back', 'service_offer', 'package_offer']);
+const REWARD_ENABLED_GOALS = new Set([
+  'occasion', 'win_back', 'service_offer', 'package_offer', 'community_milestone',
+]);
 
 // THE SINGLE-ITEM QUICK-REPLY BUTTON'S OWN ELIGIBLE GOALS (core/shape.py's BUTTON_TYPES,
 // 2026-09-13) — every goal EXCEPT the ones with no launch card at all. Mirrored by goal name
@@ -93,6 +95,7 @@ export const BUTTON_ELIGIBLE_GOALS = new Set([
 const GOAL_TONE: Record<string, 'accent' | 'warning' | 'danger' | 'info'> = {
   service_offer: 'accent', package_offer: 'warning', win_back: 'danger',
   reward_loyal: 'accent', occasion: 'info', announce: 'info',
+  community_milestone: 'warning',
 };
 const GOAL_TONE_ICON_BG: Record<string, string> = {
   accent: 'bg-accent-soft text-accent-on-soft', warning: 'bg-warning-soft text-warning-on-soft',
@@ -127,6 +130,7 @@ const GOAL_ICONS: Record<string, LucideIcon> = {
   cake: Cake,
   info: Info,
   tag: Tag,
+  target: Target,
 };
 
 interface Goal {
@@ -281,6 +285,15 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
   // THE "points" REWARD'S OWN AMOUNT — a plain string while he types, same reasoning as
   // `offerValue`'s own digit-folding above applies at the point it is read, not while it is held.
   const [rewardPoints, setRewardPoints] = useState('');
+  // «هدف جماعي» ONLY — the shared target the whole cohort is revealed at together
+  // (services/campaigns/app/core/milestone.py). A plain string while he types, same reasoning as
+  // `rewardPoints` above; `MIN_MILESTONE_THRESHOLD` (backend) refuses anything under 2 — a
+  // "shared" goal of one person is not a milestone.
+  const [milestoneThreshold, setMilestoneThreshold] = useState('');
+  // WHETHER THIS ROUND STARTS OVER THE MOMENT ONE ENDS (`Campaign.milestone_recurring`) — off by
+  // default, same "collapsed until asked for" posture the recurring-hours window below already
+  // takes.
+  const [milestoneRecurring, setMilestoneRecurring] = useState(false);
   const [services, setServices] = useState<Service[] | null>([]);
   // `package_offer`'s OWN answer for the "catalogue" blank — a package, never a service (packages
   // feature). Fetched the same way `services` is: this service holds no catalogue of its own.
@@ -393,6 +406,11 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
   const wireRewardType = rewardEnabled ? rewardType : 'discount';
   const wireRewardPoints = rewardEnabled && rewardType === 'points'
     ? Number(western(rewardPoints).replace(/[^0-9]/g, '')) || 0 : 0;
+  // «هدف جماعي» ONLY — 0 for every other goal, the same "not yet decided" convention every
+  // optional numeric field on this screen already uses.
+  const isMilestone = picked?.goal === 'community_milestone';
+  const wireMilestoneThreshold = isMilestone
+    ? Number(western(milestoneThreshold).replace(/[^0-9]/g, '')) || 0 : 0;
   // WHAT STILL NEEDS FILLING BEFORE THE PREVIEW CAN EVEN BE ASKED FOR — mirrors
   // `validate_reward`'s own three checks, so the button greys out before he pastes it as a
   // refusal from the server instead. `package_offer` names PACKAGES, not services, for its
@@ -404,6 +422,16 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
         && (picked?.goal === 'package_offer' ? packageIds.length === 0 : serviceIds.length === 0))
     || (rewardType === 'points' && wireRewardPoints <= 0)
   );
+  // «هدف جماعي»'S OWN REQUIREMENTS — a shared target under 2 people is not a milestone
+  // (`MIN_MILESTONE_THRESHOLD`, backend), it carries an end date the same way every other offer
+  // goal does even though its message has no textual "date" blank to fill (its own count is the
+  // whole message; the deadline only decides when an unmet round expires), and a RECURRING round
+  // needs an explicit start too (`validate_milestone_recurrence`: recurring requires both
+  // `fire_at`/`expires_at` explicit, or the second round would have nothing to measure its own
+  // period from) — answered by turning on «متى تُطلق: لاحقاً» above, same field every other goal
+  // already uses for its own start.
+  const milestoneIncomplete = isMilestone && (wireMilestoneThreshold < 2 || !endsOn
+    || (milestoneRecurring && !combinedFireAt));
 
   /** The chosen day, at its last minute in Riyadh — an offer «حتى الخميس» is good all Thursday. */
   const expiresAt = (() => {
@@ -534,6 +562,10 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
         // WHICH OF THREE REWARDS — `occasion` ONLY; see `wireRewardType`'s own comment above.
         reward_type: wireRewardType,
         reward_points: wireRewardPoints,
+        // «هدف جماعي» ONLY — 0/false for every other goal, same convention as the reward fields
+        // right above.
+        milestone_threshold: wireMilestoneThreshold,
+        milestone_recurring: isMilestone && milestoneRecurring,
       }));
     } catch (e) {
       // THE SERVER'S SENTENCE, RENDERED AS IT CAME. «لا يوجد قالب مفعّل لهذا الهدف» is actionable;
@@ -620,6 +652,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                     setPicked(g); setServiceIds([]); setPackageIds([]);
                     setLoyaltyWindowDays(90); setLoyaltyMinVisits(3);
                     setRewardType('discount'); setRewardPoints('');
+                    setMilestoneThreshold(''); setMilestoneRecurring(false);
                   }}
                   className={['flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-start transition-colors',
                              active ? 'bg-accent-soft ring-1 ring-inset ring-accent/30' : 'hover:bg-surface-2'].join(' ')}
@@ -767,7 +800,8 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
               <Button disabled={busy
                                 || (hasBlank(picked, 'amount') && !offerValue)
                                 || (hasBlank(picked, 'date') && !endsOn)
-                                || Boolean(occasionRewardIncomplete)}
+                                || Boolean(occasionRewardIncomplete)
+                                || milestoneIncomplete}
                       onClick={() => void ask(picked)}>{t('launch.previewButton')}</Button>
             ) : (
               <Button
@@ -795,6 +829,8 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                       window_weekdays: windowOn ? windowWeekdays : [],
                       reward_type: wireRewardType,
                       reward_points: wireRewardPoints,
+                      milestone_threshold: wireMilestoneThreshold,
+                      milestone_recurring: isMilestone && milestoneRecurring,
                     });
                     setSent(tf(t, 'launch.sentSummary', { n: preview.reaches ?? 0 }));
                   } catch (e) {
@@ -996,6 +1032,39 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
           </div>
         ) : null}
 
+        {/* «كم عميل لازم يوصلوا؟» — community_milestone ONLY. The shared target the whole cohort
+            is revealed at together; `milestoneIncomplete` above refuses fewer than 2 (backend's
+            own `MIN_MILESTONE_THRESHOLD`) before the preview button is even pressable. */}
+        {isMilestone ? (
+          <div className="flex flex-col gap-3 rounded-card border border-border-subtle p-3">
+            <span className="text-sm font-medium">{t('launch.milestone.title')}</span>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm">{t('launch.milestone.thresholdLabel')}</span>
+              <input
+                type="number"
+                min={2}
+                dir="ltr"
+                value={western(milestoneThreshold).replace(/[^0-9]/g, '')}
+                onChange={(e) => {
+                  setMilestoneThreshold(western(e.target.value).replace(/[^0-9]/g, ''));
+                  setPreview(null);
+                }}
+                className="h-11 w-24 rounded-lg bg-surface-1 border border-border-subtle px-3 text-center text-sm tabular-nums"
+              />
+              <span className="text-xs text-text-secondary">{t('launch.milestone.thresholdHint')}</span>
+            </label>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm">{t('launch.milestone.recurringLabel')}</span>
+              <Toggle checked={milestoneRecurring}
+                     ariaLabel={t('launch.milestone.recurringLabel')}
+                     onChange={(v) => { setMilestoneRecurring(v); setPreview(null); }} />
+            </div>
+            {milestoneRecurring ? (
+              <p className="text-xs text-text-secondary">{t('launch.milestone.recurringHint')}</p>
+            ) : null}
+          </div>
+        ) : null}
+
         {/* WHICH SERVICE(S), when the goal is about them — MORE THAN ONE, now (2026-09-13): every
             selected service is named together in the same merged message (reminders' own
             `merged_service_text`), never a free paragraph he'd have to write himself. The cycle
@@ -1153,8 +1222,12 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
         {/* ── when it stops ────────────────────────────────────────────────────────────────
             NO DEFAULT, DELIBERATELY (§10.9.1). A date we picked is a date he honours at the till
             without having agreed to it — and «إلى متى؟» is the one question a customer asks about
-            an offer. */}
-        {hasBlank(picked, 'date') ? (
+            an offer.
+            SHOWN FOR `community_milestone` TOO even though its message has no textual "date"
+            blank (its own count is the whole message) — `OFFER_GOALS` still requires the field,
+            the same round-deadline reasoning `preview.py`'s own note explains: how long the
+            cohort has to reach the number together. */}
+        {hasBlank(picked, 'date') || isMilestone ? (
           <label className="flex flex-col gap-1">
             <span className="text-sm">{t('launch.offerEndsLabel')}</span>
             <input

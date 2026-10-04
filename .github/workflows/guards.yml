@@ -108,6 +108,19 @@ jobs:
       - name: every per-branch read asks who is asking, and refuses when it cannot tell
         run: python3 ci/check_branch_scope.py
 
+      # A goal is a row in CARDS, a row in GOAL_TEMPLATE, and its mechanic is a real, registered
+      # resolver — package_offer and occasion each shipped with a silent gap exactly this shape
+      # before there was any gate to catch it (audience.py's own comments document both).
+      - name: every campaign goal names a real, wired mechanic
+        run: python3 ci/check_campaign_mechanics.py
+
+      # A "جماعي" goal's own three real invariants, proven from the AST — not a comment, not a
+      # string search. Every one of these is the exact shape of silent regression this session's
+      # own reasoning found and fixed live (the spread refusal blocking a milestone's own win
+      # reveal near its deadline is the clearest example).
+      - name: every community-milestone goal keeps its deadline, spread exemption, and recurrence wired
+        run: python3 ci/check_campaign_milestone_wiring.py
+
       # `/internal/*` trusts one shared token and nothing else — no capability, no branch scope,
       # no user identity at all. Phase 4 of the multi-branch work added four such routes in one
       # sitting; this is the same posture check_a_route_with_no_token_is_open_at_the_door.py takes
@@ -123,6 +136,13 @@ jobs:
       # requires everywhere so OFF reads exactly like never-subscribed.
       - name: no tenant-effecting whatsapp-assistant entrypoint skips the licence gate
         run: python3 ci/check_a_tenant_effecting_entrypoint_skips_the_licence_gate.py
+
+      # A SEND THAT BYPASSES notifier.py'S ONE DOOR ALSO BYPASSES THE CALL THAT HANDS CONTROL OF A
+      # CONVERSATION BACK TO META'S OWN AI AGENT — and WhatsApp gives no error, no log, no visible
+      # symptom when that happens: the customer's AI simply stops answering him, forever, the
+      # moment any message reaches him through an unaudited path (found by a deep audit, 2026-10-03).
+      - name: no new WhatsApp send path bypasses the Meta AI handover release
+        run: python3 ci/check_whatsapp_send_bypasses_meta_ai_handover.py
 
       # `tenant` on an internal route is a plain body field, never a verified claim. A route this
       # gate CAN read (an inline `json={...}` literal) and reads as posted with exactly one tenant,
@@ -369,20 +389,6 @@ jobs:
       # clickable, and mute, with nothing on screen to say what had happened.
       - name: every nav row has a face when collapsed
         run: python3 ci/check_every_nav_row_has_a_face_when_collapsed.py
-
-      # AND A NEW EMPLOYEE CARRIES HIS BRANCH, WHICHEVER WAY HE IS ADDED. The picker lived inside
-      # the «حساب يدخل به» block, so the man on the shared tablet — most of a workshop's staff —
-      # could not be given one from any screen. A visit takes its branch from whoever recorded it,
-      # so all his work landed in «غير محدَّد» and the owner's branch table quietly stopped adding up.
-      - name: a new employee is offered his branch
-        run: python3 ci/check_a_new_employee_is_offered_his_branch.py
-
-      # AND A CAPABILITY WE SWITCH OFF IS REFUSED AT THE DOOR. Hiding the control is not switching
-      # anything off: a stale tab, a queued request or anyone reading our own API still reaches the
-      # route. The screen half matters too — if it hard-codes «off», turning the flag on would need
-      # a console release, which is not a switch either.
-      - name: a switched-off capability is refused at the door
-        run: python3 ci/check_a_switched_off_capability_is_refused_at_the_door.py
 
       # AND A LAZY READ ASKS «NOT YET», NOT «DID IT FAIL». `undefined` and `null` are different
       # answers, and a guard that confuses them either never fetches — «من تأخّر» was a grey
@@ -1093,6 +1099,15 @@ jobs:
       - name: a deploy script that decides for itself where the cluster is
         run: python3 ci/check_every_deploy_script_finds_the_cluster.py
 
+      # AND EVERY ssh/scp CALL NAMES AN IDENTITY. Two scripts (ship.sh, verify-fleet.sh) and one
+      # ssh-mode kubectl() wrapper (cluster.sh) all carried a bare ssh call with no -i — every
+      # unattended run silently fell back to whatever identity an ssh-agent happened to hold,
+      # which an automated ship never has, and one of the three "worked" anyway by riding a
+      # multiplexed connection someone else's correctly-keyed call had already opened, right up
+      # until that connection's idle timeout lapsed mid-ship.
+      - name: every ssh/scp call carries an identity
+        run: python3 ci/check_ssh_calls_carry_identity.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave
@@ -1229,11 +1244,27 @@ jobs:
       - name: the legal documents are complete
         run: python3 ci/check_legal.py
 
+      - name: every app annex in terms.md names a real, current app
+        run: python3 ci/check_legal_app_names.py
+
       - name: every string the kit renders has Arabic behind it
         run: python3 ci/check_i18n.py
 
       - name: every console screen with Arabic text routes it through operator-i18n
         run: python3 ci/check_operator_i18n_coverage.py
+
+      # Dropped from this workflow on 2026-09-16 only because that push's token lacked the
+      # `workflow` scope GitHub requires to touch .github/workflows/* — never re-added since.
+      # Both checks pass clean today; re-wiring them here closes that gap for real.
+      - name: a hardcoded colour does not shadow a theme token
+        run: python3 ci/check_a_hardcoded_color_does_not_shadow_a_token.py
+
+      - name: a hand-rolled card does not skip the shared component
+        run: python3 ci/check_a_hand_rolled_card_skips_the_shared_component.py
+
+      # Written 2026-09-26 (insights' own association threshold, 200->100) but never wired in.
+      - name: the association-learning threshold agrees everywhere it is believed
+        run: python3 ci/check_insights_association_threshold_agrees.py
 
       - name: a locked app buys through the one shared subscribe flow, never a copy of it
         run: python3 ci/check_subscribe_flow_not_duplicated.py
@@ -1327,6 +1358,8 @@ jobs:
         run: python3 ci/check_no_base_remnants.py
       - name: every shared feature reads identically everywhere it is granted
         run: python3 ci/check_shared_features_match.py
+      - name: whatsapp-assistant's order-item circuit breaker never undercuts operations' real cap
+        run: python3 ci/check_order_item_cap_invariant.py
 
       # ui/packages/ui/package.json names itself "@base-ui/source" — the exact same name
       # base-services' own platform/ui/packages/ui/package.json still carries, because ours is a
@@ -1383,6 +1416,12 @@ jobs:
       - name: no migrated mobile screen carries a raw, unlocalized Arabic string
         run: python3 ci/check_mobile_screen_localized.py --all
 
+      # All six lib/l10n/*.arb files must carry the same key set — a key added to app_ar.arb and
+      # left untranslated in the other five ships silently (Flutter's generator does not fail on
+      # a missing key, it just falls back), the mobile mirror of ci/check_i18n.py's console rule.
+      - name: all six mobile locales carry the same translation keys
+        run: python3 ci/check_mobile_arb_locales_match.py
+
       # Every KbAnchor/KbHintButton wired into a mobile screen must have a matching
       # assets/knowledge/mobile_kb.json entry, and every KB entry's anchor must still be
       # referenced by some widget — drift in either direction fails here, the same shape
@@ -1401,3 +1440,59 @@ jobs:
       # owner's own explicit ask: "كل شاشة أو عنصر في شاشة لازم له KB".
       - name: every interactive widget on a mobile screen is anchored
         run: python3 ci/check_mobile_screen_actions_are_anchored.py
+
+      # PHASE 4 of the permission-gate effort — a real, blocking gate, built on
+      # ci/report_action_level_gating.py's own PHASE 2 report (never wired here, on purpose: its
+      # coverage-ratio bucket isn't precise enough to auto-fail on). This only fails on that
+      # report's other, unambiguous signal — a screen with a real write control and ZERO
+      # catalogue checks anywhere in the file — and only when the file is not in this script's
+      # own EXEMPT map with a stated, verified reason. Covers both apps/console/src/screens and
+      # apps/mobile/lib/features. See project memory [[permission-gate-phase4-console-11-gaps]].
+      - name: every screen's write controls are gated by a real catalogue capability
+        run: python3 ci/check_action_level_gating.py
+
+      # "الشاشة اللي تتفتح ما تتجاوز ارتفاع معين" (the owner's own standing rule, confirmed live
+      # after a tall form sheet once grew past the usable screen height) — every
+      # showModalBottomSheet caller caps its sheet with appSheetMaxHeight/DraggableScrollableSheet,
+      # or is exempted here with a reason checked against that sheet's own real content.
+      - name: every mobile sheet caps its own height
+        run: python3 ci/check_mobile_sheet_max_height.py
+
+      # The mobile app's own half of check_branch_scope.py's guarantee — every service call
+      # reading data from a domain branch_domains.py marks branch-scoped passes the selected
+      # branch, or carries a reasoned `// branch-scope-exempt:` comment.
+      - name: every mobile call site reading branch-scoped data passes the selected branch
+        run: python3 ci/check_mobile_branch_scope.py
+
+      # apps/mobile's ApiClient accepts every 4xx except 401 as an ordinary response
+      # (validateStatus, api_client.dart) — a method that only branches on `on DioException catch`
+      # and never reads `.statusCode` silently treats a real refusal as success. Found live
+      # 2026-09-23 in MutualBenefitService.propose() (returned "no reason" on a genuine 402)
+      # and in its own _act() helper (accept/reject/cancel would have returned true on a 403/409
+      # refusal) — the same method shape, the same file, found the same afternoon by testing the
+      # first bug and noticing the second sitting right below it.
+      - name: every mobile dio call checks the response status, not just the catch clause
+        run: python3 ci/check_mobile_dio_status_check.py --all
+
+      # No Arabic-Indic/Urdu-Indic digit glyphs anywhere a mobile string is authored — the same
+      # "digits western" posture check_deploy_wiring.py's own note names for the rest of the repo.
+      - name: no mobile string carries an Arabic/Urdu-Indic digit
+        run: python3 ci/check_mobile_no_arabic_indic_digits.py
+
+      # A chevron/arrow icon that hardcodes one direction never flips for a locale that renders
+      # LTR — found live 2026-09-24 in branch_detail_screen.dart and points_screen.dart, both
+      # fixed the same pass this gate was wired.
+      - name: no mobile chevron/arrow hardcodes a direction that never flips for RTL
+        run: python3 ci/check_mobile_no_broken_directional_icons.py
+
+      # A card/row falling back to a raw id when its real display name is missing shows the
+      # customer a string that means nothing to him — the mobile mirror of the console's own rule
+      # against a raw plan id leaking onto a screen.
+      - name: no mobile display field falls back to a raw id
+        run: python3 ci/check_mobile_no_raw_id_fallback.py
+
+      # check_mobile_kb_anchors_are_covered.py only checks an anchor EXISTS for what a screen
+      # already declares; this one checks the declared KB entry is actually GRANULAR — one entry
+      # per real component, not one catch-all per screen that tells the assistant nothing useful.
+      - name: every mobile screen's KB coverage is granular, not one catch-all entry
+        run: python3 ci/check_mobile_screen_kb_granularity.py

@@ -94,7 +94,7 @@ export function Connect({
   state: ConnectState | null | undefined;
   onChange: (s: ConnectState) => void;
   /** ABSENT FOR EVERY SHOP IN THE DEFAULT MODE — one card, the establishment's own number, byte
-   *  for byte what this screen has always been. Set only by `AccountPanes`'s per-branch list once
+   *  for byte what this screen has always been. Set only by `account/BranchesPane.tsx`'s per-branch list once
    *  a chain has deliberately moved to `shop_mode: per_branch` (core/shop_mode.py on the server);
    *  threaded into every call below exactly as the backend routes already expect it
    *  (`SignupResultIn.branch_id`, `RegisterIn.branch_id`, `GET /connect?branch_id=`). */
@@ -297,7 +297,7 @@ export function Connect({
             <span>{t('connect.register.pinLabel')}</span>
             <input
               id="wa-pin"
-              className="rounded-input border border-border bg-surface-2 p-2 text-center tracking-widest"
+              className="rounded-input border border-border bg-surface-1 p-2 text-center tracking-widest"
               inputMode="numeric"
               autoComplete="one-time-code"
               maxLength={6}
@@ -317,7 +317,7 @@ export function Connect({
         </form>
       ) : null}
 
-      {connected ? null : (
+      {connected || !action(catalog, 'whatsapp.connect') ? null : (
         <div className="flex flex-col gap-2">
           <Button
             disabled={busy || sdk === 'loading' || sdk === 'unconfigured'}

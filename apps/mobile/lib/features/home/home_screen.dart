@@ -7,6 +7,7 @@ import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/features/home/app_tone.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/branch_switcher.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/notification_bell.dart';
 
@@ -49,7 +50,12 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = S.of(context)!;
     final nav = context.watch<NavProvider>();
-    final sections = nav.visibleSections;
+    // EVERY BOUGHT APP, EXACTLY WHAT "تطبيقاتي" SHOWS AS OWNED — the owner's own explicit call
+    // (2026-09-29): the fixed curated list (kNavSections, the console sidebar's own mirror) is
+    // GONE from this grid entirely, not merely supplemented. See
+    // NavProvider.ownedSections's own doc comment for the still-real role/capability gate this
+    // keeps underneath ownership.
+    final sections = nav.ownedSections;
     final featured = nav.customSlotSection;
     final rest = featured == null
         ? sections
@@ -185,6 +191,8 @@ class _HeroHeader extends StatelessWidget {
                                   fontFamily: AppTextStyles.englishFont,
                                 )),
                           ],
+                          const SizedBox(height: AppSpacing.sm),
+                          const BranchChip(),
                         ],
                       ),
                     ),

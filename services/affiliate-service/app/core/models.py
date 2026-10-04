@@ -87,6 +87,7 @@ class Application:
     #: The referring manager's own editing window — see onboarding.py::update_application. A
     #: manager may correct what a person under him submitted, but only before an admin has acted;
     #: `decided_at` being set is what closes this window, not a separate flag.
+    affiliate_id: str = ""  # stamped at approval; erasure-safe for the idempotent branch
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -96,7 +97,7 @@ class Application:
             "decided_by": self.decided_by, "reason": self.reason,
             "subject_ref": self.subject_ref,
             "agreed_terms_version": self.agreed_terms_version, "agreed_at": self.agreed_at,
-            "cv_url": self.cv_url,
+            "cv_url": self.cv_url, "affiliate_id": self.affiliate_id,
         }
 
     @classmethod
@@ -109,6 +110,7 @@ class Application:
             reason=str(d.get("reason", "")), subject_ref=str(d.get("subject_ref", "")),
             agreed_terms_version=str(d.get("agreed_terms_version", "")),
             agreed_at=int(d.get("agreed_at", 0)), cv_url=str(d.get("cv_url", "")),
+            affiliate_id=str(d.get("affiliate_id", "")),
         )
 
 

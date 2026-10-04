@@ -143,7 +143,7 @@ def _items(*plan_ids: str, interval: str = "month") -> list[dict]:
 
 # ── the whole reason this route exists ────────────────────────────────────────────────────────
 def test_a_dependency_and_its_app_check_out_together(client):
-    """نقاطي + تسجيل زيارة, neither held before — refused by `may_add` alone, allowed here
+    """نقاط الولاء + تسجيل زيارة, neither held before — refused by `may_add` alone, allowed here
     because both travel in the same cart, in ONE atomic invoice."""
     plans = _wire(client, connected=True)
     plans.add("plan_visit", limits=VISIT, amount=0)  # free

@@ -34,6 +34,13 @@ abstract class AiModel {
   /// a driver with nothing to download (the null adapter) never emits on this stream at all.
   Stream<int> get downloadProgress;
 
+  /// The exception [ensureReady] caught the last time [status] moved to [AiModelStatus.error], as
+  /// text — or null if it has never failed. [ensureReady] never rethrows (see its own doc comment
+  /// below), so this is the ONLY way a caller can learn WHY it failed instead of just THAT it
+  /// failed; a screen may show it so a support report carries the real reason on the first ask
+  /// instead of a guess.
+  String? get lastError;
+
   /// Get the model into [AiModelStatus.ready] — downloads and loads it on the first call, a
   /// no-op once it already is ready. NEVER THROWS: a failure moves [status] to
   /// [AiModelStatus.error] instead, because a failed model load must silently degrade the

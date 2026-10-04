@@ -33,7 +33,7 @@ from typing import Any
 # The same rules reminders applies (spec Appendix A): a free variable inside an approved template
 # is an injection channel that goes out under the ESTABLISHMENT'S name and counts against OUR
 # quality rating at Meta.
-_URL = re.compile(r"(https?://|www\.|\b[a-z0-9-]+\.(com|net|org|sa|io|co)\b)", re.I)
+_URL = re.compile(r"(https?://|www\.|\b[a-z0-9-]+\.[a-z]{2,24}\b)", re.I)
 _PHONE = re.compile(r"(?:\+?\d[\s-]?){7,}")
 _CONTROL = re.compile(r"[\x00-\x1f\x7f​-‏‪-‮]")
 
@@ -287,6 +287,11 @@ def describe_when(*, trigger: str, inside_window: bool, next_open_hour: int = 7,
     one still only fires within them once its `fire_at` arrives.
     """
     suffix = f" تُرسَل فقط {own_window}." if own_window else ""
+    if trigger == "milestone":
+        # NEVER "تُرسَل الآن" — a "جماعي" campaign sends nothing at creation; it accumulates a
+        # shared count and reveals the whole cohort together the instant it crosses its own
+        # threshold, which could be minutes or weeks away. See core/milestone.py's own docstring.
+        return "تجمع حتى تصل هدفها، ثم ترسل للجميع دفعة واحدة." + suffix
     if trigger == "standing":
         return "تعمل تلقائياً كل يوم، وتصل من تنطبق عليه." + suffix
     if not inside_window:

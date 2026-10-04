@@ -42,7 +42,10 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.auditable import DeclarationError
+from app.observability.logging import get_logger
 from app.ports.audit_sink import FAILED, AuditEvent, AuditReceipt
+
+_logger = get_logger("app.audit")
 
 
 class AuditUnavailable(RuntimeError):
@@ -114,8 +117,9 @@ class Auditor:
             self._telemetry.event("audit.gap", {
                 "service": self._service, "action": action, "status": receipt.status,
                 "critical": action in self._critical, "detail": receipt.detail})
-        except Exception:
-            pass          # observability must never break the action, or the audit, or both
+        except Exception as exc:
+            _logger.error("audit_gap_telemetry_failed",
+                          extra={"action": action, "status": receipt.status}, exc_info=exc)
 
 
 def build_auditor(settings, container) -> Auditor:

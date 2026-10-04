@@ -337,6 +337,39 @@ def test_a_stopped_employee_sees_nothing_rather_than_everything(client):
                     {"branch_id": ""}], scope) == []
 
 
+def test_a_stopped_employees_own_blanked_row_still_answers_revoked_not_unassigned(client):
+    """A real gap this exact test's own sibling above did not cover, found live by an end-to-end
+    simulator run (services/operations/app/api/v1/staff.py::update_operator, not a hypothetical):
+    stopping somebody does not leave `person_id` in place with `active=False` the way the test
+    above constructs it by hand — it BLANKS `person_id` (so nothing later mistakes the row for a
+    live login) and moves that identity into `revoked_person_id` instead. A stopped employee's
+    own still-valid, unexpired JWT (nothing about identity revoking the membership invalidates a
+    token already issued) then hit `branch_scope`'s lookup, matched NOTHING (empty `person_id` !=
+    a real subject), and fell through to "no row for this subject at all" — the exact answer an
+    UNASSIGNED OWNER gets — promoting the person just stopped to see every branch.
+    """
+    import asyncio
+
+    from app.api.scope import REVOKED, branch_scope, visible
+    from app.core.models import Operator
+    from app.core.stores import OperatorStore
+    from types import SimpleNamespace
+
+    store = client.app.state.container.datastore
+    # the EXACT shape update_operator leaves behind: person_id blanked, the identity moved to
+    # revoked_person_id, active=False.
+    asyncio.run(OperatorStore(store).save(Operator(
+        id="opr_left", tenant="tnt_left", name="من غادر", role="manager",
+        branch_id="brn-jeddah", person_id="", revoked_person_id="u_left", active=False)))
+    scope = asyncio.run(branch_scope(store, SimpleNamespace(subject="u_left",
+                                                            tenant="tnt_left")))
+    assert scope is REVOKED, (
+        "a stopped employee's own still-valid token must answer REVOKED, never fall through to "
+        "the unassigned/unnarrowed answer an owner with no operator row gets")
+    assert visible([{"branch_id": "brn-jeddah"}, {"branch_id": "brn-riyadh"},
+                    {"branch_id": ""}], scope) == []
+
+
 # ── the mode: central by default, one way out, and never back from a screen ────────────────────
 def test_a_shop_is_central_until_it_says_otherwise(client):
     """ABSENCE IS THE DEFAULT. A row written at signup would record a decision nobody made."""
@@ -1034,14 +1067,14 @@ def test_operators_full_refuses_without_the_internal_token(client):
     assert r.status_code == 401
 
 
-def test_operators_full_returns_the_full_record_never_the_pin_hash(client):
+def test_operators_full_returns_the_full_record(client):
     from app.core.models import OPERATORS, Operator
     import asyncio
 
     store = client.app.state.container.datastore
 
     async def seed():
-        op = Operator(id="op_full_1", tenant="tnt_op_full", name="أحمد", pin_hash="secrethash",
+        op = Operator(id="op_full_1", tenant="tnt_op_full", name="أحمد",
                      role="manager", branch_id="brn-main", active=True, created=100,
                      visible_all=True)
         await store.put(OPERATORS, f"tnt_op_full|op_full_1", op.__dict__.copy())
@@ -1055,8 +1088,6 @@ def test_operators_full_returns_the_full_record_never_the_pin_hash(client):
     assert row["branch_id"] == "brn-main"
     assert row["visible_all"] is True
     assert row["created"] == 100
-    assert "pin_hash" not in row
-    assert row["has_pin"] is True
 
 
 # ── ci/check_branch_scope.py: GET /whatsapp/connect must ask who is asking ─────────────────────

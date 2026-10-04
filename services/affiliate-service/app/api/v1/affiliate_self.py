@@ -33,7 +33,7 @@ from app.config import get_settings
 from app.core.employment import EmploymentError
 from app.core.lead_sourcing import LeadError, LeadSourcingService
 from app.core.leads import LeadSourcingKeys
-from app.core.models import AFFILIATE_SELF, AFFILIATES, REQUESTED, Affiliate
+from app.core.models import ACTIVE, AFFILIATE_SELF, AFFILIATES, REQUESTED, Affiliate
 from app.core.onboarding import OnboardingRefused
 from app.core.payouts import PayoutError
 from app.core.secret_store import SecretError, SecretStore
@@ -513,6 +513,8 @@ async def _my_manager_affiliate(request: Request, principal: Principal) -> dict[
         raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
     if affiliate["role"] != get_settings().AFFILIATE_MANAGER_ROLE:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "MANAGERS_ONLY")
+    if affiliate["status"] != ACTIVE:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "MANAGER_SUSPENDED")
     return affiliate
 
 

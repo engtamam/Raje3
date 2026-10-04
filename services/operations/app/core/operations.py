@@ -62,10 +62,16 @@ class RecordedVisit:
     # result rather than looked up again in `Seams`, which owns no stores by design.
     plates: list[str] = field(default_factory=list)
     # THE COUNTER'S OWN CELEBRATION MOMENT — `None` on every ordinary visit (the overwhelming
-    # majority), a real `ReferralGrant` only on the rare visit that just made a customer eligible
-    # for a NEW partner reward. See the referral-partnership hook below for why this can never
+    # majority), a real `MutualBenefitGrant` only on the rare visit that just made a customer eligible
+    # for a NEW partner reward. See the mutual-benefit hook below for why this can never
     # affect whether the visit itself succeeds.
-    new_referral_grant: Any = None
+    new_mutual_benefit_grant: Any = None
+    # A REFERRAL CODE TYPED IN ON THIS VISIT — `None` when none was offered. `{"ok": True, ...}`
+    # on a real grant, `{"ok": False, "message": ...}` when the code was rejected (wrong code,
+    # already a customer, etc.) — surfaced to the operator's screen so a bad code is visible
+    # rather than silently swallowed, while NEVER affecting whether the visit itself is saved
+    # (see the referral hook below, same posture as the mutual-benefit one above it).
+    referral_registration: Any = None
 
 
 def _now() -> int:
@@ -82,16 +88,27 @@ class Operations:
     def __init__(self, *, store, pii_salt: str, cache: Any = None,
                  max_backdate: int = _DEFAULT_MAX_BACKDATE_SECONDS,
                  phone_search_ro: Any = None) -> None:
-        # Cross-tenant referral-partnership eligibility detection — see
-        # core/referral_partnership.py's own module docstring for why THIS ONE call site is the
+        # Cross-tenant mutual-benefit eligibility detection — see
+        # core/mutual_benefit.py's own module docstring for why THIS ONE call site is the
         # single, sufficient hook for every current and future visit-recording channel. `None`
-        # until `with_referral_engine` installs it (see that method) — any test/run that never
+        # until `with_mutual_benefit_engine` installs it (see that method) — any test/run that never
         # wires one simply has nothing to call, same posture `_choose_offer` takes before
         # `with_offer_chooser` runs.
-        self._referral_engine: Any = None
+        self._mutual_benefit_engine: Any = None
+        # THE "جماعي" MILESTONE HOOK — campaigns' own shared counter (core/milestone.py), reported
+        # to over HTTP since campaigns is a separate service, unlike the in-process mutual-benefit
+        # engine above. `None` until `with_milestone_peer` installs it; a caller that never wires
+        # one simply has nothing to call, same posture every optional peer here already takes.
+        self._milestone_peer: Any = None
         # `core/entitlements.py::EntitlementGateway` — `None` until `with_entitlement_gateway`
-        # installs it, same posture as `_referral_engine`/`_choose_offer` above.
+        # installs it, same posture as `_mutual_benefit_engine`/`_choose_offer` above.
         self._entitlement_gateway: Any = None
+        # `core/referral_redemption.py::ReferralRedemptionEngine` — the SAME engine the till's own
+        # `/referral/register` route already calls, wired here too so a walk-in visit (no till
+        # involved at all) can register a new customer's referral code at the one moment it is
+        # ever going to be typed in. `None` until `with_referral_redemption_engine` installs it,
+        # same posture as every other optional peer on this class.
+        self._referral_redemption: Any = None
         self._customers = CustomerStore(store)
         self._assets = AssetStore(store)
         self._services = ServiceStore(store)
@@ -204,15 +221,15 @@ class Operations:
             from app.core.entitlements import EntitlementGateway
 
             self._entitlement_gateway = EntitlementGateway(
-                referral_engine=self._referral_engine, campaign_chooser=chooser)
+                mutual_benefit_engine=self._mutual_benefit_engine, campaign_chooser=chooser)
         return self
 
-    def with_referral_engine(self, engine) -> "Operations":
-        """Install the referral-partnership hook. Set at wiring, not at import — `container.py`
+    def with_mutual_benefit_engine(self, engine) -> "Operations":
+        """Install the mutual-benefit hook. Set at wiring, not at import — `container.py`
         needs `billing_plans` built before it can construct the engine, and `Operations` itself is
         built earlier than that, same reason `with_offer_chooser` above is a post-construction
         setter rather than a constructor argument that would force a build-order dependency."""
-        self._referral_engine = engine
+        self._mutual_benefit_engine = engine
         if self._entitlement_gateway is not None:
             # Same rebuild `with_offer_chooser` does, symmetrically — see that method's own
             # docstring for why a gateway already installed must see a LATER change to either of
@@ -220,7 +237,14 @@ class Operations:
             from app.core.entitlements import EntitlementGateway
 
             self._entitlement_gateway = EntitlementGateway(
-                referral_engine=engine, campaign_chooser=self._choose_offer)
+                mutual_benefit_engine=engine, campaign_chooser=self._choose_offer)
+        return self
+
+    def with_milestone_peer(self, peer) -> "Operations":
+        """Install the "جماعي" milestone hook — a separate service (campaigns), reached over
+        HTTP, unlike the in-process `_mutual_benefit_engine` above. Set at wiring for the same
+        reason every other post-construction setter here is."""
+        self._milestone_peer = peer
         return self
 
     def with_entitlement_gateway(self, gateway) -> "Operations":
@@ -230,6 +254,53 @@ class Operations:
         setter on this class takes (`apply_offer` below refuses rather than guesses when it is)."""
         self._entitlement_gateway = gateway
         return self
+
+    def with_referral_redemption_engine(self, engine) -> "Operations":
+        """Install `core/referral_redemption.py::ReferralRedemptionEngine` — the same engine
+        `api/v1/till.py::register_referral_code_at_the_counter` already calls. Set at wiring, same
+        posture as every other optional peer here (`None` until installed)."""
+        self._referral_redemption = engine
+        return self
+
+    async def _register_referral_if_new(self, tenant: str, *, created_customer: bool, phone: str,
+                                        referral_code: str, invoice_minor: int,
+                                        actor: str) -> dict | None:
+        """The one place a referral code is ever attempted — shared by every real "a code was
+        offered alongside a real transaction" moment this class has (`record_visit`,
+        `ensure_customer`), the same engine the till's own `/referral/register` route calls
+        directly.
+
+        ALWAYS TRIED WHEN A CODE IS OFFERED, REGARDLESS OF NEW/RETURNING (owner instruction,
+        2026-09-27) — who is actually eligible is now the campaign's/affiliate's OWN configured
+        choice (`referral_redemption.py::_check_beneficiary_eligibility`: "new" / "max_visits" /
+        "open"), never a shortcut decided here. `created_customer` is STILL forwarded, though —
+        every caller here (`record_visit`, `ensure_customer`) saves the beneficiary's own Customer
+        row BEFORE this hook ever runs, so the engine's own "does a row exist" lookup can no
+        longer tell "just created by this exact call" from "already existed" once it runs. Only
+        the caller knows which one is true (from `_resolve_customer`'s own pre-save answer) — see
+        `register()`'s own `beneficiary_created_this_call` docstring for why passing it through is
+        the only correct way to keep "new" mode meaning "new", not "always refused".
+
+        NEVER RAISED, NEVER ALLOWED TO UNDO WHAT ALREADY HAPPENED — a rejected code (wrong,
+        self-referral, ineligible under this campaign's/affiliate's own setting) is returned so the
+        caller's own screen can show it, but the customer/visit/booking this was attached to has
+        already been saved by the time this runs and must never be undone over it. Same posture the
+        mutual-benefit hook right above this one already holds."""
+        if not (referral_code.strip() and self._referral_redemption is not None):
+            return None
+        from app.core.referral_redemption import ReferralRedemptionError
+
+        try:
+            grant = await self._referral_redemption.register(
+                tenant, code=referral_code, beneficiary_phone=phone,
+                invoice_minor=invoice_minor, actor=actor,
+                beneficiary_created_this_call=created_customer)
+            return {"ok": True, "new_customer_reward_type": grant.new_customer_reward_type,
+                   "new_customer_reward_params": grant.new_customer_reward_params}
+        except ReferralRedemptionError as exc:
+            return {"ok": False, "message": str(exc)}
+        except Exception:                                                     # noqa: BLE001
+            return {"ok": False, "message": "تعذّر تسجيل كود الإحالة الآن"}
 
     async def apply_offer(self, *, tenant: str, visit_id: str,
                           subject_ref: str) -> dict[str, Any] | None:
@@ -241,7 +312,7 @@ class Operations:
         المالك».
 
         THE JUDGEMENT IS NOT OURS. Which entitlement applies — a reminders campaign offer, or a
-        referral-partnership grant (see `core/entitlements.py::EntitlementGateway`, the one
+        mutual-benefit grant (see `core/entitlements.py::EntitlementGateway`, the one
         aggregation point this method now consults instead of a single fixed peer) — depends
         on what each source itself knows. We ask, and we record what comes back — including the
         TEXT, copied rather than referenced, because an owner reading this visit next year needs
@@ -291,12 +362,12 @@ class Operations:
                 # `with_entitlement_gateway` yet) keeps working unchanged: a gateway built with a
                 # campaign chooser and no referral source behaves exactly as the old direct call
                 # did, referral simply never outranking anything because there is nothing to.
-                gateway = EntitlementGateway(referral_engine=self._referral_engine,
+                gateway = EntitlementGateway(mutual_benefit_engine=self._mutual_benefit_engine,
                                              campaign_chooser=self._choose_offer)
 
             # THE PHONE, FOR THE REFERRAL SOURCE ONLY — reminders' own campaign chooser has never
             # needed it (identity + scope, by `subject_ref`), and it stays that way; only
-            # `EntitlementGateway` reads it, only to ask `ReferralPartnershipEngine.eligibility`.
+            # `EntitlementGateway` reads it, only to ask `MutualBenefitEngine.eligibility`.
             customer = await self._customers.get(tenant, v.customer_id)
             phone = customer.phone if customer is not None else ""
 
@@ -315,7 +386,7 @@ class Operations:
                 return None
 
             # THE ENTITLEMENT'S OWN SIDE EFFECT FIRST, BEFORE THE VISIT IS STAMPED — e.g.
-            # `ReferralPartnershipEngine.redeem()` for a referral-sourced grant. A failure here
+            # `MutualBenefitEngine.redeem()` for a referral-sourced grant. A failure here
             # refuses the whole apply and a retry starts from a clean slate (`choose()` runs
             # again); the REVERSE order (stamp first, finalize after) would let a retry after a
             # finalize failure return the already-stamped offer WITHOUT ever retrying the
@@ -363,7 +434,14 @@ class Operations:
                            # package's real components either way; this is threaded through
                            # unchanged to the seams event so loyalty can look up the package's own
                            # point value instead of summing the components'.
-                           package_id: str = "") -> RecordedVisit:
+                           package_id: str = "",
+                           # A NEW CUSTOMER'S REFERRAL CODE, typed in once, right here — the ONLY
+                           # moment a walk-in (no till, no separate registration step) ever has to
+                           # offer it. Ignored entirely unless this call actually creates a new
+                           # customer (see the referral hook below): an existing customer typing
+                           # one in is refused by the engine itself, same rule the till's own
+                           # `/referral/register` route already enforces.
+                           referral_code: str = "") -> RecordedVisit:
         if not tenant:
             raise OperationError("لا توجد منشأة على الطلب — سجّل الدخول من جديد")
         phone = _normalise_phone(phone)
@@ -541,24 +619,47 @@ class Operations:
                     customer.last_branch_id = visit.branch_id
                 await self._customers.save(customer)
 
-        # THE REFERRAL-PARTNERSHIP HOOK — never allowed to affect this visit either way. Any
+        # THE MUTUAL-BENEFIT HOOK — never allowed to affect this visit either way. Any
         # failure here (a bad row, a peer outage) is swallowed at this call site, not inside the
         # engine's own contract, so a bug in a completely different paid app can never cost a shop
         # the one fact this product cannot survive losing: the visit itself. See
-        # core/referral_partnership.py's own module docstring for why this is the single hook every
+        # core/mutual_benefit.py's own module docstring for why this is the single hook every
         # channel needs.
-        new_referral_grant = None
-        if self._referral_engine is not None:
+        new_mutual_benefit_grant = None
+        if self._mutual_benefit_engine is not None:
             try:
-                new_referral_grant = await self._referral_engine.on_visit_recorded(
+                new_mutual_benefit_grant = await self._mutual_benefit_engine.on_visit_recorded(
                     tenant=tenant, customer_phone=customer.phone, service_ids=list(service_ids),
                     total_minor=int(total_minor or 0), visit_id=visit.id)
             except Exception:                                                  # noqa: BLE001
                 pass
 
+        # THE REFERRAL HOOK — see `_register_referral_if_new`'s own docstring.
+        referral_registration = await self._register_referral_if_new(
+            tenant, created_customer=created_customer, phone=customer.phone,
+            referral_code=referral_code, invoice_minor=int(total_minor or 0),
+            actor=operator_id or "field")
+
+        # THE "جماعي" MILESTONE HOOK — the SAME single choke point every channel (field screen,
+        # integrated till, bookings) already reaches for the mutual-benefit hook above, extended
+        # to a second, separate service. Swallowed here too, and ALSO inside the peer itself
+        # (`HttpMilestonePeer.on_visit_recorded` never raises) — belt and braces, the same double
+        # guard the mutual-benefit block already has, because this is a completely different paid
+        # feature and a bug in it must never cost a shop the one fact this product cannot survive
+        # losing: the visit itself.
+        if self._milestone_peer is not None:
+            try:
+                await self._milestone_peer.on_visit_recorded(
+                    tenant=tenant, subject_ref=customer.subject_ref,
+                    service_ids=list(service_ids), package_id=package_id,
+                    occurred_at=visit.occurred_at)
+            except Exception:                                                  # noqa: BLE001
+                pass
+
         return RecordedVisit(visit=visit, customer=customer,
                              created_customer=created_customer, duplicate=False,
-                             new_referral_grant=new_referral_grant,
+                             new_mutual_benefit_grant=new_mutual_benefit_grant,
+                             referral_registration=referral_registration,
                              unknown_services=unknown,
                              # ALL OF THEM, not just this visit's. One number can hold two cars —
                              # «ممكن عندي سيارتين برقمي» — and an index written with only the plate
@@ -752,7 +853,8 @@ class Operations:
         return customer, created
 
     async def ensure_customer(self, tenant: str, phone: str, name: str = "",
-                              source: str = "manual") -> Customer:
+                              source: str = "manual", referral_code: str = "",
+                              actor: str = "") -> tuple[Customer, dict | None]:
         """Resolve or create a customer by phone, with NO visit attached — the booking console's
         one call into this service before it has a `customer_id` to hand `bookings` (§6.2), and
         whatsapp-assistant's own auto-register call (`/internal/operations/customer-id-by-phone`).
@@ -760,13 +862,25 @@ class Operations:
         SAVED IMMEDIATELY, unlike `record_visit`'s deferred save: there is no visit-count update to
         batch it with, and a customer resolved-or-created here must exist the moment this returns —
         the caller's very next act is to pass the id to a different SERVICE.
+
+        THIS IS ALSO THE REAL "NEW CUSTOMER" MOMENT FOR A BOOKING — unlike a walk-in visit, a
+        booking's own attendance (`bookings`' `attend()` -> `/internal/operations/visits/from-
+        customer`) happens against a customer who was already resolved-or-created HERE, days or
+        weeks earlier, at booking time. So a referral code offered when the booking was first made
+        is registered right here, not at attendance — by then `record_visit`'s own hook would see
+        `created_customer=False` and never even try. Returns `(customer, referral_registration)`,
+        the second `None` unless a code was actually offered — see
+        `_register_referral_if_new`'s own docstring for the shape and the "never undo" posture.
         """
         phone = _normalise_phone(phone)
         if not phone:
             raise OperationError("رقم الجوال مطلوب، ولم نتعرّف على ما أُدخل — تأكّد أنه أرقام فقط")
-        customer, _ = await self._resolve_customer(tenant, phone, name, source)
+        customer, created = await self._resolve_customer(tenant, phone, name, source)
         await self._customers.save(customer)
-        return customer
+        referral_registration = await self._register_referral_if_new(
+            tenant, created_customer=created, phone=customer.phone,
+            referral_code=referral_code, invoice_minor=0, actor=actor or source)
+        return customer, referral_registration
 
     async def rename_customer(self, tenant: str, customer_id: str, name: str) -> Customer | None:
         """Give a customer his name — the one edit an owner needs and could not make.

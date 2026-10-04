@@ -4,12 +4,13 @@ import 'package:raje3_mobile/core/providers/auth_provider.dart';
 import 'package:raje3_mobile/core/router/route_names.dart';
 import 'package:raje3_mobile/core/services/auth_service.dart';
 import 'package:raje3_mobile/core/utils/formatters.dart';
-import 'package:raje3_mobile/core/utils/url_helper.dart';
+import 'package:raje3_mobile/features/apps/payment_webview_screen.dart';
 import 'package:raje3_mobile/features/home/app_tone.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_back_button.dart';
 import 'package:raje3_mobile/widgets/brand_loading_indicator.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
 import 'package:go_router/go_router.dart';
@@ -46,6 +47,13 @@ class _BillingScreenState extends State<BillingScreen> {
   String _busyInvoiceId = '';
   String _actionError = '';
   bool _renewingAll = false;
+  // Set once the owner has GONE THROUGH a real pay screen this session — TuwaiqPay's webhook
+  // arrives by email (the weakest delivery channel we have) and our own reconciliation sweep only
+  // catches a stuck invoice every 5 minutes, up to ~15-20 minutes worst case. Without this, an
+  // owner who just paid and reopens the app sees the SAME alarming past-due banner he paid to
+  // clear, with no explanation — this softens that one specific window, never the badge's own
+  // logic (which still reads the server's real status, unmodified).
+  bool _justAttemptedPayment = false;
 
   @override
   void initState() {
@@ -72,10 +80,8 @@ class _BillingScreenState extends State<BillingScreen> {
         content: Text(s.billingCancelConfirmBody),
         actions: [
           TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.cancel)),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(s.billingCancelConfirmAction, style: const TextStyle(color: AppColors.danger)),
-          ),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(s.billingCancelConfirmAction, style: const TextStyle(color: AppColors.danger))),
         ],
       ),
     );
@@ -127,10 +133,15 @@ class _BillingScreenState extends State<BillingScreen> {
       setState(() => _actionError = S.of(context)!.billingActionFailed);
       return;
     }
+    // ONE AT A TIME, IN-APP (owner's own instruction, 2026-09-23: never feel like leaving to
+    // something external) — `openPaymentInApp` awaits each WebView's own close (auto or manual)
+    // before the next one opens, since only one can show on screen at once.
     for (final url in urls) {
-      openUrl(url, context);
+      if (!context.mounted) return;
+      await openPaymentInApp(context, url);
     }
-    _load();
+    _justAttemptedPayment = true;
+    if (context.mounted) _load();
   }
 
   Future<void> _payInvoice(BuildContext context, BillingInvoice invoice) async {
@@ -143,7 +154,9 @@ class _BillingScreenState extends State<BillingScreen> {
     if (!context.mounted) return;
     setState(() => _busyInvoiceId = '');
     if (url != null) {
-      openUrl(url, context);
+      await openPaymentInApp(context, url);
+      _justAttemptedPayment = true;
+      if (context.mounted) _load();
     } else {
       setState(() => _actionError = s.billingPayLinkFailed);
     }
@@ -176,7 +189,7 @@ class _BillingScreenState extends State<BillingScreen> {
                         padding: const EdgeInsets.fromLTRB(
                             AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xxl),
                         children: [
-                          _StatusHero(overview: overview),
+                          _StatusHero(overview: overview, justAttemptedPayment: _justAttemptedPayment),
                           if (_actionError.isNotEmpty) ...[
                             const SizedBox(height: AppSpacing.sm),
                             Text(_actionError, style: AppTextStyles.bodySmall.copyWith(color: AppColors.danger)),
@@ -235,16 +248,19 @@ class _BillingScreenState extends State<BillingScreen> {
                             // ONE BUTTON FOR THE WHOLE GROUP, never per app (the owner's own
                             // call, 2026-09-22) — renewing early means the whole together-billed
                             // cycle, exactly what the automatic sweep would do on the real date.
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton(
-                                style: ToneColors.of(context, AppTone.accent).outlinedStyle(),
-                                onPressed: _renewingAll ? null : () => _renewAllNow(context),
-                                child: _renewingAll
-                                    ? const SizedBox(
-                                        width: 16, height: 16,
-                                        child: CircularProgressIndicator(strokeWidth: 2))
-                                    : Text(s.billingRenewNow),
+                            CapabilityGate(
+                              requires: const ['subscription.renew_now'],
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton(
+                                  style: ToneColors.of(context, AppTone.accent).outlinedStyle(),
+                                  onPressed: _renewingAll ? null : () => _renewAllNow(context),
+                                  child: _renewingAll
+                                      ? const SizedBox(
+                                          width: 16, height: 16,
+                                          child: CircularProgressIndicator(strokeWidth: 2))
+                                      : Text(s.billingRenewNow),
+                                ),
                               ),
                             ),
                           ],
@@ -317,16 +333,27 @@ class _SectionLabel extends StatelessWidget {
 /// no card-on-file).
 class _StatusHero extends StatelessWidget {
   final BillingOverview overview;
-  const _StatusHero({required this.overview});
+  final bool justAttemptedPayment;
+  const _StatusHero({required this.overview, this.justAttemptedPayment = false});
 
   @override
   Widget build(BuildContext context) {
     final s = S.of(context)!;
     final dark = context.isDark;
     final pastDue = overview.subscriptions.any((sub) => sub.status == 'past_due');
-    final tone = pastDue ? AppTone.danger : AppTone.success;
+    // SOFTENED, NEVER HIDDEN — the badge still reads the server's real status honestly (this is
+    // NOT "treat past_due as paid"); only the TONE and sentence change right after the owner has
+    // gone through a real pay screen this session, because TuwaiqPay's own webhook can lag up to
+    // ~15-20 minutes (see this class's own field comment on `justAttemptedPayment`).
+    final pendingConfirmation = pastDue && justAttemptedPayment;
+    final tone = pastDue ? (pendingConfirmation ? AppTone.warning : AppTone.danger) : AppTone.success;
     final colors = ToneColors.of(context, tone);
     final surface = dark ? AppDarkColors.surface1 : AppColors.surface1;
+    final message = pendingConfirmation
+        ? s.billingPaymentConfirming
+        : pastDue
+            ? s.billingPastDue
+            : s.billingAllGood;
 
     return KbAnchor(
       id: 'account.billing.status_hero',
@@ -357,12 +384,18 @@ class _StatusHero extends StatelessWidget {
                 colors: [colors.solid, colors.solid.withValues(alpha: 0.75)],
               ),
             ),
-            child: Icon(pastDue ? Icons.error_rounded : Icons.verified_rounded, color: Colors.white, size: 24),
+            child: Icon(
+                pendingConfirmation
+                    ? Icons.hourglass_top_rounded
+                    : pastDue
+                        ? Icons.error_rounded
+                        : Icons.verified_rounded,
+                color: Colors.white, size: 24),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(
-              pastDue ? s.billingPastDue : s.billingAllGood,
+              message,
               style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w700, color: colors.onSoft),
             ),
           ),
@@ -511,16 +544,19 @@ class _SubscriptionCard extends StatelessWidget {
                       ? const Padding(
                           padding: EdgeInsets.all(6),
                           child: CircularProgressIndicator(strokeWidth: 2))
-                      : IconButton(
-                          padding: EdgeInsets.zero,
-                          iconSize: 18,
-                          tooltip: stopping ? s.billingUndoStopRenewal : s.billingStopRenewal,
-                          style: IconButton.styleFrom(
-                            backgroundColor: actionColors.soft,
-                            foregroundColor: actionColors.solid,
+                      : CapabilityGate(
+                          requires: const ['billing.cancel', 'billing.undo_cancel'],
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            iconSize: 18,
+                            tooltip: stopping ? s.billingUndoStopRenewal : s.billingStopRenewal,
+                            style: IconButton.styleFrom(
+                              backgroundColor: actionColors.soft,
+                              foregroundColor: actionColors.solid,
+                            ),
+                            onPressed: stopping ? onUndoCancel : onCancel,
+                            icon: Icon(stopping ? Icons.refresh_rounded : Icons.pause_rounded),
                           ),
-                          onPressed: stopping ? onUndoCancel : onCancel,
-                          icon: Icon(stopping ? Icons.refresh_rounded : Icons.pause_rounded),
                         ),
                 ),
               ],
@@ -701,12 +737,15 @@ class _InvoiceRow extends StatelessWidget {
                   .copyWith(fontWeight: FontWeight.w700, fontFeatures: const [FontFeature.tabularFigures()])),
           if (invoice.isPayable) ...[
             const SizedBox(width: AppSpacing.sm),
-            TextButton(
-              style: colors.textStyle(),
-              onPressed: busy ? null : onPay,
-              child: busy
-                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(s.billingPayNow),
+            CapabilityGate(
+              requires: const ['billing.invoice_pay_link'],
+              child: TextButton(
+                style: colors.textStyle(),
+                onPressed: busy ? null : onPay,
+                child: busy
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Text(s.billingPayNow),
+              ),
             ),
           ],
         ],

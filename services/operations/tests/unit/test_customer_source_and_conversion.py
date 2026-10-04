@@ -27,7 +27,7 @@ def test_ensure_customer_stamps_the_caller_given_source():
     from app.core.operations import Operations
 
     ops = Operations(store=MemoryDataStore(), pii_salt="s" * 32)
-    cust = run(ops.ensure_customer(TENANT, "0501234567", source="whatsapp"))
+    cust, _ = run(ops.ensure_customer(TENANT, "0501234567", source="whatsapp"))
     assert cust.source == "whatsapp"
 
 
@@ -35,10 +35,10 @@ def test_an_existing_customers_source_never_moves():
     from app.core.operations import Operations
 
     ops = Operations(store=MemoryDataStore(), pii_salt="s" * 32)
-    first = run(ops.ensure_customer(TENANT, "0501234567", source="whatsapp"))
+    first, _ = run(ops.ensure_customer(TENANT, "0501234567", source="whatsapp"))
     # A SECOND call, from a DIFFERENT channel (the console dialog, "manual" default) — must find
     # the SAME row and leave its original source exactly as it was.
-    second = run(ops.ensure_customer(TENANT, "0501234567"))
+    second, _ = run(ops.ensure_customer(TENANT, "0501234567"))
     assert second.id == first.id
     assert second.source == "whatsapp"
 

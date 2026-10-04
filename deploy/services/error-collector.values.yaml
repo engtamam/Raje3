@@ -31,7 +31,7 @@ image:
   # create_service.py's own convention: "CI rewrites this at publish; never a :latest tag").
   # ship.sh / publish-images.sh must run and overwrite this before any rollout is attempted;
   # a rollout against this digest fails at image pull, which is the correct, loud failure.
-  digest: "sha256:01fa818a0268a664b93aa851b8944ec55305313abbed67e55b36212c580d5617"   # efc26ae9, published by publish-images.sh
+  digest: "sha256:b29ad3d2bd3b4a4a445cede371ccbb6ce0f30f1fee2f7527970f0bec9caa3867"   # c66c7925, published by publish-images.sh
 
 replicas: 1
 
@@ -51,7 +51,7 @@ resources:
     # MEASURED-NOT-GUESSED CONVENTION (see loyalty.values.yaml's own note): every live service on
     # this fleet sits at 2-4m at rest. The cold tier's floor, because this one does no work between
     # requests at all — no tick, no peer polling, one nightly sweep.
-    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
+    cpu: 12m  # smart-cpu-sizing.py: cold tier, node budget-derived
     # SMALLER THAN THE FLEET'S 128Mi, and the reason is the shape of the work rather than thrift:
     # every route here is one bounded page in and one bounded page out, with a 16 KB ceiling on the
     # largest field. There is no in-memory aggregate, no cache of anything, and nothing accumulates
@@ -62,6 +62,16 @@ resources:
     # once, every one of them logging — and the bound is what turns that into refused writes on one
     # pod rather than a node under memory pressure taking healthy services down with it.
     memory: 192Mi
+
+# CRONJOB PODS YIELD TO REAL SERVICES UNDER NODE CONTENTION — found live (2026-09-28): with
+# this off (the chart default), a seconds-lived CronJob pod competes for scheduling at the
+# same priority as an always-on Deployment, and can win the race and starve it (deploy/k3s/
+# priorityclasses.yaml explains the whole mechanism; api-gateway.values.yaml was the only
+# service that had already turned this on). This only changes what priority THIS service's
+# OWN CronJob pods get (base-services-batch, never-preempt) — zero risk to the Deployment
+# itself, which stays at default priority unless it separately sets priorityClassName.
+priorityClasses:
+  enabled: true
 
 autoscaling:
   enabled: false        # flip on once you have load; requests.cpu above makes it real
@@ -134,7 +144,7 @@ env:
   # privileged, rare actions that must not proceed unwitnessed.
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.com.sa,https://admin.raje3.com.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  CORS_ALLOWED_ORIGINS: "https://ra-je3.com,https://admin.ra-je3.com"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 

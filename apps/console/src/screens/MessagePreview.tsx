@@ -235,7 +235,7 @@ export function MessagePreview({
    * control that was not there either. The tone lives on the tenant's branding — the same
    * record the logo and the colour live in — and `rendering.choose` has always preferred it.
    *
-   * MERGED, NEVER REPLACED, and the reason is written next door in AccountPanes: `branding` is
+   * MERGED, NEVER REPLACED, and the reason is written next door in account/IdentityPane.tsx: `branding` is
    * a free-form record, and sending our one field alone would drop his logo and his colour.
    * So the current record is read first and the tone laid on top of it.
    */
@@ -423,7 +423,7 @@ export function MessagePreview({
                       </button>
 
                       {isOpen ? (
-                        <div className="flex flex-col gap-3 border-t border-border-subtle bg-surface-2 px-3 py-3">
+                        <div className="flex flex-col gap-3 border-t border-border-subtle bg-surface-1 px-3 py-3">
                           {/* ── THE SHAPE, THEN THE EXAMPLE ────────────────────────────
                               THE GAP THIS CLOSED: «العميل يقرا الرساله ما يعرف وين الفراغات».
                               What was here was the filled example alone — what the shop's
@@ -654,7 +654,7 @@ export function Bubble({ text, caption, active, activeLabel, busy, onChoose, act
         disabled={onChoose ? busy : undefined}
         aria-pressed={onChoose ? false : undefined}
         className={[
-          // WHATSAPP'S OWN SENT-BUBBLE GREEN, FIXED — never the theme's `bg-surface-2` (owner's
+          // WHATSAPP'S OWN SENT-BUBBLE GREEN, FIXED — never the theme's flat neutral surface token (owner's
           // own instruction: "خلي المثال ثابت في رسالة خضراء مثل الواتساب"). A brand colour, not a
           // semantic one — same literal `#DCF8C6`/`#111b21` pair `rj-ui/WhatsAppPreview.tsx`'s own
           // phone-mockup bubble already uses, so a shop sees the identical bubble whether it is

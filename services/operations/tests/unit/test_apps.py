@@ -341,11 +341,12 @@ def test_an_already_canceled_row_is_never_named():
 
 
 # ── requires_whatsapp_connection: apps that ARE a WhatsApp message, not a feature riding one ────
-def test_exactly_the_three_declared_apps_require_a_connection():
+def test_exactly_the_four_declared_apps_require_a_connection():
     from app.core.apps import REQUIRES_WHATSAPP_KEYS
 
     assert REQUIRES_WHATSAPP_KEYS == frozenset(
-        {"feature.whatsapp", "feature.rating", "feature.campaigns"})
+        {"feature.whatsapp", "feature.rating", "feature.campaigns",
+         "feature.whatsapp_delivery_orders"})
 
 
 def test_a_plan_granting_one_of_the_three_requires_connection():

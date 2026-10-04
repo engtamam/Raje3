@@ -270,24 +270,18 @@ def test_a_tenant_only_search_with_no_subject_ref_returns_the_whole_shop(client)
     assert len(rows) == 2
 
 
-def test_a_subject_ref_with_no_tenant_is_ignored_not_a_cross_tenant_leak(client):
-    """See SignalStore.browse's own note: subject_ref is only ever honoured alongside tenant. A
-    caller that sent one without the other gets the UNFILTERED-by-pseudonym answer, never a 500
-    and never (by construction, since the two are salted together) a stray cross-tenant match."""
+def test_a_subject_ref_with_no_tenant_is_refused_not_a_cross_tenant_leak(client):
+    """See SignalStore.browse's own note: subject_ref is only ever honoured alongside tenant.
+    Silently dropping it used to WIDEN the query to every tenant instead of narrowing it — the one
+    direction a filter must never fail in — so this is now a 400, not a silent no-op."""
     from app.config import get_settings
     from app.core.pii import subject_ref as _sref
 
-    marker = "orphan-subject-ref-check-5e2f"
-    client.post("/api/v1/signals/report",
-                json=dict(BROWSER_SHAPED, message=marker),
-                headers=_auth(_token(caps=[], sub="erin@x.com", tenant="tnt_e")))
     salt = get_settings().PII_SALT
     ref = _sref(salt, "tnt_e", "erin@x.com")
 
-    body = client.get("/api/v1/signals", params={"q": marker, "subject_ref": ref},
-                      headers=_reader()).json()
-    rows = [r for r in body["signals"] if marker in r["message"]]
-    assert len(rows) == 1     # found via q= alone — the subject_ref-with-no-tenant was a no-op
+    resp = client.get("/api/v1/signals", params={"subject_ref": ref}, headers=_reader())
+    assert resp.status_code == 400
 
 
 def test_the_filter_lists_come_back_with_the_page(client):

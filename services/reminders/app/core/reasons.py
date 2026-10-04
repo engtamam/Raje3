@@ -56,6 +56,10 @@ OFFER_VALUE = "offer_value"  # «20%» or «50 ريال» — typed, never a sen
 ENDS_AT = "ends_at"          # the last day, phrased by us
 FREE_TEXT = "free_text"      # his own line — at most one per message (§8.4.2)
 APPT_TIME = "appt_time"      # a booking's day and hour, phrased by us — never the raw epoch
+ORDER_NUMBER = "order_number"  # the WhatsApp-ordering app's own order id, phrased short for a
+                               # customer to quote back ("طلبي رقم ...") — never the raw `ord_...`
+                               # internal id (core/orders.py's own id shape), see scheduling.py's
+                               # own `on_order` for how it is shortened
 # THE TWO THAT ARE ADDRESSES, NOT WORDS. Every slot above is text we hold or a number we computed;
 # these two are places a thumb has to reach, so core/links.py composes them from the fleet's public
 # base and refuses when it is unset. They are on ALWAYS because both are true of every message: a
@@ -124,6 +128,7 @@ SLOT_LABEL = {
     ENDS_AT: "ينتهي في",
     FREE_TEXT: "نصّك",
     APPT_TIME: "موعد الحجز",
+    ORDER_NUMBER: "رقم الطلب",
     LINK: "رابط صفحته",
     STOP_LINK: "رابط الإيقاف",
     INVITE: "دعوة تفعيل المزايا",
@@ -202,6 +207,55 @@ REASONS: tuple[Reason, ...] = (
         when="بعد إنشاء الحجز بمهلة قصيرة تحتمل التراجع (نظام الحجوزات، `BOOKING_CONFIRM_DELAY_SECONDS`)",
         cls="service", template_type="svc_booking_confirmation",
         slots=(APPT_TIME,), source="bookings",
+    ),
+    # ── WhatsApp Direct Ordering (core/orders.py, services/operations) — SIX REASONS, ONE PER
+    # STATUS, never a single "order updated" reason: an owner's own switch is per-message
+    # (core/licence equivalent for reminders — see this module's own default_on/owner_can_switch
+    # fields), and a shop that wants "تأكيد الطلب" without "جاري التجهيز" could not express that
+    # with one shared reason. All SIX fire IMMEDIATELY (no retraction window — unlike
+    # `booking_confirmed`, a customer who just paid or whose order is physically ready has nothing
+    # to reconsider in the next few minutes the way a fresh booking does).
+    Reason(
+        id="order_confirmed",
+        label="تأكيد طلب واتساب",
+        when="فور تأكيد دفع الطلب",
+        cls="service", template_type="svc_order_confirmed",
+        slots=(ORDER_NUMBER,), source="operations",
+    ),
+    Reason(
+        id="order_preparing",
+        label="جاري تجهيز الطلب",
+        when="حين يبدأ المحل بتجهيز الطلب",
+        cls="service", template_type="svc_order_preparing",
+        slots=(ORDER_NUMBER,), source="operations",
+    ),
+    Reason(
+        id="order_ready",
+        label="الطلب جاهز",
+        when="حين يصبح الطلب جاهزاً للاستلام أو التوصيل",
+        cls="service", template_type="svc_order_ready",
+        slots=(ORDER_NUMBER,), source="operations",
+    ),
+    Reason(
+        id="order_out_for_delivery",
+        label="الطلب في الطريق",
+        when="حين ينطلق الطلب للتوصيل",
+        cls="service", template_type="svc_order_out_for_delivery",
+        slots=(ORDER_NUMBER,), source="operations",
+    ),
+    Reason(
+        id="order_delivered",
+        label="تم تسليم الطلب",
+        when="فور تأكيد تسليم الطلب",
+        cls="service", template_type="svc_order_delivered",
+        slots=(ORDER_NUMBER,), source="operations",
+    ),
+    Reason(
+        id="order_cancelled",
+        label="إلغاء الطلب",
+        when="إذا ألغى المحل الطلب (مثلاً: نفدت الكمية)",
+        cls="service", template_type="svc_order_cancelled",
+        slots=(ORDER_NUMBER,), source="operations",
     ),
     Reason(
         id="visit_redeemed",
@@ -367,6 +421,7 @@ SAMPLE = {
     ENDS_AT: "21 أغسطس",
     FREE_TEXT: "افتتحنا فرعاً جديداً",
     APPT_TIME: "الأحد 9:00 مساءً",
+    ORDER_NUMBER: "1042",
     # THE TWO ADDRESSES, AND THEY NEEDED SAMPLES AS MUCH AS ANY WORD.
     #
     # `public()` builds the owner's chips from `SAMPLE.get(k, "")`, and neither of these was
@@ -405,7 +460,12 @@ def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
                  # BY SOURCE, NEVER BY POSITION. The address lands on slot 3 in a visit
                  # confirmation and on slot 6 in an offer, so the numbered fallback below
                  # would have drawn «قص شعر» where the owner expects to see a link.
-                 "invite": SAMPLE[INVITE], "stop_link": SAMPLE[STOP_LINK]}
+                 "invite": SAMPLE[INVITE], "stop_link": SAMPLE[STOP_LINK],
+                 # WAS MISSING HERE TOO — same gap as operations' own FILLS tuple (see its
+                 # comment): `render()` has handled "reward" since the occasion pilot, but this
+                 # dict never learned the name, so a "reward" slot fell through to the generic
+                 # by-number guess below instead of a real reward name.
+                 "reward": SAMPLE[REWARD]}
     # THE NAME AGREES WITH THE ROW'S OWN TONE, NOT A GLOBAL CONSTANT. «feminine» rows conjugate
     # every verb to address a woman («نوّرتِنا», «أخذتِ») — a preview built from SAMPLE[CUSTOMER]
     # regardless of tone put a masculine name in front of feminine verbs on the one screen an
@@ -416,9 +476,26 @@ def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
     # table, resolved for an address slot by the fill it carries rather than its position).
     by_number = {1: customer_sample, 2: establishment, 3: SAMPLE[SERVICE],
                  4: SAMPLE[POINTS], 5: SAMPLE[BALANCE]}
+    # THE TEMPLATE'S OWN AUTHORED EXAMPLE, FIRST — `examples[i]` is written FOR this exact slot in
+    # THIS exact template (templates.seed.json's own per-row list, same order as `variables`), not
+    # a generic stand-in guessed from the fill's source kind alone. FOUND LIVE (owner's own report,
+    # 2026-09-30): every "owner"-sourced slot — regardless of which template it belonged to — was
+    # rendered with the SAME hardcoded `SAMPLE[FREE_TEXT]` ("افتتحنا فرعاً جديداً"), because this
+    # function never read `examples` at all. A points-expiry notice previewed with an unrelated
+    # "we opened a new branch" sentence in the one slot meant to say how many points and when —
+    # every template sharing that fill kind showed the same wrong sentence as every other one.
+    examples = list(template.get("examples") or [])
     out: dict[str, str] = {}
     for i, number in enumerate(variables):
         source = fills[i] if i < len(fills) else "system"
+        # NEVER FOR "system" (the customer's/establishment's own name, already correct above — a
+        # static seed-file example would regress the tone-correct name and the real establishment
+        # name) OR "invite"/"stop_link" (COMPOSED links, never hand-typed — the seed file's own
+        # example is a hand-typed literal, exactly what check_a_link_a_customer_taps_is_absolute
+        # bans everywhere else; SAMPLE[INVITE]/SAMPLE[STOP_LINK] stay the real, composed ones).
+        if source not in ("system", "invite", "stop_link") and i < len(examples) and examples[i]:
+            out[str(number)] = examples[i]
+            continue
         value = by_source.get(source) or ""
         if not value:
             value = by_number.get(number, SAMPLE[FREE_TEXT])

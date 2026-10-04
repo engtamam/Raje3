@@ -22,11 +22,11 @@ const PHONE = { width: 390, height: 844 };   // iPhone 14-class, the common floo
 const SCREENS: [string, string][] = [
   ['/', 'اليوم'],
   ['/visit', 'تسجيل زيارة'],
-  ['/customers', 'عملائي'],
+  ['/customers', 'جهات الاتصال'],
   ['/shop', 'محلّي'],
   ['/services', 'خدماتي ومنتجاتي'],
   ['/messages', 'رسائلي'],
-  ['/points', 'نقاطي'],
+  ['/points', 'نقاط الولاء'],
   ['/team', 'فريقي'],
   ['/account', 'حسابي'],
 ];

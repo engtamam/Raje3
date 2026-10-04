@@ -213,13 +213,13 @@ export function RatingScreen({ session, catalog, branch }: { session: Session; c
             <span className="text-xs font-medium text-text-secondary">{t('rating.customSince')}</span>
             <input type="date" dir="ltr" value={customSince} max={customUntil}
                    onChange={(e) => setCustomSince(e.target.value)}
-                   className="h-9 rounded-lg bg-surface-2 px-2 text-sm" />
+                   className="h-9 rounded-lg border border-border-subtle bg-surface-1 px-2 text-sm" />
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-xs font-medium text-text-secondary">{t('rating.customUntil')}</span>
             <input type="date" dir="ltr" value={customUntil} min={customSince} max={todayInput()}
                    onChange={(e) => setCustomUntil(e.target.value)}
-                   className="h-9 rounded-lg bg-surface-2 px-2 text-sm" />
+                   className="h-9 rounded-lg border border-border-subtle bg-surface-1 px-2 text-sm" />
           </label>
           {!range ? <p className="text-xs text-danger">{t('rating.customRangeInvalid')}</p> : null}
         </div>
@@ -440,7 +440,7 @@ function OverviewTab({ session, catalog, staff, rangeReady, metric, setMetric, e
             {rest.map((s, i) => (
               <div key={s.operator_id} className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm">
                 <span className="w-5 text-center font-bold text-text-muted tabular-nums">{i + 4}</span>
-                <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-surface-2 text-xs font-bold">{(s.operator_name || '?')[0]}</span>
+                <span className="grid size-7 shrink-0 place-items-center rounded-lg border border-border-subtle bg-surface-1 text-xs font-bold">{(s.operator_name || '?')[0]}</span>
                 <span className="flex-1 font-medium">{s.operator_name || t('rating.card.noName')}</span>
                 <span className="text-text-secondary tabular-nums">{tf(t, METRICS[metric].unitKey, { n: metric === 'avg' ? s.average_rating.toFixed(1) : METRICS[metric].value(s) })}</span>
               </div>
@@ -558,7 +558,7 @@ function RatingsListTab({ session, catalog, branch, tab, period }: {
         ].map((o) => (
           <button key={o.value} type="button" onClick={() => setHandled(o.value)}
                  className={'rounded-full px-3 py-1 text-xs font-medium transition-colors ' +
-                   (handled === o.value ? 'bg-info-soft text-info-on-soft' : 'bg-surface-2 text-text-secondary hover:bg-surface-3')}>
+                   (handled === o.value ? 'bg-info-soft text-info-on-soft' : 'border border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-3')}>
             {o.label}
           </button>
         ))}
@@ -572,7 +572,7 @@ function RatingsListTab({ session, catalog, branch, tab, period }: {
         ].map((o) => (
           <button key={o.value} type="button" onClick={() => setStars(o.value)}
                  className={'rounded-full px-3 py-1 text-xs font-medium transition-colors ' +
-                   (stars === o.value ? 'bg-info-soft text-info-on-soft' : 'bg-surface-2 text-text-secondary hover:bg-surface-3')}>
+                   (stars === o.value ? 'bg-info-soft text-info-on-soft' : 'border border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-3')}>
             {o.label}
           </button>
         ))}
@@ -598,7 +598,7 @@ function RatingsListTab({ session, catalog, branch, tab, period }: {
                 className={'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ' +
                   (issue.severity === 'critical'
                     ? 'bg-danger-soft text-danger-on-soft hover:opacity-90'
-                    : 'bg-surface-2 text-text-secondary hover:bg-surface-3')}
+                    : 'border border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-3')}
               >
                 {issue.text}
                 <span className="tabular-nums font-bold">{issue.n}</span>
@@ -626,7 +626,7 @@ function RatingsListTab({ session, catalog, branch, tab, period }: {
               <li key={r.id} className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5">
-                    <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-2 text-xs font-bold text-text-secondary">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-border-subtle bg-surface-1 text-xs font-bold text-text-secondary">
                       {(r.customer_name || '?')[0]}
                     </span>
                     <div>
@@ -677,7 +677,7 @@ function RatingsListTab({ session, catalog, branch, tab, period }: {
                         onChange={(e) => setNoteDraft((m) => ({ ...m, [r.id]: e.target.value }))}
                         placeholder={t('rating.card.notePlaceholder')}
                         maxLength={500}
-                        className="h-9 flex-1 rounded-lg bg-surface-2 px-2 text-sm"
+                        className="h-9 flex-1 rounded-lg border border-border-subtle bg-surface-1 px-2 text-sm"
                       />
                       <Button variant="outline" size="sm" disabled={busyId === r.id} onClick={() => markHandled(r.id)}>
                         {t('rating.card.markHandled')}

@@ -35,6 +35,9 @@ class _RecordingEngine:
     def __init__(self):
         self.calls: list[tuple] = []
 
+    async def handle_order_followup(self, *, tenant, subject_ref, kind, text, from_number="", wamid=""):
+        return None
+
     async def handle_inbound_text(self, *, tenant, subject_ref, from_number, text, branch_id=""):
         self.calls.append(("text", tenant, subject_ref, text, branch_id))
         return _ReplyPlan(kind="none")
@@ -137,6 +140,7 @@ def _settings(policy_on_unknown: str = "fail_open"):
     class S:
         PII_SALT = "salt"
         CONSENT_PURPOSE = "whatsapp_ai_assistant"
+        CONSENT_PURPOSE_ORDERING = "whatsapp_catalog_ordering"
         CONSENT_POLICY_ON_UNKNOWN = policy_on_unknown
     return S()
 

@@ -140,6 +140,10 @@ async def resolve(*, goal: str, tenant: str, now: int, customers, gate_check=Non
     rows = await customers(tenant)
     reached = already_reached or set()
     out = Audience()
+    # PARALLEL TO `out.candidates`, ONE ENTRY PER CANDIDATE — the sort key this file's own
+    # docstring promises (see `_priority_key` below), applied once at the end rather than
+    # re-derived from `why`'s free text, which is written for a human, not a sort.
+    _priority: list[float] = []
     # Carried through from the peer, which is the only party that can know it. Absent — a plain
     # list, as every test fixture supplies — the answer is False and that is the truth.
     out.source_truncated = bool(getattr(rows, "truncated", False))
@@ -179,11 +183,23 @@ async def resolve(*, goal: str, tenant: str, now: int, customers, gate_check=Non
             continue
 
         out.candidates.append(Candidate(subject_ref=subject, why=why))
+        _priority.append(_priority_key(goal, row, now=now))
         if len(out.candidates) >= max_audience:
             # REPORTED, never silent. A truncation nobody is told about reads as "everyone was
             # reached", which is the single most misleading thing a campaign screen can say.
             out.truncated = True
             break
+
+    # THE ORDER IS NOT THE IMPORT ORDER (this file's own docstring, §"THE ORDER IS NOT THE IMPORT
+    # ORDER") — and until this pass it silently was: candidates were appended in whatever order the
+    # customer-feed peer returned them, and `spread.next_batch`'s own "the caller already sorted
+    # it" contract had no caller that ever sorted anything. A multi-day win_back spread could put
+    # the customer most at risk of never coming back on the LAST day instead of the first. Sorted
+    # once here, where both the preview and the real send read the same `out.candidates` — never
+    # sorted twice, which is how a preview and a send could disagree on who is "first".
+    if _priority and any(p != 0 for p in _priority):
+        order = sorted(range(len(out.candidates)), key=lambda i: _priority[i])
+        out.candidates = [out.candidates[i] for i in order]
 
     return out
 
@@ -276,6 +292,28 @@ _MATCHERS: dict[str, Any] = {
     "package_offer": _match_broadcast,
     "occasion": _match_occasion,
 }
+
+
+def _priority_key(goal: str, row: dict[str, Any], *, now: int) -> float:
+    """Who goes first, per goal — this file's own promise (§"THE ORDER IS NOT THE IMPORT ORDER"):
+    the customer most at risk first for a win-back, the newest first for an announcement. A lower
+    key sorts earlier (`sorted` is ascending), so each branch returns a NEGATIVE measure of urgency
+    — the more overdue / the more recently joined, the smaller (more negative) the key.
+
+    Every goal outside the two named in the docstring returns 0 for every row, which sorts as a
+    no-op (Python's sort is stable) — insertion order is preserved exactly as before for them,
+    since the docstring never promised an order for `reward_loyal`/`service_offer`/`occasion`.
+    """
+    if goal == "win_back":
+        last = int(row.get("last_visit") or 0)
+        if not last:
+            return 0.0
+        usual = float(row.get("interval_days") or 1) or 1.0
+        elapsed = (now - last) / DAY
+        return -(elapsed / usual)          # further past their own cycle sorts first
+    if goal == "announce":
+        return -float(row.get("created") or 0)  # more recently joined sorts first
+    return 0.0
 
 
 def _matches(goal: str, row: dict[str, Any], *, now: int, window_days: int,

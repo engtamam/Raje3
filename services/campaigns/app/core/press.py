@@ -55,7 +55,9 @@ class Press:
 def key_for(tenant: str, *, goal: str, owner_text: str, service_id: str, branch_id: str,
             reward_kind: str, reward_amount: int, expires_at: int, fire_at: int,
             package_id: str = "", window_start_hour: int = 0, window_end_hour: int = 24,
-            window_weekdays: list[int] | None = None) -> str:
+            window_weekdays: list[int] | None = None, milestone_threshold: int = 0,
+            milestone_recurring: bool = False, reward_type: str = "discount",
+            reward_points: int = 0) -> str:
     """A stable name for one intention. Every part of it is something the owner typed or chose.
 
     `package_id` DEFAULTS EMPTY, NOT OMITTED — two DIFFERENT `package_offer` presses (different
@@ -71,12 +73,18 @@ def key_for(tenant: str, *, goal: str, owner_text: str, service_id: str, branch_
     `window_*` JOINED FOR THE SAME REASON (2026-09-12) — an owner who launches the same offer
     twice, once for the whole day and once narrowed to evening hours, is not repeating himself; a
     key blind to the window would tell him he already sent the one he had not.
+
+    `milestone_threshold` JOINED FOR THE SAME REASON (2026-09-27, "جماعي" goals) — a "100 عملاء"
+    milestone and a "500 عملاء" one, launched back to back with every other field identical (blank
+    owner_text, no branch, no window), are two different campaigns, not a retry of one.
     """
     raw = "|".join([tenant, goal, owner_text.strip(), service_id.strip(), branch_id.strip(),
                     reward_kind.strip(), str(int(reward_amount or 0)), str(int(expires_at or 0)),
                     str(int(fire_at or 0)), package_id.strip(), str(int(window_start_hour or 0)),
                     str(int(window_end_hour if window_end_hour is not None else 24)),
-                    ",".join(str(w) for w in sorted(window_weekdays or []))])
+                    ",".join(str(w) for w in sorted(window_weekdays or [])),
+                    str(int(milestone_threshold or 0)), "1" if milestone_recurring else "0",
+                    reward_type.strip(), str(int(reward_points or 0))])
     return "prs_" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
 

@@ -139,8 +139,8 @@ async def bookings_for_customer(request: Request, customer_id: str,
     already applies."""
     tenant = _tenant(principal)
     c = request.app.state.container
-    rows = await c.booking_ops.bookings_for_customer(tenant, customer_id)
-    return {"bookings": [_public(b) for b in rows]}
+    rows, truncated = await c.booking_ops.bookings_for_customer(tenant, customer_id)
+    return {"bookings": [_public(b) for b in rows], "truncated": truncated}
 
 
 @router.get("/working-hours", dependencies=[Depends(_READ), Depends(rate_limit)])
@@ -223,6 +223,8 @@ def _parse_quantities(raw: str) -> dict[str, int]:
         raise OperationError("quantities غير صالحة — يجب أن تكون JSON") from exc
     if not isinstance(parsed, dict) or not all(isinstance(k, str) for k in parsed):
         raise OperationError("quantities يجب أن تكون كائن JSON بمفاتيح نصية")
+    if any(isinstance(v, bool) for v in parsed.values()):
+        raise OperationError("quantities يجب أن تكون أرقاماً صحيحة، لا true/false")
     try:
         return check_quantities({k: int(v) for k, v in parsed.items()})
     except (ValueError, TypeError) as exc:
@@ -349,7 +351,14 @@ async def _get_own(request: Request, principal: Principal, booking_id: str) -> B
     booking = await c.bookings.get(tenant, booking_id)
     if booking is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "الحجز غير موجود")
-    await _require_branch(request, principal, booking.branch_id)
+    try:
+        await _require_branch(request, principal, booking.branch_id)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_403_FORBIDDEN:
+            # COLLAPSED, LIKE internal.py'S OWN ORACLE PATTERN — a booking that exists at another
+            # branch must read identically to one that does not exist at all.
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "الحجز غير موجود") from exc
+        raise
     return booking
 
 

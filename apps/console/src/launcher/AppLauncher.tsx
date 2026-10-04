@@ -8,7 +8,7 @@
  * (المتجر)» is the full catalog, locked cards included — the same thing متجر التطبيقات/Plans.tsx
  * already sell, just browsable from the front door instead of a rail row away.
  */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import Fuse from 'fuse.js';
@@ -21,8 +21,8 @@ import { AppTile } from './AppTile';
 import { CartBar } from './CartBar';
 import { myApps, allApps, type LauncherApp } from './launcherCatalog';
 import { useAppBilling, includedAiCreditOf } from './useAppBilling';
-import { CardForm } from '../screens/CardForm';
-import { appDisplayName, CapacityAddonCard, type Plan, type Subscription } from '../billingShared';
+import { appDisplayName, CapacityAddonCard, requiresAny, type Plan, type Subscription } from '../billingShared';
+import { isDenied, isReady } from '../loading';
 import './launcher-i18n';
 
 /** ONE CAPACITY TILE — `Plans.tsx`'s own `CapacityAddonCard` stepper, plus the same in-place
@@ -149,28 +149,72 @@ export function AppLauncher() {
     setTab(dx < 0 ? 'all' : 'mine');
   };
 
+  // WHICH OTHERWISE-HIDDEN APPS THIS SHOP SPECIFICALLY WAS SHOWN (core/app_visibility.py) —
+  // fetched once, tenant already resolved server-side from this shop's own token (no tenant param
+  // exists on this route at all, see the route's own docstring for why that is what makes it
+  // IDOR-safe). Kept in state (never an inline array literal) so `useAppBilling`'s own effect
+  // below does not re-fetch on every render over a "new" but equal array.
+  const [visibleOverrideKeys, setVisibleOverrideKeys] = useState<string[]>([]);
+  useEffect(() => {
+    const a = action(catalog, 'subscription.apps_visibility_overrides');
+    if (!a) return;
+    let live = true;
+    call<{ visible_keys: string[] }>(session, a)
+      .then((res) => { if (live) setVisibleOverrideKeys(res.visible_keys ?? []); })
+      .catch(() => { if (live) setVisibleOverrideKeys([]); });
+    return () => { live = false; };
+  }, [catalog, session]);
+
   // REAL SUBSCRIBE/CANCEL — the same logic `screens/Plans.tsx` already has, not a second copy
   // (see useAppBilling.ts's own header on why reuse matters here specifically: real money, a real
   // 3DS card flow). Computed here, ABOVE `everything` below, because `allApps` now needs
   // `planByKey` to know which rows are unlisted.
-  const billing = useAppBilling(session, catalog);
+  const billing = useAppBilling(session, catalog, visibleOverrideKeys);
 
-  const mine = useMemo(() => myApps(catalog, owned), [catalog, owned]);
+  // THE TENANT-FREE FEATURE LIST FOR EVERY OPERATIONS-OWNED APP (`subscription.
+  // apps_static_features`) — fetched ONCE, regardless of ownership, so a shop still deciding
+  // whether to BUY one of these (تسجيل زيارة/جهات الاتصال/التقييم/ولاء الشركاء/خدمات متنقلة/
+  // تبادل منافع/الإحالة والمسوّقين) sees its real features too, not only after buying it
+  // (`Owned.apps[].features` only ever answers for an app already owned — found live, the same
+  // gap PlanCards.tsx's own `static-features` fallback already fixed for the admin panel alone).
+  const [staticFeatures, setStaticFeatures] = useState<Record<string, AppFeature[]> | null>(null);
+  useEffect(() => {
+    const a = action(catalog, 'subscription.apps_static_features');
+    if (!a) return;
+    let live = true;
+    call<Record<string, AppFeature[]>>(session, a)
+      .then((res) => { if (live) setStaticFeatures(res); })
+      .catch(() => { if (live) setStaticFeatures(null); });
+    return () => { live = false; };
+  }, [catalog, session]);
+
+  const mine = useMemo(() => myApps(catalog, owned, staticFeatures), [catalog, owned, staticFeatures]);
   // AN UNLISTED PLAN'S APP HAS EXACTLY ONE HOME: نفس تطبيقاتي، لمن يملكه فعلاً — never «كل
   // التطبيقات» too (found live, owner's own report: a plan marked `listed: false` — a negotiated,
   // invite-only deal, deploy/seed/plans.json's own convention — still rendered a full tile here
   // for every shop, plan-less and unpriced but visible, because `allApps` never checked listing at
   // all; only `useAppBilling`'s own `planByKey` silently dropped the PLAN, not the TILE).
-  // `billing.planByKey` already excludes `listed === false` rows (useAppBilling.ts), so "does this
-  // billingKey resolve to a real, listed plan" is the same read `AppTile`'s own `plan` lookup below
-  // uses — one source of truth, not a second filter that could disagree with it.
+  // `billing.planByKey` already excludes `listed === false` rows UNLESS this specific tenant holds
+  // a visibility override for that row's key (useAppBilling.ts, `visibleOverrideKeys` above) — so
+  // "does this billingKey resolve to a real, listed-or-shown-to-me plan" is the same read
+  // `AppTile`'s own `plan` lookup below uses — one source of truth, not a second filter that could
+  // disagree with it.
   const everything = useMemo(
     () => (canBrowseStore
-      ? allApps(owned).filter((a) => !a.billingKey || a.ownedByShop === true || billing.planByKey[a.billingKey])
+      ? allApps(owned, staticFeatures).filter((a) => !a.billingKey || a.ownedByShop === true || billing.planByKey[a.billingKey])
       : []),
-    [owned, canBrowseStore, billing.planByKey],
+    [owned, canBrowseStore, billing.planByKey, staticFeatures],
   );
   const active = tab === 'mine' ? mine : everything;
+
+  // A DEPENDENCY IS RESOLVED BY billingKey ONLY, NEVER BY NAME — the same discipline every other
+  // billing read in this file follows. `everything` (not `active`/the search-filtered list) so a
+  // required app still resolves to a real, clickable tile even while a search term hides it from
+  // the grid itself.
+  const byBillingKey = useMemo(
+    () => new Map(everything.filter((a) => a.billingKey).map((a) => [a.billingKey as string, a])),
+    [everything],
+  );
 
   // FUZZY, NOT SUBSTRING — a shop owner typing "الحجزت" (a real one-letter slip on "الحجوزات")
   // used to get zero results from plain `.includes()`; Fuse tolerates that without us hand-rolling
@@ -324,6 +368,18 @@ export function AppLauncher() {
                 // it mirrors. Every price/subscribe/cancel/feature-showcase behaviour stays
                 // unchanged on «متجر التطبيقات» — the ONLY tab that ever sells anything.
                 const showBilling = tab === 'all';
+                // ONLY WHEN GENUINELY UNMET — a shop that already holds one of the required keys
+                // (or whose ownership read has not settled/was denied) sees no badges at all, the
+                // same posture `missingRequirement`'s own sentence already takes.
+                const needsAny = showBilling && plan && app.ownedByShop !== true
+                    && isReady(owned) && !isDenied(owned) && owned.checked
+                    && !requiresAny(plan).some((k) => owned.keys.includes(k))
+                  ? requiresAny(plan)
+                  : [];
+                const requiresAnyTiles = needsAny
+                  .map((k) => byBillingKey.get(k))
+                  .filter((a): a is LauncherApp => Boolean(a))
+                  .map((a) => ({ label: a.label, icon: a.icon, accent: a.accent, onClick: () => navigate(a.path) }));
                 return (
                   <AppTile
                     key={app.id}
@@ -341,6 +397,7 @@ export function AppLauncher() {
                       vip: app.id === 'whatsapp',
                       inlineFeatures: app.inlineFeatures,
                       featuresAction: app.featuresAction,
+                      requiresAny: requiresAnyTiles,
                     }}
                     onOpen={() => navigate(app.path)}
                     fetchFeatures={fetchFeatures}
@@ -426,22 +483,6 @@ export function AppLauncher() {
         />
       ) : null}
 
-      {billing.cardFormPending ? (
-        <CardForm
-          pending={billing.cardFormPending}
-          onCancel={() => billing.setCardFormPending(null)}
-          onToken={(token) => {
-            if (billing.cardFormPending?.kind === 'subscribe') {
-              void billing.finishSubscribe(billing.cardFormPending.planId, token, billing.cardFormPending.quantity ?? 1);
-            } else if (billing.cardFormPending?.kind === 'checkout') {
-              void billing.finishCheckout(billing.cardFormPending.planIds, token);
-            }
-          }}
-        />
-      ) : null}
-      {billing.resolvingReturn ? (
-        <p className="px-4 text-sm text-text-secondary sm:px-6">{t('launcher.billing.verifyingCard')}</p>
-      ) : null}
       {billing.notice ? (
         <p className="px-4 text-sm text-success sm:px-6">{billing.notice}</p>
       ) : null}

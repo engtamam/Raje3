@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +12,7 @@ import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/app_back_button.dart';
 import 'package:raje3_mobile/widgets/brand_loading_indicator.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
 
@@ -183,6 +185,51 @@ class _BrandCardState extends State<_BrandCard> with WidgetsBindingObserver {
     final match = RegExp(r'^#?([0-9a-fA-F]{6})$').firstMatch(hex);
     if (match == null) return null;
     return Color(int.parse('FF${match.group(1)}', radix: 16));
+  }
+
+  /// Opens a real palette — found live (2026-09-28), reported by the owner: this field was a
+  /// plain hex text box with no way to open one at all, unlike console's own
+  /// `<input type="color">` (the browser's native wheel). Seeds the wheel with whatever hex is
+  /// already typed (falling back to the current default) so opening it never resets a color he
+  /// already chose; only writes the hex field back on "تم" — a cancelled dialog changes nothing.
+  Future<void> _openColorPicker() async {
+    final s = S.of(context)!;
+    var picked = _accentColor ?? const Color(0xFFB08A3E);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(s.shopIdentityColorLabel),
+        content: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: picked,
+            onColorChanged: (c) => picked = c,
+            enableAlpha: false,
+            labelTypes: const [],
+          ),
+        ),
+        actions: [
+          KbAnchor(
+            id: 'account.shop.color_picker.cancel',
+            child: TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(MaterialLocalizations.of(dialogContext).cancelButtonLabel),
+            ),
+          ),
+          KbAnchor(
+            id: 'account.shop.color_picker.confirm',
+            child: TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(MaterialLocalizations.of(dialogContext).okButtonLabel),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _accentController.text =
+          '#${picked.toARGB32().toRadixString(16).substring(2).toUpperCase()}';
+    });
   }
 
   Future<void> _pickLogo() async {
@@ -378,17 +425,21 @@ class _BrandCardState extends State<_BrandCard> with WidgetsBindingObserver {
             id: 'account.shop.brand_color_field',
             child: Row(
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: _accentColor ?? Colors.transparent,
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    border: Border.all(color: border, width: _accentColor == null ? 1.5 : 1),
+                InkWell(
+                  onTap: _openColorPicker,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: _accentColor ?? Colors.transparent,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(color: border, width: _accentColor == null ? 1.5 : 1),
+                    ),
+                    child: _accentColor == null
+                        ? const Icon(Icons.close_rounded, color: Colors.redAccent, size: 18)
+                        : null,
                   ),
-                  child: _accentColor == null
-                      ? const Icon(Icons.close_rounded, color: Colors.redAccent, size: 18)
-                      : null,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
@@ -418,17 +469,20 @@ class _BrandCardState extends State<_BrandCard> with WidgetsBindingObserver {
           ],
 
           const SizedBox(height: AppSpacing.md),
-          KbAnchor(
-            id: 'account.shop.brand_save',
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(
-                        width: 18, height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(s.shopIdentitySave),
+          CapabilityGate(
+            requires: const ['tenant.update_branding'],
+            child: KbAnchor(
+              id: 'account.shop.brand_save',
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _saving ? null : _save,
+                  child: _saving
+                      ? const SizedBox(
+                          width: 18, height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Text(s.shopIdentitySave),
+                ),
               ),
             ),
           ),
@@ -498,7 +552,9 @@ class _VehicleTrackingCardState extends State<_VehicleTrackingCard> {
     final surface = dark ? AppDarkColors.surface1 : AppColors.surface1;
     final border = dark ? AppDarkColors.borderSubtle : AppColors.borderSubtle;
 
-    return KbAnchor(
+    return CapabilityGate(
+      requires: const ['operations.set_shop_vehicles'],
+      child: KbAnchor(
       id: 'account.shop.vehicle_toggle',
       child: RjSheen(
       borderRadius: AppRadius.cardRadius,
@@ -561,6 +617,7 @@ class _VehicleTrackingCardState extends State<_VehicleTrackingCard> {
             Text(_error!, style: AppTextStyles.bodySmall.copyWith(color: AppColors.danger)),
           ],
         ],
+      ),
       ),
       ),
       ),

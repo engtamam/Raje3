@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -18,6 +20,7 @@ import 'package:raje3_mobile/core/wakeword/wake_word_model.dart';
 import 'package:raje3_mobile/core/providers/ai_entitlement_provider.dart';
 import 'package:raje3_mobile/core/providers/app_state_provider.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
+import 'package:raje3_mobile/core/providers/branch_provider.dart';
 import 'package:raje3_mobile/core/providers/locale_provider.dart';
 import 'package:raje3_mobile/core/providers/nav_provider.dart';
 import 'package:raje3_mobile/core/providers/tenant_provider.dart';
@@ -32,6 +35,13 @@ import 'package:raje3_mobile/theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // REQUIRED BY flutter_gemma ITSELF — found live (2026-09-28), a real crash on every device
+  // ("Bad state: FlutterGemma not initialized!"): the plugin registers ZERO inference engines by
+  // default (fully opt-in, per its own docs), so GemmaAiModel's `ModelFileType.litertlm` model
+  // had no engine to load it with. LiteRtLmEngine (flutter_gemma_litertlm) is the one that reads
+  // .litertlm files — the exact file type ai_config.dart/gemma_ai_model.dart already fetch.
+  await FlutterGemma.initialize(inferenceEngines: const [LiteRtLmEngine()]);
 
   // Registers 'Cairo'/'Tajawal'/'Inter' as real, loaded font families — every
   // `TextStyle(fontFamily: AppTextStyles.arabicFont/englishFont)` in the app
@@ -156,6 +166,10 @@ class Raje3App extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AppStateProvider()),
         ChangeNotifierProvider(
           create: (_) => NavProvider(apiClient: apiClient, localStorage: localStorage),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, BranchProvider>(
+          create: (_) => BranchProvider(localStorage: localStorage),
+          update: (context, auth, previous) => previous!..updateAuth(auth),
         ),
       ],
       child: const _AppShell(),

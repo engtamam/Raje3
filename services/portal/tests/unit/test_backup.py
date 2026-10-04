@@ -267,6 +267,18 @@ def test_prune_refuses_without_a_positive_scan_cap():
         run(B.import_archive(MemoryDataStore(), archive, unseal=unseal, prune=True))
 
 
+def test_prune_refuses_against_a_single_tenant_archive():
+    st = MemoryDataStore()
+    _seed(st, tenant="acme")
+    _seed(st, tenant="globex")
+    archive = _export(st, tenant="acme")
+    _, unseal = B.make_sealer("backup-key")
+    with pytest.raises(B.BackupError, match="single tenant"):
+        run(B.import_archive(st, archive, unseal=unseal, prune=True, scan_cap=1000))
+    other, _ = run(st.find("widgets", {"tenant": "globex"}, limit=100))
+    assert len(other) == 3
+
+
 def test_prune_refuses_alongside_into_tenant():
     """A clone is additive; it must never delete the destination tenant's own rows."""
     src = _seed(MemoryDataStore())

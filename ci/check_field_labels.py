@@ -10,7 +10,7 @@
 #   - a screen reader announces an unnamed text box, which is the whole form for anyone using one,
 #   - tapping the label does not focus the input — on a phone that is a missed target, not a nicety,
 #   - and getByLabel() cannot find it, so the e2e test that fills it fails as a 60s timeout with no
-#     clue as to why. That is exactly how this was found: five fields in «نقاطي» and one in the
+#     clue as to why. That is exactly how this was found: five fields in «نقاط الولاء» and one in the
 #     sign-up pane, all shipped, all invisible to anything that is not a pair of eyes.
 #
 # A card group is the one legitimate exception — it has no single element to point at, so it is not

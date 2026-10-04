@@ -386,7 +386,7 @@ export function CouponsScreen({ session, catalog }: { session: Session; catalog:
               <div className="flex flex-wrap gap-1.5">
                 <button type="button" onClick={() => setGeneral((g) => !g)}
                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
-                         general ? 'border-accent bg-accent text-white' : 'border-border-subtle bg-surface-2 text-text-secondary'
+                         general ? 'border-accent bg-accent text-white' : 'border-border-subtle bg-surface-1 text-text-secondary'
                        }`}>
                   {t('coupons.grant.scopeAll')}
                 </button>

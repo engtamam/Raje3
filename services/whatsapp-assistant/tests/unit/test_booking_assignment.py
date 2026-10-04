@@ -497,3 +497,94 @@ async def test_hold_and_confirm_single_service_is_unchanged_wraps_into_hold_and_
         idempotency_key="k1", branch_id=BRANCH, from_number="+9665")
     assert booking["id"] == "bkg_1"
     assert created.calls[0]["service_ids"] == ["svc1"]
+
+
+# ── referral_code — the real "new customer" moment for a WhatsApp-initiated booking ────────────
+async def test_hold_and_confirm_sends_the_referral_code_to_customer_id_by_phone_only():
+    """`referral_code` reaches ONLY the customer-resolution peer, never the booking-write peer —
+    same "the phone never reaches bookings-service" discipline this file already proves for
+    `from_number` above."""
+    ops = _FakePeer({"operators": [{"id": "op1"}]})
+    elig = _FakePeer({"eligible_staff_ids": {"svc1": None}})
+    merged = _FakePeer({"slots": [{"operator_id": "op1", "starts_at": 5000}]})
+    cust = _FakePeer({"customer_id": "cus_real1"})
+    created = _FakePeer({"id": "bkg_1", "status": "booked"})
+    provider = _provider(branch_operators=ops, service_eligibility=elig,
+                         nearest_any_real_slot=merged, customer_id_by_phone=cust,
+                         create_booking=created)
+    await provider.hold_and_confirm(
+        tenant=TENANT, subject_ref="sub1", service_id="svc1", starts_at=5000,
+        idempotency_key="k1", branch_id=BRANCH, from_number="+9665", referral_code="AB123")
+    assert cust.calls[0]["referral_code"] == "AB123"
+    assert "referral_code" not in created.calls[0]
+
+
+async def test_hold_and_confirm_with_no_referral_code_never_sends_the_key_at_all():
+    ops = _FakePeer({"operators": [{"id": "op1"}]})
+    elig = _FakePeer({"eligible_staff_ids": {"svc1": None}})
+    merged = _FakePeer({"slots": [{"operator_id": "op1", "starts_at": 5000}]})
+    cust = _FakePeer({"customer_id": "cus_real1"})
+    provider = _provider(branch_operators=ops, service_eligibility=elig,
+                         nearest_any_real_slot=merged, customer_id_by_phone=cust,
+                         create_booking=_FakePeer({"id": "bkg_1"}))
+    await provider.hold_and_confirm(
+        tenant=TENANT, subject_ref="sub1", service_id="svc1", starts_at=5000,
+        idempotency_key="k1", branch_id=BRANCH, from_number="+9665")
+    assert "referral_code" not in cust.calls[0]
+
+
+async def test_hold_and_confirm_surfaces_a_real_grant_on_the_returned_booking():
+    ops = _FakePeer({"operators": [{"id": "op1"}]})
+    elig = _FakePeer({"eligible_staff_ids": {"svc1": None}})
+    merged = _FakePeer({"slots": [{"operator_id": "op1", "starts_at": 5000}]})
+    cust = _FakePeer({"customer_id": "cus_real1", "referral_registration": {
+        "ok": True, "new_customer_reward_type": "discount_percent",
+        "new_customer_reward_params": {"percent": 10}}})
+    created = _FakePeer({"id": "bkg_1"})
+    provider = _provider(branch_operators=ops, service_eligibility=elig,
+                         nearest_any_real_slot=merged, customer_id_by_phone=cust,
+                         create_booking=created)
+    booking = await provider.hold_and_confirm(
+        tenant=TENANT, subject_ref="sub1", service_id="svc1", starts_at=5000,
+        idempotency_key="k1", branch_id=BRANCH, from_number="+9665", referral_code="AB123")
+    assert booking["referral_registration"]["ok"] is True
+
+
+async def test_hold_and_confirm_a_rejected_code_still_creates_the_real_booking():
+    """NEVER allowed to affect whether the booking itself is made — the one non-negotiable rule
+    across every real entry point this feature touches (console, mobile, WhatsApp alike)."""
+    ops = _FakePeer({"operators": [{"id": "op1"}]})
+    elig = _FakePeer({"eligible_staff_ids": {"svc1": None}})
+    merged = _FakePeer({"slots": [{"operator_id": "op1", "starts_at": 5000}]})
+    cust = _FakePeer({"customer_id": "cus_real1",
+                      "referral_registration": {"ok": False, "message": "كود الإحالة غير صالح"}})
+    created = _FakePeer({"id": "bkg_1"})
+    provider = _provider(branch_operators=ops, service_eligibility=elig,
+                         nearest_any_real_slot=merged, customer_id_by_phone=cust,
+                         create_booking=created)
+    booking = await provider.hold_and_confirm(
+        tenant=TENANT, subject_ref="sub1", service_id="svc1", starts_at=5000,
+        idempotency_key="k1", branch_id=BRANCH, from_number="+9665", referral_code="ZZZZZ")
+    assert booking["id"] == "bkg_1"
+    assert booking["referral_registration"]["ok"] is False
+
+
+async def test_hold_and_confirm_package_sends_the_referral_code_too():
+    ops = _FakePeer({"operators": [{"id": "op1"}]})
+    cust = _FakePeer({"customer_id": "cus_real1"})
+    created = _FakePeer({"id": "bkg_1"})
+    provider = _provider(branch_operators=ops, customer_id_by_phone=cust, create_booking=created)
+    await provider.hold_and_confirm_package(
+        tenant=TENANT, subject_ref="sub1", package_id="pkg1", starts_at=5000,
+        idempotency_key="k1", branch_id=BRANCH, from_number="+9665", referral_code="AB123")
+    assert cust.calls[0]["referral_code"] == "AB123"
+
+
+async def test_booking_management_reads_never_send_a_referral_code_at_all():
+    """`list_bookings`/`cancel_booking`/`reschedule_booking` resolve an EXISTING customer — there
+    is no referral concept here at all, and no parameter to even offer one through."""
+    cust = _FakePeer({"customer_id": "cus_real1"})
+    provider = _provider(customer_id_by_phone=cust,
+                        bookings_for_customer=_FakePeer({"bookings": []}))
+    await provider.list_bookings(tenant=TENANT, from_number="+9665", branch_id=BRANCH)
+    assert "referral_code" not in cust.calls[0]

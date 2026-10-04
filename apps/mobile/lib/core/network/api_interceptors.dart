@@ -6,13 +6,30 @@ import 'package:raje3_mobile/core/storage/secure_storage.dart';
 
 /// Interceptor that attaches the Bearer authentication token to every request.
 ///
-/// On a 401 response (session expired/invalid), clears stored tokens and
-/// triggers force-logout so the router redirects to the login screen.
-/// Uses session-based auth (no refresh token mechanism).
+/// On a 401, transparently mints a fresh access token from the stored refresh token
+/// (`POST /api/v1/auth/refresh`, `platform/services/identity-service/app/api/v1/auth.py`'s own
+/// route — real, rotating, theft-detecting) and retries the failed request. Force-logout is now
+/// the FALLBACK, not the first response to expiry: it fires only when there is no refresh token
+/// at all, or the identity service itself refuses it (revoked session, reused/stolen token).
+///
+/// FOUND LIVE, 2026-09-23: the access token's own 900-second TTL made the app look like it had
+/// silently lost the account's permissions every ~15 minutes — `NavProvider` read a 401-caused
+/// `null` catalogue exactly like "no capabilities", with nothing telling the operator to sign in
+/// again. `ApiClient`'s own `validateStatus` comment already said the intent out loud
+/// ("401 must trigger AuthInterceptor's onError so it can attempt automatic token refresh") —
+/// this was always the design, just never actually wired to the refresh endpoint that already
+/// existed server-side.
 class AuthInterceptor extends Interceptor {
   final SecureStorage _secureStorage;
   final Dio _dio;
   bool _hasForceLoggedOut = false;
+
+  /// SINGLE-FLIGHT REFRESH, NOT ONE PER FAILED REQUEST. Several requests can 401 at once (this
+  /// screen fires 3–4 calls in parallel routinely); identity's own refresh-token rotation treats
+  /// a SECOND concurrent use of the same refresh token as theft and revokes the whole session
+  /// family (`auth_service.py::refresh`'s own CAS comment) — so every 401 that lands while a
+  /// refresh is already in flight awaits that SAME future instead of starting its own.
+  Future<bool>? _refreshing;
 
   /// Callback invoked when token refresh fails and the user must re-login.
   /// Set this from main.dart to wire into AuthProvider.forceLogout().
@@ -89,35 +106,106 @@ class AuthInterceptor extends Interceptor {
     _handle401(err, handler);
   }
 
-  /// Handles 401 errors: checks for stale token, retries, or forces logout.
+  /// Handles 401 errors: retry with an already-newer token (another request refreshed first),
+  /// refresh and retry (the common case), or force logout (no refresh token, or identity itself
+  /// refused it — a genuinely dead session).
   void _handle401(DioException err, ErrorInterceptorHandler handler) {
-    final requestAuth = err.requestOptions.headers[ApiConstants.authHeader] as String?;
-
-    _secureStorage.getAccessToken().then((currentToken) async {
-      if (currentToken != null &&
-          currentToken.isNotEmpty &&
-          requestAuth != 'Bearer $currentToken') {
-        // Token changed — retry with the newer token
-        try {
-          err.requestOptions.headers[ApiConstants.authHeader] = 'Bearer $currentToken';
-          final response = await _dio.fetch(err.requestOptions);
-          handler.resolve(response);
-          return; // Retry succeeded, do not force logout
-        } catch (_) {
-          // Retry also failed — fall through to force logout
-        }
-      }
-
-      // No retry possible or retry failed — force logout
-      await _secureStorage.clearTokens();
-      if (!_hasForceLoggedOut) {
-        _hasForceLoggedOut = true;
-        onForceLogout?.call();
-      }
-      handler.next(err);
-    });
+    // A REFRESH CALL 401ING MEANS THE REFRESH TOKEN ITSELF IS DEAD — refreshing a dead refresh
+    // token would recurse forever. This is the one real "must log in again" case.
+    if (err.requestOptions.path.contains('/auth/refresh')) {
+      _forceLogout(err, handler);
+      return;
+    }
+    _refreshAndRetry(err, handler);
   }
 
+  Future<void> _refreshAndRetry(DioException err, ErrorInterceptorHandler handler) async {
+    final requestAuth = err.requestOptions.headers[ApiConstants.authHeader] as String?;
+
+    // ANOTHER REQUEST ALREADY REFRESHED, between when this one was SENT and when its 401 landed
+    // — retry straight away with the token that already exists, no second refresh needed.
+    final storedToken = await _secureStorage.getAccessToken();
+    if (storedToken != null && storedToken.isNotEmpty && requestAuth != 'Bearer $storedToken') {
+      if (await _retry(err, handler, storedToken)) return;
+    }
+
+    final refreshed = await _ensureRefreshed();
+    if (!refreshed) {
+      await _forceLogout(err, handler);
+      return;
+    }
+    final newToken = await _secureStorage.getAccessToken();
+    if (newToken == null || newToken.isEmpty || await _retry(err, handler, newToken)) return;
+    await _forceLogout(err, handler);
+  }
+
+  /// Retries the failed request with [token]. Returns whether the retry itself succeeded —
+  /// `false` falls through to whatever the caller does next (another attempt, or force logout).
+  Future<bool> _retry(DioException err, ErrorInterceptorHandler handler, String token) async {
+    try {
+      err.requestOptions.headers[ApiConstants.authHeader] = 'Bearer $token';
+      final response = await _dio.fetch(err.requestOptions);
+      handler.resolve(response);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _ensureRefreshed() {
+    return _refreshing ??= _doRefresh().whenComplete(() => _refreshing = null);
+  }
+
+  /// `POST /api/v1/auth/refresh` — a RAW Dio instance, deliberately outside this same
+  /// interceptor stack: routing the refresh call through `_dio` would re-enter `onRequest`'s own
+  /// Bearer-token attach (the wrong, now-expired token) and, on failure, this same `onError`
+  /// handler recursively. A bare client with only the base URL and client-type header is the
+  /// whole request this route needs.
+  Future<bool> _doRefresh() async {
+    final refreshToken = await _secureStorage.getRefreshToken();
+    if (refreshToken == null || refreshToken.isEmpty) return false;
+    try {
+      final raw = Dio(BaseOptions(
+        baseUrl: ApiConstants.baseUrl,
+        connectTimeout: const Duration(milliseconds: 10000),
+        receiveTimeout: const Duration(milliseconds: 10000),
+        headers: {ApiConstants.clientTypeHeader: ApiConstants.clientType},
+      ));
+      final response = await raw.post<dynamic>(
+        '/api/v1/auth/refresh',
+        data: {'refresh_token': refreshToken},
+      );
+      final data = response.data;
+      if (data is! Map) return false;
+      final newAccess = data['access_token'] as String?;
+      final newRefresh = data['refresh_token'] as String?;
+      final expiresIn = (data['expires_in'] as num?)?.toInt();
+      if (newAccess == null || newAccess.isEmpty || newRefresh == null || newRefresh.isEmpty) {
+        return false;
+      }
+      await _secureStorage.setTokens(
+        accessToken: newAccess,
+        refreshToken: newRefresh,
+        tokenExpiry: expiresIn != null
+            ? DateTime.now().add(Duration(seconds: expiresIn)).toIso8601String()
+            : null,
+      );
+      return true;
+    } on DioException {
+      // INVALID_REFRESH (401, dead/revoked/reused token), CAPS_UNAVAILABLE (503), a network
+      // failure — every case is "could not refresh", never a partial success to half-trust.
+      return false;
+    }
+  }
+
+  Future<void> _forceLogout(DioException err, ErrorInterceptorHandler handler) async {
+    await _secureStorage.clearTokens();
+    if (!_hasForceLoggedOut) {
+      _hasForceLoggedOut = true;
+      onForceLogout?.call();
+    }
+    handler.next(err);
+  }
 }
 
 /// Interceptor that sets the Accept-Language header based on the user's

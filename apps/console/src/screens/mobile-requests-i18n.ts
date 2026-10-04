@@ -62,6 +62,8 @@ registerOperatorStrings({
     'mobileRequests.add.mapsLinkShort': 'الصق الرابط الكامل من خرائط جوجل، لا الرابط المختصر',
     'mobileRequests.add.mapsLinkInvalid': 'تعذّر قراءة الموقع من هذا الرابط',
     'mobileRequests.add.assignLabel': 'إسناد (اختياري)',
+    'mobileRequests.action.outsideBranch': 'هذا الطلب خارج نطاق فرعك — لا يمكنك التصرف فيه من هنا.',
+    'mobileRequests.action.genericError': 'تعذّر تنفيذ الإجراء، حاول مرة أخرى.',
   },
   en: {
     'mobileRequests.unknownInitial': '?',
@@ -124,6 +126,8 @@ registerOperatorStrings({
     'mobileRequests.add.mapsLinkShort': 'Paste the full Google Maps link, not a shortened one',
     'mobileRequests.add.mapsLinkInvalid': 'Could not read a location from this link',
     'mobileRequests.add.assignLabel': 'Assign (optional)',
+    'mobileRequests.action.outsideBranch': 'This request is outside your branch — you cannot act on it from here.',
+    'mobileRequests.action.genericError': 'Could not complete the action, try again.',
   },
   ur: {
     'mobileRequests.unknownInitial': '؟',
@@ -186,6 +190,8 @@ registerOperatorStrings({
     'mobileRequests.add.mapsLinkShort': 'گوگل میپس کا مکمل لنک پیسٹ کریں، مختصر لنک نہیں',
     'mobileRequests.add.mapsLinkInvalid': 'اس لنک سے مقام معلوم نہیں ہو سکا',
     'mobileRequests.add.assignLabel': 'تفویض (اختیاری)',
+    'mobileRequests.action.outsideBranch': 'یہ درخواست آپ کی برانچ سے باہر ہے — آپ یہاں سے اس پر عمل نہیں کر سکتے۔',
+    'mobileRequests.action.genericError': 'یہ عمل مکمل نہیں ہو سکا، دوبارہ کوشش کریں۔',
   },
   ha: {
     'mobileRequests.unknownInitial': '?',
@@ -248,6 +254,8 @@ registerOperatorStrings({
     'mobileRequests.add.mapsLinkShort': 'Manna cikakkiyar hanyar Google Maps, ba gajarta ba',
     'mobileRequests.add.mapsLinkInvalid': 'An kasa samun wuri daga wannan hanyar',
     'mobileRequests.add.assignLabel': 'Bayarwa (na zaɓi)',
+    'mobileRequests.action.outsideBranch': 'Wannan buƙatar ta wuce kaburin reshenka — ba za ka iya yin aiki da ita daga nan ba.',
+    'mobileRequests.action.genericError': 'An kasa kammala aikin, sake gwadawa.',
   },
   fil: {
     'mobileRequests.unknownInitial': '?',
@@ -310,6 +318,8 @@ registerOperatorStrings({
     'mobileRequests.add.mapsLinkShort': 'I-paste ang buong Google Maps link, hindi ang pinaikling link',
     'mobileRequests.add.mapsLinkInvalid': 'Hindi mabasa ang lokasyon mula sa link na ito',
     'mobileRequests.add.assignLabel': 'Italaga (opsyonal)',
+    'mobileRequests.action.outsideBranch': 'Ang kahilingang ito ay wala sa iyong sangay — hindi mo ito maaaring kilosin mula dito.',
+    'mobileRequests.action.genericError': 'Hindi natapos ang aksyon, subukan muli.',
   },
   bn: {
     'mobileRequests.unknownInitial': '?',
@@ -372,5 +382,7 @@ registerOperatorStrings({
     'mobileRequests.add.mapsLinkShort': 'গুগল ম্যাপসের সম্পূর্ণ লিংক পেস্ট করুন, সংক্ষিপ্ত লিংক নয়',
     'mobileRequests.add.mapsLinkInvalid': 'এই লিংক থেকে অবস্থান পড়া যায়নি',
     'mobileRequests.add.assignLabel': 'দায়িত্ব দিন (ঐচ্ছিক)',
+    'mobileRequests.action.outsideBranch': 'এই অনুরোধটি আপনার শাখার বাইরে — আপনি এখান থেকে এতে পদক্ষেপ নিতে পারবেন না।',
+    'mobileRequests.action.genericError': 'কাজটি সম্পন্ন করা যায়নি, আবার চেষ্টা করুন।',
   },
 });

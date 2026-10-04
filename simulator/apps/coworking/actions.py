@@ -1,0 +1,225 @@
+"""App-specific Actions for services/coworking — real HTTP against a real, spawned instance.
+Fully self-contained: per-tenant CRUD (resources, join requests, bookings, a tenant-level pause
+switch), no peer needed at all.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+from simulator.common import httpclient
+from simulator.common.action import ActionResult, Context
+from simulator.shared.auth import auth_header
+
+_MANAGE_CAP = "coworking.manage"
+
+
+@dataclass
+class CreateResourceAction:
+    """`POST /api/v1/coworking/resources` — `branch_id`/`description` real, optional fields (owner
+    decision, 2026-09-27): "" for either is a real, valid answer, never a required one."""
+
+    base_url: str
+    tenant: str
+    resource_name: str
+    branch_id: str = ""
+    description: str = ""
+    caller_subject: str = "owner"
+    name: str = "create_coworking_resource"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,),
+                              subject=self.caller_subject)
+        body = {"name": self.resource_name, "branch_id": self.branch_id,
+               "description": self.description}
+        r = await httpclient.request(
+            "POST", f"{self.base_url}/api/v1/coworking/resources",
+            json=body, headers=headers, timeout=10.0)
+        if r.status_code != 200:
+            return ActionResult(ok=False, detail=f"create_coworking_resource: unexpected HTTP "
+                                                  f"{r.status_code} {r.text}",
+                                data={"status": r.status_code})
+        payload = r.json()
+        if payload.get("error"):
+            return ActionResult(ok=False, detail=payload.get("reason") or "create refused",
+                                data=payload)
+        ctx.data[f"coworking_resource:{payload.get('id')}"] = payload
+        return ActionResult(ok=True, detail="resource created", data=payload)
+
+
+@dataclass
+class ListResourcesAction:
+    """`GET /api/v1/coworking/resources`."""
+
+    base_url: str
+    tenant: str
+    caller_subject: str = "owner"
+    name: str = "list_coworking_resources"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,),
+                              subject=self.caller_subject)
+        r = await httpclient.request("GET", f"{self.base_url}/api/v1/coworking/resources",
+                                     headers=headers, timeout=10.0)
+        if r.status_code != 200:
+            return ActionResult(ok=False, detail=f"list_coworking_resources refused: "
+                                                  f"{r.status_code} {r.text}")
+        return ActionResult(ok=True, detail="resources read", data=r.json())
+
+
+@dataclass
+class UploadResourceImageAction:
+    """`POST /api/v1/coworking/resources/{id}/image` — ONE photo per resource, real base64 bytes,
+    same shape operations' own catalogue upload already uses."""
+
+    base_url: str
+    tenant: str
+    resource_id: str
+    data_base64: str
+    content_type: str = "image/png"
+    caller_subject: str = "owner"
+    name: str = "upload_coworking_resource_image"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,),
+                              subject=self.caller_subject)
+        body = {"content_type": self.content_type, "data_base64": self.data_base64}
+        r = await httpclient.request(
+            "POST", f"{self.base_url}/api/v1/coworking/resources/{self.resource_id}/image",
+            json=body, headers=headers, timeout=10.0)
+        if r.status_code != 200:
+            return ActionResult(ok=False, detail=f"upload_coworking_resource_image: "
+                                                  f"unexpected HTTP {r.status_code} {r.text}",
+                                data={"status": r.status_code})
+        payload = r.json()
+        if payload.get("error"):
+            return ActionResult(ok=False, detail=payload.get("reason") or "upload refused",
+                                data=payload)
+        return ActionResult(ok=True, detail="image uploaded", data=payload)
+
+
+@dataclass
+class GetResourceImageAction:
+    """`GET /api/v1/coworking/resources/{id}/image` — the raw bytes, streamed back."""
+
+    base_url: str
+    tenant: str
+    resource_id: str
+    caller_subject: str = "owner"
+    name: str = "get_coworking_resource_image"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,),
+                              subject=self.caller_subject)
+        r = await httpclient.request(
+            "GET", f"{self.base_url}/api/v1/coworking/resources/{self.resource_id}/image",
+            headers=headers, timeout=10.0)
+        if r.status_code != 200:
+            return ActionResult(ok=False, detail=f"get_coworking_resource_image: unexpected "
+                                                  f"HTTP {r.status_code}", data={"status": r.status_code})
+        return ActionResult(ok=True, detail="image read", data={"bytes": r.content,
+                                                                "content_type": r.headers.get("content-type")})
+
+
+@dataclass
+class SetAvailabilityAction:
+    """`PUT /api/v1/coworking/resources/{id}/availability` — an empty `weekly`/`exceptions` is a
+    real, valid answer ("closed every day until configured"), never a required field."""
+
+    base_url: str
+    tenant: str
+    resource_id: str
+    hourly_price_minor: int = 1000
+    weekly: dict[str, list[dict[str, int]]] = field(default_factory=dict)
+    name: str = "set_coworking_availability"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,))
+        body = {"weekly": self.weekly, "exceptions": {},
+               "hourly_price_minor": self.hourly_price_minor}
+        r = await httpclient.request(
+            "PUT", f"{self.base_url}/api/v1/coworking/resources/{self.resource_id}/availability",
+            json=body, headers=headers, timeout=10.0)
+        if r.status_code != 200:
+            return ActionResult(ok=False, detail=f"set_coworking_availability refused: "
+                                                  f"{r.status_code} {r.text}")
+        payload = r.json()
+        if payload.get("error"):
+            return ActionResult(ok=False, detail=payload.get("reason") or "refused", data=payload)
+        return ActionResult(ok=True, detail="availability set", data=payload)
+
+
+@dataclass
+class BlockPhoneAction:
+    """`POST /api/v1/coworking/joins/{phone}/block` — answerable even with NO prior join request
+    at all (`core/joins.py`'s own module docstring)."""
+
+    base_url: str
+    tenant: str
+    phone: str
+    name: str = "block_coworking_phone"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,))
+        r = await httpclient.request(
+            "POST", f"{self.base_url}/api/v1/coworking/joins/{self.phone}/block",
+            headers=headers, timeout=10.0)
+        if r.status_code != 200:
+            return ActionResult(ok=False, detail=f"block_coworking_phone refused: "
+                                                  f"{r.status_code} {r.text}")
+        return ActionResult(ok=True, detail="phone blocked", data=r.json())
+
+
+@dataclass
+class ListJoinsAction:
+    """`GET /api/v1/coworking/joins`."""
+
+    base_url: str
+    tenant: str
+    name: str = "list_coworking_joins"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,))
+        r = await httpclient.request("GET", f"{self.base_url}/api/v1/coworking/joins",
+                                     headers=headers, timeout=10.0)
+        if r.status_code != 200:
+            return ActionResult(ok=False, detail=f"list_coworking_joins refused: "
+                                                  f"{r.status_code} {r.text}")
+        return ActionResult(ok=True, detail="joins read", data=r.json())
+
+
+@dataclass
+class ListBookingsAction:
+    """`GET /api/v1/coworking/bookings`."""
+
+    base_url: str
+    tenant: str
+    name: str = "list_coworking_bookings"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,))
+        r = await httpclient.request("GET", f"{self.base_url}/api/v1/coworking/bookings",
+                                     headers=headers, timeout=10.0)
+        if r.status_code != 200:
+            return ActionResult(ok=False, detail=f"list_coworking_bookings refused: "
+                                                  f"{r.status_code} {r.text}")
+        return ActionResult(ok=True, detail="bookings read", data=r.json())
+
+
+@dataclass
+class SetPauseAction:
+    """`PUT /api/v1/coworking/pause` — the tenant-level "stop taking new bookings" switch."""
+
+    base_url: str
+    tenant: str
+    paused: bool
+    name: str = "set_coworking_pause"
+
+    async def run(self, ctx: Context) -> ActionResult:
+        headers = auth_header(tenant=self.tenant, caps=(_MANAGE_CAP,))
+        r = await httpclient.request("PUT", f"{self.base_url}/api/v1/coworking/pause",
+                                     json={"paused": self.paused}, headers=headers, timeout=10.0)
+        if r.status_code != 200:
+            return ActionResult(ok=False, detail=f"set_coworking_pause: unexpected HTTP "
+                                                  f"{r.status_code} {r.text}")
+        return ActionResult(ok=True, detail="pause set", data=r.json())

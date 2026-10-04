@@ -246,16 +246,21 @@ def evaluate(*, cls: str, template_type: str, now: int, limits: Limits,
                       if s.get("outcome") == "sent" and int(s.get("at", 0)) >= day_ago
                       and s.get("cls") != "personal"]
         if len(sent_today) >= limits.daily_total_cap:
+            # A ROLLING 24H CAP, ANSWERED WITH THE ROLLING WINDOW'S OWN FREE TIME — same
+            # discipline as the marketing cap below, not a fixed "tomorrow at window-open" guess
+            # that can be hours off in either direction from when a slot actually frees up.
+            oldest = min((int(s.get("at", 0)) for s in sent_today), default=None)
             return Decision(False,
                             f"بلغ الحد اليومي ({limits.daily_total_cap} رسائل) لهذا العميل.",
-                            retry_at=_tomorrow_open(now, limits), tier=tier)
+                            retry_at=(oldest + DAY) if oldest is not None else None, tier=tier)
 
         if cls == "service":
-            n = len([s for s in sent_today if s.get("cls") == "service"])
-            if n >= limits.daily_service_cap:
+            service_sent = [s for s in sent_today if s.get("cls") == "service"]
+            if len(service_sent) >= limits.daily_service_cap:
+                oldest = min((int(s.get("at", 0)) for s in service_sent), default=None)
                 return Decision(False,
                                 f"بلغ الحد اليومي للرسائل الخدمية ({limits.daily_service_cap}).",
-                                retry_at=_tomorrow_open(now, limits), tier=tier)
+                                retry_at=(oldest + DAY) if oldest is not None else None, tier=tier)
 
         if cls == "marketing":
             base = limits.monthly_marketing_cap
@@ -276,11 +281,13 @@ def evaluate(*, cls: str, template_type: str, now: int, limits: Limits,
                 counted = sorted(int(s.get("at", 0)) for s in recent_sends
                                  if s.get("outcome") == "sent" and s.get("cls") == cls
                                  and int(s.get("at", 0)) >= month_ago)
-                frees_at = counted[0] + 30 * DAY if counted else 0
+                # `is not None`, NEVER `or` — a real retry time of 0 (a corrupted/legacy
+                # zero-timestamp send-log row) must not read as "no retry at all".
+                frees_at = counted[0] + 30 * DAY if counted else None
                 return Decision(
                     False,
                     f"بلغ الحد لرسائل «{_ar(cls)}» ({cap} خلال آخر 30 يوماً){extra}.",
-                    retry_at=frees_at or None, tier=tier)
+                    retry_at=frees_at, tier=tier)
 
         if cls == "marketing":
             last = max((int(s.get("at", 0)) for s in recent_sends
@@ -311,13 +318,6 @@ def _window(now: int, limits: Limits) -> tuple[bool, int]:
         opens = (local + timedelta(days=1)).replace(
             hour=limits.window_start_hour, minute=0, second=0, microsecond=0)
     return False, int(opens.timestamp())
-
-
-def _tomorrow_open(now: int, limits: Limits) -> int:
-    local = datetime.fromtimestamp(now, RIYADH)
-    opens = (local + timedelta(days=1)).replace(
-        hour=limits.window_start_hour, minute=0, second=0, microsecond=0)
-    return int(opens.timestamp())
 
 
 def _ar(cls: str) -> str:

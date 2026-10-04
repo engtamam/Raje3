@@ -46,8 +46,8 @@ const HERO_SERVICE = 'بروتين شعر';
 
 export default {
   id: 'customer-file-1-overview',
-  title: 'عملائي — من البحث إلى ملف العميل الكامل، تعديلاً وحذفاً',
-  section: 'عملائي', // nav.ts's own label
+  title: 'جهات الاتصال — من البحث إلى ملف العميل الكامل، تعديلاً وحذفاً',
+  section: 'جهات الاتصال', // nav.ts's own label
   useDemoSession: true,
   // See visit-1-search-perks.mjs's own note: without this, the opening `goto` records several
   // seconds of blank/white frame before the page actually finishes loading.
@@ -66,7 +66,7 @@ export default {
       say: 'من نفس محرّك التذكيرات، لا حساب منفصل',
     },
     {
-      click: 'role=radio:عملائي',
+      click: 'role=radio:جهات الاتصال',
       say: 'ونرجع للقائمة الكاملة',
     },
     {

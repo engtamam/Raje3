@@ -29,6 +29,8 @@ from app.core.stores import BookingStore, day_bucket, new_id
 
 WEEKDAY_NAMES = ("الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد")
 
+_MAX_DURATION_SECONDS = 7 * 24 * 60 * 60
+
 # Short — this whole claim only needs to outlive ONE create() call (a few awaited store/peer
 # reads and one write); see the claim's own comment above for the retry behaviour this bounds.
 _IDEMPOTENCY_CLAIM_TTL_SECONDS = 10
@@ -51,6 +53,9 @@ def _clean_quantities(service_ids: list[str] | tuple[str, ...],
     except ValueError as exc:
         raise OperationError(str(exc)) from exc
     ids = set(service_ids)
+    stale = set((quantities or {}).keys()) - ids
+    if stale:
+        raise OperationError("الكمية المرسلة لا تطابق الخدمات المختارة — أعد تحميل الصفحة وحاول مجدداً")
     return {k: int(v) for k, v in (quantities or {}).items() if k in ids and int(v) > 0}
 
 
@@ -419,6 +424,17 @@ class BookingOperations:
         # never strands an existing booking, but it stops a new one being made.
         await self._licence.require(tenant)
 
+        # THE WRITE ITSELF REFUSES, NOT ONLY THE SUGGESTION — see `_refuse_if_ineligible`'s own
+        # docstring. CHECKED BEFORE THE DURATION LOOKUP (a peer round-trip below): a request
+        # refused for eligibility should never first pay for a network call it won't need.
+        if package_id:
+            if self._package_eligibility is not None:
+                allowed = await self._package_eligibility.eligible_for(tenant, package_id)
+                if allowed and operator_id not in allowed:
+                    raise OperationError("هذا الموظف لا يقدر يسوّي هذه الباقة")
+        else:
+            await self._refuse_if_ineligible(tenant, operator_id, service_ids)
+
         # PACKAGE BOOKINGS CARRY NO QUANTITY — cleared rather than trusted from the caller, same
         # "the write itself decides, not the suggestion" posture as everywhere else here.
         clean_quantities = {} if package_id else _clean_quantities(service_ids, quantities)
@@ -432,16 +448,6 @@ class BookingOperations:
             raise OperationError("مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»"
                                 if not package_id else
                                 "مدة هذه الباقة غير مضبوطة — تحقق من مدة كل خدمة داخلها")
-
-        # THE WRITE ITSELF REFUSES, NOT ONLY THE SUGGESTION — see `_refuse_if_ineligible`'s own
-        # docstring.
-        if package_id:
-            if self._package_eligibility is not None:
-                allowed = await self._package_eligibility.eligible_for(tenant, package_id)
-                if allowed and operator_id not in allowed:
-                    raise OperationError("هذا الموظف لا يقدر يسوّي هذه الباقة")
-        else:
-            await self._refuse_if_ineligible(tenant, operator_id, service_ids)
 
         # STAMPED ONCE, HERE, FAIL-CLOSED — same family as the duration refusal above. Without a
         # pseudonym this booking can never be found by a DSAR (§6.5) and can never key a
@@ -609,6 +615,7 @@ class BookingOperations:
             return booking   # idempotent — the visit already exists, nothing to redo
         if booking.status in TERMINAL:
             raise OperationError("هذا الحجز أُغلِق ولا يمكن تسجيل حضوره")
+        await self._licence.require(tenant)
 
         # THE PEER CALL, BEFORE THE STATUS FLIPS. A Visit that failed to get created must never be
         # implied by a booking that already reads "attended" — the booking's own idempotency_key
@@ -676,7 +683,10 @@ class BookingOperations:
         happened) are excluded — neither is an attendance outcome. The staff member decides what
         to do with the number; this never refuses or requires anything on its own.
         """
-        rows = await self._bookings.for_customer(tenant, customer_id, limit=200)
+        # LIMIT WELL PAST THE RISK WINDOW — the store's own sort is by `created`, not `starts_at`,
+        # so a customer with a deep backlog needs enough rows scanned that the true most-recent
+        # CLOSED appointments aren't pushed out before the re-sort below ever sees them.
+        rows, _ = await self._bookings.for_customer(tenant, customer_id, limit=1000)
         closed = sorted(
             (b for b in rows if b.status in (STATUS_ATTENDED, STATUS_NO_SHOW)),
             key=lambda b: b.starts_at, reverse=True,
@@ -738,21 +748,22 @@ class BookingOperations:
         await self._working_hours.save(tenant, {"weekly": out})
         return out
 
-    async def bookings_for_customer(self, tenant: str, customer_id: str, limit: int = 50) -> list[Booking]:
+    async def bookings_for_customer(self, tenant: str, customer_id: str, limit: int = 50
+                                    ) -> tuple[list[Booking], bool]:
         """His own history, newest first — the customer page's own section (docs/وصف-تطبيق-
         الحجوزات.md §3: "مواعيده القادمة والسابقة"), the same store read `no_show_risk` above
         already makes, just unfiltered by status and ordered for a person to read rather than a
-        percentage to compute."""
-        rows = await self._bookings.for_customer(tenant, customer_id, limit=limit)
-        return sorted(rows, key=lambda b: b.starts_at, reverse=True)
+        percentage to compute. Returns (rows, truncated) — same contract as `bookings_by_actor`."""
+        rows, truncated = await self._bookings.for_customer(tenant, customer_id, limit=limit)
+        return sorted(rows, key=lambda b: b.starts_at, reverse=True), truncated
 
     async def bookings_for_subject(self, tenant: str, subject_ref: str, limit: int = 50
-                                   ) -> list[Booking]:
+                                   ) -> tuple[list[Booking], bool]:
         """SAME READ as `bookings_for_customer` above, keyed by pseudonym — for a caller (an
         investigation tool, e.g.) that only ever resolves a phone number to `subject_ref` and must
         never be handed a real `customer_id` just to look one history up."""
-        rows = await self._bookings.for_subject(tenant, subject_ref, limit=limit)
-        return sorted(rows, key=lambda b: b.starts_at, reverse=True)
+        rows, truncated = await self._bookings.for_subject(tenant, subject_ref, limit=limit)
+        return sorted(rows, key=lambda b: b.starts_at, reverse=True), truncated
 
     async def bookings_by_actor(self, tenant: str, created_by: str, *, branch_id: str = "",
                                 since: int | None = None, until: int | None = None,
@@ -994,8 +1005,8 @@ class BookingOperations:
         scan) rather than trusting the "no shop is open at midnight" assumption to hold everywhere
         a booking can be created (nothing in `create()`/`reschedule()` actually enforces it)."""
         end = booking.starts_at + booking.duration_minutes * 60
-        start_bucket = day_bucket(booking.starts_at - 86_400)
-        end_bucket = day_bucket(max(end - 1, booking.starts_at) + 86_400)
+        start_bucket = day_bucket(booking.starts_at - _MAX_DURATION_SECONDS)
+        end_bucket = day_bucket(end + _MAX_DURATION_SECONDS)
         candidates = await self._bookings.slots_between(
             booking.tenant, booking.branch_id, start_bucket=start_bucket, end_bucket=end_bucket)
         for other in candidates:

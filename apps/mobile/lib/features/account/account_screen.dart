@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:raje3_mobile/core/constants/api_constants.dart';
+import 'package:raje3_mobile/core/constants/app_constants.dart';
 import 'package:raje3_mobile/core/providers/auth_provider.dart';
+import 'package:raje3_mobile/core/providers/locale_provider.dart';
 import 'package:raje3_mobile/core/router/route_names.dart';
+import 'package:raje3_mobile/core/utils/device_info.dart';
 import 'package:raje3_mobile/core/utils/url_helper.dart';
 import 'package:raje3_mobile/core/utils/validators.dart';
 import 'package:raje3_mobile/features/home/app_tone.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
+import 'package:raje3_mobile/widgets/capability_gate.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
 import 'package:raje3_mobile/widgets/rj_sheen.dart';
 
@@ -89,10 +93,26 @@ class AccountScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
-              _SectionLabel(text: s.accountBillingSectionTitle),
+              _SectionLabel(text: s.accountLanguageSectionTitle),
               const SizedBox(height: AppSpacing.sm),
               _Reveal(
                 index: 2,
+                child: KbAnchor(
+                  id: 'account.language_row',
+                  child: _Row(
+                    icon: Icons.language_rounded,
+                    tone: AppTone.info,
+                    label: s.accountLanguageRow,
+                    trailing: _languageDisplayName(context.watch<LocaleProvider>().languageCode),
+                    onTap: () => _openLanguagePicker(context),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              _SectionLabel(text: s.accountBillingSectionTitle),
+              const SizedBox(height: AppSpacing.sm),
+              _Reveal(
+                index: 3,
                 child: KbAnchor(
                   id: 'account.billing_row',
                   child: _Row(
@@ -107,7 +127,7 @@ class AccountScreen extends StatelessWidget {
               _SectionLabel(text: s.accountLegalSectionTitle),
               const SizedBox(height: AppSpacing.sm),
               _Reveal(
-                index: 3,
+                index: 4,
                 child: KbAnchor(
                   id: 'account.terms_row',
                   child: _Row(
@@ -120,7 +140,7 @@ class AccountScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               _Reveal(
-                index: 4,
+                index: 5,
                 child: KbAnchor(
                   id: 'account.privacy_row',
                   child: _Row(
@@ -134,21 +154,24 @@ class AccountScreen extends StatelessWidget {
               const SizedBox(height: AppSpacing.xl),
               _SectionLabel(text: s.accountSecuritySectionTitle),
               const SizedBox(height: AppSpacing.sm),
-              _Reveal(
-                index: 5,
-                child: KbAnchor(
-                  id: 'account.change_password_row',
-                  child: _Row(
-                    icon: Icons.lock_rounded,
-                    tone: AppTone.warning,
-                    label: s.accountChangePasswordRow,
-                    onTap: () => _openChangePassword(context),
+              CapabilityGate(
+                requires: const ['identity.change_password'],
+                child: _Reveal(
+                  index: 6,
+                  child: KbAnchor(
+                    id: 'account.change_password_row',
+                    child: _Row(
+                      icon: Icons.lock_rounded,
+                      tone: AppTone.warning,
+                      label: s.accountChangePasswordRow,
+                      onTap: () => _openChangePassword(context),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
               _Reveal(
-                index: 6,
+                index: 7,
                 child: KbAnchor(
                   id: 'account.sign_out_row',
                   child: _Row(
@@ -159,6 +182,8 @@ class AccountScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: AppSpacing.xl),
+              const KbAnchor(id: 'account.version_footer', child: _VersionFooter()),
             ],
           ),
         ),
@@ -174,15 +199,9 @@ class AccountScreen extends StatelessWidget {
         title: Text(s.accountSignOutConfirmTitle),
         content: Text(s.accountSignOutConfirmBody),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(s.accountSignOutCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(s.accountSignOutConfirm,
-                style: const TextStyle(color: AppColors.danger)),
-          ),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.accountSignOutCancel)),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(s.accountSignOutConfirm, style: const TextStyle(color: AppColors.danger))),
         ],
       ),
     );
@@ -197,6 +216,115 @@ class AccountScreen extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const _ChangePasswordSheet(),
+    );
+  }
+
+  void _openLanguagePicker(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _LanguagePickerSheet(),
+    );
+  }
+}
+
+/// A language's own name, in its own script — NEVER translated into the currently-active
+/// locale (the accepted convention every real language picker follows: a Bengali speaker
+/// looking for their language should see "বাংলা", not whatever "Bengali" happens to be in
+/// Arabic). Covers exactly S.supportedLocales, in the same order main.dart declares it.
+String _languageDisplayName(String code) => switch (code) { // nativeLanguageName, never translated
+      'ar' => 'العربية', // nativeLanguageName, never translated
+      'en' => 'English',
+      'ur' => 'اردو', // nativeLanguageName, never translated
+      'ha' => 'Hausa',
+      'fil' => 'Filipino',
+      'bn' => 'বাংলা',
+      _ => code,
+    };
+
+class _LanguagePickerSheet extends StatelessWidget {
+  const _LanguagePickerSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context)!;
+    final dark = context.isDark;
+    final locale = context.watch<LocaleProvider>();
+    return DraggableScrollableSheet(
+      initialChildSize: 0.5,
+      minChildSize: 0.3,
+      maxChildSize: 0.85,
+      expand: false,
+      builder: (context, scrollController) => Container(
+        decoration: BoxDecoration(
+          color: dark ? AppDarkColors.surface0 : AppColors.surface0,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.card)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: dark ? AppDarkColors.borderSubtle : AppColors.borderSubtle,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Text(s.accountLanguageSheetTitle, style: AppTextStyles.headlineSmall),
+            ),
+            Expanded(
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                children: [
+                  for (final supported in S.supportedLocales)
+                    KbAnchor(
+                      id: 'account.language_option',
+                      child: ListTile(
+                        title: Text(_languageDisplayName(supported.languageCode),
+                            style: AppTextStyles.bodyMedium),
+                        trailing: supported.languageCode == locale.languageCode
+                            ? Icon(Icons.check_circle_rounded,
+                                color: dark ? AppDarkColors.accent : AppColors.accent)
+                            : null,
+                        onTap: () {
+                          context.read<LocaleProvider>().setLocale(supported);
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: AppSpacing.lg),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VersionFooter extends StatelessWidget {
+  const _VersionFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: FutureBuilder<String>(
+        future: DeviceInfoHelper.getAppVersion(),
+        builder: (context, snapshot) {
+          final version = snapshot.data;
+          if (version == null) return const SizedBox.shrink();
+          return Text(
+            '${AppConstants.appNameAr} v$version',
+            style: TextStyle(fontSize: 12, color: context.isDark ? AppDarkColors.textMuted : AppColors.textMuted),
+          );
+        },
+      ),
     );
   }
 }
@@ -426,12 +554,14 @@ class _Row extends StatelessWidget {
   final AppTone tone;
   final String label;
   final VoidCallback? onTap;
+  final String? trailing;
 
   const _Row({
     required this.icon,
     required this.tone,
     required this.label,
     required this.onTap,
+    this.trailing,
   });
 
   @override
@@ -491,6 +621,12 @@ class _Row extends StatelessWidget {
                   child: Text(label,
                       style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
                 ),
+                if (trailing != null)
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(end: AppSpacing.sm),
+                    child: Text(trailing!,
+                        style: AppTextStyles.bodySmall.copyWith(color: chevronColor)),
+                  ),
                 if (onTap != null)
                   Icon(
                     Directionality.of(context) == TextDirection.rtl

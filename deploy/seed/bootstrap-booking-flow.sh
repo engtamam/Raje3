@@ -90,9 +90,10 @@ INTERNAL_TOKEN=$(kubectl -n "$NS" get secret notification-service-secrets \
 
 # ── 2. FETCH THE GENERATED JSON, THEN AUTHOR THE MASTER ─────────────────────────────────────
 # ONE POD, ONE PYTHON PROCESS for both steps — the generated JSON never touches a shell variable
-# (Windows Git Bash / kubectl exec quoting has bitten this exact pattern before — see
-# seed-templates.sh's own lesson on quoted heredocs) — it stays inside the running interpreter
-# from the moment it is read to the moment it is sent back out to Meta.
+# (Windows Git Bash / kubectl exec quoting has bitten this exact pattern before: an unquoted
+# heredoc re-scans its own python source for backticks, and a backticked word in a comment runs
+# as a command) — it stays inside the running interpreter from the moment it is read to the
+# moment it is sent back out to Meta.
 echo "generating + authoring the master booking Flow on the platform's own WABA"
 FLOW_ID=$(kubectl -n "$NS" exec -i "$NOTIFY_POD" -- python - "$INTERNAL_TOKEN" <<'PY'
 import json, sys, urllib.error, urllib.request

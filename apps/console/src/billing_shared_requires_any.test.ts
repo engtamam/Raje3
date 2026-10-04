@@ -1,5 +1,5 @@
 /**
- * `plan.requires_any` — نقاطي needs a touchpoint app (تسجيل زيارة or الحجوزات) already active,
+ * `plan.requires_any` — نقاط الولاء needs a touchpoint app (تسجيل زيارة or الحجوزات) already active,
  * data-driven off plans.json, same posture `services/operations/app/core/subscribe.py::may_add`
  * reads it with. These are the pure-function tests; the purchase refusal itself is tested there.
  */

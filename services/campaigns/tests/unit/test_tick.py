@@ -7,6 +7,7 @@ from datetime import datetime
 import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
+from app.core import milestone
 from app.core.models import Campaign, as_row
 from app.core.tick import RIYADH, Tick, same_day
 
@@ -22,10 +23,13 @@ def at(hour, day=15, month=6):
 
 
 class FakeRun:
-    def __init__(self, sent=1, suppressed=0, reasons=None):
+    def __init__(self, sent=1, suppressed=0, reasons=None, matched=None):
         self.sent = sent
         self.suppressed = suppressed
         self.reasons = reasons or {}
+        # DEFAULTS TO `sent` — realistic for every existing test, none of which reads `matched` at
+        # all; the milestone branch (`tick.py`) is the first caller that does.
+        self.matched = sent if matched is None else matched
 
 
 class FakeOut:
@@ -35,9 +39,10 @@ class FakeOut:
 
 
 class Dispatcher:
-    def __init__(self, sent=1, boom=False):
+    def __init__(self, sent=1, boom=False, matched=None):
         self.fired = []
         self.sent = sent
+        self.matched = matched
         self.boom = boom
 
     async def fire(self, campaign, *, now, fired_by="system", daily_share=0):
@@ -49,7 +54,7 @@ class Dispatcher:
         self.fired.append((campaign.get("id"), now))
         self.shares = getattr(self, "shares", [])
         self.shares.append(daily_share)
-        return FakeOut(FakeRun(sent=self.sent))
+        return FakeOut(FakeRun(sent=self.sent, matched=self.matched))
 
 
 @pytest.fixture
@@ -192,6 +197,136 @@ def test_a_paused_campaign_is_not_touched(st):
     d = Dispatcher()
     tick(st, d, at(10))
     assert d.fired == []
+
+
+# ── milestone ─────────────────────────────────────────────────────────────────────────────────
+def test_a_milestone_campaign_is_evaluated_every_tick_never_throttled_to_once_a_day(st):
+    """Unlike `standing`, a shared counter can cross its threshold at any minute — repeated ticks
+    inside the same hour (even the same Riyadh calendar day) must all be real passes, never
+    skipped after the first the way `same_day()` throttles a standing rule."""
+    save(st, Campaign(tenant="t1", goal="community_milestone", state="active",
+                      milestone_threshold=100))
+    d = Dispatcher(matched=0)
+    for minute in range(0, 20, 5):
+        tick(st, d, at(9) + minute * 60)
+    assert len(d.fired) == 4, "every pass must be a real fire, not throttled like `standing`"
+
+
+def test_a_milestone_campaign_not_yet_crossed_stays_active(st):
+    """No progress row at all yet (nobody has contributed) — an ordinary, harmless no-op pass,
+    and the campaign must not be mistaken for done."""
+    c = save(st, Campaign(tenant="t1", goal="community_milestone", state="active",
+                         milestone_threshold=10))
+    d = Dispatcher(matched=0)
+    tick(st, d, at(9))
+    assert len(d.fired) == 1
+    assert run(st.get("campaigns", c.key))["state"] == "active"
+
+
+def test_a_milestone_campaign_still_draining_its_cohort_stays_active(st):
+    """Fired, but this pass reached some of the cohort and left more for next time (a large
+    cohort against a small per-pass cap) — `result.finished=True` from the dispatcher's own "did
+    not hit the cap" sense, but `matched` is still non-zero, so this must NOT be marked done."""
+    c = save(st, Campaign(tenant="t1", goal="community_milestone", state="active",
+                         milestone_threshold=2))
+    run(milestone.record_contribution(st, tenant="t1", campaign_id=c.id, threshold=2,
+                                     subject_ref="a", now=at(8)))
+    run(milestone.record_contribution(st, tenant="t1", campaign_id=c.id, threshold=2,
+                                     subject_ref="b", now=at(8) + 1))
+    d = Dispatcher(sent=2, matched=2)
+    tick(st, d, at(9))
+    assert len(d.fired) == 1
+    assert run(st.get("campaigns", c.key))["state"] == "active"
+
+
+def test_a_milestone_campaign_is_marked_done_once_its_cohort_is_fully_drained(st):
+    """Fired, AND this pass matched nobody new — every contributor is already in
+    `already_reached`, so the one-shot reveal is complete. This is the ONE case that transitions
+    to `done`, exactly the one-shot shape a `scheduled` campaign already has."""
+    c = save(st, Campaign(tenant="t1", goal="community_milestone", state="active",
+                         milestone_threshold=1))
+    run(milestone.record_contribution(st, tenant="t1", campaign_id=c.id, threshold=1,
+                                     subject_ref="a", now=at(8)))
+    d = Dispatcher(sent=0, matched=0)
+    tick(st, d, at(9))
+    assert len(d.fired) == 1
+    assert run(st.get("campaigns", c.key))["state"] == "done"
+
+
+def test_a_milestone_campaign_that_crashes_mid_fire_is_not_marked_done(st):
+    """One recipient's failure (or a whole pass exploding) must not be mistaken for a completed
+    reveal — the campaign stays active so the next tick can retry."""
+    c = save(st, Campaign(tenant="t1", goal="community_milestone", state="active",
+                         milestone_threshold=1))
+    run(milestone.record_contribution(st, tenant="t1", campaign_id=c.id, threshold=1,
+                                     subject_ref="a", now=at(8)))
+    d = Dispatcher(boom=True)
+    tick(st, d, at(9))
+    assert run(st.get("campaigns", c.key))["state"] == "active"
+
+
+def test_a_one_shot_milestone_that_never_crosses_expires_to_done(st):
+    """The deadline passed and the threshold was never reached — a real, honest ending distinct
+    from success, but still `done`: the challenge simply did not happen in time."""
+    c = save(st, Campaign(tenant="t1", goal="community_milestone", state="active",
+                         milestone_threshold=100, fire_at=at(1), expires_at=at(8)))
+    d = Dispatcher(matched=0)
+    tick(st, d, at(9))
+    assert run(st.get("campaigns", c.key))["state"] == "done"
+
+
+def test_a_one_shot_milestone_before_its_deadline_stays_active(st):
+    c = save(st, Campaign(tenant="t1", goal="community_milestone", state="active",
+                         milestone_threshold=100, fire_at=at(1), expires_at=at(20)))
+    d = Dispatcher(matched=0)
+    tick(st, d, at(9))
+    assert run(st.get("campaigns", c.key))["state"] == "active"
+
+
+def test_a_recurring_milestone_that_never_crosses_resets_for_a_fresh_round(st):
+    """Never `done` at all — the deadline passing without a win simply starts the next round,
+    back to back from the old deadline, same period length."""
+    c = save(st, Campaign(tenant="t1", goal="community_milestone", state="active",
+                         milestone_threshold=5, fire_at=at(1), expires_at=at(8),
+                         milestone_recurring=True))
+    run(milestone.record_contribution(st, tenant="t1", campaign_id=c.id, threshold=5,
+                                     subject_ref="a", now=at(2)))
+    d = Dispatcher(matched=0)
+    tick(st, d, at(9))
+    row = run(st.get("campaigns", c.key))
+    assert row["state"] == "active"
+    assert row["fire_at"] == at(8)
+    # SAME PERIOD (7 hours here), STARTING FROM THE OLD DEADLINE — not from `now`, so a late tick
+    # never lets drift creep into a repeating schedule.
+    assert row["expires_at"] == at(8) + (at(8) - at(1))
+    progress = run(milestone.read_progress(st, "t1", c.id))
+    assert progress is None, "the previous round's own count/contributor must not linger"
+
+
+def test_a_recurring_milestone_that_crosses_and_fully_drains_also_resets(st):
+    """Success does not end a recurring challenge either — it just starts the next round."""
+    c = save(st, Campaign(tenant="t1", goal="community_milestone", state="active",
+                         milestone_threshold=1, fire_at=at(1), expires_at=at(8),
+                         milestone_recurring=True))
+    run(milestone.record_contribution(st, tenant="t1", campaign_id=c.id, threshold=1,
+                                     subject_ref="a", now=at(2)))
+    d = Dispatcher(sent=1, matched=0)   # everyone already reached this pass
+    tick(st, d, at(9))
+    row = run(st.get("campaigns", c.key))
+    assert row["state"] == "active"
+    assert row["fire_at"] == at(8)
+    assert run(milestone.read_progress(st, "t1", c.id)) is None
+
+
+def test_a_recurring_milestone_still_mid_round_is_untouched(st):
+    c = save(st, Campaign(tenant="t1", goal="community_milestone", state="active",
+                         milestone_threshold=100, fire_at=at(1), expires_at=at(20),
+                         milestone_recurring=True))
+    d = Dispatcher(matched=0)
+    tick(st, d, at(9))
+    row = run(st.get("campaigns", c.key))
+    assert row["fire_at"] == at(1)
+    assert row["expires_at"] == at(20)
 
 
 # ── failure isolation ──────────────────────────────────────────────────────────────────────────

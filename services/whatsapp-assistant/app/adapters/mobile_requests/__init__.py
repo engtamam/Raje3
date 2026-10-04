@@ -25,17 +25,21 @@ class HttpMobileRequests:
 
     async def create(self, *, tenant: str, phone: str, customer_name: str,
                      service_ids: list[str], requested_time: int,
-                     lat: float, lng: float) -> CreatedMobileRequest:
+                     lat: float, lng: float, referral_code: str = "") -> CreatedMobileRequest:
         return await asyncio.to_thread(
             self._create_sync, tenant, phone, customer_name, service_ids, requested_time,
-            lat, lng)
+            lat, lng, referral_code)
 
     def _create_sync(self, tenant: str, phone: str, customer_name: str, service_ids: list[str],
-                     requested_time: int, lat: float, lng: float) -> CreatedMobileRequest:
-        body = json.dumps({
+                     requested_time: int, lat: float, lng: float,
+                     referral_code: str = "") -> CreatedMobileRequest:
+        body_dict: dict[str, Any] = {
             "tenant": tenant, "phone": phone, "customer_name": customer_name,
             "service_ids": service_ids, "requested_time": requested_time,
-            "lat": lat, "lng": lng}).encode()
+            "lat": lat, "lng": lng}
+        if referral_code:
+            body_dict["referral_code"] = referral_code
+        body = json.dumps(body_dict).encode()
         req = urllib.request.Request(
             self._url, data=body, method="POST",
             headers={"Content-Type": "application/json", "X-Internal-Token": self._token})

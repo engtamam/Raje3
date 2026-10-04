@@ -89,8 +89,6 @@ class TemplateErasure:
                 if not rows:
                     break
                 for row in rows:
-                    if row.get("subject_ref") == _REDACTED:
-                        continue   # already processed by an earlier, truncated run
                     row["subject_ref"] = _REDACTED
                     await self._s.put(collection, row["id"], row)
                     touched += 1

@@ -91,6 +91,14 @@ class Schedule:
     # not silently reword a message already sitting in the queue.
     appt_time: str = ""
     branch_id: str = ""
+    # THE WHATSAPP-ORDERING APP'S OWN ROW (core/orders.py, services/operations), the same
+    # relationship `booking_id`/`visit_id` carry for their own sources — lets a later status
+    # change find and supersede this one rather than add a second schedule for the same order.
+    order_id: str = ""
+    # A SHORT, CUSTOMER-FACING NUMBER, PHRASED ONCE AT SCHEDULING TIME — never the raw `ord_...`
+    # internal id (not something a customer should ever read or need to quote back), same
+    # "computed once, never re-derived later" posture `appt_time` already documents above.
+    order_number: str = ""
     # WHICH CAR THIS IS ABOUT, and empty for every shop that does not work on cars.
     #
     # In بنشر, مغسلة and تنجيد the cycle belongs to the VEHICLE, not to the person holding the

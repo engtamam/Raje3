@@ -43,7 +43,7 @@ async def build(store: Any, tenant: str) -> dict:
     # ONE PASS, NOT FIVE. `rows` can be up to `limit` (100000) entries, and the four sums plus the
     # `customers` set below used to each walk the whole list separately — five full passes over
     # the same data for numbers a single running accumulation gives just as well.
-    granted = consumed = expired = adjusted = 0
+    granted = consumed = expired = adjusted = adjusted_in = 0
     customers: set[Any] = set()
     for r in rows:
         delta = int(r["delta"])
@@ -56,6 +56,12 @@ async def build(store: Any, tenant: str) -> dict:
             expired -= delta
         elif reason == "adjust":
             adjusted += delta
+            # Only the POSITIVE side: a manual credit is just as expirable as an earned point, so
+            # it belongs in expired_share's denominator. A negative adjustment never created points
+            # that could later expire, so it must not inflate the "everything that could expire"
+            # total the warning is measured against.
+            if delta > 0:
+                adjusted_in += delta
         customers.add(r.get("subject_ref"))
 
     reds = await drain(store, REDEMPTIONS, {"tenant": tenant}, sort=("created_at", "asc"))
@@ -77,7 +83,8 @@ async def build(store: Any, tenant: str) -> dict:
         # The warning: how much of everything granted died unspent. A high share means the
         # thresholds are beyond his customers' reach, and the programme is annoying them rather
         # than holding them.
-        "expired_share": round(expired / granted, 3) if granted else 0.0,
+        "expired_share": round(expired / (granted + adjusted_in), 3)
+                        if (granted + adjusted_in) else 0.0,
         "redemptions": len(reds),
         "by_type": by_type,
         "top_rewards": sorted(by_reward.items(), key=lambda kv: -kv[1])[:5],

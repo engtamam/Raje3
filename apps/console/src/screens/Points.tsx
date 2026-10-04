@@ -1,5 +1,5 @@
 /**
- * «نقاطي» — the rewards table, and what a visit is worth.
+ * «نقاط الولاء» — the rewards table, and what a visit is worth.
  *
  * IT ARRIVES PRE-FILLED ("100 points = an exterior wash, 300 = polish"). He edits a
  * number, switches one off, or adds one — and never starts from a blank page (§10.8). So the empty
@@ -615,7 +615,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                       setSaving(false);
                     }
                   }}
-                  className="h-10 w-28 rounded-lg bg-surface-2 px-3 text-center tabular-nums"
+                  className="h-10 w-28 rounded-lg border border-border-subtle bg-surface-1 px-3 text-center tabular-nums"
                 />
               </label>
             </Card>
@@ -671,7 +671,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                           setSaving(false);
                         }
                       }}
-                      className="h-10 w-28 rounded-lg bg-surface-2 px-3 text-center tabular-nums"
+                      className="h-10 w-28 rounded-lg border border-border-subtle bg-surface-1 px-3 text-center tabular-nums"
                     />
                   </li>
                 ))}
@@ -707,7 +707,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                               setEarnFor(s.id, Number(raw));
                             }
                           }}
-                          className="h-10 w-24 rounded-lg bg-surface-2 px-3 text-center tabular-nums"
+                          className="h-10 w-24 rounded-lg border border-border-subtle bg-surface-1 px-3 text-center tabular-nums"
                         />
                         {/* A DELETE, NOT A WRITE OF TODAY'S GENERAL VALUE: following means tracking
                             it from now on, and writing the current number would freeze it. */}

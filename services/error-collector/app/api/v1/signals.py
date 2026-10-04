@@ -15,7 +15,7 @@ volume, not privilege.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.api.auth import Principal, require_user
 from app.api.authz import require_capability
@@ -96,10 +96,16 @@ async def list_signals(
     what broke. `tenant`/`subject_ref` narrow it, they do not turn it into one: no message text
     named a person before this filter existed, and this filter does not add any.
     """
+    if subject_ref.strip() and not tenant.strip():
+        # SILENTLY DROPPING THIS WOULD WIDEN THE QUERY, NOT NARROW IT — an investigator filtering
+        # by one customer who forgot the tenant would get every signal on the platform instead of
+        # an error, the one direction a filter must never fail in.
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "subject_ref requires tenant to be given alongside it")
     store = await _store(request)
     rows, next_cursor = await store.browse(
         sources=_split(source), severities=_split(severity), service=service.strip(),
-        tenant=tenant.strip(), subject_ref=subject_ref.strip() if tenant.strip() else "",
+        tenant=tenant.strip(), subject_ref=subject_ref.strip(),
         since=since, until=until, q=q, limit=limit, after=after)
     return {
         "signals": [public(r) for r in rows],
