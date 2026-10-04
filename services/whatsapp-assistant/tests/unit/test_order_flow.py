@@ -27,16 +27,18 @@ class _FakeOrders:
     itself; this file only needs it to exist so handle_order_followup's location branch has
     somewhere real (if trivial) to call."""
 
-    def __init__(self, *, fail: bool = False):
+    def __init__(self, *, fail: bool = False, pay_url: str = "https://pay.example/r/abc123"):
         self.calls: list[dict] = []
         self._fail = fail
+        self._pay_url = pay_url
 
     async def create(self, **kwargs):
         from app.ports.orders import CreatedOrder, OrderFailed
         self.calls.append(kwargs)
         if self._fail:
             raise OrderFailed("لا يوجد فرع يغطي هذا الموقع")
-        return CreatedOrder(order_id="ord_test123456", branch_id="br1", total_minor=5000)
+        return CreatedOrder(order_id="ord_test123456", branch_id="br1", total_minor=5000,
+                           pay_url=self._pay_url)
 
 
 def _engine(store, *, orders=None):
@@ -106,7 +108,10 @@ async def test_sharing_the_location_clears_awaiting_and_stores_the_coordinates()
         from_number="+966500000000", wamid="wamid_loc", now=1100)
 
     assert plan.kind == "text"
-    assert "استلام طلبك" in plan.text
+    # NEVER "تم استلام" -- the order is not received until it is paid; the pay link itself
+    # must be in the very first reply.
+    assert "استلام" not in plan.text
+    assert "https://pay.example/r/abc123" in plan.text
     conv = await engine._get(TENANT, SUBJECT)
     assert conv.awaiting_order_location is False
     assert conv.pending_order_lat == 24.7136
@@ -208,6 +213,25 @@ async def test_a_lapsed_subscription_refuses_an_already_pending_order_too():
     assert conv.awaiting_order_location is False
     assert conv.pending_order_items == []
     assert allow_then_refuse.calls == []
+
+
+async def test_a_created_order_with_no_pay_link_never_claims_the_order_was_received():
+    """The order itself can exist (operations' own idempotency already recorded it) while the
+    pay-link mint fails (no gateway connected, payments-service unreachable) -- the customer must
+    be told to retry, never congratulated on an order that is not actually confirmed yet."""
+    store = MemoryDataStore()
+    orders = _FakeOrders(pay_url="")
+    engine = _engine(store, orders=orders)
+    await engine.handle_order(
+        tenant=TENANT, subject_ref=SUBJECT, text=_order_text([("srv1", 1)]), now=1000)
+
+    plan = await engine.handle_order_followup(
+        tenant=TENANT, subject_ref=SUBJECT, kind="location", text="24.7136,46.6753",
+        from_number="+966500000000", wamid="wamid_loc", now=1100)
+
+    assert plan.kind == "text"
+    assert "استلام" not in plan.text
+    assert "تعذّر إنشاء رابط الدفع" in plan.text
 
 
 async def test_with_no_orders_peer_wired_the_reply_says_so_plainly_not_a_silent_success():

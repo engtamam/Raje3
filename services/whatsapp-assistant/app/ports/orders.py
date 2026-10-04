@@ -20,6 +20,12 @@ class CreatedOrder:
     order_id: str
     branch_id: str
     total_minor: int
+    # THE ORDER IS NOT "RECEIVED" UNTIL IT IS PAID -- `pay_url` empty means the link itself could
+    # not be minted (no gateway connected, payments-service unreachable), never "no payment
+    # needed". `pay_reason` carries operations' own sentence for that case, same posture as
+    # `OrderFailed` below.
+    pay_url: str = ""
+    pay_reason: str = ""
 
 
 class NullOrders:

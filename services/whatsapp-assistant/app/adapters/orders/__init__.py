@@ -57,7 +57,9 @@ class HttpOrders:
             raise OrderFailed(str(data.get("reason") or "operations refused the order"))
         return CreatedOrder(order_id=str(data.get("order_id") or ""),
                            branch_id=str(data.get("branch_id") or ""),
-                           total_minor=int(data.get("total_minor") or 0))
+                           total_minor=int(data.get("total_minor") or 0),
+                           pay_url=str(data.get("pay_url") or ""),
+                           pay_reason=str(data.get("pay_reason") or ""))
 
 
 def build(settings: Any) -> Any:

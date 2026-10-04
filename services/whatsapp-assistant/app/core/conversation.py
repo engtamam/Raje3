@@ -142,6 +142,14 @@ _SLOT_PICK_LIST_MAX_ROWS = 8
 # proposal_ttl_seconds default a pending booking already uses (same class of fact — "a real
 # commitment the customer has not finished confirming yet").
 ORDER_LOCATION_TTL_SECONDS = 1800
+# A CIRCUIT BREAKER, NOT THE BUSINESS LIMIT -- operations' own `orders.py::MAX_DISTINCT_LINES`/
+# `MAX_LINE_QUANTITY` is the ONE place that number is decided; duplicating its exact value here
+# invites the two drifting apart the moment either is edited without the other in mind (caught
+# happening once already in this same pass). This ceiling exists only so a pathological payload
+# (thousands of items) never bloats `ConversationState` while waiting for operations' own 422 to
+# come back -- deliberately far looser than any real cart, so operations' refusal is always what
+# the customer actually sees for an ordinary oversized order, never this one.
+_MAX_ORDER_ITEMS = 500
 # A PLAIN, EXACT MATCH — no AI, no fuzzy understanding, deliberately: a customer with a pending
 # order must have one unambiguous, deterministic way out of it, same "a button, not a guess"
 # posture every other state-changing surface in this file already takes.
@@ -1909,7 +1917,17 @@ class ConversationEngine:
     def _parse_order_payload(text: str) -> tuple[list[dict[str, Any]], str] | None:
         """`text` is inbound_parse.py's own JSON encoding of a catalog order -- `None` for
         anything unreadable, never raised, same "never crash on an upstream shape this service
-        does not understand" posture that module's own docstring already holds."""
+        does not understand" posture that module's own docstring already holds.
+
+        EVERY ITEM IS VALIDATED HERE, NOT DOWNSTREAM — this is the one boundary where Meta's
+        webhook shape (never trusted, however it got here: a real cart, a replayed/tampered
+        payload, a buggy upstream) turns into this service's own `pending_order_items`, which then
+        sits in `ConversationState` unchallenged until the location arrives, potentially TTL_
+        SECONDS later. A quantity that is not a real positive int (a string, a float, negative,
+        zero, a bool) or a blank/non-string retailer_id would otherwise reach `OrderService.create`
+        and operations' own Pydantic coercion as this service's own problem to explain, not the
+        customer's. `_MAX_ORDER_ITEMS` is a circuit breaker, not operations' real business limit —
+        see its own module-level comment."""
         try:
             payload = json.loads(text)
         except (ValueError, TypeError):
@@ -1917,9 +1935,23 @@ class ConversationEngine:
         if not isinstance(payload, dict):
             return None
         items = payload.get("items")
-        if not isinstance(items, list) or not items:
+        if not isinstance(items, list) or not items or len(items) > _MAX_ORDER_ITEMS:
             return None
-        return items, str(payload.get("catalog_id") or "")
+        clean: list[dict[str, Any]] = []
+        for item in items:
+            if not isinstance(item, dict):
+                return None
+            retailer_id = item.get("retailer_id")
+            quantity = item.get("quantity")
+            if not isinstance(retailer_id, str) or not retailer_id.strip():
+                return None
+            if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
+                return None
+            # NO UPPER CEILING HERE -- operations' own `MAX_LINE_QUANTITY` is the one place that
+            # number is decided; this layer only rejects what could never be a real quantity
+            # (non-int, zero, negative), never a business policy limit duplicated from elsewhere.
+            clean.append({"retailer_id": retailer_id.strip(), "quantity": quantity})
+        return clean, str(payload.get("catalog_id") or "")
 
     async def handle_order(self, *, tenant: str, subject_ref: str, text: str, wamid: str = "",
                            now: int | None = None) -> ReplyPlan:
@@ -2051,9 +2083,18 @@ class ConversationEngine:
                     # sentence" discipline `handle_location`'s own MobileRequestFailed handling
                     # already follows.
                     return ReplyPlan(kind="text", text=str(exc)[:200])
+                order_ref = created.order_id[-6:].upper()
+                if not created.pay_url:
+                    # NEVER "تم استلام طلبك" HERE -- the owner's own rule: an order is not received
+                    # until it is paid. The order itself already exists (idempotent on order_wamid,
+                    # a retry of the same cart settles on it), but the customer must be told to
+                    # retry rather than believe anything was confirmed.
+                    return ReplyPlan(kind="text", text=(
+                        f"تعذّر إنشاء رابط الدفع لطلبك رقم {order_ref} الآن. "
+                        "جرّب مشاركة موقعك مرة أخرى بعد قليل."))
                 return ReplyPlan(kind="text", text=(
-                    f"تم استلام طلبك رقم {created.order_id[-6:].upper()}، "
-                    "وسنرسل لك رابط الدفع قريبًا."))
+                    f"طلبك رقم {order_ref} جاهز — أكمل الدفع عشان نأكده ونبدأ تجهيزه:\n"
+                    f"{created.pay_url}"))
 
             if text.strip() in _ORDER_CANCEL_KEYWORDS:
                 conv.awaiting_order_location = False

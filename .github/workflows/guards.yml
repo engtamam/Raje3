@@ -1356,6 +1356,8 @@ jobs:
         run: python3 ci/check_no_base_remnants.py
       - name: every shared feature reads identically everywhere it is granted
         run: python3 ci/check_shared_features_match.py
+      - name: whatsapp-assistant's order-item circuit breaker never undercuts operations' real cap
+        run: python3 ci/check_order_item_cap_invariant.py
 
       # ui/packages/ui/package.json names itself "@base-ui/source" — the exact same name
       # base-services' own platform/ui/packages/ui/package.json still carries, because ours is a

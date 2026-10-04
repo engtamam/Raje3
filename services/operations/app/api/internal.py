@@ -1364,8 +1364,21 @@ async def internal_create_whatsapp_order(request: Request, body: WhatsAppOrderIn
             lat=body.lat, lng=body.lng, idempotency_key=body.idempotency_key, note=body.note)
     except OrderError as exc:
         return {"created": False, "reason": str(exc)}
-    return {"created": True, "order_id": order.id, "branch_id": order.branch_id,
-           "total_minor": order.total_minor}
+
+    # THE ORDER IS NOT "RECEIVED" UNTIL IT IS PAID (the owner's own call) — this route never tells
+    # whatsapp-assistant to treat `created: true` alone as a finished order; the pay link is minted
+    # in the SAME round trip so the customer's very first reply is "pay to confirm", never "order
+    # received". A link-minting failure (no gateway connected, payments-service unreachable) is
+    # reported the same way every other refusal here is -- returned, never raised -- with the order
+    # itself already safely recorded (`order.create()`'s own idempotency key), so a retry of this
+    # exact request settles on the SAME order rather than creating a second one.
+    try:
+        paid = await c.orders.request_payment(body.tenant, order.id)
+    except OrderError as exc:
+        return {"created": True, "order_id": order.id, "branch_id": order.branch_id,
+               "total_minor": order.total_minor, "pay_url": "", "pay_reason": str(exc)}
+    return {"created": True, "order_id": paid.id, "branch_id": paid.branch_id,
+           "total_minor": paid.total_minor, "pay_url": paid.pay_url, "pay_reason": ""}
 
 
 class BookingRewardRedeemIn(BaseModel):
