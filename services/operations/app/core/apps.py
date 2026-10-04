@@ -301,15 +301,32 @@ COUPONS_FEATURES: tuple[dict[str, Any], ...] = (
 )
 
 WHATSAPP_DELIVERY_ORDERS_FEATURES: tuple[dict[str, Any], ...] = (
-    {"id": "whatsapp_delivery_orders.official_catalog", "title": "كتالوج واتساب الرسمي، لا فلو مخصّص",
-     "detail": "عميلك يطلب من كتالوج ميتا نفسه اللي يعرفه، بلا تدريب أو تعلّم واجهة جديدة",
+    # GROWTH-ENGINE FRAMING, NOT A FEATURE DESCRIPTION — the owner's own instruction, 2026-10-05:
+    # "تكون احترافية توضح القيمة القصوى... اللي تخليه محرك نمو... وتضمن حقه اول باول". Each row
+    # below names a REAL, ALREADY-BUILT mechanism (core/orders.py's own module docstring) and
+    # states what it is actually worth to the shop — a missed sale, a disputed charge, a
+    # misrouted order — never a generic "it has X" line.
+    {"id": "whatsapp_delivery_orders.sells_while_youre_busy", "title": "يبيع وأنت مشغول، يستقبل وأنت نايم",
+     "detail": "الطلب يُستقبل ويُسعَّر ويوصله رابط الدفع تلقائياً من كتالوجك الرسمي على واتساب، بثانية —"
+              " بلا موظف يرد، وبلا دقيقة تأخير تخسّر فيها العميل لمنافسك",
+     "icon": "sparkles", "tone": "violet", "shared_with": [], "owned_by": ""},
+    {"id": "whatsapp_delivery_orders.money_matched_to_the_halala", "title": "حقك المالي محسوب بالهللة، لا بالتقريب",
+     "detail": "ما يتأكد أي طلب إلا بعد ما نطابق المبلغ اللي استلمته بوابتك فعلياً مع المبلغ المطلوب"
+              " بالضبط — أي فرق، ولو هللة، يوقف الطلب تلقائياً بدل ما يمرّ بصمت على حسابك",
      "icon": "check-circle", "tone": "teal", "shared_with": [], "owned_by": ""},
-    {"id": "whatsapp_delivery_orders.geo_gated_checkout", "title": "موقعه يتحقق قبل أي رابط دفع",
-     "detail": "نحدد أقرب فرع يغطي عنوانه فعلاً قبل ما يوصله أي رابط دفع — لا طلب يضيع في الطريق",
-     "icon": "map-pin", "tone": "violet", "shared_with": [], "owned_by": ""},
-    {"id": "whatsapp_delivery_orders.your_own_gateway", "title": "الدفع يروح لحسابك مباشرة",
-     "detail": "رابط دفع ببوابتك الخاصة — المبلغ يصلك أنت، نحن لا نلمسه ولا نتدخل فيه",
-     "icon": "shield", "tone": "blue", "shared_with": [], "owned_by": ""},
+    {"id": "whatsapp_delivery_orders.never_charged_or_claimed_twice",
+     "title": "ولا طلب مكرر، ولا فلوسك تُحسب مرتين",
+     "detail": "لو واتساب كرّر إرسال نفس الطلب (وارد تقنياً من جهتهم)، نظامنا يمنع تلقائياً إنشاء طلب"
+              " ثانٍ أو قبول دفعة ثانية لنفس الطلب — حقك محمي من أول لحظة، لا بعد ما يصير خلل",
+     "icon": "shield-check", "tone": "blue", "shared_with": [], "owned_by": ""},
+    {"id": "whatsapp_delivery_orders.exact_branch_every_time", "title": "كل طلب يوصل الفرع الصحيح، أوتوماتيك",
+     "detail": "موقع العميل يتحقق ويُربط بأقرب فرع يغطي عنوانه فعلاً قبل ما يصله أي رابط دفع — صفر"
+              " طلبات ضايعة بين فروعك أو واصلة لفرع ما يقدر يخدمها",
+     "icon": "map-pin", "tone": "amber", "shared_with": [], "owned_by": ""},
+    {"id": "whatsapp_delivery_orders.your_own_gateway_no_middleman", "title": "فلوسك تدخل حسابك أنت، لا حساب وسيط",
+     "detail": "رابط الدفع يذهب مباشرة لبوابتك الخاصة بالكامل — نحن لا نلمس الريال، ولا نأخذ عمولة"
+              " خفية، ولا نؤخّر وصول المبلغ عندك يوماً واحداً",
+     "icon": "check-badge", "tone": "success", "shared_with": [], "owned_by": ""},
 )
 
 # `feature.referrals` — services/referrals + core/referral_redemption.py's own module docstring.
