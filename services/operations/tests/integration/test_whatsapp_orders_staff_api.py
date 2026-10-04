@@ -294,3 +294,37 @@ def test_resuming_clears_the_reason(client):
     assert r.status_code == 200, r.text
     assert r.json()["paused"] is False
     assert r.json()["reason"] == ""
+
+
+# ── Step 9's own on/off switch for the "share with the delivery rep" button ─────────────────────
+
+def test_share_toggle_requires_operations_record_capability(client):
+    r = client.get("/api/v1/staff/whatsapp-orders/share-toggle",
+                   headers=_auth("some.other.capability"))
+    assert r.status_code == 403
+
+
+def test_a_shop_that_never_touched_it_reads_as_enabled(client):
+    r = client.get("/api/v1/staff/whatsapp-orders/share-toggle", headers=_auth("operations.record"))
+    assert r.status_code == 200, r.text
+    assert r.json() == {"enabled": True}
+
+
+def test_turning_it_off_is_read_back_off(client):
+    off = client.post("/api/v1/staff/whatsapp-orders/share-toggle", json={"enabled": False},
+                      headers=_auth("operations.record"))
+    assert off.status_code == 200, off.text
+    assert off.json()["enabled"] is False
+
+    read_back = client.get("/api/v1/staff/whatsapp-orders/share-toggle",
+                           headers=_auth("operations.record"))
+    assert read_back.json() == {"enabled": False}
+
+
+def test_turning_it_back_on_is_read_back_on(client):
+    client.post("/api/v1/staff/whatsapp-orders/share-toggle", json={"enabled": False},
+               headers=_auth("operations.record"))
+    r = client.post("/api/v1/staff/whatsapp-orders/share-toggle", json={"enabled": True},
+                   headers=_auth("operations.record"))
+    assert r.status_code == 200, r.text
+    assert r.json()["enabled"] is True

@@ -46,6 +46,16 @@ Future<bool> openWhatsApp(String phone, [String? message]) async {
   return openUrl(uri.toString());
 }
 
+/// Open WhatsApp's own contact picker with a pre-filled message and NO fixed recipient —
+/// `wa.me/?text=…` (no phone segment) lets the person choose whichever contact to send it to,
+/// for the one real use this app has for a message with no known recipient: Step 9's own
+/// «مشاركة الطلب مع المندوب» button, where no delivery-rep phone is stored anywhere in this
+/// product (see whatsapp_orders_screen.dart's own note on why that is deliberate, not a gap).
+Future<bool> openWhatsAppCompose(String message) async {
+  final uri = Uri.https('wa.me', '/', {'text': message});
+  return openUrl(uri.toString());
+}
+
 /// Open the phone dialer with a pre-filled number.
 Future<bool> openPhoneDialer(String phone) async {
   final cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');

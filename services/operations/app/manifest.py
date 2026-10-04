@@ -485,6 +485,8 @@ def build_manifest(
             {"path": "/api/v1/staff/whatsapp-orders", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/whatsapp-orders/pause", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/whatsapp-orders/pause", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/whatsapp-orders/share-toggle", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/whatsapp-orders/share-toggle", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/whatsapp-orders/{}", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/whatsapp-orders/{}/preparing", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/whatsapp-orders/{}/ready", "tier": "user", "method": "POST"},

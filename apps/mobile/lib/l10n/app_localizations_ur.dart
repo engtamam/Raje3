@@ -3885,4 +3885,34 @@ class SUr extends S {
   String whatsappOrdersDrawerNote(String note) {
     return 'نوٹ: $note';
   }
+
+  @override
+  String get whatsappOrdersShareToggleLabel =>
+      '«مندوب کے ساتھ شیئر کریں» بٹن دکھائیں';
+
+  @override
+  String get whatsappOrdersActionShareWithRep => 'مندوب کے ساتھ شیئر کریں';
+
+  @override
+  String get whatsappOrdersShareHeading => 'نیا ڈیلیوری آرڈر:';
+
+  @override
+  String whatsappOrdersShareCustomer(String name) {
+    return 'گاہک: $name';
+  }
+
+  @override
+  String whatsappOrdersSharePhone(String phone) {
+    return 'فون: $phone';
+  }
+
+  @override
+  String whatsappOrdersShareAddress(String url) {
+    return 'مقام: $url';
+  }
+
+  @override
+  String whatsappOrdersShareTotal(String total) {
+    return 'کل: $total';
+  }
 }

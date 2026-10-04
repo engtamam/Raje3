@@ -68,6 +68,9 @@ class _WhatsAppOrdersScreenState extends State<WhatsAppOrdersScreen> {
   Set<String>? _seenIds; // null until the first successful load
   bool _paused = false;
   String _pauseReason = '';
+  // STEP 9'S OWN ON/OFF SWITCH — defaults to shown (same "absent means on" the backend store
+  // itself takes) until the real read lands.
+  bool _shareEnabled = true;
 
   @override
   void initState() {
@@ -78,6 +81,7 @@ class _WhatsAppOrdersScreenState extends State<WhatsAppOrdersScreen> {
     });
     _load();
     _loadPause();
+    _loadShareToggle();
     // SAME 8s POLL THE CONSOLE'S OWN BOARD USES — this product has no websocket/live-push infra
     // yet, so a short poll is the honest "live" a phone screen can actually offer today.
     _poll = Timer.periodic(const Duration(seconds: 8), (_) => _load());
@@ -133,6 +137,17 @@ class _WhatsAppOrdersScreenState extends State<WhatsAppOrdersScreen> {
         _pauseReason = result.reason;
       });
     }
+  }
+
+  Future<void> _loadShareToggle() async {
+    final enabled = await _service.getShareToggle();
+    if (enabled != null && mounted) setState(() => _shareEnabled = enabled);
+  }
+
+  Future<void> _toggleShare() async {
+    final next = !_shareEnabled;
+    final result = await _service.setShareToggle(next);
+    if (result != null && mounted) setState(() => _shareEnabled = result);
   }
 
   List<WhatsAppOrder> get _list => _rows ?? const [];
@@ -211,7 +226,7 @@ class _WhatsAppOrdersScreenState extends State<WhatsAppOrdersScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _OrderDetailsSheet(order: o, service: _service),
+      builder: (_) => _OrderDetailsSheet(order: o, service: _service, shareEnabled: _shareEnabled),
     );
     if (updated != null) _load();
   }
@@ -221,6 +236,7 @@ class _WhatsAppOrdersScreenState extends State<WhatsAppOrdersScreen> {
     final s = S.of(context)!;
     final catalog = context.watch<NavProvider>().catalog;
     final canPause = catalog.hasAll(['whatsapp_order.pause_set']);
+    final canToggleShare = catalog.hasAll(['whatsapp_order.share_toggle_set']);
 
     return KbAnchor(
       id: 'whatsapp-orders',
@@ -255,6 +271,18 @@ class _WhatsAppOrdersScreenState extends State<WhatsAppOrdersScreen> {
                           ),
                         ),
                       if (canPause) const SizedBox(height: AppSpacing.md),
+                      if (canToggleShare)
+                        CapabilityGate(
+                          requires: const ['whatsapp_order.share_toggle_set'],
+                          child: KbAnchor(
+                            id: 'whatsapp-orders.share_toggle_switch',
+                            child: _ShareToggleTile(
+                              enabled: _shareEnabled,
+                              onChanged: (_) => _toggleShare(),
+                            ),
+                          ),
+                        ),
+                      if (canToggleShare) const SizedBox(height: AppSpacing.md),
                       Row(
                         children: [
                           Expanded(
@@ -371,6 +399,37 @@ class _WhatsAppOrdersScreenState extends State<WhatsAppOrdersScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ShareToggleTile extends StatelessWidget {
+  const _ShareToggleTile({required this.enabled, required this.onChanged});
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context)!;
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border.all(color: colors.borderSubtle),
+        borderRadius: AppRadius.standardRadius,
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.share_rounded, color: colors.textSecondary, size: 20),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(s.whatsappOrdersShareToggleLabel,
+                style: AppTextStyles.labelMedium.copyWith(color: colors.textPrimary, fontWeight: FontWeight.w700)),
+          ),
+          Switch(value: enabled, onChanged: onChanged),
+        ],
       ),
     );
   }
@@ -603,9 +662,10 @@ class _OrderCard extends StatelessWidget {
 }
 
 class _OrderDetailsSheet extends StatefulWidget {
-  const _OrderDetailsSheet({required this.order, required this.service});
+  const _OrderDetailsSheet({required this.order, required this.service, required this.shareEnabled});
   final WhatsAppOrder order;
   final WhatsAppOrdersService service;
+  final bool shareEnabled;
 
   @override
   State<_OrderDetailsSheet> createState() => _OrderDetailsSheetState();
@@ -683,6 +743,17 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
         child: SecondaryButton(
           text: s.whatsappOrdersActionCancel,
           onPressed: _busy ? null : _askCancel,
+        ),
+      ));
+    }
+    if (widget.shareEnabled && _isWorking(o.status)) {
+      actionRows.add(const SizedBox(height: AppSpacing.sm));
+      actionRows.add(SizedBox(
+        width: double.infinity,
+        height: 44,
+        child: SecondaryButton(
+          text: s.whatsappOrdersActionShareWithRep,
+          onPressed: () => openWhatsAppCompose(_buildShareText(s, o)),
         ),
       ));
     }
@@ -884,4 +955,22 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
     return (label: s.whatsappOrdersActionMarkDelivered, action: () => service.markDelivered(o.id));
   }
   return null;
+}
+
+/// Step 9 — «مشاركة الطلب مع المندوب». Same "no stored rep number anywhere in this product"
+/// reasoning the console's own `shareWithRepLink` carries: `openWhatsAppCompose` opens WhatsApp's
+/// own contact picker with this text already filled in, so the merchant picks whichever rep he is
+/// using for this delivery, never a fixed number this product has no data to back.
+String _buildShareText(S s, WhatsAppOrder o) {
+  final lines = o.lines.map((l) => '${l.quantity}× ${l.name}').join('\n');
+  return [
+    s.whatsappOrdersShareHeading,
+    s.whatsappOrdersShareCustomer(o.customerName.isNotEmpty ? o.customerName : s.whatsappOrdersUnnamed),
+    s.whatsappOrdersSharePhone(o.phone),
+    s.whatsappOrdersShareAddress(o.mapsUrl),
+    '',
+    lines,
+    '',
+    s.whatsappOrdersShareTotal(Formatters.formatCurrency(o.amountDueMinor / 100)),
+  ].join('\n');
 }

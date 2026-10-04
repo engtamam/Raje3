@@ -1146,4 +1146,13 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "exactly when and why — a customer who could not place an order during that window "
                "deserves a real answer, not a shrug",
     },
+    {
+        "action": "whatsapp_order.share_toggle_set",
+        "source": "user",
+        "critical": False,
+        "resource": "tenant",
+        "why": "a plain display preference (Step 9's own on/off switch), kept auditable for the "
+               "same reason every other owner-facing toggle on this file is — a support call about "
+               "'where did the share button go' has a real, timestamped answer",
+    },
 ]

@@ -1513,5 +1513,16 @@
   "whatsappOrdersDrawerCancelReason": "منسوخی کی وجہ: {reason}",
   "@whatsappOrdersDrawerCancelReason": { "placeholders": { "reason": {"type": "String"} } },
   "whatsappOrdersDrawerNote": "نوٹ: {note}",
-  "@whatsappOrdersDrawerNote": { "placeholders": { "note": {"type": "String"} } }
+  "@whatsappOrdersDrawerNote": { "placeholders": { "note": {"type": "String"} } },
+  "whatsappOrdersShareToggleLabel": "«مندوب کے ساتھ شیئر کریں» بٹن دکھائیں",
+  "whatsappOrdersActionShareWithRep": "مندوب کے ساتھ شیئر کریں",
+  "whatsappOrdersShareHeading": "نیا ڈیلیوری آرڈر:",
+  "whatsappOrdersShareCustomer": "گاہک: {name}",
+  "@whatsappOrdersShareCustomer": { "placeholders": { "name": {"type": "String"} } },
+  "whatsappOrdersSharePhone": "فون: {phone}",
+  "@whatsappOrdersSharePhone": { "placeholders": { "phone": {"type": "String"} } },
+  "whatsappOrdersShareAddress": "مقام: {url}",
+  "@whatsappOrdersShareAddress": { "placeholders": { "url": {"type": "String"} } },
+  "whatsappOrdersShareTotal": "کل: {total}",
+  "@whatsappOrdersShareTotal": { "placeholders": { "total": {"type": "String"} } }
 }

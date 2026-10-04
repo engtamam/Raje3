@@ -3896,4 +3896,34 @@ class SHa extends S {
   String whatsappOrdersDrawerNote(String note) {
     return 'Bayani: $note';
   }
+
+  @override
+  String get whatsappOrdersShareToggleLabel =>
+      'Nuna maballin \"raba da wakilin isarwa\"';
+
+  @override
+  String get whatsappOrdersActionShareWithRep => 'Raba da wakilin isarwa';
+
+  @override
+  String get whatsappOrdersShareHeading => 'Sabuwar odar isarwa:';
+
+  @override
+  String whatsappOrdersShareCustomer(String name) {
+    return 'Abokin ciniki: $name';
+  }
+
+  @override
+  String whatsappOrdersSharePhone(String phone) {
+    return 'Waya: $phone';
+  }
+
+  @override
+  String whatsappOrdersShareAddress(String url) {
+    return 'Wuri: $url';
+  }
+
+  @override
+  String whatsappOrdersShareTotal(String total) {
+    return 'Jimla: $total';
+  }
 }

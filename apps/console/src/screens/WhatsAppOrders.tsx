@@ -31,7 +31,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Receipt, Clock, AlertTriangle, CheckCircle2, MessageCircle, Copy, Check, Pause, Play,
-  MapPin, Package,
+  MapPin, Package, Share2,
 } from 'lucide-react';
 import { PageHeader } from '../rj-ui/PageHeader';
 import { Card } from '../rj-ui/Card';
@@ -41,6 +41,7 @@ import { Button } from '../rj-ui/Button';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Drawer } from '../rj-ui/Drawer';
 import { Select } from '../rj-ui/Field';
+import { Toggle } from '../rj-ui/Toggle';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { useOperatorI18n, tf } from '../operator-i18n';
@@ -82,6 +83,31 @@ interface Order {
 // `r.phone` is signup.py's canonical "+<digits>" shape — wa.me wants the digits alone.
 function whatsappLink(phone: string): string {
   return `https://wa.me/${phone.replace(/[^\d]/g, '')}`;
+}
+
+/**
+ * STEP 9 — «مشاركة الطلب مع المندوب». NO STORED REP NUMBER ANYWHERE in this product (nothing in
+ * `Branch`/`Order` carries one) — `wa.me/?text=…` with NO phone segment opens WhatsApp's own
+ * contact picker with the message already composed, so the merchant picks whichever rep he is
+ * using for THIS delivery, exactly the plan's own acceptance test: "رسالة فيها كل تفاصيل الطلب"،
+ * never a "send to this fixed number" assumption this product has no data to back.
+ */
+function buildShareText(o: Order, t: (k: string) => string): string {
+  const lines = o.lines.map((l) => `${l.quantity}× ${l.name}`).join('\n');
+  return [
+    t('whatsappOrders.share.heading'),
+    tf(t, 'whatsappOrders.share.customer', { name: o.customer_name || t('whatsappOrders.card.unnamed') }),
+    tf(t, 'whatsappOrders.share.phone', { phone: o.phone }),
+    tf(t, 'whatsappOrders.share.address', { url: o.maps_url }),
+    '',
+    lines,
+    '',
+    tf(t, 'whatsappOrders.share.total', { total: riyalsLabel(o.amount_due_minor, t) }),
+  ].join('\n');
+}
+
+function shareWithRepLink(o: Order, t: (k: string) => string): string {
+  return `https://wa.me/?text=${encodeURIComponent(buildShareText(o, t))}`;
 }
 
 function CopyButton({ text, label }: { text: string; label: string }) {
@@ -176,6 +202,8 @@ export function WhatsAppOrdersScreen({ session, catalog }: { session: Session; c
   const deliveredAction = action(catalog, 'whatsapp_order.delivered');
   const cancelAction = action(catalog, 'whatsapp_order.cancel');
   const resolveMismatchAction = action(catalog, 'whatsapp_order.resolve_mismatch');
+  const shareToggleGetAction = action(catalog, 'whatsapp_order.share_toggle_get');
+  const shareToggleSetAction = action(catalog, 'whatsapp_order.share_toggle_set');
 
   const [rows, setRows] = useState<Order[] | 'loading' | 'failed'>('loading');
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
@@ -186,6 +214,9 @@ export function WhatsAppOrdersScreen({ session, catalog }: { session: Session; c
   const [branchId, setBranchId] = useState('');
   const [paused, setPaused] = useState(false);
   const [pauseReason, setPauseReason] = useState('');
+  // STEP 9'S OWN ON/OFF SWITCH — defaults to shown (same "absent means on" the backend store
+  // itself takes) until the real read lands, so the button never flashes in only to disappear.
+  const [shareEnabled, setShareEnabled] = useState(true);
   const seenIds = useRef<Set<string> | null>(null);
 
   function reportActionError(e: unknown) {
@@ -247,6 +278,25 @@ export function WhatsAppOrdersScreen({ session, catalog }: { session: Session; c
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, catalog, branchId]);
+
+  useEffect(() => {
+    if (!shareToggleGetAction) return;
+    call<{ enabled: boolean }>(session, shareToggleGetAction)
+      .then((x) => setShareEnabled(x.enabled))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, catalog]);
+
+  async function toggleShare() {
+    if (!shareToggleSetAction) return;
+    const next = !shareEnabled;
+    try {
+      const row = await call<{ enabled: boolean }>(session, shareToggleSetAction, { enabled: next });
+      setShareEnabled(row.enabled);
+    } catch (e) {
+      reportActionError(e);
+    }
+  }
 
   async function togglePause() {
     if (!pauseSetAction || !branchId) return;
@@ -417,6 +467,18 @@ export function WhatsAppOrdersScreen({ session, catalog }: { session: Session; c
         </Select>
       ) : null}
 
+      {shareToggleSetAction ? (
+        <div className="flex items-center justify-between gap-3 rounded-card border border-border-subtle bg-surface-1 px-4 py-2.5">
+          <div className="flex items-center gap-2 text-sm">
+            <Share2 size={15} className="text-text-secondary" />
+            <span className="font-semibold text-text-secondary">{t('whatsappOrders.share.toggleLabel')}</span>
+          </div>
+          <Toggle checked={shareEnabled} onChange={toggleShare}
+                 ariaLabel={t('whatsappOrders.share.toggleLabel')}
+                 testId="whatsapp-orders-share-toggle" />
+        </div>
+      ) : null}
+
       {paused ? (
         <div className="flex flex-wrap items-center gap-3 rounded-card border border-danger/40 bg-danger-soft px-4 py-3 text-sm font-semibold text-danger">
           <AlertTriangle size={18} className="shrink-0" />
@@ -471,6 +533,14 @@ export function WhatsAppOrdersScreen({ session, catalog }: { session: Session; c
                             data-testid="whatsapp-order-drawer-next">
                        {nextAction(openOrder)!.label}
                      </Button>
+                   ) : null}
+                   {shareEnabled && WORKING_STATUSES.includes(openOrder.status) ? (
+                     <a href={shareWithRepLink(openOrder, t)} target="_blank" rel="noreferrer"
+                       className="flex-1" data-testid="whatsapp-order-drawer-share">
+                       <Button variant="outline" className="w-full">
+                         <Share2 size={15} /> {t('whatsappOrders.action.shareWithRep')}
+                       </Button>
+                     </a>
                    ) : null}
                    {openOrder.status === 'payment_mismatch' && resolveMismatchAction ? (
                      <Button className="flex-1" disabled={busyId === openOrder.id}

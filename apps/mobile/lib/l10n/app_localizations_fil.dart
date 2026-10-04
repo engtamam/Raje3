@@ -3975,4 +3975,34 @@ class SFil extends S {
   String whatsappOrdersDrawerNote(String note) {
     return 'Tala: $note';
   }
+
+  @override
+  String get whatsappOrdersShareToggleLabel =>
+      'Ipakita ang button na \"ibahagi sa delivery rep\"';
+
+  @override
+  String get whatsappOrdersActionShareWithRep => 'Ibahagi sa delivery rep';
+
+  @override
+  String get whatsappOrdersShareHeading => 'Bagong delivery order:';
+
+  @override
+  String whatsappOrdersShareCustomer(String name) {
+    return 'Customer: $name';
+  }
+
+  @override
+  String whatsappOrdersSharePhone(String phone) {
+    return 'Telepono: $phone';
+  }
+
+  @override
+  String whatsappOrdersShareAddress(String url) {
+    return 'Lokasyon: $url';
+  }
+
+  @override
+  String whatsappOrdersShareTotal(String total) {
+    return 'Kabuuan: $total';
+  }
 }

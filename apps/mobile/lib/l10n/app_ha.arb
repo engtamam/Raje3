@@ -1513,5 +1513,16 @@
   "whatsappOrdersDrawerCancelReason": "Dalilin sokewa: {reason}",
   "@whatsappOrdersDrawerCancelReason": { "placeholders": { "reason": {"type": "String"} } },
   "whatsappOrdersDrawerNote": "Bayani: {note}",
-  "@whatsappOrdersDrawerNote": { "placeholders": { "note": {"type": "String"} } }
+  "@whatsappOrdersDrawerNote": { "placeholders": { "note": {"type": "String"} } },
+  "whatsappOrdersShareToggleLabel": "Nuna maballin \"raba da wakilin isarwa\"",
+  "whatsappOrdersActionShareWithRep": "Raba da wakilin isarwa",
+  "whatsappOrdersShareHeading": "Sabuwar odar isarwa:",
+  "whatsappOrdersShareCustomer": "Abokin ciniki: {name}",
+  "@whatsappOrdersShareCustomer": { "placeholders": { "name": {"type": "String"} } },
+  "whatsappOrdersSharePhone": "Waya: {phone}",
+  "@whatsappOrdersSharePhone": { "placeholders": { "phone": {"type": "String"} } },
+  "whatsappOrdersShareAddress": "Wuri: {url}",
+  "@whatsappOrdersShareAddress": { "placeholders": { "url": {"type": "String"} } },
+  "whatsappOrdersShareTotal": "Jimla: {total}",
+  "@whatsappOrdersShareTotal": { "placeholders": { "total": {"type": "String"} } }
 }

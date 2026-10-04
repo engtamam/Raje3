@@ -106,6 +106,33 @@ async def set_order_pause(request: Request, body: SetOrderPauseIn,
     return row
 
 
+class SetOrderShareToggleIn(BaseModel):
+    enabled: bool
+
+
+@router.get("/share-toggle", dependencies=[Depends(rate_limit)])
+async def get_order_share_toggle(request: Request,
+                                 principal: Principal = Depends(_RECORD)) -> dict:
+    """Step 9's own on/off switch — `core/order_share_toggle.py`'s own «مشاركة الطلب مع
+    المندوب» preference. Per tenant, not per branch — see that module's own docstring."""
+    tenant = _tenant(principal)
+    enabled = await request.app.state.container.order_share_toggle.get(tenant)
+    return {"enabled": enabled}
+
+
+@router.post("/share-toggle", dependencies=[Depends(rate_limit)])
+async def set_order_share_toggle(request: Request, body: SetOrderShareToggleIn,
+                                 principal: Principal = Depends(_RECORD)) -> dict:
+    """Same `operations.record` capability as every other action in this file — a cashier deciding
+    whether this shop uses an external delivery rep at all is not a manager-only call."""
+    tenant = _tenant(principal)
+    row = await request.app.state.container.order_share_toggle.set(tenant, body.enabled)
+    await request.app.state.auditor.record(
+        "whatsapp_order.share_toggle_set", actor=principal.subject, tenant=tenant,
+        resource=f"tenant:{tenant}", ip=request.client.host if request.client else "")
+    return row
+
+
 @router.get("/{order_id}", dependencies=[Depends(rate_limit)])
 async def get_whatsapp_order(request: Request, order_id: str,
                              principal: Principal = Depends(_RECORD)) -> dict:

@@ -1513,5 +1513,16 @@
   "whatsappOrdersDrawerCancelReason": "Dahilan ng pagkansela: {reason}",
   "@whatsappOrdersDrawerCancelReason": { "placeholders": { "reason": {"type": "String"} } },
   "whatsappOrdersDrawerNote": "Tala: {note}",
-  "@whatsappOrdersDrawerNote": { "placeholders": { "note": {"type": "String"} } }
+  "@whatsappOrdersDrawerNote": { "placeholders": { "note": {"type": "String"} } },
+  "whatsappOrdersShareToggleLabel": "Ipakita ang button na \"ibahagi sa delivery rep\"",
+  "whatsappOrdersActionShareWithRep": "Ibahagi sa delivery rep",
+  "whatsappOrdersShareHeading": "Bagong delivery order:",
+  "whatsappOrdersShareCustomer": "Customer: {name}",
+  "@whatsappOrdersShareCustomer": { "placeholders": { "name": {"type": "String"} } },
+  "whatsappOrdersSharePhone": "Telepono: {phone}",
+  "@whatsappOrdersSharePhone": { "placeholders": { "phone": {"type": "String"} } },
+  "whatsappOrdersShareAddress": "Lokasyon: {url}",
+  "@whatsappOrdersShareAddress": { "placeholders": { "url": {"type": "String"} } },
+  "whatsappOrdersShareTotal": "Kabuuan: {total}",
+  "@whatsappOrdersShareTotal": { "placeholders": { "total": {"type": "String"} } }
 }

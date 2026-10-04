@@ -3887,4 +3887,35 @@ class SBn extends S {
   String whatsappOrdersDrawerNote(String note) {
     return 'নোট: $note';
   }
+
+  @override
+  String get whatsappOrdersShareToggleLabel =>
+      '\"ডেলিভারি প্রতিনিধির সাথে শেয়ার করুন\" বোতাম দেখান';
+
+  @override
+  String get whatsappOrdersActionShareWithRep =>
+      'ডেলিভারি প্রতিনিধির সাথে শেয়ার করুন';
+
+  @override
+  String get whatsappOrdersShareHeading => 'নতুন ডেলিভারি অর্ডার:';
+
+  @override
+  String whatsappOrdersShareCustomer(String name) {
+    return 'গ্রাহক: $name';
+  }
+
+  @override
+  String whatsappOrdersSharePhone(String phone) {
+    return 'ফোন: $phone';
+  }
+
+  @override
+  String whatsappOrdersShareAddress(String url) {
+    return 'অবস্থান: $url';
+  }
+
+  @override
+  String whatsappOrdersShareTotal(String total) {
+    return 'মোট: $total';
+  }
 }

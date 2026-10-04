@@ -378,11 +378,14 @@ def build_container(settings: Settings) -> Container:
     # what prices a line server-side and confirms the branch is real, never trusted off the wire.
     from app.adapters.payments_desk import build_payments_desk
     from app.core.order_pause import OrderPauseStore
+    from app.core.order_share_toggle import OrderShareToggleStore
     from app.core.orders import OrderService
     from app.core.stores import BranchStore, ServiceStore
 
     container.payments_desk = build_payments_desk(settings)
     container.order_pauses = OrderPauseStore(container.datastore)
+    # Step 9's own on/off switch — see order_share_toggle.py's own module docstring.
+    container.order_share_toggle = OrderShareToggleStore(container.datastore)
     # WHICH CAMPAIGN DISCOUNT A PHONE NUMBER IS HOLDING — asked of reminders, the same peer
     # `reminders_offer_chooser` above asks about visits, through its OWN single-use mechanism
     # (see adapters/discount_desk.py's own module docstring on why it is not the same one).

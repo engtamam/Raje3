@@ -1513,5 +1513,16 @@
   "whatsappOrdersDrawerCancelReason": "Cancellation reason: {reason}",
   "@whatsappOrdersDrawerCancelReason": { "placeholders": { "reason": {"type": "String"} } },
   "whatsappOrdersDrawerNote": "Note: {note}",
-  "@whatsappOrdersDrawerNote": { "placeholders": { "note": {"type": "String"} } }
+  "@whatsappOrdersDrawerNote": { "placeholders": { "note": {"type": "String"} } },
+  "whatsappOrdersShareToggleLabel": "Show the \"share with delivery rep\" button",
+  "whatsappOrdersActionShareWithRep": "Share with delivery rep",
+  "whatsappOrdersShareHeading": "New delivery order:",
+  "whatsappOrdersShareCustomer": "Customer: {name}",
+  "@whatsappOrdersShareCustomer": { "placeholders": { "name": {"type": "String"} } },
+  "whatsappOrdersSharePhone": "Phone: {phone}",
+  "@whatsappOrdersSharePhone": { "placeholders": { "phone": {"type": "String"} } },
+  "whatsappOrdersShareAddress": "Location: {url}",
+  "@whatsappOrdersShareAddress": { "placeholders": { "url": {"type": "String"} } },
+  "whatsappOrdersShareTotal": "Total: {total}",
+  "@whatsappOrdersShareTotal": { "placeholders": { "total": {"type": "String"} } }
 }

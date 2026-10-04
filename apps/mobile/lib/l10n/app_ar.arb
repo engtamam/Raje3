@@ -3354,5 +3354,16 @@
   "whatsappOrdersDrawerCancelReason": "سبب الإلغاء: {reason}",
   "@whatsappOrdersDrawerCancelReason": { "placeholders": { "reason": {"type": "String"} } },
   "whatsappOrdersDrawerNote": "ملاحظة: {note}",
-  "@whatsappOrdersDrawerNote": { "placeholders": { "note": {"type": "String"} } }
+  "@whatsappOrdersDrawerNote": { "placeholders": { "note": {"type": "String"} } },
+  "whatsappOrdersShareToggleLabel": "إظهار زر «مشاركة مع المندوب»",
+  "whatsappOrdersActionShareWithRep": "مشاركة مع المندوب",
+  "whatsappOrdersShareHeading": "طلب توصيل جديد:",
+  "whatsappOrdersShareCustomer": "العميل: {name}",
+  "@whatsappOrdersShareCustomer": { "placeholders": { "name": {"type": "String"} } },
+  "whatsappOrdersSharePhone": "الجوال: {phone}",
+  "@whatsappOrdersSharePhone": { "placeholders": { "phone": {"type": "String"} } },
+  "whatsappOrdersShareAddress": "الموقع: {url}",
+  "@whatsappOrdersShareAddress": { "placeholders": { "url": {"type": "String"} } },
+  "whatsappOrdersShareTotal": "الإجمالي: {total}",
+  "@whatsappOrdersShareTotal": { "placeholders": { "total": {"type": "String"} } }
 }

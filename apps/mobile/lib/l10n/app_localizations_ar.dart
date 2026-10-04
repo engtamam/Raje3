@@ -3888,4 +3888,33 @@ class SAr extends S {
   String whatsappOrdersDrawerNote(String note) {
     return 'ملاحظة: $note';
   }
+
+  @override
+  String get whatsappOrdersShareToggleLabel => 'إظهار زر «مشاركة مع المندوب»';
+
+  @override
+  String get whatsappOrdersActionShareWithRep => 'مشاركة مع المندوب';
+
+  @override
+  String get whatsappOrdersShareHeading => 'طلب توصيل جديد:';
+
+  @override
+  String whatsappOrdersShareCustomer(String name) {
+    return 'العميل: $name';
+  }
+
+  @override
+  String whatsappOrdersSharePhone(String phone) {
+    return 'الجوال: $phone';
+  }
+
+  @override
+  String whatsappOrdersShareAddress(String url) {
+    return 'الموقع: $url';
+  }
+
+  @override
+  String whatsappOrdersShareTotal(String total) {
+    return 'الإجمالي: $total';
+  }
 }

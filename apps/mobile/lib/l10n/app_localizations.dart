@@ -6626,6 +6626,48 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'ملاحظة: {note}'**
   String whatsappOrdersDrawerNote(String note);
+
+  /// No description provided for @whatsappOrdersShareToggleLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'إظهار زر «مشاركة مع المندوب»'**
+  String get whatsappOrdersShareToggleLabel;
+
+  /// No description provided for @whatsappOrdersActionShareWithRep.
+  ///
+  /// In ar, this message translates to:
+  /// **'مشاركة مع المندوب'**
+  String get whatsappOrdersActionShareWithRep;
+
+  /// No description provided for @whatsappOrdersShareHeading.
+  ///
+  /// In ar, this message translates to:
+  /// **'طلب توصيل جديد:'**
+  String get whatsappOrdersShareHeading;
+
+  /// No description provided for @whatsappOrdersShareCustomer.
+  ///
+  /// In ar, this message translates to:
+  /// **'العميل: {name}'**
+  String whatsappOrdersShareCustomer(String name);
+
+  /// No description provided for @whatsappOrdersSharePhone.
+  ///
+  /// In ar, this message translates to:
+  /// **'الجوال: {phone}'**
+  String whatsappOrdersSharePhone(String phone);
+
+  /// No description provided for @whatsappOrdersShareAddress.
+  ///
+  /// In ar, this message translates to:
+  /// **'الموقع: {url}'**
+  String whatsappOrdersShareAddress(String url);
+
+  /// No description provided for @whatsappOrdersShareTotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإجمالي: {total}'**
+  String whatsappOrdersShareTotal(String total);
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

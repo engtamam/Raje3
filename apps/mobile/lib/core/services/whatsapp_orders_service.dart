@@ -57,6 +57,31 @@ class WhatsAppOrdersService {
     }
   }
 
+  /// Step 9's own on/off switch — `core/order_share_toggle.py`'s «مشاركة الطلب مع المندوب»
+  /// preference, per tenant. Absent-means-on on the server, mirrored here as a plain default.
+  Future<bool?> getShareToggle() async {
+    try {
+      final response = await apiClient.dio.get<dynamic>('$_base/share-toggle');
+      final body = response.data;
+      if (body is! Map) return null;
+      return body['enabled'] as bool? ?? true;
+    } on DioException {
+      return null;
+    }
+  }
+
+  Future<bool?> setShareToggle(bool enabled) async {
+    try {
+      final response =
+          await apiClient.dio.post<dynamic>('$_base/share-toggle', data: {'enabled': enabled});
+      final body = response.data;
+      if (body is! Map) return null;
+      return body['enabled'] as bool? ?? enabled;
+    } on DioException {
+      return null;
+    }
+  }
+
   Future<WhatsAppOrder?> startPreparing(String orderId) => _postAction('$_base/$orderId/preparing', const {});
 
   Future<WhatsAppOrder?> markReady(String orderId) => _postAction('$_base/$orderId/ready', const {});

@@ -891,6 +891,18 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "زر الكاشير اللحظي — يوقف طلبات واتساب الجديدة لهذا الفرع مؤقتًا، بلا تغيير بساعات العمل.",
     },
     {
+        "id": "whatsapp_order.share_toggle_get", "label": "حالة زر مشاركة الطلب مع المندوب",
+        "method": "GET", "path": "/api/v1/staff/whatsapp-orders/share-toggle",
+        "capability": "operations.record", "group": "طلبات التوصيل عبر الواتساب",
+        "help": "هل زر مشاركة تفاصيل الطلب عبر واتساب مع مندوب التوصيل ظاهر الآن.",
+    },
+    {
+        "id": "whatsapp_order.share_toggle_set", "label": "تفعيل/تعطيل زر مشاركة الطلب مع المندوب",
+        "method": "POST", "path": "/api/v1/staff/whatsapp-orders/share-toggle",
+        "capability": "operations.record", "group": "طلبات التوصيل عبر الواتساب",
+        "help": "لمحل ما يستخدم مندوب توصيل خارجي أصلاً — يخفي الزر نهائيًا من كل الطلبات.",
+    },
+    {
         "id": "whatsapp_order.get", "label": "عرض طلب توصيل واتساب", "method": "GET",
         "path": "/api/v1/staff/whatsapp-orders/{order_id}", "capability": "operations.record",
         "group": "طلبات التوصيل عبر الواتساب", "help": "تفاصيل طلب واحد، بما فيها رابط الدفع وحالته.",

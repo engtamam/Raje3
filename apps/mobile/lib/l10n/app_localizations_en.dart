@@ -3921,4 +3921,34 @@ class SEn extends S {
   String whatsappOrdersDrawerNote(String note) {
     return 'Note: $note';
   }
+
+  @override
+  String get whatsappOrdersShareToggleLabel =>
+      'Show the \"share with delivery rep\" button';
+
+  @override
+  String get whatsappOrdersActionShareWithRep => 'Share with delivery rep';
+
+  @override
+  String get whatsappOrdersShareHeading => 'New delivery order:';
+
+  @override
+  String whatsappOrdersShareCustomer(String name) {
+    return 'Customer: $name';
+  }
+
+  @override
+  String whatsappOrdersSharePhone(String phone) {
+    return 'Phone: $phone';
+  }
+
+  @override
+  String whatsappOrdersShareAddress(String url) {
+    return 'Location: $url';
+  }
+
+  @override
+  String whatsappOrdersShareTotal(String total) {
+    return 'Total: $total';
+  }
 }

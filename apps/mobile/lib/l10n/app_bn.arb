@@ -1513,5 +1513,16 @@
   "whatsappOrdersDrawerCancelReason": "বাতিলের কারণ: {reason}",
   "@whatsappOrdersDrawerCancelReason": { "placeholders": { "reason": {"type": "String"} } },
   "whatsappOrdersDrawerNote": "নোট: {note}",
-  "@whatsappOrdersDrawerNote": { "placeholders": { "note": {"type": "String"} } }
+  "@whatsappOrdersDrawerNote": { "placeholders": { "note": {"type": "String"} } },
+  "whatsappOrdersShareToggleLabel": "\"ডেলিভারি প্রতিনিধির সাথে শেয়ার করুন\" বোতাম দেখান",
+  "whatsappOrdersActionShareWithRep": "ডেলিভারি প্রতিনিধির সাথে শেয়ার করুন",
+  "whatsappOrdersShareHeading": "নতুন ডেলিভারি অর্ডার:",
+  "whatsappOrdersShareCustomer": "গ্রাহক: {name}",
+  "@whatsappOrdersShareCustomer": { "placeholders": { "name": {"type": "String"} } },
+  "whatsappOrdersSharePhone": "ফোন: {phone}",
+  "@whatsappOrdersSharePhone": { "placeholders": { "phone": {"type": "String"} } },
+  "whatsappOrdersShareAddress": "অবস্থান: {url}",
+  "@whatsappOrdersShareAddress": { "placeholders": { "url": {"type": "String"} } },
+  "whatsappOrdersShareTotal": "মোট: {total}",
+  "@whatsappOrdersShareTotal": { "placeholders": { "total": {"type": "String"} } }
 }
