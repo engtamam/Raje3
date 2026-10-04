@@ -480,6 +480,45 @@ class Operations:
             return {"ref": v.offer_ref, "text": v.offer_text, "used_at": v.offer_used_at,
                    "campaign_id": v.offer_campaign_id}
 
+    async def preview_offer(self, tenant: str, *, phone: str, subject_ref: str,
+                            service_ids: list[str]) -> dict[str, Any] | None:
+        """A READ-ONLY look at what `apply_offer` above would pick RIGHT NOW, for a visit that
+        does not exist yet — the field/till screen's own pre-save preview (spec 4.3's "عروضه"
+        step), so an operator can show the customer what he is about to receive before a visit is
+        even recorded. NEVER finalises, redeems, or stamps anything — `EntitlementGateway.choose`
+        is a pure read; only `apply_offer`, called AFTER the visit is saved, ever spends what this
+        previews.
+
+        THE SAME THREE SOURCES `apply_offer` COMPARES — campaign, referral-code, mutual-benefit —
+        by the SAME real invoice math, replacing the screen's OLD preview (a direct call to
+        reminders' own campaign-only route), which showed nothing at all for a customer whose
+        only live entitlement was a referral/mutual-benefit grant — see that route's own removal
+        note. `service_ids` prices the invoice the same defensive way `apply_offer` does; an empty
+        list (nothing chosen yet) simply prices every scoped source at 0, same as an empty
+        invoice always has."""
+        gateway = self._entitlement_gateway
+        if gateway is None:
+            return None
+        line_minor = {s.id: s.price_minor
+                     for s in await self._services.list(tenant, active_only=False)}
+        invoice_minor = sum(line_minor.get(sid, 0) for sid in service_ids)
+
+        from app.core.entitlements import EntitlementPeerUnavailable
+
+        try:
+            chosen = await gateway.choose(tenant=tenant, subject_ref=subject_ref, phone=phone,
+                                          service_ids=service_ids, invoice_minor=invoice_minor,
+                                          line_minor=line_minor)
+        except EntitlementPeerUnavailable:
+            # SAME "COULD NOT CHECK, NEVER «NONE»" POSTURE AS apply_offer — but this is a
+            # PREVIEW, not a refusal to proceed: the operator can still record the visit (the real
+            # apply_offer call after saving will try again), so this simply answers "nothing to
+            # show right now" rather than raising `OperationError` the way `apply_offer` does.
+            return None
+        if chosen is None:
+            return None
+        return {"text": chosen.text, "service_ids": list(chosen.scope_service_ids)}
+
     async def available_points_reward(self, tenant: str, visit_id: str) -> dict[str, Any] | None:
         """The single cheapest `type == "discount"` loyalty reward this visit's own customer can
         currently afford, or `None` — read-only, never redeemed here. Same shape and same

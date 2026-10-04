@@ -43,7 +43,7 @@ to `Operations.apply_offer` itself.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
 from app.core.best_offer import OfferCandidate, rank
@@ -75,6 +75,12 @@ class Entitlement:
     # produced it (a referral grant needs the phone to redeem; a campaign offer needs nothing more,
     # `ref` alone is already what reminders itself tracks).
     finalize_key: str = ""
+    # WHICH SERVICES THIS ONE COVERS — "" (empty) means the whole invoice, same convention every
+    # scoped source already uses. NEVER persisted on the Visit (as_offer_fields() below does not
+    # carry it) — this is read ONLY by `Operations.preview_offer`'s own pre-save preview, to
+    # highlight the relevant tiles on the field screen's own catalogue grid, the one thing the
+    # OLD campaign-only preview could already do that a unified preview must not regress.
+    scope_service_ids: list[str] = field(default_factory=list)
 
     def as_offer_fields(self) -> dict[str, Any]:
         """The exact shape `Operations.apply_offer` has always stamped onto a `Visit` — unchanged,
@@ -128,10 +134,12 @@ class EntitlementGateway:
                 from app.core.mutual_benefit import (DISCOUNT_SCOPE_BLANKET,
                                                             DISCOUNT_SCOPE_GROUP, GRANT_GIFT)
 
+                referral_scope: list[str] = []
                 if elig.get("grant_type") == GRANT_GIFT:
                     text = f"هدية شراكة إحالة نشطة لهذا العميل: {elig.get('gift_service_name', '')}"
                     referral_value = await self._gift_value(
                         tenant, str(elig.get("gift_service_id") or ""))
+                    referral_scope = [str(elig.get("gift_service_id") or "")]
                 elif elig.get("discount_scope") == DISCOUNT_SCOPE_GROUP:
                     text = f"خصم شراكة إحالة نشط على مجموعة: {elig.get('discount_group_name', '')}"
                     group_scope = await self._group_scope_ids(
@@ -141,6 +149,7 @@ class EntitlementGateway:
                         amount=int(elig.get("discount_amount") or 0),
                         scope_service_ids=group_scope, invoice_minor=invoice_minor,
                         line_minor=line_minor)
+                    referral_scope = group_scope or []
                 elif elig.get("discount_scope") == DISCOUNT_SCOPE_BLANKET:
                     text = "خصم شراكة إحالة نشط — خصم شامل"
                     referral_value = scoped_value(
@@ -155,8 +164,10 @@ class EntitlementGateway:
                         amount=int(elig.get("discount_amount") or 0),
                         scope_service_ids=[str(elig.get("gift_service_id") or "")],
                         invoice_minor=invoice_minor, line_minor=line_minor)
+                    referral_scope = [str(elig.get("gift_service_id") or "")]
                 referral = Entitlement(source=SOURCE_REFERRAL, ref=f"referral:{phone}",
-                                       text=text, finalize_key=phone)
+                                       text=text, finalize_key=phone,
+                                       scope_service_ids=referral_scope)
 
         referral_code: Entitlement | None = None
         referral_code_value: int | None = None
@@ -199,7 +210,8 @@ class EntitlementGateway:
                 campaign = Entitlement(
                     source=SOURCE_CAMPAIGN, ref=str(chosen.get("ref") or ""),
                     text=str(chosen.get("text") or ""),
-                    campaign_id=str(chosen.get("campaign_id") or ""))
+                    campaign_id=str(chosen.get("campaign_id") or ""),
+                    scope_service_ids=list(chosen.get("scope_service_ids") or []))
                 reward_kind = str(chosen.get("reward_kind") or "")
                 if reward_kind:
                     campaign_value = scoped_value(

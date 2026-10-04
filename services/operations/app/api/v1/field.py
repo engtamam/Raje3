@@ -983,6 +983,28 @@ async def catalogue_package_image(request: Request, package_id: str,
     return Response(content=data, media_type=ctype)
 
 
+@router.get("/visits/offer/preview", dependencies=[Depends(subscribed_write_or_visit),
+                                                    Depends(rate_limit)])
+async def offer_preview(request: Request, phone: str, subject_ref: str = "",
+                        service_ids: str = "",
+                        principal: Principal = Depends(_RECORD)) -> dict:
+    """What `apply_offer` below would pick RIGHT NOW, for a visit that does not exist yet — see
+    `Operations.preview_offer`'s own docstring. Replaces the screen's OLD pre-save preview (a
+    direct read of reminders' own campaign-only offer), which could show nothing at all for a
+    customer whose only live entitlement was a referral/mutual-benefit grant.
+
+    `service_ids`: comma-separated, same shape every other field-screen query string already uses
+    for a list — empty is the ordinary case before the operator has chosen anything yet.
+    """
+    ops: Operations = request.app.state.container.operations
+    ids = [s for s in service_ids.split(",") if s]
+    offer = await ops.preview_offer(_tenant(principal), phone=phone.strip(),
+                                    subject_ref=subject_ref.strip(), service_ids=ids)
+    if offer is None:
+        return {"offer": None}
+    return {"offer": offer}
+
+
 class ApplyOfferIn(BaseModel):
     subject_ref: str = Field(min_length=8, max_length=128)
 

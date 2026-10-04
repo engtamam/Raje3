@@ -229,6 +229,7 @@ def build_manifest(
             {"path": "/api/v1/account/me/mobile-ai-assistant", "tier": "user", "method": "GET"},
             # ── the field screen — the product, as far as the shop floor is concerned ──────
             {"path": "/api/v1/field/visits", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/field/visits/offer/preview", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/visits/{}/offer", "tier": "user", "method": "POST"},
             {"path": "/api/v1/field/visits/{}/points", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/visits/{}/points", "tier": "user", "method": "POST"},
