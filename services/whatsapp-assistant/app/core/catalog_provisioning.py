@@ -196,13 +196,17 @@ class HttpCatalogProvisioner:
     async def connect_catalog(self, waba_id: str, catalog_id: str) -> bool:
         data = await self._call(
             "POST", f"{waba_id}/product_catalogs", {"catalog_id": catalog_id})
-        return bool(data.get("success", True))
+        # FAIL CLOSED ON AN UNRECOGNISED SHAPE -- see catalog_item_sync.py's own identical note
+        # (ci/check_absent_means_ok.py's own docstring: a `True` default on an outcome field
+        # converts "the peer did not say" into "it worked"). `provision_catalog` already treats a
+        # `False` result honestly rather than crashing on it.
+        return bool(data.get("success", False))
 
     async def enable_cart(self, phone_number_id: str) -> bool:
         data = await self._call(
             "POST", f"{phone_number_id}/whatsapp_commerce_settings",
             query="is_cart_enabled=true")
-        return bool(data.get("success", True))
+        return bool(data.get("success", False))
 
     async def resolve_display_phone(self, phone_number_id: str) -> str:
         """The real, human-dialable number behind `phone_number_id` -- confirmed against

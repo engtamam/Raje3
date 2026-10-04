@@ -134,12 +134,17 @@ class HttpCatalogItemSyncer:
     async def upsert_item(self, catalog_id: str, item: dict[str, Any]) -> bool:
         data = await self._call(
             catalog_id, [{"method": "UPDATE", "data": item, "allow_upsert": True}])
-        return bool(data.get("handles") or data.get("success", True))
+        # FAIL CLOSED ON AN UNRECOGNISED SHAPE -- a peer that does not say "handles" or "success"
+        # has not told us it worked, and reading that silence as success is exactly the defect
+        # ci/check_absent_means_ok.py exists to catch (see that script's own docstring: a `True`
+        # default converts "it did not say" into "it worked"). `sync_service_item`'s own caller
+        # already treats `False` here as a retry-safe, named failure, never a crash.
+        return bool(data.get("handles") or data.get("success", False))
 
     async def delete_item(self, catalog_id: str, item_id: str) -> bool:
         data = await self._call(
             catalog_id, [{"method": "DELETE", "data": {"id": item_id}}])
-        return bool(data.get("handles") or data.get("success", True))
+        return bool(data.get("handles") or data.get("success", False))
 
 
 def build(settings: Any) -> Any:

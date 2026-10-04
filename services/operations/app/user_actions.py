@@ -1038,4 +1038,9 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
     {"method": "POST", "path": "/api/v1/salla/webhook",
      "why": "Salla's own server calling us on a subscribed event, verified by HMAC signature "
             "instead of a Bearer token — see api/v1/salla.py's own module docstring"},
+    {"method": "GET", "path": "/api/v1/public_catalog/{}",
+     "why": "Meta's own Commerce Catalog crawler fetches a service's photo by this URL with no "
+            "login at all — see core/public_catalog_image.py's own module docstring on why a "
+            "capability token replaces an identity check here. No console screen calls this "
+            "directly; the token is handed to Meta, never to a signed-in operator's own session"},
 ]

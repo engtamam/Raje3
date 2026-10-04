@@ -111,6 +111,18 @@ def test_upsert_item_sends_update_with_allow_upsert():
     assert req["data"] == {"id": "svc1", "title": "Haircut"}
 
 
+def test_upsert_item_fails_closed_on_an_unrecognised_shape():
+    # ci/check_absent_means_ok.py's own rule -- neither "handles" nor "success" present, so this
+    # must read as failure, never a silent success.
+    with patch("urllib.request.urlopen", return_value=_Resp(b"{}")):
+        assert run(_http().upsert_item("cat1", {"id": "svc1"})) is False
+
+
+def test_delete_item_fails_closed_on_an_unrecognised_shape():
+    with patch("urllib.request.urlopen", return_value=_Resp(b"{}")):
+        assert run(_http().delete_item("cat1", "svc1")) is False
+
+
 def test_upsert_item_http_error_raises():
     err = urllib.error.HTTPError("url", 400, "bad request", {}, None)
     err.read = lambda: b"invalid price"

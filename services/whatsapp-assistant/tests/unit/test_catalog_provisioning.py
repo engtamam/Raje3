@@ -183,11 +183,12 @@ def test_connect_catalog_true_on_success():
         assert run(_http().connect_catalog("waba1", "CAT1")) is True
 
 
-def test_connect_catalog_defaults_true_when_field_absent():
-    # Graph often omits "success" on a 200 with no body content worth reporting -- absence must
-    # not be misread as a refusal when the call itself did not raise.
+def test_connect_catalog_fails_closed_when_field_absent():
+    # ci/check_absent_means_ok.py's own rule: a peer that answers 200 with no recognisable
+    # outcome field has not told us it worked -- reading that silence as success is the exact
+    # defect that gate exists to catch. False here is retry-safe, never a crash.
     with patch("urllib.request.urlopen", return_value=_Resp(b"{}")):
-        assert run(_http().connect_catalog("waba1", "CAT1")) is True
+        assert run(_http().connect_catalog("waba1", "CAT1")) is False
 
 
 def test_connect_catalog_sends_catalog_id_in_body():
@@ -213,6 +214,11 @@ def test_connect_catalog_error_raises():
 def test_enable_cart_true_on_success():
     with patch("urllib.request.urlopen", return_value=_Resp(b'{"success": true}')):
         assert run(_http().enable_cart("phone1")) is True
+
+
+def test_enable_cart_fails_closed_when_field_absent():
+    with patch("urllib.request.urlopen", return_value=_Resp(b"{}")):
+        assert run(_http().enable_cart("phone1")) is False
 
 
 def test_enable_cart_uses_query_string_not_body():
