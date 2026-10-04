@@ -20,6 +20,11 @@ class MobileServiceRequest {
   final String note;
   final String mapsUrl;
   final String assignedTo;
+  /// THE BEST LIVE CAMPAIGN/REFERRAL/MUTUAL-BENEFIT DISCOUNT, APPLIED AUTOMATICALLY AT
+  /// complete() (2026-10-05) — see the server's own `MobileServiceRequest.applied_offer_ref`'s
+  /// own field comment (core/mobile_requests.py). `''` means nothing was live.
+  final String appliedOfferRef;
+  final String appliedOfferText;
 
   const MobileServiceRequest({
     required this.id,
@@ -39,6 +44,8 @@ class MobileServiceRequest {
     required this.note,
     required this.mapsUrl,
     required this.assignedTo,
+    this.appliedOfferRef = '',
+    this.appliedOfferText = '',
   });
 
   factory MobileServiceRequest.fromJson(Map<String, dynamic> json) {
@@ -62,6 +69,8 @@ class MobileServiceRequest {
       note: json['note'] as String? ?? '',
       mapsUrl: json['maps_url'] as String? ?? '',
       assignedTo: json['assigned_to'] as String? ?? '',
+      appliedOfferRef: json['applied_offer_ref'] as String? ?? '',
+      appliedOfferText: json['applied_offer_text'] as String? ?? '',
     );
   }
 }

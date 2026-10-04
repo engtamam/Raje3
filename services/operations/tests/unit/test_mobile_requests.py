@@ -288,6 +288,63 @@ def test_a_manager_can_complete_regardless_of_assignment(svc):
     assert out.status == COMPLETED
 
 
+# ── the best live offer, applied automatically at complete() (2026-10-05) ───────────────────────
+def test_a_live_campaign_offer_is_applied_automatically_and_named_on_the_request(svc):
+    from app.core.entitlements import EntitlementGateway
+
+    s, store, ops = svc
+    sid = run(_seed_service(store))
+
+    async def campaign_chooser(*, tenant, subject_ref, service_ids):
+        return {"ref": "camp_1", "text": "خصم طلب متنقل", "campaign_id": "camp"}
+
+    ops.with_entitlement_gateway(EntitlementGateway(campaign_chooser=campaign_chooser))
+
+    req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
+    run(s.accept(TENANT, req.id, actor="owner1"))
+    out = run(s.complete(TENANT, req.id))
+    assert out.applied_offer_ref == "camp_1"
+    assert out.applied_offer_text == "خصم طلب متنقل"
+
+    from app.core.stores import VisitStore
+
+    visit = run(VisitStore(store).get(TENANT, out.visit_id))
+    assert visit.offer_ref == "camp_1"
+
+
+def test_nothing_live_leaves_the_offer_fields_empty(svc):
+    s, store, _ops = svc
+    sid = run(_seed_service(store))
+    req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
+    run(s.accept(TENANT, req.id, actor="owner1"))
+    out = run(s.complete(TENANT, req.id))
+    assert out.applied_offer_ref == ""
+    assert out.applied_offer_text == ""
+
+
+def test_a_broken_entitlement_gateway_never_blocks_completion(svc):
+    """BEST-EFFORT, same posture as the seams call right above it in complete() — a failure here
+    must never undo a request that already completed."""
+    from app.core.entitlements import EntitlementGateway
+
+    class BrokenChooser:
+        async def __call__(self, *, tenant, subject_ref, service_ids):
+            raise RuntimeError("peer down")
+
+    s, store, ops = svc
+    sid = run(_seed_service(store))
+    ops.with_entitlement_gateway(EntitlementGateway(campaign_chooser=BrokenChooser()))
+
+    req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
+    run(s.accept(TENANT, req.id, actor="owner1"))
+    out = run(s.complete(TENANT, req.id))
+    assert out.status == COMPLETED
+    assert out.applied_offer_ref == ""
+
+
 def test_no_show_assigned_to_someone_else_is_refused(svc):
     s, store, _ops = svc
     sid = run(_seed_service(store))

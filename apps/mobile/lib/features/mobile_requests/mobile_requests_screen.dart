@@ -698,6 +698,22 @@ class _RequestCard extends StatelessWidget {
               Text(s.mobileRequestsRejectReasonLine(r.rejectReason),
                   style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
             ],
+            // THE OFFER operations APPLIED AUTOMATICALLY AT complete() (2026-10-05) — same fact,
+            // same shape as the bookings details sheet's own row for the identical field.
+            if (r.appliedOfferText.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.card_giftcard_rounded, size: 13, color: AppColors.accent),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(r.appliedOfferText,
+                        style: AppTextStyles.caption.copyWith(
+                            color: AppColors.accent, fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
+            ],
             if (canAssign && (r.status == 'pending' || r.status == 'accepted') && operators.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.sm),
               _AssignRow(

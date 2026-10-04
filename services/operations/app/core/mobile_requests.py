@@ -147,6 +147,14 @@ class MobileServiceRequest:
     # passed straight through) so it survives until `complete()` actually turns this into a real
     # visit, which may be days after the code was offered.
     referral_code: str = ""
+    # THE BEST LIVE CAMPAIGN/REFERRAL/MUTUAL-BENEFIT DISCOUNT, APPLIED AUTOMATICALLY AT complete()
+    # (2026-10-05) — same shape as `services/bookings`' own `Booking.applied_offer_ref`/`_text`:
+    # no separate "intent" phase (unlike `referral_code` above, which the customer types once at
+    # submission time), since which entitlement is worth the most is only decided by comparing
+    # real value at the moment the visit becomes real. `""` means nothing was live, never a
+    # failure to check.
+    applied_offer_ref: str = ""
+    applied_offer_text: str = ""
 
     @property
     def maps_url(self) -> str:
@@ -328,6 +336,23 @@ class MobileRequestService:
         # a second time would re-publish `visit.recorded` and re-schedule its own rating request.
         if not recorded.visit.seamed_at and self._seams is not None:
             await self._seams.after_visit(recorded)
+
+        # THE BEST LIVE CAMPAIGN/REFERRAL/MUTUAL-BENEFIT DISCOUNT, APPLIED AUTOMATICALLY — the
+        # exact same `EntitlementGateway` the till/field screen and bookings' own attend() use
+        # (see `Booking.applied_offer_ref`'s own note in services/bookings for why there is no
+        # separate "intent" phase). BEST-EFFORT, same posture as the seams call above: a failure
+        # here must never undo a request that already completed.
+        if recorded.customer.subject_ref:
+            try:
+                offer = await self._ops.apply_offer(
+                    tenant=tenant, visit_id=recorded.visit.id,
+                    subject_ref=recorded.customer.subject_ref)
+            except Exception:                                              # noqa: BLE001
+                offer = None
+            if offer:
+                row.applied_offer_ref = str(offer.get("ref") or "")
+                row.applied_offer_text = str(offer.get("text") or "")
+
         row.status = COMPLETED
         row.visit_id = recorded.visit.id
         await self._save(tenant, row)

@@ -65,6 +65,10 @@ interface MobileServiceRequest {
   note: string;
   maps_url: string;
   assigned_to: string;
+  // THE BEST LIVE CAMPAIGN/REFERRAL/MUTUAL-BENEFIT DISCOUNT, APPLIED AUTOMATICALLY AT complete()
+  // (2026-10-05) — see services/operations/app/core/mobile_requests.py's own field comment.
+  applied_offer_ref: string;
+  applied_offer_text: string;
 }
 
 interface StaffMember { id: string; name: string; active?: boolean }
@@ -673,6 +677,14 @@ function RequestCard({
           ) : null}
           {r.reject_reason ? (
             <span className="text-text-tertiary">{tf(t, 'mobileRequests.card.rejectReason', { reason: r.reject_reason })}</span>
+          ) : null}
+          {/* THE OFFER operations APPLIED AUTOMATICALLY AT complete() (2026-10-05) — same fact,
+              same shape as Bookings.tsx's own pill for the identical field. */}
+          {r.applied_offer_text ? (
+            <span className="flex items-center gap-1.5 rounded-full bg-info-soft px-2 py-0.5 font-semibold text-info-on-soft"
+                 title={r.applied_offer_text}>
+              {r.applied_offer_text}
+            </span>
           ) : null}
         </div>
 
