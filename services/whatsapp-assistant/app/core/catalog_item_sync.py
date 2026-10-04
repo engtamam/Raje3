@@ -223,7 +223,7 @@ async def sync_service_item(
         "availability": _AVAILABILITY,
         "condition": _CONDITION,
         "brand": (shop_name or "Raje3")[:100],
-        "price": f"{price_minor / 100:.2f} SAR",
+        "price": f"{price_minor / 100:.2f} SAR",  # money: ok — SAR only, see context_builder.py::_fmt_price's own note
         "link": link,
         "image": [{"url": image_url}],
     }
