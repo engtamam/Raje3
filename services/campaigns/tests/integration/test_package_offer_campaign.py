@@ -71,7 +71,7 @@ def _auth(tenant="tnt_pkgoffer"):
 
 def _body(**over):
     body = {"goal": "package_offer", "owner_text": "", "package_id": "pkg1",
-           "package_name": "باقة الصيانة", "offer_value": "20%",
+           "package_name": "باقة الصيانة", "reward_kind": "percent", "reward_amount": 20,
            "expires_at": int(dt.datetime.now(dt.timezone.utc).timestamp()) + 604_800}
     body.update(over)
     return body

@@ -27,7 +27,7 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.goals import GOAL_CATEGORIES, cards, resolve_goal
-from app.core.models import (GOAL_TEMPLATE, REWARD_ENABLED_GOALS, Campaign, as_row,
+from app.core.models import (GOAL_TEMPLATE, REWARD_ENABLED_GOALS, REWARD_KINDS, Campaign, as_row,
                              offers_something, validate_loyalty_window, validate_reward,
                              validate_window)
 from app.core import service_due_settings as SDS
@@ -68,9 +68,13 @@ class CampaignIn(BaseModel):
     # The owner's ONE free-text field. Bounded here as well as sanitised in core — the model is
     # the door, and a rule enforced only in the core is a rule pydantic can drop on the way in.
     owner_text: str = Field(default="", max_length=200)
-    # «20%» or «50 ريال» — typed, and validated against the same shape the send validates. It
-    # travelled inside `owner_text` before this, which is why a shop could promise «خصم كبير».
-    offer_value: str = Field(default="", max_length=32)
+    # THE DISCOUNT, STRUCTURED (2026-10-04, replacing the free-text `offer_value`). A shop could
+    # promise «خصم كبير» and nothing anywhere could ever enforce it — these two are the real
+    # number `validate_reward` (core/models.py) checks and that WhatsApp Direct Ordering can
+    # actually subtract. Empty/0 is "not a discount" for any goal whose `reward_type` is not
+    # "discount".
+    reward_kind: str = Field(default="", max_length=16)
+    reward_amount: int = Field(default=0, ge=0)
     # The chosen service's NAME. The screen has it (it lists the catalogue) and we do not.
     service_name: str = Field(default="", max_length=120)
     # For `occasion` only. Ignored for every other goal rather than rejected: a console that sends
@@ -292,7 +296,7 @@ async def preview(request: Request, body: CampaignIn,
             goal=body.goal, template=template,
             establishment=await c.identity.name(_tenant(principal)),
             owner_text=body.owner_text, audience=audience,
-            offer_value=body.offer_value,
+            reward_kind=body.reward_kind, reward_amount=body.reward_amount,
             ends_at=arabic_date(body.expires_at or 0),
             # NAMED BY THE CALLER, and it has to be: this service holds service/package IDS and
             # the catalogue belongs to operations. «خصم على svc_9f2» is not a message, and an empty
@@ -477,23 +481,20 @@ async def create(request: Request, body: CampaignIn,
     #
     # REFUSED, NOT DEFAULTED. A silent "thirty days" would be a discount the shop never chose,
     # discovered a month later in the margin.
-    # THE SANITISER'S ANSWER IS WHAT GETS STORED, not the raw field re-stripped at the call site.
-    # It was validated here and then discarded, and three consumers each stripped `body.offer_value`
-    # again — so the authority on this field had no say in what was written. Equal today, because
-    # stripping is all it does beyond refusing; unequal the day it normalises anything else.
-    #
-    # AND IT STARTS EMPTY, WHICH IS THE PART THAT WAS A HOLE. A goal that offers nothing never
-    # reaches the sanitiser, yet an `offer_value` sent with it was stored unvalidated — invisible
-    # only because no such template has an `amount` slot to render it into.
-    offer_value = ""
+    # THE VALIDATOR'S ANSWER IS WHAT GETS STORED (2026-10-04, replacing the old free-text
+    # sanitiser) -- a goal that offers nothing never reaches it, so reward_kind/reward_amount
+    # sent alongside it are simply ignored, same posture every other no-op field on this model
+    # already has (see REWARD_ENABLED_GOALS's own docstring).
+    reward_kind, reward_amount = "", 0
     if offers_something(body.goal):
         try:
-            from app.core.preview import sanitise_offer_value
-            # REQUIRED ONLY WHEN THE TEMPLATE HAS A SLOT FOR IT. «أعلن جديدك» promises nothing and
-            # would refuse for a field it has nowhere to put.
-            offer_value = sanitise_offer_value(
-                body.offer_value,
+            from app.core.preview import validate_discount_amount
+            # REQUIRED ONLY WHEN THE TEMPLATE HAS A SLOT FOR IT. An announcement promises nothing
+            # and would refuse for a field it has nowhere to put.
+            validate_discount_amount(
+                reward_kind=body.reward_kind, reward_amount=body.reward_amount,
                 required=any(f == "amount" for f in (template.get("fills") or [])))
+            reward_kind, reward_amount = body.reward_kind, body.reward_amount
         except PreviewError as exc:
             return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                                 content={"error": "BAD_REQUEST",
@@ -509,7 +510,7 @@ async def create(request: Request, body: CampaignIn,
 
     # WHICH OF THREE REWARDS THIS CAMPAIGN GIVES — `REWARD_ENABLED_GOALS` only, for now; every
     # other goal still gives exactly the discount it always has, so this is skipped for them
-    # rather than re-checking `offer_value` a second way.
+    # rather than re-checking `reward_kind`/`reward_amount` a second way.
     if body.goal in REWARD_ENABLED_GOALS:
         reward_error = validate_reward(
             reward_type=body.reward_type, reward_points=body.reward_points,
@@ -518,7 +519,7 @@ async def create(request: Request, body: CampaignIn,
             # the send itself already makes a few hundred lines down.
             scope_service_ids=(service_ids_all if body.goal != "package_offer"
                               else package_ids_all),
-            offer_value=offer_value)
+            reward_kind=reward_kind, reward_amount=reward_amount)
         if reward_error:
             return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                                 content={"error": "BAD_REQUEST", "reason": reward_error})
@@ -545,7 +546,7 @@ async def create(request: Request, body: CampaignIn,
     # that could not see each other, and the shop paid for both.
     press_key = press.key_for(
         _tenant(principal), goal=body.goal, owner_text=clean, service_id=body.service_id or "",
-        branch_id=body.branch_id or "", offer_value=body.offer_value or "",
+        branch_id=body.branch_id or "", reward_kind=reward_kind, reward_amount=reward_amount,
         expires_at=body.expires_at or 0, fire_at=body.fire_at or 0,
         package_id=body.package_id or "", window_start_hour=body.window_start_hour,
         window_end_hour=body.window_end_hour, window_weekdays=body.window_weekdays)
@@ -584,7 +585,7 @@ async def create(request: Request, body: CampaignIn,
                         # whatever was true the moment this campaign was created.
                         package_id=(body.package_id or "").strip(),
                         branch_id=(body.branch_id or "").strip(),
-                        offer_value=offer_value,
+                        reward_kind=reward_kind, reward_amount=reward_amount,
                         # `REWARD_ENABLED_GOALS` only, for now — every other goal's default
                         # ("discount", 0) simply reproduces today's behaviour, unchanged.
                         reward_type=body.reward_type if body.goal in REWARD_ENABLED_GOALS

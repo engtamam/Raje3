@@ -164,8 +164,16 @@ REWARD_TYPES = ("discount", "gift", "points")
 REWARD_ENABLED_GOALS = {"occasion", "win_back", "service_offer", "package_offer"}
 
 
+#: WHAT A "discount" REWARD MAY BE SHAPED AS — the only two numbers a discount has ever meant in
+#: this product. Replacing `offer_value: str`'s free-text role (2026-10-04): the owner's typed
+#: "20%" or "50 ريال" was never actually parsed into a number anywhere downstream, so nothing could
+#: ever be deducted from a real price — it was display text wearing the shape of a promise. A real
+#: integer, bounded, is the thing a payment engine can subtract.
+REWARD_KINDS = ("percent", "fixed_halalas")
+
+
 def validate_reward(*, reward_type: str, reward_points: int, scope_service_ids: list,
-                    offer_value: str) -> str:
+                    reward_kind: str, reward_amount: int) -> str:
     """One Arabic sentence naming what is wrong with a campaign's own reward, or "" when it is
     coherent — same shape and calling convention as `validate_window`/`validate_loyalty_window`
     above. Checked at write time, for the same reason those two are: a reward with a missing field
@@ -178,8 +186,13 @@ def validate_reward(*, reward_type: str, reward_points: int, scope_service_ids: 
         return "الهدية تحتاج خدمة محدَّدة من كتالوجك — اختر واحدة على الأقل"
     if reward_type == "points" and reward_points <= 0:
         return "عدد نقاط الهدية يجب أن يكون أكبر من صفر"
-    if reward_type == "discount" and not offer_value:
-        return "حدّد قيمة الخصم — نسبة مثل 20% أو مبلغاً مثل 50 ريال"
+    if reward_type == "discount":
+        if reward_kind not in REWARD_KINDS:
+            return "حدّد نوع الخصم — نسبة أو مبلغاً ثابتاً"
+        if reward_amount <= 0:
+            return "حدّد قيمة الخصم — نسبة مثل 20% أو مبلغاً مثل 50 ريال"
+        if reward_kind == "percent" and reward_amount > 100:
+            return "نسبة الخصم لا يمكن أن تتجاوز 100%"
     return ""
 
 
@@ -309,12 +322,15 @@ class Campaign:
     # it until this moment and no longer; whoever did not receive it never held it. The send log
     # says who, and this says until when — no second table, and nothing to argue about at the till.
     expires_at: int = 0
-    # ── the discount itself, typed ────────────────────────────────────────────────────────────
-    # «20%» or «50 ريال». It travelled inside `owner_text` — one free line carrying a number, a
-    # scope and a promise all at once — so the send could not validate it, could not put it in a
-    # template slot declared `amount`, and could not phrase it the same way twice. A shop wrote
-    # «خصم كبير» and the customer read a promise nobody could be held to.
-    offer_value: str = ""
+    # ── the discount itself, as a REAL NUMBER (2026-10-04, replacing `offer_value: str`) ──────
+    # "percent" or "fixed_halalas" — never both, never neither for a live discount. The free-text
+    # predecessor («20%» / «50 ريال») travelled all the way to the customer's phone as display
+    # text and was never once parsed back into a number anywhere downstream — nothing could ever
+    # actually deduct it from a real order. An owner who thinks they are giving 20% off was giving
+    # nothing: the message said it, no system enforced it. See `validate_reward` for the bounds.
+    reward_kind: str = ""
+    # Percent: 0-100. Fixed: halalas (int, never a float — money is never a float in this fleet).
+    reward_amount: int = 0
     # ── which of three rewards this campaign gives (`occasion` pilot, 2026-09-13) ─────────────
     # "discount" is every campaign's default, and it is the ONLY one that ever existed before this
     # — a campaign created before this field did, or a goal this feature has not reached yet, reads

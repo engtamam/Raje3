@@ -24,7 +24,7 @@ def run(c):
 
 def _key(**over) -> str:
     args = dict(goal="win_back", owner_text="خصم 20% هذا الأسبوع", service_id="", branch_id="",
-                offer_value="20%", expires_at=NOW + 604_800, fire_at=0)
+                reward_kind="percent", reward_amount=20, expires_at=NOW + 604_800, fire_at=0)
     args.update(over)
     return key_for(TENANT, **args)
 

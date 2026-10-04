@@ -156,29 +156,33 @@ def test_the_preview_does_not_compute_its_own_audience():
     assert "audience.count" in src
 
 
-# ── the discount, typed ────────────────────────────────────────────────────────────────────────
-from app.core.preview import sanitise_offer_value   # noqa: E402
+# ── the discount, as a real number (2026-10-04) ───────────────────────────────────────────────
+from app.core.preview import format_discount_text, validate_discount_amount   # noqa: E402
 
 
-@pytest.mark.parametrize("good", ["20%", "5%", "90%", "50 ريال", "12.50 ريال"])
-def test_a_discount_that_can_be_honoured_is_accepted(good):
-    assert sanitise_offer_value(good, required=True) == good
+@pytest.mark.parametrize("kind,amount,want", [
+    ("percent", 20, "20%"), ("percent", 5, "5%"), ("percent", 90, "90%"),
+    ("fixed_halalas", 5000, "50.00 ريال"), ("fixed_halalas", 1250, "12.50 ريال")])
+def test_a_discount_that_can_be_honoured_is_accepted(kind, amount, want):
+    assert validate_discount_amount(reward_kind=kind, reward_amount=amount,
+                                    required=True) == want
 
 
-@pytest.mark.parametrize("bad", ["خصم كبير", "٢٠٪", "20 %", "120%", "0%", "50 ريال فقط", "50"])
-def test_a_discount_that_is_not_a_number_never_reaches_a_customer(bad):
-    """«خصم كبير» promises nothing anybody can be held to, and Arabic-Indic digits are unreadable
-    on half the phones in this market. Refused while he is looking at the field."""
+@pytest.mark.parametrize("kind,amount", [
+    ("percent", 120), ("percent", 0), ("fixed_halalas", 0), ("bogus", 50)])
+def test_a_discount_that_cannot_be_honoured_never_reaches_a_customer(kind, amount):
+    """An amount out of range, or a kind this product has never heard of, is refused while he is
+    looking at the field — never stored as a promise nothing downstream enforces."""
     with pytest.raises(PreviewError):
-        sanitise_offer_value(bad, required=True)
+        validate_discount_amount(reward_kind=kind, reward_amount=amount, required=True)
 
 
 def test_a_goal_with_nowhere_to_put_a_discount_does_not_demand_one():
     """«أعلن جديدك» promises nothing — refusing it for a missing discount would be refusing a
     field it has no slot for."""
-    assert sanitise_offer_value("", required=False) == ""
+    assert validate_discount_amount(reward_kind="", reward_amount=0, required=False) == ""
     with pytest.raises(PreviewError):
-        sanitise_offer_value("", required=True)
+        validate_discount_amount(reward_kind="", reward_amount=0, required=True)
 
 
 def test_the_line_he_approves_is_the_line_that_can_be_sent():

@@ -218,30 +218,37 @@ def test_service_due_is_a_standing_goal_sending_the_service_reminder_template():
 
 def test_validate_reward_refuses_an_unknown_type():
     assert validate_reward(reward_type="loyalty_stamp", reward_points=0,
-                           scope_service_ids=[], offer_value="20%")
+                           scope_service_ids=[], reward_kind="percent", reward_amount=20)
 
 
 def test_validate_reward_a_gift_needs_a_named_service():
     assert validate_reward(reward_type="gift", reward_points=0,
-                           scope_service_ids=[], offer_value="")
+                           scope_service_ids=[], reward_kind="", reward_amount=0)
     assert validate_reward(reward_type="gift", reward_points=0,
-                           scope_service_ids=["svc_1"], offer_value="") == ""
+                           scope_service_ids=["svc_1"], reward_kind="", reward_amount=0) == ""
 
 
 def test_validate_reward_points_needs_a_positive_count():
     assert validate_reward(reward_type="points", reward_points=0,
-                           scope_service_ids=[], offer_value="")
+                           scope_service_ids=[], reward_kind="", reward_amount=0)
     assert validate_reward(reward_type="points", reward_points=-1,
-                           scope_service_ids=[], offer_value="")
+                           scope_service_ids=[], reward_kind="", reward_amount=0)
     assert validate_reward(reward_type="points", reward_points=50,
-                           scope_service_ids=[], offer_value="") == ""
+                           scope_service_ids=[], reward_kind="", reward_amount=0) == ""
 
 
-def test_validate_reward_discount_needs_a_value_same_as_before_this_feature():
+def test_validate_reward_discount_needs_a_real_number():
     assert validate_reward(reward_type="discount", reward_points=0,
-                           scope_service_ids=[], offer_value="")
+                           scope_service_ids=[], reward_kind="", reward_amount=0)
     assert validate_reward(reward_type="discount", reward_points=0,
-                           scope_service_ids=[], offer_value="20%") == ""
+                           scope_service_ids=[], reward_kind="percent", reward_amount=20) == ""
+    # A PERCENT OVER 100 IS REFUSED — the real-number equivalent of "خصم كبير": a shape nobody
+    # could have honoured.
+    assert validate_reward(reward_type="discount", reward_points=0,
+                           scope_service_ids=[], reward_kind="percent", reward_amount=150)
+    assert validate_reward(reward_type="discount", reward_points=0,
+                           scope_service_ids=[], reward_kind="fixed_halalas",
+                           reward_amount=5000) == ""
 
 
 def test_in_window_checks_the_hour_in_riyadh_local_time():

@@ -24,6 +24,7 @@ from typing import Any
 
 from app.adapters.datastore.drain import drain
 from app.core import shape
+from app.core import preview as _preview
 from app.core.goal_stats import record_reach
 from app.core.spread import plan as plan_spread
 from app.core.models import Run, as_row, in_window
@@ -267,7 +268,17 @@ class Dispatcher:
                     # THE OFFER'S VALUE, TYPED — see rendering.campaign_slots. Empty until the
                     # screen collects it (#244); a template that needs it then refuses to render
                     # rather than sending «خصم » with a hole where the number belongs.
-                    offer_value=str(campaign.get("offer_value") or ""),
+                    # THE DISPLAY TEXT, composed FROM the structured fields just below — the
+                    # reverse of what the old free-text `offer_value` used to be (parsed, hopefully,
+                    # back into a number nobody ever actually parsed).
+                    offer_value=(_preview.format_discount_text(
+                        reward_kind=str(campaign.get("reward_kind") or ""),
+                        reward_amount=int(campaign.get("reward_amount") or 0))
+                                if campaign.get("reward_kind") else ""),
+                    # THE STRUCTURED DISCOUNT ITSELF (2026-10-04) — the integers a downstream
+                    # ordering system can actually enforce, not only display.
+                    reward_kind=str(campaign.get("reward_kind") or ""),
+                    reward_amount=int(campaign.get("reward_amount") or 0),
                     service_names=list(campaign.get("scope_service_names") or []),
                     # WHICH OF THREE REWARDS THIS CAMPAIGN GIVES — see rendering.campaign_slots'
                     # own "reward" branch for the composed sentence each produces.

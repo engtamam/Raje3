@@ -55,7 +55,7 @@ def _auth(tenant="tnt_window"):
 
 def _offer_body(**over):
     body = {"goal": "service_offer", "owner_text": "", "service_id": "svc1",
-           "service_name": "غسيل السيارة", "offer_value": "20%",
+           "service_name": "غسيل السيارة", "reward_kind": "percent", "reward_amount": 20,
            "expires_at": int(dt.datetime.now(dt.timezone.utc).timestamp()) + 604_800}
     body.update(over)
     return body

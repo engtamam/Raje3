@@ -796,6 +796,11 @@ class CampaignSendIn(BaseModel):
     # inside the owner's sentence, because a template slot declared `amount` is validated at
     # render and a sentence is not.
     offer_value: str = Field(default="", max_length=32)
+    # THE SAME DISCOUNT, STRUCTURED (2026-10-04) — `offer_value` above is display text composed by
+    # campaigns; these are the integers a downstream system can actually enforce. Empty `reward_kind`
+    # means this send carries no discount at all.
+    reward_kind: str = Field(default="", max_length=16)
+    reward_amount: int = Field(default=0, ge=0)
     # The services the offer covers, NAMED — this service holds ids, and «خصم على svc_9f2» is not
     # a message. The caller owns the catalogue, so the caller sends the words.
     service_names: list[str] = Field(default_factory=list, max_length=100)
@@ -866,6 +871,8 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
         "offer_expires_at": body.offer_expires_at,
         "offer_services": list(body.offer_services),
         "offer_value": body.offer_value,
+        "reward_kind": body.reward_kind,
+        "reward_amount": body.reward_amount,
         "reward_type": body.reward_type,
         "reward_points": body.reward_points,
         "button_item_id": body.button_item_id,
@@ -886,6 +893,50 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
                                 approved=approved,
                                 choices=await ChoiceStore(c.datastore).load(body.tenant))
     return res
+
+
+@router.get("/reminders/orders/active-discount", dependencies=[Depends(require_internal_token)])
+async def active_discount(request: Request, tenant: str, subject_ref: str) -> dict:
+    """The live, UNREDEEMED discount a phone number is holding, for WhatsApp Direct Ordering
+    (services/operations::OrderService.create) — never consulted for bookings/visits, which keep
+    their own, older §5.6.2 mechanism untouched (see `SendLogStore.find_unredeemed_discount`'s own
+    docstring for why this is a separate, simpler flag rather than that mechanism reused).
+
+    `ref` IN THE RESPONSE IS THE SEND-LOG ROW ID — the same thing `confirm_payment` later hands
+    back to `/reminders/orders/redeem` once, and only once, the order is actually paid.
+    """
+    from app.core.stores import SendLogStore
+
+    row = await SendLogStore(request.app.state.container.datastore).find_unredeemed_discount(
+        tenant, subject_ref, now=int(time.time()))
+    if row is None:
+        return {"discount": None}
+    return {"discount": {
+        "ref": str(row.get("id") or ""),
+        "reward_kind": str(row.get("reward_kind") or ""),
+        "reward_amount": int(row.get("reward_amount") or 0),
+        "scope_service_ids": list(row.get("offer_services") or []),
+        "expires_at": int(row.get("offer_expires_at") or 0),
+    }}
+
+
+class RedeemDiscountIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    ref: str = Field(min_length=1, max_length=128)
+    redeemed_by: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/reminders/orders/redeem", dependencies=[Depends(require_internal_token)])
+async def redeem_discount(request: Request, body: RedeemDiscountIn) -> dict:
+    """Spend one discount, exactly once — called ONLY from `OrderService.confirm_payment`, never
+    from `create()`. An order that is cancelled or never paid must never reach this route, so the
+    same discount is still there for the customer's next attempt.
+    """
+    from app.core.stores import SendLogStore
+
+    ok = await SendLogStore(request.app.state.container.datastore).mark_redeemed(
+        body.tenant, body.ref, redeemed_by=body.redeemed_by, now=int(time.time()))
+    return {"redeemed": ok}
 
 
 class ChooseOfferIn(BaseModel):

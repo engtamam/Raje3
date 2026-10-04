@@ -391,6 +391,8 @@ class HttpSender:
                    offer_expires_at: int = 0,
                    offer_services: list[str] | None = None,
                    offer_value: str = "",
+                   reward_kind: str = "",
+                   reward_amount: int = 0,
                    service_names: list[str] | None = None,
                    branch_id: str = "",
                    flow_token: str = "",
@@ -421,6 +423,9 @@ class HttpSender:
             # THE TYPED PARTS. A discount is «20%» or «50 ريال», and the covered services
             # travel as WORDS because reminders holds ids and cannot name anything.
             "offer_value": offer_value,
+            # THE STRUCTURED DISCOUNT (2026-10-04) — see `models.Campaign.reward_kind`'s own note.
+            "reward_kind": reward_kind,
+            "reward_amount": reward_amount,
             "service_names": list(service_names or []),
             # WHICH OF THREE REWARDS THIS CAMPAIGN GIVES (occasion pilot, 2026-09-13) — "discount"
             # on every send that never chose otherwise, so this field is never a surprise to a
