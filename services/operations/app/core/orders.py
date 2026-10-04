@@ -180,10 +180,11 @@ class Order:
     pay_url: str = ""
     # THE DISCOUNT, KEPT SEPARATE FROM `total_minor` — same discipline this dataclass already
     # applies to `pay_url`/`payment_request_id` being their own fields rather than folded into one
-    # number: `total_minor` stays the pure catalogue-priced sum (what `request_payment` quotes to
-    # the gateway and what `confirm_payment` checks the paid amount against), and the discount is
-    # a separate fact layered on top, never blended in — a receipt that only ever showed one
-    # number could never answer "what was this actually off of".
+    # number: `total_minor` stays the pure catalogue-priced sum (the receipt's own "before
+    # discount" figure), and the discount is a separate fact layered on top, never blended in — a
+    # receipt that only ever showed one number could never answer "what was this actually off of".
+    # The amount actually QUOTED to the gateway and CHECKED on payment is `amount_due_minor`
+    # (`total_minor - discount_minor`, see that property below) — never `total_minor` directly.
     #
     # ZERO/EMPTY IS THE OVERWHELMING MAJORITY OF ORDERS — most customers order with no live
     # campaign discount at all, and that is not a gap to explain, it is the normal case.
@@ -207,11 +208,21 @@ class Order:
     def maps_url(self) -> str:
         return maps_link(self.lat, self.lng)
 
+    @property
+    def amount_due_minor(self) -> int:
+        """What the customer is ACTUALLY asked to pay — `total_minor` stays the pure catalogue
+        sum on purpose (it is the receipt's own "before discount" figure), but the gateway must
+        never be quoted that number once a discount is sitting on the order: `request_payment()`
+        mints the link for THIS amount, and `confirm_payment()` checks the gateway's reported
+        amount against THIS amount, never `total_minor` directly."""
+        return max(0, self.total_minor - self.discount_minor)
+
     def public(self) -> dict[str, Any]:
         row = asdict(self)
         row["lines"] = [line.public() if isinstance(line, OrderLine) else line
                         for line in self.lines]
         row["maps_url"] = self.maps_url
+        row["amount_due_minor"] = self.amount_due_minor
         return row
 
 
@@ -465,7 +476,7 @@ class OrderService:
         if self._payments is None:
             raise OrderError("تعذّر إنشاء رابط الدفع الآن — حاول بعد لحظات.")
         out = await self._payments.create_request(
-            tenant=tenant, reference=row.id, amount_minor=row.total_minor,
+            tenant=tenant, reference=row.id, amount_minor=row.amount_due_minor,
             metadata={"branch_id": row.branch_id})
         if out is None or not out.get("ok"):
             raise OrderError("تعذّر إنشاء رابط الدفع الآن — حاول بعد لحظات.")
@@ -523,7 +534,7 @@ class OrderService:
             raise OrderError("هذا الطلب لم يعد بانتظار تأكيد الدفع.")
         row.paid_amount_minor = int(paid_amount_minor)
         row.payment_ref = payment_ref
-        if row.paid_amount_minor == row.total_minor:
+        if row.paid_amount_minor == row.amount_due_minor:
             row.status = CONFIRMED
             row.confirmed_at = _now()
         else:
@@ -533,27 +544,33 @@ class OrderService:
             row.status = PAYMENT_MISMATCH
         await self._save(row)
         if row.status == CONFIRMED:
-            # THE ONLY MOMENT A DISCOUNT IS EVER ACTUALLY SPENT — never at `create()`. The amount
-            # was already locked in at `discount_minor` and must not change here; this only tells
-            # reminders the single-use send-log row is now consumed, so it can never be promised
-            # to a second order.
-            #
-            # BEST-EFFORT, NEVER RAISES: the payment is already confirmed by this point — refusing
-            # to confirm it because reminders happens to be unreachable right now would be a
-            # second, worse failure layered on top of a real payment we already verified. The cost
-            # of a redeem call that never lands is a discount that could in principle be spent
-            # twice by an unlucky customer; the cost of refusing a verified payment is a shop that
-            # charged a customer and then told them their order failed.
-            if row.discount_source.startswith("campaign:") and self._discounts is not None:
-                ref = row.discount_source.split(":", 1)[1]
-                try:
-                    await self._discounts["redeem"](tenant=tenant, ref=ref,
-                                                     redeemed_by=f"order:{row.id}")
-                except Exception:                                          # noqa: BLE001
-                    pass
-                await self._s.delete(DISCOUNT_CLAIMS, f"{tenant}|{ref}")
+            await self._redeem_discount(tenant, row)
             await self._emit(row)
         return row
+
+    async def _redeem_discount(self, tenant: str, row: "Order") -> None:
+        """THE ONLY MOMENT A DISCOUNT IS EVER ACTUALLY SPENT — never at `create()`. The amount was
+        already locked in at `discount_minor` and must not change here; this only tells reminders
+        the single-use send-log row is now consumed, so it can never be promised to a second
+        order. Called from every path that lands an order on CONFIRMED — `confirm_payment()`'s own
+        exact-match case AND `resolve_mismatch()`'s human override both spend the SAME discount the
+        SAME way; neither is a special case of the other.
+
+        BEST-EFFORT, NEVER RAISES: the payment is already confirmed/approved by this point —
+        refusing to confirm it because reminders happens to be unreachable right now would be a
+        second, worse failure layered on top of a real payment we already verified. The cost of a
+        redeem call that never lands is a discount that could in principle be spent twice by an
+        unlucky customer; the cost of refusing a verified payment is a shop that charged a customer
+        and then told them their order failed."""
+        if not row.discount_source.startswith("campaign:") or self._discounts is None:
+            return
+        ref = row.discount_source.split(":", 1)[1]
+        try:
+            await self._discounts["redeem"](tenant=tenant, ref=ref,
+                                            redeemed_by=f"order:{row.id}")
+        except Exception:                                                  # noqa: BLE001
+            pass
+        await self._s.delete(DISCOUNT_CLAIMS, f"{tenant}|{ref}")
 
     async def resolve_mismatch(self, tenant: str, order_id: str, *, actor: str) -> Order:
         """A human looked at the mismatch and is satisfied the order should proceed as paid —
@@ -569,6 +586,7 @@ class OrderService:
         row.confirmed_at = _now()
         row.note = (row.note + f"\n[{actor}] تم اعتماد الطلب رغم فرق المبلغ.").strip()[:1000]
         await self._save(row)
+        await self._redeem_discount(tenant, row)
         await self._emit(row)
         return row
 
@@ -608,7 +626,7 @@ class OrderService:
                 tenant=tenant, phone=row.phone, service_ids=service_ids,
                 name=row.customer_name, branch_id=row.branch_id,
                 occurred_at=_now(), idempotency_key=f"order:{row.id}",
-                note=row.note, quantities=quantities, total_minor=row.total_minor)
+                note=row.note, quantities=quantities, total_minor=row.amount_due_minor)
             if not recorded.visit.seamed_at and self._seams is not None:
                 await self._seams.after_visit(recorded)
             row.visit_id = recorded.visit.id

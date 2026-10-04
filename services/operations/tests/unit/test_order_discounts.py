@@ -173,15 +173,41 @@ def test_confirming_payment_in_full_redeems_the_discount():
 
     order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
                         items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt7"))
-    # THE AMOUNT ACTUALLY DUE — the customer pays total_minor MINUS the discount already shown to
-    # them; `confirm_payment` checks the gateway's reported amount against `total_minor` (orders.py
-    # ~line 436), so what the shop actually quoted the gateway for is the discounted figure.
+    # THE AMOUNT ACTUALLY DUE — `amount_due_minor` (total MINUS the discount already shown to the
+    # customer), never the pre-discount `total_minor`: `confirm_payment` checks the gateway's
+    # reported amount against `amount_due_minor`, the same figure `request_payment` quoted the
+    # gateway for in the first place.
+    assert order.amount_due_minor == order.total_minor - 2_000
     confirmed = run(s.confirm_payment(TENANT, order.id,
-                                      paid_amount_minor=order.total_minor,
+                                      paid_amount_minor=order.amount_due_minor,
                                       payment_ref="pay_ref_1"))
     assert confirmed.status == CONFIRMED
     assert len(desk.redeemed) == 1
     assert desk.redeemed[0]["ref"] == "snd_5"
+    assert desk.redeemed[0]["redeemed_by"] == f"order:{order.id}"
+
+
+def test_resolving_a_payment_mismatch_also_redeems_the_discount():
+    """`resolve_mismatch()` is the OTHER path that can land an order on CONFIRMED -- a human
+    override, not the gateway's own exact-amount match -- and must spend the same single-use
+    discount the same way `confirm_payment()`'s own exact-match branch does. Missing this would
+    let the discount be promised to a second order even though this one already used it."""
+    store = MemoryDataStore()
+    sid, bid = run(_seed(store, price_minor=10_000))
+    desk = FakeDiscountDesk({"ref": "snd_mismatch", "reward_kind": "percent", "reward_amount": 20,
+                             "scope_service_ids": [], "expires_at": 9_999_999_999})
+    s = _service(store, desk)
+
+    order = run(s.create(tenant=TENANT, branch_id=bid, phone=PHONE, customer_name="سالم",
+                        items=[(sid, 1)], lat=LAT, lng=LNG, idempotency_key="evt_mismatch"))
+    run(s.confirm_payment(TENANT, order.id, paid_amount_minor=order.total_minor - 1,
+                         payment_ref="pay_ref_mismatch"))
+    assert desk.redeemed == [], "a mismatch must not redeem anything until a human resolves it"
+
+    resolved = run(s.resolve_mismatch(TENANT, order.id, actor="op_1"))
+    assert resolved.status == CONFIRMED
+    assert len(desk.redeemed) == 1
+    assert desk.redeemed[0]["ref"] == "snd_mismatch"
     assert desk.redeemed[0]["redeemed_by"] == f"order:{order.id}"
 
 
