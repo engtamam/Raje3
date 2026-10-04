@@ -180,8 +180,14 @@ def test_a_discount_the_customer_is_holding_is_never_dropped_from_the_pay_messag
         text="24.7136,46.6753", reply_id="", raw_payload={"wamid": "wamid_location2"}))
 
     final = c.sender.sent[-1]
-    assert "https://pay.example/r/disc" in final["variables"][0]
-    assert "20.00" in final["variables"][0] and "خصم" in final["variables"][0]
+    text = final["variables"][0]
+    assert "https://pay.example/r/disc" in text
+    assert "خصم" in text
+    # THE REAL DESIGN: savings in SAR, and a before/after price with WhatsApp's own real
+    # strikethrough syntax (`~text~`) on the ORIGINAL (pre-discount) amount only.
+    assert "20.00 ريال" in text
+    assert "~50.00 ريال~" in text
+    assert "30.00 ريال" in text
 
 
 def test_a_webhook_redelivery_of_the_order_message_itself_is_deduplicated_before_it_ever_reaches_the_engine():
