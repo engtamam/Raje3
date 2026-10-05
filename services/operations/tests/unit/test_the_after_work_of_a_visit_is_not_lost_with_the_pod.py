@@ -70,6 +70,39 @@ def test_a_finished_visit_says_so(wired):
     assert run(VisitStore(store).get(T, out.visit.id)).seamed_at == NOW
 
 
+def test_a_refused_index_write_leaves_the_visit_for_the_sweep(wired):
+    """The search adapter never raises — it answers False when the write did not land (search-
+    service refusing under contention, seen live). That False used to be ignored AND the visit
+    stamped done, so the sweep never came back and the customer stayed unfindable by the keypad
+    until his next visit. Now the refusal is recorded and the visit stays unstamped."""
+    svc, store, _, _, events = wired
+
+    class RefusingSearch:
+        async def index(self, **kw):
+            return False
+
+    class Telemetry:
+        def __init__(self):
+            self.events = []
+
+        def event(self, name, **kw):
+            self.events.append(name)
+
+        def counter(self, name):
+            pass
+
+    telemetry = Telemetry()
+    seams = Seams(search=RefusingSearch(), events=events, visits=VisitStore(store),
+                  telemetry=telemetry, clock=lambda: NOW)
+    out = run(svc.record_visit(tenant=T, phone=PHONE, service_ids=["srv_1"]))
+
+    run(seams.after_visit(out))
+
+    assert run(VisitStore(store).get(T, out.visit.id)).seamed_at == 0, "stamped done over a failed seam"
+    assert "search_index_failed" in telemetry.events, "the refusal was not recorded"
+    assert events.published, "the other seam still ran — one failure must not skip the rest"
+
+
 def test_a_retry_runs_the_seams_the_first_attempt_never_finished(wired):
     """The whole finding: the retry must repair, and it used to be the one path that could not.
 
