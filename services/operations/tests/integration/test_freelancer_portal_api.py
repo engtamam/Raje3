@@ -109,6 +109,28 @@ def test_list_customers_succeeds_with_only_the_portal_capability(client):
     assert len(r.json()["customers"]) == 1
 
 
+def test_list_customers_search_filters_by_name_or_phone(client):
+    _seed_customer(client)
+    r = client.get("/api/v1/staff/freelancer-portal/customers", headers=_auth(MANAGE),
+                   params={"search": "أحمد"})
+    assert len(r.json()["customers"]) == 1
+    r = client.get("/api/v1/staff/freelancer-portal/customers", headers=_auth(MANAGE),
+                   params={"search": "0000000"})
+    assert r.json()["customers"] == []
+
+
+def test_list_customers_status_filter_new_round_trips(client):
+    _seed_customer(client)
+    r = client.get("/api/v1/staff/freelancer-portal/customers", headers=_auth(MANAGE),
+                   params={"status_filter": "new"})
+    assert len(r.json()["customers"]) == 1
+    client.post("/api/v1/staff/freelancer-portal/customers/cust_1/rate",
+               headers=_auth(PORTAL), json={"status": "satisfied"})
+    r = client.get("/api/v1/staff/freelancer-portal/customers", headers=_auth(MANAGE),
+                   params={"status_filter": "new"})
+    assert r.json()["customers"] == []
+
+
 def test_a_freelancer_token_never_reaches_the_staff_only_door(client):
     r = client.get("/api/v1/staff/freelancers", headers=_auth(PORTAL))
     assert r.status_code == 403

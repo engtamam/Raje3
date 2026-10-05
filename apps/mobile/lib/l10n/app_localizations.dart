@@ -6668,6 +6668,462 @@ abstract class S {
   /// In ar, this message translates to:
   /// **'الإجمالي: {total}'**
   String whatsappOrdersShareTotal(String total);
+
+  /// No description provided for @freelancersTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'خدمات ما بعد البيع'**
+  String get freelancersTitle;
+
+  /// No description provided for @freelancersHeroActiveCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{active} من {max} مستقلين نشطين'**
+  String freelancersHeroActiveCount(int active, int max);
+
+  /// No description provided for @freelancersHeroWaitingToday.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} عميل بانتظار متابعة اليوم'**
+  String freelancersHeroWaitingToday(int n);
+
+  /// No description provided for @freelancersHeroEscalationsWarning.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} حالة تحتاج تدخّلك الآن'**
+  String freelancersHeroEscalationsWarning(int n);
+
+  /// No description provided for @freelancersTabRoster.
+  ///
+  /// In ar, this message translates to:
+  /// **'المستقلون'**
+  String get freelancersTabRoster;
+
+  /// No description provided for @freelancersTabWorkbench.
+  ///
+  /// In ar, this message translates to:
+  /// **'سجل العمل'**
+  String get freelancersTabWorkbench;
+
+  /// No description provided for @freelancersRosterFailedTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تحميل قائمة المستقلين'**
+  String get freelancersRosterFailedTitle;
+
+  /// No description provided for @freelancersRosterActive.
+  ///
+  /// In ar, this message translates to:
+  /// **'نشط'**
+  String get freelancersRosterActive;
+
+  /// No description provided for @freelancersRosterDeactivate.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف'**
+  String get freelancersRosterDeactivate;
+
+  /// No description provided for @freelancersRosterAddButton.
+  ///
+  /// In ar, this message translates to:
+  /// **'أضف مستقلاً'**
+  String get freelancersRosterAddButton;
+
+  /// No description provided for @freelancersRosterEmptyTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يوجد مستقلون مرتبطون بعد'**
+  String get freelancersRosterEmptyTitle;
+
+  /// No description provided for @freelancersRosterEmptyBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'أضف مستقلاً تثق به ليبدأ متابعة عملائك بعد الزيارة.'**
+  String get freelancersRosterEmptyBody;
+
+  /// No description provided for @freelancersRosterConfirmDeactivateTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف هذا المستقل؟'**
+  String get freelancersRosterConfirmDeactivateTitle;
+
+  /// No description provided for @freelancersRosterConfirmDeactivateBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'يفتح مكاناً جديداً ضمن الحد الأقصى (3). يمكنك إضافة مستقل آخر بعدها.'**
+  String get freelancersRosterConfirmDeactivateBody;
+
+  /// No description provided for @freelancersRosterConfirmDeactivateConfirm.
+  ///
+  /// In ar, this message translates to:
+  /// **'إيقاف'**
+  String get freelancersRosterConfirmDeactivateConfirm;
+
+  /// No description provided for @freelancersRosterConfirmDeactivateCancel.
+  ///
+  /// In ar, this message translates to:
+  /// **'إلغاء'**
+  String get freelancersRosterConfirmDeactivateCancel;
+
+  /// No description provided for @freelancersRosterRulesButton.
+  ///
+  /// In ar, this message translates to:
+  /// **'قواعد العمل'**
+  String get freelancersRosterRulesButton;
+
+  /// No description provided for @freelancersRosterOptionsButton.
+  ///
+  /// In ar, this message translates to:
+  /// **'قائمة الترضيات'**
+  String get freelancersRosterOptionsButton;
+
+  /// No description provided for @freelancersRosterExportButton.
+  ///
+  /// In ar, this message translates to:
+  /// **'تصدير الملاحظات'**
+  String get freelancersRosterExportButton;
+
+  /// No description provided for @freelancersEscalationsOpenTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'{n} حالة تحتاج تدخّلك الآن'**
+  String freelancersEscalationsOpenTitle(int n);
+
+  /// No description provided for @freelancersEscalationsResolve.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم الحل'**
+  String get freelancersEscalationsResolve;
+
+  /// No description provided for @freelancersAddTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة مستقل'**
+  String get freelancersAddTitle;
+
+  /// No description provided for @freelancersAddNameLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'الاسم'**
+  String get freelancersAddNameLabel;
+
+  /// No description provided for @freelancersAddNameHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم المستقل'**
+  String get freelancersAddNameHint;
+
+  /// No description provided for @freelancersAddPhoneLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم الجوال'**
+  String get freelancersAddPhoneLabel;
+
+  /// No description provided for @freelancersAddPhoneHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'05xxxxxxxx'**
+  String get freelancersAddPhoneHint;
+
+  /// No description provided for @freelancersAddNote.
+  ///
+  /// In ar, this message translates to:
+  /// **'يجب أن تكون قد تعاملت مع هذا الشخص بنفسك — لا سوق مستقلين، لا ترشيح.'**
+  String get freelancersAddNote;
+
+  /// No description provided for @freelancersAddFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّرت الإضافة — تأكد من الرقم ومن توفر مكان ضمن الحد الأقصى (3).'**
+  String get freelancersAddFailed;
+
+  /// No description provided for @freelancersAddSubmit.
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة'**
+  String get freelancersAddSubmit;
+
+  /// No description provided for @freelancersRulesTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'قواعد العمل'**
+  String get freelancersRulesTitle;
+
+  /// No description provided for @freelancersRulesCooldownLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'فترة الانتظار (يوم)'**
+  String get freelancersRulesCooldownLabel;
+
+  /// No description provided for @freelancersRulesCooldownHelp.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يظهر عميل تم التواصل معه حديثاً إلا بعد مرور هذه الفترة.'**
+  String get freelancersRulesCooldownHelp;
+
+  /// No description provided for @freelancersRulesCapLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'الحد اليومي للترضيات'**
+  String get freelancersRulesCapLabel;
+
+  /// No description provided for @freelancersRulesCapHelp.
+  ///
+  /// In ar, this message translates to:
+  /// **'أقصى عدد ترضيات يمنحها المستقل الواحد باليوم.'**
+  String get freelancersRulesCapHelp;
+
+  /// No description provided for @freelancersRulesSave.
+  ///
+  /// In ar, this message translates to:
+  /// **'حفظ'**
+  String get freelancersRulesSave;
+
+  /// No description provided for @freelancersOptionsTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'قائمة الترضيات المسموحة'**
+  String get freelancersOptionsTitle;
+
+  /// No description provided for @freelancersOptionsEmpty.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد ترضيات مضافة بعد.'**
+  String get freelancersOptionsEmpty;
+
+  /// No description provided for @freelancersOptionsKindGift.
+  ///
+  /// In ar, this message translates to:
+  /// **'هدية'**
+  String get freelancersOptionsKindGift;
+
+  /// No description provided for @freelancersOptionsKindPoints.
+  ///
+  /// In ar, this message translates to:
+  /// **'نقاط'**
+  String get freelancersOptionsKindPoints;
+
+  /// No description provided for @freelancersOptionsKindDiscount.
+  ///
+  /// In ar, this message translates to:
+  /// **'خصم'**
+  String get freelancersOptionsKindDiscount;
+
+  /// No description provided for @freelancersOptionsLabelHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'مثال: غسيل مجاني'**
+  String get freelancersOptionsLabelHint;
+
+  /// No description provided for @freelancersOptionsPercentLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'النسبة %'**
+  String get freelancersOptionsPercentLabel;
+
+  /// No description provided for @freelancersOptionsPointsLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'عدد النقاط'**
+  String get freelancersOptionsPointsLabel;
+
+  /// No description provided for @freelancersOptionsSubmit.
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة'**
+  String get freelancersOptionsSubmit;
+
+  /// No description provided for @freelancersExportTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تصدير ملاحظات التواصل'**
+  String get freelancersExportTitle;
+
+  /// No description provided for @freelancersExportPresetWeek.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا الأسبوع'**
+  String get freelancersExportPresetWeek;
+
+  /// No description provided for @freelancersExportPresetMonth.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا الشهر'**
+  String get freelancersExportPresetMonth;
+
+  /// No description provided for @freelancersExportPreset90d.
+  ///
+  /// In ar, this message translates to:
+  /// **'٩٠ يوماً'**
+  String get freelancersExportPreset90d;
+
+  /// No description provided for @freelancersExportPresetYear.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا العام'**
+  String get freelancersExportPresetYear;
+
+  /// No description provided for @freelancersExportPresetCustom.
+  ///
+  /// In ar, this message translates to:
+  /// **'مخصص'**
+  String get freelancersExportPresetCustom;
+
+  /// No description provided for @freelancersExportFromLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'من'**
+  String get freelancersExportFromLabel;
+
+  /// No description provided for @freelancersExportToLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'إلى'**
+  String get freelancersExportToLabel;
+
+  /// No description provided for @freelancersExportIncludePii.
+  ///
+  /// In ar, this message translates to:
+  /// **'تضمين بيانات العميل (الاسم والجوال)'**
+  String get freelancersExportIncludePii;
+
+  /// No description provided for @freelancersExportRun.
+  ///
+  /// In ar, this message translates to:
+  /// **'تصدير'**
+  String get freelancersExportRun;
+
+  /// No description provided for @freelancersExportEmpty.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد ملاحظات في هذا النطاق الزمني.'**
+  String get freelancersExportEmpty;
+
+  /// No description provided for @freelancersWorkSearchHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'ابحث بالاسم أو الجوال…'**
+  String get freelancersWorkSearchHint;
+
+  /// No description provided for @freelancersWorkFilterAll.
+  ///
+  /// In ar, this message translates to:
+  /// **'كل العملاء'**
+  String get freelancersWorkFilterAll;
+
+  /// No description provided for @freelancersWorkFilterNew.
+  ///
+  /// In ar, this message translates to:
+  /// **'جديد — لم يُتَّصل به'**
+  String get freelancersWorkFilterNew;
+
+  /// No description provided for @freelancersRatingSatisfied.
+  ///
+  /// In ar, this message translates to:
+  /// **'راضٍ'**
+  String get freelancersRatingSatisfied;
+
+  /// No description provided for @freelancersRatingNeutral.
+  ///
+  /// In ar, this message translates to:
+  /// **'محايد'**
+  String get freelancersRatingNeutral;
+
+  /// No description provided for @freelancersRatingUnsatisfied.
+  ///
+  /// In ar, this message translates to:
+  /// **'غير راضٍ'**
+  String get freelancersRatingUnsatisfied;
+
+  /// No description provided for @freelancersWorkFailedTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تحميل قائمة العملاء'**
+  String get freelancersWorkFailedTitle;
+
+  /// No description provided for @freelancersWorkEmptyTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يوجد عملاء ظاهرون الآن'**
+  String get freelancersWorkEmptyTitle;
+
+  /// No description provided for @freelancersWorkEmptyBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'كل عميل تم التواصل معه حديثاً يختفي تلقائياً حتى تنتهي فترة الانتظار.'**
+  String get freelancersWorkEmptyBody;
+
+  /// No description provided for @freelancersWorkLastVisit.
+  ///
+  /// In ar, this message translates to:
+  /// **'آخر زيارة: {date}'**
+  String freelancersWorkLastVisit(String date);
+
+  /// No description provided for @freelancersWorkDnd.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يرغب بالتواصل'**
+  String get freelancersWorkDnd;
+
+  /// No description provided for @freelancersWorkConfirmDndTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'عدم التواصل مع هذا العميل؟'**
+  String get freelancersWorkConfirmDndTitle;
+
+  /// No description provided for @freelancersWorkConfirmDndBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا العميل لن يظهر مرة أخرى في القائمة.'**
+  String get freelancersWorkConfirmDndBody;
+
+  /// No description provided for @freelancersWorkRewardTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'منح ترضية'**
+  String get freelancersWorkRewardTitle;
+
+  /// No description provided for @freelancersWorkNoteHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'ملاحظة سريعة عن المكالمة…'**
+  String get freelancersWorkNoteHint;
+
+  /// No description provided for @freelancersWorkNoteSave.
+  ///
+  /// In ar, this message translates to:
+  /// **'حفظ'**
+  String get freelancersWorkNoteSave;
+
+  /// No description provided for @freelancersWorkEscalateHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'ما المشكلة؟ صعّدها للإدارة…'**
+  String get freelancersWorkEscalateHint;
+
+  /// No description provided for @freelancersWorkEscalate.
+  ///
+  /// In ar, this message translates to:
+  /// **'تصعيد'**
+  String get freelancersWorkEscalate;
+
+  /// No description provided for @freelancersWorkActionFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تنفيذ الإجراء، حاول مرة أخرى.'**
+  String get freelancersWorkActionFailed;
+
+  /// No description provided for @freelancersWorkCapReached.
+  ///
+  /// In ar, this message translates to:
+  /// **'وصلت الحد اليومي للترضيات المسموحة.'**
+  String get freelancersWorkCapReached;
+
+  /// No description provided for @freelancersRetry.
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة المحاولة'**
+  String get freelancersRetry;
 }
 
 class _SDelegate extends LocalizationsDelegate<S> {

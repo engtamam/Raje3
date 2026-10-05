@@ -11,7 +11,7 @@ import time
 import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
-from app.core.freelancer_crm import (DISCOUNT, GIFT, OPEN, POINTS, RESOLVED, SATISFIED,
+from app.core.freelancer_crm import (DISCOUNT, GIFT, NEUTRAL, OPEN, POINTS, RESOLVED, SATISFIED,
                                      UNSATISFIED, FreelancerCrmError, FreelancerCrmService)
 from app.core.models import Customer
 from app.core.stores import CustomerStore
@@ -143,6 +143,62 @@ def test_do_not_disturb_never_expires_on_its_own(crm):
     run(store.put("customer_service_contacts", f"{TENANT}|cust_1", raw))
     out = run(svc.filtered_customers(TENANT))
     assert not any(c["customer_id"] == "cust_1" for c in out)
+
+
+def test_search_matches_the_name(crm):
+    svc, store, customers, *_ = crm
+    run(_seed_customer(customers))
+    out = run(svc.filtered_customers(TENANT, search="أحمد"))
+    assert len(out) == 1
+    out = run(svc.filtered_customers(TENANT, search="سارة"))
+    assert out == []
+
+
+def test_search_matches_the_phone(crm):
+    svc, store, customers, *_ = crm
+    run(_seed_customer(customers))
+    out = run(svc.filtered_customers(TENANT, search="501234567"))
+    assert len(out) == 1
+
+
+def test_search_is_case_insensitive_on_latin_characters(crm):
+    svc, store, customers, *_ = crm
+    c = Customer(id="cust_2", tenant=TENANT, phone="+966502222222", subject_ref="subj_2",
+                name="Noor", last_visit=int(time.time()))
+    run(customers.save(c))
+    out = run(svc.filtered_customers(TENANT, search="NOOR"))
+    assert len(out) == 1
+
+
+def test_status_filter_new_excludes_an_already_contacted_customer(crm):
+    svc, store, customers, *_ = crm
+    run(_seed_customer(customers))
+    run(svc.set_rules(TENANT, cooldown_days=0, daily_cap=5))
+    out = run(svc.filtered_customers(TENANT, status_filter="new"))
+    assert len(out) == 1
+    run(svc.rate(TENANT, "cust_1", status=SATISFIED, by="freelancer_1"))
+    out = run(svc.filtered_customers(TENANT, status_filter="new"))
+    assert out == []
+
+
+def test_status_filter_matches_the_last_rating(crm):
+    svc, store, customers, *_ = crm
+    run(_seed_customer(customers))
+    run(svc.set_rules(TENANT, cooldown_days=0, daily_cap=5))
+    run(svc.rate(TENANT, "cust_1", status=UNSATISFIED, by="freelancer_1"))
+    out = run(svc.filtered_customers(TENANT, status_filter=UNSATISFIED))
+    assert len(out) == 1
+    out = run(svc.filtered_customers(TENANT, status_filter=SATISFIED))
+    assert out == []
+
+
+def test_filtered_customers_reports_the_last_status(crm):
+    svc, store, customers, *_ = crm
+    run(_seed_customer(customers))
+    run(svc.set_rules(TENANT, cooldown_days=0, daily_cap=5))
+    run(svc.rate(TENANT, "cust_1", status=NEUTRAL, by="freelancer_1"))
+    out = run(svc.filtered_customers(TENANT))
+    assert out[0]["last_status"] == NEUTRAL
 
 
 def test_rate_rejects_an_unknown_status(crm):

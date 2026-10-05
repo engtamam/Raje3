@@ -330,6 +330,21 @@ export const APP_ROWS: AppRow[] = [
     icon: 'receipt', tone: 'danger',
     // NO featuresAction — operations owns this row too, same posture as «خدمات متنقلة» above.
   },
+  // «خدمات ما بعد البيع» — core/freelancer_service.py + core/freelancer_crm.py's own module
+  // docstrings. A shop hands post-visit customer follow-up to an EXTERNAL freelancer it brought in
+  // itself (max 3 linked), never a marketplace. REQUIRES_ANY one of the real visit-recording apps
+  // (deploy/seed/plans.json's own note on this row) — a freelancer has nobody to call without one.
+  // `listed: false` on the backend row until this screen shipped; this IS that screen landing.
+  {
+    id: 'freelancers',
+    key: 'feature.customer_service',
+    name: 'خدمات ما بعد البيع',
+    what: 'مستقل تثق به يتابع رضا عملائك بعد الزيارة — يسجّل ملاحظة، يمنح ترضية بسقف تحدده أنت، ويصعّد لك أي حالة غاضبة فوراً.',
+    section: 'freelancers',
+    onCustomer: '',
+    icon: 'headphones', tone: 'success',
+    // NO featuresAction — operations owns this row too, same posture as «خدمات متنقلة» above.
+  },
 ];
 
 /** The key that locks a nav section, or null when the section belongs to the base. */

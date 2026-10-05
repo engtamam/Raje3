@@ -202,21 +202,41 @@ class FreelancerCrmService:
             return True
         return _now() - c.last_contacted_at >= rules.cooldown_days * 86400
 
-    async def filtered_customers(self, tenant: str, *, limit: int = 100) -> list[dict[str, Any]]:
+    async def filtered_customers(self, tenant: str, *, limit: int = 100, search: str = "",
+                                 status_filter: str = "") -> list[dict[str, Any]]:
         """docs/جديد.txt §"قائمة العملاء" — name, last shop visit, cooldown-filtered. Reuses
         `CustomerStore.recent()` (the same recent-customers read every other screen already makes)
-        as the candidate pool rather than draining the whole table on every freelancer page load."""
+        as the candidate pool rather than draining the whole table on every freelancer page load.
+
+        `search` matches name OR phone, case-insensitively — one box, no "search by" picker the
+        freelancer has to think about first. `status_filter` is `""` (any), `"new"` (never
+        contacted by this channel — `last_status` empty, the console's own "لم يتواصل معه أحد
+        بعد" option), or one of `RATINGS` — read off the SAME `FreelancerContact` row
+        `_is_visible` already reads, so it costs nothing extra beyond what this call already does
+        per candidate."""
         rules = await self.get_rules(tenant)
-        pool = await self._customers.recent(tenant, limit=max(limit * 2, 100))
+        pool = await self._customers.recent(tenant, limit=max(limit * 4, 200))
+        needle = search.strip().lower()
         out: list[dict[str, Any]] = []
         for cust in pool:
             if len(out) >= limit:
                 break
-            if await self._is_visible(tenant, cust.id, rules):
-                out.append({
-                    "customer_id": cust.id, "name": cust.name, "phone": cust.phone,
-                    "last_visit": cust.last_visit,
-                })
+            if needle and needle not in cust.name.lower() and needle not in cust.phone.lower():
+                continue
+            contact = await self._contact(tenant, cust.id)
+            if contact.do_not_disturb:
+                continue
+            if contact.last_contacted_at and _now() - contact.last_contacted_at < rules.cooldown_days * 86400:
+                continue
+            last_status = contact.last_status
+            if status_filter == "new" and last_status:
+                continue
+            if status_filter in RATINGS and last_status != status_filter:
+                continue
+            out.append({
+                "customer_id": cust.id, "name": cust.name, "phone": cust.phone,
+                "last_visit": cust.last_visit, "last_status": last_status,
+            })
         return out
 
     # ── freelancer actions ──────────────────────────────────────────────────────────────────────

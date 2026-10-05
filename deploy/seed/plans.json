@@ -100,7 +100,7 @@
     "feature.coworking": "الاستضافة المهنية — hourly co-working resource rental, its own standalone microservice (services/coworking). Standalone (plan.standalone). Hourly-ONLY pricing, no money moves through this platform (a stored price fact only), and no cross-shop marketplace — one shareable link per shop",
     "feature.referrals": "الإحالة والمسوقين — referral & affiliate marketing (services/referrals). Real campaigns, till-side redemption, and the affiliate/marketer tier all shipped and tested — sold at 9900 halalas, `listed: true` since 2026-09-27",
     "feature.whatsapp_delivery_orders": "طلبات التوصيل عبر الواتساب — ordering from the shop's official Meta WhatsApp Commerce Catalog, geo-gated to the nearest branch, paid through the shop's own gateway (services/whatsapp-assistant's catalog_provisioning.py/catalog_item_sync.py + services/operations' orders.py). A SEPARATE app from `feature.whatsapp` even though both live in the same microservice. Fully built on both console (the live order board) and mobile — sold at 9900 halalas, `listed: true` since 2026-10-05",
-    "feature.customer_service": "خدمات ما بعد البيع — docs/جديد.txt, core/freelancer_service.py + core/freelancer_crm.py. A shop hands its own post-visit customer care to an external freelancer it brought in itself (max 3 linked at a time), inside shop-set guardrails (cooldown, daily reward cap, an approved reward catalog) and an escalation inbox back to the shop's own staff. Priced at 9900 halalas like every other single-app row, but `listed: false` until a real console/mobile screen exists (backend-only as of 2026-10-05) — see this file's own rule on selling a key nothing serves yet"
+    "feature.customer_service": "خدمات ما بعد البيع — docs/جديد.txt, core/freelancer_service.py + core/freelancer_crm.py. A shop hands its own post-visit customer care to an external freelancer it brought in itself (max 3 linked at a time), inside shop-set guardrails (cooldown, daily reward cap, an approved reward catalog) and an escalation inbox back to the shop's own staff. Fully built on both console and mobile — sold at 9900 halalas, `listed: true` since 2026-10-05"
   },
   "_removed": [
     "feature.roles.custom IS GONE, and its absence is the honest state. It was sold on every tier",
@@ -674,12 +674,12 @@
     {
       "_": [
         "خدمات ما بعد البيع — see FEATURE_DOCS['feature.customer_service'] above.",
-        "`listed: false` ON PURPOSE, same rule this file's own §3 states: the backend (core/",
-        "freelancer_service.py + core/freelancer_crm.py, routes wired, roles.json capability",
-        "already granted to owner/manager/marketer/supervisor) is real and tested, but there is no",
-        "console or mobile screen yet — selling a key nothing serves is the exact defect",
-        "`ci/check_entitlements.py` exists to catch on the other side. Flip to `listed: true` the",
-        "day a real screen ships, same price unchanged.",
+        "FLIPPED TO `listed: true` 2026-10-05 — the owner's own explicit call, once BOTH the",
+        "console screen (apps/console/src/screens/Freelancers.tsx, two tabs: link management +",
+        "the shared internal-workspace mirror of the freelancer's own actions) and the mobile",
+        "screen (apps/mobile/lib/features/freelancers/freelancers_screen.dart, same two tabs, its",
+        "own hero/visual identity) shipped — closing exactly the gap the old `listed: false` note",
+        "cited (\"there is no console or mobile screen yet\"). Same price unchanged (9900).",
         "",
         "REQUIRES_ANY (2026-10-05), OWNER'S OWN INSTRUCTION — a freelancer follows up on a customer",
         "AFTER a real visit already happened; a shop with no app that ever records one has nobody",
@@ -694,7 +694,7 @@
       "name": "خدمات ما بعد البيع",
       "amount": 9900,
       "trial_days": 30,
-      "listed": false,
+      "listed": true,
       "limits": {
         "feature.customer_service": {
           "kind": "boolean",

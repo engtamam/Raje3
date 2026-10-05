@@ -3915,4 +3915,253 @@ class SUr extends S {
   String whatsappOrdersShareTotal(String total) {
     return 'کل: $total';
   }
+
+  @override
+  String get freelancersTitle => 'سیل کے بعد کی خدمت';
+
+  @override
+  String freelancersHeroActiveCount(int active, int max) {
+    return '$max میں سے $active فعال فری لانسرز';
+  }
+
+  @override
+  String freelancersHeroWaitingToday(int n) {
+    return 'آج $n گاہک پیروی کے منتظر ہیں';
+  }
+
+  @override
+  String freelancersHeroEscalationsWarning(int n) {
+    return '$n کیس اب آپ کی توجہ چاہتے ہیں';
+  }
+
+  @override
+  String get freelancersTabRoster => 'فری لانسرز';
+
+  @override
+  String get freelancersTabWorkbench => 'کام کا ریکارڈ';
+
+  @override
+  String get freelancersRosterFailedTitle =>
+      'فری لانسرز کی فہرست لوڈ نہیں ہو سکی';
+
+  @override
+  String get freelancersRosterActive => 'فعال';
+
+  @override
+  String get freelancersRosterDeactivate => 'غیر فعال کریں';
+
+  @override
+  String get freelancersRosterAddButton => 'فری لانسر شامل کریں';
+
+  @override
+  String get freelancersRosterEmptyTitle => 'ابھی کوئی فری لانسر منسلک نہیں';
+
+  @override
+  String get freelancersRosterEmptyBody =>
+      'ایک بھروسہ مند فری لانسر شامل کریں تاکہ وزٹ کے بعد گاہکوں کی پیروی شروع ہو۔';
+
+  @override
+  String get freelancersRosterConfirmDeactivateTitle =>
+      'اس فری لانسر کو غیر فعال کریں؟';
+
+  @override
+  String get freelancersRosterConfirmDeactivateBody =>
+      'حد (3) میں ایک نئی جگہ کھلے گی۔ آپ بعد میں دوسرا فری لانسر شامل کر سکتے ہیں۔';
+
+  @override
+  String get freelancersRosterConfirmDeactivateConfirm => 'غیر فعال کریں';
+
+  @override
+  String get freelancersRosterConfirmDeactivateCancel => 'منسوخ کریں';
+
+  @override
+  String get freelancersRosterRulesButton => 'کام کے قوانین';
+
+  @override
+  String get freelancersRosterOptionsButton => 'انعامات کی فہرست';
+
+  @override
+  String get freelancersRosterExportButton => 'نوٹس ایکسپورٹ کریں';
+
+  @override
+  String freelancersEscalationsOpenTitle(int n) {
+    return '$n کیس اب آپ کی توجہ چاہتے ہیں';
+  }
+
+  @override
+  String get freelancersEscalationsResolve => 'حل ہوگیا';
+
+  @override
+  String get freelancersAddTitle => 'فری لانسر شامل کریں';
+
+  @override
+  String get freelancersAddNameLabel => 'نام';
+
+  @override
+  String get freelancersAddNameHint => 'فری لانسر کا نام';
+
+  @override
+  String get freelancersAddPhoneLabel => 'موبائل نمبر';
+
+  @override
+  String get freelancersAddPhoneHint => '05xxxxxxxx';
+
+  @override
+  String get freelancersAddNote =>
+      'آپ کا پہلے سے اس شخص سے خود تعلق ہونا چاہیے — نہ کوئی مارکیٹ، نہ کوئی لسٹنگ۔';
+
+  @override
+  String get freelancersAddFailed =>
+      'شامل نہیں ہو سکا — نمبر چیک کریں اور یقینی بنائیں کہ حد (3) میں جگہ موجود ہے۔';
+
+  @override
+  String get freelancersAddSubmit => 'شامل کریں';
+
+  @override
+  String get freelancersRulesTitle => 'کام کے قوانین';
+
+  @override
+  String get freelancersRulesCooldownLabel => 'انتظار کی مدت (دن)';
+
+  @override
+  String get freelancersRulesCooldownHelp =>
+      'حال ہی میں رابطہ کیا گیا گاہک اس مدت کے گزرنے تک چھپا رہتا ہے۔';
+
+  @override
+  String get freelancersRulesCapLabel => 'روزانہ انعامات کی حد';
+
+  @override
+  String get freelancersRulesCapHelp =>
+      'ایک فری لانسر روزانہ زیادہ سے زیادہ کتنے انعامات دے سکتا ہے۔';
+
+  @override
+  String get freelancersRulesSave => 'محفوظ کریں';
+
+  @override
+  String get freelancersOptionsTitle => 'اجازت یافتہ انعامات کی فہرست';
+
+  @override
+  String get freelancersOptionsEmpty => 'ابھی کوئی انعام شامل نہیں کیا گیا۔';
+
+  @override
+  String get freelancersOptionsKindGift => 'تحفہ';
+
+  @override
+  String get freelancersOptionsKindPoints => 'پوائنٹس';
+
+  @override
+  String get freelancersOptionsKindDiscount => 'رعایت';
+
+  @override
+  String get freelancersOptionsLabelHint => 'مثلاً: مفت بیرونی واش';
+
+  @override
+  String get freelancersOptionsPercentLabel => 'فیصد %';
+
+  @override
+  String get freelancersOptionsPointsLabel => 'پوائنٹس';
+
+  @override
+  String get freelancersOptionsSubmit => 'شامل کریں';
+
+  @override
+  String get freelancersExportTitle => 'کال نوٹس ایکسپورٹ کریں';
+
+  @override
+  String get freelancersExportPresetWeek => 'اس ہفتے';
+
+  @override
+  String get freelancersExportPresetMonth => 'اس مہینے';
+
+  @override
+  String get freelancersExportPreset90d => '90 دن';
+
+  @override
+  String get freelancersExportPresetYear => 'اس سال';
+
+  @override
+  String get freelancersExportPresetCustom => 'اپنی مرضی کا';
+
+  @override
+  String get freelancersExportFromLabel => 'سے';
+
+  @override
+  String get freelancersExportToLabel => 'تک';
+
+  @override
+  String get freelancersExportIncludePii => 'گاہک کا نام اور نمبر شامل کریں';
+
+  @override
+  String get freelancersExportRun => 'ایکسپورٹ کریں';
+
+  @override
+  String get freelancersExportEmpty => 'اس مدت میں کوئی نوٹ نہیں۔';
+
+  @override
+  String get freelancersWorkSearchHint => 'نام یا نمبر سے تلاش کریں…';
+
+  @override
+  String get freelancersWorkFilterAll => 'تمام گاہک';
+
+  @override
+  String get freelancersWorkFilterNew => 'نیا — کبھی رابطہ نہیں کیا';
+
+  @override
+  String get freelancersRatingSatisfied => 'مطمئن';
+
+  @override
+  String get freelancersRatingNeutral => 'غیر جانبدار';
+
+  @override
+  String get freelancersRatingUnsatisfied => 'غیر مطمئن';
+
+  @override
+  String get freelancersWorkFailedTitle => 'گاہکوں کی فہرست لوڈ نہیں ہو سکی';
+
+  @override
+  String get freelancersWorkEmptyTitle => 'ابھی دکھانے کے لیے کوئی گاہک نہیں';
+
+  @override
+  String get freelancersWorkEmptyBody =>
+      'حال ہی میں رابطہ کیا گیا گاہک انتظار کی مدت ختم ہونے تک خود بخود چھپ جاتا ہے۔';
+
+  @override
+  String freelancersWorkLastVisit(String date) {
+    return 'آخری وزٹ: $date';
+  }
+
+  @override
+  String get freelancersWorkDnd => 'رابطہ نہیں چاہتا';
+
+  @override
+  String get freelancersWorkConfirmDndTitle => 'اس گاہک سے رابطہ بند کریں؟';
+
+  @override
+  String get freelancersWorkConfirmDndBody =>
+      'یہ گاہک دوبارہ فہرست میں نظر نہیں آئے گا۔';
+
+  @override
+  String get freelancersWorkRewardTitle => 'انعام دیں';
+
+  @override
+  String get freelancersWorkNoteHint => 'کال کے بارے میں مختصر نوٹ…';
+
+  @override
+  String get freelancersWorkNoteSave => 'محفوظ کریں';
+
+  @override
+  String get freelancersWorkEscalateHint => 'مسئلہ کیا ہے؟ دکان کو بھیجیں…';
+
+  @override
+  String get freelancersWorkEscalate => 'آگے بھیجیں';
+
+  @override
+  String get freelancersWorkActionFailed =>
+      'یہ عمل مکمل نہیں ہو سکا، دوبارہ کوشش کریں۔';
+
+  @override
+  String get freelancersWorkCapReached => 'آج کے انعامات کی حد مکمل ہوگئی۔';
+
+  @override
+  String get freelancersRetry => 'دوبارہ کوشش کریں';
 }

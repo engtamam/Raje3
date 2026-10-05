@@ -129,6 +129,14 @@ const List<NavSectionDef> kNavSections = [
     service: 'operations',
   ),
   NavSectionDef(
+    id: 'freelancers',
+    path: '/freelancers',
+    label: 'خدمات ما بعد البيع',
+    icon: Icons.headset_mic_outlined,
+    requires: ['operations.freelancer_list'],
+    service: 'operations',
+  ),
+  NavSectionDef(
     id: 'services',
     path: '/services',
     label: 'خدماتي ومنتجاتي',

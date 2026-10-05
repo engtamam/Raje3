@@ -68,6 +68,7 @@ ICON_MAP = {
     "Gift": "Icons.card_giftcard_outlined",
     "LifeBuoy": "Icons.support_outlined",
     "Receipt": "Icons.receipt_long_outlined",
+    "Headphones": "Icons.headset_mic_outlined",
 }
 
 

@@ -105,8 +105,6 @@ export const LIMIT_KEYS: Record<string, { label: string; unit?: string }> = {
   // Phase 0 only (services/referrals) — no screen calls this yet; `listed: false` on its plan
   // row keeps the card itself from ever reaching a real customer (see deploy/seed/plans.json).
   'feature.referrals': { label: 'plans.limit.referrals.label' },
-  // Backend-only pass, no console/mobile screen yet -- `listed: false` on its plan row, same
-  // posture as `feature.whatsapp_delivery_orders` above.
   'feature.customer_service': { label: 'plans.limit.customerService.label' },
   // Phase 0 only, same posture as `feature.referrals` above -- `listed: false` on its plan row
   // (deploy/seed/plans.json) keeps the card from ever reaching a real customer.

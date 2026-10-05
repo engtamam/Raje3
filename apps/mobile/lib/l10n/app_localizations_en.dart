@@ -3951,4 +3951,256 @@ class SEn extends S {
   String whatsappOrdersShareTotal(String total) {
     return 'Total: $total';
   }
+
+  @override
+  String get freelancersTitle => 'After-Sale Service';
+
+  @override
+  String freelancersHeroActiveCount(int active, int max) {
+    return '$active of $max active freelancers';
+  }
+
+  @override
+  String freelancersHeroWaitingToday(int n) {
+    return '$n customer(s) waiting for follow-up today';
+  }
+
+  @override
+  String freelancersHeroEscalationsWarning(int n) {
+    return '$n case(s) need your attention now';
+  }
+
+  @override
+  String get freelancersTabRoster => 'Freelancers';
+
+  @override
+  String get freelancersTabWorkbench => 'Work Log';
+
+  @override
+  String get freelancersRosterFailedTitle =>
+      'Could not load the freelancer list';
+
+  @override
+  String get freelancersRosterActive => 'Active';
+
+  @override
+  String get freelancersRosterDeactivate => 'Deactivate';
+
+  @override
+  String get freelancersRosterAddButton => 'Add a freelancer';
+
+  @override
+  String get freelancersRosterEmptyTitle => 'No freelancers linked yet';
+
+  @override
+  String get freelancersRosterEmptyBody =>
+      'Add a freelancer you trust to start following up on customers after each visit.';
+
+  @override
+  String get freelancersRosterConfirmDeactivateTitle =>
+      'Deactivate this freelancer?';
+
+  @override
+  String get freelancersRosterConfirmDeactivateBody =>
+      'Opens a new slot under the cap (3). You can add another freelancer afterward.';
+
+  @override
+  String get freelancersRosterConfirmDeactivateConfirm => 'Deactivate';
+
+  @override
+  String get freelancersRosterConfirmDeactivateCancel => 'Cancel';
+
+  @override
+  String get freelancersRosterRulesButton => 'Business Rules';
+
+  @override
+  String get freelancersRosterOptionsButton => 'Reward Catalog';
+
+  @override
+  String get freelancersRosterExportButton => 'Export Notes';
+
+  @override
+  String freelancersEscalationsOpenTitle(int n) {
+    return '$n case(s) need your attention now';
+  }
+
+  @override
+  String get freelancersEscalationsResolve => 'Resolved';
+
+  @override
+  String get freelancersAddTitle => 'Add a freelancer';
+
+  @override
+  String get freelancersAddNameLabel => 'Name';
+
+  @override
+  String get freelancersAddNameHint => 'Freelancer\'s name';
+
+  @override
+  String get freelancersAddPhoneLabel => 'Phone number';
+
+  @override
+  String get freelancersAddPhoneHint => '05xxxxxxxx';
+
+  @override
+  String get freelancersAddNote =>
+      'You must already have dealt with this person yourself — no marketplace, no listing.';
+
+  @override
+  String get freelancersAddFailed =>
+      'Could not add — check the number and that a slot is open under the cap (3).';
+
+  @override
+  String get freelancersAddSubmit => 'Add';
+
+  @override
+  String get freelancersRulesTitle => 'Business rules';
+
+  @override
+  String get freelancersRulesCooldownLabel => 'Cooldown period (days)';
+
+  @override
+  String get freelancersRulesCooldownHelp =>
+      'A recently-contacted customer stays hidden until this period passes.';
+
+  @override
+  String get freelancersRulesCapLabel => 'Daily reward cap';
+
+  @override
+  String get freelancersRulesCapHelp =>
+      'Max rewards one freelancer may grant per day.';
+
+  @override
+  String get freelancersRulesSave => 'Save';
+
+  @override
+  String get freelancersOptionsTitle => 'Allowed reward catalog';
+
+  @override
+  String get freelancersOptionsEmpty => 'No rewards added yet.';
+
+  @override
+  String get freelancersOptionsKindGift => 'Gift';
+
+  @override
+  String get freelancersOptionsKindPoints => 'Points';
+
+  @override
+  String get freelancersOptionsKindDiscount => 'Discount';
+
+  @override
+  String get freelancersOptionsLabelHint => 'e.g. Free exterior wash';
+
+  @override
+  String get freelancersOptionsPercentLabel => 'Percent %';
+
+  @override
+  String get freelancersOptionsPointsLabel => 'Points';
+
+  @override
+  String get freelancersOptionsSubmit => 'Add';
+
+  @override
+  String get freelancersExportTitle => 'Export call notes';
+
+  @override
+  String get freelancersExportPresetWeek => 'This week';
+
+  @override
+  String get freelancersExportPresetMonth => 'This month';
+
+  @override
+  String get freelancersExportPreset90d => '90 days';
+
+  @override
+  String get freelancersExportPresetYear => 'This year';
+
+  @override
+  String get freelancersExportPresetCustom => 'Custom';
+
+  @override
+  String get freelancersExportFromLabel => 'From';
+
+  @override
+  String get freelancersExportToLabel => 'To';
+
+  @override
+  String get freelancersExportIncludePii =>
+      'Include the customer\'s name and phone';
+
+  @override
+  String get freelancersExportRun => 'Export';
+
+  @override
+  String get freelancersExportEmpty => 'No notes in this date range.';
+
+  @override
+  String get freelancersWorkSearchHint => 'Search by name or phone…';
+
+  @override
+  String get freelancersWorkFilterAll => 'All customers';
+
+  @override
+  String get freelancersWorkFilterNew => 'New — never contacted';
+
+  @override
+  String get freelancersRatingSatisfied => 'Satisfied';
+
+  @override
+  String get freelancersRatingNeutral => 'Neutral';
+
+  @override
+  String get freelancersRatingUnsatisfied => 'Unsatisfied';
+
+  @override
+  String get freelancersWorkFailedTitle => 'Could not load the customer list';
+
+  @override
+  String get freelancersWorkEmptyTitle => 'No customers to show right now';
+
+  @override
+  String get freelancersWorkEmptyBody =>
+      'A recently-contacted customer hides automatically until the cooldown ends.';
+
+  @override
+  String freelancersWorkLastVisit(String date) {
+    return 'Last visit: $date';
+  }
+
+  @override
+  String get freelancersWorkDnd => 'Does not want contact';
+
+  @override
+  String get freelancersWorkConfirmDndTitle => 'Stop contacting this customer?';
+
+  @override
+  String get freelancersWorkConfirmDndBody =>
+      'This customer will never appear in the list again.';
+
+  @override
+  String get freelancersWorkRewardTitle => 'Grant a reward';
+
+  @override
+  String get freelancersWorkNoteHint => 'A quick note about the call…';
+
+  @override
+  String get freelancersWorkNoteSave => 'Save';
+
+  @override
+  String get freelancersWorkEscalateHint =>
+      'What is wrong? Escalate to the shop…';
+
+  @override
+  String get freelancersWorkEscalate => 'Escalate';
+
+  @override
+  String get freelancersWorkActionFailed =>
+      'Could not complete that action, try again.';
+
+  @override
+  String get freelancersWorkCapReached =>
+      'You have reached today\'s reward cap.';
+
+  @override
+  String get freelancersRetry => 'Retry';
 }

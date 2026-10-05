@@ -4005,4 +4005,259 @@ class SFil extends S {
   String whatsappOrdersShareTotal(String total) {
     return 'Kabuuan: $total';
   }
+
+  @override
+  String get freelancersTitle => 'Serbisyo Pagkatapos ng Benta';
+
+  @override
+  String freelancersHeroActiveCount(int active, int max) {
+    return '$active sa $max na aktibong freelancer';
+  }
+
+  @override
+  String freelancersHeroWaitingToday(int n) {
+    return '$n customer na naghihintay ng follow-up ngayon';
+  }
+
+  @override
+  String freelancersHeroEscalationsWarning(int n) {
+    return '$n kaso ang nangangailangan ng pansin mo ngayon';
+  }
+
+  @override
+  String get freelancersTabRoster => 'Mga Freelancer';
+
+  @override
+  String get freelancersTabWorkbench => 'Talaan ng Gawain';
+
+  @override
+  String get freelancersRosterFailedTitle =>
+      'Hindi ma-load ang listahan ng freelancer';
+
+  @override
+  String get freelancersRosterActive => 'Aktibo';
+
+  @override
+  String get freelancersRosterDeactivate => 'I-deactivate';
+
+  @override
+  String get freelancersRosterAddButton => 'Magdagdag ng freelancer';
+
+  @override
+  String get freelancersRosterEmptyTitle => 'Walang freelancer na naka-link pa';
+
+  @override
+  String get freelancersRosterEmptyBody =>
+      'Magdagdag ng freelancer na pinagkakatiwalaan mo para simulan ang pagsubaybay sa mga customer pagkatapos ng bisita.';
+
+  @override
+  String get freelancersRosterConfirmDeactivateTitle =>
+      'I-deactivate ang freelancer na ito?';
+
+  @override
+  String get freelancersRosterConfirmDeactivateBody =>
+      'Magbubukas ng bagong slot sa ilalim ng limitasyon (3). Puwede kang magdagdag ng ibang freelancer pagkatapos.';
+
+  @override
+  String get freelancersRosterConfirmDeactivateConfirm => 'I-deactivate';
+
+  @override
+  String get freelancersRosterConfirmDeactivateCancel => 'Kanselahin';
+
+  @override
+  String get freelancersRosterRulesButton => 'Mga Patakaran';
+
+  @override
+  String get freelancersRosterOptionsButton => 'Listahan ng Gantimpala';
+
+  @override
+  String get freelancersRosterExportButton => 'I-export ang Mga Tala';
+
+  @override
+  String freelancersEscalationsOpenTitle(int n) {
+    return '$n kaso ang nangangailangan ng pansin mo ngayon';
+  }
+
+  @override
+  String get freelancersEscalationsResolve => 'Naresolba';
+
+  @override
+  String get freelancersAddTitle => 'Magdagdag ng freelancer';
+
+  @override
+  String get freelancersAddNameLabel => 'Pangalan';
+
+  @override
+  String get freelancersAddNameHint => 'Pangalan ng freelancer';
+
+  @override
+  String get freelancersAddPhoneLabel => 'Numero ng telepono';
+
+  @override
+  String get freelancersAddPhoneHint => '05xxxxxxxx';
+
+  @override
+  String get freelancersAddNote =>
+      'Dapat mayroon ka nang ugnayan sa taong ito mismo — walang marketplace, walang listahan.';
+
+  @override
+  String get freelancersAddFailed =>
+      'Hindi maidagdag — suriin ang numero at kumpirmahin na may bakanteng slot sa ilalim ng limitasyon (3).';
+
+  @override
+  String get freelancersAddSubmit => 'Idagdag';
+
+  @override
+  String get freelancersRulesTitle => 'Mga patakaran sa negosyo';
+
+  @override
+  String get freelancersRulesCooldownLabel => 'Panahon ng paghintay (araw)';
+
+  @override
+  String get freelancersRulesCooldownHelp =>
+      'Nananatiling tago ang kasalukuyang na-contact na customer hanggang matapos ang panahong ito.';
+
+  @override
+  String get freelancersRulesCapLabel =>
+      'Araw-araw na limitasyon ng gantimpala';
+
+  @override
+  String get freelancersRulesCapHelp =>
+      'Pinakamataas na gantimpalang maibibigay ng isang freelancer sa isang araw.';
+
+  @override
+  String get freelancersRulesSave => 'I-save';
+
+  @override
+  String get freelancersOptionsTitle => 'Pinapayagang listahan ng gantimpala';
+
+  @override
+  String get freelancersOptionsEmpty => 'Walang gantimpalang naidagdag pa.';
+
+  @override
+  String get freelancersOptionsKindGift => 'Regalo';
+
+  @override
+  String get freelancersOptionsKindPoints => 'Puntos';
+
+  @override
+  String get freelancersOptionsKindDiscount => 'Diskwento';
+
+  @override
+  String get freelancersOptionsLabelHint => 'hal: Libreng panlabas na hugas';
+
+  @override
+  String get freelancersOptionsPercentLabel => 'Porsyento %';
+
+  @override
+  String get freelancersOptionsPointsLabel => 'Puntos';
+
+  @override
+  String get freelancersOptionsSubmit => 'Idagdag';
+
+  @override
+  String get freelancersExportTitle => 'I-export ang mga tala ng tawag';
+
+  @override
+  String get freelancersExportPresetWeek => 'Ngayong linggo';
+
+  @override
+  String get freelancersExportPresetMonth => 'Ngayong buwan';
+
+  @override
+  String get freelancersExportPreset90d => '90 araw';
+
+  @override
+  String get freelancersExportPresetYear => 'Ngayong taon';
+
+  @override
+  String get freelancersExportPresetCustom => 'Custom';
+
+  @override
+  String get freelancersExportFromLabel => 'Mula';
+
+  @override
+  String get freelancersExportToLabel => 'Hanggang';
+
+  @override
+  String get freelancersExportIncludePii =>
+      'Isama ang pangalan at numero ng customer';
+
+  @override
+  String get freelancersExportRun => 'I-export';
+
+  @override
+  String get freelancersExportEmpty => 'Walang tala sa saklaw ng petsang ito.';
+
+  @override
+  String get freelancersWorkSearchHint => 'Hanapin sa pangalan o numero…';
+
+  @override
+  String get freelancersWorkFilterAll => 'Lahat ng customer';
+
+  @override
+  String get freelancersWorkFilterNew => 'Bago — hindi pa na-contact';
+
+  @override
+  String get freelancersRatingSatisfied => 'Nasiyahan';
+
+  @override
+  String get freelancersRatingNeutral => 'Neutral';
+
+  @override
+  String get freelancersRatingUnsatisfied => 'Hindi nasiyahan';
+
+  @override
+  String get freelancersWorkFailedTitle =>
+      'Hindi ma-load ang listahan ng customer';
+
+  @override
+  String get freelancersWorkEmptyTitle => 'Walang customer na ipapakita ngayon';
+
+  @override
+  String get freelancersWorkEmptyBody =>
+      'Awtomatikong nagtatago ang kasalukuyang na-contact na customer hanggang matapos ang paghintay.';
+
+  @override
+  String freelancersWorkLastVisit(String date) {
+    return 'Huling bisita: $date';
+  }
+
+  @override
+  String get freelancersWorkDnd => 'Ayaw ng contact';
+
+  @override
+  String get freelancersWorkConfirmDndTitle =>
+      'Itigil ang pag-contact sa customer na ito?';
+
+  @override
+  String get freelancersWorkConfirmDndBody =>
+      'Hindi na lilitaw ang customer na ito sa listahan.';
+
+  @override
+  String get freelancersWorkRewardTitle => 'Magbigay ng gantimpala';
+
+  @override
+  String get freelancersWorkNoteHint => 'Mabilisang tala tungkol sa tawag…';
+
+  @override
+  String get freelancersWorkNoteSave => 'I-save';
+
+  @override
+  String get freelancersWorkEscalateHint =>
+      'Ano ang problema? I-escalate sa tindahan…';
+
+  @override
+  String get freelancersWorkEscalate => 'I-escalate';
+
+  @override
+  String get freelancersWorkActionFailed =>
+      'Hindi natapos ang aksyon, subukan ulit.';
+
+  @override
+  String get freelancersWorkCapReached =>
+      'Naabot mo na ang limitasyon ng gantimpala ngayong araw.';
+
+  @override
+  String get freelancersRetry => 'Subukan ulit';
 }

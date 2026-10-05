@@ -28,8 +28,8 @@
 import { useEffect, useState } from 'react';
 import {
   AlertTriangle, Bell, BadgeCheck, Bot, Calendar, Car, CheckCircle2, Clock, Cloud, Gift, HandHeart,
-  HelpCircle, Layers, MapPin, Megaphone, MessageCircle, Move, Receipt, Search, ShieldCheck,
-  Sparkles, Star, Truck, Users, UserPlus, type LucideIcon,
+  Headphones, HelpCircle, Layers, MapPin, Megaphone, MessageCircle, Move, Receipt, Search,
+  ShieldCheck, Sparkles, Star, Truck, Users, UserPlus, type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../cn';
 import type { AppFeature } from '../apps';
@@ -63,6 +63,7 @@ export const APP_ICONS: Record<string, LucideIcon> = {
   'map-pin': MapPin,
   'hand-heart': HandHeart,
   bot: Bot,
+  headphones: Headphones,
 };
 
 /** `bg-{x}-soft` / `text-{x}-on-soft` — the exact pair `rj-ui/Badge.tsx`'s own `rjBadgeVariants`

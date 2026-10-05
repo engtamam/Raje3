@@ -31,6 +31,7 @@ import 'package:raje3_mobile/features/shell/main_shell.dart';
 import 'package:raje3_mobile/features/visit/visit_screen.dart';
 import 'package:raje3_mobile/features/whatsapp_assistant/whatsapp_assistant_screen.dart';
 import 'package:raje3_mobile/features/whatsapp_orders/whatsapp_orders_screen.dart';
+import 'package:raje3_mobile/features/freelancers/freelancers_screen.dart';
 import 'package:raje3_mobile/l10n/app_localizations.dart';
 import 'package:raje3_mobile/theme/app_theme.dart';
 import 'package:raje3_mobile/widgets/kb_anchor.dart';
@@ -195,6 +196,8 @@ class AppRouter {
         return const PartnerLoyaltyScreen();
       case 'mutual-benefit':
         return const MutualBenefitScreen();
+      case 'freelancers':
+        return const FreelancersScreen();
       default:
         return _NotYetOnMobile(label: section.label);
     }

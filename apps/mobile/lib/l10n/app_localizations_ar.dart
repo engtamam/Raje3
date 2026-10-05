@@ -3917,4 +3917,252 @@ class SAr extends S {
   String whatsappOrdersShareTotal(String total) {
     return 'الإجمالي: $total';
   }
+
+  @override
+  String get freelancersTitle => 'خدمات ما بعد البيع';
+
+  @override
+  String freelancersHeroActiveCount(int active, int max) {
+    return '$active من $max مستقلين نشطين';
+  }
+
+  @override
+  String freelancersHeroWaitingToday(int n) {
+    return '$n عميل بانتظار متابعة اليوم';
+  }
+
+  @override
+  String freelancersHeroEscalationsWarning(int n) {
+    return '$n حالة تحتاج تدخّلك الآن';
+  }
+
+  @override
+  String get freelancersTabRoster => 'المستقلون';
+
+  @override
+  String get freelancersTabWorkbench => 'سجل العمل';
+
+  @override
+  String get freelancersRosterFailedTitle => 'تعذّر تحميل قائمة المستقلين';
+
+  @override
+  String get freelancersRosterActive => 'نشط';
+
+  @override
+  String get freelancersRosterDeactivate => 'إيقاف';
+
+  @override
+  String get freelancersRosterAddButton => 'أضف مستقلاً';
+
+  @override
+  String get freelancersRosterEmptyTitle => 'لا يوجد مستقلون مرتبطون بعد';
+
+  @override
+  String get freelancersRosterEmptyBody =>
+      'أضف مستقلاً تثق به ليبدأ متابعة عملائك بعد الزيارة.';
+
+  @override
+  String get freelancersRosterConfirmDeactivateTitle => 'إيقاف هذا المستقل؟';
+
+  @override
+  String get freelancersRosterConfirmDeactivateBody =>
+      'يفتح مكاناً جديداً ضمن الحد الأقصى (3). يمكنك إضافة مستقل آخر بعدها.';
+
+  @override
+  String get freelancersRosterConfirmDeactivateConfirm => 'إيقاف';
+
+  @override
+  String get freelancersRosterConfirmDeactivateCancel => 'إلغاء';
+
+  @override
+  String get freelancersRosterRulesButton => 'قواعد العمل';
+
+  @override
+  String get freelancersRosterOptionsButton => 'قائمة الترضيات';
+
+  @override
+  String get freelancersRosterExportButton => 'تصدير الملاحظات';
+
+  @override
+  String freelancersEscalationsOpenTitle(int n) {
+    return '$n حالة تحتاج تدخّلك الآن';
+  }
+
+  @override
+  String get freelancersEscalationsResolve => 'تم الحل';
+
+  @override
+  String get freelancersAddTitle => 'إضافة مستقل';
+
+  @override
+  String get freelancersAddNameLabel => 'الاسم';
+
+  @override
+  String get freelancersAddNameHint => 'اسم المستقل';
+
+  @override
+  String get freelancersAddPhoneLabel => 'رقم الجوال';
+
+  @override
+  String get freelancersAddPhoneHint => '05xxxxxxxx';
+
+  @override
+  String get freelancersAddNote =>
+      'يجب أن تكون قد تعاملت مع هذا الشخص بنفسك — لا سوق مستقلين، لا ترشيح.';
+
+  @override
+  String get freelancersAddFailed =>
+      'تعذّرت الإضافة — تأكد من الرقم ومن توفر مكان ضمن الحد الأقصى (3).';
+
+  @override
+  String get freelancersAddSubmit => 'إضافة';
+
+  @override
+  String get freelancersRulesTitle => 'قواعد العمل';
+
+  @override
+  String get freelancersRulesCooldownLabel => 'فترة الانتظار (يوم)';
+
+  @override
+  String get freelancersRulesCooldownHelp =>
+      'لا يظهر عميل تم التواصل معه حديثاً إلا بعد مرور هذه الفترة.';
+
+  @override
+  String get freelancersRulesCapLabel => 'الحد اليومي للترضيات';
+
+  @override
+  String get freelancersRulesCapHelp =>
+      'أقصى عدد ترضيات يمنحها المستقل الواحد باليوم.';
+
+  @override
+  String get freelancersRulesSave => 'حفظ';
+
+  @override
+  String get freelancersOptionsTitle => 'قائمة الترضيات المسموحة';
+
+  @override
+  String get freelancersOptionsEmpty => 'لا توجد ترضيات مضافة بعد.';
+
+  @override
+  String get freelancersOptionsKindGift => 'هدية';
+
+  @override
+  String get freelancersOptionsKindPoints => 'نقاط';
+
+  @override
+  String get freelancersOptionsKindDiscount => 'خصم';
+
+  @override
+  String get freelancersOptionsLabelHint => 'مثال: غسيل مجاني';
+
+  @override
+  String get freelancersOptionsPercentLabel => 'النسبة %';
+
+  @override
+  String get freelancersOptionsPointsLabel => 'عدد النقاط';
+
+  @override
+  String get freelancersOptionsSubmit => 'إضافة';
+
+  @override
+  String get freelancersExportTitle => 'تصدير ملاحظات التواصل';
+
+  @override
+  String get freelancersExportPresetWeek => 'هذا الأسبوع';
+
+  @override
+  String get freelancersExportPresetMonth => 'هذا الشهر';
+
+  @override
+  String get freelancersExportPreset90d => '٩٠ يوماً';
+
+  @override
+  String get freelancersExportPresetYear => 'هذا العام';
+
+  @override
+  String get freelancersExportPresetCustom => 'مخصص';
+
+  @override
+  String get freelancersExportFromLabel => 'من';
+
+  @override
+  String get freelancersExportToLabel => 'إلى';
+
+  @override
+  String get freelancersExportIncludePii =>
+      'تضمين بيانات العميل (الاسم والجوال)';
+
+  @override
+  String get freelancersExportRun => 'تصدير';
+
+  @override
+  String get freelancersExportEmpty => 'لا توجد ملاحظات في هذا النطاق الزمني.';
+
+  @override
+  String get freelancersWorkSearchHint => 'ابحث بالاسم أو الجوال…';
+
+  @override
+  String get freelancersWorkFilterAll => 'كل العملاء';
+
+  @override
+  String get freelancersWorkFilterNew => 'جديد — لم يُتَّصل به';
+
+  @override
+  String get freelancersRatingSatisfied => 'راضٍ';
+
+  @override
+  String get freelancersRatingNeutral => 'محايد';
+
+  @override
+  String get freelancersRatingUnsatisfied => 'غير راضٍ';
+
+  @override
+  String get freelancersWorkFailedTitle => 'تعذّر تحميل قائمة العملاء';
+
+  @override
+  String get freelancersWorkEmptyTitle => 'لا يوجد عملاء ظاهرون الآن';
+
+  @override
+  String get freelancersWorkEmptyBody =>
+      'كل عميل تم التواصل معه حديثاً يختفي تلقائياً حتى تنتهي فترة الانتظار.';
+
+  @override
+  String freelancersWorkLastVisit(String date) {
+    return 'آخر زيارة: $date';
+  }
+
+  @override
+  String get freelancersWorkDnd => 'لا يرغب بالتواصل';
+
+  @override
+  String get freelancersWorkConfirmDndTitle => 'عدم التواصل مع هذا العميل؟';
+
+  @override
+  String get freelancersWorkConfirmDndBody =>
+      'هذا العميل لن يظهر مرة أخرى في القائمة.';
+
+  @override
+  String get freelancersWorkRewardTitle => 'منح ترضية';
+
+  @override
+  String get freelancersWorkNoteHint => 'ملاحظة سريعة عن المكالمة…';
+
+  @override
+  String get freelancersWorkNoteSave => 'حفظ';
+
+  @override
+  String get freelancersWorkEscalateHint => 'ما المشكلة؟ صعّدها للإدارة…';
+
+  @override
+  String get freelancersWorkEscalate => 'تصعيد';
+
+  @override
+  String get freelancersWorkActionFailed =>
+      'تعذّر تنفيذ الإجراء، حاول مرة أخرى.';
+
+  @override
+  String get freelancersWorkCapReached => 'وصلت الحد اليومي للترضيات المسموحة.';
+
+  @override
+  String get freelancersRetry => 'إعادة المحاولة';
 }

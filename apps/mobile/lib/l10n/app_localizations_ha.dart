@@ -3926,4 +3926,255 @@ class SHa extends S {
   String whatsappOrdersShareTotal(String total) {
     return 'Jimla: $total';
   }
+
+  @override
+  String get freelancersTitle => 'Sabis Bayan Sayarwa';
+
+  @override
+  String freelancersHeroActiveCount(int active, int max) {
+    return 'Freelancer $active daga cikin $max suna aiki';
+  }
+
+  @override
+  String freelancersHeroWaitingToday(int n) {
+    return 'Abokan ciniki $n na jiran bibiya yau';
+  }
+
+  @override
+  String freelancersHeroEscalationsWarning(int n) {
+    return 'Lamura $n na bukatar hankalinka yanzu';
+  }
+
+  @override
+  String get freelancersTabRoster => 'Freelancers';
+
+  @override
+  String get freelancersTabWorkbench => 'Rikodin Aiki';
+
+  @override
+  String get freelancersRosterFailedTitle => 'An kasa loda jerin freelancers';
+
+  @override
+  String get freelancersRosterActive => 'Mai aiki';
+
+  @override
+  String get freelancersRosterDeactivate => 'Dakatar';
+
+  @override
+  String get freelancersRosterAddButton => 'Kara freelancer';
+
+  @override
+  String get freelancersRosterEmptyTitle =>
+      'Babu freelancer da aka hada tukuna';
+
+  @override
+  String get freelancersRosterEmptyBody =>
+      'Kara freelancer da kake amincewa da shi don fara bin diddigin abokan ciniki bayan kowace ziyara.';
+
+  @override
+  String get freelancersRosterConfirmDeactivateTitle =>
+      'Dakatar da wannan freelancer?';
+
+  @override
+  String get freelancersRosterConfirmDeactivateBody =>
+      'Zai bude wuri sabo a karkashin iyaka (3). Za ka iya kara wani freelancer bayan haka.';
+
+  @override
+  String get freelancersRosterConfirmDeactivateConfirm => 'Dakatar';
+
+  @override
+  String get freelancersRosterConfirmDeactivateCancel => 'Soke';
+
+  @override
+  String get freelancersRosterRulesButton => 'Ka\'idojin Aiki';
+
+  @override
+  String get freelancersRosterOptionsButton => 'Jerin Ladoji';
+
+  @override
+  String get freelancersRosterExportButton => 'Fitar da Bayanai';
+
+  @override
+  String freelancersEscalationsOpenTitle(int n) {
+    return 'Lamura $n na bukatar hankalinka yanzu';
+  }
+
+  @override
+  String get freelancersEscalationsResolve => 'An Warware';
+
+  @override
+  String get freelancersAddTitle => 'Kara freelancer';
+
+  @override
+  String get freelancersAddNameLabel => 'Suna';
+
+  @override
+  String get freelancersAddNameHint => 'Sunan freelancer';
+
+  @override
+  String get freelancersAddPhoneLabel => 'Lambar waya';
+
+  @override
+  String get freelancersAddPhoneHint => '05xxxxxxxx';
+
+  @override
+  String get freelancersAddNote =>
+      'Dole ka riga ka yi hulda da wannan mutumin da kanka — babu kasuwa, babu jeri.';
+
+  @override
+  String get freelancersAddFailed =>
+      'An kasa karawa — duba lambar da tabbatar akwai wuri a karkashin iyaka (3).';
+
+  @override
+  String get freelancersAddSubmit => 'Kara';
+
+  @override
+  String get freelancersRulesTitle => 'Ka\'idojin aiki';
+
+  @override
+  String get freelancersRulesCooldownLabel => 'Lokacin jira (kwana)';
+
+  @override
+  String get freelancersRulesCooldownHelp =>
+      'Abokin ciniki da an tuntuba kwanan nan yana boye har sai wannan lokaci ya kare.';
+
+  @override
+  String get freelancersRulesCapLabel => 'Iyakar ladoji na kullum';
+
+  @override
+  String get freelancersRulesCapHelp =>
+      'Mafi yawan ladoji da freelancer daya zai iya bayarwa a rana.';
+
+  @override
+  String get freelancersRulesSave => 'Ajiye';
+
+  @override
+  String get freelancersOptionsTitle => 'Jerin ladoji da aka yarda';
+
+  @override
+  String get freelancersOptionsEmpty => 'Babu lada da aka kara tukuna.';
+
+  @override
+  String get freelancersOptionsKindGift => 'Kyauta';
+
+  @override
+  String get freelancersOptionsKindPoints => 'Maki';
+
+  @override
+  String get freelancersOptionsKindDiscount => 'Rangwame';
+
+  @override
+  String get freelancersOptionsLabelHint => 'misali: Wankin waje kyauta';
+
+  @override
+  String get freelancersOptionsPercentLabel => 'Kashi %';
+
+  @override
+  String get freelancersOptionsPointsLabel => 'Maki';
+
+  @override
+  String get freelancersOptionsSubmit => 'Kara';
+
+  @override
+  String get freelancersExportTitle => 'Fitar da bayanan kira';
+
+  @override
+  String get freelancersExportPresetWeek => 'Wannan mako';
+
+  @override
+  String get freelancersExportPresetMonth => 'Wannan wata';
+
+  @override
+  String get freelancersExportPreset90d => 'Kwana 90';
+
+  @override
+  String get freelancersExportPresetYear => 'Wannan shekara';
+
+  @override
+  String get freelancersExportPresetCustom => 'Na musamman';
+
+  @override
+  String get freelancersExportFromLabel => 'Daga';
+
+  @override
+  String get freelancersExportToLabel => 'Zuwa';
+
+  @override
+  String get freelancersExportIncludePii => 'Hada suna da lambar abokin ciniki';
+
+  @override
+  String get freelancersExportRun => 'Fitar';
+
+  @override
+  String get freelancersExportEmpty => 'Babu bayanai a wannan lokacin.';
+
+  @override
+  String get freelancersWorkSearchHint => 'Nemi da suna ko lamba…';
+
+  @override
+  String get freelancersWorkFilterAll => 'Duk abokan ciniki';
+
+  @override
+  String get freelancersWorkFilterNew => 'Sabo — ba a tuntuba tukuna';
+
+  @override
+  String get freelancersRatingSatisfied => 'Gamsu';
+
+  @override
+  String get freelancersRatingNeutral => 'Tsaka tsaki';
+
+  @override
+  String get freelancersRatingUnsatisfied => 'Bai gamsu ba';
+
+  @override
+  String get freelancersWorkFailedTitle => 'An kasa loda jerin abokan ciniki';
+
+  @override
+  String get freelancersWorkEmptyTitle =>
+      'Babu abokan ciniki da za a nuna yanzu';
+
+  @override
+  String get freelancersWorkEmptyBody =>
+      'Abokin ciniki da an tuntuba kwanan nan yana boye kai tsaye har sai lokacin jira ya kare.';
+
+  @override
+  String freelancersWorkLastVisit(String date) {
+    return 'Ziyara ta karshe: $date';
+  }
+
+  @override
+  String get freelancersWorkDnd => 'Baya son hulda';
+
+  @override
+  String get freelancersWorkConfirmDndTitle =>
+      'Dakatar da hulda da wannan abokin ciniki?';
+
+  @override
+  String get freelancersWorkConfirmDndBody =>
+      'Wannan abokin ciniki ba zai sake bayyana a jerin ba.';
+
+  @override
+  String get freelancersWorkRewardTitle => 'Ba da lada';
+
+  @override
+  String get freelancersWorkNoteHint => 'Yan bayani game da kiran…';
+
+  @override
+  String get freelancersWorkNoteSave => 'Ajiye';
+
+  @override
+  String get freelancersWorkEscalateHint => 'Mene ne matsalar? Kai wa shago…';
+
+  @override
+  String get freelancersWorkEscalate => 'Kai wa';
+
+  @override
+  String get freelancersWorkActionFailed =>
+      'An kasa kammala aikin, sake gwadawa.';
+
+  @override
+  String get freelancersWorkCapReached => 'Kai iyakar ladoji na yau.';
+
+  @override
+  String get freelancersRetry => 'Sake gwadawa';
 }

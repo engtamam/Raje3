@@ -46,11 +46,12 @@ def _refuse(exc: Exception) -> None:
 
 
 @router.get("/customers", dependencies=[Depends(rate_limit)])
-async def list_customers(request: Request, limit: int = 50,
+async def list_customers(request: Request, limit: int = 50, search: str = "",
+                         status_filter: str = "",
                          principal: Principal = Depends(_ANY)) -> dict:
     tenant = _tenant(principal)
     rows = await request.app.state.container.freelancer_crm.filtered_customers(
-        tenant, limit=min(limit, 200))
+        tenant, limit=min(limit, 200), search=search, status_filter=status_filter)
     return {"customers": rows}
 
 
