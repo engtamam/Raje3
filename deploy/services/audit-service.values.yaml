@@ -133,6 +133,15 @@ env:
   # before launch. Enforced by the chart's CronJob (/internal/audit/enforce-retention, 23:03).
   RETENTION_DAYS: "1095"
 
+  # NEW BOOT GUARD AT v0.25.51 (assert_retention_hold_ok, audit-005) — RETENTION_DAYS>0 with no
+  # legal-hold driver refuses to start in production, since the nightly purge could delete
+  # evidence under an active hold. We have a real compliance-service, so the real protection
+  # (HOLD_REFS_DRIVER=http) is the correct fix here, never the "accept unprotected purges"
+  # escape hatch — same COMPLIANCE_SERVICE_URL convention insights/notification-service/
+  # operations/reminders/whatsapp-assistant already point at this service with.
+  HOLD_REFS_DRIVER: "http"
+  COMPLIANCE_SERVICE_URL: "http://compliance-service:8000"
+
   # ── Ingest ────────────────────────────────────────────────────────────────────────────────
   # Only the sink topic. Services POST here over HTTP (AUDIT_SINK_DRIVER=http); this catches a
   # service configured for the eventbus sink instead, so neither is silently unwitnessed.
