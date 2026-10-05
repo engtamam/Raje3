@@ -90,6 +90,14 @@ env:
   # traffic spike) does not rediscover this one service at a time.
   DATASTORE_POOL_MAX: "10"
 
+  # NEW BOOT GUARD AT v0.25.51 (assert_internal_policy_ok) — refuses to start in production with
+  # a destructive /internal route left default-open. No real caller found for any of the three
+  # (confirmed by grep across services/) — this only satisfies the boot guard, it does not imply
+  # a real caller exists today, same posture search-service's/tenant-service's own identical note
+  # already takes.
+  INTERNAL_ROUTE_POLICY_JSON: |
+    {"/internal/privacy/erase": ["*"], "/internal/backup/import": ["*"], "/internal/analytics/prune-raw": ["*"]}
+
   TOKEN_VERIFIER_DRIVER: "jwks"
   TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
