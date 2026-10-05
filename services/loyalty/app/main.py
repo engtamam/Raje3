@@ -24,6 +24,7 @@ from app.api.v1 import router as v1_router
 from app.api.v1.operator import router as operator_router
 from app.config import get_settings
 from app.core.audit import build_auditor
+from app.core.earn import visit_event_args
 from app.container import build_container
 from app.middleware import (
     BodyLimitMiddleware,
@@ -94,16 +95,7 @@ def create_app() -> FastAPI:
             payload = getattr(event, "payload", None) or {}
             try:
                 await container.earner.from_visit(
-                    str(payload.get("tenant") or ""),
-                    # Idempotent BY visit_id: the ledger refuses a second entry from the same
-                    # source, so a redelivered event awards nothing twice.
-                    visit_id=str(payload.get("visit_id") or ""),
-                    subject_ref=str(payload.get("subject_ref") or ""),
-                    service_ids=list(payload.get("service_ids") or []),
-                    amount_halalas=int(payload.get("amount_halalas") or 0),
-                    actor=str(payload.get("operator_id") or ""),
-                    branch_id=str(payload.get("branch_id") or ""),
-                    package_id=str(payload.get("package_id") or ""))
+                    str(payload.get("tenant") or ""), **visit_event_args(payload))
             except Exception as exc:                                        # noqa: BLE001
                 # NEVER RAISES INTO THE BUS. The visit already happened and is not ours to undo;
                 # a handler that throws here would, on some drivers, redeliver for ever.

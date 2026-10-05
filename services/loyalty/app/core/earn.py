@@ -28,6 +28,30 @@ from app.core.ledger import Ledger
 from app.core.spend_lock import SpendBusy, SpendLock
 
 
+def visit_event_args(payload: dict[str, Any]) -> dict[str, Any]:
+    """`operations.visit.recorded`'s payload, as `Earner.from_visit`'s keyword arguments.
+
+    ONE MAPPING, NAMED AND TESTED, rather than an inline call in the subscription closure — that
+    closure is where `free` was dropped: operations publishes it (core/seams.py), the closure never
+    passed it on, so every free visit a redeemed `service` reward records earned points on the live
+    path — the defect `test_a_free_visit_earns_nothing` names, closed on the internal route and
+    the catch-up but left open on the bus (found live, seeding a demo shop: a free «قص شعر» earned
+    its 20 points). The catch-up (`catch_up`) already passes `free`; this is the same field.
+    """
+    return {
+        # Idempotent BY visit_id: the ledger refuses a second entry from the same source, so a
+        # redelivered event awards nothing twice.
+        "visit_id": str(payload.get("visit_id") or ""),
+        "subject_ref": str(payload.get("subject_ref") or ""),
+        "service_ids": list(payload.get("service_ids") or []),
+        "amount_halalas": int(payload.get("amount_halalas") or 0),
+        "actor": str(payload.get("operator_id") or ""),
+        "branch_id": str(payload.get("branch_id") or ""),
+        "package_id": str(payload.get("package_id") or ""),
+        "free": bool(payload.get("free")),
+    }
+
+
 class Earner:
     def __init__(self, ledger: Ledger, settings: EarnStore, cache: Any = None) -> None:
         self.ledger = ledger

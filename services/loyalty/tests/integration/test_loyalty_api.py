@@ -343,6 +343,11 @@ def test_the_till_redeems_and_returns_what_the_receipt_must_carry(client, owner)
     body = r.json()
     assert body["discount_halalas"] == 5000
     assert body["transaction_ref"].startswith("rdm_")
+    # THE CONTRACT operations' visit-points and delivery-order callers read: without
+    # `redemption.reward_type` they refused every discount after the points were already spent.
+    assert body["redemption"]["reward_type"] == "discount"
+    assert body["redemption"]["discount_halalas"] == 5000
+    assert body["redemption"]["id"] == body["transaction_ref"]
 
 
 def test_a_service_reward_redeemed_at_the_till_is_recorded_as_a_visit(client, owner):
