@@ -1215,8 +1215,22 @@ class AuthService {
   Future<List<BillingPlan>?> fetchPurchasablePlans(
       {List<String> visibleOverrideKeys = const []}) async {
     try {
-      final response =
-          await apiClient.dio.get<dynamic>('/api/v1/billing/plans');
+      // HIDDEN PLANS ONLY ARRIVE WHEN ASKED FOR — billing omits every `listed: false` plan unless
+      // the call says `include_hidden=true` (honoured for `billing.manage`, which the owner holds),
+      // so an override key could never match anything on the plain list. Asked only when an
+      // override exists; a non-owner's refused ask falls back to the plain list. Same fix as
+      // useAppBilling.ts on the console side.
+      Response<dynamic>? response;
+      if (visibleOverrideKeys.isNotEmpty) {
+        try {
+          response = await apiClient.dio.get<dynamic>('/api/v1/billing/plans',
+              queryParameters: {'include_hidden': true});
+          if ((response.statusCode ?? 0) >= 400) response = null;
+        } on DioException {
+          response = null;
+        }
+      }
+      response ??= await apiClient.dio.get<dynamic>('/api/v1/billing/plans');
       if ((response.statusCode ?? 0) >= 400) return null;
       final body = response.data;
       if (body is! Map) return null;
@@ -1390,8 +1404,10 @@ class AuthService {
     try {
       final response = await apiClient.dio.post<dynamic>(
           '/api/v1/billing/subscriptions/$subscriptionId/change',
+          // `new_plan_id`, not `plan_id` — billing's ChangeIn field name; `plan_id` was refused
+          // 422 on every press. Same fix as the console's useAppBilling.ts.
           data: {
-            'plan_id': planId,
+            'new_plan_id': planId,
             'quantity': quantity,
           });
       return (response.statusCode ?? 0) < 400;
