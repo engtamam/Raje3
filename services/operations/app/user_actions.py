@@ -134,6 +134,29 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "visit_id", "in": "path", "type": "string", "required": True}],
     },
     {
+        "id": "operations.offer_preview", "label": "معاينة العرض قبل الحفظ", "method": "GET",
+        "path": "/api/v1/field/visits/offer/preview", "capability": "operations.record",
+        "group": "الشاشة",
+        "help": "ما سيُطبَّق فعلاً لو حُفظت الزيارة الآن، لعميل ما سُجّلت زيارته بعد.",
+        "params": [{"name": "phone", "in": "query", "type": "string", "required": True},
+                   {"name": "subject_ref", "in": "query", "type": "string", "required": False},
+                   {"name": "service_ids", "in": "query", "type": "string", "required": False}],
+    },
+    {
+        "id": "operations.visit_points_available", "label": "النقاط المتاحة لهذه الزيارة",
+        "method": "GET", "path": "/api/v1/field/visits/{visit_id}/points",
+        "capability": "operations.record", "group": "الشاشة",
+        "help": "ما يقدر عميل هذه الزيارة يستبدله بدل العرض التلقائي.",
+        "params": [{"name": "visit_id", "in": "path", "type": "string", "required": True}],
+    },
+    {
+        "id": "operations.visit_points_redeem", "label": "استبدال نقاط لهذه الزيارة",
+        "method": "POST", "path": "/api/v1/field/visits/{visit_id}/points",
+        "capability": "operations.record", "group": "الشاشة",
+        "help": "يستهلك نقاط العميل بدل العرض التلقائي — فتحة واحدة لكل زيارة، نفس فتحة العرض.",
+        "params": [{"name": "visit_id", "in": "path", "type": "string", "required": True}],
+    },
+    {
         "id": "operations.privacy_requests", "label": "طلبات عملائي على بياناتهم", "method": "GET",
         "path": "/api/v1/field/privacy-requests", "capability": "operations.manage",
         "group": "Customers",
@@ -1166,6 +1189,16 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
             "account credential. Our own screens apply it through the field route with the "
             "operator's token; rendering this in a console would offer an owner a button that "
             "spends a discount against a visit his till has not recorded"},
+    {"method": "GET", "path": "/api/v1/till/points/available",
+     "why": "the till's own read of what a visit's customer could redeem, same service-account "
+            "door as /till/offer/apply above. Our own screens read the same thing through the "
+            "field route (operations.visit_points_available) with the operator's token"},
+    {"method": "POST", "path": "/api/v1/till/points/redeem",
+     "why": "the cashier's software spending the customer's points at the counter, same "
+            "service-account door as /till/offer/apply above. Our own screens redeem the same "
+            "way through the field route (operations.visit_points_redeem) with the operator's "
+            "token; rendering this in a console would offer an owner a button that spends points "
+            "against a visit his till has not recorded"},
     {"method": "POST", "path": "/api/v1/till/visits",
      "why": "a machine's route, not a control: it is called by a shop's point-of-sale on a service "
             "account credential, and no person ever presses it. Rendering it in a console would "

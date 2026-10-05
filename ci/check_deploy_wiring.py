@@ -718,12 +718,16 @@ if tenant_roles.is_file():
                             and isinstance(v, ast.List)):
                         ours |= {e.value for e in v.elts
                                  if isinstance(e, ast.Constant) and isinstance(e.value, str)}
-        # platform.*, the partner's, and the affiliate marketer's are deliberately NOT the
-        # owner's: platform.* is ours, partner.read belongs to a till company, and
-        # affiliates.self belongs to a marketer promoting shops — none of the three is a role an
+        # platform.*, the partner's, the affiliate marketer's, and the freelancer portal's are
+        # deliberately NOT the owner's: platform.* is ours, partner.read belongs to a till
+        # company, affiliates.self belongs to a marketer promoting shops, and
+        # operations.freelancer_portal is minted ONLY for an external freelancer's own token at
+        # login time (core/freelancer_service.py's own module docstring) — never granted via
+        # roles.json to any staff member, owner included. None of the four is a role an
         # establishment's own owner ever holds.
         expected = {c for c in ours
-                    if not c.startswith("platform.") and c not in ("partner.read", "affiliates.self")}
+                    if not c.startswith("platform.")
+                    and c not in ("partner.read", "affiliates.self", "operations.freelancer_portal")}
         for cap in sorted(expected - held):
             fail("deploy/seed/roles.json",
                  f"`{cap}` is declared by a service but the owner role does not hold it — a "

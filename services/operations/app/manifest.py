@@ -105,7 +105,15 @@ def build_manifest(
                          # balance, not the aggregate-only figures every operations.read holder
                          # already sees. An ordinary staff role reads the customer book without
                          # also reading who is owed money and by what phone.
-                         "operations.affiliates_read"],
+                         "operations.affiliates_read",
+                         # خدمات ما بعد البيع — _manage is the shop's own link/rules/reward-catalog/
+                         # escalation-inbox admin (owner/manager/marketer/supervisor only, roles.json's
+                         # own note). _portal is the ONE capability a freelancer's own externally-
+                         # issued token may ever carry (core/freelancer_service.py's own module
+                         # docstring) — never granted to staff via roles.json, only minted at the
+                         # freelancer's own login time; declared here so `require_any_capability`
+                         # can recognise it at all.
+                         "operations.freelancer_manage", "operations.freelancer_portal"],
         "endpoints": [
             # `/api/v1/admin/ping` USED TO BE DECLARED HERE and this service has never served it.
             # It came from the generated scaffold, survived every review, and the gate that catches

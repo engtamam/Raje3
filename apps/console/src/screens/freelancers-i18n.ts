@@ -51,7 +51,7 @@ registerOperatorStrings({
     'fl.export.title': 'تصدير ملاحظات التواصل',
     'fl.export.preset.week': 'هذا الأسبوع',
     'fl.export.preset.month': 'هذا الشهر',
-    'fl.export.preset.90d': '٩٠ يوماً',
+    'fl.export.preset.90d': '90 يوماً',
     'fl.export.preset.year': 'هذا العام',
     'fl.export.preset.custom': 'مخصص',
     'fl.export.fromLabel': 'من',

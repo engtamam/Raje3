@@ -4074,7 +4074,7 @@ class SAr extends S {
   String get freelancersExportPresetMonth => 'هذا الشهر';
 
   @override
-  String get freelancersExportPreset90d => '٩٠ يوماً';
+  String get freelancersExportPreset90d => '90 يوماً';
 
   @override
   String get freelancersExportPresetYear => 'هذا العام';

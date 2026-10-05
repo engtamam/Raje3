@@ -6954,7 +6954,7 @@ abstract class S {
   /// No description provided for @freelancersExportPreset90d.
   ///
   /// In ar, this message translates to:
-  /// **'٩٠ يوماً'**
+  /// **'90 يوماً'**
   String get freelancersExportPreset90d;
 
   /// No description provided for @freelancersExportPresetYear.
