@@ -61,16 +61,65 @@ def test_two_concurrent_visits_for_the_same_customer_never_lose_an_increment(ops
             return_exceptions=True)
 
     results = run(go())
-    succeeded = [r for r in results if not isinstance(r, Exception)]
     busy = [r for r in results if isinstance(r, CustomerCounterBusy)]
 
-    # ONE OF THE TWO GENUINELY CONCURRENT CALLS WINS THE LOCK; THE OTHER IS REFUSED LOUDLY — never
-    # both silently "succeeding" with one increment lost between them.
-    assert len(succeeded) == 1, f"expected exactly one winner, got {results}"
-    assert len(busy) == 1
+    # BOTH CONCURRENT VISITS LAND AND BOTH ARE COUNTED. The losing call used to be refused — but
+    # only AFTER its visit row was saved, so the shop held three visits and a counter of two, and
+    # the refused one never ran its seams (no points, no reminder). The lock now waits its turn.
+    assert not busy, f"neither call may be refused for a lock held only milliseconds, got {results}"
+    assert all(not isinstance(r, Exception) for r in results), results
 
-    from app.core.models import CUSTOMERS
+    from app.core.models import CUSTOMERS, VISITS
     row = run(store._inner.get(CUSTOMERS, f"{T}|{customer_id}"))
-    assert row["visit_count"] == 2, (
-        f"expected exactly 2 counted visits (the seed + the one winner), got {row['visit_count']}"
+    visits, _ = run(store._inner.find(VISITS, {"tenant": T, "customer_id": customer_id}, limit=50))
+    assert len(visits) == 3
+    assert row["visit_count"] == len(visits), (
+        f"the counter must agree with the visits actually saved: {row['visit_count']} vs {len(visits)}"
     )
+
+
+def test_replaying_an_older_visits_key_never_counts_it_twice(ops):
+    """A queue retrying a request that had in fact succeeded — after ANOTHER visit for the same
+    customer landed in between — must change nothing. The replay used to ask the customer's
+    `counted_visit_id` (which only remembers the last visit counted), saw a different id, and
+    counted the older visit a second time."""
+    operations, store = ops
+    first = run(operations.record_visit(tenant=T, phone=PHONE, service_ids=["svc1"],
+                                        idempotency_key="visit-1"))
+    run(operations.record_visit(tenant=T, phone=PHONE, service_ids=["svc1"],
+                                idempotency_key="visit-2"))
+    run(operations.record_visit(tenant=T, phone=PHONE, service_ids=["svc1"],
+                                idempotency_key="visit-3"))
+    # Every key replayed, oldest first — each is a duplicate and none may move the counter.
+    for key in ("visit-1", "visit-2", "visit-3", "visit-1"):
+        replay = run(operations.record_visit(tenant=T, phone=PHONE, service_ids=["svc1"],
+                                             idempotency_key=key))
+        assert replay.duplicate
+
+    from app.core.models import CUSTOMERS, VISITS
+    row = run(store._inner.get(CUSTOMERS, f"{T}|{first.customer.id}"))
+    visits, _ = run(store._inner.find(VISITS, {"tenant": T, "customer_id": first.customer.id},
+                                      limit=50))
+    assert len(visits) == 3
+    assert row["visit_count"] == 3, f"replays re-counted visits: visit_count={row['visit_count']}"
+    assert all(v.get("counted") for v in visits)
+
+
+def test_a_visit_saved_before_its_counters_is_counted_once_by_its_retry(ops):
+    """The crash window `Visit.counted` exists for: the visit row is written uncounted and the
+    process dies before the counters move. The retry of its key must count it — exactly once."""
+    operations, store = ops
+    first = run(operations.record_visit(tenant=T, phone=PHONE, service_ids=["svc1"],
+                                        idempotency_key="visit-1"))
+    from app.core.models import CUSTOMERS, VISITS
+    # The interrupted write, reproduced: the visit on record uncounted, the counter behind it.
+    vkey, ckey = f"{T}|{first.visit.id}", f"{T}|{first.customer.id}"
+    v = run(store._inner.get(VISITS, vkey))
+    run(store._inner.put(VISITS, vkey, {**v, "counted": False}))
+    c = run(store._inner.get(CUSTOMERS, ckey))
+    run(store._inner.put(CUSTOMERS, ckey, {**c, "visit_count": 0, "counted_visit_id": ""}))
+
+    for _ in range(2):
+        run(operations.record_visit(tenant=T, phone=PHONE, service_ids=["svc1"],
+                                    idempotency_key="visit-1"))
+    assert run(store._inner.get(CUSTOMERS, ckey))["visit_count"] == 1
