@@ -16,14 +16,28 @@
  * session for the same reason), and a session is MINTED FRESH whenever the saved one is spent —
  * the same `/api/v1/signup/signin` the door itself calls, never a second auth path of our own.
  * Refresh is not replaced by this and does not need to be: this simply never depends on it.
+ *
+ * PROFILES. More than one demo shop exists — the salon tours are recorded against
+ * (`seed-demo-account.mjs`, the default, unnamed profile) and the every-app test shop
+ * (`seed-demo-apps/`, profile "apps"). Each gets its own pair of files
+ * (`.demo-session.<profile>.json` / `.demo-credentials.<profile>.json`), so seeding one can never
+ * overwrite the other's only way back in. Every function takes the profile as an optional last
+ * argument; omitted, it is the original unnamed pair, byte-for-byte the files it always was.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-export const SESSION_FILE = join(HERE, '..', '.demo-session.json');
-export const CREDENTIALS_FILE = join(HERE, '..', '.demo-credentials.json');
+
+export function sessionFile(profile = '') {
+  return join(HERE, '..', profile ? `.demo-session.${profile}.json` : '.demo-session.json');
+}
+export function credentialsFile(profile = '') {
+  return join(HERE, '..', profile ? `.demo-credentials.${profile}.json` : '.demo-credentials.json');
+}
+export const SESSION_FILE = sessionFile();
+export const CREDENTIALS_FILE = credentialsFile();
 
 /** Seconds of remaining life below which a token is treated as already spent — the same sixty
  *  seconds apps/console/src/renew.ts uses, for the same reason: a slow call must not start on a
@@ -39,22 +53,24 @@ function expiresAt(token) {
   }
 }
 
-export function readDemoSession() {
-  if (!existsSync(SESSION_FILE)) return null;
-  return JSON.parse(readFileSync(SESSION_FILE, 'utf8'));
+export function readDemoSession(profile = '') {
+  const file = sessionFile(profile);
+  if (!existsSync(file)) return null;
+  return JSON.parse(readFileSync(file, 'utf8'));
 }
 
-export function readDemoCredentials() {
-  if (!existsSync(CREDENTIALS_FILE)) return null;
-  return JSON.parse(readFileSync(CREDENTIALS_FILE, 'utf8'));
+export function readDemoCredentials(profile = '') {
+  const file = credentialsFile(profile);
+  if (!existsSync(file)) return null;
+  return JSON.parse(readFileSync(file, 'utf8'));
 }
 
-export function saveDemoCredentials(phone, password) {
-  writeFileSync(CREDENTIALS_FILE, JSON.stringify({ phone, password }, null, 2), 'utf8');
+export function saveDemoCredentials(phone, password, profile = '') {
+  writeFileSync(credentialsFile(profile), JSON.stringify({ phone, password }, null, 2), 'utf8');
 }
 
-export function saveDemoSession(session) {
-  writeFileSync(SESSION_FILE, JSON.stringify(session, null, 2), 'utf8');
+export function saveDemoSession(session, profile = '') {
+  writeFileSync(sessionFile(profile), JSON.stringify(session, null, 2), 'utf8');
 }
 
 /**
@@ -69,13 +85,13 @@ export function saveDemoSession(session) {
  * account predating this file still records fine while its token is alive, and the caller's own
  * failure will say what actually went wrong if it isn't.
  */
-export async function ensureFreshDemoSession(apiBase) {
-  const session = readDemoSession();
+export async function ensureFreshDemoSession(apiBase, profile = '') {
+  const session = readDemoSession(profile);
   if (!session) return null;
   const left = expiresAt(session.token) - Math.floor(Date.now() / 1000);
   if (left > EARLY_SECONDS) return session;
 
-  const creds = readDemoCredentials();
+  const creds = readDemoCredentials(profile);
   if (!creds?.phone || !creds?.password) return session;
 
   const res = await fetch(`${apiBase}/api/v1/signup/signin`, {
@@ -94,6 +110,6 @@ export async function ensureFreshDemoSession(apiBase) {
     token: minted.access_token,
     refresh: minted.refresh_token || session.refresh,
   };
-  saveDemoSession(next);
+  saveDemoSession(next, profile);
   return next;
 }
