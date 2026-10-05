@@ -3305,5 +3305,41 @@
     },
     "kind": "field",
     "anchor": "referrals.wizard_new_customer_value_field"
+  },
+  "whatsapp-orders": {
+    "title": { "ar": "طلبات التوصيل عبر الواتساب", "en": "WhatsApp Direct Ordering" },
+    "body": {
+      "ar": "لوحة الطلبات القادمة من كتالوج واتساب — تابع كل طلب من الاستلام إلى التسليم.",
+      "en": "The live board of orders arriving from your WhatsApp catalog — follow every order from receipt to delivery."
+    },
+    "kind": "screen",
+    "anchor": "whatsapp-orders"
+  },
+  "whatsapp-orders.order_card": {
+    "title": { "ar": "بطاقة الطلب", "en": "Order card" },
+    "body": { "ar": "اضغط لفتح تفاصيل الطلب وتنفيذ الخطوة التالية.", "en": "Tap to open the order's details and act on its next step." },
+    "kind": "action",
+    "anchor": "whatsapp-orders.order_card"
+  },
+  "whatsapp-orders.pause_switch": {
+    "title": { "ar": "إيقاف استقبال الطلبات", "en": "Pause receiving orders" },
+    "body": { "ar": "يوقف استقبال طلبات واتساب الجديدة لهذا الفرع مؤقتاً.", "en": "Temporarily stops this branch from accepting new WhatsApp orders." },
+    "kind": "action",
+    "anchor": "whatsapp-orders.pause_switch"
+  },
+  "whatsapp-orders.share_toggle_switch": {
+    "title": { "ar": "إظهار زر مشاركة المندوب", "en": "Show the share-with-rep button" },
+    "body": { "ar": "يتحكم بظهور زر «مشاركة مع المندوب» على كل طلب قيد التنفيذ.", "en": "Controls whether the \"share with delivery rep\" button appears on each in-progress order." },
+    "kind": "action",
+    "anchor": "whatsapp-orders.share_toggle_switch"
+  },
+  "freelancers": {
+    "title": { "ar": "خدمات ما بعد البيع", "en": "After-Sale Service" },
+    "body": {
+      "ar": "إدارة المستقلين الذين يتابعون رضا عملائك بعد الزيارة، وسجل عملهم اليومي.",
+      "en": "Manage the freelancers who follow up on customer satisfaction after the visit, and their daily work log."
+    },
+    "kind": "screen",
+    "anchor": "freelancers"
   }
 }
