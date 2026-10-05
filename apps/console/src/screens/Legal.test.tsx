@@ -39,8 +39,8 @@ describe('Legal', () => {
   it('renders the real Terms text, with tokens already filled', () => {
     renderAt('/legal/terms');
     // A clause title and a sentence from its body — proof this is the actual document, not a stub.
-    expect(screen.getAllByText(/الأطراف والقبول/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/تُبرَم هذه الشروط بين/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/مقدمة وتعريفات/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/تحكم هذه الشروط والأحكام/).length).toBeGreaterThan(0);
     // The placeholder company name from `values:` was substituted into the clause text.
     expect(screen.getAllByText(/راجِع/).length).toBeGreaterThan(0);
     // No unfilled token leaks into what a reader sees.

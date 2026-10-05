@@ -20,7 +20,7 @@ vi.mock('../api', async (importOriginal) => {
     ...real,
     earnSettings: (...args: unknown[]) => earnMock(),
     customerByPhone: (...args: unknown[]) => customerByPhoneMock(),
-    offerFor: () => Promise.resolve({ service_ids: [] }),
+    offerPreview: () => Promise.resolve({ service_ids: [] }),
     balanceFor: () => Promise.resolve({ points: 0, rewards: [], to_next_reward: 0 }),
     noShowRisk: () => Promise.resolve(null),
     suggestByPrefix: () => Promise.resolve([]),
