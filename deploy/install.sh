@@ -294,14 +294,21 @@ else
     CLONE_DIR="$(mktemp -d)"
     if git clone --quiet --depth 1 --branch "$PINNED_RELEASE" \
         "https://x-access-token:${GHCR_TOKEN}@${PLATFORM_REPO_URL#https://}" "$CLONE_DIR"; then
-      # ONLY THE THREE DIRECTORIES THIS INSTALLER READS FROM (bring-up.sh's own CHART/k3s/server
-      # references) — same scope deploy/pack.sh's own header comment holds itself to: never the
-      # upstream repo's application services, docs or tests, which have no business on this box.
-      for d in chart k3s server; do
-        [ -d "$CLONE_DIR/deploy/$d" ] || die "$PINNED_RELEASE لا يحوي platform/deploy/$d — وسم ناقص؟"
-        rm -rf "$ROOT/platform/deploy/$d"
-        mkdir -p "$ROOT/platform/deploy"
-        cp -r "$CLONE_DIR/deploy/$d" "$ROOT/platform/deploy/$d"
+      # ONLY THE DIRECTORIES THIS INSTALLER READS FROM (bring-up.sh's own CHART/k3s/server AND
+      # tools/edge references) — same scope deploy/pack.sh's own header comment holds itself to:
+      # never the upstream repo's application services, docs or tests, which have no business on
+      # this box.
+      #
+      # tools/edge WAS MISSING HERE UNTIL NOW — found live (2026-10-05): a from-scratch install
+      # never populates platform/ except through this loop, so bring-up.sh's edge step always
+      # failed `python3 .../platform/tools/edge/render.py: No such file or directory` on a box
+      # that had never separately received a pack.sh tarball with tools/edge in it. The domain
+      # answered nothing and every other signal (31/32 services ready, "raje3 rolled") looked fine.
+      for d in deploy/chart deploy/k3s deploy/server tools/edge; do
+        [ -d "$CLONE_DIR/$d" ] || die "$PINNED_RELEASE لا يحوي platform/$d — وسم ناقص؟"
+        rm -rf "$ROOT/platform/$d"
+        mkdir -p "$ROOT/platform/$(dirname "$d")"
+        cp -r "$CLONE_DIR/$d" "$ROOT/platform/$d"
       done
       rm -rf "$CLONE_DIR"
       ok "قالب المنصة زُومن مع $PINNED_RELEASE (سُحب مباشرة، بلا وسيط)"
