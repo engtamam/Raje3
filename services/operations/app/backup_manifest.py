@@ -108,6 +108,24 @@ BACKUP: dict[str, Any] = {
         {"name": "mutual_benefit_agreements", "tenant_scoped": False},
         {"name": "mutual_benefit_grants", "tenant_scoped": False},
         {"name": "mutual_benefit_audit_log", "tenant_scoped": False},
+        # «طلبات التوصيل عبر الواتساب» (core/orders.py, core/order_pause.py,
+        # core/order_share_toggle.py). All keyed by tenant (order_pause also by branch within it).
+        {"name": "whatsapp_orders", "tenant_scoped": True},
+        {"name": "order_pause", "tenant_scoped": True},
+        {"name": "whatsapp_order_share_toggle", "tenant_scoped": True},
+        # The catalog-image sharing token (core/public_catalog_image.py) — keyed by the token
+        # itself, not by tenant, so a per-tenant restore cannot isolate it; the tenant it belongs
+        # to lives as a field INSIDE each row, not in the key.
+        {"name": "public_catalog_image_index", "tenant_scoped": False},
+        # خدمات ما بعد البيع (core/freelancer_service.py, core/freelancer_crm.py) — every
+        # collection keyed "{tenant}|{id}" except customer_service_rules, keyed by tenant itself.
+        {"name": "customer_service_freelancers", "tenant_scoped": True},
+        {"name": "customer_service_rules", "tenant_scoped": True},
+        {"name": "customer_service_reward_options", "tenant_scoped": True},
+        {"name": "customer_service_contacts", "tenant_scoped": True},
+        {"name": "customer_service_reward_grants", "tenant_scoped": True},
+        {"name": "customer_service_escalations", "tenant_scoped": True},
+        {"name": "customer_service_notes", "tenant_scoped": True},
     ],
     # Nothing is excluded. The idempotency key lives ON the visit row rather than in a side table,
     # precisely so there is no collection anyone has to argue about — an excluded collection is a
