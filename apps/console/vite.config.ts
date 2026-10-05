@@ -85,6 +85,14 @@ export default defineConfig({
         target: process.env.CLUSTER ?? 'http://127.0.0.1:8090',
         changeOrigin: true,
       },
+      // THE PUBLIC `/p/…` PAGES TOO (coworking's freelancer portal, `/p/coworking/{tenant}`) — the
+      // gateway serves them beside `/api` on the same origin in production; proxying only `/api`
+      // left them a vite 404 in development, so the shareable link a shop hands its freelancers
+      // could not be opened, and nothing could join or book through it locally.
+      '/p/': {
+        target: process.env.CLUSTER ?? 'http://127.0.0.1:8090',
+        changeOrigin: true,
+      },
     },
   },
   // `e2e/` IS PLAYWRIGHT'S, AND VITEST MUST NOT OPEN IT. Both call their entry point `test`, so

@@ -40,9 +40,16 @@ class Seams:
     async def after_visit(self, result) -> None:
         # One try/except per seam, not one around all three. A failure in the first must not
         # silently skip the other two — that would make one broken peer look like three.
-        await self._index_customer(result)
-        await self._emit_visit(result)
-        await self._mark_seamed(result)
+        indexed = await self._index_customer(result)
+        emitted = await self._emit_visit(result)
+        # STAMPED ONLY WHEN THE WORK LANDED. This stamped every visit, whether or not its seams had
+        # failed — so a customer whose index write was refused (search-service answering 500 under
+        # contention, seen live) was marked done, and the reseam sweep that exists to repair exactly
+        # that never came back for him: unfindable by the keypad until his next visit. Left
+        # unstamped, the sweep repeats the pass, which is harmless — the index write is idempotent
+        # by document id and the event carries the visit id consumers dedupe on.
+        if indexed and emitted:
+            await self._mark_seamed(result)
 
     async def _mark_seamed(self, result) -> None:
         """Write down that this visit's after-work finished (ز-7).
@@ -65,7 +72,7 @@ class Seams:
             self._note("seam_mark_failed", error=str(exc)[:200],
                        visit=getattr(visit, "id", ""))
 
-    async def _index_customer(self, result) -> None:
+    async def _index_customer(self, result) -> bool:
         """Make the customer findable by the keypad.
 
         Indexed on EVERY visit rather than only on creation: the name may have arrived later, and
@@ -73,24 +80,29 @@ class Seams:
         and idempotent by document id.
         """
         c = result.customer
-        await self.index_customer_row(
+        return await self.index_customer_row(
             tenant=c.tenant, customer_id=c.id, phone=c.phone, name=c.name,
             plates=list(getattr(result, "plates", []) or []),
             branch_id=getattr(c, "last_branch_id", "") or "")
 
     async def index_customer_row(self, *, tenant: str, customer_id: str, phone: str,
-                                 name: str, plates: list[str], branch_id: str = "") -> None:
-        """The ONE place a customer's search document is composed.
+                                 name: str, plates: list[str], branch_id: str = "") -> bool:
+        """The ONE place a customer's search document is composed. True when the document is in
+        the index (or there is no index to write to), False when the write did not land.
 
         TWO CALLERS, ONE SHAPE. The visit path writes it as it happens, and the backfill rewrites
         it for customers who came before a field existed — and if those two ever disagreed, half a
         shop would be searchable by a field the other half is not, which is worse than the field
         not existing at all.
         """
-        if self._search is None:
-            return
+        # NO INDEX CONFIGURED IS NOTHING TO DO, NOT A FAILED WRITE. `NullSearch` (tests, a local
+        # run; refused in production by config.py's boot guard) answers False because it indexed
+        # nothing — read as a refusal, every visit would stay unstamped and the reseam sweep would
+        # replay it forever.
+        if self._search is None or getattr(self._search, "driver", "") == "null":
+            return True
         try:
-            await self._search.index(
+            indexed = await self._search.index(
                 index=self._index, doc_id=customer_id, tenant=tenant,
                 fields={
                     # STORED E.164, and the operator types 05. Both forms are indexed because the
@@ -125,8 +137,16 @@ class Seams:
                 })
         except Exception as exc:                                            # noqa: BLE001
             self._note("search_index_failed", error=str(exc)[:200], customer=customer_id)
+            return False
+        # A REFUSAL IS A RETURN VALUE, NOT AN EXCEPTION — the adapter never raises (it runs after
+        # the operator has been answered) and says False instead, and that False used to fall on
+        # the floor here: the one failure this seam can actually have was the one never recorded.
+        if indexed is False:
+            self._note("search_index_failed", error="index write refused", customer=customer_id)
+            return False
+        return True
 
-    async def _emit_visit(self, result) -> None:
+    async def _emit_visit(self, result) -> bool:
         """Publish the fact, for whoever cares.
 
         `reminders` will schedule from this, `insights` will count it. Publishing rather than
@@ -137,7 +157,7 @@ class Seams:
         and one that never receives it cannot leak it.
         """
         if self._events is None:
-            return
+            return True
         v, c = result.visit, result.customer
         try:
             # An Event, not a bare dict. The port takes a typed envelope — reading the method NAME
@@ -178,6 +198,8 @@ class Seams:
             }))
         except Exception as exc:                                            # noqa: BLE001
             self._note("visit_event_failed", error=str(exc)[:200], visit=v.id)
+            return False
+        return True
 
     def _note(self, event: str, **fields: Any) -> None:
         """A failed seam is recorded, never swallowed.
@@ -187,5 +209,12 @@ class Seams:
         later somewhere that looks unrelated.
         """
         if self._telemetry is not None:
-            self._telemetry.event(event, **fields)
-            self._telemetry.counter(f"operations_seam_failed_{event}")
+            # NEVER RAISES. This runs on the visit's own path (the internal visit routes await the
+            # seams), so a telemetry hiccup — StdoutTelemetry's Prometheus counter refusing a name
+            # another instance in the same process already registered, seen in the test suite —
+            # must cost the record of a failure, never the visit itself.
+            try:
+                self._telemetry.event(event, **fields)
+                self._telemetry.counter(f"operations_seam_failed_{event}")
+            except Exception:                                               # noqa: BLE001
+                pass

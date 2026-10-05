@@ -123,6 +123,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from app.core.signup import PHONE_INDEX, canonical_phone
+from app.core.subscribe import row_plan_id
 
 AGREEMENTS = "mutual_benefit_agreements"
 GRANTS = "mutual_benefit_grants"
@@ -404,7 +405,7 @@ class MutualBenefitEngine:
         subs = await self._plans.subscriptions(tenant)
         if subs is None:
             return None
-        return any(str(s.get("plan") or "") == plan_id
+        return any(row_plan_id(s) == plan_id
                   and str(s.get("status") or "") in ("active", "trialing") for s in subs)
 
     async def _lookup_tenant_by_phone(self, phone: str) -> str:

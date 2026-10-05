@@ -232,6 +232,13 @@ env:
   # POST /internal/notify with channel=inapp; this is the ONE console-facing route that reads them
   # back, regardless of which service wrote a given item. Plain `auth: required` — every
   # signed-in operator reads his own feed, no special capability.
+  #
+  # /api/v1/referrals/reports (-> operations) — SAME DISEASE AS /api/v1/whatsapp/templates above.
+  # operations serves the referral reports (api/v1/referral_reports.py: summary, leaderboard,
+  # campaigns, affiliates) under /api/v1/referrals/reports, and the broader /api/v1/referrals ->
+  # referrals entry swallowed every one of them: the referrals service has no such route, so the
+  # console's and the mobile app's referral report cards all answered 404 (found live, seeding a
+  # local shop through this gateway). The narrower entry wins by longest-prefix-first matching.
   GATEWAY_ROUTES: |
     [
       {"prefix":"/api/v1/auth/register","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
@@ -276,6 +283,7 @@ env:
       {"prefix":"/api/v1/bookings","upstream":"http://bookings:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/coworking","upstream":"http://coworking:8000","auth":"required","strip_prefix":false},
       {"prefix":"/p/coworking","upstream":"http://coworking:8000","auth":"none","strip_prefix":false},
+      {"prefix":"/api/v1/referrals/reports","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/referrals","upstream":"http://referrals:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/wallet","upstream":"http://wallet-service:8000","auth":"required","strip_prefix":false},
 

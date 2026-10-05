@@ -192,6 +192,23 @@ def test_a_free_visit_earns_nothing():
     assert "مجانية" in res["reason"], "and the reason says which rule refused, in his words"
 
 
+def test_a_free_visit_arriving_on_the_bus_earns_nothing():
+    """THE SAME RULE ON THE LIVE PATH. The event operations publishes carries `free`; the
+    subscription used to build `from_visit`'s arguments by hand and leave it out, so a free visit
+    that the internal route and the catch-up both refused to pay for was paid for on the bus."""
+    from app.core.earn import visit_event_args
+    _, _, earner = build()
+    payload = {"tenant": T, "visit_id": "v_bus_free", "subject_ref": S, "service_ids": ["wash"],
+               "amount_halalas": 0, "operator_id": "op1", "branch_id": "b1", "free": True}
+
+    res = run(earner.from_visit(T, **visit_event_args(payload)))
+
+    assert res["earned"] == 0
+    paid = run(earner.from_visit(T, **visit_event_args({**payload, "visit_id": "v_bus_paid",
+                                                        "free": False})))
+    assert paid["earned"] == 10, "and an ordinary visit on the same path still earns"
+
+
 def test_a_paid_visit_still_earns():
     """The other direction is the expensive one: a real sale marked free stops the programme."""
     _, _, earner = build()

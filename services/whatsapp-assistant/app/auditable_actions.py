@@ -227,6 +227,17 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "moved; not critical for the same reason config_changed itself is not",
     },
     {
+        # api/v1/operator.py's knowledge sync — emitted after the owner's notes were already pushed
+        # to Meta. Undeclared, the auditor refused it there, so a push that had happened answered
+        # 500 and invited an operator to push again.
+        "action": "operator.knowledge_sync",
+        "source": "admin",
+        "critical": False,
+        "resource": "knowledge",
+        "why": "what Meta's own agent tells this shop's customers comes from the last push; who "
+               "pushed which notes, and when, is the only way to explain a reply built on them",
+    },
+    {
         "action": "operator.pricing_scheduled",
         "source": "admin",
         "critical": True,

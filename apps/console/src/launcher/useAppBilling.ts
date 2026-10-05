@@ -110,7 +110,16 @@ export function useAppBilling(
 
   const load = () => {
     if (canBrowse) {
-      call<{ plans: Plan[] }>(session, canBrowse)
+      // HIDDEN PLANS ONLY ARRIVE WHEN ASKED FOR. billing's plan list omits every `listed: false`
+      // plan unless the call says `include_hidden=true` (honoured for `billing.manage`, which the
+      // owner — the only one who can subscribe — holds). Filtering for an override key on a list
+      // that could never contain its plan meant a platform operator's override showed nothing at
+      // all (found seeding a local shop against the real billing service). Asked only when an
+      // override exists, and if a non-owner's token is refused the plain list still loads.
+      const listed = () => call<{ plans: Plan[] }>(session, canBrowse);
+      (visibleOverrideKeys.length
+        ? call<{ plans: Plan[] }>(session, canBrowse, { include_hidden: true }).catch(listed)
+        : listed())
         .then((x) => setPlans((x.plans ?? []).filter((p) => p.active !== false
           && (p.listed !== false || visibleOverrideKeys.includes(appKey(p) ?? '')))))
         .catch(() => setPlans(null));
@@ -225,7 +234,10 @@ export function useAppBilling(
     if (!a || quantity < 1) return;
     setCapacityBusyPlanId(plan.id); setCapacityError('');
     try {
-      await call(session, a, { id: sub.id, plan_id: plan.id, quantity });
+      // `new_plan_id`, NOT `plan_id` — billing's ChangeIn names the field that way (the same plan,
+      // a new quantity), and a body saying `plan_id` was refused 422 on every press of the stepper.
+      // The catalog action's own params list says `plan_id`; the route's model is what decides.
+      await call(session, a, { id: sub.id, new_plan_id: plan.id, quantity });
       load();
     } catch (e) {
       setCapacityError(e instanceof Error ? e.message : 'تعذّر تغيير الكمية.');

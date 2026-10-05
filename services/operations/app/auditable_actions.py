@@ -276,15 +276,18 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "the first question a billing dispute over any one of them would ask",
     },
     {
-        # api/v1/subscription.py::checkout_cart_link — billing already created the invoice (or the
-        # trial/free subscription) and handed back a link; distinct from `checkout_completed`
-        # above, which is the immediate-charge cart, never the link one.
+        # api/v1/subscription.py::checkout_link AND ::checkout_cart_link — both emitted AFTER
+        # billing has already created the `incomplete` subscription (or invoice) and its pay-link.
+        # This row was missing in both places independently; the auditor's own undeclared-action
+        # guard raised at that point, so every paid purchase (single plan or cart) answered 500
+        # and the owner never received the link for a subscription that already existed.
         "action": "subscription.checkout_link_created",
         "source": "admin",
         "critical": True,
         "resource": "plan",
-        "why": "a real invoice (or trial subscription) now exists on this cart — 'who started this "
-               "purchase' is the same question a billing dispute would ask of `checkout_completed`",
+        "why": "an unpaid subscription (or invoice) and its pay-link now exist for this shop — the "
+               "start of a real charge; 'who started this purchase and when' is what reconciling a "
+               "pay-link that was never paid, or paid twice, has to answer first",
     },
     {
         "action": "operator.created",

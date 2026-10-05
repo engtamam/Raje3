@@ -422,6 +422,19 @@ class Visit:
     # Written by `Seams.after_visit` when it completes. Read by the retry, and by the sweep for
     # the visits no retry ever comes for.
     seamed_at: int = 0
+    # HAS THIS VISIT BEEN ADDED TO ITS CUSTOMER'S `visit_count`/`last_visit` — asked of the visit
+    # itself, because the customer's own `counted_visit_id` only remembers the LAST visit counted.
+    # A replayed idempotency key for any older visit (a queue retrying a request that had in fact
+    # succeeded, after another visit for the same customer landed in between) saw "not the last
+    # one counted" and counted it again: replaying a demo shop's 111 keys turned six visits into a
+    # `visit_count` of nine. `record_visit` writes a new visit `False` and flips it once the
+    # counters include it.
+    #
+    # DEFAULT TRUE, ON PURPOSE: every visit row written before this field existed was already
+    # counted when it was recorded (the crash window aside, which `counted_visit_id` still covers),
+    # so an absent field must read as counted — a False default would make the first replay of
+    # any old visit inflate its customer's count.
+    counted: bool = True
     # THE OFFER THIS VISIT SPENT, and it lives HERE rather than on the send-log row (§5.6.2).
     #
     # «ويُسجَّل على الزيارة، لا على العرض» — because the send log is append-only and every cap in

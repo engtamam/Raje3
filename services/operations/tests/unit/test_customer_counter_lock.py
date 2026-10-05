@@ -13,18 +13,46 @@ def run(coro):
     return asyncio.run(coro)
 
 
-def test_a_second_concurrent_lock_on_the_same_customer_is_refused_not_silently_allowed():
+def test_a_second_concurrent_lock_waits_for_the_first_and_never_overlaps_it():
+    """The second claimant waits its turn — it is neither refused (its caller has already saved a
+    visit that would then go uncounted) nor let in while the first still holds the lock."""
     cache = MemoryCache()
+    inside: list[str] = []
 
     async def holder():
         async with CustomerCounterLock(cache, "t1", "cus_1"):
+            inside.append("holder-in")
             await asyncio.sleep(0.05)
+            inside.append("holder-out")
             return "held"
 
     async def racer():
         await asyncio.sleep(0.01)   # starts after `holder` has already taken the lock
+        async with CustomerCounterLock(cache, "t1", "cus_1"):
+            inside.append("racer-in")
+            return "held"
+
+    async def go():
+        return await asyncio.gather(holder(), racer())
+
+    assert run(go()) == ["held", "held"]
+    assert inside == ["holder-in", "holder-out", "racer-in"], (
+        "the racer must only get in after the holder has left — never alongside it"
+    )
+
+
+def test_a_lock_still_held_past_the_wait_is_refused_not_silently_allowed():
+    cache = MemoryCache()
+
+    async def holder():
+        async with CustomerCounterLock(cache, "t1", "cus_1"):
+            await asyncio.sleep(0.3)
+            return "held"
+
+    async def racer():
+        await asyncio.sleep(0.01)
         try:
-            async with CustomerCounterLock(cache, "t1", "cus_1"):
+            async with CustomerCounterLock(cache, "t1", "cus_1", wait_seconds=0.1):
                 return "held"
         except CustomerCounterBusy:
             return "busy"
@@ -32,10 +60,9 @@ def test_a_second_concurrent_lock_on_the_same_customer_is_refused_not_silently_a
     async def go():
         return await asyncio.gather(holder(), racer())
 
-    results = run(go())
-    assert results == ["held", "busy"], (
-        "the second, genuinely concurrent lock attempt must be refused, never silently allowed "
-        "through to race the first"
+    assert run(go()) == ["held", "busy"], (
+        "a lock that outlives the wait (a writer that died holding it) must still be refused, "
+        "never silently allowed through to race it"
     )
 
 

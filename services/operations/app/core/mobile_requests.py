@@ -52,6 +52,7 @@ from typing import Any
 
 from app.core.riyadh import RIYADH
 from app.core.signup import canonical_phone
+from app.core.subscribe import row_plan_id
 
 MOBILE_REQUESTS = "mobile_service_requests"
 MOBILE_REQUESTS_KEY = "feature.mobile_requests"
@@ -420,5 +421,5 @@ class MobileRequestService:
         subs = await self._plans.subscriptions(tenant)
         if subs is None:
             return None
-        return any(str(s.get("plan") or "") == plan_id
+        return any(row_plan_id(s) == plan_id
                   and str(s.get("status") or "") in ("active", "trialing") for s in subs)

@@ -698,19 +698,28 @@ class Operations:
                 #
                 # Guarded by the visit's own id, so the ordinary case — a double tap, a retried
                 # request that already succeeded — reads the stamp and changes nothing.
-                if customer is not None and customer.counted_visit_id != existing.id:
+                # ASKED OF THE VISIT, NOT OF THE CUSTOMER — `Visit.counted` says whether this very
+                # visit is in the counters. `counted_visit_id` alone only knows the LAST visit
+                # counted, so replaying any older key re-counted it (see the field's own note).
+                if customer is not None and not existing.counted:
                     # LOCKED — a real gap a QA audit found (2026-09-12): two concurrent retries
-                    # for the same crashed visit could both observe `counted_visit_id != existing.id`
-                    # before either saved, and both increment — an over-count. See
-                    # core/customer_counter_lock.py's own module docstring.
+                    # for the same crashed visit could both see it uncounted before either saved,
+                    # and both increment — an over-count. See core/customer_counter_lock.py.
                     from app.core.customer_counter_lock import CustomerCounterLock
                     async with CustomerCounterLock(self._cache, tenant, customer.id):
                         customer = await self._customers.get(tenant, existing.customer_id)
-                        if customer is not None and customer.counted_visit_id != existing.id:
-                            customer.last_visit = max(customer.last_visit, existing.occurred_at)
-                            customer.visit_count += 1
-                            customer.counted_visit_id = existing.id
-                            await self._customers.save(customer)
+                        fresh = await self._visits.get(tenant, existing.id) or existing
+                        if customer is not None and not fresh.counted:
+                            # THE CRASH WINDOW: the counters were saved, the visit's own mark was
+                            # not. `counted_visit_id` still names it then — count it once, not twice.
+                            if customer.counted_visit_id != fresh.id:
+                                customer.last_visit = max(customer.last_visit, fresh.occurred_at)
+                                customer.visit_count += 1
+                                customer.counted_visit_id = fresh.id
+                                await self._customers.save(customer)
+                            fresh.counted = True
+                            await self._visits.save(fresh)
+                            existing = fresh
                 return RecordedVisit(visit=existing, customer=customer, created_customer=False,
                                      duplicate=True)
 
@@ -784,7 +793,9 @@ class Operations:
                       free=bool(free), package_id=package_id,
                       idempotency_key=idempotency_key, created=now,
                       occurred_at=_sane_occurred_at(occurred_at, now,
-                                                                    self._max_backdate))
+                                                                    self._max_backdate),
+                      # Not in the customer's counters yet — flipped below once it is.
+                      counted=False)
 
         # last_visit follows the EVENT time, not the receive time: a batch drained two days late
         # describes a customer who was here two days ago, and the reminder must be scheduled from
@@ -850,6 +861,10 @@ class Operations:
                 if moved_forward and visit.branch_id:
                     customer.last_branch_id = visit.branch_id
                 await self._customers.save(customer)
+
+        # NOW THE VISIT SAYS SO ITSELF — the mark a replay of its key reads (`Visit.counted`).
+        visit.counted = True
+        await self._visits.save(visit)
 
         # THE MUTUAL-BENEFIT HOOK — never allowed to affect this visit either way. Any
         # failure here (a bad row, a peer outage) is swallowed at this call site, not inside the

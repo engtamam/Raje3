@@ -25,37 +25,15 @@
  *   node media/tours/seed-demo-account.mjs
  *   CONSOLE=http://localhost:5175/app/ CUSTOMERS=1000 node media/tours/seed-demo-account.mjs
  */
-import { existsSync, readFileSync } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
-import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { existsSync } from 'node:fs';
 
-import { chromiumModule } from '../lib/browser.mjs';
-import { ensureFreshDemoSession, saveDemoCredentials } from './lib/demo-session.mjs';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const CONSOLE_DIR = resolve(HERE, '../../apps/console');
-const SESSION_FILE = join(HERE, '.demo-session.json');
-// THE ONE THING THE SESSION FILE ALONE CANNOT SURVIVE. The saved access token lives fifteen
-// minutes and is meant to be replaced by the refresh token beside it — but a refresh is a single
-// platform call away from being unavailable (it was, live: identity's own /auth/refresh hung past
-// every timeout while ordinary sign-in answered in under a second), and a demo shop's signup phone
-// is RANDOM and was never written down anywhere. That combination made a fully seeded account —
-// a thousand customers, months of visits — permanently unreachable over one expired token. The
-// phone and password that opened the shop are what re-mint a session from nothing, so they are
-// saved beside it, gitignored the same way and for the same reason.
-const CREDENTIALS_FILE = join(HERE, '.demo-credentials.json');
-
-const rawBase = process.env.CONSOLE ?? 'http://localhost:5174';
-const BASE_URL = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
-// THE APP IS SERVED UNDER /app/, THE API AT THE ROOT — and the root must carry NO trailing slash
-// of its own, because every call below builds its URL as `${API}${path}` with `path` already
-// starting with one. A `CONSOLE` given as a bare origin (`http://host:5173`, which is exactly how
-// a tunnel is usually named) is the case that breaks: the `/app/` strip finds nothing to remove,
-// BASE_URL's own trailing slash survives, and every request goes to `//api/v1/…` — a path the
-// gateway answers 404 to, which reads as "this account has no catalogue" rather than "the URL has
-// two slashes in it" (a full seeding run was lost to exactly that reading).
-const API = BASE_URL.replace(/\/app\/?$/, '').replace(/\/$/, '');
+import { ensureFreshDemoSession, SESSION_FILE } from './lib/demo-session.mjs';
+// The HTTP layer (URL resolution, callAction, the browser signup, the Riyadh clock) lives in
+// lib/demo-api.mjs, shared with seed-demo-apps/ — see that file's header for why it moved.
+import {
+  API, addDaysStr, callAction, epochAtRiyadh, getJson, pick, pool, randomPhone, riyadhToday,
+  shuffle, signUpFreshDemoShop,
+} from './lib/demo-api.mjs';
 
 const N_CUSTOMERS = Number(process.env.CUSTOMERS ?? 1000);
 const CONCURRENCY = Number(process.env.CONCURRENCY ?? 12);
@@ -87,27 +65,8 @@ const SERVICES = [
 const FIRST_NAMES = ['سارة', 'نورة', 'ريم', 'لمى', 'دانة', 'جود', 'العنود', 'شهد', 'غلا', 'رغد',
   'أثير', 'روان', 'جواهر', 'منال', 'هيا', 'وجدان', 'مها', 'عبير', 'ندى', 'أمل'];
 
-function randomPhone() {
-  return `05${Math.floor(Math.random() * 90_000_000) + 10_000_000}`;
-}
 function randomName() {
   return FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
-}
-function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-
-/** Runs `items` through `worker` with at most `n` in flight at once — real concurrency, not a
- *  single-file queue, without needing a dependency for it. */
-async function pool(items, n, worker) {
-  const results = [];
-  let i = 0;
-  async function run() {
-    while (i < items.length) {
-      const idx = i++;
-      results[idx] = await worker(items[idx], idx).catch((e) => ({ error: e.message }));
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(n, items.length) }, run));
-  return results;
 }
 
 async function main() {
@@ -119,8 +78,7 @@ async function main() {
     session = await ensureFreshDemoSession(API);
     console.log(`reusing existing demo session (tenant already has a shop) — adding more data on top`);
   } else {
-    session = await signUpFreshDemoShop();
-    await writeFile(SESSION_FILE, JSON.stringify(session, null, 2), 'utf8');
+    session = await signUpFreshDemoShop();   // saves the session and its login itself
     console.log(`✔ demo shop created, session saved to ${SESSION_FILE}`);
   }
 
@@ -210,51 +168,6 @@ async function main() {
   console.log('  ✔ bookings seeded');
 
   console.log('✔ demo account ready');
-}
-
-async function signUpFreshDemoShop() {
-  const chromium = chromiumModule();
-  const browser = await chromium.launch();
-  const context = await browser.newContext({ baseURL: BASE_URL, viewport: { width: 430, height: 932 } });
-  const page = await context.newPage();
-  const { openShop, PASSWORD } = await import(pathToFileURL(join(CONSOLE_DIR, 'e2e/fixtures.ts')).href);
-  await page.goto(BASE_URL);
-  // THE PHONE IT PICKED, WRITTEN DOWN — `openShop()` generates a random one and returns it, and
-  // for a long time nothing here kept it. That number plus the fixture's own password is the ONLY
-  // way back into this shop once an access token ages out; without it a fully seeded account is
-  // one expired token away from being unreachable for good (it was, live — see
-  // lib/demo-session.mjs).
-  const phone = await openShop(page);
-  saveDemoCredentials(phone, PASSWORD);
-  const raw = await page.evaluate(() => localStorage.getItem('raje3.session'));
-  await browser.close();
-  return JSON.parse(raw);
-}
-
-async function getJson(path, token) {
-  const res = await fetch(`${API}${path}`, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
-  return res.json();
-}
-
-async function callAction(session, action, params = {}) {
-  const rest = { ...params };
-  let path = action.path.replace(/\{([^}]+)\}/g, (_, name) => {
-    const v = rest[name]; delete rest[name]; return encodeURIComponent(String(v));
-  });
-  const method = action.method || 'GET';
-  const opts = { method, headers: { Authorization: `Bearer ${session.token}` } };
-  if (method === 'GET') {
-    const q = new URLSearchParams(Object.entries(rest).map(([k, v]) => [k, String(v)]));
-    if ([...q].length) path += `?${q}`;
-  } else {
-    opts.headers['Content-Type'] = 'application/json';
-    opts.body = JSON.stringify(rest);
-  }
-  const res = await fetch(`${API}${path}`, opts);
-  if (!res.ok) throw new Error(`${method} ${path} → ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const text = await res.text();
-  return text ? JSON.parse(text) : {};
 }
 
 /** Idempotent-ish: only creates a service if a same-named one doesn't already exist, so a second
@@ -581,15 +494,6 @@ async function seedOneCustomer(session, serviceIds, operatorId, ticket) {
   }
 }
 
-function shuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 /** A mix of booking states — booked (future), attended, no-show, cancelled — so the bookings
  *  grid and the no-show risk indicator both have something real to show, not an empty week. */
 async function seedBookings(session, serviceIds, operatorIds, branchId) {
@@ -657,24 +561,6 @@ async function seedBookings(session, serviceIds, operatorIds, branchId) {
 const LIST_BOOKINGS = (branchId, date) => ({ path: `/api/v1/bookings?branch_id=${encodeURIComponent(branchId)}&date=${date}`, method: 'GET' });
 const LIST_STAFF = { path: '/api/v1/staff/operators', method: 'GET' };
 const CATALOGUE = { path: '/api/v1/field/catalogue', method: 'GET' };
-
-/** Riyadh is the shop's own clock — the same `+03:00` every epoch on the bookings screen is built
- *  against (`epochAt` in Bookings.tsx). Never the recording machine's local zone, which can and
- *  does differ and would place a "10:00 appointment" an hour off the column it was meant for. */
-function riyadhToday() {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' }); // YYYY-MM-DD
-}
-function addDaysStr(dateStr, delta) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  dt.setUTCDate(dt.getUTCDate() + delta);
-  return dt.toISOString().slice(0, 10);
-}
-function epochAtRiyadh(dateStr, minutes) {
-  const h = String(Math.floor(minutes / 60)).padStart(2, '0');
-  const mm = String(minutes % 60).padStart(2, '0');
-  return Math.floor(Date.parse(`${dateStr}T${h}:${mm}:00+03:00`) / 1000);
-}
 
 /** Which specialities a name implies — the three staff this script hires are named for real salon
  *  specialities, so their columns should hold the work those specialities actually do rather than

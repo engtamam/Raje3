@@ -41,6 +41,7 @@ from typing import Any
 
 from app.core.apps import KEYS as APP_KEYS
 from app.core.signup import PHONE_INDEX, canonical_phone
+from app.core.subscribe import row_plan_id
 
 COUPON_SETTINGS = "cross_tenant_coupon_settings"
 COUPON_TENANT_OVERRIDES = "cross_tenant_coupon_overrides"
@@ -374,7 +375,7 @@ class CouponService:
         subs = await self._plans.subscriptions(tenant)
         if subs is None:
             return None
-        return any(str(s.get("plan") or "") == plan_id
+        return any(row_plan_id(s) == plan_id
                   and str(s.get("status") or "") in ("active", "trialing") for s in subs)
 
     async def admin_tenant_by_phone(self, phone: str) -> str:
@@ -397,7 +398,7 @@ class CouponService:
         out: list[tuple[str, str, str]] = []
         if general:
             for s in held:
-                plan_id, sub_id = str(s.get("plan") or ""), str(s.get("id") or "")
+                plan_id, sub_id = row_plan_id(s), str(s.get("id") or "")
                 if not plan_id or not sub_id:
                     continue
                 limits = await self._plans.limits(plan_id) or {}
@@ -410,7 +411,7 @@ class CouponService:
             plan_id = await self._plans.plan_id_for_key(key)
             if not plan_id:
                 continue
-            match = next((s for s in held if str(s.get("plan") or "") == plan_id), None)
+            match = next((s for s in held if row_plan_id(s) == plan_id), None)
             if match:
                 out.append((key, plan_id, str(match.get("id") or "")))
         return out

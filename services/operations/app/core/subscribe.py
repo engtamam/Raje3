@@ -142,6 +142,20 @@ def granted_keys(limits: dict[str, Any] | None) -> set[str]:
     return out
 
 
+def row_plan_id(row: dict[str, Any]) -> str:
+    """The plan a subscription row (`billing_plans.subscriptions()`) is for.
+
+    THE FIELD IS `plan_id`. billing's internal list projects exactly `id, plan_id, status,
+    current_period_end, limits_snapshot` (its own `list_subscriptions_internal`), but the coupon,
+    mutual-benefit and mobile-requests gates each read `row["plan"]` — a key that never exists — so
+    every one of them answered «not subscribed» for every shop: a mutual-benefit proposal or
+    acceptance was refused 402, and a coupon's beneficiary could never qualify (found live, seeding
+    two real shops against the real billing service; the gates' tests fed rows shaped `plan`).
+    `plan` is still read second, so rows shaped that way keep answering as they did.
+    """
+    return str(row.get("plan_id") or row.get("plan") or "")
+
+
 def is_base(limits: dict[str, Any] | None) -> bool:
     """Is this row a WHOLE SUBSCRIPTION rather than an app or a capacity pack?
 

@@ -25,8 +25,14 @@ vi.mock('../catalog', async (importOriginal) => {
   return {
     ...real,
     action: (_c: unknown, id: string) => ({ id, label: id, method: 'GET', path: `/${id}` }),
-    call: async (_s: unknown, a: { id: string }) => {
-      if (a.id === 'billing.plans') return { plans: plansResponse };
+    call: async (_s: unknown, a: { id: string }, params: Record<string, unknown> = {}) => {
+      // AS BILLING ANSWERS: an unlisted plan is only in the list when the call asks for hidden
+      // plans. A mock that returned it unconditionally is what let the hook filter for override
+      // keys on a list that, live, never contained their plans.
+      if (a.id === 'billing.plans') {
+        return { plans: params.include_hidden ? plansResponse
+          : plansResponse.filter((p) => (p as { listed?: boolean }).listed !== false) };
+      }
       if (a.id === 'billing.my_subscriptions') return { subscriptions: [] };
       if (a.id === 'subscription.payment_state') return { enabled: true };
       if (a.id === 'billing.discount_preview') return { previews: {}, potential: {} };

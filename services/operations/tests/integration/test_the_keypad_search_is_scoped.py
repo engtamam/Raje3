@@ -161,6 +161,25 @@ def test_an_unreachable_index_is_not_an_empty_shop(client):
     assert out["customers"] == []
 
 
+def test_the_typed_number_survives_a_page_of_near_neighbours(client):
+    """The query carries eight words. With the peer's fuzzy suggestions first, a whole number whose
+    eight near neighbours exist (one digit away) was cut off the query entirely — the customer at
+    the counter could not be found by his own number. What was typed must always be asked."""
+    seen: list[str] = []
+
+    class _Recording(_Search):
+        async def query(self, **kw):
+            seen.append(kw["text"])
+            return list(self.hits)
+
+    neighbours = [f"057000100{d}" for d in range(10) if d != 1]   # nine near misses, not the number
+    _shop(client, _Recording(HITS, terms=neighbours))
+
+    _suggest(client, "u_owner_with_no_operator_row", prefix="0570001001")
+
+    assert "0570001001" in seen[-1].split(), f"the typed number was dropped from the query: {seen[-1]}"
+
+
 def test_nobody_matched_is_not_an_outage(client):
     _shop(client, _Search([], terms=[]))
 

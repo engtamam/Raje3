@@ -730,7 +730,12 @@ async def suggest_customers(request: Request, prefix: str = "", branch_id: str =
     terms = await c.search.suggest(index=index, tenant=tenant, prefix=prefix)
     if terms is None:
         return {"customers": [], "ok": False}
-    words = list(dict.fromkeys([*terms, *prefix.split()]))
+    # WHAT HE TYPED GOES FIRST. The query takes eight words, and the peer's suggestions are fuzzy
+    # and leave out the word just finished — so a whole number with eight near neighbours
+    # (0570001000…0570001009) filled every slot and pushed the typed number off the end: the one
+    # customer actually standing at the counter was the one the keypad could not find, while four
+    # strangers one digit away were offered instead (found live, seeding fifty customers).
+    words = list(dict.fromkeys([*prefix.split(), *terms]))
     if not words:
         return {"customers": [], "ok": True}
     hits = await c.search.query(index=index, tenant=tenant, text=" ".join(words[:8]), size=8)

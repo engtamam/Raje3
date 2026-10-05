@@ -715,6 +715,14 @@ async def till_redeem(request: Request, body: TillRedeemIn) -> dict:
         "cost": rec.cost,
         "balance": bal.points,
         "duplicate": not is_new,
+        # THE WHOLE REDEMPTION, BESIDE THE RECEIPT — operations' two non-till callers (a discount
+        # spent on a visit at the counter, and on a WhatsApp delivery order) decide what to apply
+        # from `redemption.reward_type`/`discount_halalas`, and this answer never carried it. They
+        # read an empty dict, refused the reward as "not a discount" — AFTER this call had already
+        # spent the points — and the customer lost the points with no discount on the bill (found
+        # live, seeding a demo shop; the callers' own tests used a fake desk that returned this
+        # key). Added, not reshaped: the till keeps reading the flat receipt keys above.
+        "redemption": rec.to_dict(),
     }
 
 

@@ -18,6 +18,7 @@ each other — only two writes racing on the SAME customer do.
 """
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from app.core.operations import OperationError
@@ -25,6 +26,10 @@ from app.core.operations import OperationError
 # Long enough to cover a read + a save() round trip; short enough that a pod killed mid-write does
 # not lock a customer's counters out of updates for long.
 TTL_SECONDS = 10
+# How long a contended claim keeps trying before it is refused, and how often it tries. Far longer
+# than the guarded read + save takes; far shorter than the request timeout a caller waits under.
+WAIT_SECONDS = 3.0
+POLL_SECONDS = 0.02
 
 BUSY = "جارٍ تحديث بيانات هذا العميل الآن — أعد المحاولة بعد لحظة."
 UNAVAILABLE = "تعذّر قفل بيانات هذا العميل الآن — أعد المحاولة بعد لحظة."
@@ -42,13 +47,25 @@ class CustomerCounterBusy(OperationError):
 
 class CustomerCounterLock:
     """`async with CustomerCounterLock(cache, tenant, customer_id):` — held for the read-modify-
-    write, released after."""
+    write, released after.
+
+    A CONTENDED CLAIM WAITS ITS TURN BEFORE IT IS REFUSED. The section this guards is one read and
+    one save — milliseconds — and its caller (`record_visit`) has ALREADY WRITTEN THE VISIT when it
+    asks. Refusing on the first busy claim therefore did not refuse a visit: it left a saved visit
+    uncounted (`visit_count`/`last_visit` behind) and answered `recorded: false`, which also skipped
+    the post-visit seams — no points, no reminder, no index for a visit that exists. Seeding a demo
+    shop with ordinary concurrency undercounted 19 of 34 customers that way. Waiting a bounded
+    moment for the other writer to finish turns that into what it should always have been: two
+    visits, both counted. Only a lock still held after `wait_seconds` (a writer that died holding
+    it, until its TTL) is refused.
+    """
 
     def __init__(self, cache: Any, tenant: str, customer_id: str, *,
-                ttl_seconds: int = TTL_SECONDS) -> None:
+                ttl_seconds: int = TTL_SECONDS, wait_seconds: float = WAIT_SECONDS) -> None:
         self._cache = cache
         self._key = f"operations:customer-counters:{tenant}:{customer_id}"
         self._ttl = ttl_seconds
+        self._wait = wait_seconds
         self._held = False
 
     async def __aenter__(self) -> "CustomerCounterLock":
@@ -61,12 +78,17 @@ class CustomerCounterLock:
         claim = getattr(self._cache, "set_if_absent", None)
         if claim is None:
             raise CustomerCounterBusy(UNAVAILABLE)
-        try:
-            won = await claim(self._key, "1", self._ttl)
-        except Exception as exc:                                            # noqa: BLE001
-            raise CustomerCounterBusy(UNAVAILABLE) from exc
-        if not won:
-            raise CustomerCounterBusy(BUSY)
+        deadline = asyncio.get_running_loop().time() + max(0.0, self._wait)
+        while True:
+            try:
+                won = await claim(self._key, "1", self._ttl)
+            except Exception as exc:                                        # noqa: BLE001
+                raise CustomerCounterBusy(UNAVAILABLE) from exc
+            if won:
+                break
+            if asyncio.get_running_loop().time() >= deadline:
+                raise CustomerCounterBusy(BUSY)
+            await asyncio.sleep(POLL_SECONDS)
         self._held = True
         return self
 

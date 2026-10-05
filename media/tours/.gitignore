@@ -8,6 +8,11 @@
 # whole account is unreachable no matter how much data it holds.
 .demo-credentials.json
 
+# The same pair for every other named demo shop (lib/demo-session.mjs's profiles — seed-demo-apps/
+# uses "apps"). Same secret class, same reason.
+.demo-session.*.json
+.demo-credentials.*.json
+
 # The affiliate manager's own signed-in session — seed-affiliate-team.mjs's own real bearer
 # token, same class of secret as the shop's .demo-session.json above and never committed for the
 # same reason. Unlike the shop, this account's phone/password are fixed constants in that script
@@ -17,6 +22,12 @@
 
 # Same class of secret, for seed-demo-affiliate.mjs's marketer account instead of the shop's own.
 .demo-affiliate-credentials.json
+
+# seed-demo-apps/local_stack.py's runtime state — its venv, service logs, object store, and the
+# shared secrets (PII_SALT, the token-signing secret) every local service was started with. The
+# secrets are per-machine and must stay stable for the life of the local data, so they live here
+# and never in git.
+.local-stack/
 
 # seed-affiliate-tools.mjs's own manager account — a THIRD affiliate demo account, deliberately
 # seeded with real templates/citations/a Places key/a referred shop, unlike the earnings tour's

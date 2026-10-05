@@ -154,4 +154,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "critical the way a credential change is — the erasure itself must not wait on the "
                "audit sink — but the entry is still recorded, after the act, every time.",
     },
+    {
+        # api/internal.py::backup_import — emitted after the archive is already restored. While it
+        # was undeclared the auditor refused it there, so a restore that had succeeded answered 500
+        # and the backup service recorded a failure for data that was in fact written back.
+        "action": "error_collector.backup_imported",
+        "source": "internal",
+        "critical": True,
+        "resource": "backup",
+        "why": "a restore rewrites this service's stored signals from an archive; which archive, into "
+               "which tenant, and whether it overwrote or pruned is what explains rows that changed "
+               "with nobody having touched them",
+    },
 ]
