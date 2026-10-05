@@ -276,6 +276,17 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "the first question a billing dispute over any one of them would ask",
     },
     {
+        # api/v1/subscription.py::checkout_cart_link — billing already created the invoice (or the
+        # trial/free subscription) and handed back a link; distinct from `checkout_completed`
+        # above, which is the immediate-charge cart, never the link one.
+        "action": "subscription.checkout_link_created",
+        "source": "admin",
+        "critical": True,
+        "resource": "plan",
+        "why": "a real invoice (or trial subscription) now exists on this cart — 'who started this "
+               "purchase' is the same question a billing dispute would ask of `checkout_completed`",
+    },
+    {
         "action": "operator.created",
         "source": "admin",
         "critical": True,
