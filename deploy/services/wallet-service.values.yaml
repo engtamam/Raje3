@@ -27,7 +27,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/wallet-service
-  digest: "sha256:be3ba0a55e1db2828d3341d12ecab608ae0054622d64764eace2a083a1de668e"   # v0.25.51
+  digest: "sha256:be3ba0a55e1db2828d3341d12ecab608ae0054622d64764eace2a083a1de668e"   # v0.25.52
 
 replicas: 1
 

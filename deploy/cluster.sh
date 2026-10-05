@@ -45,8 +45,14 @@
 set -uo pipefail
 
 _CLUSTER_HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# REMOTE ALREADY EXPORTED WINS, SAME "HE SAID IT OUT LOUD" RULE RUNG 1 ABOVE GIVES KUBECONFIG —
+# ops-mcp's own deploy_ops.py derives REMOTE/PORT from its config.toml and exports them before
+# running this script, so a caller sourcing target.env on top would silently overwrite the one
+# real address with a second, hand-maintained copy of it (found live, 2026-10-05: a server moved,
+# ops-mcp's config followed, this file still read the old one for a solid hour). target.env stays
+# the right answer for an operator running ship.sh by hand, outside ops-mcp entirely.
 # shellcheck disable=SC1091
-[ -f "$_CLUSTER_HERE/target.env" ] && . "$_CLUSTER_HERE/target.env"
+[ -z "${REMOTE:-}" ] && [ -f "$_CLUSTER_HERE/target.env" ] && . "$_CLUSTER_HERE/target.env"
 
 _NODE_KUBECONFIG="/etc/rancher/k3s/k3s.yaml"
 

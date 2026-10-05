@@ -1,5 +1,5 @@
 {
-  "release": "v0.25.51",
+  "release": "v0.25.52",
   "images": {
     "analytics-service": "sha256:bfcb5e3e80b7f205be0fbd58086ac4a07275fffbab308a2ad94a8e803e9e3356",
     "api-gateway": "sha256:2de28908f5f0fe937313d19c4b9067688dc264f7d1d2c842fb0b468d55425d17",

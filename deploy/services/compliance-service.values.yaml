@@ -22,7 +22,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/compliance-service
-  digest: "sha256:b93157ffce02eefa42298f255ae0fb10bfb693d388110b769b50bb2bee09681c"   # v0.25.51
+  digest: "sha256:b93157ffce02eefa42298f255ae0fb10bfb693d388110b769b50bb2bee09681c"   # v0.25.52
 
 replicas: 1
 
