@@ -373,6 +373,20 @@ def build_container(settings: Settings) -> Container:
         seams=container.seams, working_hours=container.bookings_desk,
         plans=container.billing_plans, default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
 
+    # Customer-service freelancers — see core/freelancer_service.py's own module docstring (the
+    # authorization boundary) and core/freelancer_crm.py (the engine). `loyalty=container.
+    # loyalty_desk` and `notifier=container.inapp_notifier` are both already built above; both are
+    # None-safe peers, same posture every other optional adapter in this file already takes.
+    from app.core.freelancer_crm import FreelancerCrmService
+    from app.core.freelancer_service import FreelancerService
+    from app.core.stores import CustomerStore
+
+    container.freelancers = FreelancerService(
+        store=container.datastore, default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
+    container.freelancer_crm = FreelancerCrmService(
+        store=container.datastore, customers=CustomerStore(container.datastore),
+        loyalty=container.loyalty_desk, notifier=container.inapp_notifier)
+
     # WhatsApp Direct Ordering — see core/orders.py's own module docstring. `payments` is the
     # merchant's-own-gateway pay-link minter (adapters/payments_desk.py); `services`/`branches` are
     # what prices a line server-side and confirms the branch is real, never trusted off the wire.
@@ -585,6 +599,11 @@ def build_container(settings: Settings) -> Container:
     # here; this attribute exists only so `subscribed_write`'s OR-gate can see it.
     container.whatsapp_delivery_orders_licence = build_feature_licence(
         settings, "feature.whatsapp_delivery_orders")
+    # Same rule again: `feature.customer_service` joined `core/apps.py::APPS` too — this attribute
+    # exists only so `subscribed_write`'s generic "holds ANY app" OR-gate can see it; actual access
+    # control lives in the real capability checks on the freelancer routes themselves.
+    container.customer_service_licence = build_feature_licence(
+        settings, "feature.customer_service")
     container.templates = TemplateLibrary(container.datastore)
     # The door. Built early, because a signup that cannot
     # seed a catalogue is a signup that lands the new owner on an empty «خدماتي».

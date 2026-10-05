@@ -1155,4 +1155,68 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "same reason every other owner-facing toggle on this file is — a support call about "
                "'where did the share button go' has a real, timestamped answer",
     },
+    {
+        "action": "freelancer.added",
+        "source": "user",
+        "critical": True,
+        "resource": "tenant",
+        "why": "an EXTERNAL person just gained read access to this shop's own customers and phone "
+               "numbers — who added them, and when, must be a real, undeniable fact",
+    },
+    {
+        "action": "freelancer.deactivated",
+        "source": "user",
+        "critical": True,
+        "resource": "tenant",
+        "why": "the mirror of 'freelancer.added' — closing an outside person's access to customer "
+               "data is exactly as auditable as opening it",
+    },
+    {
+        "action": "freelancer.rules_set",
+        "source": "user",
+        "critical": False,
+        "resource": "tenant",
+        "why": "the cooldown/daily-cap/quiet-hours knobs bound what every freelancer may do next — "
+               "worth a real timestamped trail if a customer complains about contact frequency",
+    },
+    {
+        "action": "freelancer.customer_dnd",
+        "source": "user",
+        "critical": False,
+        "resource": "customer",
+        "why": "a customer's own do-not-disturb request must be provably honoured, not just "
+               "silently flipped",
+    },
+    {
+        "action": "freelancer.reward_granted",
+        "source": "user",
+        "critical": True,
+        "resource": "customer",
+        "why": "money-adjacent (a discount, points, or a free gift promised to a real customer) — "
+               "the same bar every other reward/redemption action in this service already holds to",
+    },
+    {
+        "action": "freelancer.escalated",
+        "source": "user",
+        "critical": False,
+        "resource": "customer",
+        "why": "the freelancer's own flag that a human at the shop must step in — a real trail of "
+               "when the problem was raised, separate from when it was actually resolved",
+    },
+    {
+        "action": "freelancer.escalation_resolved",
+        "source": "user",
+        "critical": False,
+        "resource": "tenant",
+        "why": "closes the loop on 'freelancer.escalated' — who actually fixed it, and when",
+    },
+    {
+        "action": "freelancer.notes_exported_with_pii",
+        "source": "user",
+        "critical": True,
+        "resource": "tenant",
+        "why": "the ONE export path that deliberately includes real customer names/phone numbers "
+               "(the default is PII-safe) — choosing that option is exactly the kind of act this "
+               "file exists to make undeniable",
+    },
 ]

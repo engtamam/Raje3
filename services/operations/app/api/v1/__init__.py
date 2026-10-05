@@ -25,6 +25,8 @@ from app.api.v1.connect import router as connect_router
 from app.api.v1.signup import router as signup_router
 from app.api.v1.till import router as till_router
 from app.api.v1.mobile_requests import router as mobile_requests_router
+from app.api.v1.freelancers import router as freelancers_router
+from app.api.v1.freelancer_portal import router as freelancer_portal_router
 from app.api.v1.whatsapp_orders import router as whatsapp_orders_router
 from app.api.v1.platform import router as platform_router
 from app.api.v1.salla import router as salla_router
@@ -157,6 +159,12 @@ router.include_router(public_catalog_router)
 # Mobile/on-the-go service requests — the shop's own review queue; the WhatsApp bot's own
 # creation door is internal-tier (api/internal.py), not here.
 router.include_router(mobile_requests_router)
+# Customer-service freelancers — docs/جديد.txt, docs/خطة-تنفيذ-خدمة-العملاء.md. Two doors, same
+# split `mobile_requests_router` above already documents: the shop's own admin surface, and the
+# freelancer/internal-workspace surface that both capabilities share (see freelancer_portal.py's
+# own module docstring).
+router.include_router(freelancers_router)
+router.include_router(freelancer_portal_router)
 router.include_router(whatsapp_orders_router)
 # Phase 4 of the referral/affiliate app — the shop's own marketer/influencer admin surface.
 router.include_router(affiliates_router)

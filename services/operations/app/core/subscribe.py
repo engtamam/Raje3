@@ -192,6 +192,8 @@ _REQUIRES_ANY_LABELS: dict[str, str] = {
     "feature.visit": "تسجيل زيارة",
     "feature.bookings": "الحجوزات",
     "feature.contacts": "جهات الاتصال",
+    "feature.mobile_requests": "خدمات متنقلة",
+    "feature.whatsapp_delivery_orders": "طلبات التوصيل عبر الواتساب",
 }
 
 

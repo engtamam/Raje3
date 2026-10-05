@@ -870,6 +870,105 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "capability": "operations.mobile_requests_manage", "group": "خدمات متنقلة",
         "help": "اختياري بالكامل — تسمية من سينفّذ الطلب، ليعرف تحميل كل موظف ويقدر يوزّع بنفسه.",
     },
+    # ── خدمات ما بعد البيع — docs/جديد.txt، docs/خطة-تنفيذ-خدمة-العملاء.md.
+    # operations.freelancer_manage: owner/manager/marketer/supervisor (لا operator ولا partner،
+    # roles.json's own note). operations.freelancer_portal: يُمنح فقط لرمز مستقل حقيقي، أبدًا لموظف.
+    {
+        "id": "operations.freelancer_list", "label": "قائمة المستقلين المرتبطين", "method": "GET",
+        "path": "/api/v1/staff/freelancers", "capability": "operations.freelancer_manage",
+        "group": "خدمات ما بعد البيع",
+        "help": "كل المستقلين المرتبطين بمنشأتك الآن (حد أقصى 3).",
+    },
+    {
+        "id": "operations.freelancer_add", "label": "إضافة مستقل", "method": "POST",
+        "path": "/api/v1/staff/freelancers", "capability": "operations.freelancer_manage",
+        "group": "خدمات ما بعد البيع",
+        "help": "يجلبه التاجر من خارج المنصة برقم جواله — لا سوق مستقلين، لا ترشيح.",
+    },
+    {
+        "id": "operations.freelancer_deactivate", "label": "تعطيل مستقل", "method": "POST",
+        "path": "/api/v1/staff/freelancers/{link_id}/deactivate",
+        "capability": "operations.freelancer_manage", "group": "خدمات ما بعد البيع",
+        "help": "يفتح مكانًا لمستقل جديد ضمن الحد الأقصى (3).",
+    },
+    {
+        "id": "operations.freelancer_rules_get", "label": "قواعد العمل الحالية", "method": "GET",
+        "path": "/api/v1/staff/freelancers/rules", "capability": "operations.freelancer_manage",
+        "group": "خدمات ما بعد البيع",
+        "help": "فترة الهدوء، الحد اليومي للترضيات، ساعات العمل المسموحة.",
+    },
+    {
+        "id": "operations.freelancer_rules_set", "label": "تعديل قواعد العمل", "method": "POST",
+        "path": "/api/v1/staff/freelancers/rules", "capability": "operations.freelancer_manage",
+        "group": "خدمات ما بعد البيع",
+        "help": "تنعكس فورًا على فلترة قائمة عملاء كل مستقل.",
+    },
+    {
+        "id": "operations.freelancer_reward_options_list", "label": "قائمة الترضيات المسموحة",
+        "method": "GET", "path": "/api/v1/staff/freelancers/reward-options",
+        "capability": "operations.freelancer_manage", "group": "خدمات ما بعد البيع",
+        "help": "الخصومات والنقاط والهدايا اللي يقدر المستقل يمنحها.",
+    },
+    {
+        "id": "operations.freelancer_reward_option_add", "label": "إضافة ترضية مسموحة",
+        "method": "POST", "path": "/api/v1/staff/freelancers/reward-options",
+        "capability": "operations.freelancer_manage", "group": "خدمات ما بعد البيع",
+        "help": "لا يقدر المستقل يمنح أي شيء خارج هذه القائمة.",
+    },
+    {
+        "id": "operations.freelancer_escalations_list", "label": "صندوق التصعيدات", "method": "GET",
+        "path": "/api/v1/staff/freelancers/escalations",
+        "capability": "operations.freelancer_manage", "group": "خدمات ما بعد البيع",
+        "help": "حالات صعّدها المستقل تحتاج تدخّلك المباشر.",
+    },
+    {
+        "id": "operations.freelancer_escalation_resolve", "label": "حل تصعيد", "method": "POST",
+        "path": "/api/v1/staff/freelancers/escalations/{escalation_id}/resolve",
+        "capability": "operations.freelancer_manage", "group": "خدمات ما بعد البيع",
+        "help": "يحدّث حالة العميل بعد ما تحل المشكلة بنفسك.",
+    },
+    {
+        "id": "operations.freelancer_notes_export", "label": "تصدير ملاحظات التواصل", "method": "GET",
+        "path": "/api/v1/staff/freelancers/notes/export",
+        "capability": "operations.freelancer_manage", "group": "خدمات ما بعد البيع",
+        "help": "نص قابل للنسخ بفلتر زمني، مع خيار إخفاء البيانات الشخصية.",
+    },
+    {
+        "id": "operations.freelancer_portal_customers", "label": "قائمة عملاء المستقل", "method": "GET",
+        "path": "/api/v1/staff/freelancer-portal/customers",
+        "capability": "operations.freelancer_manage", "group": "خدمات ما بعد البيع",
+        "help": "مفلترة بفترة الهدوء — نفس شاشة المستقل، تبويب التشغيل الداخلي.",
+    },
+    {
+        "id": "operations.freelancer_portal_rate", "label": "تقييم سريع لعميل", "method": "POST",
+        "path": "/api/v1/staff/freelancer-portal/customers/{customer_id}/rate",
+        "capability": "operations.freelancer_manage", "group": "خدمات ما بعد البيع",
+        "help": "راضٍ / محايد / غير راضٍ — يُخفي العميل مؤقتًا من القائمة.",
+    },
+    {
+        "id": "operations.freelancer_portal_dnd", "label": "عدم إزعاج عميل", "method": "POST",
+        "path": "/api/v1/staff/freelancer-portal/customers/{customer_id}/do-not-disturb",
+        "capability": "operations.freelancer_manage", "group": "خدمات ما بعد البيع",
+        "help": "يخفي العميل نهائيًا من قوائم خدمة العملاء بناءً على طلبه.",
+    },
+    {
+        "id": "operations.freelancer_portal_reward", "label": "منح ترضية لعميل", "method": "POST",
+        "path": "/api/v1/staff/freelancer-portal/customers/{customer_id}/reward",
+        "capability": "operations.freelancer_manage", "group": "خدمات ما بعد البيع",
+        "help": "بالحد اليومي المسموح فقط — من قائمة الترضيات اللي حددها التاجر.",
+    },
+    {
+        "id": "operations.freelancer_portal_escalate", "label": "تصعيد حالة عميل", "method": "POST",
+        "path": "/api/v1/staff/freelancer-portal/customers/{customer_id}/escalate",
+        "capability": "operations.freelancer_manage", "group": "خدمات ما بعد البيع",
+        "help": "يصل فورًا صندوق التصعيدات عند التاجر.",
+    },
+    {
+        "id": "operations.freelancer_portal_note_add", "label": "إضافة ملاحظة اتصال", "method": "POST",
+        "path": "/api/v1/staff/freelancer-portal/customers/{customer_id}/notes",
+        "capability": "operations.freelancer_manage", "group": "خدمات ما بعد البيع",
+        "help": "تُحفظ بالسجل التاريخي للعميل.",
+    },
     # ── طلبات التوصيل عبر الواتساب — Step 7، نفس صلاحية تسجيل الزيارة (owner's own decision,
     # whatsapp-ordering-app-gap-analysis.md) لا صلاحية مدير حصرية — كل من يسجّل زيارة يقدر يحدّث حالة
     # الطلب.

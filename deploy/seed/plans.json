@@ -99,7 +99,8 @@
     "feature.mobile_ai_assistant": "المساعد الذكي (تطبيق الجوال) — on-device Gemma 4 assistant, apps/mobile only, no console screen. Standalone (plan.standalone). Priced at 0 on purpose (zero server inference cost to us) but a REAL subscribe/cancel-able plan, not an auto-grant — the owner's own explicit call, so a shop can turn it off like any other app and we can price it for real later with no code change",
     "feature.coworking": "الاستضافة المهنية — hourly co-working resource rental, its own standalone microservice (services/coworking). Standalone (plan.standalone). Hourly-ONLY pricing, no money moves through this platform (a stored price fact only), and no cross-shop marketplace — one shareable link per shop",
     "feature.referrals": "الإحالة والمسوقين — referral & affiliate marketing (services/referrals). Real campaigns, till-side redemption, and the affiliate/marketer tier all shipped and tested — sold at 9900 halalas, `listed: true` since 2026-09-27",
-    "feature.whatsapp_delivery_orders": "طلبات التوصيل عبر الواتساب — ordering from the shop's official Meta WhatsApp Commerce Catalog, geo-gated to the nearest branch, paid through the shop's own gateway (services/whatsapp-assistant's catalog_provisioning.py/catalog_item_sync.py + services/operations' orders.py). A SEPARATE app from `feature.whatsapp` even though both live in the same microservice. Fully built on both console (the live order board) and mobile — sold at 9900 halalas, `listed: true` since 2026-10-05"
+    "feature.whatsapp_delivery_orders": "طلبات التوصيل عبر الواتساب — ordering from the shop's official Meta WhatsApp Commerce Catalog, geo-gated to the nearest branch, paid through the shop's own gateway (services/whatsapp-assistant's catalog_provisioning.py/catalog_item_sync.py + services/operations' orders.py). A SEPARATE app from `feature.whatsapp` even though both live in the same microservice. Fully built on both console (the live order board) and mobile — sold at 9900 halalas, `listed: true` since 2026-10-05",
+    "feature.customer_service": "خدمات ما بعد البيع — docs/جديد.txt, core/freelancer_service.py + core/freelancer_crm.py. A shop hands its own post-visit customer care to an external freelancer it brought in itself (max 3 linked at a time), inside shop-set guardrails (cooldown, daily reward cap, an approved reward catalog) and an escalation inbox back to the shop's own staff. Priced at 9900 halalas like every other single-app row, but `listed: false` until a real console/mobile screen exists (backend-only as of 2026-10-05) — see this file's own rule on selling a key nothing serves yet"
   },
   "_removed": [
     "feature.roles.custom IS GONE, and its absence is the honest state. It was sold on every tier",
@@ -132,9 +133,15 @@
       "_requires_any": [
         "CONFIRMED FIX (2026-09-11 audit) — same reasoning as برنامج النقاط's own `requires_any`",
         "note below: a campaign that measures WHO CAME BACK is a promise with no way to be kept on",
-        "a shop holding neither تسجيل زيارة nor الحجوزات (no touchpoint to measure against at all).",
-        "Plans.tsx's own `DEPENDENT_KEYS` already assumed this row declared the dependency; it did",
-        "not, until now — an unfinished edit, not a deliberate exemption."
+        "a shop holding none of the real visit-recording apps (no touchpoint to measure against at",
+        "all). Plans.tsx's own `DEPENDENT_KEYS` already assumed this row declared the dependency;",
+        "it did not, until now — an unfinished edit, not a deliberate exemption.",
+        "",
+        "LIST WIDENED 2026-10-05 (owner's own instruction) to every app that actually calls",
+        "`Operations.record_visit()` — تسجيل زيارة and الحجوزات directly, طلبات التوصيل عبر",
+        "الواتساب and خدمات متنقلة through the same call (core/mutual_benefit.py's own module",
+        "docstring names the exact set) — same four-key list خدمات ما بعد البيع's own row",
+        "now takes, so every app in this family stays consistent with one another."
       ],
       "limits": {
         "feature.campaigns": {
@@ -143,7 +150,8 @@
         },
         "plan.requires_any": {
           "kind": "list",
-          "list": ["feature.visit", "feature.bookings"]
+          "list": ["feature.visit", "feature.bookings", "feature.mobile_requests",
+                   "feature.whatsapp_delivery_orders"]
         }
       }
     },
@@ -152,13 +160,16 @@
         "REQUIRES_ANY (2026-09-09), THE OWNER'S OWN REASONING: points earned on nothing are not a",
         "programme, they are a promise with no way to keep it. Loyalty points are earned by a",
         "customer TOUCHPOINT — a visit recorded, or an appointment attended — and a shop holding",
-        "NEITHER تسجيل زيارة nor الحجوزات has no way for a single point to ever be earned.",
+        "none of the real visit-recording apps has no way for a single point to ever be earned.",
         "`plan.requires_any` says so, data-driven,",
         "exactly like `plan.standalone` above: `may_add` (services/operations/app/core/",
         "subscribe.py) refuses the purchase unless the shop's own held entitlements already",
         "intersect this list — independent of, and in addition to, the ordinary base-required",
         "rule. A THIRD app may declare its own dependency the same way, with one edit here and",
-        "zero code changes."
+        "zero code changes.",
+        "",
+        "LIST WIDENED 2026-10-05 (owner's own instruction), same reasoning and same four-key list",
+        "الحملات's own row above now takes."
       ],
       "name": "برنامج النقاط",
       "amount": 9900,
@@ -171,7 +182,8 @@
         },
         "plan.requires_any": {
           "kind": "list",
-          "list": ["feature.visit", "feature.bookings"]
+          "list": ["feature.visit", "feature.bookings", "feature.mobile_requests",
+                   "feature.whatsapp_delivery_orders"]
         }
       }
     },
@@ -444,9 +456,12 @@
         "",
         "REQUIRES_ANY (owner's own instruction, 2026-09-27), REPLACING `plan.standalone` — same",
         "reasoning الإحالة والمسوقين's own row now takes: eligibility is detected off a REAL",
-        "customer touchpoint (a walk-in visit, an attended booking, or a completed mobile-service",
-        "request) at the beneficiary shop, and a shop holding none of the three has no touchpoint",
-        "for this engine to ever detect against.",
+        "customer touchpoint (a walk-in visit, an attended booking, a completed mobile-service",
+        "request, or a completed WhatsApp delivery order) at the beneficiary shop, and a shop",
+        "holding none of the four has no touchpoint for this engine to ever detect against.",
+        "",
+        "LIST WIDENED 2026-10-05 (owner's own instruction) to add طلبات التوصيل عبر الواتساب —",
+        "same four-key list خدمات ما بعد البيع/الحملات/برنامج النقاط's own rows now take.",
         "",
         "`screen: 'mutual-benefit'` in core/apps.py names the console section — a real screen",
         "(apps/console/src/screens/MutualBenefit.tsx), live since 2026-09-16. Mobile has none",
@@ -463,7 +478,8 @@
         },
         "plan.requires_any": {
           "kind": "list",
-          "list": ["feature.visit", "feature.bookings", "feature.mobile_requests"]
+          "list": ["feature.visit", "feature.bookings", "feature.mobile_requests",
+                   "feature.whatsapp_delivery_orders"]
         }
       }
     },
@@ -560,10 +576,14 @@
         "",
         "REQUIRES_ANY (owner's own instruction, 2026-09-27), REPLACING `plan.standalone` — same",
         "reasoning الحملات/برنامج النقاط's own rows already take: a referral/affiliate reward is",
-        "credited against a REAL customer touchpoint (a walk-in visit, an attended booking, or a",
-        "completed mobile-service request), and a shop holding NONE of the three has no touchpoint",
-        "for a referral to ever attach to. `may_add` (services/operations/app/core/subscribe.py)",
-        "refuses the purchase unless the shop already holds at least one of the three."
+        "credited against a REAL customer touchpoint (a walk-in visit, an attended booking, a",
+        "completed mobile-service request, or a completed WhatsApp delivery order), and a shop",
+        "holding NONE of the four has no touchpoint for a referral to ever attach to. `may_add`",
+        "(services/operations/app/core/subscribe.py) refuses the purchase unless the shop already",
+        "holds at least one of the four.",
+        "",
+        "LIST WIDENED 2026-10-05 (owner's own instruction) to add طلبات التوصيل عبر الواتساب —",
+        "same four-key list every other `requires_any` row on this file now takes."
       ],
       "name": "الإحالة والمسوقين",
       "amount": 9900,
@@ -576,7 +596,8 @@
         },
         "plan.requires_any": {
           "kind": "list",
-          "list": ["feature.visit", "feature.bookings", "feature.mobile_requests"]
+          "list": ["feature.visit", "feature.bookings", "feature.mobile_requests",
+                   "feature.whatsapp_delivery_orders"]
         }
       }
     },
@@ -647,6 +668,42 @@
         "plan.standalone": {
           "kind": "boolean",
           "limit": 1
+        }
+      }
+    },
+    {
+      "_": [
+        "خدمات ما بعد البيع — see FEATURE_DOCS['feature.customer_service'] above.",
+        "`listed: false` ON PURPOSE, same rule this file's own §3 states: the backend (core/",
+        "freelancer_service.py + core/freelancer_crm.py, routes wired, roles.json capability",
+        "already granted to owner/manager/marketer/supervisor) is real and tested, but there is no",
+        "console or mobile screen yet — selling a key nothing serves is the exact defect",
+        "`ci/check_entitlements.py` exists to catch on the other side. Flip to `listed: true` the",
+        "day a real screen ships, same price unchanged.",
+        "",
+        "REQUIRES_ANY (2026-10-05), OWNER'S OWN INSTRUCTION — a freelancer follows up on a customer",
+        "AFTER a real visit already happened; a shop with no app that ever records one has nobody",
+        "for the freelancer to call, same reasoning as الحملات/برنامج النقاط's own `requires_any`",
+        "note above. Scoped to every app that actually calls `Operations.record_visit()`",
+        "(core/mutual_benefit.py's own module docstring names the exact set, verified by reading",
+        "each one, not assumed): تسجيل زيارة and الحجوزات directly, طلبات التوصيل عبر الواتساب and",
+        "خدمات متنقلة through the same call. `plan.standalone` REMOVED — it only ever meant \"needs",
+        "no أساس underneath it\" (أساس itself is retired, this file's own header), never \"needs",
+        "nothing at all\"; this row's real dependency is `plan.requires_any` below."
+      ],
+      "name": "خدمات ما بعد البيع",
+      "amount": 9900,
+      "trial_days": 30,
+      "listed": false,
+      "limits": {
+        "feature.customer_service": {
+          "kind": "boolean",
+          "limit": 1
+        },
+        "plan.requires_any": {
+          "kind": "list",
+          "list": ["feature.visit", "feature.bookings", "feature.mobile_requests",
+                   "feature.whatsapp_delivery_orders"]
         }
       }
     }

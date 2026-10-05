@@ -325,6 +325,22 @@ WHATSAPP_DELIVERY_ORDERS_FEATURES: tuple[dict[str, Any], ...] = (
      "icon": "check-badge", "tone": "success", "shared_with": [], "owned_by": ""},
 )
 
+CUSTOMER_SERVICE_FEATURES: tuple[dict[str, Any], ...] = (
+    {"id": "customer_service.saves_a_full_time_hire", "title": "خدمة عملاء كاملة بلا راتب شهري ثابت",
+     "detail": "توكّل شخصاً تثق به يتابع عملاءك بعد الزيارة، بدل ما توظّف موظف دعم عملاء دوام كامل"
+              " لعمل نفس الشيء",
+     "icon": "users", "tone": "violet", "shared_with": [], "owned_by": ""},
+    {"id": "customer_service.unhappy_customer_never_just_vanishes",
+     "title": "عميلك الغاضب يرجع راضي، بدل ما يختفي بصمت",
+     "detail": "أي شكوى حقيقية توصلك فوراً بصندوق التصعيدات — تتدخل بنفسك قبل ما يسوء رأيه عنك"
+              " للأبد",
+     "icon": "alert-triangle", "tone": "amber", "shared_with": [], "owned_by": ""},
+    {"id": "customer_service.you_set_the_ceiling", "title": "أنت من يحدد سقف كل ترضية يومياً",
+     "detail": "حد يومي للترضيات، وقائمة خصومات/هدايا تحددها أنت مسبقاً — لا مفاجآت بفاتورتك آخر"
+              " الشهر",
+     "icon": "shield-check", "tone": "teal", "shared_with": [], "owned_by": ""},
+)
+
 # `feature.referrals` — services/referrals + core/referral_redemption.py's own module docstring.
 # NOT `feature.mutual_benefit`: an ORDINARY customer refers a friend for a reward (both real
 # customers of THIS shop), never a cross-tenant eligibility detection between two shops.
@@ -483,6 +499,15 @@ APPS: tuple[dict[str, Any], ...] = (
      "what": "عميلك يطلب مباشرة من كتالوج واتساب الرسمي، ويدفع ببوابتك الخاصة — يصلك الطلب جاهزاً "
              "لتسجّله بنظامك الحالي.",
      "features": list(WHATSAPP_DELIVERY_ORDERS_FEATURES)},
+    # CUSTOMER SERVICE FREELANCERS — docs/جديد.txt، docs/خطة-تنفيذ-خدمة-العملاء.md. A shop hands its
+    # own post-visit customer-care work to an external person it brought in itself; we only
+    # supply the tool (quiet-hours/cooldown/reward limits, the escalation inbox) — never a
+    # marketplace, never a cut of any money between the shop and that person.
+    {"key": "feature.customer_service", "name": "خدمات ما بعد البيع",
+     "screen": "freelancers",
+     "what": "فوّض متابعة عملائك بعد الزيارة لشخص تثق به — يرضي عميلك بترضيات أنت تحددها، وأنت تتابع "
+             "النتيجة بلا ما تلمس التفاصيل.",
+     "features": list(CUSTOMER_SERVICE_FEATURES)},
 )
 
 # BOTH ROWS ABOVE WERE MISSING FOR THE SAME REASON, FOUND THE SAME DAY: a plan's
