@@ -689,10 +689,13 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(s.whatsappOrdersActionCancel),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(hintText: s.whatsappOrdersCancelReasonPrompt),
-          autofocus: true,
+        content: KbAnchor(
+          id: 'whatsapp-orders.cancel_reason_field',
+          child: TextField(
+            controller: controller,
+            decoration: InputDecoration(hintText: s.whatsappOrdersCancelReasonPrompt),
+            autofocus: true,
+          ),
         ),
         actions: [
           TextButton(

@@ -152,6 +152,25 @@ EXEMPT_LINES: dict[str, set[str]] = {
         "TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(s.cancel)),",
         "TextButton(",
     },
+    "apps/mobile/lib/features/whatsapp_orders/whatsapp_orders_screen.dart": {
+        # The cancel-reason dialog's own cancel/confirm — the field right above (now anchored as
+        # whatsapp-orders.cancel_reason_field) already says what's being cancelled, same posture
+        # as mobile_requests_screen.dart's own reject-reason dialog. Only 2 TextButton( openings
+        # exist in this whole file, both inside this one dialog.
+        "TextButton(",
+    },
+    "apps/mobile/lib/features/freelancers/freelancers_screen.dart": {
+        # Two plain yes/no confirm dialogs (deactivate a freelancer, stop contacting a customer)
+        # — the title/body text right above each already names what is being confirmed; only 4
+        # TextButton( openings exist in this whole file, all inside these two dialogs.
+        "TextButton(",
+        # _NumberField's own +/- stepper, shared by cooldown days, daily cap, discount percent
+        # and points — the `label` text passed into each instance (shown right above the stepper)
+        # already names what is being adjusted, same posture as visit_screen.dart's own quantity
+        # dialog stepper above.
+        "IconButton(onPressed: () => onChanged((value - 1).clamp(0, 9999)), icon: const Icon(Icons.remove_circle_outline)),",
+        "IconButton(onPressed: () => onChanged((value + 1).clamp(0, 9999)), icon: const Icon(Icons.add_circle_outline)),",
+    },
     "apps/mobile/lib/features/campaigns/wa_flow_screens.dart": {
         # A custom flow-preview component named `_FlowTextField` — the SAME accidental
         # "TextField(" substring match as `_GlassIconButton`'s own entry above, on its

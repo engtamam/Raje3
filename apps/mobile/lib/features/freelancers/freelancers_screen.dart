@@ -326,13 +326,16 @@ class _FreelancersScreenState extends State<FreelancersScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AppTextField(
-                hintText: s.freelancersWorkSearchHint,
-                prefixIcon: Icons.search_rounded,
-                onChanged: (v) {
-                  _search = v;
-                  _loadCustomers();
-                },
+              KbAnchor(
+                id: 'freelancers.work_search_field',
+                child: AppTextField(
+                  hintText: s.freelancersWorkSearchHint,
+                  prefixIcon: Icons.search_rounded,
+                  onChanged: (v) {
+                    _search = v;
+                    _loadCustomers();
+                  },
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               SizedBox(
@@ -689,10 +692,13 @@ class _FreelancerCard extends StatelessWidget {
                 ],
               ),
             ),
-            IconButton(
-              onPressed: onDeactivate,
-              icon: Icon(Icons.person_off_outlined, color: colors.textMuted, size: 20),
-              tooltip: s.freelancersRosterDeactivate,
+            KbAnchor(
+              id: 'freelancers.roster.deactivate_button',
+              child: IconButton(
+                onPressed: onDeactivate,
+                icon: Icon(Icons.person_off_outlined, color: colors.textMuted, size: 20),
+                tooltip: s.freelancersRosterDeactivate,
+              ),
             ),
           ],
         ),
@@ -796,11 +802,17 @@ class _AddFreelancerSheetState extends State<_AddFreelancerSheet> {
                 const SizedBox(height: AppSpacing.md),
                 Text(s.freelancersAddTitle, style: AppTextStyles.headlineSmall),
                 const SizedBox(height: AppSpacing.md),
-                AppTextField(labelText: s.freelancersAddNameLabel, hintText: s.freelancersAddNameHint, controller: _nameController),
+                KbAnchor(
+                  id: 'freelancers.add.name_field',
+                  child: AppTextField(labelText: s.freelancersAddNameLabel, hintText: s.freelancersAddNameHint, controller: _nameController),
+                ),
                 const SizedBox(height: AppSpacing.sm),
-                AppTextField(
-                  labelText: s.freelancersAddPhoneLabel, hintText: s.freelancersAddPhoneHint,
-                  controller: _phoneController, keyboardType: TextInputType.phone,
+                KbAnchor(
+                  id: 'freelancers.add.phone_field',
+                  child: AppTextField(
+                    labelText: s.freelancersAddPhoneLabel, hintText: s.freelancersAddPhoneHint,
+                    controller: _phoneController, keyboardType: TextInputType.phone,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(s.freelancersAddNote, style: AppTextStyles.caption.copyWith(color: colors.textMuted)),
@@ -1007,7 +1019,10 @@ class _OptionsSheetState extends State<_OptionsSheet> {
                   onChanged: (v) => setState(() => _kind = v ?? 'gift'),
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                AppTextField(hintText: s.freelancersOptionsLabelHint, controller: _labelController),
+                KbAnchor(
+                  id: 'freelancers.options.label_field',
+                  child: AppTextField(hintText: s.freelancersOptionsLabelHint, controller: _labelController),
+                ),
                 if (_kind == 'discount') ...[
                   const SizedBox(height: AppSpacing.sm),
                   _NumberField(label: s.freelancersOptionsPercentLabel, help: '', value: _percent,
@@ -1140,20 +1155,26 @@ class _ExportSheetState extends State<_ExportSheet> {
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => _pickDate(start: true),
-                        child: Text(_customStart != null
-                            ? Formatters.formatDate(_customStart!, locale: locale)
-                            : s.freelancersExportFromLabel),
+                      child: KbAnchor(
+                        id: 'freelancers.export.from_button',
+                        child: OutlinedButton(
+                          onPressed: () => _pickDate(start: true),
+                          child: Text(_customStart != null
+                              ? Formatters.formatDate(_customStart!, locale: locale)
+                              : s.freelancersExportFromLabel),
+                        ),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => _pickDate(start: false),
-                        child: Text(_customEnd != null
-                            ? Formatters.formatDate(_customEnd!, locale: locale)
-                            : s.freelancersExportToLabel),
+                      child: KbAnchor(
+                        id: 'freelancers.export.to_button',
+                        child: OutlinedButton(
+                          onPressed: () => _pickDate(start: false),
+                          child: Text(_customEnd != null
+                              ? Formatters.formatDate(_customEnd!, locale: locale)
+                              : s.freelancersExportToLabel),
+                        ),
                       ),
                     ),
                   ],
@@ -1431,14 +1452,20 @@ class _CustomerActionsSheetState extends State<_CustomerActionsSheet> {
                   ),
                 ],
                 const SizedBox(height: AppSpacing.lg),
-                AppTextField(hintText: s.freelancersWorkNoteHint, controller: _noteController),
+                KbAnchor(
+                  id: 'freelancers.work.note_field',
+                  child: AppTextField(hintText: s.freelancersWorkNoteHint, controller: _noteController),
+                ),
                 const SizedBox(height: AppSpacing.sm),
                 SizedBox(
                   width: double.infinity, height: 40,
                   child: SecondaryButton(text: s.freelancersWorkNoteSave, onPressed: _busy ? null : _addNote),
                 ),
                 const Divider(height: AppSpacing.lg),
-                AppTextField(hintText: s.freelancersWorkEscalateHint, controller: _escalateController),
+                KbAnchor(
+                  id: 'freelancers.work.escalate_field',
+                  child: AppTextField(hintText: s.freelancersWorkEscalateHint, controller: _escalateController),
+                ),
                 const SizedBox(height: AppSpacing.sm),
                 SizedBox(
                   width: double.infinity, height: 40,

@@ -3341,5 +3341,65 @@
     },
     "kind": "screen",
     "anchor": "freelancers"
+  },
+  "freelancers.work_search_field": {
+    "title": { "ar": "بحث العملاء", "en": "Search customers" },
+    "body": { "ar": "يبحث بالاسم أو رقم الجوال.", "en": "Searches by name or phone number." },
+    "kind": "field",
+    "anchor": "freelancers.work_search_field"
+  },
+  "freelancers.roster.deactivate_button": {
+    "title": { "ar": "إيقاف المستقل", "en": "Deactivate freelancer" },
+    "body": { "ar": "يفتح مكاناً جديداً ضمن الحد الأقصى (3).", "en": "Opens a new slot under the cap (3)." },
+    "kind": "action",
+    "anchor": "freelancers.roster.deactivate_button"
+  },
+  "freelancers.add.name_field": {
+    "title": { "ar": "اسم المستقل", "en": "Freelancer's name" },
+    "body": { "ar": "الاسم الذي يظهر للإدارة.", "en": "The name shown to the shop's staff." },
+    "kind": "field",
+    "anchor": "freelancers.add.name_field"
+  },
+  "freelancers.add.phone_field": {
+    "title": { "ar": "رقم جوال المستقل", "en": "Freelancer's phone" },
+    "body": { "ar": "يجب أن يكون قد تعاملت معه بنفسك مسبقاً.", "en": "You must already have dealt with this person yourself." },
+    "kind": "field",
+    "anchor": "freelancers.add.phone_field"
+  },
+  "freelancers.options.label_field": {
+    "title": { "ar": "اسم الترضية", "en": "Reward label" },
+    "body": { "ar": "الاسم الذي يراه المستقل عند منح الترضية.", "en": "What the freelancer sees when granting this reward." },
+    "kind": "field",
+    "anchor": "freelancers.options.label_field"
+  },
+  "freelancers.export.from_button": {
+    "title": { "ar": "تاريخ البداية", "en": "Start date" },
+    "body": { "ar": "بداية النطاق الزمني المخصص للتصدير.", "en": "The start of the custom export date range." },
+    "kind": "action",
+    "anchor": "freelancers.export.from_button"
+  },
+  "freelancers.export.to_button": {
+    "title": { "ar": "تاريخ النهاية", "en": "End date" },
+    "body": { "ar": "نهاية النطاق الزمني المخصص للتصدير.", "en": "The end of the custom export date range." },
+    "kind": "action",
+    "anchor": "freelancers.export.to_button"
+  },
+  "freelancers.work.note_field": {
+    "title": { "ar": "ملاحظة الاتصال", "en": "Call note" },
+    "body": { "ar": "ملاحظة سريعة عن المكالمة مع هذا العميل.", "en": "A quick note about the call with this customer." },
+    "kind": "field",
+    "anchor": "freelancers.work.note_field"
+  },
+  "freelancers.work.escalate_field": {
+    "title": { "ar": "تصعيد الحالة", "en": "Escalate" },
+    "body": { "ar": "ما المشكلة؟ يصل فوراً لصندوق تصعيدات الإدارة.", "en": "What's wrong? Reaches the shop's escalation inbox immediately." },
+    "kind": "field",
+    "anchor": "freelancers.work.escalate_field"
+  },
+  "whatsapp-orders.cancel_reason_field": {
+    "title": { "ar": "سبب الإلغاء", "en": "Cancellation reason" },
+    "body": { "ar": "سبب اختياري لإلغاء هذا الطلب.", "en": "An optional reason for cancelling this order." },
+    "kind": "field",
+    "anchor": "whatsapp-orders.cancel_reason_field"
   }
 }
