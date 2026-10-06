@@ -739,6 +739,14 @@ soft "affiliate-service's phone-search role" bash "$HERE/hooks/provision-affilia
 # tenant the moment the account connects; there is no platform-wide seeder to run here.
 step "seed"
 soft "roles" bash "$HERE/seed/seed-roles.sh"
+# EVERY EXISTING TENANT'S ROLES, BROUGHT UP TO THE CURRENT DEFINITIONS — never wired into any
+# deploy path until now (found live, 2026-10-06: `operations.freelancer_manage` sat correctly in
+# roles.json and the owner-holds-it CI gate passed clean, because that gate only reads THIS repo's
+# files — the capability simply never reached any establishment that signed up before the day it
+# was added, and nothing here or in ship.sh ever ran `repair-roles.sh` to close that gap). Additive
+# only (see that script's own header) — safe on every ordinary deploy and every WIPE=1 reinstall
+# alike, never undoes a role an owner customised by hand.
+soft "repair existing roles" bash "$HERE/seed/repair-roles.sh"
 # assistant-service's OWN HAND-AUTHORED KB (Phase 4) — a ConfigMap this repo's own
 # deploy/kb/sync-shop-kb.sh builds from deploy/kb/shop/*.json, mounted via the chart's
 # extraVolumes hook. NEVER PART OF A FRESH-CLUSTER CHAIN UNTIL TODAY — a WIPE=1 install deletes
