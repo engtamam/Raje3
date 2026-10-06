@@ -136,7 +136,7 @@ class _CoworkingBookingsSheetState extends State<CoworkingBookingsSheet> {
                 AppBadge(text: 'ملغى', backgroundColor: colors.surface, textColor: colors.textMuted)
               else
                 CapabilityGate(
-                  requires: const ['coworking.manage'],
+                  requires: const ['coworking.cancel_booking'],
                   child: KbAnchor(
                     id: 'coworking.bookings_sheet.cancel',
                     child: SecondaryButton(

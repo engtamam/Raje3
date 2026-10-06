@@ -119,10 +119,12 @@ export function AppLauncher() {
   // action BY ITS ID; `operations.manage` is only ever a `capability` FIELD on other actions,
   // never an action id of its own, so checking it directly always resolved to `undefined` for
   // everyone, owner and manager included (found live: the banner/store tab vanished for them
-  // too). `operations.create_operator` is a real action id gated on exactly that capability
-  // (services/operations/app/user_actions.py), and owner+manager are the only two roles that
-  // hold it (roles.seed.json).
-  const canBrowseStore = Boolean(action(catalog, 'operations.create_operator'));
+  // too). `operations.hire_member` is a real action id gated on exactly that capability
+  // (services/operations/app/user_actions.py) — CORRECTED 2026-10-06, this used to read
+  // `operations.create_operator`, which was never a real action id at all (same class of bug:
+  // the comment claiming it was real was itself stale) and left this permanently `undefined`
+  // for everyone, owner and manager included.
+  const canBrowseStore = Boolean(action(catalog, 'operations.hire_member'));
   const tab: Tab = canBrowseStore ? tabState : 'mine';
 
   // SWIPE BETWEEN THE TWO TABS — the owner's own report: on a phone, reaching up to tap the tab

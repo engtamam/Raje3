@@ -85,7 +85,10 @@ class CoworkingJoinRow extends StatelessWidget {
     );
 
     final gated = CapabilityGate(
-      requires: const ['coworking.manage'],
+      requires: const [
+        'coworking.approve_join', 'coworking.reject_join',
+        'coworking.block_phone', 'coworking.unblock_phone',
+      ],
       child: KbAnchor(
         id: 'coworking.join_row',
         child: GestureDetector(

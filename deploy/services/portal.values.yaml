@@ -16,7 +16,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/portal
-  digest: "sha256:26b0f2f3a759e1abeec793002ba1a12110c3fdb8ca7b6637f2653d8187b075ee"   # d349a6f6, published by publish-images.sh
+  digest: "sha256:cce023616d460d916c97e1cb8ab97a15e53e32649c70118543546ac49eff0731"   # dc12d033, published by publish-images.sh
 
 # ONE REPLICA — and this is a correction, not the original plan.
 #

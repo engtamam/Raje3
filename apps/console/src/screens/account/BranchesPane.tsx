@@ -85,6 +85,6 @@ export function BranchesPane({ session, catalog, openOnWhatsapp, incomingNotice 
  *  connection from a role that manages neither hiring nor branches. */
 export function branchesTabVisible(catalog: Catalog): boolean {
   return Boolean(action(catalog, 'whatsapp.connect_status')
-    || action(catalog, 'operations.create_operator')
+    || action(catalog, 'operations.hire_member')
     || action(catalog, 'operations.list_branches'));
 }

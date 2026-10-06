@@ -421,6 +421,14 @@ ship_many() {
   python3 "$ROOT/ci/check_backup_manifest_declares_written_collections.py" || {
     red "backup coverage: gap(s) found above — nothing built, nothing shipped"; return 1; }
 
+  # FOUND LIVE (2026-10-06), TWICE IN ONE SESSION: a mobile CapabilityGate and two console
+  # action(catalog, …) calls each named an id that was never declared (or was renamed and never
+  # updated) in any user_actions.py — the button simply never rendered, for anyone, owner
+  # included, with no error anywhere. See the gate's own header for both real incidents.
+  say "console/mobile capability gates name real action ids"
+  python3 "$ROOT/ci/check_console_mobile_action_ids_are_real.py" || {
+    red "dead action-id reference(s) found above — nothing built, nothing shipped"; return 1; }
+
   # ── 1. tests ────────────────────────────────────────────────────────────────────────────────
   for svc in "${ours[@]}"; do
     say "$svc · 1/4 tests"

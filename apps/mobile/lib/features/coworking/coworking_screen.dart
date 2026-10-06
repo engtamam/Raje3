@@ -144,7 +144,7 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
   @override
   Widget build(BuildContext context) {
     final catalog = context.watch<NavProvider>().catalog;
-    final canManage = catalog.hasAll(['coworking.manage']);
+    final canManage = catalog.hasAll(['coworking.update_resource']);
     final branchProvider = context.watch<BranchProvider>();
 
     // The list is already branch-scoped server-side; a resource with `branch_id == ""` is
@@ -164,7 +164,7 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
       child: Scaffold(
         backgroundColor: AppColors.surface0,
         floatingActionButton: CapabilityGate(
-          requires: const ['coworking.manage'],
+          requires: const ['coworking.create_resource'],
           child: KbAnchor(
             id: 'coworking.add_button',
             child: FloatingActionButton.extended(
@@ -583,7 +583,7 @@ class _ResourceCard extends StatelessWidget {
                             const SizedBox(width: AppSpacing.sm),
                             Expanded(
                               child: CapabilityGate(
-                                requires: const ['coworking.manage'],
+                                requires: const ['coworking.update_resource'],
                                 child: SecondaryButton(
                                   text: active ? 'إيقاف' : 'تفعيل',
                                   icon: active

@@ -31,7 +31,7 @@ enum NavLoadState { initial, loading, ready, error }
 ///
 /// Follows AuthProvider's exact shape: a state enum, a disposed guard, plain getters, and
 /// methods that never throw past themselves.
-class NavProvider extends ChangeNotifier {
+class NavProvider extends ChangeNotifier with WidgetsBindingObserver {
   final ApiClient apiClient;
   final LocalStorage localStorage;
   late final CatalogService _catalogService;
@@ -45,6 +45,22 @@ class NavProvider extends ChangeNotifier {
     // interceptor already attached (see AuthProvider's own real instance for that wiring).
     _authService = AuthService(apiClient: apiClient, secureStorage: SecureStorage());
     _customSlotId = localStorage.getCustomNavSlot();
+    // RE-FETCH ON RESUME, NOT ONLY ONCE PER COLD START (found live, 2026-10-06): `load()` below
+    // was gated by `state == initial`, which is true exactly once in this provider's whole
+    // lifetime — so a capability granted, an app subscribed, or a plan changed WHILE the
+    // operator's session stayed open (backgrounded, not killed) never reached the catalogue
+    // this provider holds, no matter how long the app sat open. The owner saw a dead "add" button
+    // (and no error — the button was simply never in the catalogue) until he force-closed and
+    // reopened the app, which is the one thing that rebuilds this provider from scratch. A
+    // customer hitting this has no reason to know a full close+reopen is the fix.
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _state != NavLoadState.initial) {
+      load();
+    }
   }
 
   bool _disposed = false;
@@ -52,6 +68,7 @@ class NavProvider extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
@@ -144,8 +161,9 @@ class NavProvider extends ChangeNotifier {
     return visible.first;
   }
 
-  /// Fetch the catalogue once per session. Safe to call again (e.g. pull-to-refresh); it
-  /// always starts from a clean loading state.
+  /// Fetch the catalogue — on cold start (app_router.dart's `state == initial` guard), every
+  /// resume from background (didChangeAppLifecycleState above), and safe to call again for
+  /// anything else (e.g. pull-to-refresh); it always starts from a clean loading state.
   Future<void> load() async {
     _state = NavLoadState.loading;
     notifyListeners();
