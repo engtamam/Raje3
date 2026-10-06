@@ -46,13 +46,19 @@ def read(p: Path) -> str:
 
 
 def real_action_ids() -> set[str]:
-    """Every `"id"` declared in any user_actions.py — ours and platform's alike, since the
-    gateway aggregates both into one catalogue (see ADMIN_SERVICES in api-gateway.values.yaml)."""
+    """Every `"id"` declared in any user_actions.py (self-service, every registered user) OR
+    admin_actions.py (the operator/tenant-admin catalog — service accounts, staff management,
+    anything gated past `identity.self`) — ours and platform's alike, since the gateway
+    aggregates both into the one catalogue a console/mobile session reads (see ADMIN_SERVICES in
+    api-gateway.values.yaml). MISSING admin_actions.py HERE ONCE ALREADY — found by a peer
+    session, 2026-10-06: `identity.list_service_accounts`/`identity.revoke_service_account` were
+    flagged as dead ids and escalated as a platform gap, when they were real all along, just
+    declared in the OTHER catalog file this check hadn't heard of yet."""
     ids: set[str] = set()
     for base in (ROOT / "services", ROOT / "platform" / "services"):
         if not base.is_dir():
             continue
-        for f in base.glob("*/app/user_actions.py"):
+        for f in list(base.glob("*/app/user_actions.py")) + list(base.glob("*/app/admin_actions.py")):
             try:
                 tree = ast.parse(read(f))
             except SyntaxError:
@@ -84,14 +90,6 @@ def ts_action_calls(text: str) -> set[str]:
 
 ID_RE = re.compile(r"^[a-z][a-z0-9_]*\.[a-z0-9_.]+$")
 
-# TEMPORARY, NAMED, AND OWNED — identity-service's service-accounts endpoints are real
-# (app/api/v1/service_accounts.py) but were never declared in its own user_actions.py (found by
-# this gate, 2026-10-06; escalated to the sister session that owns platform/services/* directly,
-# since this repo never edits that submodule — see [[platform-changes-via-sister-session]]).
-# Remove this pair the moment that lands; until then this gate would otherwise block every ship
-# in the repo over a gap neither this repo nor this ship can fix.
-_PENDING_UPSTREAM = {"identity.list_service_accounts", "identity.revoke_service_account"}
-
 real_ids = real_action_ids()
 if not real_ids:
     problems.append("found zero user_actions.py declarations anywhere — the AST walk itself is "
@@ -115,7 +113,7 @@ if console_src.is_dir():
             referenced.setdefault(rid, []).append(f)
 
 for rid, files in sorted(referenced.items()):
-    if rid in real_ids or rid in _PENDING_UPSTREAM:
+    if rid in real_ids:
         continue
     locs = ", ".join(sorted({str(f.relative_to(ROOT)) for f in files}))
     problems.append(f"'{rid}' is not a real action id in any user_actions.py (ours or "
