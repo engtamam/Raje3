@@ -105,6 +105,18 @@ async def erase_subject(request: Request, body: EraseIn) -> dict:
     return result
 
 
+@router.post("/coworking/memberships/renew",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
+async def renew_memberships(request: Request) -> dict:
+    """The membership renewal sweep (owner decision, 2026-10-06) — job-service's own push
+    dispatch, same door `require_push_signature`'s own docstring already reserved for exactly
+    this ("a future CronJob... can reuse it with no new plumbing"). Driven entirely by
+    `core/memberships.py::renew_due` — see that module's own doc for why this NEVER charges
+    anyone: extending `period_end` is the whole act."""
+    c = request.app.state.container
+    return await c.memberships.renew_due()
+
+
 class BackupExportIn(BaseModel):
     tenant: str = ""
 

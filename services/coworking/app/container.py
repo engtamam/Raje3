@@ -169,6 +169,7 @@ class Container:
     joins: Any = None
     pause: Any = None
     bookings: Any = None
+    memberships: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -240,6 +241,7 @@ def build_container(settings: Settings) -> Container:
     # nothing here is ever handed a half-built container.
     from app.core.bookings import BookingService
     from app.core.joins import JoinRegistry
+    from app.core.memberships import MembershipService
     from app.core.pause import PauseSettings
     from app.core.resources import ResourceService
 
@@ -247,6 +249,10 @@ def build_container(settings: Settings) -> Container:
     container.joins = JoinRegistry(store=container.datastore)
     container.pause = PauseSettings(store=container.datastore)
     container.bookings = BookingService(
+        store=container.datastore, resources=container.resources,
+        joins=container.joins, pause=container.pause,
+    )
+    container.memberships = MembershipService(
         store=container.datastore, resources=container.resources,
         joins=container.joins, pause=container.pause,
     )

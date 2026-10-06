@@ -22,6 +22,7 @@ never be trusted alone).
 """
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from typing import Any
@@ -47,6 +48,34 @@ class JoinRequired(Exception):
     """Not a refusal — the FIRST attempt from an unknown phone becomes a join request instead of
     a booking (spec §6). Raised, never returned as a booking, so a caller cannot mistake "your
     request is now pending" for "you have a confirmed booking"."""
+
+
+def _capacity_available(schedule: av.Schedule, busy: list[av.Busy], *, quantity: int,
+                        starts_at: int, ends_at: int) -> bool:
+    """The capacity-aware twin of `availability.is_free` — "is ANY one of `quantity` identical
+    units free", not "is THE unit free". Same working-hours check `is_free` already does (a
+    window the schedule never opens is refused regardless of capacity); the exclusivity half is
+    replaced with a count: up to `quantity - 1` OTHER overlapping confirmed bookings may already
+    exist and this one still fits. `quantity == 1` makes this IDENTICAL to the old `is_free` —
+    the behaviour every resource created before this feature existed keeps exactly.
+    """
+    if ends_at <= starts_at:
+        raise av.DurationNotConfigured(
+            "ends_at is at or before starts_at — this service's booking length was never "
+            "configured, not merely fully booked")
+    import datetime as _dt
+
+    from app.core.riyadh import RIYADH
+    day = _dt.datetime.fromtimestamp(starts_at, tz=RIYADH).date()
+    windows = schedule.windows_on(day)
+    day_epoch = int(_dt.datetime.combine(day, _dt.time(0, 0), tzinfo=RIYADH).timestamp())
+    within_a_window = any(
+        day_epoch + w.start_minute * 60 <= starts_at and ends_at <= day_epoch + w.end_minute * 60
+        for w in windows)
+    if not within_a_window:
+        return False
+    overlapping = sum(1 for b in busy if b.starts_at < ends_at and starts_at < b.ends_at)
+    return overlapping < quantity
 
 
 def _schedule_from_resource(resource) -> av.Schedule:
@@ -117,45 +146,69 @@ class BookingService:
         # ── 6a. cheap, advisory check BEFORE contending for a lane ──────────────────────────────
         schedule = _schedule_from_resource(resource)
         busy = await self._busy(tenant, resource_id, window_start=starts_at, window_end=ends_at)
-        if not av.is_free(schedule, busy, starts_at=starts_at, ends_at=ends_at):
+        if not _capacity_available(schedule, busy, quantity=resource.quantity,
+                                   starts_at=starts_at, ends_at=ends_at):
             raise BookingRefused("SLOT_UNAVAILABLE",
-                                 "هذا الوقت غير متاح — إما خارج ساعات عمل هذا المورد أو محجوز مسبقاً")
+                                 "هذا الوقت غير متاح — إما خارج ساعات عمل هذا المورد أو محجوز بالكامل")
 
         # ── 6b. the ONLY authoritative check — inside the lock ──────────────────────────────────
-        now = time.time()
-        try:
-            async with claiming(self._store, tenant=tenant, resource_id=resource_id,
-                                starts_at=starts_at, ends_at=ends_at, now=now):
-                # Re-read the resource — it may have been disabled or reschedule the instant
-                # before we took the lock; re-read busy — a competing booking may have committed
-                # between the advisory check above and now.
-                resource = await self._resources.get(tenant, resource_id)
-                if resource is None or not resource.active:
-                    raise BookingRefused("RESOURCE_INACTIVE",
-                                         "هذا المورد متوقف حالياً عن استقبال حجوزات جديدة")
-                schedule = _schedule_from_resource(resource)
-                busy = await self._busy(tenant, resource_id, window_start=starts_at, window_end=ends_at)
-                if not av.is_free(schedule, busy, starts_at=starts_at, ends_at=ends_at):
-                    raise BookingRefused("SLOT_UNAVAILABLE",
-                                         "هذا الوقت أصبح غير متاح — اختر وقتاً آخر")
-                booking = {
-                    "id": str(uuid.uuid4()), "tenant": tenant, "resource_id": resource_id,
-                    "freelancer_phone": phone, "starts_at": int(starts_at), "ends_at": int(ends_at),
-                    # STAMPED NOW, NOT READ LIVE LATER — spec §3's own "historical fact that must
-                    # never silently change if the shop edits the price later".
-                    "hourly_price_minor": resource.hourly_price_minor,
-                    # SAME REASONING, ONE DOOR DOWN (owner decision, 2026-09-27) — the resource's
-                    # OWN branch at booking time, copied rather than joined on every read, so a
-                    # branch-scoped list never needs a second lookup per row; and a booking made
-                    # before a resource was ever reassigned to a different branch still shows the
-                    # branch it was actually booked at, not wherever the resource sits today.
-                    "branch_id": resource.branch_id,
-                    "status": BOOKING_CONFIRMED, "created_at": int(now),
-                }
-                await self._store.put(BOOKINGS, booking["id"], booking)
-                return booking
-        except SlotClaimBusy as exc:
-            raise BookingRefused("SLOT_UNAVAILABLE", str(exc)) from exc
+        # RETRIED ON CONTENTION, NOT JUST ON QUANTITY==1. `claiming()` is a single, non-blocking
+        # attempt (lock.py's own doc) — fine when a resource holds exactly one booking, because
+        # losing that race DOES mean the resource is taken. It is WRONG the instant `quantity > 1`:
+        # five people booking a five-seat resource at once must take turns through the one lane
+        # the lock serialises, not have four of them refused on lock contention alone while the
+        # resource still has open capacity. Found live by this exact test (`quantity=5`,
+        # `CONTENDERS=7` under `_SlowStore`): without the retry, only the single first caller to
+        # win the lock ever got in — every other contender saw `SlotClaimBusy` and was refused
+        # outright, even though four more seats were still free the moment the lock let go.
+        # BOUNDED, SHORT, NEVER ASLEEP LONG ENOUGH TO MATTER — `CLAIM_TTL_SECONDS` (15s) upper-bounds
+        # how long any one holder can block another anyway; this only covers the sliver between two
+        # back-to-back legitimate claims on the same resource.
+        deadline = time.time() + 2.0
+        last_busy_exc: SlotClaimBusy | None = None
+        while time.time() < deadline:
+            now = time.time()
+            try:
+                async with claiming(self._store, tenant=tenant, resource_id=resource_id,
+                                    starts_at=starts_at, ends_at=ends_at, now=now):
+                    # Re-read the resource — it may have been disabled or reschedule the instant
+                    # before we took the lock; re-read busy — a competing booking may have
+                    # committed between the advisory check above and now.
+                    resource = await self._resources.get(tenant, resource_id)
+                    if resource is None or not resource.active:
+                        raise BookingRefused("RESOURCE_INACTIVE",
+                                             "هذا المورد متوقف حالياً عن استقبال حجوزات جديدة")
+                    schedule = _schedule_from_resource(resource)
+                    busy = await self._busy(tenant, resource_id, window_start=starts_at,
+                                            window_end=ends_at)
+                    if not _capacity_available(schedule, busy, quantity=resource.quantity,
+                                               starts_at=starts_at, ends_at=ends_at):
+                        raise BookingRefused("SLOT_UNAVAILABLE",
+                                             "هذا الوقت أصبح غير متاح — اختر وقتاً آخر")
+                    booking = {
+                        "id": str(uuid.uuid4()), "tenant": tenant, "resource_id": resource_id,
+                        "freelancer_phone": phone, "starts_at": int(starts_at),
+                        "ends_at": int(ends_at),
+                        # STAMPED NOW, NOT READ LIVE LATER — spec §3's own "historical fact that
+                        # must never silently change if the shop edits the price later".
+                        "hourly_price_minor": resource.hourly_price_minor,
+                        # SAME REASONING, ONE DOOR DOWN (owner decision, 2026-09-27) — the
+                        # resource's OWN branch at booking time, copied rather than joined on
+                        # every read, so a branch-scoped list never needs a second lookup per row;
+                        # and a booking made before a resource was ever reassigned to a different
+                        # branch still shows the branch it was actually booked at, not wherever
+                        # the resource sits today.
+                        "branch_id": resource.branch_id,
+                        "status": BOOKING_CONFIRMED, "created_at": int(now),
+                    }
+                    await self._store.put(BOOKINGS, booking["id"], booking)
+                    return booking
+            except SlotClaimBusy as exc:
+                last_busy_exc = exc
+                await asyncio.sleep(0)   # yield once; let the current holder finish and release
+                continue
+        raise BookingRefused("SLOT_UNAVAILABLE", str(last_busy_exc) if last_busy_exc else
+                             "تعذّر الحجز — هذا الموعد أصبح محجوزاً، اختر وقتاً آخر")
 
     async def cancel(self, tenant: str, booking_id: str) -> dict:
         row = await self._store.get(BOOKINGS, booking_id)

@@ -31,6 +31,7 @@ from app.api.ratelimit import rate_limit
 from app.config import get_settings
 from app.core.bookings import BookingRefused
 from app.core.joins import JoinError
+from app.core.memberships import MembershipError
 from app.core.models import BOOKINGS
 from app.core.phone import canonical_phone
 from app.core.resources import ResourceError
@@ -103,6 +104,14 @@ class ResourceIn(BaseModel):
     branch_id: str = Field(default="", max_length=64)
     # The shop's own words on what a freelancer is booking — empty is real and common.
     description: str = Field(default="", max_length=2000)
+    # «hourly» (default, byte-for-byte the only shape this app had before 2026-10-06) or
+    # «month»/«year» — a SEAT MEMBERSHIP, see core/memberships.py's own module doc. NEVER
+    # editable after creation (resources.py::update's own doc).
+    rental_period: str = Field(default="hourly", max_length=16)
+    # How many may hold this resource at once — 1 is the old, exclusive behaviour exactly.
+    quantity: int = Field(default=1, ge=1, le=10_000)
+    # Only meaningful for «month»/«year» — 0 and unused for «hourly».
+    period_price_minor: int = Field(default=0, ge=0)
 
 
 @router.post("/resources", dependencies=[Depends(rate_limit)])
@@ -113,9 +122,10 @@ async def create_resource(request: Request, body: ResourceIn,
     if refusal is not None:
         return refusal
     try:
-        resource = await c.resources.create(_tenant(principal), name=body.name,
-                                            branch_id=body.branch_id,
-                                            description=body.description)
+        resource = await c.resources.create(
+            _tenant(principal), name=body.name, branch_id=body.branch_id,
+            description=body.description, rental_period=body.rental_period,
+            quantity=body.quantity, period_price_minor=body.period_price_minor)
     except ResourceError as exc:
         return _refuse(str(exc))
     return resource.public()
@@ -137,6 +147,8 @@ class ResourceUpdateIn(BaseModel):
     active: bool | None = None
     branch_id: str | None = None
     description: str | None = None
+    quantity: int | None = Field(default=None, ge=1, le=10_000)
+    period_price_minor: int | None = Field(default=None, ge=0)
 
 
 @router.patch("/resources/{resource_id}", dependencies=[Depends(rate_limit)])
@@ -155,10 +167,10 @@ async def update_resource(request: Request, resource_id: str, body: ResourceUpda
             if refusal is not None:
                 return refusal
     try:
-        resource = await c.resources.update(_tenant(principal), resource_id,
-                                            name=body.name, active=body.active,
-                                            branch_id=body.branch_id,
-                                            description=body.description)
+        resource = await c.resources.update(
+            _tenant(principal), resource_id, name=body.name, active=body.active,
+            branch_id=body.branch_id, description=body.description,
+            quantity=body.quantity, period_price_minor=body.period_price_minor)
     except ResourceError as exc:
         return _refuse(str(exc), status_code=status.HTTP_404_NOT_FOUND)
     return resource.public()
@@ -360,6 +372,95 @@ async def cancel_booking(request: Request, booking_id: str,
         return await c.bookings.cancel(_tenant(principal), booking_id)
     except BookingRefused as exc:
         return _refuse(str(exc), status_code=status.HTTP_404_NOT_FOUND)
+
+
+# ── memberships (owner decision, 2026-10-06) — the «month»/«year» seat engine ──────────────────
+# JOINING STAYS PUBLIC-ONLY (the member does it himself through the shop's own link, same as a
+# booking) — nothing here creates one. This surface is the shop's own view, plus the two ways an
+# owner may end one: `stop_renewal` (ordinary, takes effect at period end) and `force_end`
+# (immediate, requires the explicit acknowledgment `core/memberships.py`'s own module doc
+# describes — the dispute-proofing the owner asked for by name).
+@router.get("/memberships", dependencies=[Depends(rate_limit)])
+async def list_memberships(request: Request, resource_id: str | None = None,
+                           status: str | None = None,
+                           principal: Principal = Depends(_MANAGE)) -> dict:
+    c = request.app.state.container
+    scope = await _scope(c, principal)
+    if scope in DENIED:
+        return {"memberships": []}
+    rows = await c.memberships.list_for_tenant(_tenant(principal), resource_id=resource_id,
+                                               status=status)
+    resources_by_id = {r.id: r for r in await c.resources.list(_tenant(principal))}
+    kept = [r for r in rows
+           if _in_scope(resources_by_id[r["resource_id"]].branch_id, scope)
+           if r["resource_id"] in resources_by_id]
+    return {"memberships": kept}
+
+
+async def _membership_branch_check(c, principal: Principal, membership_id: str) -> JSONResponse | None:
+    row = await c.memberships.get(_tenant(principal), membership_id)
+    if row is None:
+        return None
+    resource = await c.resources.get(_tenant(principal), row["resource_id"])
+    if resource is None:
+        return None
+    return await _require_branch(c, principal, resource.branch_id)
+
+
+@router.post("/memberships/{membership_id}/stop-renewal", dependencies=[Depends(rate_limit)])
+async def stop_membership_renewal(request: Request, membership_id: str,
+                                  principal: Principal = Depends(_MANAGE)) -> dict:
+    c = request.app.state.container
+    refusal = await _membership_branch_check(c, principal, membership_id)
+    if refusal is not None:
+        return refusal
+    try:
+        return await c.memberships.stop_renewal(_tenant(principal), membership_id)
+    except MembershipError as exc:
+        return _refuse(str(exc), status_code=status.HTTP_404_NOT_FOUND)
+
+
+@router.post("/memberships/{membership_id}/resume-renewal", dependencies=[Depends(rate_limit)])
+async def resume_membership_renewal(request: Request, membership_id: str,
+                                    principal: Principal = Depends(_MANAGE)) -> dict:
+    c = request.app.state.container
+    refusal = await _membership_branch_check(c, principal, membership_id)
+    if refusal is not None:
+        return refusal
+    try:
+        return await c.memberships.resume_renewal(_tenant(principal), membership_id)
+    except MembershipError as exc:
+        return _refuse(str(exc), status_code=status.HTTP_404_NOT_FOUND)
+
+
+class ForceEndIn(BaseModel):
+    # NO DEFAULT — a caller must type `true`, every time; see core/memberships.py's own doc on
+    # why this can never run silently.
+    acknowledged: bool
+    note: str = Field(default="", max_length=2000)
+
+
+@router.post("/memberships/{membership_id}/force-end", dependencies=[Depends(rate_limit)])
+async def force_end_membership(request: Request, membership_id: str, body: ForceEndIn,
+                               principal: Principal = Depends(_MANAGE)) -> dict:
+    c = request.app.state.container
+    refusal = await _membership_branch_check(c, principal, membership_id)
+    if refusal is not None:
+        return refusal
+    try:
+        row = await c.memberships.force_end(
+            _tenant(principal), membership_id, acknowledged=body.acknowledged,
+            ack_by=principal.subject or "", note=body.note)
+    except MembershipError as exc:
+        return _refuse(str(exc), status_code=status.HTTP_404_NOT_FOUND)
+    # CRITICAL — the one record a billing-style dispute would ask for first (module doc's own
+    # "who agreed, and when"), same posture `coworking.pause_changed` already holds for a
+    # shop-wide switch.
+    await request.app.state.auditor.record(
+        "coworking.membership_force_ended", actor=principal.subject, tenant=_tenant(principal),
+        resource=f"membership:{membership_id}", ip=request.client.host if request.client else "",
+        metadata={"note": body.note})
+    return row
 
 
 # ── tenant-level pause (spec §5) — SHOP-WIDE, NEVER BRANCH-SCOPED: "this establishment stops

@@ -46,6 +46,17 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "pause toggle costs nothing an owner cannot immediately fix by toggling again",
     },
     {
+        "action": "coworking.membership_force_ended",
+        "source": "admin",
+        "critical": True,
+        "resource": "membership",
+        "why": "the one record a billing-style dispute asks for first — who agreed to end a "
+               "membership mid-period, and when (core/memberships.py's own module doc on why "
+               "this is the SEPARATE, explicit-acknowledgment path from an ordinary lapse). "
+               "Critical: the whole reason this route exists is to make 'I never agreed to leave "
+               "early' unanswerable without it",
+    },
+    {
         "action": "coworking.resource_image_set",
         "source": "admin",
         "critical": False,

@@ -30,6 +30,7 @@ from starlette.responses import HTMLResponse, JSONResponse
 from app.api.ratelimit import rate_limit
 from app.config import get_settings
 from app.core.bookings import BookingRefused, JoinRequired
+from app.core.memberships import MembershipError, MembershipRefused
 from app.core.phone import canonical_phone
 from app.core.shop_info import fetch_shop_info
 
@@ -90,7 +91,11 @@ async def list_resources(request: Request, tenant: str) -> JSONResponse:
     resources = await c.resources.list(tenant, include_inactive=False)
     body = {"resources": [
         {"id": r.id, "name": r.name, "hourly_price_minor": r.hourly_price_minor,
-         "description": r.description, "has_image": bool(r.image_key)}
+         "description": r.description, "has_image": bool(r.image_key),
+         # «hourly» (free_slots/bookings below) vs «month»/«year» (memberships below) — the
+         # freelancer's own portal reads this to decide which door a resource's card opens.
+         "rental_period": r.rental_period, "quantity": r.quantity,
+         "period_price_minor": r.period_price_minor}
         for r in resources]}
     return JSONResponse(body, headers=NO_STORE)
 
@@ -212,3 +217,114 @@ async def my_bookings(request: Request, tenant: str, phone: str) -> JSONResponse
     c = request.app.state.container
     rows = await c.bookings.list_for_phone(tenant, phone)
     return JSONResponse({"bookings": rows}, headers=NO_STORE)
+
+
+# ── memberships (owner decision, 2026-10-06) — the «month»/«year» seat door ──────────────────────
+class MembershipJoinIn(BaseModel):
+    phone: str = Field(..., min_length=3, max_length=32)
+    resource_id: str = Field(..., min_length=1, max_length=200)
+
+
+@router.post("/{tenant}/memberships", dependencies=[Depends(rate_limit)])
+async def join_membership(request: Request, tenant: str, body: MembershipJoinIn) -> JSONResponse:
+    phone = _phone(body.phone)
+    if not phone:
+        return _refuse("BAD_PHONE", "رقم الجوال غير صالح")
+    c = request.app.state.container
+    try:
+        membership = await c.memberships.join(tenant, resource_id=body.resource_id, phone=phone)
+    except MembershipRefused as exc:
+        if exc.reason == "JOIN_REQUIRED":
+            # SAME SHAPE `create_booking` ABOVE GIVES A FIRST-EVER PHONE — 202, not an error: a
+            # join request now exists, which is the expected first step (spec §6, reused as-is).
+            return JSONResponse({"status": "join_required", "reason": str(exc)},
+                                status_code=status.HTTP_202_ACCEPTED, headers=NO_STORE)
+        return _refuse(exc.reason, str(exc))
+    return JSONResponse(membership, headers=NO_STORE)
+
+
+@router.get("/{tenant}/my-memberships", dependencies=[Depends(rate_limit)])
+async def my_memberships(request: Request, tenant: str, phone: str) -> JSONResponse:
+    phone = _phone(phone)
+    if not phone:
+        return _refuse("BAD_PHONE", "رقم الجوال غير صالح")
+    c = request.app.state.container
+    rows = await c.memberships.list_for_phone(tenant, phone)
+    return JSONResponse({"memberships": rows}, headers=NO_STORE)
+
+
+def _owns_membership(row: dict | None, phone: str) -> bool:
+    return row is not None and row.get("freelancer_phone") == phone
+
+
+@router.post("/{tenant}/memberships/{membership_id}/stop-renewal",
+            dependencies=[Depends(rate_limit)])
+async def stop_own_membership_renewal(request: Request, tenant: str, membership_id: str,
+                                      phone: str) -> JSONResponse:
+    """THE MEMBER'S OWN DOOR — "لو خرج يقدر يوقف التجديد" (owner's own words). Scoped to BOTH the
+    membership id and the caller's own phone, the same two-fact discipline every other route in
+    this file holds — a stranger who knows one membership id can never touch another member's
+    row even by accident."""
+    phone = _phone(phone)
+    if not phone:
+        return _refuse("BAD_PHONE", "رقم الجوال غير صالح")
+    c = request.app.state.container
+    row = await c.memberships.get(tenant, membership_id)
+    if not _owns_membership(row, phone):
+        return _refuse("NOT_FOUND", "العضوية غير موجودة", status_code=status.HTTP_404_NOT_FOUND)
+    try:
+        updated = await c.memberships.stop_renewal(tenant, membership_id)
+    except MembershipError as exc:
+        return _refuse("NOT_FOUND", str(exc), status_code=status.HTTP_404_NOT_FOUND)
+    return JSONResponse(updated, headers=NO_STORE)
+
+
+@router.post("/{tenant}/memberships/{membership_id}/resume-renewal",
+            dependencies=[Depends(rate_limit)])
+async def resume_own_membership_renewal(request: Request, tenant: str, membership_id: str,
+                                        phone: str) -> JSONResponse:
+    phone = _phone(phone)
+    if not phone:
+        return _refuse("BAD_PHONE", "رقم الجوال غير صالح")
+    c = request.app.state.container
+    row = await c.memberships.get(tenant, membership_id)
+    if not _owns_membership(row, phone):
+        return _refuse("NOT_FOUND", "العضوية غير موجودة", status_code=status.HTTP_404_NOT_FOUND)
+    try:
+        updated = await c.memberships.resume_renewal(tenant, membership_id)
+    except MembershipError as exc:
+        return _refuse("NOT_FOUND", str(exc), status_code=status.HTTP_404_NOT_FOUND)
+    return JSONResponse(updated, headers=NO_STORE)
+
+
+class MembershipForceEndIn(BaseModel):
+    phone: str = Field(..., min_length=3, max_length=32)
+    # NO DEFAULT, SAME AS THE ADMIN ROUTE — a member ending his own membership early must also
+    # type `true` explicitly; see core/memberships.py's own module doc.
+    acknowledged: bool
+    note: str = Field(default="", max_length=2000)
+
+
+@router.post("/{tenant}/memberships/{membership_id}/force-end",
+            dependencies=[Depends(rate_limit)])
+async def force_end_own_membership(request: Request, tenant: str, membership_id: str,
+                                   body: MembershipForceEndIn) -> JSONResponse:
+    """«يقدر يجبر إيقاف الاشتراك» — the member's own immediate-exit door, same acknowledgment
+    requirement and same audit trail as the shop's own `force-end` admin route."""
+    phone = _phone(body.phone)
+    if not phone:
+        return _refuse("BAD_PHONE", "رقم الجوال غير صالح")
+    c = request.app.state.container
+    row = await c.memberships.get(tenant, membership_id)
+    if not _owns_membership(row, phone):
+        return _refuse("NOT_FOUND", "العضوية غير موجودة", status_code=status.HTTP_404_NOT_FOUND)
+    try:
+        updated = await c.memberships.force_end(
+            tenant, membership_id, acknowledged=body.acknowledged, ack_by=phone, note=body.note)
+    except MembershipError as exc:
+        return _refuse("NOT_FOUND", str(exc), status_code=status.HTTP_404_NOT_FOUND)
+    await request.app.state.auditor.record(
+        "coworking.membership_force_ended", actor=phone, tenant=tenant,
+        resource=f"membership:{membership_id}", ip=request.client.host if request.client else "",
+        metadata={"note": body.note, "by": "member"})
+    return JSONResponse(updated, headers=NO_STORE)

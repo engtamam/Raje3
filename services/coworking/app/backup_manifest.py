@@ -13,6 +13,7 @@ BACKUP: dict[str, Any] = {
         {"name": "coworking_resources", "tenant_scoped": True},
         {"name": "coworking_joins", "tenant_scoped": True},
         {"name": "coworking_bookings", "tenant_scoped": True},
+        {"name": "coworking_memberships", "tenant_scoped": True},
         {"name": "coworking_settings", "tenant_scoped": True},
         # THE OPERATOR SURFACE (core/secret_store.py/core/runtime_config.py, pasted verbatim into
         # every service) — found live (2026-09-28), a 13-service audit: neither was declared here

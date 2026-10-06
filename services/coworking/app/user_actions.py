@@ -109,6 +109,40 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "confirm": True, "danger": True,
         "help": "يلغي الحجز فيصير وقته متاحاً من جديد لأي مستقلّ آخر.",
     },
+    # ── memberships (owner decision, 2026-10-06) — «month»/«year» seats ─────────────────────
+    {
+        "id": "coworking.list_memberships", "label": "الأعضاء", "method": "GET",
+        "path": "/api/v1/coworking/memberships", "capability": "coworking.manage",
+        "group": "العضويات",
+        "params": [{"name": "resource_id", "in": "query", "type": "string", "required": False},
+                  {"name": "status", "in": "query", "type": "string", "required": False}],
+        "help": "كل من اشترك بأي مورد عضوية — نشطاً كان أو منتهياً.",
+    },
+    {
+        "id": "coworking.stop_membership_renewal", "label": "أوقف تجديد عضوية", "method": "POST",
+        "path": "/api/v1/coworking/memberships/{membership_id}/stop-renewal",
+        "capability": "coworking.manage", "group": "العضويات",
+        "params": [{"name": "membership_id", "in": "path", "type": "string", "required": True}],
+        "confirm": True,
+        "help": "تسري بنهاية الفترة الحالية — لا تُنهي العضوية اليوم، وما تحتاج أي إقرار.",
+    },
+    {
+        "id": "coworking.resume_membership_renewal", "label": "استأنف تجديد عضوية",
+        "method": "POST",
+        "path": "/api/v1/coworking/memberships/{membership_id}/resume-renewal",
+        "capability": "coworking.manage", "group": "العضويات",
+        "params": [{"name": "membership_id", "in": "path", "type": "string", "required": True}],
+        "help": "يتراجع عن إيقاف تجديد سابق — طالما العضوية لا تزال نشطة.",
+    },
+    {
+        "id": "coworking.force_end_membership", "label": "أنهِ عضوية فوراً", "method": "POST",
+        "path": "/api/v1/coworking/memberships/{membership_id}/force-end",
+        "capability": "coworking.manage", "group": "العضويات",
+        "params": [{"name": "membership_id", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "danger": True,
+        "help": "إنهاء فوري بمنتصف المدة — يتطلب إقراراً صريحاً إن الطرفين متفقان، بلا أي مبلغ "
+               "مسترجع. غير هذا، استخدم «أوقف تجديد عضوية».",
+    },
     # ── tenant-level pause (spec §5) ─────────────────────────────────────────────────────────
     {
         "id": "coworking.get_pause", "label": "حالة إيقاف الحجوزات الجديدة", "method": "GET",
@@ -154,4 +188,18 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
     {"method": "GET", "path": "/p/coworking/{tenant}/my-bookings",
      "why": "the freelancer's own view of their bookings, looked up by phone — same reason as "
             "/bookings: no platform token is ever issued to a freelancer"},
+    {"method": "POST", "path": "/p/coworking/{tenant}/memberships",
+     "why": "the freelancer's own membership join door — same reason as /bookings: no platform "
+            "token, approved (or asked to join) by phone number alone"},
+    {"method": "GET", "path": "/p/coworking/{tenant}/my-memberships",
+     "why": "the freelancer's own view of their memberships, looked up by phone — same reason as "
+            "/my-bookings"},
+    {"method": "POST", "path": "/p/coworking/{tenant}/memberships/{membership_id}/stop-renewal",
+     "why": "the member's own «لو خرج يقدر يوقف التجديد» door — scoped to his own phone inside "
+            "the handler itself, same reason as every other route in this list"},
+    {"method": "POST", "path": "/p/coworking/{tenant}/memberships/{membership_id}/resume-renewal",
+     "why": "the undo of the row immediately above — same reasoning"},
+    {"method": "POST", "path": "/p/coworking/{tenant}/memberships/{membership_id}/force-end",
+     "why": "the member's own immediate-exit door, same acknowledgment contract as the shop's "
+            "own admin route — still no platform token, scoped to his own phone"},
 ]

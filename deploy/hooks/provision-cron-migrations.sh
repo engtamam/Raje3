@@ -67,6 +67,8 @@ ROUTES=(
   "renewal-heads-up-jobs-run|4-59/5 * * * *|renewal-heads-up-jobs-run|operations.renewal_heads_up_jobs_run|operations:8000|/internal/operations/subscriptions/renewal-heads-up/jobs/run"
   "translations-scan|*/10 * * * *|translations-scan|operations.translations_scan|operations:8000|/internal/operations/translations/scan"
   "translations-jobs-run|*/2 * * * *|translations-jobs-run|operations.translations_jobs_run|operations:8000|/internal/operations/translations/jobs/run"
+
+  "coworking-memberships-renew|0 * * * *|coworking-memberships-renew|coworking.memberships_renew|coworking:8000|/internal/coworking/memberships/renew"
 )
 
 FAILED=0

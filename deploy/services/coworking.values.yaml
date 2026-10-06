@@ -106,3 +106,21 @@ ingress:
 # person to two pseudonyms. INTERNAL_SERVICE_TOKEN authenticates peer-service calls
 # (audit, compliance) and the gateway's own admin_actions/whoami reach.
 # secretRefs: BACKUP_KEK, PII_SALT, INTERNAL_SERVICE_TOKEN
+
+# ── the membership renewal sweep (owner decision, 2026-10-06) ──────────────────────────────────
+# WITHOUT IT, a «month»/«year» membership's `period_end` never moves — auto-renew stays a stored
+# flag nobody ever acts on, and a member who never touched "إيقاف التجديد" finds his seat quietly
+# stuck at its original end date forever, with no error anywhere (same silent-heartbeat trap
+# campaigns' own tick comment describes). NEVER CHARGES ANYONE — see core/memberships.py's own
+# module doc: extending `period_end` is the whole act.
+#
+# job-service PUSH DISPATCH, SAME MIGRATED SHAPE EVERY OTHER TICK IN THIS FLEET TAKES
+# (deploy/hooks/job-schedule.sh's own header for the full migration plan) — NEVER a chart
+# `cronJobs:` entry.
+#
+# PROVISIONED ONCE, OUTSIDE THIS CHART (an admin action, not a deploy value; also wired into
+# deploy/hooks/provision-cron-migrations.sh so a from-scratch install is never silently inert):
+#   deploy/hooks/job-schedule.sh create coworking-memberships-renew "0 * * * *" \
+#       coworking-memberships-renew coworking.memberships_renew
+#   deploy/hooks/job-dispatch-target.sh register coworking-memberships-renew \
+#       http://coworking:8000/internal/coworking/memberships/renew

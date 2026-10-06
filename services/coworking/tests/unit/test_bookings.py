@@ -289,3 +289,115 @@ def test_different_resources_do_not_queue_behind_each_other():
 
     errors = asyncio.run(run())
     assert errors == [], "two different resources' slots must not contend"
+
+
+# ── capacity (owner decision 2026-10-06): a resource may hold more than one booking at once ────
+async def _resource_open_all_week_with_quantity(resources, tenant, quantity, price=5000):
+    r = await resources.create(tenant, name="قاعة اجتماعات", quantity=quantity)
+    weekly = {d: [(0, 24 * 60)] for d in range(7)}
+    await resources.set_availability(tenant, r.id, weekly=weekly, hourly_price_minor=price)
+    return r
+
+
+def test_quantity_defaults_to_one_so_every_old_resource_keeps_the_old_exclusive_behaviour():
+    async def run():
+        store = MemoryDataStore()
+        resources, joins, pause, bookings = _services(store)
+        r = await _resource_open_all_week(resources, TENANT)
+        assert r.quantity == 1
+
+    asyncio.run(run())
+
+
+def test_capacity_lets_exactly_quantity_overlapping_bookings_through_and_refuses_the_next():
+    async def run():
+        store = MemoryDataStore()
+        resources, joins, pause, bookings = _services(store)
+        r = await _resource_open_all_week_with_quantity(resources, TENANT, quantity=3)
+        await joins.ensure_pending(TENANT, PHONE)
+        await joins.approve(TENANT, PHONE)
+        for _ in range(3):
+            booking = await bookings.create(TENANT, resource_id=r.id, phone=PHONE,
+                                            starts_at=1_800_000_000, ends_at=1_800_003_600)
+            assert booking["status"] == "confirmed"
+        with pytest.raises(BookingRefused) as exc:
+            await bookings.create(TENANT, resource_id=r.id, phone=PHONE,
+                                  starts_at=1_800_000_000, ends_at=1_800_003_600)
+        assert exc.value.reason == "SLOT_UNAVAILABLE"
+
+    asyncio.run(run())
+
+
+def test_capacity_only_counts_bookings_that_actually_overlap():
+    async def run():
+        store = MemoryDataStore()
+        resources, joins, pause, bookings = _services(store)
+        r = await _resource_open_all_week_with_quantity(resources, TENANT, quantity=1)
+        await joins.ensure_pending(TENANT, PHONE)
+        await joins.approve(TENANT, PHONE)
+        await bookings.create(TENANT, resource_id=r.id, phone=PHONE,
+                              starts_at=1_800_000_000, ends_at=1_800_003_600)
+        # A quantity-of-1 resource still accepts a SECOND booking once the first one's window has
+        # genuinely ended — capacity must never be confused with "ever booked at all".
+        later = await bookings.create(TENANT, resource_id=r.id, phone=PHONE,
+                                      starts_at=1_800_003_600, ends_at=1_800_007_200)
+        assert later["status"] == "confirmed"
+
+    asyncio.run(run())
+
+
+def test_cancelling_one_booking_frees_capacity_for_a_new_one():
+    async def run():
+        store = MemoryDataStore()
+        resources, joins, pause, bookings = _services(store)
+        r = await _resource_open_all_week_with_quantity(resources, TENANT, quantity=2)
+        await joins.ensure_pending(TENANT, PHONE)
+        await joins.approve(TENANT, PHONE)
+        first = await bookings.create(TENANT, resource_id=r.id, phone=PHONE,
+                                      starts_at=1_800_000_000, ends_at=1_800_003_600)
+        await bookings.create(TENANT, resource_id=r.id, phone=PHONE,
+                              starts_at=1_800_000_000, ends_at=1_800_003_600)
+        with pytest.raises(BookingRefused):
+            await bookings.create(TENANT, resource_id=r.id, phone=PHONE,
+                                  starts_at=1_800_000_000, ends_at=1_800_003_600)
+        await bookings.cancel(TENANT, first["id"])
+        third = await bookings.create(TENANT, resource_id=r.id, phone=PHONE,
+                                      starts_at=1_800_000_000, ends_at=1_800_003_600)
+        assert third["status"] == "confirmed"
+
+    asyncio.run(run())
+
+
+def test_capacity_race_exactly_quantity_concurrent_requests_succeed_the_rest_refused():
+    """The hard version of the double-booking race, generalised to N>1: `quantity + 2` requests
+    fired at once for the SAME overlapping window on a `quantity`-capacity resource must leave
+    EXACTLY `quantity` winners — not one (the old exclusive behaviour, which would mean capacity
+    was silently ignored under contention) and not more than `quantity` (the lock doing nothing)."""
+    QUANTITY = 5
+    CONTENDERS = 7
+
+    async def run():
+        store = _SlowStore(MemoryDataStore())
+        resources = ResourceService(store=store)
+        joins = JoinRegistry(store=store)
+        pause = PauseSettings(store=store)
+        bookings = BookingService(store=store, resources=resources, joins=joins, pause=pause)
+        r = await _resource_open_all_week_with_quantity(resources, TENANT, quantity=QUANTITY)
+        await joins.ensure_pending(TENANT, PHONE)
+        await joins.approve(TENANT, PHONE)
+
+        out = await asyncio.gather(
+            *[bookings.create(TENANT, resource_id=r.id, phone=PHONE,
+                              starts_at=1_800_000_000 + i, ends_at=1_800_003_600 + i)
+              for i in range(CONTENDERS)],  # all overlap the same window
+            return_exceptions=True)
+        created = [o for o in out if not isinstance(o, Exception)]
+        refused = [o for o in out if isinstance(o, Exception)]
+        return created, refused
+
+    created, refused = asyncio.run(run())
+    assert len(created) == QUANTITY, (
+        f"expected exactly {QUANTITY} winners for a {QUANTITY}-capacity resource under "
+        f"{CONTENDERS}-way contention, got {len(created)}")
+    assert len(refused) == CONTENDERS - QUANTITY
+    assert all(isinstance(e, BookingRefused) and e.reason == "SLOT_UNAVAILABLE" for e in refused)
