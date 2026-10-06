@@ -109,7 +109,7 @@ export const SECTIONS: Section[] = [
   // الحجوزات: نفس الباب الذي يفتح الزيارة (docs/وصف-تطبيق-الحجوزات.md §2.5) — من يحجز لعميلةٍ
   // هو نفسه من يفتح زيارتها حين تحضر، فالقسم يظهر بجانب «تسجيل زيارة» مباشرة، لا بعيداً عنه.
   { service: 'bookings', id: 'bookings', path: '/bookings', label: 'الحجوزات', icon: CalendarClock, requires: ['bookings.list'], accent: NAV_ACCENTS[2] },
-  { service: 'coworking', id: 'coworking', path: '/coworking', label: 'مساحة عمل مشتركة', icon: Building2, requires: ['coworking.list_resources'], accent: NAV_ACCENTS[8] },
+  { service: 'coworking', id: 'coworking', path: '/coworking', label: 'الاستضافة المهنية', icon: Building2, requires: ['coworking.list_resources'], accent: NAV_ACCENTS[8] },
   { service: 'operations', id: 'customers', path: '/customers', label: 'جهات الاتصال', icon: Users, requires: ['operations.recent'], accent: NAV_ACCENTS[3] },
   // «التقييم» — WAS A TAB UNDER «عملائي» (رأي عميل هو حقيقة عن زيارته، نفس نطاق «عملائي»)، صار
   // قسماً قائماً بذاته لأن ما بناه هذا الإصدار (مقارنة الفريق، لوحة الصدارة، مصفوفة الأداء) صار

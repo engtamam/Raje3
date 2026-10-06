@@ -67,7 +67,7 @@ const List<NavSectionDef> kNavSections = [
   NavSectionDef(
     id: 'coworking',
     path: '/coworking',
-    label: 'مساحة عمل مشتركة',
+    label: 'الاستضافة المهنية',
     icon: Icons.business_outlined,
     requires: ['coworking.list_resources'],
     service: 'coworking',

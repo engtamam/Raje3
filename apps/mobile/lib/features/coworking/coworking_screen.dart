@@ -17,7 +17,7 @@ import 'coworking_bookings_sheet.dart';
 import 'coworking_join_row.dart';
 import 'resource_sheet.dart';
 
-/// «مساحة عمل مشتركة» (الاستضافة المهنية) — the SHOP OWNER/STAFF-facing admin screen for
+/// «الاستضافة المهنية» — the SHOP OWNER/STAFF-facing admin screen for
 /// services/coworking, never the freelancer-facing public booking link (that flow has no
 /// mobile screen at all — it is a plain shared web link, spec §4). Three tabs, same
 /// `SegmentedFilter` idiom `points_screen.dart` already uses — mirrors the console's own

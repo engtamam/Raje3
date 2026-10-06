@@ -4,7 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:raje3_mobile/core/network/api_client.dart';
 import 'package:raje3_mobile/models/coworking_model.dart';
 
-/// «مساحة عمل مشتركة» (الاستضافة المهنية) — every route
+/// «الاستضافة المهنية» — every route
 /// services/coworking/app/api/v1/admin.py serves, same `coworking.manage` capability that route
 /// requires for every write. RAW `apiClient.dio` calls, same convention every other mobile
 /// service in this app already holds to.

@@ -1,5 +1,5 @@
 /**
- * «مساحة عمل مشتركة» — a shop's own bookable resources (rooms/desks rented to freelancers by the
+ * «الاستضافة المهنية» — a shop's own bookable resources (rooms/desks rented to freelancers by the
  * hour), and everything an owner does to run that side of the shop: the resources themselves
  * (photo, description, price, weekly availability), who may book them at all (join requests, a
  * shop-wide approval gate), and the bookings that result.

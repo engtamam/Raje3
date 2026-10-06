@@ -10,7 +10,7 @@ import { registerOperatorStrings } from '../operator-i18n';
 
 registerOperatorStrings({
   ar: {
-    'coworking.title': 'مساحة عمل مشتركة',
+    'coworking.title': 'الاستضافة المهنية',
 
     'coworking.tab.resources': 'الموارد',
     'coworking.tab.joins': 'طلبات الانضمام',
@@ -109,7 +109,7 @@ registerOperatorStrings({
     'coworking.bookings.status.completed': 'منتهٍ',
   },
   en: {
-    'coworking.title': 'Coworking Space',
+    'coworking.title': 'Professional Hosting',
 
     'coworking.tab.resources': 'Resources',
     'coworking.tab.joins': 'Join Requests',
@@ -208,7 +208,7 @@ registerOperatorStrings({
   // these same four languages: unblocks the mechanism end to end today, not checked by a native
   // speaker yet.
   ur: {
-    'coworking.title': 'مشترکہ ورک اسپیس',
+    'coworking.title': 'پیشہ ورانہ میزبانی',
     'coworking.tab.resources': 'وسائل',
     'coworking.tab.joins': 'شمولیت کی درخواستیں',
     'coworking.tab.bookings': 'بکنگز',
@@ -298,7 +298,7 @@ registerOperatorStrings({
     'coworking.bookings.status.completed': 'مکمل',
   },
   ha: {
-    'coworking.title': 'Sararin Aiki na Haɗin gwiwa',
+    'coworking.title': 'Masaukin Kwararru',
     'coworking.tab.resources': 'Kayayyaki',
     'coworking.tab.joins': 'Bukatun shiga',
     'coworking.tab.bookings': 'Ajiye lokaci',
@@ -388,7 +388,7 @@ registerOperatorStrings({
     'coworking.bookings.status.completed': 'An gama',
   },
   fil: {
-    'coworking.title': 'Coworking Space',
+    'coworking.title': 'Professional Hosting',
     'coworking.tab.resources': 'Mga Resource',
     'coworking.tab.joins': 'Mga Hiling na Pagsali',
     'coworking.tab.bookings': 'Mga Booking',
@@ -478,7 +478,7 @@ registerOperatorStrings({
     'coworking.bookings.status.completed': 'Tapos na',
   },
   bn: {
-    'coworking.title': 'কো-ওয়ার্কিং স্পেস',
+    'coworking.title': 'পেশাদার হোস্টিং',
     'coworking.tab.resources': 'রিসোর্স',
     'coworking.tab.joins': 'যোগদানের অনুরোধ',
     'coworking.tab.bookings': 'বুকিং',
