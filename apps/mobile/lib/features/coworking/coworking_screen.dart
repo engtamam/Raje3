@@ -19,20 +19,25 @@ import 'resource_sheet.dart';
 
 /// «مساحة عمل مشتركة» (الاستضافة المهنية) — the SHOP OWNER/STAFF-facing admin screen for
 /// services/coworking, never the freelancer-facing public booking link (that flow has no
-/// mobile screen at all — it is a plain shared web link, spec §4). Two tabs, same
-/// `SegmentedFilter` idiom `points_screen.dart` already uses:
+/// mobile screen at all — it is a plain shared web link, spec §4). Three tabs, same
+/// `SegmentedFilter` idiom `points_screen.dart` already uses — mirrors the console's own
+/// `Coworking.tsx` (`resources`/`joins`/`bookings`), which this screen fell one tab short of
+/// until now:
 ///
 /// «الموارد» — branch-scoped automatically (this app's own [BranchProvider]/branch-chip
 /// convention), photo-first resource cards, a quick active/paused toggle, and a tap that opens
-/// the full edit/availability/photo sheet.
+/// the full edit/availability/photo sheet. Each card ALSO keeps its own quick «الحجوزات» button
+/// (opens [CoworkingBookingsSheet], pre-filtered to that one resource) — a fast single-resource
+/// look stays one tap away even with the full cross-resource tab below.
 ///
 /// «طلبات الانضمام» — DELIBERATELY carries NO branch filter at all, mirroring
 /// `core/joins.py`'s own module doc: the gate is per-shop, never per-chair.
 ///
-/// Bookings are reached from a resource card's own «الحجوزات» button (a sheet), never a third
-/// tab — same pattern `booking_details_sheet.dart` already establishes for this app.
+/// «الحجوزات» — EVERY resource's bookings in one list (`coworking.list_bookings`, no
+/// `resourceId`), grouped by day, newest first — the cross-resource view the console's own
+/// `BookingsTab` already gives an owner; this mobile pass only ever had the per-resource sheet.
 ///
-/// THE SHOP-WIDE PAUSE SWITCH sits in the hero, above both tabs and outside any branch context —
+/// THE SHOP-WIDE PAUSE SWITCH sits in the hero, above every tab and outside any branch context —
 /// `core/models.py`'s own module doc is explicit that pausing is a single, shop-wide switch, and
 /// putting it inside a branch-scoped tab would misstate what it actually does.
 class CoworkingScreen extends StatefulWidget {
@@ -42,13 +47,15 @@ class CoworkingScreen extends StatefulWidget {
   State<CoworkingScreen> createState() => _CoworkingScreenState();
 }
 
-enum _Tab { resources, joins }
+enum _Tab { resources, joins, bookings }
 
-// TWO REAL COLOUR IDENTITIES, ONE PER TAB — mirrors the console's own `TAB_ACCENT` (Coworking.tsx,
-// the owner's own request for "تمايز لوني عالي"): الموارد (what you own) reads the hero's own
-// violet, طلبات الانضمام (a pending decision) reads amber — never the same flat look repeated.
+// THREE REAL COLOUR IDENTITIES, ONE PER TAB — mirrors the console's own `TAB_ACCENT`
+// (Coworking.tsx, the owner's own request for "تمايز لوني عالي"): الموارد (what you own) reads
+// the hero's own violet, طلبات الانضمام (a pending decision) reads amber, الحجوزات (a settled
+// fact — a calendar entry, not a decision waiting on anyone) reads the console's own "info" blue.
 const _resourcesAccent = Color(0xFF6A4CF5);
 const _joinsAccent = Color(0xFFE8A93A);
+const _bookingsAccent = Color(0xFF3B82C4);
 
 class _CoworkingScreenState extends State<CoworkingScreen> {
   late final CoworkingService _service;
@@ -57,6 +64,9 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
   bool _resourcesFailed = false;
   List<CoworkingJoin>? _joins;
   bool _joinsFailed = false;
+  List<CoworkingBooking>? _bookings;
+  bool _bookingsFailed = false;
+  final Set<String> _cancellingBookings = {};
   bool? _paused;
   bool _pauseBusy = false;
   _Tab _tab = _Tab.resources;
@@ -75,11 +85,14 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
       _resourcesFailed = false;
       _joins = null;
       _joinsFailed = false;
+      _bookings = null;
+      _bookingsFailed = false;
     });
     final results = await Future.wait([
       _service.listResources(),
       _service.listJoins(),
       _service.isPaused(),
+      _service.listBookings(),
     ]);
     if (!mounted) return;
     setState(() {
@@ -88,7 +101,17 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
       _joins = results[1] as List<CoworkingJoin>?;
       _joinsFailed = _joins == null;
       _paused = results[2] as bool?;
+      _bookings = results[3] as List<CoworkingBooking>?;
+      _bookingsFailed = _bookings == null;
     });
+  }
+
+  Future<void> _cancelBooking(CoworkingBooking b) async {
+    setState(() => _cancellingBookings.add(b.id));
+    await _service.cancelBooking(b.id);
+    if (!mounted) return;
+    setState(() => _cancellingBookings.remove(b.id));
+    _load();
   }
 
   Future<void> _togglePause(bool value) async {
@@ -208,6 +231,8 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
                             value: _Tab.resources, label: 'الموارد'),
                         SegmentedFilterOption(
                             value: _Tab.joins, label: 'طلبات الانضمام'),
+                        SegmentedFilterOption(
+                            value: _Tab.bookings, label: 'الحجوزات'),
                       ],
                     ),
                   ),
@@ -217,25 +242,34 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
                 padding: const EdgeInsets.fromLTRB(
                     AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
                 sliver: SliverToBoxAdapter(
-                  child: _TabSectionHeader(
-                    accent: _tab == _Tab.resources
-                        ? _resourcesAccent
-                        : _joinsAccent,
-                    icon: _tab == _Tab.resources
-                        ? Icons.chair_alt_rounded
-                        : Icons.how_to_reg_rounded,
-                    title:
-                        _tab == _Tab.resources ? 'الموارد' : 'طلبات الانضمام',
-                    said: _tab == _Tab.resources
-                        ? 'مواردك القابلة للتأجير بالساعة — صورها وأسعارها وأوقاتها'
-                        : 'من يطلب الانضمام لأول مرة — وافق أو ارفض أو امنع',
-                  ),
+                  child: switch (_tab) {
+                    _Tab.resources => const _TabSectionHeader(
+                        accent: _resourcesAccent,
+                        icon: Icons.chair_alt_rounded,
+                        title: 'الموارد',
+                        said: 'مواردك القابلة للتأجير بالساعة — صورها وأسعارها وأوقاتها',
+                      ),
+                    _Tab.joins => const _TabSectionHeader(
+                        accent: _joinsAccent,
+                        icon: Icons.how_to_reg_rounded,
+                        title: 'طلبات الانضمام',
+                        said: 'من يطلب الانضمام لأول مرة — وافق أو ارفض أو امنع',
+                      ),
+                    _Tab.bookings => const _TabSectionHeader(
+                        accent: _bookingsAccent,
+                        icon: Icons.event_note_rounded,
+                        title: 'الحجوزات',
+                        said: 'كل حجز على كل مورد، الأحدث أولاً',
+                      ),
+                  },
                 ),
               ),
               if (_tab == _Tab.resources)
                 ..._resourcesSlivers(visibleResources, canManage)
+              else if (_tab == _Tab.joins)
+                ..._joinsSlivers(canManage)
               else
-                ..._joinsSlivers(canManage),
+                ..._bookingsSlivers(),
             ],
           ),
         ),
@@ -358,6 +392,84 @@ class _CoworkingScreenState extends State<CoworkingScreen> {
       CoworkingJoin j, Future<bool> Function(String) action) async {
     final ok = await action(j.phone);
     if (ok && mounted) _load();
+  }
+
+  String _resourceName(String id) {
+    for (final r in _resources ?? const <CoworkingResource>[]) {
+      if (r.id == id) return r.name;
+    }
+    return id;
+  }
+
+  List<Widget> _bookingsSlivers() {
+    if (_bookings == null) {
+      return [
+        const SliverPadding(
+            padding: EdgeInsets.all(AppSpacing.xl),
+            sliver: SliverToBoxAdapter(child: AppLoadingIndicator())),
+      ];
+    }
+    if (_bookingsFailed) {
+      return [
+        SliverPadding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          sliver: SliverToBoxAdapter(
+            child: EmptyState(
+              icon: Icons.cloud_off_rounded,
+              title: 'تعذر تحميل الحجوزات',
+              actionText: 'إعادة المحاولة',
+              onAction: _load,
+            ),
+          ),
+        ),
+      ];
+    }
+    if (_bookings!.isEmpty) {
+      return [
+        const SliverPadding(
+          padding: EdgeInsets.all(AppSpacing.xl),
+          sliver: SliverToBoxAdapter(
+            child: EmptyState(
+                icon: Icons.event_busy_outlined, title: 'لا يوجد حجوزات بعد'),
+          ),
+        ),
+      ];
+    }
+    final sorted = [..._bookings!]
+      ..sort((a, b) => b.startsAt.compareTo(a.startsAt));
+    // GROUPED BY DAY, NEWEST FIRST — a flat list of forty bookings across a week of resources
+    // reads as noise; a day header is the one extra fact ("هذا كله الثلاثاء") that turns it back
+    // into something an owner can scan in a glance, same idiom `_DayHeader` establishes anywhere
+    // else in this app a timeline needs one.
+    final groups = <DateTime, List<CoworkingBooking>>{};
+    for (final b in sorted) {
+      final d = DateTime.fromMillisecondsSinceEpoch(b.startsAt * 1000);
+      final day = DateTime(d.year, d.month, d.day);
+      groups.putIfAbsent(day, () => []).add(b);
+    }
+    final days = groups.keys.toList();
+    final widgets = <Widget>[];
+    for (final day in days) {
+      widgets.add(_BookingDayHeader(day: day));
+      widgets.add(const SizedBox(height: AppSpacing.xs));
+      for (final b in groups[day]!) {
+        widgets.add(_BookingRow(
+          booking: b,
+          resourceName: _resourceName(b.resourceId),
+          cancelling: _cancellingBookings.contains(b.id),
+          onCancel: () => _cancelBooking(b),
+        ));
+        widgets.add(const SizedBox(height: AppSpacing.sm));
+      }
+      widgets.add(const SizedBox(height: AppSpacing.sm));
+    }
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md, 0, AppSpacing.md, AppSpacing.xxl),
+        sliver: SliverList(delegate: SliverChildListDelegate(widgets)),
+      ),
+    ];
   }
 }
 
@@ -740,6 +852,177 @@ class _TabSectionHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+const _weekdaysAr = [
+  'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد',
+];
+
+class _BookingDayHeader extends StatelessWidget {
+  const _BookingDayHeader({required this.day});
+  final DateTime day;
+
+  String _label() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    if (day == today) return 'اليوم';
+    if (day == yesterday) return 'أمس';
+    return '${_weekdaysAr[day.weekday - 1]} ${day.day}/${day.month}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        children: [
+          Text(_label(),
+              style: AppTextStyles.caption.copyWith(
+                  color: colors.textMuted, fontWeight: FontWeight.w700)),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(child: Divider(color: colors.borderSubtle, height: 1)),
+        ],
+      ),
+    );
+  }
+}
+
+class _BookingRow extends StatelessWidget {
+  const _BookingRow({
+    required this.booking,
+    required this.resourceName,
+    required this.cancelling,
+    required this.onCancel,
+  });
+  final CoworkingBooking booking;
+  final String resourceName;
+  final bool cancelling;
+  final VoidCallback onCancel;
+
+  ({String label, Color bg, Color fg}) _status(BuildContext context) {
+    switch (booking.status) {
+      case 'cancelled':
+        final colors = context.appColors;
+        return (label: 'ملغى', bg: colors.surfaceAlt, fg: colors.textMuted);
+      case 'completed':
+        return (
+          label: 'منتهٍ',
+          bg: _bookingsAccent.withValues(alpha: 0.14),
+          fg: _bookingsAccent,
+        );
+      default:
+        return (
+          label: 'مؤكّد',
+          bg: AppColors.successSoft,
+          fg: AppColors.successOnSoft,
+        );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final dark = context.isDark;
+    final start = DateTime.fromMillisecondsSinceEpoch(booking.startsAt * 1000);
+    final end = DateTime.fromMillisecondsSinceEpoch(booking.endsAt * 1000);
+    String two(int n) => n.toString().padLeft(2, '0');
+    final cancelled = booking.status == 'cancelled';
+    final status = _status(context);
+
+    return KbAnchor(
+      id: 'coworking.booking_row',
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: AppRadius.cardRadius,
+          border: Border.all(color: colors.borderSubtle),
+          boxShadow: dark ? AppShadows.darkCard : AppShadows.card,
+        ),
+        child: Row(
+          children: [
+            // THE SAME ACCENT-STRIP IDIOM _ResourceCard USES, HERE ON THE LEADING EDGE — a
+            // vertical bar reads as "this row belongs to this colour family" faster than any
+            // badge does, and at a glance across a long day it is the thing the eye actually
+            // scans for.
+            Container(
+              width: 4,
+              height: 64,
+              decoration: BoxDecoration(
+                color: cancelled ? colors.borderSubtle : _bookingsAccent,
+                borderRadius: const BorderRadiusDirectional.horizontal(
+                    start: Radius.circular(AppRadius.card)),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(resourceName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTextStyles.bodyMedium
+                                        .copyWith(fontWeight: FontWeight.w700)),
+                              ),
+                              AppBadge(
+                                  text: status.label,
+                                  backgroundColor: status.bg,
+                                  textColor: status.fg),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${two(start.hour)}:${two(start.minute)} - '
+                            '${two(end.hour)}:${two(end.minute)} · ${booking.freelancerPhone}',
+                            style: AppTextStyles.caption
+                                .copyWith(color: colors.textSecondary),
+                          ),
+                          Text(
+                              '${(booking.hourlyPriceMinor / 100).toStringAsFixed(0)} ر.س / ساعة',
+                              style: AppTextStyles.caption
+                                  .copyWith(color: colors.textMuted)),
+                        ],
+                      ),
+                    ),
+                    if (!cancelled) ...[
+                      const SizedBox(width: AppSpacing.sm),
+                      CapabilityGate(
+                        requires: const ['coworking.cancel_booking'],
+                        child: KbAnchor(
+                          id: 'coworking.bookings_tab.cancel',
+                          child: IconButton(
+                            tooltip: 'إلغاء الحجز',
+                            onPressed: cancelling ? null : onCancel,
+                            icon: cancelling
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2))
+                                : const Icon(Icons.close_rounded,
+                                    color: AppColors.danger, size: 20),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
