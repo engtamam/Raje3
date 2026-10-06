@@ -512,12 +512,21 @@ function ResourcesTab({
     if (!create || !name.trim()) return;
     setSaving(true); setError('');
     try {
-      await call(session, create, {
+      const created = await call<Resource>(session, create, {
         name: name.trim(), branch_id: branch, description: description.trim(),
         rental_period: rentalPeriod, quantity: Math.max(1, Math.round(Number(quantity) || 1)),
       });
       setAdding(false); setName(''); setDescription(''); setRentalPeriod('hourly'); setQuantity('1');
       load();
+      // STRAIGHT INTO THE EDITOR, NOT BACK TO THE GRID — a resource is created with no photo at
+      // all (the create form never asks for one; `coworking.create_resource` has no body slot
+      // for it — a photo needs a real resource_id to upload against, same reason
+      // `upload_resource_image`'s own path requires one). Without this, a shop adds a resource,
+      // lands back on a grid showing its own new placeholder-icon card, and has to notice that
+      // tapping the card again opens the one place a photo can actually be added — found live
+      // (owner's own report, 2026-10-06): "مافي إدراج صورة" was never a missing capability, it
+      // was a missing NEXT STEP.
+      if (created?.id) setOpenId(created.id);
     } catch (e) {
       setError(sentenceFor(e, t('coworking.resources.createFailed'), t));
     } finally {
