@@ -28,7 +28,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Briefcase, Building2, Calendar1, Check, CircleSlash2, Copy, Image as ImageIcon, Layers, Pause,
-  Play, Plus, UserRound, Users, X,
+  Play, Plus, Upload, UserRound, Users, X,
 } from 'lucide-react';
 import { PageHeader } from '../rj-ui/PageHeader';
 import { Segmented } from '../rj-ui/Segmented';
@@ -207,6 +207,17 @@ function minutesToTime(m: number): string {
 function timeToMinutes(t: string): number {
   const [h, m] = t.split(':').map(Number);
   return (h || 0) * 60 + (m || 0);
+}
+
+/** A picked file, read as base64 — same shape Services.tsx's own `uploadServiceImage` already
+ *  sends; the server (catalogue_image.py) is the one place that validates type/size. */
+function readImageAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 function rentalLabel(t: (k: string) => string, period?: RentalPeriod): string {
@@ -501,12 +512,26 @@ function ResourcesTab({
   const [description, setDescription] = useState('');
   const [rentalPeriod, setRentalPeriod] = useState<RentalPeriod>('hourly');
   const [quantity, setQuantity] = useState('1');
+  // HELD CLIENT-SIDE UNTIL «حفظ», SAME CONTRACT Services.tsx's own `pendingImage` ALREADY HOLDS —
+  // there is no server-side draft to attach a photo to before a resource id exists, so "pick a
+  // photo while filling the form" is just a File object that nothing reads until the real id
+  // comes back from `create`, then one more call with it (owner's own request, 2026-10-06: add
+  // the photo in the SAME step as adding the resource, matching «إضافة خدمة/منتج»).
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pendingImage) { setPendingImageUrl(null); return; }
+    const url = URL.createObjectURL(pendingImage);
+    setPendingImageUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pendingImage]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
 
   const create = action(catalog, 'coworking.create_resource');
   const update = action(catalog, 'coworking.update_resource');
+  const uploadImage = action(catalog, 'coworking.upload_resource_image');
 
   const addResource = async () => {
     if (!create || !name.trim()) return;
@@ -516,17 +541,19 @@ function ResourcesTab({
         name: name.trim(), branch_id: branch, description: description.trim(),
         rental_period: rentalPeriod, quantity: Math.max(1, Math.round(Number(quantity) || 1)),
       });
+      // THE PHOTO GOES LAST, AGAINST THE REAL ID — the only moment it can go anywhere at all
+      // (same ordering Services.tsx's own addService holds). A failed photo upload does not undo
+      // the resource that was already created — it simply stays photo-less, exactly as if the
+      // owner had skipped the dropzone, and `error` below still surfaces why.
+      if (created?.id && uploadImage && pendingImage) {
+        const data_base64 = await readImageAsBase64(pendingImage);
+        await call(session, uploadImage, {
+          resource_id: created.id, content_type: pendingImage.type, data_base64,
+        });
+      }
       setAdding(false); setName(''); setDescription(''); setRentalPeriod('hourly'); setQuantity('1');
+      setPendingImage(null);
       load();
-      // STRAIGHT INTO THE EDITOR, NOT BACK TO THE GRID — a resource is created with no photo at
-      // all (the create form never asks for one; `coworking.create_resource` has no body slot
-      // for it — a photo needs a real resource_id to upload against, same reason
-      // `upload_resource_image`'s own path requires one). Without this, a shop adds a resource,
-      // lands back on a grid showing its own new placeholder-icon card, and has to notice that
-      // tapping the card again opens the one place a photo can actually be added — found live
-      // (owner's own report, 2026-10-06): "مافي إدراج صورة" was never a missing capability, it
-      // was a missing NEXT STEP.
-      if (created?.id) setOpenId(created.id);
     } catch (e) {
       setError(sentenceFor(e, t('coworking.resources.createFailed'), t));
     } finally {
@@ -576,10 +603,12 @@ function ResourcesTab({
       </div>
 
       {adding ? (
-        <Modal open={adding} onClose={() => setAdding(false)} title={t('coworking.resources.add')}
+        <Modal open={adding} onClose={() => { setAdding(false); setPendingImage(null); }}
+          title={t('coworking.resources.add')}
           footer={(
             <>
-              <Button variant="ghost" onClick={() => setAdding(false)} disabled={saving}>
+              <Button variant="ghost" disabled={saving}
+                onClick={() => { setAdding(false); setPendingImage(null); }}>
                 {t('coworking.resources.cancel')}
               </Button>
               <Button onClick={addResource} disabled={saving || !name.trim()}>
@@ -589,6 +618,27 @@ function ResourcesTab({
           )}>
           <div className="flex flex-col gap-3">
             {error ? <p className="text-danger text-sm">{error}</p> : null}
+            {/* A REAL DROPZONE, SAME SHAPE Services.tsx's own «إضافة خدمة» USES — styled as one,
+                not a native file-picker button. Optional: a resource with no photo yet is still
+                a valid resource, same as a service. */}
+            {uploadImage ? (
+              <label className="relative flex aspect-[16/9] cursor-pointer flex-col items-center
+                                 justify-center gap-1.5 rounded-lg border border-dashed
+                                 border-border-strong bg-surface-1 text-text-muted
+                                 transition-colors hover:border-accent hover:text-accent-on-soft">
+                {pendingImage ? (
+                  <img src={pendingImageUrl ?? ''} alt=""
+                    className="absolute inset-0 h-full w-full rounded-lg object-cover" />
+                ) : (
+                  <>
+                    <Upload size={22} aria-hidden />
+                    <span className="text-xs font-medium">{t('coworking.resources.photoOptional')}</span>
+                  </>
+                )}
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                  onChange={(e) => setPendingImage(e.target.files?.[0] ?? null)} />
+              </label>
+            ) : null}
             <Field label={t('coworking.resources.name')} required>
               <Input autoFocus value={name} onChange={(e) => setName(e.target.value)}
                 placeholder={t('coworking.resources.namePlaceholder')} />
